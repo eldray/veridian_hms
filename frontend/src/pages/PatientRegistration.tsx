@@ -1,6 +1,6 @@
-// src/pages/PatientRegistration.tsx - UPDATED
+// src/pages/PatientRegistration.tsx - FIXED
 import { useState, FormEvent, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useInsuranceStore } from '../store/insuranceStore'; 
 import { useAuthStore } from '../store/authStore';
@@ -21,25 +21,31 @@ import {
   Briefcase,
   Users,
   Folder,
-  Edit
+  Edit,
+  Eye
 } from 'lucide-react';
 import type { PaymentMode, InsuranceDetails, AdditionalInfo, Patient } from '../types';
 import PaymentModeTab from '../components/PaymentModeTab';
 import AdditionalInfoTab from '../components/AdditionalInfoTab';
 
-// API function to fetch insurance providers
-const getInsuranceProviders = () => {
-  return Promise.resolve([]);
+// Helper function to generate folder number
+const generateFolderNumber = (): string => {
+  const timestamp = new Date().getTime();
+  const random = Math.floor(Math.random() * 1000);
+  return `F${timestamp}${random}`;
 };
 
 export default function PatientRegistration() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { addPatient, updatePatient, fetchPatient, currentPatient } = usePatientStore();
   const { user } = useAuthStore();
   const [image, setImage] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'basic' | 'payment' | 'additional'>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [savedPatientId, setSavedPatientId] = useState<string | null>(null);
 
   // Get edit mode and patient ID from URL parameters
   const isEditMode = searchParams.get('edit') === 'true';
@@ -54,7 +60,7 @@ export default function PatientRegistration() {
     address: '',
   });
   
-const insuranceStore = useInsuranceStore();
+  const insuranceStore = useInsuranceStore();
 
   const [paymentData, setPaymentData] = useState<{
     paymentMode: PaymentMode;
@@ -79,10 +85,30 @@ const insuranceStore = useInsuranceStore();
     }
   });
 
+  const [ageDisplay, setAgeDisplay] = useState('');
 
+  // Smart back navigation - goes back to previous page or patients list
+  const handleBack = () => {
+    // Check if we have a previous page in history
+    if (location.key !== 'default') {
+      navigate(-1); // Go back to previous page
+    } else {
+      navigate('/dashboard/patients'); // Default fallback
+    }
+  };
 
   useEffect(() => {
-   insuranceStore.getInsuranceProviders();
+    const loadData = async () => {
+      try {
+        console.log('🔄 Loading insurance providers...');
+        await insuranceStore.getInsuranceProviders();
+        console.log('✅ Insurance providers loaded:', insuranceStore.providers);
+      } catch (error) {
+        console.error('❌ Failed to load insurance providers:', error);
+      }
+    };
+
+    loadData();
     
     if (isEditMode && patientId) {
       // Load patient data for editing
@@ -96,16 +122,19 @@ const insuranceStore = useInsuranceStore();
       loadPatientData();
     } else {
       // Generate folder number for new patient
-      const generateFolderNumber = () => {
-        const timestamp = new Date().getTime().toString().slice(-6);
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        return `F${timestamp}${random}`;
-      };
-      
       setFormData(prev => ({ ...prev, folderNumber: generateFolderNumber() }));
     }
-  }, [isEditMode, patientId, fetchPatient, insuranceStore.getInsuranceProviders]);
+  }, [isEditMode, patientId, fetchPatient, insuranceStore]);
 
+  // Update age whenever dateOfBirth changes
+  useEffect(() => {
+    if (formData.dateOfBirth) {
+      setAgeDisplay(calculateAge(formData.dateOfBirth).display);
+    } else {
+      setAgeDisplay('');
+    }
+  }, [formData.dateOfBirth]);
+  
   // Populate form when currentPatient changes (for edit mode)
   useEffect(() => {
     if (isEditMode && currentPatient) {
@@ -117,6 +146,13 @@ const insuranceStore = useInsuranceStore();
         contact: currentPatient.contact || '',
         address: currentPatient.address || '',
       });
+      
+      // Set age display from stored data or calculate
+      if (currentPatient.ageDisplay) {
+        setAgeDisplay(currentPatient.ageDisplay);
+      } else if (currentPatient.dateOfBirth) {
+        setAgeDisplay(calculateAge(currentPatient.dateOfBirth).display);
+      }
 
       setPaymentData({
         paymentMode: currentPatient.paymentMode || 'cash',
@@ -138,19 +174,57 @@ const insuranceStore = useInsuranceStore();
           phone: ''
         }
       });
+
+      // Calculate and display age when editing
+      if (currentPatient.dateOfBirth) {
+        const ageData = calculateAge(currentPatient.dateOfBirth);
+        console.log('🔄 Editing patient - Age calculated:', ageData);
+      }
     }
   }, [currentPatient, isEditMode]);
 
   const calculateAge = (dob: string) => {
-    if (!dob) return 0;
+    if (!dob) return { years: 0, months: 0, display: '0 years' };
+    
     const birthDate = new Date(dob);
     const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+    
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust if the current month is before the birth month
+    if (months < 0) {
+      years--;
+      months += 12;
     }
-    return age;
+    
+    // Adjust if the current day is before the birth day in the same month
+    if (months === 0 && today.getDate() < birthDate.getDate()) {
+      years--;
+      months = 11; // Since we're going back a year, it's 11 months
+    } else if (today.getDate() < birthDate.getDate()) {
+      months--;
+      // Add days from previous month
+      const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, birthDate.getDate());
+      const daysInPreviousMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      if (today.getDate() < birthDate.getDate()) {
+        months--;
+      }
+    }
+    
+    // Format display string
+    let display = '';
+    if (years === 0 && months === 0) {
+      display = 'Newborn';
+    } else if (years === 0) {
+      display = `${months} month${months !== 1 ? 's' : ''}`;
+    } else if (months === 0) {
+      display = `${years} year${years !== 1 ? 's' : ''}`;
+    } else {
+      display = `${years} year${years !== 1 ? 's' : ''} ${months} month${months !== 1 ? 's' : ''}`;
+    }
+    
+    return { years, months, display };
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -165,15 +239,17 @@ const insuranceStore = useInsuranceStore();
         return;
       }
 
-      const age = calculateAge(formData.dateOfBirth);
+      const ageData = calculateAge(formData.dateOfBirth);
       
-      // Create patient data object - send as plain JSON
+      // Create patient data object
       const patientData = {
         folderNumber: formData.folderNumber,
         fullName: formData.fullName,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
-        age: age,
+        age: ageData.years,
+        ageInMonths: ageData.months,
+        ageDisplay: ageData.display,
         contact: formData.contact,
         address: formData.address,
         paymentMode: paymentData.paymentMode,
@@ -193,8 +269,47 @@ const insuranceStore = useInsuranceStore();
       
       console.log('✅ Patient saved successfully:', result);
       
-      // Navigate back to patient details after successful save
-      navigate(`/dashboard/patients/${result.id || result._id}`);
+      // Show success message and let user decide next action
+      if (isEditMode) {
+        alert('✅ Patient updated successfully!');
+        // Stay on the same page for further edits
+      } else {
+        alert('✅ Patient registered successfully!');
+        // Option 1: Stay on page for another registration
+        const continueRegistering = confirm('Patient registered successfully! Would you like to register another patient?');
+        if (continueRegistering) {
+          // Reset form for new registration
+          const newFolderNumber = generateFolderNumber();
+          setFormData({
+            folderNumber: newFolderNumber,
+            fullName: '',
+            gender: 'male',
+            dateOfBirth: '',
+            contact: '',
+            address: '',
+          });
+          setPaymentData({ paymentMode: 'cash' });
+          setAdditionalInfo({
+            title: undefined,
+            email: '',
+            houseNumber: '',
+            idType: undefined,
+            idNumber: '',
+            bloodType: undefined,
+            occupation: '',
+            nextOfKin: '',
+            emergencyContact: {
+              name: '',
+              relationship: '',
+              phone: ''
+            }
+          });
+          setActiveTab('basic');
+        } else {
+          // Option 2: Go to patient details
+          navigate(`/dashboard/patients/${result.id || result._id}`);
+        }
+      }
       
     } catch (error: any) {
       console.error('❌ Failed to save patient:', error);
@@ -217,6 +332,17 @@ const insuranceStore = useInsuranceStore();
     }
   };
 
+  const handleViewDetails = () => {
+    if (savedPatientId) {
+      navigate(`/dashboard/patients/${savedPatientId}`);
+    }
+  };
+
+  const handleContinueEditing = () => {
+    setSaveSuccess(false);
+    // Stay on the current page for further edits
+  };
+
   const tabs = [
     { id: 'basic' as const, label: 'Basic Info', icon: User },
     { id: 'payment' as const, label: 'Payment Mode', icon: CreditCard },
@@ -228,29 +354,74 @@ const insuranceStore = useInsuranceStore();
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(isEditMode ? `/dashboard/patients/${patientId}` : '/dashboard/patients')}
-              className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                {isEditMode ? <Edit className="w-8 h-8 text-yellow-400" /> : <User className="w-8 h-8 text-blue-400" />}
-                {isEditMode ? 'Update Patient' : 'Patient Registration'}
-              </h1>
-              <p className="text-blue-100 mt-2">
-                {isEditMode ? 'Update patient information' : 'Register a new patient'}
-                {isEditMode && currentPatient && (
-                  <span className="ml-2 text-yellow-200">
-                    - Editing: {currentPatient.fullName}
-                  </span>
-                )}
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleBack}
+                className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
+                title="Go back to previous page"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold flex items-center gap-3">
+                  {isEditMode ? <Edit className="w-8 h-8 text-yellow-400" /> : <User className="w-8 h-8 text-blue-400" />}
+                  {isEditMode ? 'Update Patient' : 'Patient Registration'}
+                </h1>
+                <p className="text-blue-100 mt-2">
+                  {isEditMode ? 'Update patient information' : 'Register a new patient'}
+                  {isEditMode && currentPatient && (
+                    <span className="ml-2 text-yellow-200">
+                      - Editing: {currentPatient.fullName}
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
+            
+            {/* Success Actions */}
+            {saveSuccess && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleContinueEditing}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all duration-200 font-semibold"
+                >
+                  <Edit className="w-4 h-4" />
+                  Continue Editing
+                </button>
+                <button
+                  onClick={handleViewDetails}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-semibold"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Details
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Success Message */}
+        {saveSuccess && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Save className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-green-900">
+                  {isEditMode ? 'Patient Updated Successfully!' : 'Patient Registered Successfully!'}
+                </h3>
+                <p className="text-green-700 mt-1">
+                  {isEditMode 
+                    ? 'Patient information has been updated. You can continue editing or view the updated details.'
+                    : 'New patient has been registered. You can continue editing or view the patient details.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 space-y-8">
@@ -307,18 +478,24 @@ const insuranceStore = useInsuranceStore();
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Photo</h2>
                   <div className="flex items-center gap-6">
-                    <div className="w-24 h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <div className="w-24 h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
                       {image ? (
                         <img
                           src={URL.createObjectURL(image)}
                           alt="Patient preview"
                           className="w-full h-full object-cover rounded-xl"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
                         />
                       ) : currentPatient?.imageUrl ? (
                         <img
                           src={currentPatient.imageUrl}
                           alt="Patient"
                           className="w-full h-full object-cover rounded-xl"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
                         />
                       ) : (
                         <User className="w-8 h-8 text-gray-400" />
@@ -386,7 +563,18 @@ const insuranceStore = useInsuranceStore();
                       />
                       {formData.dateOfBirth && (
                         <p className="text-sm text-gray-600 mt-2">
-                          Age: {calculateAge(formData.dateOfBirth)} years
+                          Age: {calculateAge(formData.dateOfBirth).display}
+                          {/* Show stored age if available and different from calculated */}
+                          {isEditMode && currentPatient?.ageDisplay && 
+                            calculateAge(formData.dateOfBirth).display !== currentPatient.ageDisplay && 
+                            ` (was: ${currentPatient.ageDisplay})`
+                          }
+                        </p>
+                      )}
+                      {/* Show stored age when no date is entered but we have age data */}
+                      {!formData.dateOfBirth && isEditMode && currentPatient?.ageDisplay && (
+                        <p className="text-sm text-yellow-600 mt-2">
+                          Stored age: {currentPatient.ageDisplay}
                         </p>
                       )}
                     </div>
@@ -435,10 +623,10 @@ const insuranceStore = useInsuranceStore();
                 insuranceDetails={paymentData.insuranceDetails}
                 onPaymentModeChange={(mode) => setPaymentData({ ...paymentData, paymentMode: mode })}
                 onInsuranceDetailsChange={(details) => setPaymentData({ ...paymentData, insuranceDetails: details })}
-    		insuranceProviders={insuranceStore.insuranceProviders}
-    		isLoadingProviders={insuranceStore.isLoading}
-   		isOptional={false}
-   		patientId={currentPatient?.id || patientId} // ADD THIS: Pass patient ID for attendance links
+                insuranceProviders={insuranceStore.providers}
+                isLoadingProviders={insuranceStore.isLoading}
+                isOptional={false}
+                patientId={currentPatient?.id || patientId}
               />
             )}
 
@@ -469,7 +657,7 @@ const insuranceStore = useInsuranceStore();
             </button>
             <button
               type="button"
-              onClick={() => navigate(isEditMode ? `/dashboard/patients/${patientId}` : '/dashboard/patients')}
+              onClick={handleBack}
               disabled={isSubmitting}
               className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold disabled:opacity-50"
             >

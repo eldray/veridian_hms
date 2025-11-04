@@ -1,6 +1,6 @@
 // src/pages/AttendanceDetails.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
@@ -26,6 +26,7 @@ import {
 export default function AttendanceDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { 
     currentAttendance, 
     getAttendance, 
@@ -36,13 +37,41 @@ export default function AttendanceDetails() {
   const { hasRole, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'procedures' | 'billing'>('overview');
 
-  const patient = currentAttendance?.patientId ? getPatientById(currentAttendance.patientId) : null;
+  // Get patient data safely
+  const patient = currentAttendance?.patientId 
+    ? patients.find(p => p.id === currentAttendance.patientId || p._id === currentAttendance.patientId)
+    : null;
 
   useEffect(() => {
     if (id) {
       getAttendance(id);
     }
   }, [id, getAttendance]);
+
+  // Smart back navigation - goes back to previous page or attendance list
+  const handleBack = () => {
+    // Check if we have a previous page in history
+    if (location.key !== 'default') {
+      navigate(-1); // Go back to previous page
+    } else {
+      navigate('/dashboard/attendance'); // Default fallback
+    }
+  };
+
+  // Safe clinician name extraction
+  const getClinicianName = (attendance: any) => {
+    const clinician = attendance.clinicianName || attendance.attendingClinician;
+    
+    if (!clinician) return 'Unknown Clinician';
+    
+    // If clinician is an object, extract the name
+    if (typeof clinician === 'object' && clinician !== null) {
+      return clinician.fullName || clinician.username || clinician.name || 'Unknown Clinician';
+    }
+    
+    // If clinician is a string or other primitive
+    return clinician || 'Unknown Clinician';
+  };
 
   if (isLoading) {
     return (
@@ -67,13 +96,13 @@ export default function AttendanceDetails() {
           <p className="text-gray-600 mb-6">
             {error || "The attendance record you're looking for doesn't exist."}
           </p>
-          <Link 
-            to="/dashboard/attendance" 
+          <button 
+            onClick={handleBack}
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg font-semibold"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to Attendances
-          </Link>
+            Go Back
+          </button>
         </div>
       </div>
     );
@@ -91,14 +120,15 @@ export default function AttendanceDetails() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/dashboard/attendance')}
+                onClick={handleBack}
                 className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
+                title="Go back to previous page"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>
@@ -107,7 +137,7 @@ export default function AttendanceDetails() {
                   {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
                 </h1>
                 <p className="text-blue-100 text-lg mt-1">
-                  {patient?.fullName} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
+                  {patient?.fullName || 'Unknown Patient'} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
                 </p>
               </div>
             </div>
@@ -154,7 +184,13 @@ export default function AttendanceDetails() {
 
         {/* Tab Content */}
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 overflow-hidden">
-          {activeTab === 'overview' && <OverviewTab attendance={currentAttendance} patient={patient} />}
+          {activeTab === 'overview' && (
+            <OverviewTab 
+              attendance={currentAttendance} 
+              patient={patient} 
+              getClinicianName={getClinicianName} 
+            />
+          )}
           {activeTab === 'medications' && <MedicationsTab attendance={currentAttendance} />}
           {activeTab === 'lab-tests' && <LabTestsTab attendance={currentAttendance} />}
           {activeTab === 'procedures' && <ProceduresTab attendance={currentAttendance} />}
@@ -166,7 +202,11 @@ export default function AttendanceDetails() {
 }
 
 // Overview Tab Component
-function OverviewTab({ attendance, patient }: { attendance: any; patient: any }) {
+function OverviewTab({ attendance, patient, getClinicianName }: { 
+  attendance: any; 
+  patient: any;
+  getClinicianName: (attendance: any) => string;
+}) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 border border-green-200';
@@ -333,7 +373,7 @@ function OverviewTab({ attendance, patient }: { attendance: any; patient: any })
             <h3 className="text-lg font-bold text-gray-900 mb-4">Clinician</h3>
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <p className="font-semibold text-gray-900 text-lg">
-                {attendance.clinicianName || attendance.attendingClinician || 'Not specified'}
+                {getClinicianName(attendance)}
               </p>
             </div>
           </div>

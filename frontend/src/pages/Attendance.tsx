@@ -1,14 +1,40 @@
-// src/pages/Attendance.tsx - COMPLETELY FIXED VERSION
+// src/pages/Attendance.tsx - ENHANCED WITH PAGINATION & VIEW OPTIONS
 import { useState, useEffect } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
-import { Search, Plus, Calendar, User, FileText, Stethoscope, CreditCard, Hospital, Shield, Activity, Loader } from 'lucide-react';
+import { 
+  Search, 
+  Plus, 
+  Calendar, 
+  User, 
+  FileText, 
+  Stethoscope, 
+  CreditCard, 
+  Hospital, 
+  Shield, 
+  Activity, 
+  Loader,
+  Grid,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Edit,
+  DollarSign,
+  Pill,
+  FlaskConical,
+  Scissors
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+  
   const { attendances, getAttendances, isLoading: storeLoading } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { hasRole } = useAuthStore();
@@ -51,6 +77,11 @@ export default function Attendance() {
   const sortedAttendances = [...displayedAttendances].sort(
     (a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()
   );
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedAttendances.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedAttendances = sortedAttendances.slice(startIndex, startIndex + itemsPerPage);
 
   const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse']);
 
@@ -143,6 +174,10 @@ export default function Attendance() {
     }
   };
 
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
   if (isLoading || storeLoading) {
     return (
       <div className="space-y-8 p-6 bg-gray-50 min-h-screen flex items-center justify-center">
@@ -156,7 +191,7 @@ export default function Attendance() {
   }
 
   return (
-    <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6 p-4 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 min-h-screen">
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -173,33 +208,103 @@ export default function Attendance() {
           {canCreateAttendance && (
             <Link
               to="/dashboard/attendance/new"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold"
             >
               <Plus className="w-5 h-5" />
-              <span className="font-semibold">New Attendance</span>
+              <span>New Attendance</span>
             </Link>
           )}
         </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by attendance number, patient name, folder number, diagnosis, or payment mode..."
-            className="w-full pl-12 pr-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base shadow-sm"
-          />
+      {/* Controls Bar */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          {/* Search */}
+          <div className="flex-1 w-full sm:max-w-md">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search attendances..."
+                className="w-full pl-10 pr-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              />
+            </div>
+          </div>
+
+          {/* View Controls */}
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`p-2 rounded-md transition-all duration-200 ${
+                  viewMode === 'cards'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-all duration-200 ${
+                  viewMode === 'list'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Items Per Page */}
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+            >
+              <option value={6}>6 per page</option>
+              <option value={12}>12 per page</option>
+              <option value={24}>24 per page</option>
+            </select>
+          </div>
         </div>
-        {searchQuery && (
-          <p className="text-sm text-gray-600 mt-3">
-            Found {displayedAttendances.length} attendance(s) matching "{searchQuery}"
-          </p>
-        )}
       </div>
+
+      {/* Results Count */}
+      {sortedAttendances.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-blue-800">
+                Showing {paginatedAttendances.length} of {sortedAttendances.length} attendances
+              </p>
+              {searchQuery && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Search results for: "{searchQuery}"
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-sm text-blue-700">
+              <span className="bg-blue-100 px-2 py-1 rounded-full">
+                Active: {sortedAttendances.filter(a => a.status === 'active').length}
+              </span>
+              <span className="bg-green-100 px-2 py-1 rounded-full">
+                Completed: {sortedAttendances.filter(a => a.status === 'completed').length}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Attendance List */}
       {sortedAttendances.length === 0 ? (
@@ -232,9 +337,10 @@ export default function Attendance() {
             </button>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {sortedAttendances.map((attendance) => {
+      ) : viewMode === 'cards' ? (
+        // Cards View
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {paginatedAttendances.map((attendance) => {
             const patient = patients.find((p) => p.id === attendance.patientId || p._id === attendance.patientId);
             const attendanceId = attendance._id || attendance.id;
             const totalBill = attendance.totalBill || 0;
@@ -244,127 +350,232 @@ export default function Attendance() {
             return (
               <div
                 key={attendanceId}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300"
+                className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                      <User className="w-6 h-6 text-white" />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <User className="w-5 h-5 text-white" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3 flex-wrap">
-                        <h3 className="font-bold text-xl text-gray-900">
-                          {patient?.fullName || 'Unknown Patient'}
-                        </h3>
-                        <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full border">
-                          {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
-                        </span>
-                        {patient?.folderNumber && (
-                          <span className="text-sm text-gray-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                            {patient.folderNumber}
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          <span className="font-medium">
-                            {formatDate(attendance.dateTime || attendance.createdAt)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                            <Stethoscope className="w-4 h-4 text-blue-600" />
-                            <span className="font-medium text-blue-700">
-                              {getAttendanceTypeLabel(attendance.attendanceType)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                            {getPaymentModeIcon(attendance.paymentMode)}
-                            <span className="font-medium text-green-700">
-                              {getPaymentModeLabel(attendance.paymentMode)}
-                            </span>
-                          </div>
-                          {attendance.nhisCCC && (
-                            <span className="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full border border-green-200 font-medium">
-                              CCC: {attendance.nhisCCC}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base">
-                          <span className="font-semibold text-gray-700">Diagnosis:</span> 
-                          {attendance.diagnosis || 'Not specified'}
-                        </p>
-                        <p className="text-base">
-                          <span className="font-semibold text-gray-700">Clinician:</span>{' '}
-                          {getClinicianName(attendance)}
-                        </p>
-                        {attendance.complaints && (
-                          <p className="text-base">
-                            <span className="font-semibold text-gray-700">Complaints:</span>{' '}
-                            {attendance.complaints.length > 100 
-                              ? `${attendance.complaints.substring(0, 100)}...` 
-                              : attendance.complaints
-                            }
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600 font-medium">Total Bill</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        ${totalBill.toFixed(2)}
+                    <div>
+                      <h3 className="font-bold text-gray-900">{patient?.fullName || 'Unknown Patient'}</h3>
+                      <p className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded border mt-1">
+                        {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
                       </p>
-                      {outstandingBalance > 0 && (
-                        <p className="text-sm text-red-600 font-medium">
-                          Due: ${outstandingBalance.toFixed(2)}
-                        </p>
-                      )}
-                      {outstandingBalance <= 0 && totalBill > 0 && (
-                        <p className="text-sm text-green-600 font-medium">
-                          Paid in full
-                        </p>
-                      )}
                     </div>
-                    <span
-                      className={`px-4 py-2 text-sm font-semibold rounded-full ${getStatusColor(attendance.status)}`}
-                    >
-                      {(attendance.status || 'active').charAt(0).toUpperCase() + (attendance.status || 'active').slice(1)}
-                    </span>
                   </div>
+                  <span
+                    className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}
+                  >
+                    {(attendance.status || 'active').charAt(0).toUpperCase() + (attendance.status || 'active').slice(1)}
+                  </span>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="flex items-center gap-4 text-sm text-gray-600 font-medium flex-wrap">
-                    <span className="bg-gray-100 px-3 py-1 rounded-full border">
-                      Medications: {attendance.medications?.length || 0}
+                <div className="space-y-2 text-sm mb-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">
+                      {formatDate(attendance.dateTime || attendance.createdAt)}
                     </span>
-                    <span className="bg-gray-100 px-3 py-1 rounded-full border">
-                      Lab Tests: {attendance.labTests?.length || 0}
-                    </span>
-                    <span className="bg-gray-100 px-3 py-1 rounded-full border">
-                      Procedures: {attendance.procedures?.length || 0}
-                    </span>
-                    {attendance.vitals && (
-                      <span className="bg-green-100 px-3 py-1 rounded-full border border-green-200 text-green-700">
-                        Vitals Recorded
-                      </span>
-                    )}
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="w-4 h-4 text-blue-600" />
+                    <span className="font-medium text-blue-700">
+                      {getAttendanceTypeLabel(attendance.attendanceType)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getPaymentModeIcon(attendance.paymentMode)}
+                    <span className="font-medium text-gray-700">
+                      {getPaymentModeLabel(attendance.paymentMode)}
+                    </span>
+                  </div>
+                  {attendance.diagnosis && (
+                    <p className="text-gray-700">
+                      <span className="font-semibold">Diagnosis:</span> {attendance.diagnosis}
+                    </p>
+                  )}
+                </div>
+
+                {/* Quick Stats */}
+                <div className="flex items-center gap-3 mb-4 text-xs text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <Pill className="w-3 h-3" />
+                    {attendance.medications?.length || 0}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FlaskConical className="w-3 h-3" />
+                    {attendance.labTests?.length || 0}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Scissors className="w-3 h-3" />
+                    {attendance.procedures?.length || 0}
+                  </span>
+                  {totalBill > 0 && (
+                    <span className="flex items-center gap-1 ml-auto font-medium">
+                      <DollarSign className="w-3 h-3" />
+                      ${totalBill.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-3 border-t border-gray-200">
                   <Link
                     to={`/dashboard/attendance/${attendanceId}`}
-                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm transition-colors group"
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold text-xs shadow-sm hover:shadow-md"
                   >
-                    View Details
-                    <Activity className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                    <Eye className="w-3 h-3" />
+                    View
+                  </Link>
+                  <Link
+                    to={`/dashboard/attendance/${attendanceId}/edit`}
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all duration-200 font-semibold text-xs shadow-sm hover:shadow-md"
+                  >
+                    <Edit className="w-3 h-3" />
+                    Edit
                   </Link>
                 </div>
               </div>
             );
           })}
+        </div>
+      ) : (
+        // List View
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date & Type</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedAttendances.map((attendance) => {
+                const patient = patients.find((p) => p.id === attendance.patientId || p._id === attendance.patientId);
+                const attendanceId = attendance._id || attendance.id;
+                const totalBill = attendance.totalBill || 0;
+                
+                return (
+                  <tr key={attendanceId} className="hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center shadow-sm">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{patient?.fullName || 'Unknown Patient'}</p>
+                          <p className="text-xs text-gray-500">{attendance.attendanceNumber}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-900">
+                          {formatDate(attendance.dateTime || attendance.createdAt)}
+                        </p>
+                        <p className="text-gray-600">{getAttendanceTypeLabel(attendance.attendanceType)}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        {getPaymentModeIcon(attendance.paymentMode)}
+                        <span className="font-medium">{getPaymentModeLabel(attendance.paymentMode)}</span>
+                        {totalBill > 0 && (
+                          <span className="text-green-600 font-bold ml-2">${totalBill.toFixed(2)}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}
+                      >
+                        {(attendance.status || 'active').charAt(0).toUpperCase() + (attendance.status || 'active').slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/dashboard/attendance/${attendanceId}`}
+                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <Link
+                          to={`/dashboard/attendance/${attendanceId}/edit`}
+                          className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors duration-200"
+                          title="Edit Attendance"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {sortedAttendances.length > 0 && totalPages > 1 && (
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedAttendances.length)} of{' '}
+              {sortedAttendances.length} attendances
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              {/* Page Numbers */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

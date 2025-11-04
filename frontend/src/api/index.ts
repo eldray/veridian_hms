@@ -56,6 +56,8 @@ export const getHospital = () => api.get('/hospitals').then(r => r.data[0]);
 export const getInsuranceProviders = () => 
   api.get('/insurance-providers').then(r => {
     const response = r.data;
+    console.log('🔍 Raw insurance providers response:', response);
+    
     // Handle different response formats
     if (Array.isArray(response)) {
       return response;
@@ -65,8 +67,11 @@ export const getInsuranceProviders = () =>
       return response.providers;
     } else if (response?.insuranceProviders && Array.isArray(response.insuranceProviders)) {
       return response.insuranceProviders;
+    } else if (response?.success && Array.isArray(response.data)) {
+      return response.data;
     } else {
-      console.warn('Unexpected insurance providers response format:', response);
+      console.warn('❌ Unexpected insurance providers response format:', response);
+      // Return empty array as fallback
       return [];
     }
   });
@@ -103,11 +108,28 @@ export const generatePrivateInsuranceClaim = (attendanceId: string, insurancePro
   api.get(`/insurance-claims/private-claim/${attendanceId}/${insuranceProviderId}`).then(r => r.data);
 
 // ───── PATIENTS ─────
-export const getPatients = (filters?: any) => 
-  api.get('/patients', { params: filters }).then(r => r.data);
+  
+  export const getPatient = (id: string) => 
+  api.get(`/patients/${id}`).then(r => {
+    const patient = r.data;
+    // Convert dateOfBirth to input format if it's in ISO format
+    if (patient.dateOfBirth && patient.dateOfBirth.includes('T')) {
+      patient.dateOfBirth = convertISODateToInputFormat(patient.dateOfBirth);
+    }
+    return patient;
+  });
 
-export const getPatient = (id: string) => 
-  api.get(`/patients/${id}`).then(r => r.data);
+export const getPatients = (filters?: any) => 
+  api.get('/patients', { params: filters }).then(r => {
+    const patients = r.data;
+    // Convert dates for all patients
+    return patients.map((patient: any) => ({
+      ...patient,
+      dateOfBirth: patient.dateOfBirth && patient.dateOfBirth.includes('T') 
+        ? convertISODateToInputFormat(patient.dateOfBirth)
+        : patient.dateOfBirth
+    }));
+  });
 
 export const createPatient = (data: any) => {
   if (data instanceof FormData) {
