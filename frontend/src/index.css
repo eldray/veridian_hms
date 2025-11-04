@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+img {
+  object-fit: cover;
+}
+
+/* Fallback styling for when images fail to load */
+.image-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6, #14b8a6);
+  color: white;
+}

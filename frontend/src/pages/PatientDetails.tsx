@@ -173,35 +173,42 @@ export default function PatientDetails() {
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20">
-                {patient.imageUrl ? (
-                  <img src={patient.imageUrl} alt={patient.fullName} className="w-full h-full object-cover rounded-2xl" />
-                ) : (
-                  <User className="w-10 h-10 text-white" />
-                )}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">{patient.fullName}</h1>
-                <div className="flex items-center gap-4 text-blue-100 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Folder className="w-5 h-5" />
-                    <span className="font-mono font-semibold">{patient.folderNumber}</span>
-                  </div>
-                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    <span className="capitalize">{patient.gender}</span>
-                  </div>
-                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Age:</span>
-                    <span>{patient.age} years</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+// Replace the header avatar section:
+<div className="flex items-center gap-6">
+  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20 overflow-hidden">
+    {patient.imageUrl ? (
+      <img 
+        src={patient.imageUrl} 
+        alt={patient.fullName}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          // Fallback to icon if image fails to load
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    ) : null}
+    {!patient.imageUrl && <User className="w-10 h-10 text-white" />}
+  </div>
+  <div>
+    <h1 className="text-3xl font-bold text-white">{patient.fullName}</h1>
+    <div className="flex items-center gap-4 text-blue-100 mt-2">
+      <div className="flex items-center gap-2">
+        <Folder className="w-5 h-5" />
+        <span className="font-mono font-semibold">{patient.folderNumber}</span>
+      </div>
+      <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+      <div className="flex items-center gap-2">
+        <User className="w-5 h-5" />
+        <span className="capitalize">{patient.gender}</span>
+      </div>
+      <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">Age:</span>
+        <span>{patient.age} years</span>
+      </div>
+    </div>
+  </div>
+</div>
           <div className="flex items-center gap-3">
             {canCreateAttendance && (
               <button

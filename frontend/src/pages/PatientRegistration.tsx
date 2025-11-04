@@ -1,4 +1,4 @@
-// src/pages/PatientRegistration.tsx - FIXED
+// src/pages/PatientRegistration.tsx - FIXED DATE ISSUES
 import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -33,6 +33,42 @@ const generateFolderNumber = (): string => {
   const timestamp = new Date().getTime();
   const random = Math.floor(Math.random() * 1000);
   return `F${timestamp}${random}`;
+};
+
+// Add this function to convert ISO date to YYYY-MM-DD format
+const convertISODateToInputFormat = (isoDate: string): string => {
+  if (!isoDate) return '';
+  
+  try {
+    // Handle both ISO format (2023-01-15T00:00:00.000Z) and already formatted dates
+    const date = new Date(isoDate);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date:', isoDate);
+      return '';
+    }
+    
+    // Convert to YYYY-MM-DD format for input[type="date"]
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('Error converting date:', error);
+    return '';
+  }
+};
+
+// Temporary debug function
+const debugDateInfo = (patient: Patient) => {
+  console.log('🔍 Date Debug Info:', {
+    rawDateOfBirth: patient.dateOfBirth,
+    type: typeof patient.dateOfBirth,
+    isISO: patient.dateOfBirth?.includes('T'),
+    converted: convertISODateToInputFormat(patient.dateOfBirth)
+  });
 };
 
 export default function PatientRegistration() {
@@ -138,11 +174,23 @@ export default function PatientRegistration() {
   // Populate form when currentPatient changes (for edit mode)
   useEffect(() => {
     if (isEditMode && currentPatient) {
+      console.log('🔄 Loading patient data for editing:', currentPatient);
+      
+      // Convert dateOfBirth from ISO to YYYY-MM-DD format
+      const formattedDateOfBirth = convertISODateToInputFormat(currentPatient.dateOfBirth);
+      console.log('📅 Date conversion:', { 
+        original: currentPatient.dateOfBirth, 
+        formatted: formattedDateOfBirth 
+      });
+      
+      // Debug date info
+      debugDateInfo(currentPatient);
+      
       setFormData({
         folderNumber: currentPatient.folderNumber || '',
         fullName: currentPatient.fullName || '',
         gender: currentPatient.gender || 'male',
-        dateOfBirth: currentPatient.dateOfBirth || '',
+        dateOfBirth: formattedDateOfBirth, // Use converted date
         contact: currentPatient.contact || '',
         address: currentPatient.address || '',
       });
@@ -174,12 +222,6 @@ export default function PatientRegistration() {
           phone: ''
         }
       });
-
-      // Calculate and display age when editing
-      if (currentPatient.dateOfBirth) {
-        const ageData = calculateAge(currentPatient.dateOfBirth);
-        console.log('🔄 Editing patient - Age calculated:', ageData);
-      }
     }
   }, [currentPatient, isEditMode]);
 
@@ -246,7 +288,7 @@ export default function PatientRegistration() {
         folderNumber: formData.folderNumber,
         fullName: formData.fullName,
         gender: formData.gender,
-        dateOfBirth: formData.dateOfBirth,
+        dateOfBirth: formData.dateOfBirth, // Already in correct format
         age: ageData.years,
         ageInMonths: ageData.months,
         ageDisplay: ageData.display,

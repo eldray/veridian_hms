@@ -238,17 +238,29 @@ export default function Patients() {
                 className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 group"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900">{patient.fullName}</h3>
-                      <p className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded border mt-1">
-                        {patient.folderNumber || patientId}
-                      </p>
-                    </div>
-                  </div>
+// In the Cards View section, replace the avatar section:
+<div className="flex items-center gap-3">
+  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+    {patient.imageUrl ? (
+      <img 
+        src={patient.imageUrl} 
+        alt={patient.fullName}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          // Fallback to icon if image fails to load
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    ) : null}
+    {!patient.imageUrl && <User className="w-5 h-5 text-white" />}
+  </div>
+  <div>
+    <h3 className="font-bold text-gray-900">{patient.fullName}</h3>
+    <p className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded border mt-1">
+      {patient.folderNumber || patientId}
+    </p>
+  </div>
+</div>
                   <div className="flex items-center gap-1">
                     {/* Edit Button - Made prominent */}
                     <Link
@@ -322,15 +334,28 @@ export default function Patients() {
                 return (
                   <tr key={patientId} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center shadow-sm">
-                          <User className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{patient.fullName}</p>
-                          <p className="text-xs text-gray-500">{patient.folderNumber || patientId}</p>
-                        </div>
-                      </div>
+// In the List View section, replace the avatar section:
+<td className="px-4 py-3">
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
+      {patient.imageUrl ? (
+        <img 
+          src={patient.imageUrl} 
+          alt={patient.fullName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      ) : null}
+      {!patient.imageUrl && <User className="w-4 h-4 text-white" />}
+    </div>
+    <div>
+      <p className="font-semibold text-gray-900">{patient.fullName}</p>
+      <p className="text-xs text-gray-500">{patient.folderNumber || patientId}</p>
+    </div>
+  </div>
+</td>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-gray-600">

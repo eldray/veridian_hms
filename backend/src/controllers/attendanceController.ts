@@ -170,8 +170,23 @@ export const getAttendances = async (req: Request, res: Response) => {
 
 export const getAttendanceById = async (req: Request, res: Response) => {
   try {
+      const { id } = req.params;
+
+    // Check if the ID is "new" - this should return a different response
+    if (id === 'new') {
+      return res.status(400).json({ 
+        message: 'Invalid attendance ID. "new" is not a valid ID.' 
+      });
+    }
+
+    // Validate if it's a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ 
+        message: 'Invalid attendance ID format' 
+      });
+    }
     const attendance = await AttendanceModel.findById(req.params.id)
-      .populate('patientId')
+      .populate('patientId', 'fullName folderNumber contact gender dateOfBirth')
       .populate('attendingClinician', 'fullName username role specialization licenseNumber')
       .populate('createdBy', 'fullName username')
       .populate('updatedBy', 'fullName username')
