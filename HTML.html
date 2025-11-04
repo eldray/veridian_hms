@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HMS — Demo Interface</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* small visual tweaks */
+    .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(6px); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  <div class="max-w-7xl mx-auto p-6">
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-sky-500 flex items-center justify-center text-slate-900 font-bold">CLI</div>
+        <div>
+          <h1 class="text-2xl font-semibold">Christ Legacy International Hospital</h1>
+          <p class="text-sm text-slate-400">Demo HMS dashboard — Patient registration, attendance & billing</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-sm text-slate-400">Signed in as <strong>Admin</strong></div>
+        <button class="px-3 py-2 rounded-md bg-amber-500 text-slate-900 font-semibold">Sign out</button>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-12 gap-6">
+      <!-- Left column: Forms -->
+      <section class="col-span-7 space-y-6">
+        <!-- Tabs -->
+        <div class="bg-slate-800 glass rounded-xl p-4">
+          <div class="flex gap-2 items-center mb-4">
+            <button class="tab px-3 py-2 rounded-md bg-emerald-500/20 text-emerald-300 font-semibold" data-tab="registration">Patient Registration</button>
+            <button class="tab px-3 py-2 rounded-md hover:bg-slate-700/40" data-tab="attendance">New Attendance</button>
+            <button class="tab px-3 py-2 rounded-md hover:bg-slate-700/40" data-tab="admission">Admissions</button>
+            <button class="tab px-3 py-2 rounded-md hover:bg-slate-700/40" data-tab="inventory">Inventory</button>
+          </div>
+
+          <!-- Registration -->
+          <div id="registration" class="tab-panel">
+            <h2 class="text-lg font-semibold mb-3">Register New Patient</h2>
+            <form id="regForm" class="grid grid-cols-2 gap-4">
+              <input required name="firstName" placeholder="First name" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+              <input required name="lastName" placeholder="Last name" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+              <input name="dob" type="date" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+              <select name="gender" class="p-3 bg-slate-900 rounded-md border border-slate-700">
+                <option value="">Gender</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+              <input name="phone" placeholder="Phone number" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+              <input name="address" placeholder="Address" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+
+              <select id="regType" name="regType" class="p-3 bg-slate-900 rounded-md border border-slate-700 col-span-2">
+                <option value="cash">Cash & Carry</option>
+                <option value="nhis">NHIS</option>
+                <option value="private">Private Insurance</option>
+              </select>
+
+              <input id="insDetails" name="insDetails" placeholder="Insurance / NHIS number (if applicable)" class="p-3 bg-slate-900 rounded-md border border-slate-700 col-span-2" />
+
+              <div class="col-span-2 flex justify-end">
+                <button type="submit" class="px-4 py-2 bg-emerald-500 rounded-md text-slate-900 font-semibold">Register</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Attendance -->
+          <div id="attendance" class="hidden tab-panel">
+            <h2 class="text-lg font-semibold mb-3">New Attendance / Consultation</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-3">
+                <label class="text-sm text-slate-400">Search patient (by name or ID)</label>
+                <input id="patientSearch" placeholder="Type to search..." class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+
+                <div id="patientCard" class="p-3 bg-slate-800 rounded-md border border-slate-700">
+                  <div class="text-sm text-slate-400">Selected patient</div>
+                  <div id="patientName" class="font-semibold">— none —</div>
+                  <div id="patientMeta" class="text-xs text-slate-400">DOB — | Reg type —</div>
+                </div>
+
+                <label class="text-sm text-slate-400">Presenting complaint</label>
+                <textarea id="complaint" rows="3" class="p-3 bg-slate-900 rounded-md border border-slate-700" placeholder="Patient complains of..."></textarea>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="bp" placeholder="BP (e.g. 120/80)" class="p-2 bg-slate-900 rounded-md border border-slate-700" />
+                  <input id="temp" placeholder="Temp (°C)" class="p-2 bg-slate-900 rounded-md border border-slate-700" />
+                  <input id="pulse" placeholder="Pulse" class="p-2 bg-slate-900 rounded-md border border-slate-700" />
+                  <input id="spo2" placeholder="SpO₂ (%)" class="p-2 bg-slate-900 rounded-md border border-slate-700" />
+                </div>
+
+                <label class="text-sm text-slate-400">Diagnosis</label>
+                <input id="diagnosis" placeholder="Diagnosis or ICD code" class="p-3 bg-slate-900 rounded-md border border-slate-700" />
+
+                <div class="flex gap-2">
+                  <button id="addMedBtn" class="px-3 py-2 bg-sky-500 rounded-md font-semibold">Add medication</button>
+                  <button id="addLabBtn" class="px-3 py-2 bg-indigo-600 rounded-md font-semibold">Request Lab</button>
+                  <button id="saveAttend" class="ml-auto px-4 py-2 bg-emerald-500 rounded-md font-semibold">Save Attendance</button>
+                </div>
+              </div>
+
+              <!-- Right pane: Billing preview -->
+              <div class="p-4 bg-slate-800 rounded-md border border-slate-700">
+                <h3 class="text-md font-semibold mb-2">Billing & Actions</h3>
+                <div class="space-y-2">
+                  <div class="flex justify-between text-sm text-slate-400"><span>Consultation</span><span>GH₵ 30.00</span></div>
+                  <div id="medListArea"></div>
+                  <div id="labListArea"></div>
+                  <hr class="my-2 border-slate-700" />
+                  <div class="flex justify-between font-semibold text-lg"><span>Total</span><span id="totalAmt">GH₵ 30.00</span></div>
+
+                  <div class="mt-4">
+                    <label class="text-sm text-slate-400">Payment Mode</label>
+                    <select id="payMode" class="w-full p-2 bg-slate-900 rounded-md border border-slate-700">
+                      <option value="cash">Cash & Carry</option>
+                      <option value="nhis">NHIS</option>
+                      <option value="private">Private Insurance</option>
+                    </select>
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                      <button id="payBtn" class="px-3 py-2 bg-amber-500 rounded-md font-semibold">Make Payment</button>
+                      <button id="claimBtn" class="px-3 py-2 bg-indigo-700 rounded-md font-semibold">Generate Claim</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Admissions -->
+          <div id="admission" class="hidden tab-panel">
+            <h2 class="text-lg font-semibold mb-3">Admissions & Wards</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm text-slate-400">Select Ward</label>
+                <select class="p-3 bg-slate-900 rounded-md border border-slate-700 w-full">
+                  <option>General Ward</option>
+                  <option>Male Ward</option>
+                  <option>Female Ward</option>
+                  <option>Maternity</option>
+                  <option>ICU</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm text-slate-400">Bed Number</label>
+                <input class="p-3 bg-slate-900 rounded-md border border-slate-700 w-full" placeholder="e.g. 12A" />
+              </div>
+              <div class="col-span-2">
+                <label class="text-sm text-slate-400">Admission Reason / Notes</label>
+                <textarea rows="3" class="p-3 bg-slate-900 rounded-md border border-slate-700 w-full"></textarea>
+              </div>
+              <div class="col-span-2 text-right">
+                <button class="px-4 py-2 bg-emerald-500 rounded-md font-semibold">Admit Patient</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inventory -->
+          <div id="inventory" class="hidden tab-panel">
+            <h2 class="text-lg font-semibold mb-3">Inventory Snapshot</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-3 bg-slate-900 rounded-md border border-slate-700">
+                <div class="text-sm text-slate-400">Low stock alerts</div>
+                <ul class="mt-2 text-sm space-y-2" id="lowStockList">
+                  <li>Paracetamol 500mg — 12 packs</li>
+                  <li>Normal Saline 1L — 5 bottles</li>
+                </ul>
+              </div>
+              <div class="p-3 bg-slate-900 rounded-md border border-slate-700">
+                <div class="text-sm text-slate-400">Quick add stock</div>
+                <input id="stockName" placeholder="Item name" class="p-2 bg-slate-800 rounded-md w-full" />
+                <input id="stockQty" type="number" placeholder="Quantity" class="mt-2 p-2 bg-slate-800 rounded-md w-full" />
+                <button id="addStockBtn" class="mt-3 px-3 py-2 bg-sky-500 rounded-md font-semibold">Add Stock</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Right column: Quick panels -->
+      <aside class="col-span-5 space-y-6">
+        <div class="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <h3 class="font-semibold">Quick Actions</h3>
+          <div class="mt-3 grid gap-2">
+            <button onclick="openTab('registration')" class="w-full p-2 bg-emerald-600 rounded-md">New Patient</button>
+            <button onclick="openTab('attendance')" class="w-full p-2 bg-sky-600 rounded-md">New Attendance</button>
+            <button onclick="openTab('inventory')" class="w-full p-2 bg-indigo-600 rounded-md">Inventory</button>
+            <button onclick="openTab('admission')" class="w-full p-2 bg-amber-600 rounded-md">Admissions</button>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <h3 class="font-semibold">Today's Stats</h3>
+          <div class="mt-3 grid grid-cols-2 gap-3 text-center">
+            <div class="p-3 bg-slate-900 rounded-md">
+              <div class="text-xs text-slate-400">New Patients</div>
+              <div class="text-2xl font-bold">12</div>
+            </div>
+            <div class="p-3 bg-slate-900 rounded-md">
+              <div class="text-xs text-slate-400">Attended</div>
+              <div class="text-2xl font-bold">34</div>
+            </div>
+            <div class="p-3 bg-slate-900 rounded-md">
+              <div class="text-xs text-slate-400">Claims</div>
+              <div class="text-2xl font-bold">3</div>
+            </div>
+            <div class="p-3 bg-slate-900 rounded-md">
+              <div class="text-xs text-slate-400">Income (GH₵)</div>
+              <div class="text-2xl font-bold">12,540</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <h3 class="font-semibold">Recent Activity</h3>
+          <ul class="mt-2 text-sm space-y-2 text-slate-400">
+            <li>Dr. Mensah completed attendance for patient 0021 — 09:14</li>
+            <li>Pharmacy dispensed meds for patient 0017 — 08:50</li>
+            <li>New stock: Amoxicillin — 100 boxes — 07:30</li>
+          </ul>
+        </div>
+
+      </aside>
+    </main>
+
+    <footer class="mt-8 text-center text-slate-500 text-sm">HMS demo • Not for production use</footer>
+  </div>
+
+  <!-- Claim modal -->
+  <div id="claimModal" class="fixed inset-0 hidden items-center justify-center bg-black/50">
+    <div class="bg-slate-900 rounded-xl p-6 w-3/4 max-w-2xl border border-slate-700">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="text-lg font-semibold">Claim Form Preview</h2>
+          <div class="text-sm text-slate-400">Hospital: Christ Legacy International Hospital</div>
+        </div>
+        <button onclick="closeClaim()" class="text-slate-400">Close ✕</button>
+      </div>
+
+      <div id="claimContent" class="mt-4 bg-slate-800 p-4 rounded-md text-sm">
+        <!-- generated by JS -->
+      </div>
+
+      <div class="mt-4 text-right">
+        <button onclick="downloadClaim()" class="px-4 py-2 bg-emerald-500 rounded-md text-slate-900 font-semibold">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // simple tab behaviour
+    function openTab(id){
+      document.querySelectorAll('.tab-panel').forEach(el=>el.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('bg-emerald-500/20', 'text-emerald-300'));
+      document.querySelectorAll('.tab').forEach(t=>{ if(t.dataset.tab===id) { t.classList.add('bg-emerald-500/20','text-emerald-300') } })
+      window.scrollTo(0,0)
+    }
+    document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click', ()=>openTab(b.dataset.tab)));
+
+    // demo: store patients in-memory
+    const patients = [];
+    const meds = [ {name:'Paracetamol 500mg', price:5}, {name:'Amoxicillin 250mg', price:12} ];
+    const labs = [ {name:'Malaria Rapid Test', price:20}, {name:'CBC', price:80} ];
+
+    // registration
+    document.getElementById('regForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const p = Object.fromEntries(fd.entries());
+      p.id = 'P'+ String(patients.length+1).padStart(4,'0');
+      patients.push(p);
+      alert('Registered '+p.firstName+' '+p.lastName+' — ID: '+p.id);
+      e.target.reset();
+    })
+
+    // attendance: select patient by simple search
+    document.getElementById('patientSearch').addEventListener('input', (e)=>{
+      const q = e.target.value.toLowerCase().trim();
+      const found = patients.find(p=> (p.firstName+' '+p.lastName).toLowerCase().includes(q) || p.id===q);
+      if(found){
+        document.getElementById('patientName').textContent = found.firstName+' '+found.lastName+' ('+found.id+')';
+        document.getElementById('patientMeta').textContent = 'DOB: '+(found.dob||'—')+' | Reg: '+(found.regType||'cash');
+        document.getElementById('patientCard').classList.remove('opacity-50')
+        document.getElementById('patientCard').dataset.selected = found.id;
+      } else {
+        document.getElementById('patientName').textContent = '— none —';
+        document.getElementById('patientMeta').textContent = 'DOB — | Reg type —';
+        document.getElementById('patientCard').dataset.selected = '';
+      }
+    })
+
+    // billing containers
+    const medListArea = document.getElementById('medListArea');
+    const labListArea = document.getElementById('labListArea');
+    let billItems = [ {desc:'Consultation', price:30} ];
+
+    function renderBill(){
+      medListArea.innerHTML = '';
+      labListArea.innerHTML = '';
+      billItems.slice(1).forEach(it=>{
+        if(it.type==='med'){
+          const div = document.createElement('div'); div.className='flex justify-between text-sm'; div.innerHTML = `<span>${it.desc}</span><span>GH₵ ${it.price.toFixed(2)}</span>`; medListArea.appendChild(div);
+        } else if(it.type==='lab'){
+          const div = document.createElement('div'); div.className='flex justify-between text-sm'; div.innerHTML = `<span>${it.desc}</span><span>GH₵ ${it.price.toFixed(2)}</span>`; labListArea.appendChild(div);
+        }
+      })
+      const total = billItems.reduce((s,i)=>s + (i.price||0),0);
+      document.getElementById('totalAmt').textContent = 'GH₵ '+ total.toFixed(2);
+    }
+    renderBill();
+
+    document.getElementById('addMedBtn').addEventListener('click', ()=>{
+      const pick = meds[Math.floor(Math.random()*meds.length)];
+      billItems.push({type:'med', desc: pick.name, price: pick.price});
+      renderBill();
+    })
+    document.getElementById('addLabBtn').addEventListener('click', ()=>{
+      const pick = labs[Math.floor(Math.random()*labs.length)];
+      billItems.push({type:'lab', desc: pick.name, price: pick.price});
+      renderBill();
+    })
+
+    document.getElementById('payBtn').addEventListener('click', ()=>{
+      const sel = document.getElementById('patientCard').dataset.selected;
+      if(!sel){ alert('Select a patient first.'); return; }
+      alert('Payment recorded for patient '+sel+' — Total: '+document.getElementById('totalAmt').textContent);
+      billItems = [ {desc:'Consultation', price:30} ]; renderBill();
+    })
+
+    document.getElementById('claimBtn').addEventListener('click', ()=>{
+      const sel = document.getElementById('patientCard').dataset.selected;
+      if(!sel){ alert('Select a patient first.'); return; }
+      // show claim modal
+      const patient = patients.find(p=>p.id===sel) || {firstName:'Unknown'};
+      const total = billItems.reduce((s,i)=>s + (i.price||0),0);
+      const itemsHtml = billItems.map(i=>`<div class="flex justify-between"><div>${i.desc}</div><div>GH₵ ${i.price.toFixed(2)}</div></div>`).join('');
+      document.getElementById('claimContent').innerHTML = `
+        <div class="font-semibold">Patient: ${patient.firstName} ${patient.lastName || ''} (${patient.id || ''})</div>
+        <div class="text-xs text-slate-400">Policy: ${patient.regType || 'cash'} | Insurance: ${patient.insDetails || '—'}</div>
+        <div class="mt-3 p-3 bg-slate-900 rounded-md border border-slate-700">${itemsHtml}
+          <hr class="my-2 border-slate-700" />
+          <div class="flex justify-between font-bold">Total <span>GH₵ ${total.toFixed(2)}</span></div>
+        </div>
+      `;
+      document.getElementById('claimModal').classList.remove('hidden');
+      document.getElementById('claimModal').classList.add('flex');
+    })
+
+    function closeClaim(){ document.getElementById('claimModal').classList.remove('flex'); document.getElementById('claimModal').classList.add('hidden'); }
+    function downloadClaim(){
+      const el = document.getElementById('claimContent');
+      const blob = new Blob([el.innerText], {type:'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'claim-'+Date.now()+'.txt'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // quick stock add
+    document.getElementById('addStockBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('stockName').value.trim();
+      const qty = Number(document.getElementById('stockQty').value) || 0;
+      if(!name || qty<=0){ alert('Enter name and qty'); return; }
+      const li = document.createElement('li'); li.textContent = `${name} — ${qty}`; document.getElementById('lowStockList').appendChild(li);
+      document.getElementById('stockName').value=''; document.getElementById('stockQty').value='';
+    })
+
+  </script>
+</body>
+</html>
+

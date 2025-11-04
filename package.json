@@ -1,0 +1,20 @@
+{
+  "name": "medicare-hms",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "client": "cd frontend && npm run dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "cd backend && npm run dev",
+    "start": "concurrently \"npm run client\" \"npm run server\""
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

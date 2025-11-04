@@ -1,0 +1,625 @@
+[
+  {
+    "id": "proc1",
+    "name": "Appendectomy",
+    "code": "0DTJ4ZZ",
+    "description": "Surgical removal of appendix",
+    "price": 1500
+  },
+  {
+    "id": "proc2",
+    "name": "Colonoscopy",
+    "code": "0DJ08ZZ",
+    "description": "Diagnostic examination of colon",
+    "price": 800
+  },
+  {
+    "id": "proc3",
+    "name": "Chest X-ray",
+    "code": "BW20ZZZ",
+    "description": "Radiographic imaging of the chest",
+    "price": 100
+  },
+  {
+    "id": "proc4",
+    "name": "Complete Blood Count",
+    "code": "30250F1",
+    "description": "Basic blood test panel",
+    "price": 50
+  },
+  {
+    "id": "proc5",
+    "name": "Malaria Rapid Test",
+    "code": "B20.81",
+    "description": "Rapid diagnostic test for malaria",
+    "price": 20
+  },
+  {
+    "id": "proc6",
+    "name": "Urinalysis",
+    "code": "81000-3",
+    "description": "Complete urine examination",
+    "price": 30
+  },
+  {
+    "id": "proc7",
+    "name": "Stool Microscopy",
+    "code": "87045",
+    "description": "Examination for ova and parasites",
+    "price": 40
+  },
+  {
+    "id": "proc8",
+    "name": "Electrocardiogram",
+    "code": "4A02X4G",
+    "description": "12-lead ECG recording",
+    "price": 120
+  },
+  {
+    "id": "proc9",
+    "name": "Abdominal Ultrasound",
+    "code": "B030ZZZ",
+    "description": "Imaging of abdominal organs",
+    "price": 300
+  },
+  {
+    "id": "proc10",
+    "name": "Tooth Extraction",
+    "code": "0C5P3ZZ",
+    "description": "Simple dental extraction",
+    "price": 150
+  },
+  {
+    "id": "proc11",
+    "name": "Wound Dressing",
+    "code": "0H9U0ZZ",
+    "description": "Simple wound care",
+    "price": 30
+  },
+  {
+    "id": "proc12",
+    "name": "Laceration Repair",
+    "code": "0HQ8XZZ",
+    "description": "Simple suturing of wound",
+    "price": 80
+  },
+  {
+    "id": "proc13",
+    "name": "Blood Glucose Test",
+    "code": "82947",
+    "description": "Random blood sugar measurement",
+    "price": 15
+  },
+  {
+    "id": "proc14",
+    "name": "Blood Pressure Monitoring",
+    "code": "3E03305",
+    "description": "Non-invasive blood pressure measurement",
+    "price": 10
+  },
+  {
+    "id": "proc15",
+    "name": "Nasogastric Tube Insertion",
+    "code": "0DH63UZ",
+    "description": "NG tube placement",
+    "price": 100
+  },
+  {
+    "id": "proc16",
+    "name": "Urinary Catheterization",
+    "code": "0T9B70Z",
+    "description": "Foley catheter insertion",
+    "price": 80
+  },
+  {
+    "id": "proc17",
+    "name": "Nebulization Therapy",
+    "code": "5A09457",
+    "description": "Bronchodilator administration",
+    "price": 50
+  },
+  {
+    "id": "proc18",
+    "name": "Oxygen Therapy",
+    "code": "5A19054",
+    "description": "Supplemental oxygen administration",
+    "price": 30
+  },
+  {
+    "id": "proc19",
+    "name": "Abscess Drainage",
+    "code": "0H9T0ZZ",
+    "description": "Incision and drainage",
+    "price": 120
+  },
+  {
+    "id": "proc20",
+    "name": "Malaria Blood Film",
+    "code": "B50.9",
+    "description": "Microscopic diagnosis",
+    "price": 35
+  },
+  {
+    "id": "proc21",
+    "name": "HIV Rapid Test",
+    "code": "Z11.4",
+    "description": "HIV screening test",
+    "price": 25
+  },
+  {
+    "id": "proc22",
+    "name": "Hepatitis B Test",
+    "code": "Z11.59",
+    "description": "HBsAg detection",
+    "price": 45
+  },
+  {
+    "id": "proc23",
+    "name": "Pregnancy Test",
+    "code": "Z32.00",
+    "description": "Urine hCG test",
+    "price": 15
+  },
+  {
+    "id": "proc24",
+    "name": "Pelvic Exam",
+    "code": "1G040ZZ",
+    "description": "Gynecological examination",
+    "price": 100
+  },
+  {
+    "id": "proc25",
+    "name": "Pap Smear",
+    "code": "0U5B7ZX",
+    "description": "Cervical cytology",
+    "price": 70
+  },
+  {
+    "id": "proc26",
+    "name": "Antenatal Visit",
+    "code": "Z34.90",
+    "description": "Routine prenatal care",
+    "price": 80
+  },
+  {
+    "id": "proc27",
+    "name": "Vaccination",
+    "code": "3E01305",
+    "description": "Immunization administration",
+    "price": 20
+  },
+  {
+    "id": "proc28",
+    "name": "Family Planning Counseling",
+    "code": "Z30.09",
+    "description": "Contraceptive management",
+    "price": 40
+  },
+  {
+    "id": "proc29",
+    "name": "Eye Exam",
+    "code": "4A02X4G",
+    "description": "Basic ophthalmologic evaluation",
+    "price": 60
+  },
+  {
+    "id": "proc30",
+    "name": "Ear Irrigation",
+    "code": "09H83ZZ",
+    "description": "Cerumen removal",
+    "price": 50
+  },
+  {
+    "id": "proc31",
+    "name": "Upper Endoscopy",
+    "code": "0DJ08ZZ",
+    "description": "EGD examination",
+    "price": 900
+  },
+  {
+    "id": "proc32",
+    "name": "Sigmoidoscopy",
+    "code": "0DJD8ZZ",
+    "description": "Flexible sigmoidoscopy",
+    "price": 700
+  },
+  {
+    "id": "proc33",
+    "name": "CT Head",
+    "code": "BW10ZZZ",
+    "description": "Cranial CT without contrast",
+    "price": 600
+  },
+  {
+    "id": "proc34",
+    "name": "CT Abdomen/Pelvis",
+    "code": "BW35ZZZ",
+    "description": "Abdominopelvic CT",
+    "price": 800
+  },
+  {
+    "id": "proc35",
+    "name": "MRI Brain",
+    "code": "B010ZZZ",
+    "description": "Cranial MRI",
+    "price": 1500
+  },
+  {
+    "id": "proc36",
+    "name": "MRI Spine",
+    "code": "B020ZZZ",
+    "description": "Spinal MRI",
+    "price": 1800
+  },
+  {
+    "id": "proc37",
+    "name": "Mammogram",
+    "code": "BH01ZZZ",
+    "description": "Screening mammography",
+    "price": 250
+  },
+  {
+    "id": "proc38",
+    "name": "Skin Biopsy",
+    "code": "0HBTXZZ",
+    "description": "Punch biopsy of skin",
+    "price": 200
+  },
+  {
+    "id": "proc39",
+    "name": "Skin Lesion Removal",
+    "code": "0HBT0ZZ",
+    "description": "Excision of skin lesion",
+    "price": 300
+  },
+  {
+    "id": "proc40",
+    "name": "Circumcision",
+    "code": "0V500ZZ",
+    "description": "Neonatal circumcision",
+    "price": 200
+  },
+  {
+    "id": "proc41",
+    "name": "Hysterectomy",
+    "code": "0UT90ZZ",
+    "description": "Total abdominal hysterectomy",
+    "price": 4000
+  },
+  {
+    "id": "proc42",
+    "name": "Cesarean Section",
+    "code": "10D00Z1",
+    "description": "Primary C-section",
+    "price": 3500
+  },
+  {
+    "id": "proc43",
+    "name": "Myomectomy",
+    "code": "0UQ90ZZ",
+    "description": "Uterine fibroid removal",
+    "price": 3800
+  },
+  {
+    "id": "proc44",
+    "name": "Prostate Biopsy",
+    "code": "0VB08ZX",
+    "description": "Needle biopsy of prostate",
+    "price": 1200
+  },
+  {
+    "id": "proc45",
+    "name": "Hernia Repair",
+    "code": "0YQ60ZZ",
+    "description": "Open inguinal herniorrhaphy",
+    "price": 2000
+  },
+  {
+    "id": "proc46",
+    "name": "Cholecystectomy",
+    "code": "0FT44ZZ",
+    "description": "Laparoscopic gallbladder removal",
+    "price": 3000
+  },
+  {
+    "id": "proc47",
+    "name": "Thyroidectomy",
+    "code": "0GTK0ZZ",
+    "description": "Partial thyroid removal",
+    "price": 3500
+  },
+  {
+    "id": "proc48",
+    "name": "Tonsillectomy",
+    "code": "0CTP0ZZ",
+    "description": "Tonsil removal",
+    "price": 1800
+  },
+  {
+    "id": "proc49",
+    "name": "Adenoidectomy",
+    "code": "0CQP0ZZ",
+    "description": "Adenoid removal",
+    "price": 1500
+  },
+  {
+    "id": "proc50",
+    "name": "Bronchoscopy",
+    "code": "0BJD8ZZ",
+    "description": "Diagnostic bronchoscopy",
+    "price": 1100
+  },
+  {
+    "id": "proc51",
+    "name": "Echocardiogram",
+    "code": "B240ZZZ",
+    "description": "TTE complete study",
+    "price": 400
+  },
+  {
+    "id": "proc52",
+    "name": "Stress Test",
+    "code": "4A02XN4",
+    "description": "Exercise tolerance test",
+    "price": 300
+  },
+  {
+    "id": "proc53",
+    "name": "Cerebral Angiogram",
+    "code": "B210ZZZ",
+    "description": "Diagnostic cerebral angiography",
+    "price": 2500
+  },
+  {
+    "id": "proc54",
+    "name": "Hemodialysis",
+    "code": "5A1D70Z",
+    "description": "Single dialysis session",
+    "price": 300
+  },
+  {
+    "id": "proc55",
+    "name": "Blood Transfusion",
+    "code": "30233N1",
+    "description": "PRBC transfusion",
+    "price": 500
+  },
+  {
+    "id": "proc56",
+    "name": "Bone Marrow Biopsy",
+    "code": "0HBT0ZZ",
+    "description": "Bone marrow aspiration",
+    "price": 800
+  },
+  {
+    "id": "proc57",
+    "name": "Lumbar Puncture",
+    "code": "009U3ZX",
+    "description": "Spinal tap",
+    "price": 400
+  },
+  {
+    "id": "proc58",
+    "name": "ERCP",
+    "code": "0FJD8ZZ",
+    "description": "Endoscopic biliary procedure",
+    "price": 1800
+  },
+  {
+    "id": "proc59",
+    "name": "Colposcopy",
+    "code": "0U5B7ZX",
+    "description": "Cervical examination with biopsy",
+    "price": 400
+  },
+  {
+    "id": "proc60",
+    "name": "Hysteroscopy",
+    "code": "0UJD8ZZ",
+    "description": "Diagnostic hysteroscopy",
+    "price": 600
+  },
+  {
+    "id": "proc61",
+    "name": "EEG",
+    "code": "4A00X4G",
+    "description": "Electroencephalogram",
+    "price": 350
+  },
+  {
+    "id": "proc62",
+    "name": "Nerve Conduction Study",
+    "code": "4A02X4G",
+    "description": "NCS/EMG testing",
+    "price": 500
+  },
+  {
+    "id": "proc63",
+    "name": "Peritoneal Dialysis",
+    "code": "5A1D60Z",
+    "description": "CAPD exchange",
+    "price": 250
+  },
+  {
+    "id": "proc64",
+    "name": "Coronary Angiogram",
+    "code": "B2101ZZ",
+    "description": "Cardiac catheterization",
+    "price": 5000
+  },
+  {
+    "id": "proc65",
+    "name": "Cardiac Catheterization",
+    "code": "4A023N7",
+    "description": "Left heart catheterization",
+    "price": 4500
+  },
+  {
+    "id": "proc66",
+    "name": "Knee Arthroscopy",
+    "code": "0SJC4ZZ",
+    "description": "Diagnostic knee scope",
+    "price": 3500
+  },
+  {
+    "id": "proc67",
+    "name": "Cataract Surgery",
+    "code": "08SJXZZ",
+    "description": "Phacoemulsification with IOL",
+    "price": 2000
+  },
+  {
+    "id": "proc68",
+    "name": "Colon Resection",
+    "code": "0DTE0ZZ",
+    "description": "Partial colectomy",
+    "price": 6000
+  },
+  {
+    "id": "proc69",
+    "name": "Gastrectomy",
+    "code": "0DT60ZZ",
+    "description": "Partial gastrectomy",
+    "price": 5500
+  },
+  {
+    "id": "proc70",
+    "name": "Mastectomy",
+    "code": "0HTJ0ZZ",
+    "description": "Partial breast removal",
+    "price": 4500
+  },
+  {
+    "id": "proc71",
+    "name": "Prostatectomy",
+    "code": "0VT00ZZ",
+    "description": "Radical prostatectomy",
+    "price": 7000
+  },
+  {
+    "id": "proc72",
+    "name": "Nephrectomy",
+    "code": "0TT10ZZ",
+    "description": "Kidney removal",
+    "price": 6500
+  },
+  {
+    "id": "proc73",
+    "name": "Cystoscopy",
+    "code": "0TJB8ZZ",
+    "description": "Bladder examination",
+    "price": 900
+  },
+  {
+    "id": "proc74",
+    "name": "Laparoscopy",
+    "code": "0UJD8ZZ",
+    "description": "Diagnostic laparoscopy",
+    "price": 2500
+  },
+  {
+    "id": "proc75",
+    "name": "Laminectomy",
+    "code": "00SJ0ZZ",
+    "description": "Spinal decompression",
+    "price": 5000
+  },
+  {
+    "id": "proc76",
+    "name": "ACL Reconstruction",
+    "code": "0MQS0ZZ",
+    "description": "Knee ligament repair",
+    "price": 4500
+  },
+  {
+    "id": "proc77",
+    "name": "Carotid Endarterectomy",
+    "code": "03CH0ZZ",
+    "description": "Carotid artery surgery",
+    "price": 5500
+  },
+  {
+    "id": "proc78",
+    "name": "Varicose Vein Stripping",
+    "code": "06LJ0ZZ",
+    "description": "Vein ablation therapy",
+    "price": 2000
+  },
+  {
+    "id": "proc79",
+    "name": "Hemorrhoidectomy",
+    "code": "0DTE4ZZ",
+    "description": "Hemorrhoid removal",
+    "price": 1500
+  },
+  {
+    "id": "proc80",
+    "name": "Tubal Ligation",
+    "code": "0ULD0ZZ",
+    "description": "Female sterilization",
+    "price": 1800
+  },
+  {
+    "id": "proc81",
+    "name": "Vasectomy",
+    "code": "0V500ZZ",
+    "description": "Male sterilization",
+    "price": 800
+  },
+  {
+    "id": "proc82",
+    "name": "Dilation and Curettage",
+    "code": "0UDB8ZZ",
+    "description": "Uterine scraping",
+    "price": 1200
+  },
+  {
+    "id": "proc83",
+    "name": "Bone Density Scan",
+    "code": "BV30ZZZ",
+    "description": "DEXA scan",
+    "price": 200
+  },
+  {
+    "id": "proc84",
+    "name": "Pulmonary Function Test",
+    "code": "4A0B7ZZ",
+    "description": "Spirometry testing",
+    "price": 250
+  },
+  {
+    "id": "proc85",
+    "name": "Allergy Testing",
+    "code": "4A02X4G",
+    "description": "Skin prick testing",
+    "price": 300
+  },
+  {
+    "id": "proc86",
+    "name": "Holter Monitoring",
+    "code": "4A02X4G",
+    "description": "24-hour ECG monitoring",
+    "price": 350
+  },
+  {
+    "id": "proc87",
+    "name": "Sleep Study",
+    "code": "4A0BX4G",
+    "description": "Polysomnography",
+    "price": 800
+  },
+  {
+    "id": "proc88",
+    "name": "Chemotherapy Session",
+    "code": "3E0M3GC",
+    "description": "IV chemotherapy administration",
+    "price": 1200
+  },
+  {
+    "id": "proc89",
+    "name": "Radiation Therapy",
+    "code": "DW010ZZ",
+    "description": "Single radiation treatment",
+    "price": 1500
+  }
+]

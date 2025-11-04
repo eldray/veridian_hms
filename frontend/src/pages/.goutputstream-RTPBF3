@@ -1,0 +1,178 @@
+// src/pages/Patients.tsx
+import { useState } from 'react';
+import { usePatientStore } from '../store/patientStore';
+import { useAuthStore } from '../store/authStore';
+import { Search, Plus, User, Phone, Calendar, FileText, CreditCard, Hospital, Shield, Activity } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+export default function Patients() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const { patients, searchPatients } = usePatientStore();
+  const { hasRole } = useAuthStore();
+
+  const displayedPatients = searchQuery
+    ? searchPatients(searchQuery)
+    : patients;
+
+  const canRegister = hasRole(['admin', 'nurse', 'doctor']);
+
+  const getPaymentModeColor = (paymentMode: string) => {
+    switch (paymentMode) {
+      case 'cash':
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'nhis':
+        return 'bg-green-100 text-green-800 border border-green-200';
+      case 'private_insurance':
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  const getPaymentModeLabel = (paymentMode: string) => {
+    switch (paymentMode) {
+      case 'cash':
+        return 'CASH';
+      case 'nhis':
+        return 'NHIS';
+      case 'private_insurance':
+        return 'PRIVATE INS';
+      default:
+        return paymentMode?.toUpperCase() || 'UNKNOWN';
+    }
+  };
+
+  return (
+    <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Hospital className="w-8 h-8 text-blue-600" />
+              Patient Management
+            </h1>
+            <p className="text-white mt-2">Manage patient records and medical history</p>
+          </div>
+          {canRegister && (
+            <Link
+              to="/dashboard/patients/register"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="font-semibold">Register Patient</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, contact, folder number, or NHIS number..."
+            className="w-full pl-12 pr-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base shadow-sm"
+          />
+        </div>
+      </div>
+
+      {/* Patient List */}
+      {displayedPatients.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-200 text-center">
+          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2 text-lg">
+            {searchQuery ? 'No patients found' : 'No patients registered yet'}
+          </p>
+          {canRegister && !searchQuery && (
+            <Link
+              to="/dashboard/patients/register"
+              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-lg transition-colors"
+            >
+              Register your first patient
+              <Plus className="w-5 h-5" />
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayedPatients.map((patient) => (
+            <div
+              key={patient.id}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300"
+            >
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg">
+                    <User className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl text-gray-900">{patient.fullName}</h3>
+                    <p className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full border mt-1">
+                      {patient.folderNumber || patient.id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-3 text-gray-600 bg-gray-50 px-4 py-2 rounded-xl border">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium">
+                    {patient.age || 'N/A'} years • {patient.gender}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-600 bg-gray-50 px-4 py-2 rounded-xl border">
+                  <Phone className="w-4 h-4 text-green-600" />
+                  <span className="font-medium">{patient.contact}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CreditCard className="w-4 h-4 text-purple-600" />
+                  <span
+                    className={`px-3 py-2 text-sm font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}
+                  >
+                    {getPaymentModeLabel(patient.paymentMode)}
+                  </span>
+                </div>
+                {patient.insuranceDetails?.insuranceNumber && (
+                  <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
+                    <p className="text-gray-700 text-sm">
+                      <span className="font-semibold">Insurance:</span> {patient.insuranceDetails.insuranceNumber}
+                    </p>
+                  </div>
+                )}
+                {patient.additionalInfo?.bloodType && (
+                  <div className="bg-red-50 px-4 py-2 rounded-xl border border-red-200">
+                    <p className="text-gray-700 text-sm">
+                      <span className="font-semibold">Blood Type:</span> {patient.additionalInfo.bloodType}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between items-center">
+                <Link
+                  to={`/dashboard/patients/${patient.id || patient._id}`}
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm transition-colors group"
+                >
+                  View Details
+                  <Activity className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link
+                  to={`/dashboard/attendance/new?patientId=${patient.id || patient._id}`}
+                  className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold text-sm transition-colors group"
+                >
+                  Add Attendance
+                  <Plus className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

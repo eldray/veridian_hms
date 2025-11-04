@@ -1,0 +1,84 @@
+{
+  "name": "veridian",
+  "private": true,
+  "version": "0.0.0",
+  "main": "main.js",
+  "author": "Emmanuel Appiah <your.email@example.com>",
+  "description": "Pharmacy Management System - A POS app built with React and Electron",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:3000 && npm run electron\"",
+    "electron": "NODE_ENV=development electron main.js",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:build": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.16",
+    "axios": "^1.12.2",
+    "clsx": "^2.1.1",
+    "dexie": "^4.2.1",
+    "i18next": "^23.10.1",
+    "lucide-react": "^0.454.0",
+    "nanoid": "^5.1.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-i18next": "^14.1.0",
+    "react-router-dom": "^7.9.4",
+    "react-use": "^17.6.0",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.0.14",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "electron": "^38.2.2",
+    "electron-builder": "^24.13.3",
+    "electron-updater": "^6.6.2",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.7",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.pharmacymanagement.app",
+    "productName": "Pharmacy Management",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.js",
+      "public/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "your-username",
+        "repo": "pharmacymanagement"
+      }
+    ]
+  }
+}

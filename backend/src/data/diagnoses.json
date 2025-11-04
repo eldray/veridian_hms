@@ -1,0 +1,982 @@
+[
+  {
+    "id": "diag1",
+    "name": "Hypertension",
+    "icdCode": "I10",
+    "description": "Essential (primary) hypertension",
+    "price": 100
+  },
+  {
+    "id": "diag2",
+    "name": "Type 2 Diabetes Mellitus",
+    "icdCode": "E11.9",
+    "description": "Type 2 diabetes mellitus without complications",
+    "price": 100
+  },
+  {
+    "id": "diag3",
+    "name": "Asthma",
+    "icdCode": "J45.909",
+    "description": "Unspecified asthma, uncomplicated",
+    "price": 100
+  },
+  {
+    "id": "diag4",
+    "name": "Chronic Obstructive Pulmonary Disease",
+    "icdCode": "J44.9",
+    "description": "Chronic obstructive pulmonary disease, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag5",
+    "name": "Acute Bronchitis",
+    "icdCode": "J20.9",
+    "description": "Acute bronchitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag6",
+    "name": "Pneumonia",
+    "icdCode": "J18.9",
+    "description": "Pneumonia, unspecified organism",
+    "price": 100
+  },
+  {
+    "id": "diag7",
+    "name": "Acute Sinusitis",
+    "icdCode": "J01.90",
+    "description": "Acute sinusitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag8",
+    "name": "Acute Pharyngitis",
+    "icdCode": "J02.9",
+    "description": "Acute pharyngitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag9",
+    "name": "Acute Tonsillitis",
+    "icdCode": "J03.90",
+    "description": "Acute tonsillitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag10",
+    "name": "Acute Laryngitis",
+    "icdCode": "J04.0",
+    "description": "Acute laryngitis",
+    "price": 100
+  },
+  {
+    "id": "diag11",
+    "name": "Chronic Sinusitis",
+    "icdCode": "J32.9",
+    "description": "Chronic sinusitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag12",
+    "name": "Chronic Tonsillitis",
+    "icdCode": "J35.01",
+    "description": "Chronic tonsillitis",
+    "price": 100
+  },
+  {
+    "id": "diag13",
+    "name": "Chronic Pharyngitis",
+    "icdCode": "J31.2",
+    "description": "Chronic pharyngitis",
+    "price": 100
+  },
+  {
+    "id": "diag14",
+    "name": "Chronic Laryngitis",
+    "icdCode": "J37.0",
+    "description": "Chronic laryngitis",
+    "price": 100
+  },
+  {
+    "id": "diag15",
+    "name": "Influenza",
+    "icdCode": "J11.1",
+    "description": "Influenza with other respiratory manifestations, virus not identified",
+    "price": 100
+  },
+  {
+    "id": "diag16",
+    "name": "Otitis Media",
+    "icdCode": "H66.90",
+    "description": "Otitis media, unspecified, unspecified ear",
+    "price": 100
+  },
+  {
+    "id": "diag17",
+    "name": "Conjunctivitis",
+    "icdCode": "H10.9",
+    "description": "Unspecified conjunctivitis",
+    "price": 100
+  },
+  {
+    "id": "diag18",
+    "name": "Gastroenteritis",
+    "icdCode": "A09",
+    "description": "Infectious gastroenteritis and colitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag19",
+    "name": "Urinary Tract Infection",
+    "icdCode": "N39.0",
+    "description": "Urinary tract infection, site not specified",
+    "price": 100
+  },
+  {
+    "id": "diag20",
+    "name": "Cystitis",
+    "icdCode": "N30.00",
+    "description": "Acute cystitis without hematuria",
+    "price": 100
+  },
+  {
+    "id": "diag21",
+    "name": "Pyelonephritis",
+    "icdCode": "N10",
+    "description": "Acute pyelonephritis",
+    "price": 100
+  },
+  {
+    "id": "diag22",
+    "name": "Kidney Stones",
+    "icdCode": "N20.0",
+    "description": "Calculus of kidney",
+    "price": 100
+  },
+  {
+    "id": "diag23",
+    "name": "Prostatitis",
+    "icdCode": "N41.0",
+    "description": "Acute prostatitis",
+    "price": 100
+  },
+  {
+    "id": "diag24",
+    "name": "Benign Prostatic Hyperplasia",
+    "icdCode": "N40.0",
+    "description": "Enlarged prostate without lower urinary tract symptoms",
+    "price": 100
+  },
+  {
+    "id": "diag25",
+    "name": "Erectile Dysfunction",
+    "icdCode": "N52.9",
+    "description": "Male erectile dysfunction, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag26",
+    "name": "Menstrual Disorders",
+    "icdCode": "N92.6",
+    "description": "Irregular menstruation, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag27",
+    "name": "Ovarian Cyst",
+    "icdCode": "N83.20",
+    "description": "Unspecified ovarian cyst, unspecified side",
+    "price": 100
+  },
+  {
+    "id": "diag28",
+    "name": "Endometriosis",
+    "icdCode": "N80.0",
+    "description": "Endometriosis of uterus",
+    "price": 100
+  },
+  {
+    "id": "diag29",
+    "name": "Pelvic Inflammatory Disease",
+    "icdCode": "N73.9",
+    "description": "Female pelvic inflammatory disease, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag30",
+    "name": "Vaginitis",
+    "icdCode": "N76.0",
+    "description": "Acute vaginitis",
+    "price": 100
+  },
+  {
+    "id": "diag31",
+    "name": "Cervicitis",
+    "icdCode": "N72",
+    "description": "Inflammatory disease of cervix uteri",
+    "price": 100
+  },
+  {
+    "id": "diag32",
+    "name": "Breast Lump",
+    "icdCode": "N63",
+    "description": "Unspecified lump in breast",
+    "price": 100
+  },
+  {
+    "id": "diag33",
+    "name": "Mastitis",
+    "icdCode": "N61",
+    "description": "Inflammatory disorders of breast",
+    "price": 100
+  },
+  {
+    "id": "diag34",
+    "name": "Depressive Disorder",
+    "icdCode": "F32.9",
+    "description": "Major depressive disorder, single episode, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag35",
+    "name": "Anxiety Disorder",
+    "icdCode": "F41.9",
+    "description": "Anxiety disorder, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag36",
+    "name": "Bipolar Disorder",
+    "icdCode": "F31.9",
+    "description": "Bipolar disorder, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag37",
+    "name": "Schizophrenia",
+    "icdCode": "F20.9",
+    "description": "Schizophrenia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag38",
+    "name": "Insomnia",
+    "icdCode": "G47.00",
+    "description": "Insomnia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag39",
+    "name": "Migraine",
+    "icdCode": "G43.909",
+    "description": "Migraine, unspecified, not intractable, without status migrainosus",
+    "price": 100
+  },
+  {
+    "id": "diag40",
+    "name": "Tension Headache",
+    "icdCode": "G44.209",
+    "description": "Tension-type headache, unspecified, not intractable",
+    "price": 100
+  },
+  {
+    "id": "diag41",
+    "name": "Epilepsy",
+    "icdCode": "G40.909",
+    "description": "Epilepsy, unspecified, not intractable, without status epilepticus",
+    "price": 100
+  },
+  {
+    "id": "diag42",
+    "name": "Parkinson's Disease",
+    "icdCode": "G20",
+    "description": "Parkinson's disease",
+    "price": 100
+  },
+  {
+    "id": "diag43",
+    "name": "Malaria",
+    "icdCode": "B54",
+    "description": "Unspecified malaria",
+    "price": 100
+  },
+  {
+    "id": "diag44",
+    "name": "Tuberculosis",
+    "icdCode": "A15.9",
+    "description": "Respiratory tuberculosis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag45",
+    "name": "HIV Infection",
+    "icdCode": "B20",
+    "description": "Human immunodeficiency virus [HIV] disease",
+    "price": 100
+  },
+  {
+    "id": "diag46",
+    "name": "Anemia",
+    "icdCode": "D64.9",
+    "description": "Anemia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag47",
+    "name": "Malnutrition",
+    "icdCode": "E46",
+    "description": "Protein-calorie malnutrition, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag48",
+    "name": "Typhoid Fever",
+    "icdCode": "A01.0",
+    "description": "Typhoid fever",
+    "price": 100
+  },
+  {
+    "id": "diag49",
+    "name": "Schistosomiasis",
+    "icdCode": "B65.9",
+    "description": "Schistosomiasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag50",
+    "name": "Hookworm Infection",
+    "icdCode": "B76.9",
+    "description": "Hookworm infection, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag51",
+    "name": "Diarrhea",
+    "icdCode": "R19.7",
+    "description": "Diarrhea, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag52",
+    "name": "Peptic Ulcer Disease",
+    "icdCode": "K27.9",
+    "description": "Peptic ulcer, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag53",
+    "name": "Chronic Kidney Disease",
+    "icdCode": "N18.9",
+    "description": "Chronic kidney disease, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag54",
+    "name": "Obesity",
+    "icdCode": "E66.9",
+    "description": "Obesity, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag55",
+    "name": "Postpartum Hemorrhage",
+    "icdCode": "O72.9",
+    "description": "Postpartum hemorrhage, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag56",
+    "name": "Pregnancy Induced Hypertension",
+    "icdCode": "O14.9",
+    "description": "Pre-eclampsia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag57",
+    "name": "Anaemia in Pregnancy",
+    "icdCode": "O99.0",
+    "description": "Anemia complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag58",
+    "name": "Trachoma",
+    "icdCode": "A71.9",
+    "description": "Trachoma, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag59",
+    "name": "Leprosy",
+    "icdCode": "A30.9",
+    "description": "Leprosy, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag60",
+    "name": "Syphilis",
+    "icdCode": "A51.9",
+    "description": "Primary syphilis",
+    "price": 100
+  },
+  {
+    "id": "diag61",
+    "name": "Gonorrhea",
+    "icdCode": "A54.0",
+    "description": "Gonococcal infection, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag62",
+    "name": "Chlamydia",
+    "icdCode": "A56.0",
+    "description": "Chlamydial infection of genital tract",
+    "price": 100
+  },
+  {
+    "id": "diag63",
+    "name": "Genital Herpes",
+    "icdCode": "A60.0",
+    "description": "Herpesviral infection of genital area",
+    "price": 100
+  },
+  {
+    "id": "diag64",
+    "name": "Scabies",
+    "icdCode": "B86",
+    "description": "Scabies",
+    "price": 100
+  },
+  {
+    "id": "diag65",
+    "name": "Ringworm",
+    "icdCode": "B36.9",
+    "description": "Dermatophytosis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag66",
+    "name": "Measles",
+    "icdCode": "B05.9",
+    "description": "Measles without complication",
+    "price": 100
+  },
+  {
+    "id": "diag67",
+    "name": "Chickenpox",
+    "icdCode": "B01.9",
+    "description": "Varicella without complication",
+    "price": 100
+  },
+  {
+    "id": "diag68",
+    "name": "Yellow Fever",
+    "icdCode": "A95.9",
+    "description": "Yellow fever, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag69",
+    "name": "Rheumatic Heart Disease",
+    "icdCode": "I09.8",
+    "description": "Rheumatic heart disease",
+    "price": 100
+  },
+  {
+    "id": "diag70",
+    "name": "Goiter",
+    "icdCode": "E01.9",
+    "description": "Simple goiter",
+    "price": 100
+  },
+  {
+    "id": "diag71",
+    "name": "Breast Cancer",
+    "icdCode": "C50.9",
+    "description": "Malignant neoplasm of breast, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag72",
+    "name": "Cervical Cancer",
+    "icdCode": "C53.9",
+    "description": "Malignant neoplasm of cervix uteri, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag73",
+    "name": "Cataract",
+    "icdCode": "H25.9",
+    "description": "Age-related cataract, unspecified eye",
+    "price": 100
+  },
+  {
+    "id": "diag74",
+    "name": "Glaucoma",
+    "icdCode": "H40.9",
+    "description": "Glaucoma, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag75",
+    "name": "Heart Failure",
+    "icdCode": "I50.9",
+    "description": "Heart failure, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag76",
+    "name": "Gastroenteritis",
+    "icdCode": "K52.9",
+    "description": "Noninfective gastroenteritis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag77",
+    "name": "Hypothyroidism",
+    "icdCode": "E03.9",
+    "description": "Hypothyroidism, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag78",
+    "name": "Hyperthyroidism",
+    "icdCode": "E05.9",
+    "description": "Hyperthyroidism, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag79",
+    "name": "Maternal Sepsis",
+    "icdCode": "O85",
+    "description": "Puerperal sepsis",
+    "price": 100
+  },
+  {
+    "id": "diag80",
+    "name": "Premature Labor",
+    "icdCode": "O60.1",
+    "description": "Premature labor, unspecified as to occurrence",
+    "price": 100
+  },
+  {
+    "id": "diag81",
+    "name": "Sickle Cell Disease",
+    "icdCode": "D57.1",
+    "description": "Sickle-cell disease without crisis",
+    "price": 100
+  },
+  {
+    "id": "diag82",
+    "name": "Stroke",
+    "icdCode": "I63.9",
+    "description": "Cerebral infarction, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag83",
+    "name": "Upper Respiratory Tract Infection",
+    "icdCode": "J06.9",
+    "description": "Acute upper respiratory infection, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag84",
+    "name": "Hepatitis B",
+    "icdCode": "B16.9",
+    "description": "Acute hepatitis B without hepatic coma",
+    "price": 100
+  },
+  {
+    "id": "diag85",
+    "name": "Hepatitis C",
+    "icdCode": "B17.1",
+    "description": "Viral hepatitis C",
+    "price": 100
+  },
+  {
+    "id": "diag86",
+    "name": "Chronic Hepatitis",
+    "icdCode": "K73.9",
+    "description": "Chronic hepatitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag87",
+    "name": "Amoebiasis",
+    "icdCode": "A06.9",
+    "description": "Amoebiasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag88",
+    "name": "Trypanosomiasis",
+    "icdCode": "B56.9",
+    "description": "African trypanosomiasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag89",
+    "name": "Leishmaniasis",
+    "icdCode": "B55.9",
+    "description": "Leishmaniasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag90",
+    "name": "Ascariasis",
+    "icdCode": "B77.9",
+    "description": "Ascariasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag91",
+    "name": "Trichuriasis",
+    "icdCode": "B79",
+    "description": "Trichuriasis",
+    "price": 100
+  },
+  {
+    "id": "diag92",
+    "name": "Scabies",
+    "icdCode": "B86",
+    "description": "Scabies",
+    "price": 100
+  },
+  {
+    "id": "diag93",
+    "name": "Onchocerciasis",
+    "icdCode": "B74.9",
+    "description": "Filariasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag94",
+    "name": "Dengue Fever",
+    "icdCode": "A90",
+    "description": "Dengue fever",
+    "price": 100
+  },
+  {
+    "id": "diag95",
+    "name": "Rabies",
+    "icdCode": "A82.9",
+    "description": "Rabies, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag96",
+    "name": "Rickettsiosis",
+    "icdCode": "A75.9",
+    "description": "Rickettsiosis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag97",
+    "name": "Lassa Fever",
+    "icdCode": "A94",
+    "description": "Viral hemorrhagic fever, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag98",
+    "name": "Ebola Virus Disease",
+    "icdCode": "A98.4",
+    "description": "Ebola virus disease",
+    "price": 100
+  },
+  {
+    "id": "diag99",
+    "name": "Plague",
+    "icdCode": "A20.9",
+    "description": "Plague, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag100",
+    "name": "Cholera",
+    "icdCode": "A00.9",
+    "description": "Cholera, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag101",
+    "name": "Anemia in Pregnancy",
+    "icdCode": "O99.0",
+    "description": "Anemia complicating pregnancy, unspecified trimester",
+    "price": 100
+  },
+  {
+    "id": "diag102",
+    "name": "Preeclampsia",
+    "icdCode": "O14.9",
+    "description": "Preeclampsia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag103",
+    "name": "Eclampsia",
+    "icdCode": "O15.9",
+    "description": "Eclampsia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag104",
+    "name": "Postpartum Hemorrhage",
+    "icdCode": "O72.9",
+    "description": "Postpartum hemorrhage, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag105",
+    "name": "Obstructed Labor",
+    "icdCode": "O64.9",
+    "description": "Obstructed labor, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag106",
+    "name": "Spontaneous Abortion",
+    "icdCode": "O03.9",
+    "description": "Spontaneous abortion, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag107",
+    "name": "Incomplete Abortion",
+    "icdCode": "O03.4",
+    "description": "Incomplete spontaneous abortion without complication",
+    "price": 100
+  },
+  {
+    "id": "diag108",
+    "name": "Placenta Previa",
+    "icdCode": "O44.9",
+    "description": "Placenta previa, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag109",
+    "name": "Abruptio Placentae",
+    "icdCode": "O45.9",
+    "description": "Premature separation of placenta, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag110",
+    "name": "Maternal Hypertension",
+    "icdCode": "O10.9",
+    "description": "Pre-existing essential hypertension complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag111",
+    "name": "Diabetes Mellitus in Pregnancy",
+    "icdCode": "O24.1",
+    "description": "Pre-existing type 1 diabetes mellitus in pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag112",
+    "name": "Gestational Diabetes",
+    "icdCode": "O24.4",
+    "description": "Gestational diabetes mellitus in pregnancy, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag113",
+    "name": "Bacterial Vaginosis",
+    "icdCode": "N72",
+    "description": "Inflammatory disease of cervix uteri",
+    "price": 100
+  },
+  {
+    "id": "diag114",
+    "name": "Trichomoniasis",
+    "icdCode": "A59.0",
+    "description": "Trichomoniasis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag115",
+    "name": "Syphilis in Pregnancy",
+    "icdCode": "A51.4",
+    "description": "Syphilis complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag116",
+    "name": "HIV in Pregnancy",
+    "icdCode": "O98.7",
+    "description": "Human immunodeficiency virus [HIV] disease complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag117",
+    "name": "Tuberculosis in Pregnancy",
+    "icdCode": "O98.0",
+    "description": "Tuberculosis complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag118",
+    "name": "Malaria in Pregnancy",
+    "icdCode": "O98.4",
+    "description": "Malaria complicating pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag119",
+    "name": "Malnutrition in Pregnancy",
+    "icdCode": "O99.2",
+    "description": "Nutritional deficiency anemia in pregnancy",
+    "price": 100
+  },
+  {
+    "id": "diag120",
+    "name": "Stillbirth",
+    "icdCode": "P95",
+    "description": "Fetal death of unspecified cause",
+    "price": 100
+  },
+  {
+    "id": "diag121",
+    "name": "Low Birth Weight Infant",
+    "icdCode": "P07.1",
+    "description": "Low birth weight, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag122",
+    "name": "Neonatal Sepsis",
+    "icdCode": "P36.9",
+    "description": "Sepsis of newborn, unspecified organism",
+    "price": 100
+  },
+  {
+    "id": "diag123",
+    "name": "Birth Asphyxia",
+    "icdCode": "P21.9",
+    "description": "Birth asphyxia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag124",
+    "name": "Neonatal Jaundice",
+    "icdCode": "P59.9",
+    "description": "Neonatal jaundice, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag125",
+    "name": "Congenital Malaria",
+    "icdCode": "P37.8",
+    "description": "Other specified congenital infectious and parasitic diseases",
+    "price": 100
+  },
+  {
+    "id": "diag126",
+    "name": "Congenital Syphilis",
+    "icdCode": "A50.9",
+    "description": "Congenital syphilis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag127",
+    "name": "Congenital HIV",
+    "icdCode": "P37.5",
+    "description": "Congenital human immunodeficiency virus [HIV]",
+    "price": 100
+  },
+  {
+    "id": "diag128",
+    "name": "Pediatric Pneumonia",
+    "icdCode": "J18.9",
+    "description": "Pneumonia, unspecified organism",
+    "price": 100
+  },
+  {
+    "id": "diag129",
+    "name": "Pediatric Diarrhea",
+    "icdCode": "A09",
+    "description": "Infectious gastroenteritis and colitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag130",
+    "name": "Severe Acute Malnutrition",
+    "icdCode": "E46",
+    "description": "Protein-calorie malnutrition, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag131",
+    "name": "Marasmus",
+    "icdCode": "E40",
+    "description": "Kwashiorkor with marasmus",
+    "price": 100
+  },
+  {
+    "id": "diag132",
+    "name": "Kwashiorkor",
+    "icdCode": "E41",
+    "description": "Nutritional kwashiorkor",
+    "price": 100
+  },
+  {
+    "id": "diag133",
+    "name": "Vitamin A Deficiency",
+    "icdCode": "E50.9",
+    "description": "Vitamin A deficiency, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag134",
+    "name": "Iron Deficiency Anemia",
+    "icdCode": "D50.9",
+    "description": "Iron deficiency anemia, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag135",
+    "name": "Anemia Due to Malaria",
+    "icdCode": "D63.0",
+    "description": "Anemia in neoplastic and other chronic diseases",
+    "price": 100
+  },
+  {
+    "id": "diag136",
+    "name": "Anemia Due to Hookworm",
+    "icdCode": "D63.8",
+    "description": "Anemia in other chronic diseases classified elsewhere",
+    "price": 100
+  },
+  {
+    "id": "diag137",
+    "name": "Chronic Liver Disease",
+    "icdCode": "K73.9",
+    "description": "Chronic hepatitis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag138",
+    "name": "Cirrhosis of Liver",
+    "icdCode": "K74.6",
+    "description": "Liver cirrhosis, unspecified",
+    "price": 100
+  },
+  {
+    "id": "diag139",
+    "name": "Acute Liver Failure",
+    "icdCode": "K72.0",
+    "description": "Hepatic failure, acute",
+    "price": 100
+  },
+  {
+    "id": "diag140",
+    "name": "Lymphadenopathy",
+    "icdCode": "R57.1",
+    "description": "Generalized lymphadenopathy",
+    "price": 100
+  }
+]

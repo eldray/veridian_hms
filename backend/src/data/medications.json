@@ -1,0 +1,1430 @@
+[
+  {
+    "id": "681d671613ea08b3806abdbf",
+    "name": "Hartmann's Solution (Ringer's Lactate) As needed",
+    "strength": "As needed",
+    "form": "Hartmann's Solution IV"
+  },
+  {
+    "id": "681d671613ea08b3806abdb2",
+    "name": "Blood Products (Whole Blood, Packed Red Cells, Plasma) As prescribed",
+    "strength": "As prescribed",
+    "form": "Blood Transfusion"
+  },
+  {
+    "id": "681d671613ea08b3806abda3",
+    "name": "Albumin (Human) As needed",
+    "strength": "As needed",
+    "form": "Albumin IV"
+  },
+  {
+    "id": "681d671613ea08b3806abd95",
+    "name": "Phytomenadione (Vitamin K1) 1-10mg",
+    "strength": "1-10mg",
+    "form": "Konakion IV"
+  },
+  {
+    "id": "681d671613ea08b3806abd80",
+    "name": "Ferrous Sucrose (Injection) As per iron deficiency calculation",
+    "strength": "As per iron deficiency calculation",
+    "form": "Venofer IV"
+  },
+  {
+    "id": "681d671513ea08b3806abd73",
+    "name": "Vitamin B12 (Hydroxocobalamin) 1000mcg",
+    "strength": "1000mcg",
+    "form": "Vitamin B12 Injection"
+  },
+  {
+    "id": "681d671513ea08b3806abd66",
+    "name": "Folic Acid (Injection) 5-15mg",
+    "strength": "5-15mg",
+    "form": "Folvite Injection"
+  },
+  {
+    "id": "681d671513ea08b3806abd58",
+    "name": "Insulin (Soluble) As per sliding scale or infusion protocol",
+    "strength": "As per sliding scale or infusion protocol",
+    "form": "Actrapid IV"
+  },
+  {
+    "id": "681d671513ea08b3806abd33",
+    "name": "Noradrenaline (Norepinephrine) As needed",
+    "strength": "As needed",
+    "form": "Noradrenaline IV"
+  },
+  {
+    "id": "681d671513ea08b3806abd24",
+    "name": "Adrenaline (Epinephrine) As needed",
+    "strength": "As needed",
+    "form": "Adrenaline IV"
+  },
+  {
+    "id": "681d671513ea08b3806abcf7",
+    "name": "Paracetamol (Infusion) 1g",
+    "strength": "1g",
+    "form": "Perfalgan IV"
+  },
+  {
+    "id": "681d671413ea08b3806abcaa",
+    "name": "Potassium Chloride (KCl) in Saline/Dextrose As prescribed",
+    "strength": "As prescribed",
+    "form": "KCl in IV Fluid"
+  },
+  {
+    "id": "681d671413ea08b3806abc9e",
+    "name": "5% Dextrose in Saline (D5NS) As needed",
+    "strength": "5% Dextrose, 0.9% Saline",
+    "form": "D5NS IV"
+  },
+  {
+    "id": "681d671413ea08b3806abc88",
+    "name": "5% Dextrose in Water (D5W) As needed",
+    "strength": "5%",
+    "form": "D5W IV"
+  },
+  {
+    "id": "681d671413ea08b3806abc7a",
+    "name": "Normal Saline (0.9% NaCl) As needed",
+    "strength": "0.9%",
+    "form": "Normal Saline IV"
+  },
+  {
+    "id": "681d671413ea08b3806abc6a",
+    "name": "Ciprofloxacin (Infusion) 200mg in 100ml",
+    "strength": "200mg",
+    "form": "Ciproxin Infusion"
+  },
+  {
+    "id": "681d671413ea08b3806abc5b",
+    "name": "Ceftriaxone (Infusion) 1g in 50ml",
+    "strength": "1g",
+    "form": "Rocephin Infusion"
+  },
+  {
+    "id": "681d671413ea08b3806abc4c",
+    "name": "Metronidazole (Infusion) 500mg in 100ml",
+    "strength": "500mg",
+    "form": "Flagyl Infusion"
+  },
+  {
+    "id": "681d671313ea08b3806abc1f",
+    "name": "Ceftriaxone (for neonates) 50mg/kg",
+    "strength": "50mg/kg",
+    "form": "Rocephin Neonatal IV"
+  },
+  {
+    "id": "681d671213ea08b3806abb95",
+    "name": "Co-trimoxazole (Pediatric Suspension) Age/weight-based",
+    "strength": "Age/weight-based",
+    "form": "Septrin Suspension"
+  },
+  {
+    "id": "681d671213ea08b3806abb86",
+    "name": "Amoxicillin (Pediatric Suspension) Age/weight-based",
+    "strength": "Age/weight-based",
+    "form": "Amoxil Suspension"
+  },
+  {
+    "id": "681d671213ea08b3806abb78",
+    "name": "Zinc Sulfate (for diarrhea) 20mg (for children)",
+    "strength": "20mg",
+    "form": "Zincovit-C"
+  },
+  {
+    "id": "681d671213ea08b3806abb6a",
+    "name": "Vitamin A (for children) Age-based",
+    "strength": "Age-based",
+    "form": "Retinol"
+  },
+  {
+    "id": "681d671213ea08b3806abb5c",
+    "name": "Ferrous Sulfate (for pregnancy) 200mg",
+    "strength": "200mg",
+    "form": "Fefol"
+  },
+  {
+    "id": "681d671213ea08b3806abb4e",
+    "name": "Folic Acid (for pregnancy) 0.4mg",
+    "strength": "0.4mg",
+    "form": "Folic Acid"
+  },
+  {
+    "id": "681d671213ea08b3806abb40",
+    "name": "Paracetamol (Suppository) Age-based",
+    "strength": "Age-based",
+    "form": "Panadol Suppository"
+  },
+  {
+    "id": "681d671213ea08b3806abb30",
+    "name": "Artemether/Lumefantrine (Suppository) Age-based",
+    "strength": "Age-based",
+    "form": "Coartem Suppository"
+  },
+  {
+    "id": "681d671213ea08b3806abb05",
+    "name": "Oxytocin (Injection) 5 IU or 10 IU",
+    "strength": "5 IU or 10 IU",
+    "form": "Syntocinon"
+  },
+  {
+    "id": "681d671113ea08b3806abaf6",
+    "name": "Ergometrine (Injection) 0.5mg",
+    "strength": "0.5mg",
+    "form": "Ergotrate"
+  },
+  {
+    "id": "681d671113ea08b3806abadf",
+    "name": "Vitamin K (Injection) 1mg",
+    "strength": "1mg",
+    "form": "Konakion"
+  },
+  {
+    "id": "681d671113ea08b3806abacf",
+    "name": "Vaccine (Polio - Oral) 2 drops",
+    "strength": "2 drops",
+    "form": "OPV"
+  },
+  {
+    "id": "681d671113ea08b3806abac2",
+    "name": "Vaccine (Hepatitis B) As per schedule",
+    "strength": "As per schedule",
+    "form": "Engerix-B"
+  },
+  {
+    "id": "681d671113ea08b3806abab4",
+    "name": "Vaccine (Tetanus Toxoid) 0.5ml",
+    "strength": "0.5ml",
+    "form": "Tetanus Toxoid Vaccine"
+  },
+  {
+    "id": "681d671113ea08b3806abaa4",
+    "name": "Vaccine (Yellow Fever) 0.5ml",
+    "strength": "0.5ml",
+    "form": "Stamaril"
+  },
+  {
+    "id": "681d671113ea08b3806aba96",
+    "name": "Vaccine (Measles) 0.5ml",
+    "strength": "0.5ml",
+    "form": "Measles Vaccine"
+  },
+  {
+    "id": "681d671113ea08b3806aba88",
+    "name": "Vaccine (BCG) 0.05ml or 0.1ml",
+    "strength": "0.05ml or 0.1ml",
+    "form": "BCG Vaccine"
+  },
+  {
+    "id": "681d671113ea08b3806aba79",
+    "name": "Mannitol (Infusion) 20%",
+    "strength": "20%",
+    "form": "Mannitol Infusion"
+  },
+  {
+    "id": "681d671013ea08b3806aba69",
+    "name": "Furosemide (Injection) 20mg",
+    "strength": "20mg",
+    "form": "Lasix Injection"
+  },
+  {
+    "id": "681d671013ea08b3806aba5b",
+    "name": "Potassium Chloride (Oral) 600mg",
+    "strength": "600mg",
+    "form": "Slow-K"
+  },
+  {
+    "id": "681d671013ea08b3806aba50",
+    "name": "Calcium Gluconate (Injection) 10%",
+    "strength": "10%",
+    "form": "Calcium Gluconate Inj."
+  },
+  {
+    "id": "681d671013ea08b3806aba42",
+    "name": "Glucagon (Injection) 1mg",
+    "strength": "1mg",
+    "form": "GlucaGen"
+  },
+  {
+    "id": "681d671013ea08b3806aba15",
+    "name": "Ranitidine (Injection) 50mg",
+    "strength": "50mg",
+    "form": "Zantac Injection"
+  },
+  {
+    "id": "681d671013ea08b3806ab9dc",
+    "name": "Ceftriaxone (IM/IV) 1g",
+    "strength": "1g",
+    "form": "Rocephin Injection"
+  },
+  {
+    "id": "681d670f13ea08b3806ab9ce",
+    "name": "Metronidazole (IV) 500mg",
+    "strength": "500mg",
+    "form": "Flagyl IV"
+  },
+  {
+    "id": "681d670f13ea08b3806ab97b",
+    "name": "Zidovudine (AZT) 300mg",
+    "strength": "300mg",
+    "form": "Retrovir"
+  },
+  {
+    "id": "681d670d13ea08b3806ab830",
+    "name": "Oral Rehydration Salts (ORS) As needed",
+    "strength": "As needed",
+    "form": "Electrolyte Mixture"
+  },
+  {
+    "id": "681d670c13ea08b3806ab822",
+    "name": "Insulin (NPH) As directed",
+    "strength": "As directed",
+    "form": "Humulin N"
+  },
+  {
+    "id": "681d670c13ea08b3806ab810",
+    "name": "Insulin (soluble) As directed",
+    "strength": "As directed",
+    "form": "Humulin R"
+  },
+  {
+    "id": "681d658a40a803e645d231b4",
+    "name": "Cefuroxime Tab 500mg",
+    "strength": "500mg",
+    "form": "Excinate 500"
+  },
+  {
+    "id": "681d658440a803e645d22e64",
+    "name": "Artemether/Lumefantrine Tab 80mg/480mg",
+    "strength": "80mg/480mg",
+    "form": "Lonart"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8984",
+    "name": "Domperidone Suspension 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Motilium Suspension"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8976",
+    "name": "Dicyclomine Syrup 10mg/5ml",
+    "strength": "10mg/5ml",
+    "form": "Bentyl Syrup"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8968",
+    "name": "Fluconazole Suspension 50mg/5ml",
+    "strength": "50mg/5ml",
+    "form": "Diflucan Suspension"
+  },
+  {
+    "id": "681d5713a8874c0e3aae895b",
+    "name": "Nystatin Oral Suspension 100,000IU/ml",
+    "strength": "100,000IU/ml",
+    "form": "Nystatin Oral Suspension"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8949",
+    "name": "Ivermectin Suspension 3mg/5ml",
+    "strength": "3mg/5ml",
+    "form": "Stromectol Suspension"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8943",
+    "name": "Cetirizine Syrup 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Zyrtec Syrup"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8934",
+    "name": "Diphenhydramine Syrup 12.5mg/5ml",
+    "strength": "12.5mg/5ml",
+    "form": "Benadryl Syrup"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8925",
+    "name": "Guaifenesin Syrup 100mg/5ml",
+    "strength": "100mg/5ml",
+    "form": "Robitussin Syrup"
+  },
+  {
+    "id": "681d5713a8874c0e3aae8918",
+    "name": "Dextromethorphan Syrup 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Robitussin DM Syrup"
+  },
+  {
+    "id": "681d5712a8874c0e3aae8909",
+    "name": "Zinc Sulfate Syrup 10mg/5ml",
+    "strength": "10mg/5ml",
+    "form": "Zinc Sulfate Syrup"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88fc",
+    "name": "Vitamin D Drops 400IU/5ml",
+    "strength": "400IU/5ml",
+    "form": "Vitamin D Drops"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88ed",
+    "name": "Theophylline Elixir 80mg/15ml",
+    "strength": "80mg/15ml",
+    "form": "Theophylline Elixir"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88e0",
+    "name": "Spironolactone Suspension 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Aldactone Suspension"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88d1",
+    "name": "Ranitidine Syrup 75mg/5ml",
+    "strength": "75mg/5ml",
+    "form": "Zantac Syrup"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88c3",
+    "name": "Promethazine Syrup 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Phenergan Syrup"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88b5",
+    "name": "Prednisolone Syrup 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Prednisolone Syrup"
+  },
+  {
+    "id": "681d5712a8874c0e3aae88a8",
+    "name": "Phenobarbital Elixir 15mg/5ml",
+    "strength": "15mg/5ml",
+    "form": "Phenobarbital Elixir"
+  },
+  {
+    "id": "681d5712a8874c0e3aae8899",
+    "name": "Ondansetron Syrup 2mg/5ml",
+    "strength": "2mg/5ml",
+    "form": "Zofran Syrup"
+  },
+  {
+    "id": "681d5711a8874c0e3aae888e",
+    "name": "Omeprazole Suspension 10mg/5ml",
+    "strength": "10mg/5ml",
+    "form": "Losec Suspension"
+  },
+  {
+    "id": "681d5711a8874c0e3aae887e",
+    "name": "Multivitamin Syrup 5ml",
+    "strength": "Multiple vitamins",
+    "form": "Poly-Vi-Sol Syrup"
+  },
+  {
+    "id": "681d5711a8874c0e3aae8871",
+    "name": "Loratadine Syrup 5mg/5ml",
+    "strength": "5mg/5ml",
+    "form": "Clarityn Syrup"
+  },
+  {
+    "id": "681d5711a8874c0e3aae8861",
+    "name": "Lactulose Solution 3.35g/5ml",
+    "strength": "3.35g/5ml",
+    "form": "Duphalac Solution"
+  },
+  {
+    "id": "681d5711a8874c0e3aae8853",
+    "name": "Hydroxyzine Syrup 10mg/5ml",
+    "strength": "10mg/5ml",
+    "form": "Atarax Syrup"
+  },
+  {
+    "id": "681d5711a8874c0e3aae8845",
+    "name": "Folic Acid Syrup 2.5mg/5ml",
+    "strength": "2.5mg/5ml",
+    "form": "Folic Acid Syrup"
+  },
+  {
+    "id": "681d5711a8874c0e3aae8838",
+    "name": "Dihydroartemisinin/Piperaquine Suspension 40mg/320mg per 5ml",
+    "strength": "40mg/320mg",
+    "form": "Duo-Cotecxin Suspension"
+  },
+  {
+    "id": "681d5710a8874c0e3aae882b",
+    "name": "Dexamethasone Elixir 0.5mg/5ml",
+    "strength": "0.5mg/5ml",
+    "form": "Decadron Elixir"
+  },
+  {
+    "id": "681d5710a8874c0e3aae881b",
+    "name": "Ciprofloxacin Suspension 250mg/5ml",
+    "strength": "250mg/5ml",
+    "form": "Ciproxin Suspension"
+  },
+  {
+    "id": "681d5710a8874c0e3aae880e",
+    "name": "Salbutamol Syrup 2mg/5ml",
+    "strength": "2mg/5ml",
+    "form": "Ventolin Syrup"
+  },
+  {
+    "id": "681d5710a8874c0e3aae87ff",
+    "name": "Ferrous Sulfate Syrup 125mg/5ml",
+    "strength": "125mg/5ml",
+    "form": "Ferrous Sulfate Syrup"
+  },
+  {
+    "id": "681d5710a8874c0e3aae87f1",
+    "name": "Mebendazole Suspension 100mg/5ml",
+    "strength": "100mg/5ml",
+    "form": "Vermox Suspension"
+  },
+  {
+    "id": "681d5710a8874c0e3aae87e5",
+    "name": "Chlorphenamine Syrup 2mg/5ml",
+    "strength": "2mg/5ml",
+    "form": "Piriton Syrup"
+  },
+  {
+    "id": "681d5710a8874c0e3aae87d6",
+    "name": "Azithromycin Suspension 200mg/5ml",
+    "strength": "200mg/5ml",
+    "form": "Zithromax Suspension"
+  },
+  {
+    "id": "681d5710a8874c0e3aae87c9",
+    "name": "Albendazole Suspension 200mg/5ml",
+    "strength": "200mg/5ml",
+    "form": "Zentel Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae87b9",
+    "name": "Simple Linctus Syrup 5ml",
+    "strength": "5ml",
+    "form": "Simple Linctus Syrup"
+  },
+  {
+    "id": "681d570fa8874c0e3aae87ad",
+    "name": "Artemether/Lumefantrine Suspension 20mg/120mg per 5ml",
+    "strength": "20mg/120mg per 5ml",
+    "form": "Coartem Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae879e",
+    "name": "Cefuroxime Suspension 250mg/5ml",
+    "strength": "250mg/5ml",
+    "form": "Zinacef Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae878f",
+    "name": "Cefuroxime Suspension 125mg/5ml",
+    "strength": "125mg/5ml",
+    "form": "Zinacef Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae8784",
+    "name": "Erythromycin Suspension 250mg/5ml",
+    "strength": "250mg/5ml",
+    "form": "Erythrocin Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae8773",
+    "name": "Erythromycin Suspension 125mg/5ml",
+    "strength": "125mg/5ml",
+    "form": "Erythrocin Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae8765",
+    "name": "Cefixime Suspension 100mg/5ml",
+    "strength": "100mg/5ml",
+    "form": "Suprax Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae8757",
+    "name": "Metronidazole Suspension 200mg/5ml",
+    "strength": "200mg/5ml",
+    "form": "Flagyl Suspension"
+  },
+  {
+    "id": "681d570fa8874c0e3aae8749",
+    "name": "Ibuprofen Syrup 100mg/5ml",
+    "strength": "100mg/5ml",
+    "form": "Brufen Syrup"
+  },
+  {
+    "id": "681d570ea8874c0e3aae873b",
+    "name": "Co-trimoxazole Suspension 240mg/5ml",
+    "strength": "240mg/5ml",
+    "form": "Septrin Suspension"
+  },
+  {
+    "id": "681d570ea8874c0e3aae872d",
+    "name": "Amoxicillin Suspension 250mg/5ml",
+    "strength": "250mg/5ml",
+    "form": "Amoxil Suspension"
+  },
+  {
+    "id": "681d570ea8874c0e3aae871f",
+    "name": "Amoxicillin Suspension 125mg/5ml",
+    "strength": "125mg/5ml",
+    "form": "Amoxil Suspension"
+  },
+  {
+    "id": "681d570ea8874c0e3aae8712",
+    "name": "Paracetamol Syrup 250mg/5ml",
+    "strength": "250mg/5ml",
+    "form": "Panadol Syrup"
+  },
+  {
+    "id": "681d570ea8874c0e3aae8703",
+    "name": "Paracetamol Syrup 120mg/5ml",
+    "strength": "120mg/5ml",
+    "form": "Panadol Syrup"
+  },
+  {
+    "id": "681d570ea8874c0e3aae86f5",
+    "name": "Albendazole 200mg",
+    "strength": "200mg",
+    "form": "Zentel"
+  },
+  {
+    "id": "681d570ea8874c0e3aae86e7",
+    "name": "Ibuprofen 600mg",
+    "strength": "600mg",
+    "form": "Brufen"
+  },
+  {
+    "id": "681d570ea8874c0e3aae86d9",
+    "name": "Ibuprofen 400mg",
+    "strength": "400mg",
+    "form": "Brufen"
+  },
+  {
+    "id": "681d570da8874c0e3aae86cb",
+    "name": "Ciprofloxacin 750mg",
+    "strength": "750mg",
+    "form": "Ciproxin"
+  },
+  {
+    "id": "681d570da8874c0e3aae86bd",
+    "name": "Ciprofloxacin 250mg",
+    "strength": "250mg",
+    "form": "Ciproxin"
+  },
+  {
+    "id": "681d570da8874c0e3aae86b1",
+    "name": "Losartan 100mg",
+    "strength": "100mg",
+    "form": "Cozaar"
+  },
+  {
+    "id": "681d570da8874c0e3aae86a2",
+    "name": "Losartan 25mg",
+    "strength": "25mg",
+    "form": "Cozaar"
+  },
+  {
+    "id": "681d570da8874c0e3aae8693",
+    "name": "Paracetamol 1000mg",
+    "strength": "1000mg",
+    "form": "Panadol"
+  },
+  {
+    "id": "681d570da8874c0e3aae8685",
+    "name": "Amoxicillin 500mg",
+    "strength": "500mg",
+    "form": "Amoxil"
+  },
+  {
+    "id": "681d570da8874c0e3aae8677",
+    "name": "Amoxicillin 125mg",
+    "strength": "125mg",
+    "form": "Amoxil"
+  },
+  {
+    "id": "681d570ca8874c0e3aae8669",
+    "name": "Metformin 1000mg",
+    "strength": "1000mg",
+    "form": "Glucophage"
+  },
+  {
+    "id": "681d570ca8874c0e3aae865b",
+    "name": "Metformin 850mg",
+    "strength": "850mg",
+    "form": "Glucophage"
+  },
+  {
+    "id": "681d570ca8874c0e3aae864d",
+    "name": "Amlodipine 10mg",
+    "strength": "10mg",
+    "form": "Norvasc"
+  },
+  {
+    "id": "681d570ca8874c0e3aae863f",
+    "name": "Amlodipine 2.5mg",
+    "strength": "2.5mg",
+    "form": "Norvasc"
+  },
+  {
+    "id": "681d570ca8874c0e3aae8631",
+    "name": "Sodium Bicarbonate As per blood gas analysis",
+    "strength": "As per blood gas analysis",
+    "form": "Sodium Bicarbonate IV"
+  },
+  {
+    "id": "681d570ba8874c0e3aae85eb",
+    "name": "Tranexamic Acid 1g",
+    "strength": "1g",
+    "form": "Cyklokapron IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae85a5",
+    "name": "Aminophylline Loading dose then continuous infusion",
+    "strength": "Loading dose then continuous infusion",
+    "form": "Aminophylline IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae8597",
+    "name": "Atropine Sulfate 0.5-1mg",
+    "strength": "0.5-1mg",
+    "form": "Atropine IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae858b",
+    "name": "Dopamine As needed",
+    "strength": "As needed",
+    "form": "Dopamine IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae8561",
+    "name": "Hydrocortisone 100-200mg",
+    "strength": "100-200mg",
+    "form": "Solu-Cortef IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae8554",
+    "name": "Dexamethasone 4-8mg",
+    "strength": "4-8mg",
+    "form": "Decadron IV"
+  },
+  {
+    "id": "681d570aa8874c0e3aae8543",
+    "name": "Ondansetron 4-8mg",
+    "strength": "4-8mg",
+    "form": "Zofran IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae8535",
+    "name": "Ranitidine 50mg",
+    "strength": "50mg",
+    "form": "Zantac IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae8519",
+    "name": "Tramadol 50-100mg",
+    "strength": "50-100mg",
+    "form": "Tramadol IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae850b",
+    "name": "Morphine Sulfate 2.5-10mg",
+    "strength": "2.5-10mg",
+    "form": "Morphine IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae84fd",
+    "name": "Haloperidol 2.5-5mg",
+    "strength": "2.5-5mg",
+    "form": "Haldol IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae84ef",
+    "name": "Phenytoin Loading dose then maintenance",
+    "strength": "Loading dose then maintenance",
+    "form": "Dilantin IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae84e1",
+    "name": "Diazepam 5-10mg",
+    "strength": "5-10mg",
+    "form": "Valium IV"
+  },
+  {
+    "id": "681d5709a8874c0e3aae84d3",
+    "name": "Furosemide 20-40mg",
+    "strength": "20-40mg",
+    "form": "Lasix IV"
+  },
+  {
+    "id": "681d5708a8874c0e3aae84c5",
+    "name": "Magnesium Sulfate As prescribed",
+    "strength": "As prescribed",
+    "form": "Magnesium Sulfate IV"
+  },
+  {
+    "id": "681d5708a8874c0e3aae84b7",
+    "name": "Calcium Gluconate 10%",
+    "strength": "10%",
+    "form": "Calcium Gluconate IV"
+  },
+  {
+    "id": "681d5708a8874c0e3aae8489",
+    "name": "Ringer's Lactate As needed",
+    "strength": "As needed",
+    "form": "Ringer's Lactate IV"
+  },
+  {
+    "id": "681d5707a8874c0e3aae843c",
+    "name": "Azithromycin 500mg",
+    "strength": "500mg",
+    "form": "Zithromax IV"
+  },
+  {
+    "id": "681d5707a8874c0e3aae842e",
+    "name": "Imipenem/Cilastatin 500mg",
+    "strength": "500mg",
+    "form": "Primaxin IV"
+  },
+  {
+    "id": "681d5707a8874c0e3aae841c",
+    "name": "Piperacillin/Tazobactam 4.5g",
+    "strength": "4.5g",
+    "form": "Tazocin IV"
+  },
+  {
+    "id": "681d5707a8874c0e3aae8418",
+    "name": "Ampicillin 500mg-1g",
+    "strength": "500mg-1g",
+    "form": "Ampicillin IV"
+  },
+  {
+    "id": "681d5707a8874c0e3aae83f9",
+    "name": "Quinine Dihydrochloride 20mg/kg loading then 10mg/kg",
+    "strength": "20mg/kg loading then 10mg/kg",
+    "form": "Quinine IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83ed",
+    "name": "Artesunate 2.4mg/kg",
+    "strength": "2.4mg/kg",
+    "form": "Artesunate IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83dd",
+    "name": "Acyclovir 5-10mg/kg",
+    "strength": "5-10mg/kg",
+    "form": "Zovirax IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83cf",
+    "name": "Fluconazole 200mg",
+    "strength": "200mg",
+    "form": "Diflucan IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83c1",
+    "name": "Amoxicillin/Clavulanic Acid 1.2g",
+    "strength": "1.2g",
+    "form": "Augmentin IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83b3",
+    "name": "Vancomycin 1g",
+    "strength": "1g",
+    "form": "Vancocin IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae83a6",
+    "name": "Meropenem 1g",
+    "strength": "1g",
+    "form": "Meronem IV"
+  },
+  {
+    "id": "681d5706a8874c0e3aae8397",
+    "name": "Clindamycin 600mg",
+    "strength": "600mg",
+    "form": "Dalacin C IV"
+  },
+  {
+    "id": "681d5705a8874c0e3aae8385",
+    "name": "Cefuroxime 750mg",
+    "strength": "750mg",
+    "form": "Zinacef IV"
+  },
+  {
+    "id": "681d5705a8874c0e3aae835e",
+    "name": "Metronidazole 500mg",
+    "strength": "500mg",
+    "form": "Flagyl IV"
+  },
+  {
+    "id": "681d5705a8874c0e3aae834c",
+    "name": "Ciprofloxacin 400mg",
+    "strength": "400mg",
+    "form": "Ciproxin IV"
+  },
+  {
+    "id": "681d5703a8874c0e3aae82cd",
+    "name": "Tetracycline Eye Ointment 1%",
+    "strength": "1%",
+    "form": "Achromycin Eye Ointment"
+  },
+  {
+    "id": "681d5703a8874c0e3aae82bf",
+    "name": "Gentamicin Eye Drops 0.3%",
+    "strength": "0.3%",
+    "form": "Garamycin Eye Drops"
+  },
+  {
+    "id": "681d5703a8874c0e3aae82b1",
+    "name": "Mifepristone 200mg",
+    "strength": "200mg",
+    "form": "Mifeprex"
+  },
+  {
+    "id": "681d5703a8874c0e3aae82a3",
+    "name": "Misoprostol 200mcg",
+    "strength": "200mcg",
+    "form": "Cytotec"
+  },
+  {
+    "id": "681d5703a8874c0e3aae8279",
+    "name": "Silver Nitrate Eye Drops 1%",
+    "strength": "1%",
+    "form": "Silver Nitrate Drops"
+  },
+  {
+    "id": "681d5701a8874c0e3aae81c5",
+    "name": "Oral Glucose As needed",
+    "strength": "As needed",
+    "form": "GlucoTabs"
+  },
+  {
+    "id": "681d5701a8874c0e3aae81b5",
+    "name": "Loperamide 2mg",
+    "strength": "2mg",
+    "form": "Imodium"
+  },
+  {
+    "id": "681d5701a8874c0e3aae81a7",
+    "name": "Magnesium Trisilicate Mixture 10ml",
+    "strength": "10抵达ml",
+    "form": "Mag Trisil"
+  },
+  {
+    "id": "681d5700a8874c0e3aae8199",
+    "name": "Hyoscine Butylbromide 10mg",
+    "strength": "10mg",
+    "form": "Buscopan"
+  },
+  {
+    "id": "681d5700a8874c0e3aae817f",
+    "name": "Promethazine 25mg",
+    "strength": "25mg",
+    "form": "Phenergan"
+  },
+  {
+    "id": "681d5700a8874c0e3aae816f",
+    "name": "Cetirizine 10mg",
+    "strength": "10mg",
+    "form": "Zyrtec"
+  },
+  {
+    "id": "681d5700a8874c0e3aae8161",
+    "name": "Chlorphenamine 4mg",
+    "strength": "4mg",
+    "form": "Piriton"
+  },
+  {
+    "id": "681d5700a8874c0e3aae8155",
+    "name": "Phenoxymethylpenicillin 250mg",
+    "strength": "250mg",
+    "form": "Penicillin VK"
+  },
+  {
+    "id": "681d5700a8874c0e3aae8142",
+    "name": "Procaine Benzylpenicillin 3 million units",
+    "strength": "3 million units",
+    "form": "Bicillin L-A"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae811e",
+    "name": "Clindamycin 300mg",
+    "strength": "300mg",
+    "form": "Dalacin C"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae810c",
+    "name": "Cefixime 400mg",
+    "strength": "400mg",
+    "form": "Suprax"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae8108",
+    "name": "Raltegravir 400mg",
+    "strength": "400mg",
+    "form": "Isentress"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae80f9",
+    "name": "Emtricitabine 200mg",
+    "strength": "200mg",
+    "form": "Emtriva"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae80e9",
+    "name": "Dolutegravir 50mg",
+    "strength": "50mg",
+    "form": "Tivicay"
+  },
+  {
+    "id": "681d56ffa8874c0e3aae80db",
+    "name": "Darunavir 600mg",
+    "strength": "600mg",
+    "form": "Prezista"
+  },
+  {
+    "id": "681d56fea8874c0e3aae80cf",
+    "name": "Atazanavir 300mg",
+    "strength": "300mg",
+    "form": "Reyataz"
+  },
+  {
+    "id": "681d56fea8874c0e3aae80bd",
+    "name": "Lopinavir/Ritonavir 200mg/50mg",
+    "strength": "200mg/50mg",
+    "form": "Kaletra"
+  },
+  {
+    "id": "681d56fea8874c0e3aae80b4",
+    "name": "Abacavir 300mg",
+    "strength": "300mg",
+    "form": "Ziagen"
+  },
+  {
+    "id": "681d56fea8874c0e3aae8095",
+    "name": "Lamivudine 150mg",
+    "strength": "150mg",
+    "form": "Epivir"
+  },
+  {
+    "id": "681d56fea8874c0e3aae808d",
+    "name": "Tenofovir Disoproxil Fumarate 300mg",
+    "strength": "300mg",
+    "form": "Viread"
+  },
+  {
+    "id": "681d56fea8874c0e3aae8080",
+    "name": "Efavirenz 600mg",
+    "strength": "600mg",
+    "form": "Sustiva"
+  },
+  {
+    "id": "681d56fea8874c0e3aae8071",
+    "name": "Nevirapine 200mg",
+    "strength": "200mg",
+    "form": "Viramune"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8063",
+    "name": "Ethambutol 400mg",
+    "strength": "400mg",
+    "form": "Myambutol"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8055",
+    "name": "Pyrazinamide 500mg",
+    "strength": "500mg",
+    "form": "Pyrazinamide"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8047",
+    "name": "Rifampicin 600mg",
+    "strength": "600mg",
+    "form": "Rimactane"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8039",
+    "name": "Isoniazid 300mg",
+    "strength": "300mg",
+    "form": "Isoniazid"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8027",
+    "name": "Sulfadoxine/Pyrimethamine 500mg/25mg",
+    "strength": "500mg/25mg",
+    "form": "Fansidar"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8023",
+    "name": "Primaquine 7.5mg",
+    "strength": "7.5mg",
+    "form": "Primaquine"
+  },
+  {
+    "id": "681d56fda8874c0e3aae8012",
+    "name": "Mefloquine 250mg",
+    "strength": "250mg",
+    "form": "Lariam"
+  },
+  {
+    "id": "681d56fca8874c0e3aae8004",
+    "name": "Amodiaquine 200mg",
+    "strength": "200mg",
+    "form": "Camoquin"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7ff6",
+    "name": "Artesunate 50mg",
+    "strength": "50mg",
+    "form": "Plasmocid"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fe8",
+    "name": "Amoxicillin/Clavulanic Acid 625mg",
+    "strength": "625mg",
+    "form": "Augmentin"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fd6",
+    "name": "Levofloxacin 500mg",
+    "strength": "500mg",
+    "form": "Tavanic"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fd2",
+    "name": "Gliclazide 80mg",
+    "strength": "80mg",
+    "form": "Diamicron"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fc2",
+    "name": "Sitagliptin 100mg",
+    "strength": "100mg",
+    "form": "Januvia"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fb3",
+    "name": "Pioglitazone 15mg",
+    "strength": "15mg",
+    "form": "Actos"
+  },
+  {
+    "id": "681d56fca8874c0e3aae7fa5",
+    "name": "Metoprolol 100mg",
+    "strength": "100mg",
+    "form": "Lopressor"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f97",
+    "name": "Carvedilol 25mg",
+    "strength": "25mg",
+    "form": "Coreg"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f89",
+    "name": "Indapamide 2.5mg",
+    "strength": "2.5mg",
+    "form": "Natrilix"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f7b",
+    "name": "Ramipril 5mg",
+    "strength": "5mg",
+    "form": "Altace"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f6d",
+    "name": "Candesartan 16mg",
+    "strength": "16mg",
+    "form": "Atacand"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f5f",
+    "name": "Tramadol 50mg",
+    "strength": "50mg",
+    "form": "Zaldiar"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f51",
+    "name": "Morphine As needed",
+    "strength": "As needed",
+    "form": "Sevredol"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f43",
+    "name": "Ranitidine 150mg",
+    "strength": "150mg",
+    "form": "Zantac"
+  },
+  {
+    "id": "681d56fba8874c0e3aae7f36",
+    "name": "Loratadine 10mg",
+    "strength": "10mg",
+    "form": "Claritin"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7f27",
+    "name": "Beclometasone 50mcg per puff",
+    "strength": "50mcg per puff",
+    "form": "Beconase"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7f1b",
+    "name": "Salmeterol 50mcg",
+    "strength": "50mcg",
+    "form": "Serevent"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7f0b",
+    "name": "Spironolactone 25mg",
+    "strength": "25mg",
+    "form": "Aldactone"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7efe",
+    "name": "Erythromycin 250mg",
+    "strength": "250mg",
+    "form": "Erythrocin"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7eef",
+    "name": "Cloxacillin 500mg",
+    "strength": "500mg",
+    "form": "Orbenin"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7ee3",
+    "name": "Amikacin 500mg",
+    "strength": "500mg",
+    "form": "Amikin"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7ed4",
+    "name": "Ceftazidime 1g",
+    "strength": "1g",
+    "form": "Fortum"
+  },
+  {
+    "id": "681d56faa8874c0e3aae7ec5",
+    "name": "Acyclovir 200mg",
+    "strength": "200mg",
+    "form": "Zovirax"
+  },
+  {
+    "id": "681d56f9a8874c0e3aae7eb7",
+    "name": "Quinine 600mg",
+    "strength": "600mg",
+    "form": "Quinimax"
+  },
+  {
+    "id": "681d56f9a8874c0e3aae7ea9",
+    "name": "Albendazole 400mg",
+    "strength": "400mg",
+    "form": "Zentel"
+  },
+  {
+    "id": "681d56f9a8874c0e3aae7e9b",
+    "name": "Vitamin A As directed",
+    "strength": "As directed",
+    "form": "Retinol"
+  },
+  {
+    "id": "681d56f9a8874c0e3aae7e8d",
+    "name": "Ferrous Sulfate 200mg",
+    "strength": "200mg",
+    "form": "Fefol"
+  },
+  {
+    "id": "681d56f9a8874c0e3aae7e7f",
+    "name": "Folic Acid 5mg",
+    "strength": "5mg",
+    "form": "Folvite"
+  },
+  {
+    "id": "681d56f8a8874c0e3aae7e47",
+    "name": "Ceftriaxone 1g",
+    "strength": "1g",
+    "form": "Rocephin"
+  },
+  {
+    "id": "681d56f8a8874c0e3aae7e3a",
+    "name": "Amitriptyline 25mg",
+    "strength": "25mg",
+    "form": "Elavil"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7e2b",
+    "name": "Diazepam 5mg",
+    "strength": "5mg",
+    "form": "Valium"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7e1e",
+    "name": "Gentamicin 80mg",
+    "strength": "80mg",
+    "form": "Garamycin"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7e19",
+    "name": "Gentamicin40mg",
+    "strength": "80mg",
+    "form": "Garamycin"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7e0f",
+    "name": "Benzylpenicillin 1 million units",
+    "strength": "1 million units",
+    "form": "Crystapen"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7e02",
+    "name": "Prednisolone 5mg",
+    "strength": "5mg",
+    "form": "Deltasone"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7df4",
+    "name": "Nifedipine 30mg",
+    "strength": "30mg",
+    "form": "Adalat"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7de6",
+    "name": "Metronidazole 200mg",
+    "strength": "200mg",
+    "form": "Flagyl"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7dd7",
+    "name": "Chloramphenicol 250mg",
+    "strength": "250mg",
+    "form": "Chloromycetin"
+  },
+  {
+    "id": "681d56f7a8874c0e3aae7dc9",
+    "name": "Lisinopril 10mg",
+    "strength": "10mg",
+    "form": "Zestril"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7dbb",
+    "name": "Omeprazole 20mg",
+    "strength": "20mg",
+    "form": "Losec"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7dae",
+    "name": "Diclofenac 50mg",
+    "strength": "50mg",
+    "form": "Voltaren"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d9f",
+    "name": "Furosemide 40mg",
+    "strength": "40mg",
+    "form": "Lasix"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d91",
+    "name": "Mebendazole 500mg",
+    "strength": "500mg",
+    "form": "Vermox"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d83",
+    "name": "Fluconazole 150mg",
+    "strength": "150mg",
+    "form": "Diflucan"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d71",
+    "name": "Atenolol 50mg",
+    "strength": "50mg",
+    "form": "Tenormin"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d6d",
+    "name": "Hydrochlorothiazide 25mg",
+    "strength": "25mg",
+    "form": "Esidrex"
+  },
+  {
+    "id": "681d56f6a8874c0e3aae7d5c",
+    "name": "Ibuprofen 200mg",
+    "strength": "200mg",
+    "form": "Brufen"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d4e",
+    "name": "Azythromycin 250mg",
+    "strength": "250mg",
+    "form": "Zithromax"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d40",
+    "name": "Doxycycline 100mg",
+    "strength": "100mg",
+    "form": "Vibramycin"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d32",
+    "name": "Ciprofloxacin 500mg",
+    "strength": "500mg",
+    "form": "Ciproxin"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d24",
+    "name": "Glibenclamide 5mg",
+    "strength": "5mg",
+    "form": "Daonil"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d16",
+    "name": "Losartan 50mg",
+    "strength": "50mg",
+    "form": "Cozaar"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7d08",
+    "name": "Paracetamol 500mg",
+    "strength": "500mg",
+    "form": "Panadol"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7cfa",
+    "name": "Artemether/Lumefantrine Tab 20mg/120mg",
+    "strength": "20mg/120mg",
+    "form": "Coartem"
+  },
+  {
+    "id": "681d56f5a8874c0e3aae7cec",
+    "name": "Co-trimoxazole 480mg",
+    "strength": "480mg",
+    "form": "Septrin"
+  },
+  {
+    "id": "681d56f4a8874c0e3aae7cde",
+    "name": "Amoxicillin 250mg",
+    "strength": "250mg",
+    "form": "Amoxil"
+  },
+  {
+    "id": "681d56f4a8874c0e3aae7cd0",
+    "name": "Salbutamol 100mcg",
+    "strength": "100mcg",
+    "form": "Ventolin"
+  },
+  {
+    "id": "681d56f4a8874c0e3aae7cc2",
+    "name": "Metformin 500mg",
+    "strength": "500mg",
+    "form": "Glucophage"
+  },
+  {
+    "id": "681d56f4a8874c0e3aae7cb4",
+    "name": "Amlodipine 5mg",
+    "strength": "5mg",
+    "form": "Norvasc"
+  }
+]

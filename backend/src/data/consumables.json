@@ -1,0 +1,56 @@
+[
+    {
+      "name": "Syringes 5ml",
+      "strength": "5ml",
+      "form": "Unit",
+      "category": "injection",
+      "unit": "pieces",
+      "unitPrice": 0.50,
+      "itemType": "consumable"
+    },
+    {
+      "name": "Disposable Gloves",
+      "strength": "Medium", 
+      "form": "Pair",
+      "category": "dressing",
+      "unit": "pairs",
+      "unitPrice": 0.20,
+      "itemType": "consumable"
+    },
+    {
+      "name": "Plasters",
+      "strength": "Standard",
+      "form": "Unit", 
+      "category": "dressing",
+      "unit": "pieces", 
+      "unitPrice": 0.10,
+      "itemType": "consumable"
+    },
+    {
+      "name": "Cotton Wool",
+      "strength": "100g",
+      "form": "Pack",
+      "category": "dressing",
+      "unit": "packs",
+      "unitPrice": 2.50,
+      "itemType": "consumable"
+    },
+    {
+      "name": "Bandages",
+      "strength": "10cm",
+      "form": "Roll",
+      "category": "dressing",
+      "unit": "rolls",
+      "unitPrice": 3.00,
+      "itemType": "consumable"
+    },
+    {
+      "name": "Needles 21G",
+      "strength": "21G",
+      "form": "Unit",
+      "category": "injection",
+      "unit": "pieces",
+      "unitPrice": 0.30,
+      "itemType": "consumable"
+    }
+  ]
