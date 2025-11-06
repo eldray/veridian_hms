@@ -46,6 +46,7 @@ export default function StockManagement() {
     unitPrice: 0,
     sellingPrice: 0,
     supplier: '',
+    insurancePrice: 0,
   });
   const [transactionData, setTransactionData] = useState({
     transactionType: 'stock_in',
@@ -134,6 +135,7 @@ export default function StockManagement() {
       reorderLevel: item.reorderLevel,
       unitPrice: item.unitPrice,
       sellingPrice: item.sellingPrice,
+      insurancePrice: item.insurancePrice || 0,
       supplier: item.supplier || '',
     });
     setShowForm(true);
@@ -431,6 +433,20 @@ export default function StockManagement() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
                   />
                 </div>
+                <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    Insurance Price (GHS) *
+  </label>
+  <input
+    type="number"
+    min="0"
+    step="0.01"
+    required
+    value={formData.insurancePrice}
+    onChange={(e) => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) })}
+    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+  />
+</div>
               </div>
               
               <div>

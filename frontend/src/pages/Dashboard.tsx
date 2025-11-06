@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - UPDATED HEADER
+// src/pages/Dashboard.tsx - WITH PATIENT MATCHING FIX
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -27,7 +27,7 @@ import {
   Building,
   ClipboardList,
   BarChart3,
-  Hospital // ← ADDED HOSPITAL ICON
+  Hospital
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -173,6 +173,55 @@ export default function Dashboard() {
     }
   };
 
+  // Enhanced patient matching function for Dashboard
+  const findPatientForDashboard = (attendance: any) => {
+    // If attendance has a populated patient object with fullName, use it
+    if (attendance?.patient?.fullName) {
+      return attendance.patient;
+    }
+
+    // Handle patientId as OBJECT - extract the actual ID
+    let actualPatientId: string | null = null;
+    
+    if (attendance.patientId && typeof attendance.patientId === 'object') {
+      // patientId is an object, extract the ID from common field names
+      actualPatientId = (
+        attendance.patientId._id ||
+        attendance.patientId.id ||
+        attendance.patientId.patientId ||
+        attendance.patientId.patientID
+      )?.toString();
+    } else if (attendance.patientId) {
+      // patientId is already a string or primitive
+      actualPatientId = attendance.patientId.toString();
+    }
+
+    // If we found an actual patient ID, try to match it
+    if (actualPatientId) {
+      const patient = patients.find(p => {
+        const patientId = (p._id || p.id)?.toString();
+        return patientId === actualPatientId;
+      });
+      if (patient) return patient;
+    }
+
+    // Last resort: check if patient object exists but without fullName
+    if (attendance.patient && typeof attendance.patient === 'object') {
+      const patientObjId = (
+        attendance.patient._id ||
+        attendance.patient.id ||
+        attendance.patient.patientId
+      )?.toString();
+      
+      if (patientObjId) {
+        const patient = patients.find(p => (p._id || p.id)?.toString() === patientObjId);
+        if (patient) return patient;
+      }
+    }
+
+    return null;
+  };
+
   const recentAttendances = (attendances || [])
     .slice()
     .sort((a: any, b: any) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
@@ -194,15 +243,15 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 via-blue-50 to-gray-50 min-h-screen">
-      {/* UPDATED HEADER - Consistent with Attendance component */}
+      {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
-              <Hospital className="w-8 h-8 text-white" /> {/* ← CHANGED FROM Heart TO Hospital */}
+              <Hospital className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold mb-2">Dashboard Overview</h1> {/* ← CHANGED TITLE */}
+              <h1 className="text-3xl font-bold mb-2">Dashboard Overview</h1>
               <p className="text-blue-100 text-lg">
                 Welcome back, {user?.role === 'doctor' ? 'Dr.' : ''} {user?.fullName}!
                 {' '}{new Date().toLocaleDateString('en-US', {
@@ -211,7 +260,7 @@ export default function Dashboard() {
                   month: 'long',
                   day: 'numeric',
                 })}
-              </p> {/* ← MOVED WELCOME MESSAGE HERE */}
+              </p>
             </div>
           </div>
           <button
@@ -334,39 +383,42 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {recentAttendances.map((attendance: any) => (
-                <div key={attendance._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors group">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-blue-600" />
+              {recentAttendances.map((attendance: any) => {
+                const patient = findPatientForDashboard(attendance);
+                return (
+                  <div key={attendance._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors group">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Users className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {patient ? patient.fullName : `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {attendance.diagnoses?.find((d: any) => d.primary)?.diagnosisId?.name || 'No diagnosis'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {attendance.patient?.fullName || 'Unknown Patient'}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {attendance.diagnoses?.find((d: any) => d.primary)?.diagnosisId?.name || 'No diagnosis'}
-                      </p>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                        <Clock className="w-4 h-4" />
+                        {attendance.dateTime
+                          ? new Date(attendance.dateTime).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'No time'}
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(attendance.status)}`}
+                      >
+                        {attendance.status || 'unknown'}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                      <Clock className="w-4 h-4" />
-                      {attendance.dateTime
-                        ? new Date(attendance.dateTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'No time'}
-                    </div>
-                    <span
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(attendance.status)}`}
-                    >
-                      {attendance.status || 'unknown'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

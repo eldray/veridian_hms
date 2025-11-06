@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔐 Attempting login for user:', username);
           const response = await apiLogin(username, password);
-          console.log('✅ Login response received');
+          console.log('✅ Login response received:', response);
           
           const user = response.user || response;
           const token = response.token || response.accessToken;
@@ -54,11 +54,11 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('No authentication token received');
           }
 
-          // CRITICAL FIX: Sync token with localStorage
+          // CRITICAL: Store token in localStorage
           localStorage.setItem('auth_token', token);
           console.log('💾 Token saved to localStorage');
 
-          console.log('🔐 Login successful');
+          console.log('🔐 Login successful - User:', user.username, 'Role:', user.role);
           set({ 
             user, 
             token,
@@ -102,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
         
         // If no token in localStorage, clear everything
         if (!storedToken) {
-          console.log('❌ No token in localStorage');
+          console.log('❌ No token in localStorage - clearing auth');
           set({ 
             user: null, 
             token: null, 
@@ -112,25 +112,15 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        // If store token doesn't match localStorage, sync them
-        if (state.token !== storedToken) {
-          console.log('🔄 Syncing store token with localStorage');
-          set({ token: storedToken });
-        }
-
-        // If we already have a user and token is valid, skip verification
-        if (state.user && storedToken && state.isInitialized) {
-          console.log('✅ Already authenticated, skipping verify');
-          return;
-        }
-
+        // ✅ FIX: ALWAYS verify token with backend, regardless of existing state
         set({ isLoading: true });
 
         try {
-          console.log('🔄 Verifying token...');
+          console.log('🔄 Verifying token with backend...');
           const user = await verifyToken();
-          console.log('✅ Token verified, user:', user);
+          console.log('✅ Token verified successfully - User:', user.username, 'Role:', user.role);
           
+          // ✅ FIX: Update both token and user state
           set({ 
             user, 
             token: storedToken,
@@ -150,6 +140,11 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isInitialized: true 
           });
+          
+          // Optional: Redirect to login if not already there
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
         }
       },
 
@@ -210,7 +205,6 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isInitialized: state.isInitialized
       }),
-      // Add version to handle migrations if needed
       version: 1,
     }
   )

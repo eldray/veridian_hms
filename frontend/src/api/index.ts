@@ -1,3 +1,4 @@
+// src/api/index.ts - COMPLETE FIXED VERSION
 import api from './api';
 
 // Generic response handler
@@ -7,6 +8,29 @@ const handleResponse = (response: any) => {
   if (response?.success && Array.isArray(response.data)) return response.data;
   console.warn('Unexpected API response:', response);
   return [];
+};
+
+// function to convert date
+const convertISODateToInputFormat = (isoDate: string): string => {
+  if (!isoDate) return '';
+  
+  try {
+    const date = new Date(isoDate);
+    
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date:', isoDate);
+      return '';
+    }
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('Error converting date:', error);
+    return '';
+  }
 };
 
 // ───── AUTH & PROFILE ─────
@@ -51,7 +75,6 @@ export const deactivateUser = (userId: string) =>
 // ───── HOSPITAL ─────
 export const getHospital = () => api.get('/hospitals').then(r => r.data[0]);
 
-
 // ───── INSURANCE PROVIDERS ─────
 export const getInsuranceProviders = () => 
   api.get('/insurance-providers').then(r => {
@@ -71,7 +94,6 @@ export const getInsuranceProviders = () =>
       return response.data;
     } else {
       console.warn('❌ Unexpected insurance providers response format:', response);
-      // Return empty array as fallback
       return [];
     }
   });
@@ -108,8 +130,7 @@ export const generatePrivateInsuranceClaim = (attendanceId: string, insurancePro
   api.get(`/insurance-claims/private-claim/${attendanceId}/${insuranceProviderId}`).then(r => r.data);
 
 // ───── PATIENTS ─────
-  
-  export const getPatient = (id: string) => 
+export const getPatient = (id: string) => 
   api.get(`/patients/${id}`).then(r => {
     const patient = r.data;
     // Convert dateOfBirth to input format if it's in ISO format
@@ -151,9 +172,24 @@ export const updatePatient = (id: string, data: any) => {
   }
 };
 
+// Patient image upload using consistent API client
+export const uploadPatientImage = (patientId: string, formData: FormData) =>
+  api.post(`/patients/${patientId}/image`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }).then(r => r.data);
+
+export const uploadPatientImageBase64 = (patientId: string, base64Image: string) =>
+  api.post(`/patients/${patientId}/image-base64`, { image: base64Image })
+    .then(r => r.data);
+
 // ───── ATTENDANCES ─────
 export const getAttendances = (filters?: any) => 
-  api.get('/attendances', { params: filters }).then(r => r.data);
+  api.get('/attendances', { params: filters }).then(r => {
+    console.log('🔍 [API] Raw attendances response:', r.data);
+    return r.data;
+  });
 
 export const getAttendance = (id: string) => 
   api.get(`/attendances/${id}`).then(r => r.data);
@@ -216,6 +252,17 @@ export const updateScanStatus = (attendanceId: string, scanId: string, data: any
 
 export const removeScanFromAttendance = (attendanceId: string, scanId: string) => 
   api.delete(`/attendances/${attendanceId}/scans/${scanId}`).then(r => r.data);
+
+// ✅ ADDED: Service Operations (MISSING FROM ORIGINAL)
+export const addServiceToAttendance = (attendanceId: string, data: any) => 
+  api.post(`/attendances/${attendanceId}/services`, data).then(r => r.data);
+
+export const removeServiceFromAttendance = (attendanceId: string, serviceId: string) => 
+  api.delete(`/attendances/${attendanceId}/services/${serviceId}`).then(r => r.data);
+
+// ✅ ADDED: Bed Assignment (MISSING FROM ORIGINAL)
+export const assignBedToAttendance = (attendanceId: string, data: any) => 
+  api.post(`/attendances/${attendanceId}/assign-bed`, data).then(r => r.data);
 
 // Vitals Operations
 export const addVitalsToAttendance = (attendanceId: string, data: any) => 
@@ -402,6 +449,31 @@ export const updateVital = (id: string, data: any) =>
 
 export const deleteVital = (id: string) => 
   api.delete(`/vitals/${id}`).then(r => r.data);
+  
+  
+  
+  // Scan Templates
+export const getScanTemplates = (filters?: any) => 
+  api.get('/scan-templates', { params: filters }).then(r => r.data);
+
+export const getScanTemplate = (id: string) => 
+  api.get(`/scan-templates/${id}`).then(r => r.data);
+
+export const createScanTemplate = (data: any) => 
+  api.post('/scan-templates', data).then(r => r.data);
+
+export const updateScanTemplate = (id: string, data: any) => 
+  api.put(`/scan-templates/${id}`, data).then(r => r.data);
+
+export const deleteScanTemplate = (id: string) => 
+  api.delete(`/scan-templates/${id}`).then(r => r.data);
+
+export const getScanCategories = () => 
+  api.get('/scan-templates/categories').then(r => r.data);
+
+export const getScanBodyParts = () => 
+  api.get('/scan-templates/body-parts').then(r => r.data);
+  
 
 // ───── REPORTS ─────
 export const getFinancialReport = (filters: any) => 
@@ -421,3 +493,43 @@ export const getRevenueReport = (filters: any) =>
 
 export const exportReport = (data: any) => 
   api.post('/reports/export', data).then(r => r.data);
+  
+  
+
+// Export all API functions
+export default {
+  // Auth
+  login,
+  register,
+  verifyToken,
+  logout,
+  
+  // Profile
+  getProfile,
+  updateProfile,
+  changePassword,
+  
+  // Patients
+  getPatients,
+  getPatient,
+  createPatient,
+  updatePatient,
+  
+  // Attendances
+  getAttendances,
+  getAttendance,
+  createAttendance,
+  updateAttendance,
+  deleteAttendance,
+  updateAttendanceStatus,
+  
+  // All other exports...
+  // Scans
+  getScanTemplates,
+  getScanTemplate,
+  createScanTemplate,
+  updateScanTemplate,
+  deleteScanTemplate,
+  getScanCategories,
+  getScanBodyParts
+};

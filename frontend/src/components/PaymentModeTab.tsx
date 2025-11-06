@@ -72,6 +72,11 @@ export default function PaymentModeTab({
       setError('Please complete all required insurance details before creating attendance');
       return;
     }
+    
+    // Set the payment mode in the parent component first
+    onPaymentModeChange(mode);
+    
+    // Then open the modal
     setSelectedPaymentMode(mode);
     setShowAttendanceModal(true);
     setError(null);
@@ -142,6 +147,7 @@ export default function PaymentModeTab({
           paymentMode={selectedPaymentMode}
           onSuccess={handleAttendanceSuccess}
           onClose={handleAttendanceClose}
+          isEditMode={false}
         />
       )}
 

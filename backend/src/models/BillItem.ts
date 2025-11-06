@@ -1,10 +1,11 @@
-// models/BillItem.ts
+// models/BillItem.ts - UPDATED VERSION
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBillItem extends Document {
   billId: mongoose.Types.ObjectId;
   serviceType: 'diagnosis' | 'lab_test' | 'procedure' | 'medication' | 'ward' | 'consultation' | 'other';
-  serviceReference: mongoose.Types.ObjectId;
+  serviceReference: mongoose.Types.ObjectId; // Reference to the actual service
+  serviceItemId?: mongoose.Types.ObjectId; // Optional: reference to ServiceCatalog
   serviceName: string;
   serviceCode: string;
   description: string;
@@ -28,7 +29,8 @@ const billItemSchema = new Schema<IBillItem>({
     required: true,
     enum: ['diagnosis', 'lab_test', 'procedure', 'medication', 'ward', 'consultation', 'other']
   },
-  serviceReference: { type: Schema.Types.ObjectId, required: true },
+  serviceReference: { type: Schema.Types.ObjectId, required: true }, // e.g., diagnosisId, labTestId, etc.
+  serviceItemId: { type: Schema.Types.ObjectId, ref: 'ServiceCatalog' }, // Optional: link to service catalog
   serviceName: { type: String, required: true },
   serviceCode: { type: String, required: true },
   description: { type: String, required: true },
@@ -48,8 +50,6 @@ const billItemSchema = new Schema<IBillItem>({
 billItemSchema.index({ billId: 1 });
 billItemSchema.index({ serviceReference: 1 });
 billItemSchema.index({ serviceType: 1 });
+billItemSchema.index({ serviceItemId: 1 });
 
-// FIX: Check if model already exists before compiling
-const BillItemModel = mongoose.models.BillItem || mongoose.model<IBillItem>('BillItem', billItemSchema);
-
-export default BillItemModel;
+export default mongoose.model<IBillItem>('BillItem', billItemSchema);

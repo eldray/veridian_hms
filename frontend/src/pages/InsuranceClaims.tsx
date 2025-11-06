@@ -1,6 +1,7 @@
-// src/pages/InsuranceClaims.tsx
+// src/pages/InsuranceClaims.tsx - UPDATED WITH STATUS INTEGRATION
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
+import { useAttendanceStore } from '../store/attendanceStore'; // ADDED
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import {
@@ -16,27 +17,47 @@ import {
   AlertTriangle,
   RefreshCw,
   DollarSign,
+  PlayCircle,
+  Calendar,
+  User,
+  Activity
 } from 'lucide-react';
 
 export default function InsuranceClaims() {
   const { claims, getInsuranceClaims, updateClaimStatus, generateNHISClaimForm, generatePrivateInsuranceClaim, isLoading } = useInsuranceStore();
+  const { attendances, getAttendances } = useAttendanceStore(); // ADDED
   const { user } = useAuthStore();
   const { addToast } = useToastStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showPendingAttendances, setShowPendingAttendances] = useState(false); // ADDED
 
   useEffect(() => {
-    loadClaims();
+    loadData();
   }, []);
 
-  const loadClaims = async () => {
+  const loadData = async () => {
     try {
-      await getInsuranceClaims();
+      await Promise.all([
+        getInsuranceClaims(),
+        getAttendances() // ADDED: Load attendances for status integration
+      ]);
     } catch (error) {
       addToast('Failed to load insurance claims', 'error');
     }
   };
+
+  // ADDED: Get attendances eligible for insurance claims
+  const getEligibleAttendances = () => {
+    return attendances.filter(attendance => 
+      (attendance.paymentMode === 'nhis' || attendance.paymentMode === 'private_insurance') &&
+      attendance.status === 'completed' && // Only completed attendances can have claims
+      !claims.some(claim => claim.attendanceId === attendance._id) // No existing claim
+    );
+  };
+
+  const eligibleAttendances = getEligibleAttendances();
 
   const filteredClaims = claims.filter(claim => {
     const matchesSearch = claim.claimNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,6 +105,18 @@ export default function InsuranceClaims() {
     }
   };
 
+  // ADDED: Function to create new claim from attendance
+  const handleCreateClaim = async (attendance: any) => {
+    try {
+      // This would typically open a claim creation form
+      // For now, we'll just show a message
+      addToast(`Ready to create claim for ${attendance.attendanceNumber}`, 'info');
+      console.log('Creating claim for attendance:', attendance);
+    } catch (error) {
+      addToast('Failed to create claim', 'error');
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -105,6 +138,16 @@ export default function InsuranceClaims() {
     }
   };
 
+  // ADDED: Stats calculation
+  const stats = {
+    total: claims.length,
+    pending: claims.filter(c => ['draft', 'submitted', 'processing'].includes(c.status)).length,
+    approved: claims.filter(c => c.status === 'approved').length,
+    paid: claims.filter(c => c.status === 'paid').length,
+    totalAmount: claims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
+    approvedAmount: claims.reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -118,15 +161,107 @@ export default function InsuranceClaims() {
             <p className="text-gray-600">Manage and track insurance claim submissions</p>
           </div>
         </div>
-        <button
-          onClick={loadClaims}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {eligibleAttendances.length > 0 && (
+            <button
+              onClick={() => setShowPendingAttendances(!showPendingAttendances)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              New Claim ({eligibleAttendances.length})
+            </button>
+          )}
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Stats Overview - ADDED */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+          <div className="text-sm text-gray-600">Total Claims</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
+          <div className="text-sm text-gray-600">Pending</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <div className="text-sm text-gray-600">Approved</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-blue-600">{stats.paid}</div>
+          <div className="text-sm text-gray-600">Paid</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-lg font-bold text-gray-900">GHS {stats.totalAmount.toFixed(2)}</div>
+          <div className="text-sm text-gray-600">Claimed</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="text-lg font-bold text-green-600">GHS {stats.approvedAmount.toFixed(2)}</div>
+          <div className="text-sm text-gray-600">Approved</div>
+        </div>
+      </div>
+
+      {/* Eligible Attendances for New Claims - ADDED */}
+      {showPendingAttendances && eligibleAttendances.length > 0 && (
+        <div className="bg-white rounded-2xl p-6 border border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <PlayCircle className="w-6 h-6 text-green-600" />
+            Eligible Attendances for Claims ({eligibleAttendances.length})
+          </h2>
+          <div className="space-y-4">
+            {eligibleAttendances.slice(0, 5).map((attendance) => (
+              <div key={attendance._id} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-gray-900">{attendance.attendanceNumber}</h3>
+                      <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded-full border">
+                        {attendance.paymentMode}
+                      </span>
+                      <span className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full border border-green-200">
+                        Completed
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        <span>Patient: {attendance.patient?.fullName || 'Unknown'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>Date: {new Date(attendance.dateTime).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4" />
+                        <span>Type: {attendance.attendanceType}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        <span>Bill: GHS {attendance.totalBill?.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleCreateClaim(attendance)}
+                    className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Create Claim
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -174,7 +309,13 @@ export default function InsuranceClaims() {
         <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">No insurance claims found</p>
-          <p className="text-gray-400">Claims will appear here when submitted</p>
+          {eligibleAttendances.length > 0 ? (
+            <p className="text-gray-400">
+              You have {eligibleAttendances.length} completed attendances ready for insurance claims
+            </p>
+          ) : (
+            <p className="text-gray-400">Claims will appear here when submitted</p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -234,6 +375,28 @@ export default function InsuranceClaims() {
                   <p className="font-medium">{claim.insuranceProvider?.type.toUpperCase()}</p>
                 </div>
               </div>
+
+              {/* ADDED: Attendance Information */}
+              {claim.attendance && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Attendance:</span>
+                      <p className="font-medium">{claim.attendance.attendanceNumber}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Status:</span>
+                      <p className="font-medium capitalize">{claim.attendance.status}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Completion:</span>
+                      <p className="font-medium">
+                        {claim.attendance.completedAt ? new Date(claim.attendance.completedAt).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons for Accounts/Admin */}
               {(user?.role === 'admin' || user?.role === 'accounts') && (

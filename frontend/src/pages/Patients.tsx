@@ -238,7 +238,6 @@ export default function Patients() {
                 className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 group"
               >
                 <div className="flex items-start justify-between mb-4">
-// In the Cards View section, replace the avatar section:
 <div className="flex items-center gap-3">
   <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
     {patient.imageUrl ? (
@@ -500,6 +499,7 @@ export default function Patients() {
           patientId={selectedPatientId}
           onSuccess={handleAttendanceSuccess}
           onClose={handleAttendanceClose}
+          isEditMode={false} 
         />
       )}
     </div>

@@ -162,6 +162,9 @@ export default function WardManagement() {
       default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
+  const occupancyRate = wardBeds.length > 0 
+  ? (occupiedBeds / wardBeds.length) * 100 
+  : 0;
 
   return (
     <div className="space-y-8 p-6 bg-gray-50 min-h-screen"> {/* ← CONSISTENT BACKGROUND */}
@@ -332,6 +335,11 @@ export default function WardManagement() {
                     <span className="text-gray-700 font-medium">Daily Rate:</span>
                     <span className="font-bold text-gray-900">GHS {ward.cashDailyRate?.toFixed(2)}</span>
                   </div>
+                  <div className={`mt-2 px-2 py-1 rounded text-xs font-medium ${
+  occupancyRate > 80 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+}`}>
+  {occupancyRate.toFixed(0)}% Occupied
+</div>
                 </div>
 
                 {/* Beds in this ward */}
@@ -362,8 +370,16 @@ export default function WardManagement() {
                         title={bed.isOccupied ? `Occupied by ${bed.currentPatient?.fullName || 'patient'}` : 'Available'}
                       >
                         {bed.bedNumber}
+                                {/* 👇 ADD THE PATIENT NAME HERE 👇 */}
+        {bed.isOccupied && bed.currentPatient?.fullName && (
+          <span className="text-xs text-gray-600 mt-1">
+            {bed.currentPatient.fullName}
+          </span>
+        )}
                       </div>
+                      
                     ))}
+                    
                     {wardBeds.length > 8 && (
                       <div className="p-3 rounded-xl text-center text-sm font-bold bg-gray-100 text-gray-600 border-2 border-gray-300">
                         +{wardBeds.length - 8}

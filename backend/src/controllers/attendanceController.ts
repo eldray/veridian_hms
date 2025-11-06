@@ -170,7 +170,7 @@ export const getAttendances = async (req: Request, res: Response) => {
 
 export const getAttendanceById = async (req: Request, res: Response) => {
   try {
-      const { id } = req.params;
+    const { id } = req.params;
 
     // Check if the ID is "new" - this should return a different response
     if (id === 'new') {
@@ -185,7 +185,9 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         message: 'Invalid attendance ID format' 
       });
     }
-    const attendance = await AttendanceModel.findById(req.params.id)
+
+    // ✅ FIX: Use the validated 'id' variable, not req.params.id
+    const attendance = await AttendanceModel.findById(id) // ← Changed from req.params.id to id
       .populate('patientId', 'fullName folderNumber contact gender dateOfBirth')
       .populate('attendingClinician', 'fullName username role specialization licenseNumber')
       .populate('createdBy', 'fullName username')
@@ -235,20 +237,20 @@ export const createAttendance = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const session = await mongoose.startSession();
-      session.startTransaction();
+      console.log('📨 Received attendance creation request:', {
+        body: req.body,
+        user: (req as any).user
+      });
 
       try {
         // Validate patient exists
-        const patient = await PatientModel.findById(req.body.patientId).session(session);
+        const patient = await PatientModel.findById(req.body.patientId);
         if (!patient) {
-          await session.abortTransaction();
           return res.status(404).json({ message: 'Patient not found' });
         }
 
         // Validate NHIS CCC for NHIS patients
         if (req.body.paymentMode === 'nhis' && !req.body.nhisCCC) {
-          await session.abortTransaction();
           return res.status(400).json({ message: 'NHIS CCC code is required for NHIS attendances' });
         }
 
@@ -258,8 +260,7 @@ export const createAttendance = [
         })
         .populate('diagnoses.diagnosisId')
         .sort({ dateTime: -1 })
-        .limit(5)
-        .session(session);
+        .limit(5);
 
         const lastAttendance = previousAttendances[0];
         let autoPopulatedData: any = {};
@@ -301,68 +302,109 @@ export const createAttendance = [
           autoPopulatedData.previousAttendanceId = lastAttendance._id;
         }
 
-        // Create attendance with core data and carried-forward data
+        // Ensure createdBy is set from authenticated user
+        const user = (req as any).user;
+        if (!user || !user._id) {
+          return res.status(401).json({ message: 'User authentication required' });
+        }
+
+        // Create attendance data
         const attendanceData = {
-          ...req.body,
-          ...autoPopulatedData,
-          createdBy: (req as any).user._id,
+          patientId: req.body.patientId,
+          dateTime: req.body.dateTime || new Date(),
+          attendanceType: req.body.attendanceType,
+          paymentMode: req.body.paymentMode,
+          nhisCCC: req.body.nhisCCC,
           complaints: req.body.complaints || 'No complaints recorded',
-          status: 'pending'
+          attendingClinician: req.body.attendingClinician,
+          // Let schema use default 'pending' status
+          ...autoPopulatedData,
+          createdBy: user._id,
         };
 
-        const attendance = await AttendanceModel.create([attendanceData], { session });
+        console.log('🔍 Creating attendance with data:', attendanceData);
+
+        // Create attendance
+        const attendance = await AttendanceModel.create(attendanceData);
         
-        // Create initial bill
-        const bill = await BillModel.create([{
-          billNumber: `BILL-${attendance[0].attendanceNumber}`, // Generate properly
+        // ✅ FIX: Generate bill with paymentMode included
+        const billNumber = `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+        
+        // ✅ FIX: Added paymentMode to bill creation
+        const bill = await BillModel.create({
+          billNumber: billNumber,
           patientId: req.body.patientId,
-          attendanceId: attendance[0]._id,
+          attendanceId: attendance._id,
           billDate: new Date(),
-          items: [], // Will be updated later
+          items: [],
           totalAmount: 0,
           status: 'pending',
-          createdBy: (req as any).user._id
-        }], { session });
+          paymentMode: req.body.paymentMode, // ✅ CRITICAL FIX: Add paymentMode
+          createdBy: user._id
+        });
 
-        attendance[0].billId = bill[0]._id;
-        await attendance[0].save({ session });
+        // Link bill to attendance
+        attendance.billId = bill._id;
+        await attendance.save();
 
         // If inpatient attendance, create admission record
         if (req.body.attendanceType === 'inpatient') {
-          const admission = await AdmissionModel.create([{
+          const admission = await AdmissionModel.create({
             patientId: req.body.patientId,
-            attendanceId: attendance[0]._id,
+            attendanceId: attendance._id,
             admissionDate: new Date(),
             status: 'admitted',
-            createdBy: (req as any).user._id
-          }], { session });
+            createdBy: user._id
+          });
 
           // Link admission to attendance
-          attendance[0].admissionId = admission[0]._id;
-          await attendance[0].save({ session });
+          attendance.admissionId = admission._id;
+          await attendance.save();
         }
 
-        await session.commitTransaction();
+        console.log('✅ Attendance created successfully:', attendance._id);
 
         // Populate and return the created attendance
-        const populatedAttendance = await AttendanceModel.findById(attendance[0]._id)
-          .populate('patientId', 'fullName folderNumber contact')
-          .populate('attendingClinician', 'fullName username role')
+        const populatedAttendance = await AttendanceModel.findById(attendance._id)
+          .populate('patientId', 'fullName folderNumber contact dateOfBirth gender')
+          .populate('attendingClinician', 'fullName username role specialization')
           .populate('createdBy', 'fullName username')
           .populate('admissionId', 'admissionNumber status')
-          .populate('diagnoses.diagnosisId')
-          .populate('previousAttendanceId', 'attendanceNumber dateTime');
+          .populate('billId', 'billNumber totalAmount status paymentMode');
 
-        res.status(201).json(populatedAttendance);
+        res.status(201).json({
+          message: 'Attendance created successfully',
+          attendance: populatedAttendance
+        });
       } catch (error) {
-        await session.abortTransaction();
-        throw error;
-      } finally {
-        session.endSession();
+        console.error('❌ Error creating attendance:', error);
+        
+        // Provide detailed error information
+        let errorMessage = 'Error creating attendance';
+        if (error instanceof mongoose.Error.ValidationError) {
+          errorMessage = `Validation error: ${Object.values(error.errors).map(e => e.message).join(', ')}`;
+        } else if (error instanceof mongoose.Error.CastError) {
+          errorMessage = `Invalid data format: ${error.message}`;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error creating attendance:', error);
-      res.status(500).json({ message: 'Error creating attendance', error });
+      console.error('❌ Error creating attendance:', error);
+      
+      let errorMessage = 'Error creating attendance';
+      if (error instanceof mongoose.Error.ValidationError) {
+        errorMessage = `Validation error: ${Object.values(error.errors).map(e => e.message).join(', ')}`;
+      } else if (error instanceof mongoose.Error.CastError) {
+        errorMessage = `Invalid data format: ${error.message}`;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      res.status(500).json({ 
+        message: errorMessage, 
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+      });
     }
   }
 ];

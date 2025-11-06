@@ -1,12 +1,19 @@
-// src/pages/LabResults.tsx - UPDATED WIDE LAYOUT
+// src/pages/LabResults.tsx - UPDATED WITH SIDE-BY-SIDE LAYOUT & PRINT
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
-import { LabTest, Attendance, Patient } from '../types/api';
-import { Search, FlaskConical, CheckCircle, Clock, Hospital, Activity } from 'lucide-react';
+import { LabTest, Attendance, Patient } from '../types';
+import { Search, FlaskConical, CheckCircle, Clock, Activity, AlertCircle, ArrowLeft, User, Calendar, Printer } from 'lucide-react';
+
+// Helper: Get consistent ID from entity
+const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
+  return entity?._id || entity?.id;
+};
 
 export default function LabResults() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTest, setSelectedTest] = useState<{
     attendanceId: string;
@@ -17,6 +24,9 @@ export default function LabResults() {
   const [units, setUnits] = useState('');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
 
   const { attendances, updateLabTestStatus, getAttendances } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
@@ -27,25 +37,116 @@ export default function LabResults() {
     loadPatients();
   }, [getAttendances, loadPatients]);
 
-  // Get attendances with pending lab tests (status: 'requested')
-  const pendingTests = attendances.filter((attendance: Attendance) =>
-    attendance.labTests?.some((t: LabTest) => t.status === 'requested')
+  // Enhanced patient matching function
+  const findPatient = (attendance: any) => {
+    if (attendance?.patient?.fullName) {
+      return attendance.patient;
+    }
+
+    let actualPatientId: string | null = null;
+    
+    if (attendance.patientId && typeof attendance.patientId === 'object') {
+      actualPatientId = (
+        attendance.patientId._id ||
+        attendance.patientId.id ||
+        attendance.patientId.patientId ||
+        attendance.patientId.patientID
+      )?.toString();
+    } else if (attendance.patientId) {
+      actualPatientId = attendance.patientId.toString();
+    }
+
+    if (actualPatientId) {
+      const patient = patients.find(p => {
+        const patientId = getEntityId(p);
+        return patientId === actualPatientId;
+      });
+      if (patient) return patient;
+    }
+
+    if (attendance.patient && typeof attendance.patient === 'object') {
+      const patientObjId = getEntityId(attendance.patient);
+      if (patientObjId) {
+        const patient = patients.find(p => getEntityId(p) === patientObjId);
+        if (patient) return patient;
+      }
+    }
+
+    return null;
+  };
+
+  // Get attendances with lab tests and proper patient data
+  const attendancesWithPatients = attendances.map(attendance => ({
+    ...attendance,
+    patient: findPatient(attendance)
+  }));
+
+  // Filter patients based on search term
+  const filteredPatients = patients.filter(
+    (p) =>
+      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.contact.includes(searchQuery) ||
+      (p.folderNumber && p.folderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const displayedAttendances = searchQuery
-    ? pendingTests.filter((attendance: Attendance) => {
-        const patient = patients.find((p: Patient) => p._id === attendance.patientId);
-        return (
-          attendance.attendanceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient?.folderNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      })
-    : pendingTests;
+  // Get attendances for selected patient
+  const patientAttendances = attendancesWithPatients
+    .filter(a => {
+      const patient = findPatient(a);
+      return patient && (getEntityId(patient) === selectedPatientId);
+    })
+    .map(attendance => ({
+      ...attendance,
+      patient: findPatient(attendance)
+    }));
+
+  // Get the latest pending attendance for auto-selection
+  const getLatestPendingAttendance = () => {
+    const pendingAttendances = patientAttendances.filter(a => a.status === 'pending');
+    return pendingAttendances.sort((a, b) => 
+      new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+    )[0];
+  };
+
+  // Lookup selected entities
+  const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
+  const selectedAttendance = patientAttendances.find((a) => getEntityId(a) === selectedAttendanceId);
+
+  // Auto-select latest pending attendance when patient is selected
+  useEffect(() => {
+    if (selectedPatientId && patientAttendances.length > 0) {
+      const latestPending = getLatestPendingAttendance();
+      if (latestPending) {
+        setSelectedAttendanceId(getEntityId(latestPending) || '');
+      } else {
+        setSelectedAttendanceId(getEntityId(patientAttendances[0]) || '');
+      }
+    }
+  }, [selectedPatientId, patientAttendances]);
+
+  // Get lab tests for selected attendance
+  const labTests = selectedAttendance?.labTests || [];
+  const pendingTests = labTests.filter((t: LabTest) => t.status === 'requested' || t.status === 'in_progress');
+  const completedTests = labTests.filter((t: LabTest) => t.status === 'completed');
+
+  // Get selected test data
+  const selectedTestData = selectedTest
+    ? labTests.find((t: LabTest) => getEntityId(t) === selectedTest.testId)
+    : null;
+
+  // Check if lab test can be updated
+  const canUpdateLabTest = selectedAttendance?.status === 'pending' || selectedAttendance?.status === 'active';
 
   const handleSubmitResult = async () => {
     if (!selectedTest || !result.trim()) {
-      alert('Please enter test result');
+      setMessage({ type: 'error', text: 'Please enter test result' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    if (!canUpdateLabTest) {
+      setMessage({ type: 'error', text: 'Cannot update lab results for completed or cancelled attendance' });
+      setTimeout(() => setMessage(null), 3000);
       return;
     }
 
@@ -61,376 +162,497 @@ export default function LabResults() {
           units: units || undefined,
           notes: notes || undefined,
           performedBy: user?._id || '',
+          completedAt: new Date().toISOString(),
         }
       );
-
+      setMessage({ type: 'success', text: 'Lab result submitted successfully' });
       // Reset form
       setSelectedTest(null);
       setResult('');
       setNormalRange('');
       setUnits('');
       setNotes('');
+      // Refresh data
+      await getAttendances();
     } catch (error) {
       console.error('Error submitting lab result:', error);
-      alert('Failed to submit lab result');
+      setMessage({ type: 'error', text: 'Failed to submit lab result' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleMarkInProgress = async (attendanceId: string, testId: string) => {
+  const handleMarkInProgress = async (testId: string) => {
+    if (!selectedAttendanceId) return;
+    
     try {
-      await updateLabTestStatus(attendanceId, testId, {
+      await updateLabTestStatus(selectedAttendanceId, testId, {
         status: 'in_progress',
         performedBy: user?._id || '',
       });
+      setMessage({ type: 'success', text: 'Test marked as in progress' });
+      await getAttendances();
     } catch (error) {
       console.error('Error updating test status:', error);
+      setMessage({ type: 'error', text: 'Failed to update test status' });
     }
   };
 
-  const completedToday = attendances
-    .flatMap((a: Attendance) => a.labTests || [])
-    .filter(
-      (t: LabTest) =>
-        t.status === 'completed' &&
-        t.completedAt &&
-        new Date(t.completedAt).toDateString() === new Date().toDateString()
-    ).length;
+  const handlePrintResults = () => {
+    // Print functionality will be implemented later
+    console.log('Printing lab results for:', selectedPatient?.fullName);
+    // This will trigger the print dialog when implemented
+    // window.print();
+    setMessage({ type: 'success', text: 'Print functionality will be implemented soon' });
+    setTimeout(() => setMessage(null), 3000);
+  };
 
-  const totalPending = pendingTests.reduce(
-    (sum: number, a: Attendance) => sum + (a.labTests?.filter((t: LabTest) => t.status === 'requested').length || 0),
-    0
-  );
-
-  const inProgressCount = attendances.reduce(
-    (sum: number, a: Attendance) => sum + (a.labTests?.filter((t: LabTest) => t.status === 'in_progress').length || 0),
-    0
-  );
-
-  const selectedTestData = selectedTest 
-    ? attendances
-        .find((a: Attendance) => a._id === selectedTest.attendanceId)
-        ?.labTests?.find((t: LabTest) => t._id === selectedTest.testId)
-    : null;
-
-  const selectedPatient = selectedTest 
-    ? patients.find((p: Patient) => p._id === attendances.find((a: Attendance) => a._id === selectedTest.attendanceId)?.patientId)
-    : null;
-
-  const selectedAttendance = selectedTest 
-    ? attendances.find((a: Attendance) => a._id === selectedTest.attendanceId)
-    : null;
+  // Statistics
+  const totalPending = pendingTests.filter((t: LabTest) => t.status === 'requested').length;
+  const inProgressCount = pendingTests.filter((t: LabTest) => t.status === 'in_progress').length;
+  const completedCount = completedTests.length;
 
   return (
-    <div className="space-y-8 p-6 bg-gray-50 min-h-screen"> {/* ← CHANGED TO MATCH OTHER PAGES */}
-      {/* Header - Consistent with other pages */}
+    <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/dashboard/medical-entries')}
+              className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
             <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
-              <Hospital className="w-8 h-8 text-white" />
+              <FlaskConical className="w-8 h-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold mb-2">Laboratory Results</h1>
               <p className="text-blue-100 text-lg">Enter and manage lab test results</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-            <span className="text-gray-600 text-sm font-medium">Pending Tests</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{totalPending}</p>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-lg">
-              <FlaskConical className="w-6 h-6 text-blue-600" />
-            </div>
-            <span className="text-gray-600 text-sm font-medium">In Progress</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{inProgressCount}</p>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-gray-600 text-sm font-medium">Completed Today</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{completedToday}</p>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by attendance number, patient name, or folder number..."
-            className="w-full pl-12 pr-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base shadow-sm"
-          />
-        </div>
-      </div>
-
-      {/* Main Content - Wider layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8"> {/* ← CHANGED TO 3-COLUMN LAYOUT */}
-        {/* Pending Tests List - Takes 2 columns */}
-        <div className="xl:col-span-2 space-y-6">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <FlaskConical className="w-6 h-6 text-blue-600" />
-            Pending Tests
-          </h2>
-          {displayedAttendances.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-200 text-center">
-              <FlaskConical className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">
-                {searchQuery ? 'No pending tests found' : 'No pending lab tests'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {displayedAttendances.map((attendance: Attendance) => {
-                const patient = patients.find((p: Patient) => p._id === attendance.patientId);
-                const pendingLabTests = attendance.labTests?.filter((t: LabTest) => t.status === 'requested') || [];
-                const inProgressTests = attendance.labTests?.filter((t: LabTest) => t.status === 'in_progress') || [];
-
-                return (
-                  <div
-                    key={attendance._id}
-                    className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300"
-                  >
-                    <div className="mb-6">
-                      <h3 className="font-bold text-xl text-gray-900 mb-2">
-                        {patient?.fullName || 'Unknown Patient'}
-                      </h3>
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full border">
-                          {attendance.attendanceNumber}
-                        </span>
-                        {patient?.folderNumber && (
-                          <span className="text-sm text-gray-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                            {patient.folderNumber}
-                          </span>
-                        )}
-                        <span className="text-sm text-gray-600">
-                          {new Date(attendance.dateTime).toLocaleString()}
-                        </span>
-                      </div>
-                      {attendance.diagnoses?.length > 0 && (
-                        <p className="text-sm text-gray-600 mt-3">
-                          <span className="font-semibold">Diagnosis:</span>{' '}
-                          {attendance.diagnoses.find((d: any) => d.primary)?.name || attendance.diagnoses[0]?.name}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* In Progress Tests */}
-                      {inProgressTests.map((test: LabTest) => (
-                        <div
-                          key={test._id}
-                          className={`p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                            selectedTest?.testId === test._id
-                              ? 'bg-gradient-to-r from-blue-50 to-teal-50 border-blue-500 shadow-lg'
-                              : 'bg-gradient-to-br from-blue-50 to-teal-50 border-blue-200 hover:border-blue-300 hover:shadow-lg'
-                          }`}
-                          onClick={() =>
-                            setSelectedTest({
-                              attendanceId: attendance._id,
-                              testId: test._id,
-                            })
-                          }
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-bold text-lg text-gray-900">{test.name}</p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Requested: {new Date(test.requestedAt).toLocaleString()}
-                              </p>
-                            </div>
-                            <span className="px-4 py-2 text-sm font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                              In Progress
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Pending Tests */}
-                      {pendingLabTests.map((test: LabTest) => (
-                        <div
-                          key={test._id}
-                          className={`p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                            selectedTest?.testId === test._id
-                              ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-500 shadow-lg'
-                              : 'bg-gradient-to-br from-gray-50 to-yellow-50 border-gray-200 hover:border-gray-300 hover:shadow-lg'
-                          }`}
-                          onClick={() =>
-                            setSelectedTest({
-                              attendanceId: attendance._id,
-                              testId: test._id,
-                            })
-                          }
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-bold text-lg text-gray-900">{test.name}</p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Requested: {new Date(test.requestedAt).toLocaleString()}
-                              </p>
-                              {test.priority === 'urgent' && (
-                                <span className="inline-block mt-2 px-2 py-1 text-xs font-bold bg-red-100 text-red-800 rounded-full">
-                                  URGENT
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMarkInProgress(attendance._id, test._id);
-                                }}
-                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                              >
-                                Start
-                              </button>
-                              <span className="px-4 py-2 text-sm font-bold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200">
-                                Pending
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {selectedPatient && (
+            <button
+              onClick={handlePrintResults}
+              className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/20 font-semibold"
+            >
+              <Printer className="w-5 h-5" />
+              <span>Print Results</span>
+            </button>
           )}
         </div>
+      </div>
 
-        {/* Result Entry Form - Takes 1 column */}
-        <div className="xl:sticky xl:top-6 h-fit">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <Activity className="w-6 h-6 text-blue-600" />
-              Enter Test Result
-            </h2>
+      {/* Message Display */}
+      {message && (
+        <div
+          className={`mb-6 p-4 rounded-xl flex items-center gap-3 border ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border-green-200'
+              : 'bg-red-50 text-red-800 border-red-200'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          <span className="font-medium">{message.text}</span>
+        </div>
+      )}
 
-            {!selectedTest ? (
-              <div className="text-center py-12">
-                <FlaskConical className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 text-lg">Select a test from the list to enter results</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-blue-50 to-teal-50 rounded-2xl p-6 border border-blue-200">
-                  <p className="text-sm text-blue-900 font-medium mb-2">Selected Test</p>
-                  <p className="font-bold text-xl text-blue-900 mb-2">{selectedTestData?.name}</p>
-                  {selectedPatient && (
-                    <p className="text-blue-900">
-                      Patient: <span className="font-semibold">{selectedPatient.fullName}</span>
-                    </p>
-                  )}
-                  {selectedAttendance && (
-                    <p className="text-blue-900 text-sm mt-1">
-                      Attendance: {selectedAttendance.attendanceNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Test Result <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={result}
-                    onChange={(e) => setResult(e.target.value)}
-                    rows={4}
-                    placeholder="Enter detailed test results..."
-                    className="w-full px-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Normal Range
-                    </label>
-                    <input
-                      type="text"
-                      value={normalRange}
-                      onChange={(e) => setNormalRange(e.target.value)}
-                      placeholder="e.g., 0-100"
-                      className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Units
-                    </label>
-                    <input
-                      type="text"
-                      value={units}
-                      onChange={(e) => setUnits(e.target.value)}
-                      placeholder="e.g., mg/dL"
-                      className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Additional Notes (Optional)
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Any additional observations or notes..."
-                    className="w-full px-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleSubmitResult}
-                    disabled={isLoading || !result.trim()}
-                    className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? 'Submitting...' : 'Submit Result'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedTest(null);
-                      setResult('');
-                      setNormalRange('');
-                      setUnits('');
-                      setNotes('');
-                    }}
-                    className="px-6 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
-                  >
-                    Cancel
-                  </button>
+      {/* Patient and Attendance Selection - SIDE BY SIDE */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Patient Selection */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+            <User className="w-5 h-5 text-blue-600" />
+            Patient Selection
+          </h2>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search patient by name, contact, or folder number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+            </div>
+            
+            {selectedPatient && (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border border-blue-200">
+                <div className="font-bold text-lg text-gray-900">{selectedPatient.fullName}</div>
+                <div className="text-sm text-gray-700 mt-1">
+                  {selectedPatient.age} years • {selectedPatient.gender} • {selectedPatient.folderNumber}
                 </div>
               </div>
             )}
           </div>
         </div>
+
+        {/* Attendance Selection */}
+        {selectedPatientId && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+              <Calendar className="w-5 h-5 text-green-600" />
+              Select Attendance
+            </h2>
+            
+            {patientAttendances.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm mb-2">No attendances found for this patient</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative">
+                  <select
+                    value={selectedAttendanceId}
+                    onChange={(e) => setSelectedAttendanceId(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white"
+                  >
+                    <option value="">Select an attendance...</option>
+                    {patientAttendances.map((attendance) => {
+                      const aid = getEntityId(attendance);
+                      if (!aid) return null;
+                      return (
+                        <option key={aid} value={aid}>
+                          {attendance.attendanceNumber} - {new Date(attendance.dateTime).toLocaleDateString()} - {attendance.status}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Selected Attendance Details */}
+                {selectedAttendance && (
+                  <div className="p-4 border-2 border-blue-500 bg-blue-50 rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedAttendance.attendanceNumber}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {new Date(selectedAttendance.dateTime).toLocaleDateString()}
+                        </div>
+                        <div className="text-sm text-gray-600 capitalize">
+                          {selectedAttendance.attendanceType?.replace('_', ' ')}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {/* Status Badge */}
+                        <div className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                          selectedAttendance.status === 'active' 
+                            ? 'bg-green-100 text-green-800 border-green-200'
+                            : selectedAttendance.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                            : 'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}>
+                          {selectedAttendance.status}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Stats */}
+      {selectedAttendance && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+              <span className="text-gray-600 text-sm font-medium">Pending Tests</span>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{totalPending}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-lg">
+                <FlaskConical className="w-6 h-6 text-blue-600" />
+              </div>
+              <span className="text-gray-600 text-sm font-medium">In Progress</span>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{inProgressCount}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <span className="text-gray-600 text-sm font-medium">Completed</span>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{completedCount}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Split Layout */}
+      {selectedAttendance && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Lab Requests */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <FlaskConical className="w-6 h-6 text-blue-600" />
+                Lab Requests ({pendingTests.length})
+              </h2>
+              
+              {pendingTests.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">No pending lab requests</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingTests.map((test: LabTest) => (
+                    <div
+                      key={getEntityId(test)}
+                      className={`p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
+                        selectedTest?.testId === getEntityId(test)
+                          ? 'bg-gradient-to-r from-blue-50 to-teal-50 border-blue-500 shadow-lg'
+                          : test.status === 'in_progress'
+                          ? 'bg-gradient-to-r from-blue-50 to-teal-50 border-blue-200 hover:border-blue-300'
+                          : 'bg-gradient-to-br from-gray-50 to-yellow-50 border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() =>
+                        setSelectedTest({
+                          attendanceId: selectedAttendanceId,
+                          testId: getEntityId(test) || '',
+                        })
+                      }
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-bold text-lg text-gray-900">{test.name}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Requested: {new Date(test.requestedAt).toLocaleString()}
+                          </p>
+                          {test.priority === 'urgent' && (
+                            <span className="inline-block mt-2 px-2 py-1 text-xs font-bold bg-red-100 text-red-800 rounded-full">
+                              URGENT
+                            </span>
+                          )}
+                          {test.notes && (
+                            <p className="text-sm text-gray-500 mt-2">{test.notes}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {test.status === 'requested' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkInProgress(getEntityId(test) || '');
+                              }}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Start
+                            </button>
+                          )}
+                          <span className={`px-3 py-1 text-sm font-bold rounded-full ${
+                            test.status === 'in_progress'
+                              ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                              : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                          }`}>
+                            {test.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Completed Tests */}
+            {completedTests.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Completed Tests ({completedTests.length})
+                </h3>
+                <div className="space-y-3">
+                  {completedTests.map((test: LabTest) => (
+                    <div
+                      key={getEntityId(test)}
+                      className="p-4 bg-green-50 rounded-xl border border-green-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900">{test.name}</p>
+                          <p className="text-sm text-gray-600">
+                            Completed: {test.completedAt ? new Date(test.completedAt).toLocaleString() : 'N/A'}
+                          </p>
+                        </div>
+                        <span className="px-3 py-1 text-sm font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
+                          Completed
+                        </span>
+                      </div>
+                      {test.result && (
+                        <div className="mt-2 p-3 bg-white rounded-lg border">
+                          <p className="text-sm font-medium text-gray-700">Result: {test.result}</p>
+                          {test.normalRange && (
+                            <p className="text-sm text-gray-600">Normal Range: {test.normalRange}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Results Entry */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-blue-600" />
+                Enter Test Result
+              </h2>
+              
+              {!selectedTest ? (
+                <div className="text-center py-12">
+                  <FlaskConical className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">Select a test from the left to enter results</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-teal-50 rounded-2xl p-6 border border-blue-200">
+                    <p className="text-sm text-blue-900 font-medium mb-2">Selected Test</p>
+                    <p className="font-bold text-xl text-blue-900 mb-2">{selectedTestData?.name}</p>
+                    {selectedPatient && (
+                      <p className="text-blue-900">
+                        Patient: <span className="font-semibold">{selectedPatient.fullName}</span>
+                      </p>
+                    )}
+                    {selectedTestData?.priority === 'urgent' && (
+                      <span className="inline-block mt-2 px-3 py-1 text-sm font-bold bg-red-100 text-red-800 rounded-full border border-red-200">
+                        URGENT
+                      </span>
+                    )}
+                    {!canUpdateLabTest && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-4">
+                        <div className="flex items-center gap-2 text-red-800">
+                          <AlertCircle className="w-5 h-5" />
+                          <span className="font-medium">Cannot update lab results for {selectedAttendance?.status} attendance</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Test Result <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={result}
+                      onChange={(e) => setResult(e.target.value)}
+                      rows={4}
+                      placeholder="Enter detailed test results..."
+                      className="w-full px-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Normal Range
+                      </label>
+                      <input
+                        type="text"
+                        value={normalRange}
+                        onChange={(e) => setNormalRange(e.target.value)}
+                        placeholder="e.g., 0-100"
+                        className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Units
+                      </label>
+                      <input
+                        type="text"
+                        value={units}
+                        onChange={(e) => setUnits(e.target.value)}
+                        placeholder="e.g., mg/dL"
+                        className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Additional Notes (Optional)
+                    </label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Any additional observations or notes..."
+                      className="w-full px-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                    />
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleSubmitResult}
+                      disabled={isLoading || !result.trim() || !canUpdateLabTest}
+                      className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? 'Submitting...' : 'Submit Result'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedTest(null);
+                        setResult('');
+                        setNormalRange('');
+                        setUnits('');
+                        setNotes('');
+                      }}
+                      className="px-6 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!selectedAttendance && selectedPatient && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <FlaskConical className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Attendance Selected</h3>
+          <p className="text-gray-600">Select an attendance to view and manage lab tests</p>
+        </div>
+      )}
+
+      {!selectedPatient && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Patient Selected</h3>
+          <p className="text-gray-600">Search and select a patient to get started</p>
+        </div>
+      )}
     </div>
   );
 }

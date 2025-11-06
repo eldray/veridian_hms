@@ -1,4 +1,4 @@
-// src/pages/PatientDetails.tsx - ENHANCED WITH COMPACT ADDITIONAL INFO & ATTENDANCE MODAL
+// src/pages/PatientDetails.tsx - FIXED SYNTAX & IMAGE LOADING
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -173,42 +173,42 @@ export default function PatientDetails() {
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-// Replace the header avatar section:
-<div className="flex items-center gap-6">
-  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20 overflow-hidden">
-    {patient.imageUrl ? (
-      <img 
-        src={patient.imageUrl} 
-        alt={patient.fullName}
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          // Fallback to icon if image fails to load
-          e.currentTarget.style.display = 'none';
-        }}
-      />
-    ) : null}
-    {!patient.imageUrl && <User className="w-10 h-10 text-white" />}
-  </div>
-  <div>
-    <h1 className="text-3xl font-bold text-white">{patient.fullName}</h1>
-    <div className="flex items-center gap-4 text-blue-100 mt-2">
-      <div className="flex items-center gap-2">
-        <Folder className="w-5 h-5" />
-        <span className="font-mono font-semibold">{patient.folderNumber}</span>
-      </div>
-      <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-      <div className="flex items-center gap-2">
-        <User className="w-5 h-5" />
-        <span className="capitalize">{patient.gender}</span>
-      </div>
-      <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-      <div className="flex items-center gap-2">
-        <span className="font-semibold">Age:</span>
-        <span>{patient.age} years</span>
-      </div>
-    </div>
-  </div>
-</div>
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20 overflow-hidden">
+                {patient.imageUrl ? (
+                  <img 
+                    src={patient.imageUrl} 
+                    alt={patient.fullName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to icon if image fails to load
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : null}
+                {!patient.imageUrl && <User className="w-10 h-10 text-white" />}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">{patient.fullName}</h1>
+                <div className="flex items-center gap-4 text-blue-100 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Folder className="w-5 h-5" />
+                    <span className="font-mono font-semibold">{patient.folderNumber}</span>
+                  </div>
+                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    <span className="capitalize">{patient.gender}</span>
+                  </div>
+                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Age:</span>
+                    <span>{patient.age} years</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             {canCreateAttendance && (
               <button
@@ -322,18 +322,20 @@ export default function PatientDetails() {
   );
 }
 
-// Compact Profile Tab Component
-function CompactProfileTab({ patient, insuranceProviders, patientId }: { 
-  patient: any; 
+// Compact Profile Tab Component - FIXED SYNTAX
+interface CompactProfileTabProps {
+  patient: any;
   insuranceProviders: any[];
   patientId: string;
-}) {
+}
+
+function CompactProfileTab({ patient, insuranceProviders, patientId }: CompactProfileTabProps) {
   const [activeSection, setActiveSection] = useState<'basic' | 'payment' | 'additional'>('basic');
 
   const sections = [
     { id: 'basic' as const, label: 'Basic Info', icon: User },
-    { id: 'payment' as const, label: 'Payment', icon: CreditCard },
-    { id: 'additional' as const, label: 'Additional', icon: Info }
+    { id: 'additional' as const, label: 'Additional', icon: Info },
+    { id: 'payment' as const, label: 'Payment', icon: CreditCard }
   ];
 
   return (
@@ -370,7 +372,11 @@ function CompactProfileTab({ patient, insuranceProviders, patientId }: {
 }
 
 // Compact Basic Info Component
-function CompactBasicInfo({ patient }: { patient: any }) {
+interface CompactBasicInfoProps {
+  patient: any;
+}
+
+function CompactBasicInfo({ patient }: CompactBasicInfoProps) {
   return (
     <div className="space-y-4">
       {/* Folder Number */}
@@ -433,11 +439,13 @@ function CompactBasicInfo({ patient }: { patient: any }) {
 }
 
 // Compact Payment Info Component
-function CompactPaymentInfo({ patient, insuranceProviders, patientId }: { 
-  patient: any; 
+interface CompactPaymentInfoProps {
+  patient: any;
   insuranceProviders: any[];
   patientId: string;
-}) {
+}
+
+function CompactPaymentInfo({ patient, insuranceProviders, patientId }: CompactPaymentInfoProps) {
   const getPaymentModeColor = (paymentMode: string) => {
     switch (paymentMode) {
       case 'cash': return 'border-gray-300 bg-gray-50';
@@ -565,8 +573,12 @@ function CompactPaymentInfo({ patient, insuranceProviders, patientId }: {
   );
 }
 
-// Compact Additional Info Component - ENHANCED WITH 2 CARDS PER ROW
-function CompactAdditionalInfo({ patient }: { patient: any }) {
+// Compact Additional Info Component
+interface CompactAdditionalInfoProps {
+  patient: any;
+}
+
+function CompactAdditionalInfo({ patient }: CompactAdditionalInfoProps) {
   const additionalInfo = patient.additionalInfo || {};
 
   return (
@@ -665,7 +677,12 @@ function CompactAdditionalInfo({ patient }: { patient: any }) {
 }
 
 // Compact Attendances Tab Component
-function CompactAttendancesTab({ attendances, patient }: { attendances: any[], patient: any }) {
+interface CompactAttendancesTabProps {
+  attendances: any[];
+  patient: any;
+}
+
+function CompactAttendancesTab({ attendances, patient }: CompactAttendancesTabProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -763,7 +780,12 @@ function CompactAttendancesTab({ attendances, patient }: { attendances: any[], p
 }
 
 // Compact Medical Records Tab Component
-function CompactMedicalRecordsTab({ attendances, patient }: { attendances: any[], patient: any }) {
+interface CompactMedicalRecordsTabProps {
+  attendances: any[];
+  patient: any;
+}
+
+function CompactMedicalRecordsTab({ attendances, patient }: CompactMedicalRecordsTabProps) {
   const allMedications = attendances.flatMap(att => att.medications || []);
   const allLabTests = attendances.flatMap(att => att.labTests || []);
   const allDiagnoses = attendances.flatMap(att => 
@@ -855,7 +877,11 @@ function CompactMedicalRecordsTab({ attendances, patient }: { attendances: any[]
 }
 
 // Compact Documents Tab Component
-function CompactDocumentsTab({ patient }: { patient: any }) {
+interface CompactDocumentsTabProps {
+  patient: any;
+}
+
+function CompactDocumentsTab({ patient }: CompactDocumentsTabProps) {
   return (
     <div className="text-center py-8">
       <FileArchive className="w-12 h-12 text-gray-400 mx-auto mb-3" />

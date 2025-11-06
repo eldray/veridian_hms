@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import { pathToRegexp } from 'path-to-regexp';
+import { servePatientImages } from './middleware/uploadMiddleware';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
 import settingsRoutes from './routes/settingsRoutes';
@@ -23,6 +24,10 @@ import hospitalRoutes from './routes/hospitalRoutes';
 import vitalsRoutes from './routes/vitalsRoutes';
 import reportRoutes from './routes/reportRoutes';
 import backupRoutes from './routes/backupRoutes';
+import scanTemplateRoutes from './routes/scanTemplateRoutes';
+
+
+
 
 const app = express();
 
@@ -62,12 +67,15 @@ app.use('/api/diagnoses', diagnosisRoutes);
 app.use('/api/lab-test-templates', labTestTemplateRoutes);
 app.use('/api/procedure-templates', procedureTemplateRoutes);
 app.use('/api/service-catalog', serviceCatalogRoutes);
+app.use('/api/scan-templates', scanTemplateRoutes);
 
 // Reports & Analytics
 app.use('/api/reports', reportRoutes);
 
 //Backup and Restores
 app.use('/api/backup', backupRoutes)
+
+app.use('/uploads', servePatientImages);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

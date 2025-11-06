@@ -1,32 +1,306 @@
-// src/pages/Admissions.tsx - FIXED VERSION
+// src/pages/Admissions.tsx - UPDATED WITH ADMISSION MODAL
 import { useState, useEffect } from 'react';
 import { useAdmissionStore } from '../store/admissionStore';
 import { usePatientStore } from '../store/patientStore';
-import { useWardStore } from '../store/wardStore'; // ← ADD MISSING IMPORT
+import { useWardStore } from '../store/wardStore';
+import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
-import { Search, Plus, BedDouble, Users, Hospital, Shield, Activity, Heart, Calendar } from 'lucide-react'; // ← ADDED CALENDAR
+import { 
+  Search, 
+  Plus, 
+  BedDouble, 
+  Users, 
+  Hospital, 
+  Shield, 
+  Activity, 
+  Heart, 
+  Calendar,
+  Clock,
+  PlayCircle,
+  CheckCircle,
+  AlertCircle,
+  X,
+  ArrowRight,
+  User,
+  Stethoscope
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+// Admission Modal Component
+const AdmissionModal = ({ 
+  isOpen, 
+  onClose, 
+  onAdmit,
+  attendances,
+  patients 
+}) => {
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  if (!isOpen) return null;
+
+  // Filter attendances based on search
+  const filteredAttendances = attendances.filter(attendance => {
+    const patient = patients.find(p => p._id === attendance.patientId || p.id === attendance.patientId);
+    const patientName = patient?.fullName?.toLowerCase() || '';
+    const attendanceNumber = attendance.attendanceNumber?.toLowerCase() || '';
+    const search = searchTerm.toLowerCase();
+    
+    return patientName.includes(search) || 
+           attendanceNumber.includes(search) ||
+           patient?.folderNumber?.toLowerCase().includes(search);
+  });
+
+  const todayAttendances = filteredAttendances.filter(attendance => {
+    const today = new Date().toDateString();
+    const attendanceDate = new Date(attendance.dateTime).toDateString();
+    return attendanceDate === today;
+  });
+
+  const olderAttendances = filteredAttendances.filter(attendance => {
+    const today = new Date().toDateString();
+    const attendanceDate = new Date(attendance.dateTime).toDateString();
+    return attendanceDate !== today;
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-teal-600 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <User className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">Admit Patient</h2>
+                <p className="text-blue-100">Select an attendance to admit to ward</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-xl transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search patients by name, attendance number, or folder number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto max-h-[60vh]">
+          {/* Today's Attendances */}
+          {todayAttendances.length > 0 && (
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-green-600" />
+                Today's Attendances ({todayAttendances.length})
+              </h3>
+              <div className="space-y-3">
+                {todayAttendances.map((attendance) => {
+                  const patient = patients.find(p => p._id === attendance.patientId || p.id === attendance.patientId);
+                  return (
+                    <div
+                      key={attendance._id}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        selectedAttendance?._id === attendance._id
+                          ? 'bg-blue-50 border-blue-500 shadow-lg'
+                          : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:shadow-md'
+                      }`}
+                      onClick={() => setSelectedAttendance(attendance)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-semibold text-gray-900">{patient?.fullName}</h4>
+                            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                              {attendance.attendanceNumber}
+                            </span>
+                            {patient?.folderNumber && (
+                              <span className="text-sm bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                {patient.folderNumber}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Stethoscope className="w-4 h-4" />
+                              <span>{attendance.attendingClinician}</span>
+                            </div>
+                            <div>
+                              <span>{attendance.attendanceType}</span>
+                            </div>
+                            <div>
+                              <span>{attendance.paymentMode}</span>
+                            </div>
+                          </div>
+                          {attendance.complaints && (
+                            <p className="text-sm text-gray-500 mt-2">
+                              <span className="font-medium">Complaints:</span> {attendance.complaints}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {selectedAttendance?._id === attendance._id ? (
+                            <CheckCircle className="w-6 h-6 text-green-600" />
+                          ) : (
+                            <div className="w-6 h-6 border-2 border-gray-300 rounded-full" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Older Attendances */}
+          {olderAttendances.length > 0 && (
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-yellow-600" />
+                Previous Attendances ({olderAttendances.length})
+              </h3>
+              <div className="space-y-3">
+                {olderAttendances.map((attendance) => {
+                  const patient = patients.find(p => p._id === attendance.patientId || p.id === attendance.patientId);
+                  return (
+                    <div
+                      key={attendance._id}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        selectedAttendance?._id === attendance._id
+                          ? 'bg-blue-50 border-blue-500 shadow-lg'
+                          : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:shadow-md'
+                      }`}
+                      onClick={() => setSelectedAttendance(attendance)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-semibold text-gray-900">{patient?.fullName}</h4>
+                            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                              {attendance.attendanceNumber}
+                            </span>
+                            {patient?.folderNumber && (
+                              <span className="text-sm bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                {patient.folderNumber}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Stethoscope className="w-4 h-4" />
+                              <span>{attendance.attendingClinician}</span>
+                            </div>
+                            <div>
+                              <span>{attendance.attendanceType}</span>
+                            </div>
+                            <div>
+                              <span>{attendance.paymentMode}</span>
+                            </div>
+                            <div className="text-yellow-600">
+                              {new Date(attendance.dateTime).toLocaleDateString()}
+                            </div>
+                          </div>
+                          {attendance.complaints && (
+                            <p className="text-sm text-gray-500 mt-2">
+                              <span className="font-medium">Complaints:</span> {attendance.complaints}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {selectedAttendance?._id === attendance._id ? (
+                            <CheckCircle className="w-6 h-6 text-green-600" />
+                          ) : (
+                            <div className="w-6 h-6 border-2 border-gray-300 rounded-full" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {filteredAttendances.length === 0 && (
+            <div className="p-12 text-center">
+              <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Attendances Found</h3>
+              <p className="text-gray-600">
+                {searchTerm ? 'No attendances match your search' : 'No attendances available for admission'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onAdmit(selectedAttendance)}
+              disabled={!selectedAttendance}
+              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>Continue to Ward Selection</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function Admissions() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
   const { admissions, getAdmissions, createAdmission, updateAdmission, dischargeAdmission } = useAdmissionStore();
   const { patients, loadPatients } = usePatientStore();
-  const { wards, getWards } = useWardStore(); // ← ADD WARD STORE
+  const { wards, getWards } = useWardStore();
+  const { attendances, getAttendances, updateAttendanceStatus } = useAttendanceStore();
   const { hasRole, user } = useAuthStore();
 
-  // FIXED: useEffect
   useEffect(() => {
     const loadData = async () => {
-      await getAdmissions({ status: 'active' }); // ✅ CORRECT METHOD
+      await getAdmissions({ status: 'active' });
       await loadPatients();
-      await getWards(); // ← LOAD WARDS
+      await getWards();
+      await getAttendances();
     };
     loadData();
-  }, [getAdmissions, loadPatients, getWards]);
+  }, [getAdmissions, loadPatients, getWards, getAttendances]);
 
-  // FIXED: Calculate active admissions from store data
   const activeAdmissions = admissions.filter(admission => 
-    admission.status === 'active' || admission.status === 'admitted'
+    admission.status === 'admitted'
+  );
+
+  // Get attendances that can be admitted (inpatient and pending)
+  const admitableAttendances = attendances.filter(attendance => 
+    attendance.attendanceType === 'inpatient' && 
+    attendance.status === 'pending' &&
+    !admissions.some(adm => adm.attendanceId === attendance._id)
   );
 
   const displayedAdmissions = searchQuery
@@ -43,17 +317,59 @@ export default function Admissions() {
 
   const canAdmitPatient = hasRole(['admin', 'doctor', 'nurse']);
 
-  // FIXED: Stats calculation with proper ward data
   const stats = {
     totalWards: wards.length,
     totalBeds: wards.reduce((sum, w) => sum + (w.totalBeds || 0), 0),
     occupiedBeds: activeAdmissions.length,
     activeAdmissions: activeAdmissions.length,
+    pendingAdmissions: admitableAttendances.length,
+    availableBeds: Math.max(0, wards.reduce((sum, w) => sum + (w.totalBeds || 0), 0) - activeAdmissions.length)
   };
 
   const occupancyRate = stats.totalBeds > 0 
     ? ((stats.occupiedBeds / stats.totalBeds) * 100).toFixed(1) 
     : '0';
+
+  const handleAdmitPatient = async (attendance) => {
+    if (!attendance) return;
+    
+    try {
+      // First activate the attendance
+      await updateAttendanceStatus(attendance._id, 'active');
+      
+      // Close the modal
+      setShowAdmissionModal(false);
+      
+      // Navigate to admission form with the selected attendance
+      // This would typically open a form or navigate to admission creation page
+      console.log('Admitting patient:', attendance);
+      
+      // For now, we'll create a basic admission
+      // In a real implementation, you would navigate to a form with the attendance pre-filled
+      const patient = patients.find(p => p._id === attendance.patientId || p.id === attendance.patientId);
+      
+      // This is a simplified version - you'd want a proper admission form
+      const admissionData = {
+        attendanceId: attendance._id,
+        patientId: attendance.patientId,
+        admissionNumber: `ADM-${Date.now()}`,
+        admissionDate: new Date().toISOString(),
+        admittingDoctor: user?.fullName || user?.username,
+        diagnosis: attendance.complaints || 'To be determined',
+        status: 'admitted'
+      };
+      
+      await createAdmission(admissionData);
+      await getAdmissions();
+      
+    } catch (error) {
+      console.error('Error admitting patient:', error);
+    }
+  };
+
+  const handleQuickAdmit = () => {
+    setShowAdmissionModal(true);
+  };
 
   return (
     <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
@@ -70,19 +386,19 @@ export default function Admissions() {
             </div>
           </div>
           {canAdmitPatient && (
-            <Link
-              to="/admissions/new"
+            <button
+              onClick={handleQuickAdmit}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-200 hover:shadow-lg border border-white/20 font-semibold"
             >
               <Plus className="w-5 h-5" />
               <span>Admit Patient</span>
-            </Link>
+            </button>
           )}
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-lg">
@@ -115,6 +431,16 @@ export default function Admissions() {
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
           <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
+              <Clock className="w-6 h-6 text-yellow-600" />
+            </div>
+            <span className="text-gray-600 text-sm font-medium">Pending Admissions</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{stats.pendingAdmissions}</p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center shadow-lg">
               <Activity className="w-6 h-6 text-amber-600" />
             </div>
@@ -124,6 +450,18 @@ export default function Admissions() {
         </div>
       </div>
 
+      {/* Admission Modal */}
+      <AdmissionModal
+        isOpen={showAdmissionModal}
+        onClose={() => setShowAdmissionModal(false)}
+        onAdmit={handleAdmitPatient}
+        attendances={admitableAttendances}
+        patients={patients}
+      />
+
+      {/* Rest of the component remains the same... */}
+      {/* Search, Wards Overview, Active Admissions sections */}
+      
       {/* Search */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         <div className="relative group">
@@ -214,7 +552,7 @@ export default function Admissions() {
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
           <Users className="w-6 h-6 text-green-600" />
-          Active Admissions
+          Active Admissions ({activeAdmissions.length})
         </h2>
         {displayedAdmissions.length === 0 ? (
           <div className="text-center py-12">
@@ -222,6 +560,11 @@ export default function Admissions() {
             <p className="text-gray-500 text-lg">
               {searchQuery ? 'No admissions found' : 'No active admissions'}
             </p>
+            {admitableAttendances.length > 0 && (
+              <p className="text-gray-600 mt-2">
+                There are {admitableAttendances.length} pending inpatient attendances ready for admission.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -275,8 +618,8 @@ export default function Admissions() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <span className="px-4 py-2 text-sm font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-                          {admission.status}
+                        <span className="px-4 py-2 text-sm font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
+                          Admitted
                         </span>
                       </div>
                     </div>

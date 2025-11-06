@@ -1,5 +1,5 @@
-// src/pages/PatientRegistration.tsx - FIXED DATE ISSUES
-import { useState, FormEvent, useEffect } from 'react';
+// src/pages/PatientRegistration.tsx - COMPLETE UPDATED VERSION
+import { useState, FormEvent, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useInsuranceStore } from '../store/insuranceStore'; 
@@ -22,7 +22,8 @@ import {
   Users,
   Folder,
   Edit,
-  Eye
+  Eye,
+  Camera
 } from 'lucide-react';
 import type { PaymentMode, InsuranceDetails, AdditionalInfo, Patient } from '../types';
 import PaymentModeTab from '../components/PaymentModeTab';
@@ -40,16 +41,13 @@ const convertISODateToInputFormat = (isoDate: string): string => {
   if (!isoDate) return '';
   
   try {
-    // Handle both ISO format (2023-01-15T00:00:00.000Z) and already formatted dates
     const date = new Date(isoDate);
     
-    // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date:', isoDate);
       return '';
     }
     
-    // Convert to YYYY-MM-DD format for input[type="date"]
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -61,13 +59,65 @@ const convertISODateToInputFormat = (isoDate: string): string => {
   }
 };
 
-// Temporary debug function
-const debugDateInfo = (patient: Patient) => {
-  console.log('🔍 Date Debug Info:', {
-    rawDateOfBirth: patient.dateOfBirth,
-    type: typeof patient.dateOfBirth,
-    isISO: patient.dateOfBirth?.includes('T'),
-    converted: convertISODateToInputFormat(patient.dateOfBirth)
+// Image upload utility functions
+const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.8): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas to Blob conversion failed'));
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      
+      img.onerror = () => reject(new Error('Image loading failed'));
+    };
+    
+    reader.onerror = () => reject(new Error('File reading failed'));
+  });
+};
+
+const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 };
 
@@ -75,9 +125,18 @@ export default function PatientRegistration() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { addPatient, updatePatient, fetchPatient, currentPatient } = usePatientStore();
+  const { addPatient, updatePatient, fetchPatient, currentPatient, uploadPatientImage } = usePatientStore();
   const { user } = useAuthStore();
+  
+  const { 
+    getInsuranceProviders, 
+    providers, 
+    isLoading: isLoadingProviders 
+  } = useInsuranceStore();
+
   const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'payment' | 'additional'>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -95,8 +154,6 @@ export default function PatientRegistration() {
     contact: '',
     address: '',
   });
-  
-  const insuranceStore = useInsuranceStore();
 
   const [paymentData, setPaymentData] = useState<{
     paymentMode: PaymentMode;
@@ -125,29 +182,27 @@ export default function PatientRegistration() {
 
   // Smart back navigation - goes back to previous page or patients list
   const handleBack = () => {
-    // Check if we have a previous page in history
     if (location.key !== 'default') {
-      navigate(-1); // Go back to previous page
+      navigate(-1);
     } else {
-      navigate('/dashboard/patients'); // Default fallback
+      navigate('/dashboard/patients');
     }
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log('🔄 Loading insurance providers...');
-        await insuranceStore.getInsuranceProviders();
-        console.log('✅ Insurance providers loaded:', insuranceStore.providers);
-      } catch (error) {
-        console.error('❌ Failed to load insurance providers:', error);
-      }
-    };
+  const loadData = useCallback(async () => {
+    try {
+      console.log('🔄 Loading insurance providers...');
+      await getInsuranceProviders();
+      console.log('✅ Insurance providers loaded, count:', providers.length);
+    } catch (error) {
+      console.error('❌ Failed to load insurance providers:', error);
+    }
+  }, [getInsuranceProviders, providers.length]);
 
+  useEffect(() => {
     loadData();
     
     if (isEditMode && patientId) {
-      // Load patient data for editing
       const loadPatientData = async () => {
         try {
           await fetchPatient(patientId);
@@ -157,10 +212,23 @@ export default function PatientRegistration() {
       };
       loadPatientData();
     } else {
-      // Generate folder number for new patient
       setFormData(prev => ({ ...prev, folderNumber: generateFolderNumber() }));
     }
-  }, [isEditMode, patientId, fetchPatient, insuranceStore]);
+  }, [isEditMode, patientId, fetchPatient, loadData]);
+
+  // Set image preview when image changes or when editing existing patient
+  useEffect(() => {
+    if (image) {
+      const objectUrl = URL.createObjectURL(image);
+      setImagePreview(objectUrl);
+      
+      return () => URL.revokeObjectURL(objectUrl);
+    } else if (isEditMode && currentPatient?.imageUrl) {
+      setImagePreview(currentPatient.imageUrl);
+    } else {
+      setImagePreview('');
+    }
+  }, [image, currentPatient, isEditMode]);
 
   // Update age whenever dateOfBirth changes
   useEffect(() => {
@@ -176,26 +244,21 @@ export default function PatientRegistration() {
     if (isEditMode && currentPatient) {
       console.log('🔄 Loading patient data for editing:', currentPatient);
       
-      // Convert dateOfBirth from ISO to YYYY-MM-DD format
       const formattedDateOfBirth = convertISODateToInputFormat(currentPatient.dateOfBirth);
       console.log('📅 Date conversion:', { 
         original: currentPatient.dateOfBirth, 
         formatted: formattedDateOfBirth 
       });
       
-      // Debug date info
-      debugDateInfo(currentPatient);
-      
       setFormData({
         folderNumber: currentPatient.folderNumber || '',
         fullName: currentPatient.fullName || '',
         gender: currentPatient.gender || 'male',
-        dateOfBirth: formattedDateOfBirth, // Use converted date
+        dateOfBirth: formattedDateOfBirth,
         contact: currentPatient.contact || '',
         address: currentPatient.address || '',
       });
       
-      // Set age display from stored data or calculate
       if (currentPatient.ageDisplay) {
         setAgeDisplay(currentPatient.ageDisplay);
       } else if (currentPatient.dateOfBirth) {
@@ -234,27 +297,18 @@ export default function PatientRegistration() {
     let years = today.getFullYear() - birthDate.getFullYear();
     let months = today.getMonth() - birthDate.getMonth();
     
-    // Adjust if the current month is before the birth month
     if (months < 0) {
       years--;
       months += 12;
     }
     
-    // Adjust if the current day is before the birth day in the same month
     if (months === 0 && today.getDate() < birthDate.getDate()) {
       years--;
-      months = 11; // Since we're going back a year, it's 11 months
+      months = 11;
     } else if (today.getDate() < birthDate.getDate()) {
       months--;
-      // Add days from previous month
-      const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, birthDate.getDate());
-      const daysInPreviousMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-      if (today.getDate() < birthDate.getDate()) {
-        months--;
-      }
     }
     
-    // Format display string
     let display = '';
     if (years === 0 && months === 0) {
       display = 'Newborn';
@@ -269,12 +323,30 @@ export default function PatientRegistration() {
     return { years, months, display };
   };
 
+  const handleImageUpload = async (file: File, patientId: string): Promise<string | null> => {
+    try {
+      setIsUploadingImage(true);
+      
+      // Compress image before upload
+      const compressedBlob = await compressImage(file);
+      const base64Image = await convertBlobToBase64(compressedBlob);
+      
+      // Upload to backend
+      const imageUrl = await uploadPatientImage(patientId, base64Image);
+      return imageUrl;
+    } catch (error) {
+      console.error('❌ Failed to upload image:', error);
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Validate required fields
       if (!formData.fullName || !formData.gender || !formData.dateOfBirth || !formData.contact || !formData.address) {
         alert('Please fill in all required fields');
         setIsSubmitting(false);
@@ -283,12 +355,11 @@ export default function PatientRegistration() {
 
       const ageData = calculateAge(formData.dateOfBirth);
       
-      // Create patient data object
       const patientData = {
         folderNumber: formData.folderNumber,
         fullName: formData.fullName,
         gender: formData.gender,
-        dateOfBirth: formData.dateOfBirth, // Already in correct format
+        dateOfBirth: formData.dateOfBirth,
         age: ageData.years,
         ageInMonths: ageData.months,
         ageDisplay: ageData.display,
@@ -305,22 +376,36 @@ export default function PatientRegistration() {
       let result;
       if (isEditMode && patientId) {
         result = await updatePatient(patientId, patientData);
+        
+        // Handle image upload for existing patient
+        if (image && result.id) {
+          const imageUrl = await handleImageUpload(image, result.id);
+          if (imageUrl) {
+            console.log('✅ Image uploaded successfully:', imageUrl);
+          }
+        }
       } else {
         result = await addPatient(patientData);
+        
+        // Handle image upload for new patient
+        if (image && result.id) {
+          const imageUrl = await handleImageUpload(image, result.id);
+          if (imageUrl) {
+            console.log('✅ Image uploaded successfully:', imageUrl);
+            // Update patient with image URL if needed
+            await updatePatient(result.id, { ...patientData, imageUrl });
+          }
+        }
       }
       
       console.log('✅ Patient saved successfully:', result);
       
-      // Show success message and let user decide next action
       if (isEditMode) {
         alert('✅ Patient updated successfully!');
-        // Stay on the same page for further edits
       } else {
         alert('✅ Patient registered successfully!');
-        // Option 1: Stay on page for another registration
         const continueRegistering = confirm('Patient registered successfully! Would you like to register another patient?');
         if (continueRegistering) {
-          // Reset form for new registration
           const newFolderNumber = generateFolderNumber();
           setFormData({
             folderNumber: newFolderNumber,
@@ -346,16 +431,16 @@ export default function PatientRegistration() {
               phone: ''
             }
           });
+          setImage(null);
+          setImagePreview('');
           setActiveTab('basic');
         } else {
-          // Option 2: Go to patient details
           navigate(`/dashboard/patients/${result.id || result._id}`);
         }
       }
       
     } catch (error: any) {
       console.error('❌ Failed to save patient:', error);
-      // Show detailed backend validation errors
       if (error.response?.data) {
         console.log('🔍 Backend response:', error.response.data);
         if (error.response.data.errors) {
@@ -382,18 +467,42 @@ export default function PatientRegistration() {
 
   const handleContinueEditing = () => {
     setSaveSuccess(false);
-    // Stay on the current page for further edits
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Please select an image smaller than 5MB');
+        return;
+      }
+      
+      setImage(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImage(null);
+    setImagePreview('');
+    // If you want to remove the image from the patient in edit mode, you'll need to call an API
   };
 
   const tabs = [
     { id: 'basic' as const, label: 'Basic Info', icon: User },
-    { id: 'payment' as const, label: 'Payment Mode', icon: CreditCard },
-    { id: 'additional' as const, label: 'Additional Info', icon: Info }
+    { id: 'additional' as const, label: 'Additional Info', icon: Info },
+    { id: 'payment' as const, label: 'Payment Mode', icon: CreditCard }
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
           <div className="flex items-center justify-between">
@@ -421,7 +530,6 @@ export default function PatientRegistration() {
               </div>
             </div>
             
-            {/* Success Actions */}
             {saveSuccess && (
               <div className="flex items-center gap-3">
                 <button
@@ -443,7 +551,6 @@ export default function PatientRegistration() {
           </div>
         </div>
 
-        {/* Success Message */}
         {saveSuccess && (
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6">
             <div className="flex items-center gap-4">
@@ -516,52 +623,88 @@ export default function PatientRegistration() {
                   </div>
                 </div>
 
-                {/* Patient Photo */}
+                {/* Patient Photo - FIXED VERSION */}
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Photo</h2>
-                  <div className="flex items-center gap-6">
-                    <div className="w-24 h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
-                      {image ? (
-                        <img
-                          src={URL.createObjectURL(image)}
-                          alt="Patient preview"
-                          className="w-full h-full object-cover rounded-xl"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : currentPatient?.imageUrl ? (
-                        <img
-                          src={currentPatient.imageUrl}
-                          alt="Patient"
-                          className="w-full h-full object-cover rounded-xl"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <User className="w-8 h-8 text-gray-400" />
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                    <Camera className="w-6 h-6 text-blue-600" />
+                    Patient Photo
+                  </h2>
+                  <div className="flex items-start gap-6">
+                    <div className="relative">
+                      <div className="w-32 h-32 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden shadow-lg">
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt="Patient preview"
+                            className="w-full h-full object-cover rounded-xl"
+                            onError={(e) => {
+                              console.error('Image failed to load:', imagePreview);
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <User className="w-12 h-12 text-gray-400" />
+                        )}
+                      </div>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       )}
                     </div>
+                    
                     <div className="flex-1">
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
-                        Upload Photo
+                        Upload Photo {isUploadingImage && '(Uploading...)'}
                       </label>
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => setImage(e.target.files?.[0] || null)}
+                        onChange={handleImageChange}
                         className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                        disabled={isUploadingImage}
                       />
-                      <p className="text-sm text-gray-500 mt-2">JPG, PNG or GIF (max. 5MB)</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        JPG, PNG or GIF (max. 5MB). Image will be automatically compressed.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Basic Information */}
+                {/* Basic Information with TITLE FIELD ADDED */}
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Title Field - NEW */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Title
+                      </label>
+                      <select
+                        value={additionalInfo.title || ''}
+                        onChange={(e) => setAdditionalInfo({
+                          ...additionalInfo,
+                          title: e.target.value as 'Mr' | 'Mrs' | 'Miss' | 'Dr' | 'Prof' | 'Rev' | 'Other'
+                        })}
+                        className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                      >
+                        <option value="">Select Title</option>
+                        <option value="Mr">Mr</option>
+                        <option value="Mrs">Mrs</option>
+                        <option value="Miss">Miss</option>
+                        <option value="Dr">Dr</option>
+                        <option value="Prof">Prof</option>
+                        <option value="Rev">Rev</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
                     <div className="lg:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
                         Full Name <span className="text-red-500">*</span>
@@ -606,14 +749,12 @@ export default function PatientRegistration() {
                       {formData.dateOfBirth && (
                         <p className="text-sm text-gray-600 mt-2">
                           Age: {calculateAge(formData.dateOfBirth).display}
-                          {/* Show stored age if available and different from calculated */}
                           {isEditMode && currentPatient?.ageDisplay && 
                             calculateAge(formData.dateOfBirth).display !== currentPatient.ageDisplay && 
                             ` (was: ${currentPatient.ageDisplay})`
                           }
                         </p>
                       )}
-                      {/* Show stored age when no date is entered but we have age data */}
                       {!formData.dateOfBirth && isEditMode && currentPatient?.ageDisplay && (
                         <p className="text-sm text-yellow-600 mt-2">
                           Stored age: {currentPatient.ageDisplay}
@@ -665,8 +806,8 @@ export default function PatientRegistration() {
                 insuranceDetails={paymentData.insuranceDetails}
                 onPaymentModeChange={(mode) => setPaymentData({ ...paymentData, paymentMode: mode })}
                 onInsuranceDetailsChange={(details) => setPaymentData({ ...paymentData, insuranceDetails: details })}
-                insuranceProviders={insuranceStore.providers}
-                isLoadingProviders={insuranceStore.isLoading}
+                insuranceProviders={providers}
+                isLoadingProviders={isLoadingProviders}
                 isOptional={false}
                 patientId={currentPatient?.id || patientId}
               />
@@ -684,23 +825,22 @@ export default function PatientRegistration() {
           <div className="flex items-center gap-4 pt-6 border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingImage}
               className={`flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl transition-all duration-200 hover:shadow-lg shadow-md font-semibold text-lg ${
-                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-700 hover:to-teal-700'
+                (isSubmitting || isUploadingImage) ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-700 hover:to-teal-700'
               }`}
             >
               <Save className="w-6 h-6" />
               <span>
-                {isSubmitting 
-                  ? 'Saving...' 
-                  : (isEditMode ? 'Update Patient' : 'Register Patient')
-                }
+                {isUploadingImage ? 'Uploading Image...' : 
+                 isSubmitting ? 'Saving...' : 
+                 (isEditMode ? 'Update Patient' : 'Register Patient')}
               </span>
             </button>
             <button
               type="button"
               onClick={handleBack}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingImage}
               className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold disabled:opacity-50"
             >
               Cancel

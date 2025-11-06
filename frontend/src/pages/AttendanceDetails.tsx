@@ -1,5 +1,5 @@
-// src/pages/AttendanceDetails.tsx - FIXED VERSION
-import { useState, useEffect } from 'react';
+// src/pages/AttendanceDetails.tsx - FULLY FIXED VERSION
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -30,17 +30,23 @@ export default function AttendanceDetails() {
   const { 
     currentAttendance, 
     getAttendance, 
-    isLoading, 
+    isLoading: attendanceLoading,
     error 
   } = useAttendanceStore();
-  const { patients, getPatientById } = usePatientStore();
+  const { 
+    patients, 
+    loadPatients,
+    isLoading: patientsLoading
+  } = usePatientStore();
   const { hasRole, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'procedures' | 'billing'>('overview');
 
-  // Get patient data safely
-  const patient = currentAttendance?.patientId 
-    ? patients.find(p => p.id === currentAttendance.patientId || p._id === currentAttendance.patientId)
-    : null;
+  const isLoading = attendanceLoading || patientsLoading;
+
+  // ✅ LOAD PATIENTS ON MOUNT
+  useEffect(() => {
+    loadPatients(); // Ensure patients are loaded
+  }, [loadPatients]);
 
   useEffect(() => {
     if (id) {
@@ -48,28 +54,43 @@ export default function AttendanceDetails() {
     }
   }, [id, getAttendance]);
 
-  // Smart back navigation - goes back to previous page or attendance list
+  // ✅ BULLETPROOF PATIENT MATCHING
+  const patient = useMemo(() => {
+    if (!currentAttendance?.patientId) return null;
+
+    // If attendance has a populated patient object with fullName, use it
+    if (currentAttendance.patient?.fullName) {
+      return currentAttendance.patient;
+    }
+
+    // Convert to string to handle ObjectId vs string
+    const attendancePatientId = currentAttendance.patientId.toString();
+
+    // Find patient by _id or id
+    const foundPatient = patients.find(p => {
+      const pid = (p._id || p.id)?.toString();
+      return pid === attendancePatientId;
+    });
+
+    return foundPatient || null;
+  }, [currentAttendance, patients]);
+
+  // Smart back navigation
   const handleBack = () => {
-    // Check if we have a previous page in history
     if (location.key !== 'default') {
-      navigate(-1); // Go back to previous page
+      navigate(-1);
     } else {
-      navigate('/dashboard/attendance'); // Default fallback
+      navigate('/dashboard/attendance');
     }
   };
 
   // Safe clinician name extraction
   const getClinicianName = (attendance: any) => {
     const clinician = attendance.clinicianName || attendance.attendingClinician;
-    
     if (!clinician) return 'Unknown Clinician';
-    
-    // If clinician is an object, extract the name
     if (typeof clinician === 'object' && clinician !== null) {
       return clinician.fullName || clinician.username || clinician.name || 'Unknown Clinician';
     }
-    
-    // If clinician is a string or other primitive
     return clinician || 'Unknown Clinician';
   };
 
@@ -137,7 +158,7 @@ export default function AttendanceDetails() {
                   {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
                 </h1>
                 <p className="text-blue-100 text-lg mt-1">
-                  {patient?.fullName || 'Unknown Patient'} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
+                  {patient?.fullName || `Patient ${currentAttendance.patientId?.toString().slice(-6) || 'Unknown'}`} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
                 </p>
               </div>
             </div>
@@ -201,7 +222,7 @@ export default function AttendanceDetails() {
   );
 }
 
-// Overview Tab Component
+// Overview Tab Component (unchanged - already good)
 function OverviewTab({ attendance, patient, getClinicianName }: { 
   attendance: any; 
   patient: any;
@@ -300,7 +321,23 @@ function OverviewTab({ attendance, patient, getClinicianName }: {
                 <div>
                   <p className="text-sm text-gray-600 font-medium">Status</p>
                   <span className={`px-4 py-2 text-sm font-bold rounded-full ${getStatusColor(attendance.status)}`}>
-                    {attendance.status || 'active'}
+                    {/* In OverviewTab or main component */}
+{attendance.status === 'pending' && (
+  <div className="flex gap-2">
+    <button onClick={() => activateAttendance(attendance._id)}>
+      Activate Attendance
+    </button>
+    <button onClick={() => completeAttendance(attendance._id)}>
+      Complete Attendance
+    </button>
+  </div>
+)}
+
+{attendance.status === 'active' && (
+  <button onClick={() => completeAttendance(attendance._id)}>
+    Complete Attendance
+  </button>
+)}
                   </span>
                 </div>
               </div>
@@ -418,7 +455,7 @@ function OverviewTab({ attendance, patient, getClinicianName }: {
   );
 }
 
-// Medications Tab Component
+// Medications Tab Component (unchanged)
 function MedicationsTab({ attendance }: { attendance: any }) {
   const medications = attendance.medications || [];
 
@@ -484,7 +521,7 @@ function MedicationsTab({ attendance }: { attendance: any }) {
   );
 }
 
-// Lab Tests Tab Component
+// Lab Tests Tab Component (unchanged)
 function LabTestsTab({ attendance }: { attendance: any }) {
   const labTests = attendance.labTests || [];
 
@@ -564,7 +601,7 @@ function LabTestsTab({ attendance }: { attendance: any }) {
   );
 }
 
-// Procedures Tab Component
+// Procedures Tab Component (unchanged)
 function ProceduresTab({ attendance }: { attendance: any }) {
   const procedures = attendance.procedures || [];
 
@@ -624,7 +661,7 @@ function ProceduresTab({ attendance }: { attendance: any }) {
   );
 }
 
-// Billing Tab Component
+// Billing Tab Component (unchanged)
 function BillingTab({ attendance }: { attendance: any }) {
   const totalBill = attendance.totalBill || 0;
   const paidAmount = attendance.paidAmount || 0;

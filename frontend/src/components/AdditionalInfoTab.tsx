@@ -1,5 +1,5 @@
 // src/components/AdditionalInfoTab.tsx
-import { Mail, Home, IdCard, Heart, Briefcase, Users, Phone } from 'lucide-react';
+import { Mail, Home, IdCard, Heart, Briefcase, Users, Phone, User } from 'lucide-react';
 import type { AdditionalInfo } from '../types';
 
 interface AdditionalInfoTabProps {
@@ -76,7 +76,7 @@ export default function AdditionalInfoTab({
         </div>
       </div>
 
-      {/* Identification - MOVED from Basic Info */}
+      {/* Identification */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
           <IdCard className="w-6 h-6 text-purple-600" />

@@ -1,6 +1,7 @@
-// src/pages/ServiceCatalog.tsx (continued)
+// src/pages/ServiceCatalog.tsx - UPDATED WITH STATUS INTEGRATION
 import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
+import { useAttendanceStore } from '../store/attendanceStore'; // ADDED
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import {
@@ -20,6 +21,9 @@ import {
   Stethoscope,
   X,
   Save,
+  TrendingUp,
+  Users,
+  BarChart3
 } from 'lucide-react';
 
 export default function ServiceCatalog() {
@@ -33,6 +37,7 @@ export default function ServiceCatalog() {
     deleteServiceCatalogItem,
     isLoading 
   } = useMedicalServicesStore();
+  const { attendances, getAttendances } = useAttendanceStore(); // ADDED
   const { user } = useAuthStore();
   const { addToast } = useToastStore();
   
@@ -41,6 +46,7 @@ export default function ServiceCatalog() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false); // ADDED
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -63,11 +69,84 @@ export default function ServiceCatalog() {
 
   const loadData = async () => {
     try {
-      await Promise.all([getServiceCatalog(), getServiceMetadata()]);
+      await Promise.all([
+        getServiceCatalog(), 
+        getServiceMetadata(),
+        getAttendances() // ADDED: Load attendances for analytics
+      ]);
     } catch (error) {
       addToast('Failed to load service catalog', 'error');
     }
   };
+
+  // ADDED: Service usage analytics
+  const getServiceUsageAnalytics = () => {
+    const analytics = {
+      totalServices: serviceCatalog.length,
+      byServiceType: {} as Record<string, number>,
+      byCategory: {} as Record<string, number>,
+      totalRevenue: 0,
+      mostUsedServices: [] as Array<{name: string, usage: number, revenue: number}>
+    };
+
+    // Calculate service usage from attendances
+    serviceCatalog.forEach(service => {
+      let usage = 0;
+      let revenue = 0;
+
+      attendances.forEach(attendance => {
+        // Check diagnoses
+        if (attendance.diagnoses?.some((d: any) => d.diagnosisId === service.diagnosisId)) {
+          usage++;
+          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+        }
+
+        // Check lab tests
+        if (attendance.labTests?.some((lt: any) => lt.templateId === service.labTestTemplateId)) {
+          usage++;
+          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+        }
+
+        // Check procedures
+        if (attendance.procedures?.some((p: any) => p.templateId === service.procedureTemplateId)) {
+          usage++;
+          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+        }
+
+        // Check medications
+        if (attendance.medications?.some((m: any) => m.stockItemId === service.stockItemId)) {
+          usage++;
+          revenue += service.cashPrice; // Medications typically use cash price
+        }
+
+        // Check services rendered
+        if (attendance.servicesRendered?.some((s: any) => s.serviceItemId === service._id)) {
+          usage++;
+          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+        }
+      });
+
+      if (usage > 0) {
+        analytics.mostUsedServices.push({
+          name: service.name,
+          usage,
+          revenue
+        });
+      }
+
+      // Aggregate by service type and category
+      analytics.byServiceType[service.serviceType] = (analytics.byServiceType[service.serviceType] || 0) + 1;
+      analytics.byCategory[service.category] = (analytics.byCategory[service.category] || 0) + 1;
+      analytics.totalRevenue += revenue;
+    });
+
+    // Sort by usage
+    analytics.mostUsedServices.sort((a, b) => b.usage - a.usage);
+
+    return analytics;
+  };
+
+  const serviceAnalytics = getServiceUsageAnalytics();
 
   const filteredServices = serviceCatalog.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,6 +170,7 @@ export default function ServiceCatalog() {
       setShowForm(false);
       setEditingItem(null);
       resetForm();
+      loadData(); // Refresh to update analytics
     } catch (error) {
       addToast('Failed to save service item', 'error');
     }
@@ -121,6 +201,7 @@ export default function ServiceCatalog() {
       try {
         await deleteServiceCatalogItem(id);
         addToast('Service item deleted successfully', 'success');
+        loadData(); // Refresh to update analytics
       } catch (error) {
         addToast('Failed to delete service item', 'error');
       }
@@ -192,16 +273,135 @@ export default function ServiceCatalog() {
             <p className="text-gray-600">Manage all billable services and procedures</p>
           </div>
         </div>
-        {user?.role === 'admin' && (
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
           >
-            <Plus className="w-5 h-5" />
-            Add Service
+            <TrendingUp className="w-5 h-5" />
+            Analytics
           </button>
-        )}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Add Service
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Service Analytics - ADDED */}
+      {showAnalytics && (
+        <div className="bg-white rounded-2xl p-6 border border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-teal-600" />
+            Service Usage Analytics
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+              <div className="text-2xl font-bold text-gray-900">{serviceAnalytics.totalServices}</div>
+              <div className="text-sm text-gray-600">Total Services</div>
+            </div>
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+              <div className="text-2xl font-bold text-gray-900">{serviceAnalytics.mostUsedServices.length}</div>
+              <div className="text-sm text-gray-600">Active Services</div>
+            </div>
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
+              <div className="text-2xl font-bold text-gray-900">
+                GHS {serviceAnalytics.totalRevenue.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">Total Revenue</div>
+            </div>
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+              <div className="text-2xl font-bold text-gray-900">
+                {serviceAnalytics.mostUsedServices[0]?.usage || 0}
+              </div>
+              <div className="text-sm text-gray-600">Most Used Service</div>
+            </div>
+          </div>
+
+          {/* Most Used Services */}
+          {serviceAnalytics.mostUsedServices.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Used Services</h3>
+              <div className="space-y-3">
+                {serviceAnalytics.mostUsedServices.slice(0, 5).map((service, index) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold text-teal-600 bg-teal-100 w-8 h-8 rounded-full flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <span className="font-semibold text-gray-900">{service.name}</span>
+                        <p className="text-sm text-gray-600">{service.usage} uses</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-gray-900">GHS {service.revenue.toFixed(2)}</div>
+                      <div className="text-sm text-gray-600">Revenue</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Service Type Distribution */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Type Distribution</h3>
+              <div className="space-y-3">
+                {Object.entries(serviceAnalytics.byServiceType).map(([type, count]) => (
+                  <div key={type} className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 capitalize">{type.replace('_', ' ')}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-teal-600 h-2 rounded-full"
+                          style={{ 
+                            width: `${(count / serviceAnalytics.totalServices) * 100}%` 
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
+                        {count}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Distribution</h3>
+              <div className="space-y-3">
+                {Object.entries(serviceAnalytics.byCategory).map(([category, count]) => (
+                  <div key={category} className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 capitalize">{category}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{ 
+                            width: `${(count / serviceAnalytics.totalServices) * 100}%` 
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
+                        {count}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Service Form Modal */}
       {showForm && (
@@ -235,7 +435,7 @@ export default function ServiceCatalog() {
                   />
                 </div>
 
-                <div>
+    <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Service Code *
                   </label>

@@ -1,16 +1,22 @@
-// User and Authentication Types
-export type UserRole = 
-  | 'admin' 
-  | 'doctor' 
-  | 'nurse' 
-  | 'midwife' 
-  | 'records' 
-  | 'lab_tech' 
-  | 'pharmacist' 
+// src/types/index.ts - FULLY UPDATED WITH STATUS HELPERS & CLEANED STRUCTURE
+
+// ======================
+// USER & AUTHENTICATION
+// ======================
+
+export type UserRole =
+  | 'admin'
+  | 'doctor'
+  | 'nurse'
+  | 'midwife'
+  | 'records'
+  | 'lab_tech'
+  | 'pharmacist'
   | 'accounts';
 
 export interface User {
   _id: string;
+  id?: string; // For frontend compatibility
   username: string;
   fullName: string;
   role: UserRole;
@@ -23,41 +29,34 @@ export interface User {
   isActive: boolean;
 }
 
-// Payment and Insurance Types
-export type PaymentMode = 'cash' | 'nhis' | 'private_insurance';  
-  
-  // src/types/index.ts - ADD THESE TYPES IF MISSING
-export type PaymentMode = 'cash' | 'nhis' | 'private_insurance';
-
-export type AttendanceType = 
-  | 'general_opd'
-  | 'specialist_opd'
-  | 'emergency'
-  | 'inpatient'
-  | 'surgical'
-  | 'maternity'
-  | 'pediatric'
-  | 'dental'
-  | 'optical'
-  | 'physiotherapy'
-  | 'laboratory'
-  | 'radiology';
-
-export interface Attendance {
-  _id: string;
-  patientId: string;
-  dateTime: string;
-  attendanceType: AttendanceType;
-  paymentMode: PaymentMode;
-  nhisCCC?: string;
-  complaints: string;
-  attendingClinician: string;
-  status: 'active' | 'completed' | 'cancelled';
-  createdAt: string;
-  updatedAt: string;
+// src/types/index.ts
+export interface HospitalInfo {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
 }
 
+// ======================
+// PAYMENT & ATTENDANCE
+// ======================
+
+export type PaymentMode = 'cash' | 'nhis' | 'private_insurance';
+
+export type AttendanceType =
+  | 'general_opd'
+  | 'specialist_consultation'
+  | 'antenatal_care'
+  | 'diagnostic_opd'
+  | 'emergency'
+  | 'other_opd'
+  | 'inpatient';
+
 export type AttendanceStatus = 'pending' | 'active' | 'completed' | 'cancelled' | 'admitted' | 'discharged';
+
+// ======================
+// PATIENT & INSURANCE
+// ======================
 
 export interface InsuranceDetails {
   insuranceNumber: string;
@@ -83,7 +82,6 @@ export interface AdditionalInfo {
   };
 }
 
-// Patient interface
 export interface Patient {
   _id: string;
   folderNumber: string;
@@ -102,9 +100,13 @@ export interface Patient {
   updatedAt: string;
 }
 
-// Clinical Workflow Types
+// ======================
+// CLINICAL WORKFLOW
+// ======================
+
 export interface Vitals {
   _id?: string;
+  attendanceId?: string; // To associate with attendance in frontend stores
   bloodPressure?: string;
   temperature?: number;
   pulse?: number;
@@ -126,6 +128,17 @@ export interface Diagnosis {
   primary: boolean;
   date: string;
   createdBy: string;
+    // ADD THESE PRICING FIELDS:
+  cashPrice: number;
+  insurancePrice: number;
+  costPrice: number;
+  isActive: boolean;
+  requiresAuthorization: boolean;
+  tariffCode?: string;
+  vatRate: number;
+  isTaxable: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Medication {
@@ -153,7 +166,7 @@ export interface LabTest {
   templateId: string;
   name: string;
   status: 'requested' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'routine' | 'urgent';
+  priority: 'routine' | 'urgent' | 'stat';
   result?: string;
   normalRange?: string;
   units?: string;
@@ -175,6 +188,7 @@ export interface Scan {
   findings?: string;
   impression?: string;
   performedBy?: string;
+  verifiedBy?: string;
   imageUrls?: string[];
   requestedAt: string;
   completedAt?: string;
@@ -190,7 +204,11 @@ export interface Procedure {
   performedBy?: string;
   assistant?: string;
   cost?: number;
+  duration?: number;
   notes?: string;
+  complications?: string;
+  outcome?: string;
+  createdBy: string;
 }
 
 export interface ProgressNote {
@@ -211,7 +229,10 @@ export interface ServiceRendered {
   notes?: string;
 }
 
-// Attendance interface
+// ======================
+// ATTENDANCE (MAIN ENTITY)
+// ======================
+
 export interface Attendance {
   _id: string;
   attendanceNumber: string;
@@ -221,38 +242,86 @@ export interface Attendance {
   attendanceType: AttendanceType;
   paymentMode: PaymentMode;
   nhisCCC?: string;
-  insurancePolicyNumber?: string;
-  relationshipToPolicyHolder?: string;
   complaints: string;
-  vitals: Vitals[];
-  diagnoses: Diagnosis[];
-  medications: Medication[];
-  labTests: LabTest[];
-  scans: Scan[];
-  procedures: Procedure[];
-  servicesRendered: ServiceRendered[];
-  progressNotes: ProgressNote[];
-  medicalNotes?: string;
   attendingClinician: string;
   clinician?: User;
   status: AttendanceStatus;
-  followUpDate?: string;
-  previousAttendanceId?: string;
-  admissionId?: string;
-  bedId?: string;
-  wardId?: string;
-  billId?: string;
-  insuranceClaimId?: string;
-  totalBill: number;
-  paidAmount: number;
-  outstandingBalance: number;
   createdBy: string;
   updatedBy?: string;
   createdAt: string;
   updatedAt: string;
+
+  // Billing information
+  totalBill?: number;
+  paidAmount?: number;
+  outstandingBalance?: number;
+
+  // Status timeline
+  activatedAt?: string;
+  completedAt?: string;
+
+  // Optional references
+  admissionId?: string;
+  bedId?: string;
+  wardId?: string;
+  billId?: string;
+  previousAttendanceId?: string;
+  insuranceClaimId?: string;
+  preAuthNumber?: string;
+  preAuthApproved?: boolean;
+  preAuthAmount?: number;
+  medicalNotes?: string;
+  followUpDate?: string;
+
+  // Clinical arrays
+  vitals?: Vitals[];
+  diagnoses?: Diagnosis[];
+  medications?: Medication[];
+  labTests?: LabTest[];
+  scans?: Scan[];
+  procedures?: Procedure[];
+  progressNotes?: ProgressNote[];
+  servicesRendered?: ServiceRendered[];
 }
 
-// Billing Types
+// ======================
+// STATUS HELPER LOGIC
+// ======================
+
+export type ActivityPhase = 'planning' | 'execution' | 'completed';
+
+export const getAttendancePhase = (status: AttendanceStatus): ActivityPhase => {
+  switch (status) {
+    case 'pending':
+      return 'planning';
+    case 'active':
+      return 'execution';
+    case 'completed':
+    case 'cancelled':
+    case 'admitted':
+    case 'discharged':
+      return 'completed';
+    default:
+      return 'planning';
+  }
+};
+
+export const canAddActivities = (attendance: Attendance): boolean => {
+  return ['pending', 'active'].includes(attendance.status);
+};
+
+export const canPerformActivities = (attendance: Attendance): boolean => {
+  return attendance.status === 'active';
+};
+
+export const canModifyActivities = (attendance: Attendance): boolean => {
+  return ['pending', 'active'].includes(attendance.status);
+};
+
+// ======================
+// BILLING
+// ======================
+
 export type BillStatus = 'pending' | 'partial' | 'paid' | 'cancelled' | 'generated';
 
 export interface BillItem {
@@ -262,18 +331,31 @@ export interface BillItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  insuranceCovered?: number; // ✅ ADD
+  patientPayable?: number;   // ✅ ADD
 }
 
 export interface Payment {
   _id: string;
   amount: number;
-  paymentMode: PaymentMode;
+  paymentMode: PaymentMethod;
   paymentDate: string;
   receivedBy: string;
   receiptNumber: string;
   reference?: string;
   notes?: string;
 }
+
+// Payment Method (for transactions)
+export type PaymentMethod = 
+  | 'cash' 
+  | 'card' 
+  | 'mobile_money' 
+  | 'bank_transfer' 
+  | 'insurance_claim';
+
+// CLAIM STATUS from backend
+export type ClaimStatus = 'not_required' | 'pending' | 'submitted' | 'approved' | 'rejected';
 
 export interface Bill {
   _id: string;
@@ -282,22 +364,69 @@ export interface Bill {
   patient?: Patient;
   attendanceId?: string;
   admissionId?: string;
+  
+  // Financial breakdown (from backend)
   items: BillItem[];
   subtotal: number;
   discount: number;
-  tax: number;
+  taxAmount: number;        // ✅ was 'tax' → now matches backend 'taxAmount'
   totalAmount: number;
+  insuranceCovered: number; // ✅ NEW: amount covered by insurance
+  patientPayable: number;   // ✅ NEW: what patient actually pays
   paidAmount: number;
   balance: number;
+  
+  // Status and tracking
   status: BillStatus;
-  createdAt: string;
+  
+  // Payment mode
+  paymentMode: PaymentMode; // ✅ NEW: matches backend
+  
+  // Insurance information (from backend)
+  insuranceProviderId?: string; // ✅ NEW
+  preAuthNumber?: string;       // ✅ already present, good
+  claimNumber?: string;         // ✅ NEW
+  claimStatus: ClaimStatus;     // ✅ NEW (use the type above)
+  
+  // References
   createdBy: string;
+  updatedBy?: string;           // ✅ NEW
+  
+  // Timestamps (from backend)
+  billDate: string;             // ✅ NEW: date bill was issued
+  dueDate?: string;             // ✅ NEW: payment due date
+  
+  // Audit
+  createdAt: string;
   updatedAt: string;
+  
+  // Payments
   payments: Payment[];
 }
 
-// Insurance Claims
+
+// ======================
+// INSURANCE
+// ======================
+
 export type ClaimStatus = 'draft' | 'submitted' | 'processing' | 'approved' | 'partially_approved' | 'rejected' | 'paid';
+
+export interface InsuranceProvider {
+  _id: string;
+  name: string;
+  type: 'nhis' | 'private';
+  coveragePercentage: number;
+  startDate: string;
+  expiryDate: string;
+  isActive: boolean;
+  contactInfo: {
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface InsuranceClaim {
   _id: string;
@@ -328,26 +457,25 @@ export interface InsuranceClaim {
   updatedAt: string;
 }
 
-export interface InsuranceProvider {
-  _id: string;
-  name: string;
-  type: 'nhis' | 'private';
-  coveragePercentage: number;
-  startDate: string;
-  expiryDate: string;
-  isActive: boolean;
-  contactInfo: {
-    phone?: string;
-    email?: string;
-    address?: string;
-  };
-  createdAt: string;
-  updatedAt: string;
+// ADD TO src/types/index.ts
+export interface InsuranceClaimAnalytics {
+  totalClaims: number;
+  pendingClaims: number;
+  approvedClaims: number;
+  paidClaims: number;
+  totalClaimAmount: number;
+  approvedAmount: number;
+  byProvider: Record<string, number>;
+  byStatus: Record<string, number>;
+  averageProcessingTime: number;
 }
 
-// Stock Management Types
-export type StockCategory = 'medication' | 'consumable' | 'equipment' | 'supply';
 
+// ======================
+// STOCK MANAGEMENT
+// ======================
+
+export type StockCategory = 'medication' | 'consumable' | 'equipment' | 'supply';
 export type TransactionType = 'stock_in' | 'stock_out' | 'adjustment' | 'expired' | 'damaged';
 
 export interface StockItem {
@@ -366,6 +494,15 @@ export interface StockItem {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  insurancePrice: number;
+  isActive: boolean;
+  requiresAuthorization: boolean;
+  tariffCode?: string;
+  vatRate: number;
+  isTaxable: boolean;
+  isMedication: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface StockTransaction {
@@ -382,7 +519,10 @@ export interface StockTransaction {
   createdAt: string;
 }
 
-// Admissions and Ward Management Types
+// ======================
+// ADMISSIONS & WARDS
+// ======================
+
 export type WardType = 'general' | 'private' | 'icu' | 'maternity' | 'pediatric' | 'surgical';
 
 export interface Ward {
@@ -440,7 +580,10 @@ export interface Admission {
   updatedAt: string;
 }
 
-// Service Catalog Types
+// ======================
+// SERVICE CATALOG
+// ======================
+
 export type ServiceType = 'diagnosis' | 'lab_test' | 'procedure' | 'medication' | 'ward' | 'consultation' | 'other';
 
 export interface ServiceCatalog {
@@ -468,17 +611,80 @@ export interface ServiceCatalog {
   updatedAt: string;
 }
 
-// Reports Types
+export interface ServiceUsageAnalytics {
+  totalServices: number;
+  byServiceType: Record<string, number>;
+  byCategory: Record<string, number>;
+  totalRevenue: number;
+  mostUsedServices: Array<{
+    name: string;
+    usage: number;
+    revenue: number;
+  }>;
+}
+
+// ======================
+// TEMPLATES (MISSING INTERFACES)
+// ======================
+
+export interface DiagnosisTemplate {
+  _id: string;
+  name: string;
+  icdCode?: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LabTestTemplate {
+  _id: string;
+  name: string;
+  description?: string;
+  normalRange?: string;
+  units?: string;
+  cost?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProcedureTemplate {
+  _id: string;
+  name: string;
+  description?: string;
+  duration?: number;
+  cost?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+export interface ScanEntry {
+  _id: string;
+  scanType: string;
+  description: string;
+  bodyPart: string;
+  priority: 'routine' | 'urgent';
+  notes: string;
+}
+
+// ======================
+// REPORTS
+// ======================
+
 export interface ReportFilter {
   startDate?: string;
   endDate?: string;
   department?: string;
   userId?: string;
   attendanceType?: AttendanceType;
-  status?: string;
+  status?: string; // ADDED: Filter by attendance status
   insuranceProviderId?: string;
   patientId?: string;
   groupBy?: 'day' | 'week' | 'month';
+  includeStatusAnalytics?: boolean; // ADDED
 }
 
 export interface FinancialReport {
@@ -571,7 +777,28 @@ export interface AttendanceReport {
   generatedAt: string;
 }
 
-// Pagination Types
+// ADD TO src/types/index.ts
+export interface StatusAnalyticsReport {
+  reportType: 'status';
+  period: { startDate?: string; endDate?: string };
+  summary: {
+    totalAttendances: number;
+    statusBreakdown: Record<string, number>;
+    typeBreakdown: Record<string, number>;
+  };
+  analytics: {
+    avgDurationByStatus: Record<string, string>;
+    pendingToActiveRate: string;
+    completionRate: string;
+  };
+  generatedAt: string;
+}
+
+
+// ======================
+// UTILITY TYPES
+// ======================
+
 export interface Pagination {
   page: number;
   limit: number;
@@ -580,8 +807,76 @@ export interface Pagination {
 }
 
 export interface ApiResponse<T> {
-  data: T;
+   T;
   message?: string;
   pagination?: Pagination;
   success?: boolean;
 }
+
+export interface SelectOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface FilterOptions {
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface ApiError {
+  message: string;
+  code?: string;
+  details?: any;
+  status?: number;
+}
+
+export interface SearchParams {
+  query: string;
+  filters?: FilterOptions;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface DashboardStats {
+  totalPatients: number;
+  totalAttendances: number;
+  totalRevenue: number;
+  pendingAttendances: number;
+  activeAttendances: number;
+  completedAttendances: number;
+  monthlyRevenue: number;
+  weeklyAttendances: number;
+}
+
+export interface Notification {
+  _id: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  actionUrl?: string;
+}
+
+export interface SystemSettings {
+  hospitalName: string;
+  hospitalAddress: string;
+  hospitalPhone: string;
+  hospitalEmail: string;
+  currency: string;
+  timezone: string;
+  dateFormat: string;
+  autoBackup: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly';
+}
+
+// ======================
+// EXPORTS
+// ======================
+
+// Re-export for convenience if needed (optional)
+// export * from './other-file'; // Only if you have split files
+
+// All types are already exported individually above

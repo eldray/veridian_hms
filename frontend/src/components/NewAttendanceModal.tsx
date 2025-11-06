@@ -1,4 +1,4 @@
-// src/components/NewAttendanceModal.tsx - UPDATED
+// src/components/NewAttendanceModal.tsx - UPDATED VERSION
 import { useState, useEffect } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -7,7 +7,7 @@ import { X, Save, User, AlertCircle, CheckCircle, CreditCard, Shield, Building }
 import type { AttendanceType, PaymentMode } from '../types';
 
 interface NewAttendanceModalProps {
-  patientId: string;
+  patientId?: string;
   onSuccess: (attendance: any) => void;
   onClose: () => void;
   isEditMode?: boolean;
@@ -35,18 +35,30 @@ export default function NewAttendanceModal({
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (patientId) {
+    if (isEditMode && attendanceData) {
+      console.log('📋 Editing attendance:', attendanceData);
+      setAttendanceType(attendanceData.attendanceType || 'general_opd');
+      setPaymentMode(attendanceData.paymentMode || 'cash');
+      setNhisCCC(attendanceData.nhisCCC || '');
+      setComplaints(attendanceData.complaints || '');
+      setStatus(attendanceData.status || 'active');
+      
+      if (attendanceData.patientId) {
+        const patientData = getPatientById(attendanceData.patientId);
+        setPatient(patientData);
+      } else if (patientId) {
+        const patientData = getPatientById(patientId);
+        setPatient(patientData);
+      }
+    } else if (patientId) {
       const patientData = getPatientById(patientId);
       console.log('👤 Patient data loaded:', patientData);
       setPatient(patientData);
       
       if (patientData) {
-        // Set payment mode from patient data if available
         if (patientData.paymentMode) {
           setPaymentMode(patientData.paymentMode);
         }
-        
-        // Pre-fill NHIS CCC if patient has it
         if (patientData.nhisCCC) {
           setNhisCCC(patientData.nhisCCC);
         }
@@ -54,69 +66,149 @@ export default function NewAttendanceModal({
         setFormError('Patient not found.');
       }
     }
-
-    // If edit mode, populate with existing data
-    if (isEditMode && attendanceData) {
-      setAttendanceType(attendanceData.attendanceType || 'general_opd');
-      setPaymentMode(attendanceData.paymentMode || 'cash');
-      setNhisCCC(attendanceData.nhisCCC || '');
-      setComplaints(attendanceData.complaints || '');
-      setStatus(attendanceData.status || 'active');
-    }
   }, [patientId, getPatientById, isEditMode, attendanceData]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
+// Updated handleSubmit function with detailed debugging
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setFormError('');
+  console.log('🟡 Submit button clicked - Starting form submission...');
 
+  // Debug: Check all required conditions
+  console.log('🔍 Debug - Form state:', {
+    isEditMode,
+    patientId,
+    patient: !!patient,
+    user: !!user,
+    paymentMode,
+    nhisCCC,
+    isLoading
+  });
+
+  if (isEditMode) {
+    if (!attendanceData) {
+      console.log('❌ Edit mode: No attendance data found');
+      setFormError('Attendance data not found for editing');
+      return;
+    }
+  } else {
     if (!patientId || !patient) {
+      console.log('❌ Create mode: Patient not found - patientId:', patientId, 'patient:', patient);
       setFormError('Patient not found');
       return;
     }
+  }
 
-    if (!user) {
-      setFormError('User not authenticated');
-      return;
+  if (!user) {
+    console.log('❌ No user found');
+    setFormError('User not authenticated');
+    return;
+  }
+
+  // Validate NHIS CCC for NHIS patients
+  if (paymentMode === 'nhis' && !nhisCCC.trim()) {
+    console.log('❌ NHIS payment mode selected but no CCC code provided');
+    setFormError('Please enter NHIS CCC code');
+    return;
+  }
+
+  // ✅ FIX: Handle both id and _id formats for MongoDB
+  const attendingClinician = user.id || user._id;
+  const createdBy = user.id || user._id;
+  
+if (!attendingClinician || !createdBy) {
+  console.log('❌ No user ID found in user:', user);
+  setFormError('User ID not found');
+  return;
+}
+
+
+  console.log('✅ All validations passed - Building payload...');
+
+  // ✅ FIX: Create a clean payload with all required fields
+// ✅ FIX: Create a clean payload with all required fields
+const attendanceDataPayload: any = {
+  // For create mode, include patientId
+  ...(isEditMode ? {} : { patientId }),
+  
+  // Basic required fields
+  dateTime: isEditMode ? attendanceData.dateTime : new Date().toISOString(),
+  attendanceType,
+  paymentMode,
+  
+  // Conditional NHIS field
+  ...(paymentMode === 'nhis' && { nhisCCC: nhisCCC.trim() }),
+  
+  // Complaints with default
+  complaints: complaints.trim() || 'No complaints recorded',
+  
+  // Clinician and audit information
+  attendingClinician,
+  createdBy, // ✅ ADD THIS
+  updatedBy: attendingClinician,
+  
+  // Default status
+  ...(isEditMode ? { status } : { status: 'pending' }),
+  // For new attendances only
+...(isEditMode ? {} : { registeredAt: new Date().toISOString() }),
+};
+
+  // ✅ FIX: Clean up undefined/null values
+  Object.keys(attendanceDataPayload).forEach(key => {
+    if (attendanceDataPayload[key] === undefined || attendanceDataPayload[key] === null) {
+      delete attendanceDataPayload[key];
     }
+  });
 
-    // Validate NHIS CCC for NHIS patients
-    if (paymentMode === 'nhis' && !nhisCCC.trim()) {
-      setFormError('Please enter NHIS CCC code');
-      return;
+  console.log('📝 Final payload being submitted:', attendanceDataPayload);
+  console.log('🔍 DEBUG - User object:', user);
+  console.log('🔍 DEBUG - Using attendingClinician ID:', attendingClinician);
+
+  try {
+    console.log('🔄 Calling store function...');
+    let result;
+    
+    if (isEditMode && attendanceData) {
+      // Use _id for MongoDB
+      const attendanceId = attendanceData._id || attendanceData.id;
+      console.log('🔄 Updating attendance with ID:', attendanceId);
+      result = await updateAttendance(attendanceId, attendanceDataPayload);
+    } else {
+      console.log('🆕 Creating new attendance');
+      result = await createAttendance(attendanceDataPayload);
     }
-
-    const attendanceDataPayload = {
-      patientId,
-      dateTime: isEditMode ? attendanceData.dateTime : new Date().toISOString(),
-      attendanceType,
-      paymentMode,
-      nhisCCC: paymentMode === 'nhis' ? nhisCCC : undefined,
-      complaints: complaints.trim() || 'No complaints recorded',
-      attendingClinician: user.id || user._id,
-      status: status
-    };
-
-    console.log('📝 Submitting attendance data:', attendanceDataPayload);
-
-    try {
-      let result;
-      if (isEditMode && attendanceData) {
-        result = await updateAttendance(attendanceData._id || attendanceData.id, attendanceDataPayload);
-      } else {
-        result = await createAttendance(attendanceDataPayload);
+    
+    console.log('✅ Attendance saved successfully:', result);
+    
+    setSuccess(true);
+    setTimeout(() => {
+      console.log('🎯 Calling onSuccess callback');
+      onSuccess(result);
+    }, 1500);
+  } catch (error: any) {
+    console.error('❌ Failed to save attendance:', error);
+    
+    // ✅ IMPROVED: Better error handling
+    let errorMessage = 'Failed to save attendance';
+    
+    if (error.response?.data) {
+      // Try to extract server error message
+      const serverError = error.response.data;
+      if (typeof serverError === 'string') {
+        errorMessage = serverError;
+      } else if (serverError.message) {
+        errorMessage = serverError.message;
+      } else if (serverError.error) {
+        errorMessage = serverError.error;
       }
-      
-      console.log('✅ Attendance saved successfully:', result);
-      
-      setSuccess(true);
-      setTimeout(() => {
-        onSuccess(result);
-      }, 1500);
-    } catch (error: any) {
-      console.error('❌ Failed to save attendance:', error);
-      setFormError(error.message || 'Failed to save attendance');
+    } else if (error.message) {
+      errorMessage = error.message;
     }
-  };
+    
+    console.error('❌ Error message to display:', errorMessage);
+    setFormError(errorMessage);
+  }
+};
 
   const paymentModes = [
     { id: 'cash', name: 'Cash', icon: CreditCard, color: 'gray' },
@@ -133,6 +225,7 @@ export default function NewAttendanceModal({
     { id: 'discharged', name: 'Discharged', color: 'indigo' }
   ];
 
+  // Rest of the component remains the same...
   if (success) {
     return (
       <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -151,7 +244,7 @@ export default function NewAttendanceModal({
           </p>
           <button
             onClick={onClose}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg"
           >
             Close
           </button>
@@ -163,51 +256,69 @@ export default function NewAttendanceModal({
   return (
     <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-        {/* Header - Smaller */}
-        <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-t-2xl p-4 text-white">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-teal-500 rounded-t-2xl p-4 text-white sticky top-0 z-10">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold">
-                {isEditMode ? 'Edit Attendance' : 'Create New Attendance'}
-              </h2>
-              <p className="text-blue-100 text-xs mt-1">
-                {patient?.fullName} • {patient?.folderNumber}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                {isEditMode ? <Save className="w-5 h-5" /> : <User className="w-5 h-5" />}
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">
+                  {isEditMode ? 'Edit Attendance' : 'Create New Attendance'}
+                </h2>
+                <p className="text-blue-100 text-xs">
+                  {patient?.fullName} • {patient?.folderNumber}
+                  {isEditMode && attendanceData?.attendanceNumber && ` • ${attendanceData.attendanceNumber}`}
+                </p>
+              </div>
             </div>
             <button
               onClick={onClose}
               disabled={isLoading}
-              className="p-2 hover:bg-white/20 rounded-xl transition-colors disabled:opacity-50"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 space-y-6">
           {/* Error Display */}
           {(formError || error) && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
               <div className="flex items-center gap-2 text-red-800">
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="w-5 h-5" />
                 <span className="font-medium text-sm">{formError || error}</span>
               </div>
+              <p className="text-xs text-red-600 mt-2">
+                Please check the form data and try again. If the problem persists, contact support.
+              </p>
             </div>
           )}
 
-          {/* Patient Info - Compact */}
-          <div className="bg-gray-50 rounded-xl p-3 mb-6">
+          {/* Patient Info */}
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                 <User className="w-4 h-4 text-blue-600" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-gray-900 text-sm">{patient?.fullName}</p>
-                <p className="text-xs text-gray-600">
-                  {patient?.folderNumber} • {patient?.gender} • {patient?.age} years
-                </p>
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span>{patient?.folderNumber}</span>
+                  <span>•</span>
+                  <span className="capitalize">{patient?.gender}</span>
+                  <span>•</span>
+                  <span>{patient?.age} years</span>
+                </div>
               </div>
+              {isEditMode && attendanceData?.dateTime && (
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span>Created: {new Date(attendanceData.dateTime).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -229,10 +340,13 @@ export default function NewAttendanceModal({
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-600 mt-2">
+                  Update the attendance status based on current progress
+                </p>
               </div>
             )}
 
-            {/* Payment Mode Selection - Smaller */}
+            {/* Payment Mode Selection */}
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <h3 className="text-base font-bold text-gray-900 mb-3">Payment Mode</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -250,6 +364,7 @@ export default function NewAttendanceModal({
                           ? 'border-blue-500 bg-blue-50 shadow-sm'
                           : 'border-gray-200 bg-white hover:border-gray-300'
                       }`}
+                      disabled={isLoading}
                     >
                       <div className="flex items-center gap-2">
                         <div className={`w-8 h-8 rounded flex items-center justify-center ${
@@ -259,6 +374,9 @@ export default function NewAttendanceModal({
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{mode.name}</p>
+                          <p className="text-xs text-gray-600 capitalize">
+                            {mode.id.replace('_', ' ')}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -267,7 +385,7 @@ export default function NewAttendanceModal({
               </div>
             </div>
 
-            {/* Attendance Type - Dropdown */}
+            {/* Attendance Type */}
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <h3 className="text-base font-bold text-gray-900 mb-3">Attendance Type</h3>
               <select
@@ -284,9 +402,12 @@ export default function NewAttendanceModal({
                 <option value="other_opd">Other OPD</option>
                 <option value="inpatient">Inpatient</option>
               </select>
+              <p className="text-xs text-gray-600 mt-2">
+                Select the appropriate type of attendance
+              </p>
             </div>
 
-            {/* NHIS CCC Code (only for NHIS patients) */}
+            {/* NHIS CCC Code */}
             {paymentMode === 'nhis' && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                 <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">

@@ -1,4 +1,4 @@
-// models/Bill.ts
+// models/Bill.ts - CORRECTED VERSION
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBill extends Document {
@@ -8,6 +8,13 @@ export interface IBill extends Document {
   admissionId?: mongoose.Types.ObjectId;
   
   // Financial breakdown
+  items: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    category?: string;
+  }>;
   subtotal: number;
   discount: number;
   taxAmount: number;
@@ -28,7 +35,6 @@ export interface IBill extends Document {
   claimStatus: 'not_required' | 'pending' | 'submitted' | 'approved' | 'rejected';
   
   // References
-  billItems: mongoose.Types.ObjectId[];
   createdBy: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   
@@ -45,7 +51,14 @@ const billSchema = new Schema<IBill>({
   attendanceId: { type: Schema.Types.ObjectId, ref: 'Attendance', required: true },
   admissionId: { type: Schema.Types.ObjectId, ref: 'Admission' },
   
-  // Financial breakdown
+  // Financial breakdown - FIXED: Use items array instead of billItems references
+  items: [{
+    description: { type: String, required: true },
+    quantity: { type: Number, required: true, default: 1 },
+    unitPrice: { type: Number, required: true },
+    totalPrice: { type: Number, required: true },
+    category: { type: String } // consultation, medication, lab, procedure, etc.
+  }],
   subtotal: { type: Number, required: true, default: 0 },
   discount: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
@@ -77,8 +90,7 @@ const billSchema = new Schema<IBill>({
     default: 'not_required'
   },
   
-  // References
-  billItems: [{ type: Schema.Types.ObjectId, ref: 'BillItem' }],
+  // References - REMOVED: billItems since we're using embedded items array
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   
@@ -98,8 +110,8 @@ billSchema.index({ billDate: -1 });
 
 // Pre-save middleware for bill number and calculations
 billSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    // Generate bill number
+  if (this.isNew && !this.billNumber) {
+    // Generate bill number only if not provided
     const lastBill = await mongoose.model<IBill>('Bill')
       .findOne()
       .sort({ billNumber: -1 });
@@ -112,6 +124,17 @@ billSchema.pre('save', async function(next) {
     
     this.billNumber = `BIL-${nextNumber}`;
   }
+  
+  // Calculate subtotal from items
+  if (this.items && this.items.length > 0) {
+    this.subtotal = this.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  }
+  
+  // Calculate total amount
+  this.totalAmount = this.subtotal - this.discount + this.taxAmount;
+  
+  // Calculate patient payable (total minus insurance covered)
+  this.patientPayable = this.totalAmount - this.insuranceCovered;
   
   // Auto-calculate balance
   this.balance = this.patientPayable - this.paidAmount;

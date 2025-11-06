@@ -5,7 +5,8 @@ import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { ArrowLeft, Save, DollarSign, CreditCard, Smartphone, Building2, Banknote, Hospital, Shield, Activity } from 'lucide-react';
-import type { PaymentMode } from '../types';
+import type { paymentMethod } from '../types';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 
 export default function ProcessPayment() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function ProcessPayment() {
   const patient = bill ? patients.find(p => p.id === bill.patientId) : null;
 
   const [amount, setAmount] = useState(bill?.balance || 0);
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
+  const [paymentMethod, setpaymentMethod] = useState<paymentMethod>('cash');
   const [reference, setReference] = useState('');
 
   if (!bill) {
@@ -55,7 +56,7 @@ export default function ProcessPayment() {
     addPayment(bill.id, {
       billId: bill.id,
       amount,
-      paymentMode,
+      paymentMethod,
       paymentDate: new Date().toISOString(),
       receivedBy: user?.id || user?.username || '',
       reference: reference || undefined,
@@ -64,7 +65,7 @@ export default function ProcessPayment() {
     navigate('/dashboard/billing');
   };
 
-  const paymentModes: Array<{ value: PaymentMode; label: string; icon: any }> = [
+  const paymentMethods: Array<{ value: paymentMethod; label: string; icon: any }> = [
     { value: 'cash', label: 'Cash', icon: Banknote },
     { value: 'card', label: 'Card', icon: CreditCard },
     { value: 'mobile_money', label: 'Mobile Money', icon: Smartphone },
@@ -125,7 +126,7 @@ export default function ProcessPayment() {
                   <div key={payment.id} className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200">
                     <div>
                       <span className="text-gray-600 font-medium">
-                        {new Date(payment.paymentDate).toLocaleDateString()} - {payment.paymentMode}
+                        {new Date(payment.paymentDate).toLocaleDateString()} - {payment.paymentMethod}
                       </span>
                       {payment.reference && (
                         <span className="text-sm text-gray-500 ml-3">Ref: {payment.reference}</span>
@@ -172,14 +173,14 @@ export default function ProcessPayment() {
               Payment Method <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {paymentModes.map((mode) => {
+              {paymentMethods.map((mode) => {
                 const Icon = mode.icon;
-                const isSelected = paymentMode === mode.value;
+                const isSelected = paymentMethod === mode.value;
                 return (
                   <button
                     key={mode.value}
                     type="button"
-                    onClick={() => setPaymentMode(mode.value)}
+                    onClick={() => setpaymentMethod(mode.value)}
                     className={`p-6 border-2 rounded-2xl transition-all duration-300 hover:shadow-lg ${
                       isSelected
                         ? 'border-blue-600 bg-gradient-to-r from-blue-50 to-teal-50 shadow-lg'
@@ -201,16 +202,16 @@ export default function ProcessPayment() {
           </div>
 
           {/* Reference Number */}
-          {(paymentMode === 'card' || paymentMode === 'mobile_money' || paymentMode === 'bank_transfer') && (
+          {(paymentMethod === 'card' || paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Reference Number {paymentMode !== 'cash' && <span className="text-red-500">*</span>}
+                Reference Number {paymentMethod !== 'cash' && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="text"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                required={paymentMode !== 'cash'}
+                required={paymentMethod !== 'cash'}
                 placeholder="Enter transaction reference"
                 className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
               />

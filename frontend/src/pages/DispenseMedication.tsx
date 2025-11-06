@@ -1,15 +1,53 @@
-// src/pages/DispenseMedication.tsx
+// src/pages/DispenseMedication.tsx - UPDATED LAYOUT
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
-import { Medication, Attendance, Patient, StockItem } from '../types/api';
-import { Search, Package, CheckCircle, AlertCircle, Hospital } from 'lucide-react';
+import { MedicationsSection } from '../components/medical-entries';
+import type { Medication, Attendance, Patient, StockItem, MedicationEntry } from '../types';
+import {
+  Search,
+  Package,
+  CheckCircle,
+  AlertCircle,
+  Hospital,
+  PlayCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowLeft,
+  User,
+  Calendar,
+  Pill,
+  Activity
+} from 'lucide-react';
+
+// 🔑 Helper to get consistent ID
+const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
+  return entity?._id || entity?.id;
+};
 
 export default function DispenseMedication() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const { attendances, updateAttendance, getAttendances } = useAttendanceStore();
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [activatingAttendanceId, setActivatingAttendanceId] = useState<string | null>(null);
+  const [dispensingId, setDispensingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isAddingMedication, setIsAddingMedication] = useState(false);
+
+  const { 
+    attendances, 
+    updateAttendance, 
+    getAttendances, 
+    updateAttendanceStatus, 
+    canPerformActivities, 
+    activateAttendance,
+    addMedicationToAttendance
+  } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { stockItems, addTransaction, getStockItems } = useStockStore();
   const { user } = useAuthStore();
@@ -20,323 +58,677 @@ export default function DispenseMedication() {
     getStockItems();
   }, [getAttendances, loadPatients, getStockItems]);
 
-  // Get attendances with prescribed but not dispensed medications
-  const pendingDispensing = attendances.filter((attendance: Attendance) =>
-    attendance.medications?.some((med: Medication) => med.status === 'prescribed')
+  // Enhanced patient matching function
+  const findPatient = (attendance: any) => {
+    if (attendance?.patient?.fullName) {
+      return attendance.patient;
+    }
+
+    let actualPatientId: string | null = null;
+    
+    if (attendance.patientId && typeof attendance.patientId === 'object') {
+      actualPatientId = (
+        attendance.patientId._id ||
+        attendance.patientId.id ||
+        attendance.patientId.patientId ||
+        attendance.patientId.patientID
+      )?.toString();
+    } else if (attendance.patientId) {
+      actualPatientId = attendance.patientId.toString();
+    }
+
+    if (actualPatientId) {
+      const patient = patients.find(p => {
+        const patientId = getEntityId(p);
+        return patientId === actualPatientId;
+      });
+      if (patient) return patient;
+    }
+
+    if (attendance.patient && typeof attendance.patient === 'object') {
+      const patientObjId = getEntityId(attendance.patient);
+      if (patientObjId) {
+        const patient = patients.find(p => getEntityId(p) === patientObjId);
+        if (patient) return patient;
+      }
+    }
+
+    return null;
+  };
+
+  // Get attendances with proper patient data
+  const attendancesWithPatients = attendances.map(attendance => ({
+    ...attendance,
+    patient: findPatient(attendance)
+  }));
+
+  // Filter patients based on search term
+  const filteredPatients = patients.filter(
+    (p) =>
+      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.contact.includes(searchQuery) ||
+      p.folderNumber?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const displayedAttendances = searchQuery
-    ? pendingDispensing.filter((attendance: Attendance) => {
-        const patient = patients.find((p: Patient) => p._id === attendance.patientId);
-        return (
-          attendance.attendanceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient?.folderNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      })
-    : pendingDispensing;
+  // Get attendances for selected patient
+  const patientAttendances = attendancesWithPatients.filter((attendance: Attendance) => {
+    const patient = attendance.patient;
+    return patient && (getEntityId(patient) === selectedPatientId);
+  });
 
-  const handleDispense = async (attendanceId: string, medicationId: string) => {
-    const attendance = attendances.find((a: Attendance) => a._id === attendanceId);
-    if (!attendance) return;
+  // Get the latest pending attendance for auto-selection
+  const getLatestPendingAttendance = () => {
+    const pendingAttendances = patientAttendances.filter(a => a.status === 'pending');
+    return pendingAttendances.sort((a, b) => 
+      new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+    )[0];
+  };
 
-    const medication = attendance.medications?.find((m: Medication) => m._id === medicationId);
-    if (!medication) return;
+  // Auto-select latest pending attendance when patient is selected
+  useEffect(() => {
+    if (selectedPatientId && patientAttendances.length > 0) {
+      const latestPending = getLatestPendingAttendance();
+      if (latestPending) {
+        setSelectedAttendanceId(getEntityId(latestPending) || '');
+      } else {
+        setSelectedAttendanceId(getEntityId(patientAttendances[0]) || '');
+      }
+    }
+  }, [selectedPatientId, patientAttendances]);
 
-    // Check stock availability
-    const stockItem = stockItems.find((s: StockItem) => s._id === medication.stockItemId);
+  // Get selected entities
+  const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
+  const selectedAttendance = attendancesWithPatients.find((a) => getEntityId(a) === selectedAttendanceId);
+
+  // Get medications for selected attendance
+  const allMedications = selectedAttendance?.medications || [];
+  const prescribedMeds = allMedications.filter((m) => m.status === 'prescribed');
+  const dispensedMeds = allMedications.filter((m) => m.status === 'dispensed');
+
+  // Stats
+  const totalPendingMeds = prescribedMeds.length;
+  const totalDispensedMeds = dispensedMeds.length;
+
+  const dispensedToday = attendancesWithPatients
+    .flatMap(a => a.medications || [])
+    .filter(m => 
+      m.status === 'dispensed' &&
+      m.dispensedAt &&
+      new Date(m.dispensedAt).toDateString() === new Date().toDateString()
+    ).length;
+
+  // Activate attendance
+  const handleActivateAttendance = async (attendanceId: string) => {
+    setActivatingAttendanceId(attendanceId);
+    setMessage(null);
+    try {
+      await activateAttendance(attendanceId);
+      await getAttendances();
+      setMessage({ type: 'success', text: 'Attendance activated successfully!' });
+    } catch (error: any) {
+      console.error('Failed to activate attendance:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.message || `Cannot activate: attendance is "${attendances.find(a => getEntityId(a) === attendanceId)?.status || 'unknown'}"`
+      });
+    } finally {
+      setActivatingAttendanceId(null);
+    }
+  };
+
+  // Dispense single medication
+  const handleDispense = async (medicationId: string) => {
+    if (!selectedAttendanceId) return;
+
+    const attendance = attendances.find((a) => getEntityId(a) === selectedAttendanceId);
+    if (!attendance) {
+      setMessage({ type: 'error', text: 'Attendance not found' });
+      return;
+    }
+
+    if (attendance.status !== 'active') {
+      setMessage({ 
+        type: 'error', 
+        text: `Cannot dispense: attendance is "${attendance.status}". Must be "active".`
+      });
+      return;
+    }
+
+    const medication = attendance.medications?.find((m) => getEntityId(m) === medicationId);
+    if (!medication) {
+      setMessage({ type: 'error', text: 'Medication not found' });
+      return;
+    }
+
+    const stockItem = stockItems.find((s) => getEntityId(s) === medication.stockItemId);
     if (!stockItem) {
-      alert('Stock item not found');
+      setMessage({ type: 'error', text: 'Stock item not found for this medication' });
       return;
     }
 
     if (stockItem.currentStock < medication.quantity) {
-      alert(
-        `Insufficient stock. Available: ${stockItem.currentStock}, Required: ${medication.quantity}`
-      );
+      setMessage({
+        type: 'error',
+        text: `Insufficient stock. Available: ${stockItem.currentStock}${stockItem.unitOfMeasure}, Required: ${medication.quantity}`,
+      });
       return;
     }
 
+    setDispensingId(medicationId);
+    setMessage(null);
+
     try {
-      // Update medication status to dispensed
-      const updatedMedications = attendance.medications?.map((m: Medication) =>
-        m._id === medicationId
+      const updatedMedications = attendance.medications?.map((m) =>
+        getEntityId(m) === medicationId
           ? {
               ...m,
-              status: 'dispensed' as const,
+              status: 'dispensed',
               dispensedAt: new Date().toISOString(),
-              dispensedBy: user?._id || '',
+              dispensedBy: getEntityId(user) || user?.username || '',
             }
           : m
       );
 
-      await updateAttendance(attendanceId, { medications: updatedMedications });
+      await updateAttendance(selectedAttendanceId, { medications: updatedMedications });
 
-      // Update stock
       await addTransaction({
-        stockItemId: medication.stockItemId,
+        stockItemId: medication.stockItemId!,
         transactionType: 'stock_out',
         quantity: medication.quantity,
         reference: `Dispensed for ${attendance.attendanceNumber}`,
-        notes: `Dispensed to patient for ${medication.name}`,
-        performedBy: user?._id || '',
+        notes: `Dispensed to patient: ${medication.name}`,
+        performedBy: getEntityId(user) || '',
       });
 
-    } catch (error) {
+      setMessage({ type: 'success', text: `${medication.name} dispensed successfully!` });
+      await getAttendances();
+    } catch (error: any) {
       console.error('Error dispensing medication:', error);
-      alert('Failed to dispense medication');
+      setMessage({ type: 'error', text: error.message || 'Failed to dispense medication' });
+    } finally {
+      setDispensingId(null);
     }
   };
 
-  const handleDispenseAll = async (attendanceId: string) => {
-    const attendance = attendances.find((a: Attendance) => a._id === attendanceId);
-    if (!attendance) return;
+  // Dispense all prescribed meds
+  const handleDispenseAll = async () => {
+    if (!selectedAttendanceId) return;
 
-    const prescribedMeds = attendance.medications?.filter((m: Medication) => m.status === 'prescribed') || [];
+    const attendance = attendances.find((a) => getEntityId(a) === selectedAttendanceId);
+    if (!attendance) {
+      setMessage({ type: 'error', text: 'Attendance not found' });
+      return;
+    }
 
-    // Check stock for all medications
+    if (attendance.status !== 'active') {
+      setMessage({ 
+        type: 'error', 
+        text: `Cannot dispense: attendance is "${attendance.status}". Must be "active".`
+      });
+      return;
+    }
+
+    const prescribedMeds = attendance.medications?.filter((m) => m.status === 'prescribed') || [];
+
     for (const med of prescribedMeds) {
-      const stockItem = stockItems.find((s: StockItem) => s._id === med.stockItemId);
+      const stockItem = stockItems.find((s) => getEntityId(s) === med.stockItemId);
       if (!stockItem || stockItem.currentStock < med.quantity) {
-        alert(`Insufficient stock for ${med.name}`);
+        setMessage({ type: 'error', text: `Insufficient stock for ${med.name}` });
         return;
       }
     }
 
+    setDispensingId('all');
+    setMessage(null);
+
     try {
-      // Dispense all medications
-      const updatedMedications = attendance.medications?.map((m: Medication) =>
+      const updatedMedications = attendance.medications?.map((m) =>
         m.status === 'prescribed'
           ? {
               ...m,
-              status: 'dispensed' as const,
+              status: 'dispensed',
               dispensedAt: new Date().toISOString(),
-              dispensedBy: user?._id || '',
+              dispensedBy: getEntityId(user) || user?.username || '',
             }
           : m
       );
 
-      await updateAttendance(attendanceId, { medications: updatedMedications });
+      await updateAttendance(selectedAttendanceId, { medications: updatedMedications });
 
-      // Update stock for all medications
       for (const med of prescribedMeds) {
         await addTransaction({
-          stockItemId: med.stockItemId,
+          stockItemId: med.stockItemId!,
           transactionType: 'stock_out',
           quantity: med.quantity,
           reference: `Dispensed for ${attendance.attendanceNumber}`,
-          notes: `Dispensed to patient for ${med.name}`,
-          performedBy: user?._id || '',
+          notes: `Dispensed to patient: ${med.name}`,
+          performedBy: getEntityId(user) || '',
         });
       }
-    } catch (error) {
+
+      setMessage({ type: 'success', text: 'All medications dispensed successfully!' });
+      await getAttendances();
+    } catch (error: any) {
       console.error('Error dispensing all medications:', error);
-      alert('Failed to dispense medications');
+      setMessage({ type: 'error', text: error.message || 'Failed to dispense all medications' });
+    } finally {
+      setDispensingId(null);
     }
   };
 
-  const totalPendingMeds = pendingDispensing.reduce(
-    (sum: number, a: Attendance) => sum + (a.medications?.filter((m: Medication) => m.status === 'prescribed').length || 0),
-    0
-  );
+  // Add new medication (even if not prescribed)
+  const handleAddMedication = async (medicationData: MedicationEntry) => {
+    if (!selectedAttendanceId) {
+      setMessage({ type: 'error', text: 'Please select an attendance first' });
+      return;
+    }
 
-  const dispensedToday = attendances
-    .filter((a: Attendance) =>
-      a.medications?.some(
-        (m: Medication) =>
-          m.status === 'dispensed' &&
-          m.dispensedAt &&
-          new Date(m.dispensedAt).toDateString() === new Date().toDateString()
-      )
-    )
-    .reduce(
-      (sum: number, a: Attendance) =>
-        sum +
-        (a.medications?.filter(
-          (m: Medication) =>
-            m.status === 'dispensed' &&
-            m.dispensedAt &&
-            new Date(m.dispensedAt).toDateString() === new Date().toDateString()
-        ).length || 0),
-      0
-    );
+    const stockItem = stockItems.find((s) => s._id === medicationData.stockItemId);
+    if (!stockItem) {
+      setMessage({ type: 'error', text: 'Stock item not found' });
+      return;
+    }
+
+    if (stockItem.currentStock < medicationData.quantity) {
+      setMessage({ type: 'error', text: `Insufficient stock. Only ${stockItem.currentStock} items available` });
+      return;
+    }
+
+    setIsAddingMedication(true);
+    try {
+      const newMed: Medication = {
+        _id: `med-${Date.now()}`,
+        stockItemId: medicationData.stockItemId,
+        name: stockItem.name,
+        dosage: medicationData.dosage,
+        frequency: medicationData.frequency,
+        duration: medicationData.duration,
+        quantity: medicationData.quantity,
+        route: medicationData.route,
+        instructions: medicationData.instructions,
+        status: 'prescribed', // Set as prescribed initially
+        prescribedAt: new Date().toISOString(),
+        prescribedBy: user?.fullName || user?.username || ''
+      };
+
+      await addMedicationToAttendance(selectedAttendanceId, newMed);
+      setMessage({ type: 'success', text: 'Medication added successfully!' });
+      await getAttendances();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to add medication' });
+    } finally {
+      setIsAddingMedication(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/dashboard/medical-entries')}
+              className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
+              <Pill className="w-8 h-8 text-white" />
+            </div>
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Hospital className="w-8 h-8" />
-                Medication Dispensing
-              </h1>
-              <p className="text-blue-100 mt-2">Dispense prescribed medications to patients</p>
+              <h1 className="text-3xl font-bold mb-2">Medication Dispensing</h1>
+              <p className="text-blue-100 text-lg">Dispense and manage patient medications</p>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-lg">
-                <Package className="w-6 h-6 text-blue-600" />
-              </div>
-              <span className="text-gray-600 text-sm font-medium">Pending Dispensing</span>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
+              <Package className="w-6 h-6 text-yellow-600" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{pendingDispensing.length}</p>
+            <span className="text-gray-600 text-sm font-medium">Pending Dispensing</span>
           </div>
-
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
-                <AlertCircle className="w-6 h-6 text-yellow-600" />
-              </div>
-              <span className="text-gray-600 text-sm font-medium">Total Medications</span>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{totalPendingMeds}</p>
-          </div>
-
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-lg">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <span className="text-gray-600 text-sm font-medium">Dispensed Today</span>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{dispensedToday}</p>
-          </div>
+          <p className="text-3xl font-bold text-gray-900">{totalPendingMeds}</p>
         </div>
-
-        {/* Search */}
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by attendance number, patient name, or folder number..."
-              className="w-full pl-12 pr-4 py-4 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base shadow-sm"
-            />
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-lg">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            <span className="text-gray-600 text-sm font-medium">Dispensed</span>
           </div>
+          <p className="text-3xl font-bold text-gray-900">{totalDispensedMeds}</p>
         </div>
-
-        {/* Pending Dispensing List */}
-        {displayedAttendances.length === 0 ? (
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/200 p-12 text-center">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg mb-2">
-              {searchQuery ? 'No pending dispensing found' : 'No medications pending dispensing'}
-            </p>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-lg">
+              <Activity className="w-6 h-6 text-blue-600" />
+            </div>
+            <span className="text-gray-600 text-sm font-medium">Dispensed Today</span>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {displayedAttendances.map((attendance: Attendance) => {
-              const patient = patients.find((p: Patient) => p._id === attendance.patientId);
-              const prescribedMeds = attendance.medications?.filter((m: Medication) => m.status === 'prescribed') || [];
+          <p className="text-3xl font-bold text-gray-900">{dispensedToday}</p>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={attendance._id}
-                  className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="font-bold text-xl text-gray-900">
-                        {patient?.fullName || 'Unknown Patient'}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-2 flex-wrap">
-                        <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full border">
-                          {attendance.attendanceNumber}
-                        </span>
-                        {patient?.folderNumber && (
-                          <span className="text-sm text-gray-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                            {patient.folderNumber}
-                          </span>
-                        )}
-                        <span className="text-sm text-gray-600">
-                          {new Date(attendance.dateTime).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDispenseAll(attendance._id)}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold"
-                    >
-                      Dispense All
-                    </button>
-                  </div>
+      {/* Message Display */}
+      {message && (
+        <div
+          className={`mb-6 p-4 rounded-xl flex items-center gap-3 border ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border-green-200'
+              : 'bg-red-50 text-red-800 border-red-200'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          <span className="font-medium">{message.text}</span>
+        </div>
+      )}
 
-                  <div className="space-y-4">
-                    {prescribedMeds.map((medication: Medication) => {
-                      const stockItem = stockItems.find((s: StockItem) => s._id === medication.stockItemId);
-                      const hasStock = stockItem && stockItem.currentStock >= medication.quantity;
-
+      {/* Patient and Attendance Selection - SIDE BY SIDE */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Patient Selection */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+            <User className="w-5 h-5 text-blue-600" />
+            Patient Selection
+          </h2>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search patient by name, contact, or folder number..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowPatientDropdown(true);
+                }}
+                onFocus={() => setShowPatientDropdown(true)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+              
+              {/* Patient Search Results */}
+              {showPatientDropdown && searchQuery && (
+                <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-gray-300 rounded-xl bg-white shadow-lg">
+                  {filteredPatients.length > 0 ? (
+                    filteredPatients.map((patient) => {
+                      const pid = getEntityId(patient);
+                      if (!pid) return null;
                       return (
-                        <div
-                          key={medication._id}
-                          className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
-                            hasStock 
-                              ? 'bg-gradient-to-br from-gray-50 to-blue-50 border-gray-200 hover:shadow-lg' 
-                              : 'bg-gradient-to-br from-red-50 to-pink-50 border-red-200'
-                          }`}
+                        <button
+                          key={pid}
+                          onClick={() => {
+                            setSelectedPatientId(pid);
+                            setSearchQuery(patient.fullName);
+                            setShowPatientDropdown(false);
+                          }}
+                          className="w-full text-left p-4 hover:bg-blue-50 border-b last:border-b-0 transition-colors"
                         >
-                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                            <div className="flex-1">
-                              <h4 className="font-bold text-lg text-gray-900 mb-2">{medication.name}</h4>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                  <p className="text-sm text-gray-600 font-medium">Dosage</p>
-                                  <p className="font-semibold text-gray-900">{medication.dosage}</p>
-                                </div>
-                                <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                  <p className="text-sm text-gray-600 font-medium">Frequency</p>
-                                  <p className="font-semibold text-gray-900">{medication.frequency}</p>
-                                </div>
-                                <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                  <p className="text-sm text-gray-600 font-medium">Duration</p>
-                                  <p className="font-semibold text-gray-900">{medication.duration}</p>
-                                </div>
-                                <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                  <p className="text-sm text-gray-600 font-medium">Quantity</p>
-                                  <p className="font-semibold text-gray-900">{medication.quantity}</p>
-                                </div>
-                              </div>
-                              {stockItem && (
-                                <div className="mt-4">
-                                  <p className={`text-sm font-semibold ${
-                                    hasStock ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    Stock Available: {stockItem.currentStock} {stockItem.unitOfMeasure}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleDispense(attendance._id, medication._id)}
-                              disabled={!hasStock}
-                              className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                                hasStock
-                                  ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white hover:from-green-700 hover:to-teal-700 shadow-md hover:shadow-lg'
-                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              }`}
-                            >
-                              {hasStock ? 'Dispense' : 'Out of Stock'}
-                            </button>
+                          <div className="font-semibold text-gray-900">{patient.fullName}</div>
+                          <div className="text-sm text-gray-600">
+                            {patient.gender} • {patient.contact} • {patient.folderNumber}
                           </div>
-                        </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 text-gray-500 text-center">No patients found</div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {selectedPatient && (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border border-blue-200">
+                <div className="font-bold text-lg text-gray-900">{selectedPatient.fullName}</div>
+                <div className="text-sm text-gray-700 mt-1">
+                  {selectedPatient.age} years • {selectedPatient.gender} • {selectedPatient.folderNumber}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Attendance Selection */}
+        {selectedPatientId && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900">
+                <Calendar className="w-5 h-5 text-green-600" />
+                Select Attendance
+              </h2>
+            </div>
+            
+            {patientAttendances.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm mb-2">No attendances found for this patient</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative">
+                  <select
+                    value={selectedAttendanceId}
+                    onChange={(e) => setSelectedAttendanceId(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white"
+                  >
+                    <option value="">Select an attendance...</option>
+                    {patientAttendances.map((attendance) => {
+                      const aid = getEntityId(attendance);
+                      if (!aid) return null;
+                      return (
+                        <option key={aid} value={aid}>
+                          {attendance.attendanceNumber} - {new Date(attendance.dateTime).toLocaleDateString()} - {attendance.status}
+                        </option>
                       );
                     })}
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Selected Attendance Details */}
+                {selectedAttendance && (
+                  <div className="p-4 border-2 border-blue-500 bg-blue-50 rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedAttendance.attendanceNumber}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {new Date(selectedAttendance.dateTime).toLocaleDateString()}
+                        </div>
+                        <div className="text-sm text-gray-600 capitalize">
+                          {selectedAttendance.attendanceType?.replace('_', ' ')}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {/* Status Badge */}
+                        <div
+                          className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                            selectedAttendance.status === 'active'
+                              ? 'bg-green-100 text-green-800 border-green-200'
+                              : selectedAttendance.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                              : 'bg-gray-100 text-gray-800 border-gray-200'
+                          }`}
+                        >
+                          {selectedAttendance.status}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Medications for Dispensing */}
+      {selectedAttendance && (
+        <div className="space-y-6">
+          {/* Medications for Dispensing */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900">
+                <Package className="w-5 h-5 text-blue-600" />
+                Medications for Dispensing ({totalPendingMeds})
+              </h2>
+              {selectedAttendance.status === 'active' && totalPendingMeds > 0 && (
+                <button
+                  onClick={handleDispenseAll}
+                  disabled={!!dispensingId}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold disabled:opacity-50"
+                >
+                  {dispensingId === 'all' ? 'Dispensing All...' : 'Dispense All'}
+                </button>
+              )}
+            </div>
+
+            {totalPendingMeds === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-lg">No medications pending dispensing</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {prescribedMeds.map((medication) => (
+                  <div
+                    key={getEntityId(medication)}
+                    className="p-4 border-2 border-yellow-200 bg-yellow-50 rounded-xl"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-semibold text-lg text-gray-900">{medication.name}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {medication.dosage} • {medication.frequency} • {medication.duration}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Quantity: {medication.quantity} • Route: {medication.route}
+                        </div>
+                        {medication.instructions && (
+                          <div className="text-sm text-gray-500 mt-1">{medication.instructions}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {selectedAttendance.status === 'pending' && (
+                          <button
+                            onClick={() => handleActivateAttendance(selectedAttendanceId)}
+                            disabled={activatingAttendanceId === selectedAttendanceId}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all disabled:opacity-50"
+                          >
+                            <PlayCircle className="w-4 h-4" />
+                            {activatingAttendanceId === selectedAttendanceId ? 'Activating...' : 'Activate'}
+                          </button>
+                        )}
+                        {selectedAttendance.status === 'active' && (
+                          <button
+                            onClick={() => handleDispense(getEntityId(medication) || '')}
+                            disabled={dispensingId === getEntityId(medication)}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 font-semibold"
+                          >
+                            {dispensingId === getEntityId(medication) ? 'Dispensing...' : 'Dispense'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add Medications Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+              <Pill className="w-5 h-5 text-green-600" />
+              Add Medications
+            </h2>
+            <MedicationsSection
+              medications={[]}
+              currentMed={{
+                stockItemId: '',
+                name: '',
+                dosage: '',
+                frequency: '',
+                duration: '',
+                quantity: 1,
+                route: 'oral',
+                instructions: ''
+              }}
+              onMedChange={() => {}} // Not needed for this implementation
+              onAddMedication={handleAddMedication}
+              stockItems={stockItems}
+              canAddEntries={true}
+              isAdding={isAddingMedication}
+            />
+          </div>
+
+          {/* Dispensed Medications */}
+          {totalDispensedMeds > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Dispensed Medications ({totalDispensedMeds})
+              </h2>
+              <div className="space-y-3">
+                {dispensedMeds.map((medication) => (
+                  <div
+                    key={getEntityId(medication)}
+                    className="p-4 bg-green-50 rounded-xl border border-green-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{medication.name}</div>
+                        <div className="text-sm text-gray-600">
+                          {medication.dosage} • {medication.frequency} • {medication.duration}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Dispensed: {medication.dispensedAt ? new Date(medication.dispensedAt).toLocaleString() : 'N/A'}
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 text-sm font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
+                        Dispensed
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!selectedAttendance && selectedPatient && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Attendance Selected</h3>
+          <p className="text-gray-600">Select an attendance to view and manage medications</p>
+        </div>
+      )}
+
+      {!selectedPatient && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Patient Selected</h3>
+          <p className="text-gray-600">Search and select a patient to get started</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// src/store/patientStore.ts - UPDATED
+// src/store/patientStore.ts - UPDATED WITH IMAGE UPLOAD
 import { create } from 'zustand';
 import { getPatients, createPatient, getPatient, updatePatient } from '../api';
 import { Patient } from '../types';
@@ -14,6 +14,7 @@ interface PatientState {
   getPatientById: (id: string) => Patient | undefined;
   fetchPatient: (id: string) => Promise<Patient>;
   updatePatient: (id: string, data: FormData | any) => Promise<Patient>;
+  uploadPatientImage: (patientId: string, imageFile: File | string) => Promise<string>;
   searchPatients: (q: string) => Patient[];
   clearError: () => void;
   clearCurrentPatient: () => void;
@@ -96,7 +97,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ... rest of the methods remain the same
   getPatientById: (id: string) => {
     return get().patients.find((patient) => patient.id === id || patient._id === id);
   },
@@ -140,6 +140,50 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       throw new Error(errorMessage);
     }
   },
+
+  // NEW: Image upload method
+ // NEW: Image upload method using consistent API client
+uploadPatientImage: async (patientId: string, imageFile: File | string): Promise<string> => {
+  set({ isLoading: true, error: null });
+  try {
+    let imageUrl: string;
+
+    if (typeof imageFile === 'string') {
+      // Base64 image upload
+      const response = await api.post(`/patients/${patientId}/image-base64`, { image: imageFile });
+      imageUrl = response.data.imageUrl;
+    } else {
+      // File upload using FormData
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      const response = await api.post(`/patients/${patientId}/image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      imageUrl = response.data.imageUrl;
+    }
+
+    // Update store
+    set((state) => ({
+      patients: state.patients.map(patient =>
+        (patient.id === patientId || patient._id === patientId) 
+          ? { ...patient, imageUrl } 
+          : patient
+      ),
+      currentPatient: state.currentPatient?.id === patientId 
+        ? { ...state.currentPatient, imageUrl } 
+        : state.currentPatient,
+      isLoading: false
+    }));
+
+    return imageUrl;
+  } catch (error: any) {
+    console.error('❌ Failed to upload patient image:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to upload image';
+    set({ error: errorMessage, isLoading: false });
+    throw new Error(errorMessage);
+  }
+},
+
 
   searchPatients: (query: string) => {
     if (!query.trim()) return get().patients;
