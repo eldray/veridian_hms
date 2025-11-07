@@ -1,4 +1,4 @@
-// src/pages/MedicalEntries.tsx - UPDATED LAYOUT
+// src/pages/MedicalEntries.tsx - UPDATED WITH FINANCIAL INTEGRATION
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -6,7 +6,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useStockStore } from '../store/stockStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useAuthStore } from '../store/authStore';
-import type { Medication, LabTest, Procedure, Scan, Diagnosis } from '../types';
+import type { Medication, LabTest, Procedure, Scan, Diagnosis, ProgressNote } from '../types';
 import type { MedicationEntry, LabTestEntry, ProcedureEntry, ScanEntry } from '../types/medical-entries';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import {
@@ -42,7 +42,8 @@ import {
   Wind,
   Droplets,
   Scale,
-  Ruler
+  Ruler,
+  Shield
 } from 'lucide-react';
 
 // Helper: Get consistent ID from entity
@@ -61,6 +62,7 @@ export default function MedicalEntries() {
     addProcedureToAttendance,
     addScanToAttendance,
     addMedicationToAttendance,
+    addProgressNoteToAttendance,
     updateAttendance,
     updateAttendanceStatus,
     canAddMedicalEntries,
@@ -73,12 +75,12 @@ export default function MedicalEntries() {
   } = useAttendanceStore();
   const { stockItems, getStockItems } = useStockStore();
   const {
-    diagnosisTemplates,
+    diagnoses,
     labTestTemplates,
     procedureTemplates,
     getDiagnoses,
     getLabTestTemplates,
-    getProcedureTemplates
+    getProcedureTemplates,
   } = useMedicalServicesStore();
   const { user } = useAuthStore();
 
@@ -105,12 +107,13 @@ export default function MedicalEntries() {
   const [labTests, setLabTests] = useState<LabTest[]>([]);
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [scans, setScans] = useState<Scan[]>([]);
+  const [progressNotes, setProgressNotes] = useState<ProgressNote[]>([]);
 
   // Vitals state
   const [latestVitals, setLatestVitals] = useState<any>(null);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'clinical' | 'medications' | 'labs' | 'procedures' | 'scans'>('clinical');
+  const [activeTab, setActiveTab] = useState<'clinical' | 'medications' | 'labs' | 'procedures' | 'scans' | 'progress'>('clinical');
 
   // Current entry state
   const [currentMed, setCurrentMed] = useState<MedicationEntry>({
@@ -121,21 +124,26 @@ export default function MedicalEntries() {
     duration: '',
     quantity: 1,
     route: 'oral',
-    instructions: ''
+    instructions: '',
+    status: 'prescribed',
+    prescribedBy: user?._id || user?.username || ''
   });
 
   const [currentLab, setCurrentLab] = useState<LabTestEntry>({
     templateId: '',
     name: '',
     priority: 'routine',
-    notes: ''
+    notes: '',
+    status: 'requested'
   });
 
   const [currentProcedure, setCurrentProcedure] = useState<ProcedureEntry>({
     templateId: '',
     name: '',
     scheduledDate: '',
-    notes: ''
+    notes: '',
+    status: 'scheduled',
+    createdBy: user?._id || user?.username || ''
   });
 
   const [currentScan, setCurrentScan] = useState<ScanEntry>({
@@ -143,14 +151,18 @@ export default function MedicalEntries() {
     description: '',
     bodyPart: '',
     priority: 'routine',
-    notes: ''
+    notes: '',
+    status: 'requested'
   });
+
+  const [currentProgressNote, setCurrentProgressNote] = useState('');
 
   // UI state
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activatingAttendance, setActivatingAttendance] = useState(false);
   const [completingAttendance, setCompletingAttendance] = useState(false);
+  const [addingProgressNote, setAddingProgressNote] = useState(false);
 
   // Load data
   const loadData = async () => {
@@ -191,7 +203,7 @@ export default function MedicalEntries() {
         try {
           const vitals = await getVitalsByAttendance(selectedAttendance);
           if (vitals && vitals.length > 0) {
-            setLatestVitals(vitals[vitals.length - 1]); // Get latest vitals
+            setLatestVitals(vitals[vitals.length - 1]);
           } else {
             setLatestVitals(null);
           }
@@ -296,9 +308,13 @@ export default function MedicalEntries() {
 
   // Status-based permissions
   const canAddEntries = selectedAttendanceData ? canAddMedicalEntries(selectedAttendanceData) : false;
+  const canAddProgress = selectedAttendanceData ? canAddProgressNotes(selectedAttendanceData) : false;
 
   // User role check
-  const canCreateEntries = ['admin', 'doctor', 'nurse'].includes(user?.role || '');
+  const canCreateEntries = ['admin', 'doctor', 'nurse', 'midwife'].includes(user?.role || '');
+
+  // Payment mode
+  const paymentMode = selectedAttendanceData?.paymentMode || 'cash';
 
   // Refresh function
   const handleRefresh = () => {
@@ -410,6 +426,31 @@ export default function MedicalEntries() {
     }
   };
 
+  // Progress Notes
+  const handleAddProgressNote = async () => {
+    if (!selectedAttendance || !currentProgressNote.trim()) return;
+
+    setAddingProgressNote(true);
+    try {
+      const newNote: ProgressNote = {
+        _id: `progress-${Date.now()}`,
+        note: currentProgressNote,
+        type: 'progress',
+        createdBy: user?.fullName || user?.username || '',
+        createdAt: new Date().toISOString()
+      };
+
+      await addProgressNoteToAttendance(selectedAttendance, newNote);
+      setProgressNotes([...progressNotes, newNote]);
+      setCurrentProgressNote('');
+      setMessage({ type: 'success', text: 'Progress note added successfully!' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to add progress note' });
+    } finally {
+      setAddingProgressNote(false);
+    }
+  };
+
   // Medical entry functions
   const handleAddMedication = () => {
     if (!selectedAttendanceData) {
@@ -446,11 +487,23 @@ export default function MedicalEntries() {
       frequency: currentMed.frequency,
       duration: currentMed.duration,
       quantity: currentMed.quantity,
-      route: currentMed.route,
+      route: currentMed.route || 'oral',
       instructions: currentMed.instructions,
       status: 'prescribed',
       prescribedAt: new Date().toISOString(),
-      prescribedBy: user?.fullName || user?.username || ''
+      prescribedBy: user?._id || user?.username || '',
+      notes: currentMed.instructions,
+      // Financial fields
+      cashPrice: stockItem.sellingPrice,
+      insurancePrice: stockItem.insurancePrice,
+      costPrice: stockItem.unitPrice,
+      isActive: true,
+      requiresAuthorization: stockItem.requiresAuthorization,
+      tariffCode: stockItem.tariffCode,
+      vatRate: stockItem.vatRate,
+      isTaxable: stockItem.isTaxable,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     setMedications([...medications, newMed]);
@@ -462,7 +515,9 @@ export default function MedicalEntries() {
       duration: '',
       quantity: 1,
       route: 'oral',
-      instructions: ''
+      instructions: '',
+      status: 'prescribed',
+      prescribedBy: user?._id || user?.username || ''
     });
     setMessage({ type: 'success', text: 'Medication added' });
     setTimeout(() => setMessage(null), 2000);
@@ -497,7 +552,18 @@ export default function MedicalEntries() {
       status: 'requested',
       priority: currentLab.priority,
       requestedAt: new Date().toISOString(),
-      notes: currentLab.notes
+      notes: currentLab.notes,
+      // Financial fields
+      cashPrice: template.cashPrice,
+      insurancePrice: template.insurancePrice,
+      costPrice: template.costPrice,
+      isActive: true,
+      requiresAuthorization: template.requiresAuthorization,
+      tariffCode: template.tariffCode,
+      vatRate: template.vatRate,
+      isTaxable: template.isTaxable,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     setLabTests([...labTests, newTest]);
@@ -505,7 +571,8 @@ export default function MedicalEntries() {
       templateId: '',
       name: '',
       priority: 'routine',
-      notes: ''
+      notes: '',
+      status: 'requested'
     });
     setMessage({ type: 'success', text: 'Lab test added' });
     setTimeout(() => setMessage(null), 2000);
@@ -539,7 +606,19 @@ export default function MedicalEntries() {
       name: template.name,
       status: 'scheduled',
       scheduledDate: currentProcedure.scheduledDate,
-      notes: currentProcedure.notes
+      notes: currentProcedure.notes,
+      createdBy: user?._id || user?.username || '',
+      // Financial fields
+      cashPrice: template.cashPrice,
+      insurancePrice: template.insurancePrice,
+      costPrice: template.costPrice,
+      isActive: true,
+      requiresAuthorization: template.requiresAuthorization,
+      tariffCode: template.tariffCode,
+      vatRate: template.vatRate,
+      isTaxable: template.isTaxable,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     setProcedures([...procedures, newProcedure]);
@@ -547,7 +626,9 @@ export default function MedicalEntries() {
       templateId: '',
       name: '',
       scheduledDate: '',
-      notes: ''
+      notes: '',
+      status: 'scheduled',
+      createdBy: user?._id || user?.username || ''
     });
     setMessage({ type: 'success', text: 'Procedure added' });
     setTimeout(() => setMessage(null), 2000);
@@ -577,7 +658,17 @@ export default function MedicalEntries() {
       status: 'requested',
       priority: currentScan.priority,
       requestedAt: new Date().toISOString(),
-      notes: currentScan.notes
+      notes: currentScan.notes,
+      // Financial fields would be added from template when saving to backend
+      cashPrice: 0,
+      insurancePrice: 0,
+      costPrice: 0,
+      isActive: true,
+      requiresAuthorization: false,
+      vatRate: 0,
+      isTaxable: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     setScans([...scans, newScan]);
@@ -586,7 +677,8 @@ export default function MedicalEntries() {
       description: '',
       bodyPart: '',
       priority: 'routine',
-      notes: ''
+      notes: '',
+      status: 'requested'
     });
     setMessage({ type: 'success', text: 'Scan added' });
     setTimeout(() => setMessage(null), 2000);
@@ -612,38 +704,43 @@ export default function MedicalEntries() {
     setMessage(null);
     
     try {
+      // Update attendance with clinical information
       await updateAttendance(selectedAttendance, {
         complaints: chiefComplaint,
         medicalNotes: notes
       });
 
+      // Add diagnosis if selected
       if (diagnosis) {
-        await addDiagnosisToAttendance(selectedAttendance, {
-          diagnosisId: diagnosis._id,
-          name: diagnosis.name,
-          icdCode: diagnosis.icdCode,
-          notes: '',
-          primary: true,
-          date: new Date().toISOString()
-        });
+        await addDiagnosisToAttendance(selectedAttendance, diagnosis);
       }
 
+      // Add lab tests
       for (const test of labTests) {
         await addLabTestToAttendance(selectedAttendance, test);
       }
 
+      // Add procedures
       for (const procedure of procedures) {
         await addProcedureToAttendance(selectedAttendance, procedure);
       }
 
+      // Add scans
       for (const scan of scans) {
         await addScanToAttendance(selectedAttendance, scan);
       }
 
+      // Add medications
       for (const medication of medications) {
         await addMedicationToAttendance(selectedAttendance, medication);
       }
 
+      // Add progress notes
+      for (const note of progressNotes) {
+        await addProgressNoteToAttendance(selectedAttendance, note);
+      }
+
+      // Calculate final bill
       await calculateBill(selectedAttendance);
 
       setMessage({
@@ -651,6 +748,7 @@ export default function MedicalEntries() {
         text: 'Medical entries saved successfully! Bill has been updated.'
       });
 
+      // Reset form after successful submission
       setTimeout(() => {
         setChiefComplaint('');
         setDiagnosis(null);
@@ -659,6 +757,8 @@ export default function MedicalEntries() {
         setLabTests([]);
         setProcedures([]);
         setScans([]);
+        setProgressNotes([]);
+        setCurrentProgressNote('');
         setMessage(null);
       }, 2000);
     } catch (error: any) {
@@ -699,10 +799,31 @@ export default function MedicalEntries() {
     medications: medications.length,
     labs: labTests.length,
     procedures: procedures.length,
-    scans: scans.length
+    scans: scans.length,
+    progress: progressNotes.length
   });
 
   const tabCounts = getTabCounts();
+
+  // Check if authorization is required for any service
+  const requiresAuthorization = 
+    (diagnosis?.requiresAuthorization) ||
+    medications.some(med => {
+      const stockItem = stockItems.find(s => getEntityId(s) === med.stockItemId);
+      return stockItem?.requiresAuthorization;
+    }) ||
+    labTests.some(test => {
+      const template = labTestTemplates.find(t => t._id === test.templateId);
+      return template?.requiresAuthorization;
+    }) ||
+    procedures.some(procedure => {
+      const template = procedureTemplates.find(t => t._id === procedure.templateId);
+      return template?.requiresAuthorization;
+    }) ||
+    scans.some(scan => {
+      // This would need scan template integration
+      return false;
+    });
 
   if (isLoading) {
     return (
@@ -791,7 +912,7 @@ export default function MedicalEntries() {
         </div>
       )}
 
-      {/* Patient and Attendance Selection - SIDE BY SIDE */}
+      {/* Patient and Attendance Selection */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Patient Selection */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -850,6 +971,9 @@ export default function MedicalEntries() {
                 <div className="font-bold text-lg text-gray-900">{selectedPatientData.fullName}</div>
                 <div className="text-sm text-gray-700 mt-1">
                   {selectedPatientData.age} years • {selectedPatientData.gender} • {selectedPatientData.folderNumber}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Payment Mode: <span className="font-semibold capitalize">{selectedPatientData.paymentMode || 'cash'}</span>
                 </div>
               </div>
             )}
@@ -923,6 +1047,9 @@ export default function MedicalEntries() {
                         <div className="text-sm text-gray-600 capitalize">
                           {selectedAttendanceData.attendanceType?.replace('_', ' ')}
                         </div>
+                        <div className="text-sm text-gray-600">
+                          Payment: <span className="font-semibold capitalize">{selectedAttendanceData.paymentMode}</span>
+                        </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
@@ -940,7 +1067,8 @@ export default function MedicalEntries() {
                         )}
                         
                         {/* Status Badge */}
-                        <div className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(selectedAttendanceData.status)}`}>
+                        <div className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(selectedAttendanceData.status)} flex items-center gap-1`}>
+                          {getStatusIcon(selectedAttendanceData.status)}
                           {selectedAttendanceData.status}
                         </div>
 
@@ -954,6 +1082,51 @@ export default function MedicalEntries() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Authorization Warning */}
+                    {requiresAuthorization && paymentMode !== 'cash' && (
+                      <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-3">
+                        <Shield className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-orange-800">Insurance Authorization Required</p>
+                          <p className="text-xs text-orange-700">
+                            Some services require insurance authorization. Please ensure authorization is obtained.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status Actions */}
+                    <div className="flex items-center gap-2 mt-3">
+                      {isAttendancePending && (
+                        <button
+                          onClick={handleActivateAttendance}
+                          disabled={activatingAttendance}
+                          className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold disabled:opacity-50"
+                        >
+                          {activatingAttendance ? 'Activating...' : 'Activate Attendance'}
+                        </button>
+                      )}
+                      
+                      {(isAttendancePending || isAttendanceActive) && (
+                        <button
+                          onClick={handleCompleteAttendance}
+                          disabled={completingAttendance}
+                          className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold disabled:opacity-50"
+                        >
+                          {completingAttendance ? 'Completing...' : 'Complete Attendance'}
+                        </button>
+                      )}
+                      
+                      {!isAttendanceCompleted && (
+                        <button
+                          onClick={handleCancelAttendance}
+                          className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                        >
+                          Cancel Attendance
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -961,7 +1134,6 @@ export default function MedicalEntries() {
           </div>
         )}
       </div>
-
       {/* Vitals Display - Compact */}
       {selectedAttendanceData && latestVitals && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -1040,6 +1212,60 @@ export default function MedicalEntries() {
           )}
         </div>
       )}
+      
+{/* Admission Status Display */}
+{selectedPatientData && selectedAttendanceData && (
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900">
+      <Hospital className="w-5 h-5 text-purple-600" />
+      Admission Status
+    </h3>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-gray-700">
+          <strong>Attendance:</strong> {selectedAttendanceData.attendanceNumber}
+        </p>
+        <p className="text-sm text-gray-600">
+          {selectedAttendanceData.attendanceType === 'inpatient' ? 
+            'Patient is already admitted as inpatient' : 
+            'Outpatient - Can be admitted to ward if needed'
+          }
+        </p>
+        {selectedAttendanceData.attendanceType === 'outpatient' && (
+          <p className="text-xs text-blue-600 mt-1">
+            Admitting will change attendance type to inpatient
+          </p>
+        )}
+      </div>
+      
+      {/* SHOW ADMIT BUTTON FOR OUTPATIENTS, NOT INPATIENTS */}
+      {selectedAttendanceData.attendanceType === 'outpatient' && 
+       selectedAttendanceData.status === 'active' && (
+        <Link
+          to="/dashboard/admissions"
+          state={{ 
+            patientId: selectedPatient,
+            attendanceId: selectedAttendance,
+            patientName: selectedPatientData.fullName,
+            attendanceNumber: selectedAttendanceData.attendanceNumber
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all"
+        >
+          <BedDouble className="w-4 h-4" />
+          <span>Admit to Ward</span>
+        </Link>
+      )}
+      
+      {/* Show status for inpatients */}
+      {selectedAttendanceData.attendanceType === 'inpatient' && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-xl border border-green-200">
+          <CheckCircle className="w-4 h-4" />
+          <span className="text-sm font-semibold">Admitted</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       {/* Medical Entries Form - TABBED INTERFACE */}
       {selectedAttendance && canAddEntries && (
@@ -1051,20 +1277,21 @@ export default function MedicalEntries() {
               Medical Entries
             </h2>
             
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 overflow-x-auto">
               {[
                 { id: 'clinical', label: 'Clinical Information', icon: Stethoscope, count: tabCounts.clinical },
                 { id: 'medications', label: 'Medications', icon: FileText, count: tabCounts.medications },
                 { id: 'labs', label: 'Lab Tests', icon: Activity, count: tabCounts.labs },
                 { id: 'procedures', label: 'Procedures', icon: Stethoscope, count: tabCounts.procedures },
-                { id: 'scans', label: 'Scans', icon: Activity, count: tabCounts.scans }
+                { id: 'scans', label: 'Scans', icon: Activity, count: tabCounts.scans },
+                { id: 'progress', label: 'Progress Notes', icon: FileText, count: tabCounts.progress }
               ].map((tab) => {
                 const IconComponent = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-all ${
+                    className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-all whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'border-blue-600 text-blue-600 font-semibold'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -1091,19 +1318,19 @@ export default function MedicalEntries() {
                   chiefComplaint={chiefComplaint}
                   diagnosis={diagnosis}
                   notes={notes}
-                  diagnosisTemplates={diagnosisTemplates}
+                  diagnosisTemplates={diagnoses}
+                  isLoadingDiagnoses={isLoading} 
                   onComplaintChange={setChiefComplaint}
                   onDiagnosisChange={setDiagnosis}
                   onNotesChange={setNotes}
                   canAddEntries={canAddEntries}
                   currentUser={user}
-                      onSave={(data) => {
-      // Handle saving clinical information separately
-      setChiefComplaint(data.chiefComplaint);
-      setDiagnosis(data.diagnosis);
-      setNotes(data.notes);
-      // You can add API call here if needed
-    }}
+                  paymentMode={paymentMode}
+                  onSave={(data) => {
+                    setChiefComplaint(data.chiefComplaint);
+                    setDiagnosis(data.diagnosis);
+                    setNotes(data.notes);
+                  }}
                 />
               )}
 
@@ -1115,6 +1342,8 @@ export default function MedicalEntries() {
                   onAddMedication={handleAddMedication}
                   stockItems={stockItems}
                   canAddEntries={canAddEntries}
+                  paymentMode={paymentMode}
+                  currentUser={user}
                 />
               )}
 
@@ -1126,6 +1355,8 @@ export default function MedicalEntries() {
                   onAddLabTest={handleAddLabTest}
                   labTestTemplates={labTestTemplates}
                   canAddEntries={canAddEntries}
+                  paymentMode={paymentMode}
+                  currentUser={user}
                 />
               )}
 
@@ -1137,6 +1368,8 @@ export default function MedicalEntries() {
                   onAddProcedure={handleAddProcedure}
                   procedureTemplates={procedureTemplates}
                   canAddEntries={canAddEntries}
+                  paymentMode={paymentMode}
+                  currentUser={user}
                 />
               )}
 
@@ -1147,7 +1380,47 @@ export default function MedicalEntries() {
                   onScanChange={setCurrentScan}
                   onAddScan={handleAddScan}
                   canAddEntries={canAddEntries}
+                  paymentMode={paymentMode}
+                  currentUser={user}
                 />
+              )}
+
+              {activeTab === 'progress' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Progress Note
+                    </label>
+                    <textarea
+                      placeholder="Enter progress note..."
+                      value={currentProgressNote}
+                      onChange={(e) => setCurrentProgressNote(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleAddProgressNote}
+                    disabled={!currentProgressNote.trim() || addingProgressNote}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                  >
+                    {addingProgressNote ? 'Adding...' : 'Add Progress Note'}
+                  </button>
+
+                  {progressNotes.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-700">Previous Notes</h4>
+                      {progressNotes.map((note, index) => (
+                        <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                          <p className="text-gray-700">{note.note}</p>
+                          <div className="text-xs text-gray-500 mt-2">
+                            {new Date(note.createdAt).toLocaleString()} • By: {note.createdBy}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

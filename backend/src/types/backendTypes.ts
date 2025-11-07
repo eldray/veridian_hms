@@ -187,8 +187,8 @@ export interface IDiagnosis {
   _id: string;
   name: string;
   icdCode: string;
+  gdrgCode: string;
   description?: string;
-  // ADD THESE PRICING FIELDS:
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -233,7 +233,10 @@ export interface IInsuranceClaim {
 export interface ILabTestTemplate {
   _id: string;
   name: string;
-  // ADD PRICING:
+  investigationCode: string;
+  category: string;
+  subCategory?: string;
+  description?: string;
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -242,12 +245,14 @@ export interface ILabTestTemplate {
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
+  specimenType: string;
   resultTemplate: [{
     fieldName: string;
     fieldType: string;
     label: string;
     referenceRange: string;
     options: string[];
+    unit?: string;
   }];
   createdAt: string;
   updatedAt: string;
@@ -309,9 +314,8 @@ export interface IPatient {
 export interface IProcedureTemplate {
   _id: string;
   name: string;
-  code: string;
+  procedureCode: string;
   description?: string;
-  // ADD PRICING:
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -321,6 +325,31 @@ export interface IProcedureTemplate {
   vatRate: number;
   isTaxable: boolean;
   duration: number;
+  category: string;
+  department: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IScanTemplate {
+  _id: string;
+  name: string;
+  scanCode: string;
+  description: string;
+  category: string;
+  bodyPart: string;
+  cashPrice: number;
+  insurancePrice: number;
+  costPrice: number;
+  isActive: boolean;
+  requiresAuthorization: boolean;
+  tariffCode?: string;
+  vatRate: number;
+  isTaxable: boolean;
+  preparationInstructions?: string;
+  duration: number;
+  contrastRequired: boolean;
+  scanType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -352,17 +381,6 @@ export interface IServiceCatalog {
   updatedAt: string;
 }
 
-export interface IServiceCategory {
-  _id: string;
-  name: string;
-  description?: string;
-  code: string;
-  parentCategory?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface IServiceItem {
   _id: string;
   name: string;
@@ -387,16 +405,17 @@ export interface IStockItem {
   name: string;
   category: string;
   description?: string;
+  strength: string;
   unitOfMeasure: string;
+  drugCode: string;
   reorderLevel: number;
   currentStock: number;
   unitPrice: number;
   sellingPrice: number;
+  insurancePrice: number;
   supplier: string;
   expiryDate?: string;
   batchNumber?: string;
-  // ADD THESE FOR BILLING:
-  insurancePrice: number;
   isActive: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;

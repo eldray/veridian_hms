@@ -13,6 +13,15 @@ import type {
   Hospital
 } from '../types';
 
+// Import all PDF templates
+import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
+import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
+import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
+import { generateVisitSummaryHTML } from './pdfTemplates/visitSummaryPDF';
+import { generateLabResultsHTML } from './pdfTemplates/labResultsPDF';
+import { generateDischargeSummaryHTML } from './pdfTemplates/dischargeSummaryPDF';
+import { generatePrescriptionHTML } from './pdfTemplates/prescriptionPDF';
+
 // Main PDF generator function
 export const generatePDF = (
   type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription',

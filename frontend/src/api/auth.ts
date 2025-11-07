@@ -13,29 +13,26 @@ export const login = async (username: string, password: string) => {
 };
 
 export const verifyToken = async () => {
-  try {
-    const response = await api.get('/auth/verify');
-    const { user, token } = response.data;
+  const response = await api.get('/auth/verify');
+  const { user, token } = response.data;
 
-    // Re-store token if server sends fresh one (optional)
-    if (token) {
-      localStorage.setItem('auth_token', token);
-    }
-
-    return user;
-  } catch (error: any) {
-    // Don't log out here — let interceptor handle 401
-    throw error;
+  // Update token if server sends a fresh one
+  if (token) {
+    localStorage.setItem('auth_token', token);
   }
+
+  return user;
 };
 
 export const logout = async () => {
+  // Remove token first to prevent any further authenticated requests
   localStorage.removeItem('auth_token');
-  // Optional: tell backend
+  
+  // Optional: notify backend (but don't block on it)
   try {
     await api.post('/auth/logout');
   } catch (err) {
-    console.warn('Logout API failed (OK)');
+    // Silent fail - user is logged out regardless
   }
 };
 

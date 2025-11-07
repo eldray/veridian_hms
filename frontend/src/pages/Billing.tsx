@@ -5,7 +5,6 @@ import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { Search, DollarSign, CreditCard, FileText, CheckCircle, Download, Hospital, Shield, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { generateReceiptHTML, openPrintWindow } from '../utils/pdfGenerator';
 
 export default function Billing() {
   const [searchQuery, setSearchQuery] = useState('');

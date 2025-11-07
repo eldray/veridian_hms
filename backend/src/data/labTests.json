@@ -1,8 +1,19 @@
 [
   {
-    "id": "lab1",
     "name": "Full Blood Count",
-    "price": 30,
+    "investigationCode": "inve01h",
+    "category": "hematology",
+    "subCategory": "complete",
+    "description": "Complete blood count with differential",
+    "cashPrice": 35,
+    "insurancePrice": 25,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE01H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
         "fieldName": "wbc",
@@ -33,1523 +44,134 @@
         "referenceRange": "40–52"
       },
       {
-        "fieldName": "mcv",
-        "fieldType": "number",
-        "label": "MCV",
-        "unit": "fL",
-        "referenceRange": "80–100"
-      },
-      {
-        "fieldName": "mch",
-        "fieldType": "number",
-        "label": "MCH",
-        "unit": "pg",
-        "referenceRange": "27–32"
-      },
-      {
-        "fieldName": "mchc",
-        "fieldType": "number",
-        "label": "MCHC",
-        "unit": "g/dL",
-        "referenceRange": "32–36"
-      },
-      {
         "fieldName": "plt",
         "fieldType": "number",
         "label": "Platelet Count",
         "unit": "x 10^9/L",
         "referenceRange": "150–450"
-      },
-      {
-        "fieldName": "neutrophils",
-        "fieldType": "number",
-        "label": "Neutrophils",
-        "unit": "%",
-        "referenceRange": "40–75"
-      },
-      {
-        "fieldName": "lymphocytes",
-        "fieldType": "number",
-        "label": "Lymphocytes",
-        "unit": "%",
-        "referenceRange": "20–45"
       }
     ]
   },
   {
-    "id": "lab2",
-    "name": "Lipid Profile",
-    "price": 40,
+    "name": "Malaria Parasite Test",
+    "investigationCode": "inve02d",
+    "category": "microbiology",
+    "subCategory": "parasitology",
+    "description": "Malaria parasite test by microscopy",
+    "cashPrice": 15,
+    "insurancePrice": 10,
+    "costPrice": 5,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE02D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "totalChol",
-        "fieldType": "number",
-        "label": "Total Cholesterol",
-        "unit": "mg/dL",
-        "referenceRange": "<200"
-      },
-      {
-        "fieldName": "hdl",
-        "fieldType": "number",
-        "label": "HDL Cholesterol",
-        "unit": "mg/dL",
-        "referenceRange": ">40"
-      },
-      {
-        "fieldName": "ldl",
-        "fieldType": "number",
-        "label": "LDL Cholesterol",
-        "unit": "mg/dL",
-        "referenceRange": "<130"
-      },
-      {
-        "fieldName": "triglycerides",
-        "fieldType": "number",
-        "label": "Triglycerides",
-        "unit": "mg/dL",
-        "referenceRange": "<150"
-      }
-    ]
-  },
-  {
-    "id": "lab3",
-    "name": "Fasting Blood Sugar",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "glucose",
-        "fieldType": "number",
-        "label": "Glucose Level",
-        "unit": "mg/dL",
-        "referenceRange": "70–99"
-      },
-      {
-        "fieldName": "interpretation",
+        "fieldName": "mp_result",
         "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Impaired Fasting Glucose", "Diabetic"]
-      }
-    ]
-  },
-  {
-    "id": "lab4",
-    "name": "Random Blood Sugar",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "glucose",
-        "fieldType": "number",
-        "label": "Glucose Level",
-        "unit": "mg/dL",
-        "referenceRange": "<200"
-      }
-    ]
-  },
-  {
-    "id": "lab5",
-    "name": "HbA1c",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "hba1c",
-        "fieldType": "number",
-        "label": "HbA1c",
-        "unit": "%",
-        "referenceRange": "<5.7"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Prediabetes", "Diabetes"]
-      }
-    ]
-  },
-  {
-    "id": "lab6",
-    "name": "Liver Function Test",
-    "price": 45,
-    "resultTemplate": [
-      {
-        "fieldName": "ast",
-        "fieldType": "number",
-        "label": "AST",
-        "unit": "U/L",
-        "referenceRange": "10–40"
-      },
-      {
-        "fieldName": "alt",
-        "fieldType": "number",
-        "label": "ALT",
-        "unit": "U/L",
-        "referenceRange": "7–56"
-      },
-      {
-        "fieldName": "alp",
-        "fieldType": "number",
-        "label": "ALP",
-        "unit": "U/L",
-        "referenceRange": "44–147"
-      },
-      {
-        "fieldName": "totalBilirubin",
-        "fieldType": "number",
-        "label": "Total Bilirubin",
-        "unit": "mg/dL",
-        "referenceRange": "0.2–1.2"
-      },
-      {
-        "fieldName": "directBilirubin",
-        "fieldType": "number",
-        "label": "Direct Bilirubin",
-        "unit": "mg/dL",
-        "referenceRange": "0.0–0.3"
-      },
-      {
-        "fieldName": "totalProtein",
-        "fieldType": "number",
-        "label": "Total Protein",
-        "unit": "g/dL",
-        "referenceRange": "6.0–8.3"
-      },
-      {
-        "fieldName": "albumin",
-        "fieldType": "number",
-        "label": "Albumin",
-        "unit": "g/dL",
-        "referenceRange": "3.5–5.0"
-      }
-    ]
-  },
-  {
-    "id": "lab7",
-    "name": "Kidney Function Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "urea",
-        "fieldType": "number",
-        "label": "Urea",
-        "unit": "mg/dL",
-        "referenceRange": "7–20"
-      },
-      {
-        "fieldName": "creatinine",
-        "fieldType": "number",
-        "label": "Creatinine",
-        "unit": "mg/dL",
-        "referenceRange": "0.6–1.2"
-      },
-      {
-        "fieldName": "sodium",
-        "fieldType": "number",
-        "label": "Sodium",
-        "unit": "mmol/L",
-        "referenceRange": "135–145"
-      },
-      {
-        "fieldName": "potassium",
-        "fieldType": "number",
-        "label": "Potassium",
-        "unit": "mmol/L",
-        "referenceRange": "3.5–5.1"
-      },
-      {
-        "fieldName": "chloride",
-        "fieldType": "number",
-        "label": "Chloride",
-        "unit": "mmol/L",
-        "referenceRange": "98–107"
-      }
-    ]
-  },
-  {
-    "id": "lab8",
-    "name": "Thyroid Function Test",
-    "price": 60,
-    "resultTemplate": [
-      {
-        "fieldName": "tsh",
-        "fieldType": "number",
-        "label": "TSH",
-        "unit": "μIU/mL",
-        "referenceRange": "0.4–4.0"
-      },
-      {
-        "fieldName": "t3",
-        "fieldType": "number",
-        "label": "T3",
-        "unit": "ng/dL",
-        "referenceRange": "80–200"
-      },
-      {
-        "fieldName": "t4",
-        "fieldType": "number",
-        "label": "T4",
-        "unit": "μg/dL",
-        "referenceRange": "4.5–12.5"
-      }
-    ]
-  },
-  {
-    "id": "lab9",
-    "name": "Electrolytes",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "sodium",
-        "fieldType": "number",
-        "label": "Sodium",
-        "unit": "mmol/L",
-        "referenceRange": "135–145"
-      },
-      {
-        "fieldName": "potassium",
-        "fieldType": "number",
-        "label": "Potassium",
-        "unit": "mmol/L",
-        "referenceRange": "3.5–5.1"
-      },
-      {
-        "fieldName": "chloride",
-        "fieldType": "number",
-        "label": "Chloride",
-        "unit": "mmol/L",
-        "referenceRange": "98–107"
-      }
-    ]
-  },
-  {
-    "id": "lab10",
-    "name": "Calcium Test",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "calcium",
-        "fieldType": "number",
-        "label": "Calcium Level",
-        "unit": "mg/dL",
-        "referenceRange": "8.5–10.2"
-      }
-    ]
-  },
-  {
-    "id": "lab11",
-    "name": "Magnesium Test",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "magnesium",
-        "fieldType": "number",
-        "label": "Magnesium Level",
-        "unit": "mg/dL",
-        "referenceRange": "1.7–2.2"
-      }
-    ]
-  },
-  {
-    "id": "lab12",
-    "name": "Uric Acid Test",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "uricAcid",
-        "fieldType": "number",
-        "label": "Uric Acid Level",
-        "unit": "mg/dL",
-        "referenceRange": "3.4–7.0"
-      }
-    ]
-  },
-  {
-    "id": "lab13",
-    "name": "Iron Studies",
-    "price": 60,
-    "resultTemplate": [
-      {
-        "fieldName": "iron",
-        "fieldType": "number",
-        "label": "Serum Iron",
-        "unit": "μg/dL",
-        "referenceRange": "50–170"
-      },
-      {
-        "fieldName": "tibc",
-        "fieldType": "number",
-        "label": "TIBC",
-        "unit": "μg/dL",
-        "referenceRange": "240–450"
-      },
-      {
-        "fieldName": "ferritin",
-        "fieldType": "number",
-        "label": "Ferritin",
-        "unit": "ng/mL",
-        "referenceRange": "20–300"
-      },
-      {
-        "fieldName": "transferrinSat",
-        "fieldType": "number",
-        "label": "Transferrin Saturation",
-        "unit": "%",
-        "referenceRange": "20–50"
-      }
-    ]
-  },
-  {
-    "id": "lab14",
-    "name": "Vitamin B12 Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "vitaminB12",
-        "fieldType": "number",
-        "label": "Vitamin B12 Level",
-        "unit": "pg/mL",
-        "referenceRange": "200–900"
-      }
-    ]
-  },
-  {
-    "id": "lab15",
-    "name": "Folate Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "folate",
-        "fieldType": "number",
-        "label": "Folate Level",
-        "unit": "ng/mL",
-        "referenceRange": ">3.0"
-      }
-    ]
-  },
-  {
-    "id": "lab16",
-    "name": "Vitamin D Test",
-    "price": 70,
-    "resultTemplate": [
-      {
-        "fieldName": "vitaminD",
-        "fieldType": "number",
-        "label": "Vitamin D Level",
-        "unit": "ng/mL",
-        "referenceRange": "30–100"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Deficient", "Insufficient", "Sufficient", "Toxic"]
-      }
-    ]
-  },
-  {
-    "id": "lab17",
-    "name": "C-Reactive Protein",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "crp",
-        "fieldType": "number",
-        "label": "CRP Level",
-        "unit": "mg/L",
-        "referenceRange": "<10"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Moderate Elevation", "Marked Elevation"]
-      }
-    ]
-  },
-  {
-    "id": "lab18",
-    "name": "Erythrocyte Sedimentation Rate",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "esr",
-        "fieldType": "number",
-        "label": "ESR",
-        "unit": "mm/hr",
-        "referenceRange": "0–20"
-      }
-    ]
-  },
-  {
-    "id": "lab19",
-    "name": "Amylase Test",
-    "price": 30,
-    "resultTemplate": [
-      {
-        "fieldName": "amylase",
-        "fieldType": "number",
-        "label": "Amylase Level",
-        "unit": "U/L",
-        "referenceRange": "30–110"
-      }
-    ]
-  },
-  {
-    "id": "lab20",
-    "name": "Lipase Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "lipase",
-        "fieldType": "number",
-        "label": "Lipase Level",
-        "unit": "U/L",
-        "referenceRange": "13–60"
-      }
-    ]
-  },
-  {
-    "id": "lab21",
-    "name": "Prostate Specific Antigen",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "psa",
-        "fieldType": "number",
-        "label": "PSA Level",
-        "unit": "ng/mL",
-        "referenceRange": "<4.0"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Borderline", "Elevated"]
-      }
-    ]
-  },
-  {
-    "id": "lab22",
-    "name": "D-Dimer Test",
-    "price": 65,
-    "resultTemplate": [
-      {
-        "fieldName": "dDimer",
-        "fieldType": "number",
-        "label": "D-Dimer Level",
-        "unit": "μg/mL",
-        "referenceRange": "<0.5"
-      }
-    ]
-  },
-  {
-    "id": "lab23",
-    "name": "Troponin Test",
-    "price": 70,
-    "resultTemplate": [
-      {
-        "fieldName": "troponin",
-        "fieldType": "number",
-        "label": "Troponin Level",
-        "unit": "ng/mL",
-        "referenceRange": "<0.04"
-      }
-    ]
-  },
-  {
-    "id": "lab24",
-    "name": "Blood Group & Rh Typing",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "bloodGroup",
-        "fieldType": "select",
-        "label": "Blood Group",
-        "options": ["A", "B", "AB", "O"]
-      },
-      {
-        "fieldName": "rhFactor",
-        "fieldType": "select",
-        "label": "Rh Factor",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab25",
-    "name": "Hemoglobin Electrophoresis",
-    "price": 60,
-    "resultTemplate": [
-      {
-        "fieldName": "hba",
-        "fieldType": "number",
-        "label": "HbA",
-        "unit": "%",
-        "referenceRange": "95–98"
-      },
-      {
-        "fieldName": "hba2",
-        "fieldType": "number",
-        "label": "HbA2",
-        "unit": "%",
-        "referenceRange": "1.5–3.5"
-      },
-      {
-        "fieldName": "hbf",
-        "fieldType": "number",
-        "label": "HbF",
-        "unit": "%",
-        "referenceRange": "0–1"
-      },
-      {
-        "fieldName": "hbs",
-        "fieldType": "number",
-        "label": "HbS",
-        "unit": "%",
-        "referenceRange": "0"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "text",
-        "label": "Interpretation"
-      }
-    ]
-  },
-  {
-    "id": "lab64",
-    "name": "Serum Ferritin Test",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "ferritin",
-        "fieldType": "number",
-        "label": "Ferritin Level",
-        "unit": "ng/mL",
-        "referenceRange": "20–300"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Deficient", "Normal", "Elevated"]
-      }
-    ]
-  },
-  {
-    "id": "lab65",
-    "name": "Peripheral Blood Smear",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "rbcMorphology",
-        "fieldType": "text",
-        "label": "RBC Morphology"
-      },
-      {
-        "fieldName": "parasites",
-        "fieldType": "select",
-        "label": "Blood Parasites",
-        "options": ["None", "Malaria", "Trypanosomes", "Microfilaria"]
-      },
-      {
-        "fieldName": "wbcDifferential",
-        "fieldType": "text",
-        "label": "WBC Differential",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab26",
-    "name": "Malaria Rapid Test",
-    "price": 15,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
+        "label": "Malaria Parasite",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive (+)", "Positive (++)", "Positive (+++)", "Positive (++++)"]
       },
       {
         "fieldName": "species",
         "fieldType": "select",
-        "label": "Species Detected",
-        "options": ["P. falciparum", "Non-falciparum", "Mixed", "Not Specified"]
-      }
-    ]
-  },
-  {
-    "id": "lab27",
-    "name": "Malaria Microscopy",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
+        "label": "Plasmodium Species",
+        "referenceRange": "Not applicable",
+        "options": ["Not detected", "P. falciparum", "P. vivax", "P. ovale", "P. malariae", "Mixed"]
       },
       {
-        "fieldName": "species",
-        "fieldType": "select",
-        "label": "Species Identified",
-        "options": [
-          "P. falciparum",
-          "P. vivax",
-          "P. malariae",
-          "P. ovale",
-          "Mixed"
-        ]
-      },
-      {
-        "fieldName": "parasiteDensity",
+        "fieldName": "parasite_density",
         "fieldType": "number",
         "label": "Parasite Density",
-        "unit": "parasites/μL"
+        "unit": "parasites/μL",
+        "referenceRange": "0"
       }
     ]
   },
   {
-    "id": "lab28",
-    "name": "Hepatitis B Surface Antigen",
-    "price": 35,
+    "name": "Blood Glucose (Random)",
+    "investigationCode": "inve03b",
+    "category": "biochemistry",
+    "subCategory": "glucose",
+    "description": "Random blood glucose test",
+    "cashPrice": 12,
+    "insurancePrice": 8,
+    "costPrice": 4,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE03B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "quantitativeValue",
+        "fieldName": "glucose_random",
         "fieldType": "number",
-        "label": "Quantitative Value",
-        "unit": "IU/mL",
-        "optional": true
+        "label": "Random Blood Glucose",
+        "unit": "mmol/L",
+        "referenceRange": "3.9–7.8"
       }
     ]
   },
   {
-    "id": "lab29",
-    "name": "Hepatitis C Antibody",
-    "price": 40,
+    "name": "Blood Glucose (Fasting)",
+    "investigationCode": "inve04b",
+    "category": "biochemistry",
+    "subCategory": "glucose",
+    "description": "Fasting blood glucose test",
+    "cashPrice": 15,
+    "insurancePrice": 10,
+    "costPrice": 5,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE04B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab30",
-    "name": "HIV Test",
-    "price": 30,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "confirmatoryTest",
-        "fieldType": "select",
-        "label": "Confirmatory Test",
-        "options": ["Not Done", "Positive", "Negative"],
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab31",
-    "name": "Syphilis Test",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Reactive", "Non-reactive"]
-      },
-      {
-        "fieldName": "titer",
-        "fieldType": "text",
-        "label": "Titer Value",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab32",
-    "name": "Widal Test",
-    "price": 30,
-    "resultTemplate": [
-      {
-        "fieldName": "typhiO",
-        "fieldType": "text",
-        "label": "Salmonella Typhi O",
-        "referenceRange": "<1:80"
-      },
-      {
-        "fieldName": "typhiH",
-        "fieldType": "text",
-        "label": "Salmonella Typhi H",
-        "referenceRange": "<1:80"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab33",
-    "name": "Typhoid Rapid Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab34",
-    "name": "Tuberculosis (AFB) Test",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "grade",
-        "fieldType": "select",
-        "label": "Grade",
-        "options": ["1+", "2+", "3+", "Scanty"],
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab35",
-    "name": "GeneXpert MTB/RIF",
-    "price": 80,
-    "resultTemplate": [
-      {
-        "fieldName": "mtb",
-        "fieldType": "select",
-        "label": "MTB Detection",
-        "options": ["Detected", "Not Detected"]
-      },
-      {
-        "fieldName": "rifResistance",
-        "fieldType": "select",
-        "label": "RIF Resistance",
-        "options": ["Detected", "Not Detected"]
-      }
-    ]
-  },
-  {
-    "id": "lab36",
-    "name": "H. Pylori Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "method",
-        "fieldType": "select",
-        "label": "Method",
-        "options": ["Stool Antigen", "Serology", "UBT"]
-      }
-    ]
-  },
-  {
-    "id": "lab37",
-    "name": "Dengue NS1 Antigen",
-    "price": 45,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab38",
-    "name": "Schistosomiasis Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "species",
-        "fieldType": "select",
-        "label": "Species",
-        "options": ["S. haematobium", "S. mansoni", "Not Specified"]
-      }
-    ]
-  },
-  {
-    "id": "lab39",
-    "name": "Sickle Cell Test",
-    "price": 30,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "method",
-        "fieldType": "select",
-        "label": "Method",
-        "options": ["Solubility Test", "Hemoglobin Electrophoresis"]
-      }
-    ]
-  },
-  {
-    "id": "lab40",
-    "name": "Sickle Cell Screening (Rapid)",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Negative", "Positive"]
-      }
-    ]
-  },
-  {
-    "id": "lab41",
-    "name": "HIV Viral Load",
-    "price": 100,
-    "resultTemplate": [
-      {
-        "fieldName": "viralLoad",
+        "fieldName": "glucose_fasting",
         "fieldType": "number",
-        "label": "Viral Load",
-        "unit": "copies/mL",
-        "referenceRange": "<40"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Undetectable", "Low", "Moderate", "High"]
+        "label": "Fasting Blood Glucose",
+        "unit": "mmol/L",
+        "referenceRange": "3.9–5.6"
       }
     ]
   },
   {
-    "id": "lab42",
-    "name": "Hepatitis A IgM Test",
-    "price": 40,
+    "name": "Urinalysis (Routine)",
+    "investigationCode": "inve05u",
+    "category": "biochemistry",
+    "subCategory": "urine",
+    "description": "Complete urinalysis with microscopy",
+    "cashPrice": 18,
+    "insurancePrice": 12,
+    "costPrice": 6,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE05U",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "urine",
     "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab43",
-    "name": "Cholera Rapid Test",
-    "price": 30,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab44",
-    "name": "Onchocerciasis Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "method",
-        "fieldType": "select",
-        "label": "Method",
-        "options": ["Skin Snip Microscopy", "Serology"]
-      }
-    ]
-  },
-  {
-    "id": "lab66",
-    "name": "Trypanosomiasis Test",
-    "price": 45,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "method",
-        "fieldType": "select",
-        "label": "Method",
-        "options": ["Microscopy", "Serology", "Rapid Diagnostic Test"]
-      }
-    ]
-  },
-  {
-    "id": "lab67",
-    "name": "Leishmaniasis Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "type",
-        "fieldType": "select",
-        "label": "Type",
-        "options": ["Visceral", "Cutaneous", "Not Specified"],
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab68",
-    "name": "Yellow Fever IgM Test",
-    "price": 45,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab69",
-    "name": "Cryptococcal Antigen Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab70",
-    "name": "Lymphatic Filariasis Test",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "method",
-        "fieldType": "select",
-        "label": "Method",
-        "options": ["Antigen Test", "Microscopy"]
-      }
-    ]
-  },
-  {
-    "id": "lab71",
-    "name": "RPR Test",
-    "price": 25,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Reactive", "Non-reactive"]
-      },
-      {
-        "fieldName": "titer",
-        "fieldType": "text",
-        "label": "Titer Value",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab72",
-    "name": "Chlamydia Antigen Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "sampleType",
-        "fieldType": "select",
-        "label": "Sample Type",
-        "options": ["Urine", "Swab"]
-      }
-    ]
-  },
-  {
-    "id": "lab45",
-    "name": "Pregnancy Test",
-    "price": 15,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      }
-    ]
-  },
-  {
-    "id": "lab46",
-    "name": "Oral Glucose Tolerance Test",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "fasting",
-        "fieldType": "number",
-        "label": "Fasting Glucose",
-        "unit": "mg/dL",
-        "referenceRange": "<100"
-      },
-      {
-        "fieldName": "twoHour",
-        "fieldType": "number",
-        "label": "2-Hour Glucose",
-        "unit": "mg/dL",
-        "referenceRange": "<140"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Impaired", "Diabetes"]
-      }
-    ]
-  },
-  {
-    "id": "lab47",
-    "name": "Obstetric Glucose Challenge Test",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "glucoseLevel",
-        "fieldType": "number",
-        "label": "1-hour Glucose",
-        "unit": "mg/dL",
-        "referenceRange": "<140"
-      },
-      {
-        "fieldName": "interpretation",
-        "fieldType": "select",
-        "label": "Interpretation",
-        "options": ["Normal", "Abnormal - Needs OGTT"]
-      }
-    ]
-  },
-  {
-    "id": "lab48",
-    "name": "G6PD Deficiency Test",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Normal", "Partial Deficiency", "Severe Deficiency"]
-      },
-      {
-        "fieldName": "enzymeActivity",
-        "fieldType": "number",
-        "label": "Enzyme Activity",
-        "unit": "U/g Hb",
-        "referenceRange": "≥4.6"
-      }
-    ]
-  },
-  {
-    "id": "lab49",
-    "name": "TORCH Screening Panel",
-    "price": 120,
-    "resultTemplate": [
-      {
-        "fieldName": "toxoplasmaIgG",
-        "fieldType": "select",
-        "label": "Toxoplasma IgG",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "toxoplasmaIgM",
-        "fieldType": "select",
-        "label": "Toxoplasma IgM",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "rubellaIgG",
-        "fieldType": "select",
-        "label": "Rubella IgG",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "cmvIgG",
-        "fieldType": "select",
-        "label": "CMV IgG",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "cmvIgM",
-        "fieldType": "select",
-        "label": "CMV IgM",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "hsv1IgG",
-        "fieldType": "select",
-        "label": "HSV-1 IgG",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "hsv2IgG",
-        "fieldType": "select",
-        "label": "HSV-2 IgG",
-        "options": ["Negative", "Positive"]
-      }
-    ]
-  },
-  {
-    "id": "lab50",
-    "name": "Obstetric Blood Group Profile",
-    "price": 40,
-    "resultTemplate": [
-      {
-        "fieldName": "bloodGroup",
-        "fieldType": "select",
-        "label": "Blood Group",
-        "options": ["A", "B", "AB", "O"]
-      },
-      {
-        "fieldName": "rhFactor",
-        "fieldType": "select",
-        "label": "Rh Factor",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "antibodyScreen",
-        "fieldType": "select",
-        "label": "Antibody Screen",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "rhesusAntibodyTiter",
-        "fieldType": "number",
-        "label": "Rhesus Antibody Titer",
-        "unit": "IU/mL",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab51",
-    "name": "Hepatitis B Obstetric Profile",
-    "price": 75,
-    "resultTemplate": [
-      {
-        "fieldName": "hbsAg",
-        "fieldType": "select",
-        "label": "HBsAg",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "hbeAg",
-        "fieldType": "select",
-        "label": "HBeAg",
-        "options": ["Negative", "Positive"],
-        "optional": true
-      },
-      {
-        "fieldName": "hbsAb",
-        "fieldType": "select",
-        "label": "HBsAb",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "hbcAb",
-        "fieldType": "select",
-        "label": "HBcAb",
-        "options": ["Negative", "Positive"],
-        "optional": true
-      },
-      {
-        "fieldName": "viralLoad",
-        "fieldType": "number",
-        "label": "HBV DNA Viral Load",
-        "unit": "IU/mL",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab52",
-    "name": "Group B Streptococcus Screen",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Negative", "Positive"]
-      },
-      {
-        "fieldName": "cultureSite",
-        "fieldType": "select",
-        "label": "Culture Site",
-        "options": ["Vaginal", "Rectal", "Both"]
-      }
-    ]
-  },
-  {
-    "id": "lab53",
-    "name": "Obstetric Triple Test",
-    "price": 95,
-    "resultTemplate": [
-      {
-        "fieldName": "hcg",
-        "fieldType": "number",
-        "label": "β-hCG",
-        "unit": "IU/mL"
-      },
-      {
-        "fieldName": "afp",
-        "fieldType": "number",
-        "label": "AFP",
-        "unit": "U/mL"
-      },
-      {
-        "fieldName": "estriol",
-        "fieldType": "number",
-        "label": "Estriol",
-        "unit": "nmol/L"
-      },
-      {
-        "fieldName": "riskAssessment",
-        "fieldType": "text",
-        "label": "Trisomy Risk Assessment"
-      }
-    ]
-  },
-  {
-    "id": "lab54",
-    "name": "Pap Smear",
-    "price": 45,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Result",
-        "options": ["Normal", "ASC-US", "ASC-H", "LSIL", "HSIL", "AGC", "SCC"]
-      },
-      {
-        "fieldName": "hpv",
-        "fieldType": "select",
-        "label": "HPV Test",
-        "options": ["Not Done", "Positive", "Negative"],
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab55",
-    "name": "Rheumatoid Factor",
-    "price": 35,
-    "resultTemplate": [
-      {
-        "fieldName": "rf",
-        "fieldType": "number",
-        "label": "RF Level",
-        "unit": "IU/mL",
-        "referenceRange": "<15"
-      }
-    ]
-  },
-  {
-    "id": "lab56",
-    "name": "Anti-CCP Antibody",
-    "price": 60,
-    "resultTemplate": [
-      {
-        "fieldName": "antiCCP",
-        "fieldType": "number",
-        "label": "Anti-CCP Level",
-        "unit": "U/mL",
-        "referenceRange": "<20"
-      }
-    ]
-  },
-  {
-    "id": "lab57",
-    "name": "ANA Test",
-    "price": 55,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Test Result",
-        "options": ["Positive", "Negative"]
-      },
-      {
-        "fieldName": "titer",
-        "fieldType": "text",
-        "label": "Titer",
-        "optional": true
-      },
-      {
-        "fieldName": "pattern",
-        "fieldType": "text",
-        "label": "Pattern",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab58",
-    "name": "Blood Culture",
-    "price": 70,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Culture Result",
-        "options": ["No Growth", "Growth"]
-      },
-      {
-        "fieldName": "organism",
-        "fieldType": "text",
-        "label": "Organism Identified",
-        "optional": true
-      },
-      {
-        "fieldName": "sensitivity",
-        "fieldType": "text",
-        "label": "Sensitivity Pattern",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab59",
-    "name": "Urine Culture",
-    "price": 50,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Culture Result",
-        "options": ["No Growth", "Growth"]
-      },
-      {
-        "fieldName": "organism",
-        "fieldType": "text",
-        "label": "Organism Identified",
-        "optional": true
-      },
-      {
-        "fieldName": "colonyCount",
-        "fieldType": "number",
-        "label": "Colony Count",
-        "unit": "CFU/mL",
-        "optional": true
-      },
-      {
-        "fieldName": "sensitivity",
-        "fieldType": "text",
-        "label": "Sensitivity Pattern",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab60",
-    "name": "Stool Culture",
-    "price": 55,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "select",
-        "label": "Culture Result",
-        "options": ["No Growth", "Growth"]
-      },
-      {
-        "fieldName": "organism",
-        "fieldType": "text",
-        "label": "Organism Identified",
-        "optional": true
-      },
-      {
-        "fieldName": "sensitivity",
-        "fieldType": "text",
-        "label": "Sensitivity Pattern",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "lab61",
-    "name": "Urinalysis",
-    "price": 20,
-    "resultTemplate": [
-      {
-        "fieldName": "color",
-        "fieldType": "text",
-        "label": "Color",
-        "referenceRange": "Yellow"
-      },
       {
         "fieldName": "appearance",
         "fieldType": "select",
         "label": "Appearance",
+        "referenceRange": "Clear",
         "options": ["Clear", "Hazy", "Cloudy", "Turbid"]
       },
       {
-        "fieldName": "specificGravity",
+        "fieldName": "color",
+        "fieldType": "text",
+        "label": "Color",
+        "referenceRange": "Straw"
+      },
+      {
+        "fieldName": "specific_gravity",
         "fieldType": "number",
         "label": "Specific Gravity",
         "referenceRange": "1.005–1.030"
@@ -1564,70 +186,906 @@
         "fieldName": "protein",
         "fieldType": "select",
         "label": "Protein",
-        "options": ["Negative", "Trace", "1+", "2+", "3+", "4+"]
+        "referenceRange": "Negative",
+        "options": ["Negative", "Trace", "+1", "+2", "+3", "+4"]
       },
       {
         "fieldName": "glucose",
         "fieldType": "select",
         "label": "Glucose",
-        "options": ["Negative", "Trace", "1+", "2+", "3+", "4+"]
+        "referenceRange": "Negative",
+        "options": ["Negative", "+1", "+2", "+3", "+4"]
       },
       {
         "fieldName": "ketones",
         "fieldType": "select",
         "label": "Ketones",
-        "options": ["Negative", "Trace", "1+", "2+", "3+", "4+"]
+        "referenceRange": "Negative",
+        "options": ["Negative", "Trace", "+1", "+2", "+3"]
       },
       {
         "fieldName": "blood",
         "fieldType": "select",
         "label": "Blood",
-        "options": ["Negative", "Trace", "1+", "2+", "3+", "4+"]
-      },
-      {
-        "fieldName": "leukocytes",
-        "fieldType": "select",
-        "label": "Leukocytes",
-        "options": ["Negative", "Trace", "1+", "2+", "3+", "4+"]
+        "referenceRange": "Negative",
+        "options": ["Negative", "+1", "+2", "+3"]
       }
     ]
   },
   {
-    "id": "lab62",
-    "name": "Stool Analysis",
-    "price": 25,
+    "name": "Pregnancy Test (Urine)",
+    "investigationCode": "inve06u",
+    "category": "serology",
+    "subCategory": "pregnancy",
+    "description": "Qualitative urine pregnancy test",
+    "cashPrice": 10,
+    "insurancePrice": 7,
+    "costPrice": 3,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE06U",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "urine",
+    "resultTemplate": [
+      {
+        "fieldName": "pregnancy_test",
+        "fieldType": "select",
+        "label": "Pregnancy Test",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Widal Test",
+    "investigationCode": "inve07s",
+    "category": "serology",
+    "subCategory": "febrile_illness",
+    "description": "Widal test for typhoid fever",
+    "cashPrice": 25,
+    "insurancePrice": 18,
+    "costPrice": 8,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE07S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "salmonella_typhi_o",
+        "fieldType": "select",
+        "label": "S. typhi O antigen",
+        "referenceRange": "Negative (<1:80)",
+        "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)", "Positive (≥1:640)"]
+      },
+      {
+        "fieldName": "salmonella_typhi_h",
+        "fieldType": "select",
+        "label": "S. typhi H antigen",
+        "referenceRange": "Negative (<1:80)",
+        "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)", "Positive (≥1:640)"]
+      }
+    ]
+  },
+  {
+    "name": "HIV Screening Test",
+    "investigationCode": "inve08s",
+    "category": "serology",
+    "subCategory": "hiv",
+    "description": "HIV rapid test screening",
+    "cashPrice": 20,
+    "insurancePrice": 15,
+    "costPrice": 7,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE08S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "hiv_screening",
+        "fieldType": "select",
+        "label": "HIV Screening Test",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive", "Invalid"]
+      }
+    ]
+  },
+  {
+    "name": "Hepatitis B Surface Antigen",
+    "investigationCode": "inve09s",
+    "category": "serology",
+    "subCategory": "hepatitis",
+    "description": "HBsAg test for Hepatitis B",
+    "cashPrice": 22,
+    "insurancePrice": 16,
+    "costPrice": 8,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE09S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "hbsag",
+        "fieldType": "select",
+        "label": "Hepatitis B Surface Antigen",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Stool Microscopy",
+    "investigationCode": "inve10d",
+    "category": "microbiology",
+    "subCategory": "parasitology",
+    "description": "Stool examination for ova and parasites",
+    "cashPrice": 20,
+    "insurancePrice": 14,
+    "costPrice": 6,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE10D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "stool",
     "resultTemplate": [
       {
         "fieldName": "consistency",
         "fieldType": "select",
         "label": "Consistency",
+        "referenceRange": "Formed",
         "options": ["Formed", "Soft", "Loose", "Watery"]
       },
-      { "fieldName": "color", "fieldType": "text", "label": "Color" },
       {
-        "fieldName": "ova",
+        "fieldName": "color",
+        "fieldType": "text",
+        "label": "Color",
+        "referenceRange": "Brown"
+      },
+      {
+        "fieldName": "ova_cysts",
         "fieldType": "select",
-        "label": "Ova",
-        "options": ["Present", "Absent"]
+        "label": "Ova/Cysts",
+        "referenceRange": "Not seen",
+        "options": ["Not seen", "Present"]
       },
       {
         "fieldName": "parasites",
-        "fieldType": "select",
-        "label": "Parasites",
-        "options": ["Present", "Absent"]
+        "fieldType": "text",
+        "label": "Parasites Identified",
+        "referenceRange": "None"
       },
       {
-        "fieldName": "occultBlood",
+        "fieldName": "occult_blood",
         "fieldType": "select",
         "label": "Occult Blood",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Liver Function Tests",
+    "investigationCode": "inve11b",
+    "category": "biochemistry",
+    "subCategory": "liver",
+    "description": "Comprehensive liver function panel",
+    "cashPrice": 45,
+    "insurancePrice": 32,
+    "costPrice": 15,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE11B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "alt",
+        "fieldType": "number",
+        "label": "ALT (SGPT)",
+        "unit": "U/L",
+        "referenceRange": "7–56"
+      },
+      {
+        "fieldName": "ast",
+        "fieldType": "number",
+        "label": "AST (SGOT)",
+        "unit": "U/L",
+        "referenceRange": "5–40"
+      },
+      {
+        "fieldName": "alp",
+        "fieldType": "number",
+        "label": "Alkaline Phosphatase",
+        "unit": "U/L",
+        "referenceRange": "44–147"
+      },
+      {
+        "fieldName": "total_bilirubin",
+        "fieldType": "number",
+        "label": "Total Bilirubin",
+        "unit": "μmol/L",
+        "referenceRange": "3.4–20.5"
+      },
+      {
+        "fieldName": "direct_bilirubin",
+        "fieldType": "number",
+        "label": "Direct Bilirubin",
+        "unit": "μmol/L",
+        "referenceRange": "0–5.1"
+      },
+      {
+        "fieldName": "total_protein",
+        "fieldType": "number",
+        "label": "Total Protein",
+        "unit": "g/L",
+        "referenceRange": "60–80"
+      },
+      {
+        "fieldName": "albumin",
+        "fieldType": "number",
+        "label": "Albumin",
+        "unit": "g/L",
+        "referenceRange": "35–50"
+      }
+    ]
+  },
+  {
+    "name": "Renal Function Tests",
+    "investigationCode": "inve12b",
+    "category": "biochemistry",
+    "subCategory": "renal",
+    "description": "Kidney function test panel",
+    "cashPrice": 40,
+    "insurancePrice": 28,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE12B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "urea",
+        "fieldType": "number",
+        "label": "Urea",
+        "unit": "mmol/L",
+        "referenceRange": "2.5–7.1"
+      },
+      {
+        "fieldName": "creatinine",
+        "fieldType": "number",
+        "label": "Creatinine",
+        "unit": "μmol/L",
+        "referenceRange": "62–106"
+      },
+      {
+        "fieldName": "sodium",
+        "fieldType": "number",
+        "label": "Sodium",
+        "unit": "mmol/L",
+        "referenceRange": "136–145"
+      },
+      {
+        "fieldName": "potassium",
+        "fieldType": "number",
+        "label": "Potassium",
+        "unit": "mmol/L",
+        "referenceRange": "3.5–5.1"
+      },
+      {
+        "fieldName": "chloride",
+        "fieldType": "number",
+        "label": "Chloride",
+        "unit": "mmol/L",
+        "referenceRange": "98–107"
+      }
+    ]
+  },
+  {
+    "name": "Lipid Profile",
+    "investigationCode": "inve13b",
+    "category": "biochemistry",
+    "subCategory": "lipids",
+    "description": "Complete lipid profile",
+    "cashPrice": 38,
+    "insurancePrice": 27,
+    "costPrice": 11,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE13B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "total_cholesterol",
+        "fieldType": "number",
+        "label": "Total Cholesterol",
+        "unit": "mmol/L",
+        "referenceRange": "<5.2"
+      },
+      {
+        "fieldName": "hdl_cholesterol",
+        "fieldType": "number",
+        "label": "HDL Cholesterol",
+        "unit": "mmol/L",
+        "referenceRange": ">1.0"
+      },
+      {
+        "fieldName": "ldl_cholesterol",
+        "fieldType": "number",
+        "label": "LDL Cholesterol",
+        "unit": "mmol/L",
+        "referenceRange": "<2.6"
+      },
+      {
+        "fieldName": "triglycerides",
+        "fieldType": "number",
+        "label": "Triglycerides",
+        "unit": "mmol/L",
+        "referenceRange": "<1.7"
+      }
+    ]
+  },
+  {
+    "name": "Blood Group and Rh Typing",
+    "investigationCode": "inve14h",
+    "category": "hematology",
+    "subCategory": "blood_group",
+    "description": "ABO and Rh blood grouping",
+    "cashPrice": 15,
+    "insurancePrice": 10,
+    "costPrice": 4,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE14H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "abo_group",
+        "fieldType": "select",
+        "label": "ABO Blood Group",
+        "referenceRange": "N/A",
+        "options": ["A", "B", "AB", "O"]
+      },
+      {
+        "fieldName": "rh_type",
+        "fieldType": "select",
+        "label": "Rh Type",
+        "referenceRange": "N/A",
         "options": ["Positive", "Negative"]
       }
     ]
   },
   {
-    "id": "lab63",
+    "name": "Sickle Cell Test",
+    "investigationCode": "inve15h",
+    "category": "hematology",
+    "subCategory": "hemoglobinopathy",
+    "description": "Sickle cell solubility test",
+    "cashPrice": 18,
+    "insurancePrice": 12,
+    "costPrice": 5,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE15H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "sickle_cell_test",
+        "fieldType": "select",
+        "label": "Sickle Cell Test",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Electrolytes, Urea and Creatinine (EUC)",
+    "investigationCode": "inve16b",
+    "category": "biochemistry",
+    "subCategory": "renal",
+    "description": "Electrolytes with renal function tests",
+    "cashPrice": 35,
+    "insurancePrice": 25,
+    "costPrice": 10,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE16B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "sodium",
+        "fieldType": "number",
+        "label": "Sodium",
+        "unit": "mmol/L",
+        "referenceRange": "136–145"
+      },
+      {
+        "fieldName": "potassium",
+        "fieldType": "number",
+        "label": "Potassium",
+        "unit": "mmol/L",
+        "referenceRange": "3.5–5.1"
+      },
+      {
+        "fieldName": "chloride",
+        "fieldType": "number",
+        "label": "Chloride",
+        "unit": "mmol/L",
+        "referenceRange": "98–107"
+      },
+      {
+        "fieldName": "bicarbonate",
+        "fieldType": "number",
+        "label": "Bicarbonate",
+        "unit": "mmol/L",
+        "referenceRange": "22–29"
+      },
+      {
+        "fieldName": "urea",
+        "fieldType": "number",
+        "label": "Urea",
+        "unit": "mmol/L",
+        "referenceRange": "2.5–7.1"
+      },
+      {
+        "fieldName": "creatinine",
+        "fieldType": "number",
+        "label": "Creatinine",
+        "unit": "μmol/L",
+        "referenceRange": "62–106"
+      }
+    ]
+  },
+  {
+    "name": "Thyroid Function Tests (TFT)",
+    "investigationCode": "inve17b",
+    "category": "biochemistry",
+    "subCategory": "endocrine",
+    "description": "Thyroid stimulating hormone and free T4",
+    "cashPrice": 55,
+    "insurancePrice": 40,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE17B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "tsh",
+        "fieldType": "number",
+        "label": "TSH",
+        "unit": "mIU/L",
+        "referenceRange": "0.4–4.0"
+      },
+      {
+        "fieldName": "free_t4",
+        "fieldType": "number",
+        "label": "Free T4",
+        "unit": "pmol/L",
+        "referenceRange": "12–22"
+      },
+      {
+        "fieldName": "free_t3",
+        "fieldType": "number",
+        "label": "Free T3",
+        "unit": "pmol/L",
+        "referenceRange": "3.1–6.8"
+      }
+    ]
+  },
+  {
+    "name": "Prostate Specific Antigen (PSA)",
+    "investigationCode": "inve18b",
+    "category": "biochemistry",
+    "subCategory": "tumor_markers",
+    "description": "Prostate cancer screening test",
+    "cashPrice": 45,
+    "insurancePrice": 32,
+    "costPrice": 15,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE18B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "total_psa",
+        "fieldType": "number",
+        "label": "Total PSA",
+        "unit": "ng/mL",
+        "referenceRange": "<4.0"
+      },
+      {
+        "fieldName": "free_psa",
+        "fieldType": "number",
+        "label": "Free PSA",
+        "unit": "ng/mL",
+        "referenceRange": "N/A"
+      },
+      {
+        "fieldName": "free_ratio",
+        "fieldType": "number",
+        "label": "Free/Total PSA Ratio",
+        "unit": "%",
+        "referenceRange": ">25%"
+      }
+    ]
+  },
+  {
+    "name": "HbA1c (Glycated Hemoglobin)",
+    "investigationCode": "inve19b",
+    "category": "hematology",
+    "subCategory": "diabetes",
+    "description": "3-month average blood glucose control",
+    "cashPrice": 40,
+    "insurancePrice": 28,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE19B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "hba1c",
+        "fieldType": "number",
+        "label": "HbA1c",
+        "unit": "%",
+        "referenceRange": "4.0–5.6"
+      },
+      {
+        "fieldName": "estimated_average_glucose",
+        "fieldType": "number",
+        "label": "Estimated Average Glucose",
+        "unit": "mmol/L",
+        "referenceRange": "3.9–7.0"
+      }
+    ]
+  },
+  {
+    "name": "C-Reactive Protein (CRP)",
+    "investigationCode": "inve20b",
+    "category": "biochemistry",
+    "subCategory": "inflammation",
+    "description": "Inflammatory marker test",
+    "cashPrice": 30,
+    "insurancePrice": 22,
+    "costPrice": 9,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE20B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "crp",
+        "fieldType": "number",
+        "label": "C-Reactive Protein",
+        "unit": "mg/L",
+        "referenceRange": "<5.0"
+      }
+    ]
+  },
+  {
+    "name": "Rheumatoid Factor (RF)",
+    "investigationCode": "inve21s",
+    "category": "serology",
+    "subCategory": "autoimmune",
+    "description": "Rheumatoid arthritis screening",
+    "cashPrice": 35,
+    "insurancePrice": 25,
+    "costPrice": 10,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE21S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "rheumatoid_factor",
+        "fieldType": "number",
+        "label": "Rheumatoid Factor",
+        "unit": "IU/mL",
+        "referenceRange": "<14"
+      }
+    ]
+  },
+  {
+    "name": "ASO Titre",
+    "investigationCode": "inve22s",
+    "category": "serology",
+    "subCategory": "streptococcal",
+    "description": "Anti-streptolysin O titre for rheumatic fever",
+    "cashPrice": 38,
+    "insurancePrice": 27,
+    "costPrice": 11,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE22S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "aso_titre",
+        "fieldType": "select",
+        "label": "ASO Titre",
+        "referenceRange": "<200 IU/mL",
+        "options": ["<200 IU/mL", "200–400 IU/mL", ">400 IU/mL"]
+      }
+    ]
+  },
+  {
+    "name": "VDRL/RPR Test",
+    "investigationCode": "inve23s",
+    "category": "serology",
+    "subCategory": "syphilis",
+    "description": "Syphilis screening test",
+    "cashPrice": 25,
+    "insurancePrice": 18,
+    "costPrice": 8,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE23S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "vdrl",
+        "fieldType": "select",
+        "label": "VDRL/RPR",
+        "referenceRange": "Non-reactive",
+        "options": ["Non-reactive", "Reactive"]
+      },
+      {
+        "fieldName": "titre",
+        "fieldType": "text",
+        "label": "Titre if Reactive",
+        "referenceRange": "N/A"
+      }
+    ]
+  },
+  {
+    "name": "Hepatitis C Antibody",
+    "investigationCode": "inve24s",
+    "category": "serology",
+    "subCategory": "hepatitis",
+    "description": "Hepatitis C virus screening",
+    "cashPrice": 40,
+    "insurancePrice": 28,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE24S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "hcv_ab",
+        "fieldType": "select",
+        "label": "Hepatitis C Antibody",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Blood Culture and Sensitivity",
+    "investigationCode": "inve25m",
+    "category": "microbiology",
+    "subCategory": "bacteriology",
+    "description": "Blood culture for bacteremia with antibiotic sensitivity",
+    "cashPrice": 85,
+    "insurancePrice": 60,
+    "costPrice": 25,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE25M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture Result",
+        "referenceRange": "No growth",
+        "options": ["No growth", "Growth observed"]
+      },
+      {
+        "fieldName": "organism",
+        "fieldType": "text",
+        "label": "Organism Identified",
+        "referenceRange": "None"
+      },
+      {
+        "fieldName": "sensitive_antibiotics",
+        "fieldType": "textarea",
+        "label": "Sensitive Antibiotics",
+        "referenceRange": "N/A"
+      },
+      {
+        "fieldName": "resistant_antibiotics",
+        "fieldType": "textarea",
+        "label": "Resistant Antibiotics",
+        "referenceRange": "N/A"
+      }
+    ]
+  },
+  {
+    "name": "Urine Culture and Sensitivity",
+    "investigationCode": "inve26m",
+    "category": "microbiology",
+    "subCategory": "bacteriology",
+    "description": "Urine culture for UTI with antibiotic sensitivity",
+    "cashPrice": 65,
+    "insurancePrice": 45,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE26M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "urine",
+    "resultTemplate": [
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture Result",
+        "referenceRange": "No significant growth",
+        "options": ["No significant growth", "Significant growth", "Mixed growth", "Contaminated"]
+      },
+      {
+        "fieldName": "organism",
+        "fieldType": "text",
+        "label": "Organism Identified",
+        "referenceRange": "None"
+      },
+      {
+        "fieldName": "colony_count",
+        "fieldType": "number",
+        "label": "Colony Count",
+        "unit": "CFU/mL",
+        "referenceRange": "<10^5"
+      },
+      {
+        "fieldName": "sensitive_antibiotics",
+        "fieldType": "textarea",
+        "label": "Sensitive Antibiotics",
+        "referenceRange": "N/A"
+      }
+    ]
+  },
+  {
+    "name": "Wound Swab Culture",
+    "investigationCode": "inve27m",
+    "category": "microbiology",
+    "subCategory": "bacteriology",
+    "description": "Wound swab for infection with sensitivity",
+    "cashPrice": 60,
+    "insurancePrice": 42,
+    "costPrice": 16,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE27M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "swab",
+    "resultTemplate": [
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture Result",
+        "referenceRange": "No growth",
+        "options": ["No growth", "Growth observed", "Mixed growth"]
+      },
+      {
+        "fieldName": "organism",
+        "fieldType": "text",
+        "label": "Organism Identified",
+        "referenceRange": "None"
+      },
+      {
+        "fieldName": "sensitive_antibiotics",
+        "fieldType": "textarea",
+        "label": "Sensitive Antibiotics",
+        "referenceRange": "N/A"
+      }
+    ]
+  },
+  {
+    "name": "High Vaginal Swab (HVS)",
+    "investigationCode": "inve28m",
+    "category": "microbiology",
+    "subCategory": "gynecology",
+    "description": "Vaginal swab for infection screening",
+    "cashPrice": 45,
+    "insurancePrice": 32,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE28M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "swab",
+    "resultTemplate": [
+      {
+        "fieldName": "pus_cells",
+        "fieldType": "select",
+        "label": "Pus Cells",
+        "referenceRange": "Scanty",
+        "options": ["None", "Scanty", "Moderate", "Many"]
+      },
+      {
+        "fieldName": "epithelial_cells",
+        "fieldType": "select",
+        "label": "Epithelial Cells",
+        "referenceRange": "Moderate",
+        "options": ["None", "Scanty", "Moderate", "Many"]
+      },
+      {
+        "fieldName": "clue_cells",
+        "fieldType": "select",
+        "label": "Clue Cells",
+        "referenceRange": "Absent",
+        "options": ["Absent", "Present"]
+      },
+      {
+        "fieldName": "trichomonas",
+        "fieldType": "select",
+        "label": "Trichomonas vaginalis",
+        "referenceRange": "Not seen",
+        "options": ["Not seen", "Seen"]
+      },
+      {
+        "fieldName": "yeast_cells",
+        "fieldType": "select",
+        "label": "Yeast Cells",
+        "referenceRange": "Not seen",
+        "options": ["Not seen", "Few", "Many"]
+      }
+    ]
+  },
+  {
     "name": "Semen Analysis",
-    "price": 50,
+    "investigationCode": "inve29m",
+    "category": "microbiology",
+    "subCategory": "andrology",
+    "description": "Complete semen analysis for fertility",
+    "cashPrice": 70,
+    "insurancePrice": 50,
+    "costPrice": 20,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE29M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "semen",
     "resultTemplate": [
       {
         "fieldName": "volume",
@@ -1637,322 +1095,917 @@
         "referenceRange": "1.5–5.0"
       },
       {
-        "fieldName": "liquefactionTime",
+        "fieldName": "liquefaction_time",
         "fieldType": "number",
         "label": "Liquefaction Time",
         "unit": "minutes",
         "referenceRange": "<60"
       },
       {
-        "fieldName": "ph",
-        "fieldType": "number",
-        "label": "pH",
-        "referenceRange": "7.2–8.0"
-      },
-      {
-        "fieldName": "spermCount",
+        "fieldName": "sperm_count",
         "fieldType": "number",
         "label": "Sperm Count",
         "unit": "million/mL",
-        "referenceRange": "≥15"
+        "referenceRange": ">15"
       },
       {
         "fieldName": "motility",
         "fieldType": "number",
         "label": "Motility",
         "unit": "%",
-        "referenceRange": "≥40"
+        "referenceRange": ">40%"
       },
       {
         "fieldName": "morphology",
         "fieldType": "number",
         "label": "Normal Morphology",
         "unit": "%",
-        "referenceRange": "≥4"
+        "referenceRange": ">4%"
+      },
+      {
+        "fieldName": "vitality",
+        "fieldType": "number",
+        "label": "Vitality",
+        "unit": "%",
+        "referenceRange": ">58%"
       }
     ]
   },
   {
-    "id": "scan1",
-    "name": "Obstetric Dating Scan (Pelvic)",
-    "price": 80,
+    "name": "Peripheral Blood Film",
+    "investigationCode": "inve30h",
+    "category": "hematology",
+    "subCategory": "morphology",
+    "description": "Blood film examination for cell morphology",
+    "cashPrice": 25,
+    "insurancePrice": 18,
+    "costPrice": 7,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE30H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "gestationalAge",
-        "fieldType": "number",
-        "label": "Gestational Age",
-        "unit": "weeks + days"
+        "fieldName": "red_cell_morphology",
+        "fieldType": "textarea",
+        "label": "Red Cell Morphology",
+        "referenceRange": "Normocytic normochromic"
       },
       {
-        "fieldName": "fetalHeartActivity",
-        "fieldType": "select",
-        "label": "Fetal Heart Activity",
-        "options": ["Present", "Absent"]
+        "fieldName": "white_cell_morphology",
+        "fieldType": "textarea",
+        "label": "White Cell Morphology",
+        "referenceRange": "Normal differential"
       },
       {
-        "fieldName": "yolkSac",
-        "fieldType": "select",
-        "label": "Yolk Sac",
-        "options": ["Present", "Absent"]
+        "fieldName": "platelet_morphology",
+        "fieldType": "textarea",
+        "label": "Platelet Morphology",
+        "referenceRange": "Adequate in number"
       },
       {
-        "fieldName": "crownRumpLength",
-        "fieldType": "number",
-        "label": "Crown-Rump Length",
-        "unit": "mm"
-      },
-      {
-        "fieldName": "uterineFindings",
-        "fieldType": "text",
-        "label": "Uterine Findings",
-        "optional": true
+        "fieldName": "parasites",
+        "fieldType": "textarea",
+        "label": "Blood Parasites",
+        "referenceRange": "None seen"
       }
     ]
   },
   {
-    "id": "scan2",
-    "name": "Obstetric Nuchal Translucency Scan (Pelvic)",
-    "price": 120,
+    "name": "Erythrocyte Sedimentation Rate (ESR)",
+    "investigationCode": "inve31h",
+    "category": "hematology",
+    "subCategory": "inflammation",
+    "description": "ESR for inflammatory conditions",
+    "cashPrice": 15,
+    "insurancePrice": 10,
+    "costPrice": 4,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE31H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "ntMeasurement",
+        "fieldName": "esr",
         "fieldType": "number",
-        "label": "NT Measurement",
-        "unit": "mm",
-        "referenceRange": "<3.5"
-      },
-      {
-        "fieldName": "nasalBone",
-        "fieldType": "select",
-        "label": "Nasal Bone",
-        "options": ["Present", "Absent"]
-      },
-      {
-        "fieldName": "fetalHeartRate",
-        "fieldType": "number",
-        "label": "Fetal Heart Rate",
-        "unit": "bpm"
-      },
-      {
-        "fieldName": "riskAssessment",
-        "fieldType": "text",
-        "label": "Trisomy Risk Assessment"
+        "label": "ESR (Westergren)",
+        "unit": "mm/hr",
+        "referenceRange": "Male: 0–15, Female: 0–20"
       }
     ]
   },
   {
-    "id": "scan3",
-    "name": "Obstetric Anomaly Scan (Pelvic)",
-    "price": 150,
+    "name": "Coagulation Profile (PT/INR/APTT)",
+    "investigationCode": "inve32h",
+    "category": "hematology",
+    "subCategory": "coagulation",
+    "description": "Coagulation screening tests",
+    "cashPrice": 55,
+    "insurancePrice": 40,
+    "costPrice": 16,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE32H",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "fetalBiometry",
-        "fieldType": "text",
-        "label": "Fetal Biometry Measurements"
-      },
-      {
-        "fieldName": "organAssessment",
-        "fieldType": "text",
-        "label": "Organ System Assessment"
-      },
-      {
-        "fieldName": "amnioticFluid",
-        "fieldType": "select",
-        "label": "Amniotic Fluid Volume",
-        "options": ["Normal", "Oligohydramnios", "Polyhydramnios"]
-      },
-      {
-        "fieldName": "placentaLocation",
-        "fieldType": "text",
-        "label": "Placenta Location"
-      },
-      {
-        "fieldName": "dopplerStudies",
-        "fieldType": "text",
-        "label": "Doppler Studies",
-        "optional": true
-      }
-    ]
-  },
-  {
-    "id": "scan4",
-    "name": "Obstetric Growth Scan (Pelvic)",
-    "price": 100,
-    "resultTemplate": [
-      {
-        "fieldName": "estimatedFetalWeight",
+        "fieldName": "pt",
         "fieldType": "number",
-        "label": "Estimated Fetal Weight",
-        "unit": "g"
+        "label": "Prothrombin Time",
+        "unit": "seconds",
+        "referenceRange": "11–13.5"
       },
       {
-        "fieldName": "growthPercentile",
+        "fieldName": "inr",
         "fieldType": "number",
-        "label": "Growth Percentile",
-        "unit": "%"
+        "label": "INR",
+        "referenceRange": "0.8–1.2"
       },
       {
-        "fieldName": "amnioticFluidIndex",
+        "fieldName": "aptt",
         "fieldType": "number",
-        "label": "Amniotic Fluid Index",
-        "unit": "cm"
-      },
-      {
-        "fieldName": "umbilicalArteryDoppler",
-        "fieldType": "text",
-        "label": "Umbilical Artery Doppler",
-        "optional": true
+        "label": "APTT",
+        "unit": "seconds",
+        "referenceRange": "25–35"
       }
     ]
   },
   {
-    "id": "scan5",
-    "name": "Pelvic Scan (Non-Obstetric)",
-    "price": 90,
+    "name": "Dengue NS1 Antigen",
+    "investigationCode": "inve33s",
+    "category": "serology",
+    "subCategory": "viral",
+    "description": "Early dengue fever detection",
+    "cashPrice": 50,
+    "insurancePrice": 35,
+    "costPrice": 14,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE33S",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "uterineFindings",
-        "fieldType": "text",
-        "label": "Uterine Findings"
-      },
+        "fieldName": "dengue_ns1",
+        "fieldType": "select",
+        "label": "Dengue NS1 Antigen",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "Troponin I",
+    "investigationCode": "inve34b",
+    "category": "biochemistry",
+    "subCategory": "cardiac",
+    "description": "Cardiac marker for myocardial infarction",
+    "cashPrice": 65,
+    "insurancePrice": 45,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE34B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
       {
-        "fieldName": "ovarianFindings",
-        "fieldType": "text",
-        "label": "Ovarian Findings"
-      },
-      {
-        "fieldName": "endometrialThickness",
+        "fieldName": "troponin_i",
         "fieldType": "number",
-        "label": "Endometrial Thickness",
-        "unit": "mm"
-      },
-      {
-        "fieldName": "freeFluid",
-        "fieldType": "select",
-        "label": "Free Fluid in Pelvis",
-        "options": ["Absent", "Present"]
+        "label": "Troponin I",
+        "unit": "ng/mL",
+        "referenceRange": "<0.04"
       }
     ]
   },
   {
-    "id": "scan6",
-    "name": "Transvaginal Scan",
-    "price": 110,
+    "name": "Amylase and Lipase",
+    "investigationCode": "inve35b",
+    "category": "biochemistry",
+    "subCategory": "pancreatic",
+    "description": "Pancreatic enzymes for pancreatitis",
+    "cashPrice": 48,
+    "insurancePrice": 34,
+    "costPrice": 13,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE35B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "uterineAssessment",
-        "fieldType": "text",
-        "label": "Uterine Assessment"
-      },
-      {
-        "fieldName": "ovarianAssessment",
-        "fieldType": "text",
-        "label": "Ovarian Assessment"
-      },
-      {
-        "fieldName": "follicleCount",
+        "fieldName": "amylase",
         "fieldType": "number",
-        "label": "Antral Follicle Count",
-        "optional": true
+        "label": "Amylase",
+        "unit": "U/L",
+        "referenceRange": "28–100"
       },
       {
-        "fieldName": "endometrialPattern",
-        "fieldType": "select",
-        "label": "Endometrial Pattern",
-        "options": ["Proliferative", "Secretory", "Atrophic", "Abnormal"]
+        "fieldName": "lipase",
+        "fieldType": "number",
+        "label": "Lipase",
+        "unit": "U/L",
+        "referenceRange": "13–60"
       }
     ]
   },
   {
-    "id": "scan7",
-    "name": "Thyroid Ultrasound",
-    "price": 85,
+    "name": "Iron Studies",
+    "investigationCode": "inve36b",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Iron profile for anemia evaluation",
+    "cashPrice": 60,
+    "insurancePrice": 42,
+    "costPrice": 16,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE36B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "thyroidSize",
-        "fieldType": "text",
-        "label": "Thyroid Size"
+        "fieldName": "serum_iron",
+        "fieldType": "number",
+        "label": "Serum Iron",
+        "unit": "μg/dL",
+        "referenceRange": "50–170"
       },
       {
-        "fieldName": "nodules",
-        "fieldType": "select",
-        "label": "Nodules Present",
-        "options": ["No", "Yes"]
+        "fieldName": "tibc",
+        "fieldType": "number",
+        "label": "Total Iron Binding Capacity",
+        "unit": "μg/dL",
+        "referenceRange": "250–400"
       },
       {
-        "fieldName": "noduleDescription",
-        "fieldType": "text",
-        "label": "Nodule Description",
-        "optional": true
+        "fieldName": "transferrin_saturation",
+        "fieldType": "number",
+        "label": "Transferrin Saturation",
+        "unit": "%",
+        "referenceRange": "20–50"
       },
       {
-        "fieldName": "vascularity",
-        "fieldType": "select",
-        "label": "Vascularity",
-        "options": ["Normal", "Increased", "Decreased"]
+        "fieldName": "ferritin",
+        "fieldType": "number",
+        "label": "Ferritin",
+        "unit": "ng/mL",
+        "referenceRange": "Male: 30–400, Female: 15–150"
       }
     ]
   },
   {
-    "id": "scan8",
-    "name": "Abdominal Ultrasound",
-    "price": 95,
+    "name": "Vitamin B12 and Folate",
+    "investigationCode": "inve37b",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Vitamin B12 and folic acid levels",
+    "cashPrice": 75,
+    "insurancePrice": 52,
+    "costPrice": 20,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE37B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "liver",
-        "fieldType": "text",
-        "label": "Liver Findings"
+        "fieldName": "vitamin_b12",
+        "fieldType": "number",
+        "label": "Vitamin B12",
+        "unit": "pg/mL",
+        "referenceRange": "200–900"
       },
       {
-        "fieldName": "gallbladder",
-        "fieldType": "text",
-        "label": "Gallbladder Findings"
-      },
-      {
-        "fieldName": "pancreas",
-        "fieldType": "text",
-        "label": "Pancreas Findings",
-        "optional": true
-      },
-      {
-        "fieldName": "spleen",
-        "fieldType": "text",
-        "label": "Spleen Findings"
-      },
-      {
-        "fieldName": "kidneys",
-        "fieldType": "text",
-        "label": "Renal Findings"
+        "fieldName": "folate",
+        "fieldType": "number",
+        "label": "Folate",
+        "unit": "ng/mL",
+        "referenceRange": ">3.0"
       }
     ]
   },
   {
-    "id": "scan9",
-    "name": "Breast Ultrasound",
-    "price": 90,
+    "name": "Calcium, Phosphate and Magnesium",
+    "investigationCode": "inve38b",
+    "category": "biochemistry",
+    "subCategory": "bone_metabolism",
+    "description": "Bone metabolism minerals",
+    "cashPrice": 35,
+    "insurancePrice": 25,
+    "costPrice": 10,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE38B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
     "resultTemplate": [
       {
-        "fieldName": "breastFindings",
-        "fieldType": "text",
-        "label": "Breast Tissue Findings"
+        "fieldName": "calcium",
+        "fieldType": "number",
+        "label": "Calcium",
+        "unit": "mmol/L",
+        "referenceRange": "2.10–2.55"
       },
       {
-        "fieldName": "mass",
+        "fieldName": "phosphate",
+        "fieldType": "number",
+        "label": "Phosphate",
+        "unit": "mmol/L",
+        "referenceRange": "0.80–1.50"
+      },
+      {
+        "fieldName": "magnesium",
+        "fieldType": "number",
+        "label": "Magnesium",
+        "unit": "mmol/L",
+        "referenceRange": "0.70–1.00"
+      }
+    ]
+  },
+  {
+    "name": "Uric Acid",
+    "investigationCode": "inve39b",
+    "category": "biochemistry",
+    "subCategory": "metabolic",
+    "description": "Uric acid for gout evaluation",
+    "cashPrice": 18,
+    "insurancePrice": 12,
+    "costPrice": 5,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE39B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "uric_acid",
+        "fieldType": "number",
+        "label": "Uric Acid",
+        "unit": "μmol/L",
+        "referenceRange": "Male: 210–420, Female: 150–360"
+      }
+    ]
+  },
+  {
+    "name": "Glycated Serum Protein (Fructosamine)",
+    "investigationCode": "inve40b",
+    "category": "biochemistry",
+    "subCategory": "diabetes",
+    "description": "2-3 week average glucose control",
+    "cashPrice": 45,
+    "insurancePrice": 32,
+    "costPrice": 12,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE40B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "fructosamine",
+        "fieldType": "number",
+        "label": "Fructosamine",
+        "unit": "μmol/L",
+        "referenceRange": "200–285"
+      }
+    ]
+  },
+  {
+    "name": "Cortisol (AM)",
+    "investigationCode": "inve41b",
+    "category": "biochemistry",
+    "subCategory": "endocrine",
+    "description": "Morning cortisol level",
+    "cashPrice": 55,
+    "insurancePrice": 38,
+    "costPrice": 15,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE41B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "cortisol_am",
+        "fieldType": "number",
+        "label": "Cortisol (8 AM)",
+        "unit": "nmol/L",
+        "referenceRange": "171–536"
+      }
+    ]
+  },
+  {
+    "name": "Prolactin",
+    "investigationCode": "inve42b",
+    "category": "biochemistry",
+    "subCategory": "endocrine",
+    "description": "Prolactin hormone level",
+    "cashPrice": 50,
+    "insurancePrice": 35,
+    "costPrice": 14,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE42B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "prolactin",
+        "fieldType": "number",
+        "label": "Prolactin",
+        "unit": "mIU/L",
+        "referenceRange": "Male: 86–324, Female: 102–496"
+      }
+    ]
+  },
+  {
+    "name": "Testosterone Total",
+    "investigationCode": "inve43b",
+    "category": "biochemistry",
+    "subCategory": "endocrine",
+    "description": "Total testosterone level",
+    "cashPrice": 65,
+    "insurancePrice": 45,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE43B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "testosterone_total",
+        "fieldType": "number",
+        "label": "Testosterone Total",
+        "unit": "nmol/L",
+        "referenceRange": "Male: 8.64–29.0, Female: 0.29–1.67"
+      }
+    ]
+  },
+  {
+    "name": "Beta HCG Quantitative",
+    "investigationCode": "inve44b",
+    "category": "biochemistry",
+    "subCategory": "pregnancy",
+    "description": "Quantitative pregnancy hormone",
+    "cashPrice": 40,
+    "insurancePrice": 28,
+    "costPrice": 11,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE44B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "beta_hcg",
+        "fieldType": "number",
+        "label": "Beta HCG",
+        "unit": "mIU/mL",
+        "referenceRange": "Non-pregnant: <5"
+      }
+    ]
+  },
+  {
+    "name": "CA-125",
+    "investigationCode": "inve45b",
+    "category": "biochemistry",
+    "subCategory": "tumor_markers",
+    "description": "Ovarian cancer marker",
+    "cashPrice": 70,
+    "insurancePrice": 49,
+    "costPrice": 19,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE45B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "ca_125",
+        "fieldType": "number",
+        "label": "CA-125",
+        "unit": "U/mL",
+        "referenceRange": "<35"
+      }
+    ]
+  },
+  {
+    "name": "CEA (Carcinoembryonic Antigen)",
+    "investigationCode": "inve46b",
+    "category": "biochemistry",
+    "subCategory": "tumor_markers",
+    "description": "Colorectal cancer marker",
+    "cashPrice": 65,
+    "insurancePrice": 45,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE46B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "cea",
+        "fieldType": "number",
+        "label": "CEA",
+        "unit": "ng/mL",
+        "referenceRange": "Non-smoker: <2.5, Smoker: <5.0"
+      }
+    ]
+  },
+  {
+    "name": "Alpha-fetoprotein (AFP)",
+    "investigationCode": "inve47b",
+    "category": "biochemistry",
+    "subCategory": "tumor_markers",
+    "description": "Liver cancer and fetal defect marker",
+    "cashPrice": 60,
+    "insurancePrice": 42,
+    "costPrice": 16,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE47B",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "blood",
+    "resultTemplate": [
+      {
+        "fieldName": "afp",
+        "fieldType": "number",
+        "label": "Alpha-fetoprotein",
+        "unit": "IU/mL",
+        "referenceRange": "<7.0"
+      }
+    ]
+  },
+  {
+    "name": "Helicobacter pylori Stool Antigen",
+    "investigationCode": "inve48m",
+    "category": "microbiology",
+    "subCategory": "gastrointestinal",
+    "description": "H. pylori infection detection",
+    "cashPrice": 55,
+    "insurancePrice": 38,
+    "costPrice": 15,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE48M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "stool",
+    "resultTemplate": [
+      {
+        "fieldName": "h_pylori_antigen",
         "fieldType": "select",
-        "label": "Mass Detected",
-        "options": ["No", "Yes"]
+        "label": "H. pylori Antigen",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive"]
+      }
+    ]
+  },
+  {
+    "name": "CSF Analysis",
+    "investigationCode": "inve49m",
+    "category": "microbiology",
+    "subCategory": "cns",
+    "description": "Cerebrospinal fluid analysis",
+    "cashPrice": 85,
+    "insurancePrice": 60,
+    "costPrice": 25,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE49M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "csf",
+    "resultTemplate": [
+      {
+        "fieldName": "appearance",
+        "fieldType": "select",
+        "label": "Appearance",
+        "referenceRange": "Clear and colorless",
+        "options": ["Clear and colorless", "Cloudy", "Xanthochromic", "Bloody"]
       },
       {
-        "fieldName": "massDescription",
-        "fieldType": "text",
-        "label": "Mass Description",
-        "optional": true
+        "fieldName": "protein",
+        "fieldType": "number",
+        "label": "Protein",
+        "unit": "mg/dL",
+        "referenceRange": "15–45"
       },
       {
-        "fieldName": "lymphNodes",
-        "fieldType": "text",
-        "label": "Axillary Lymph Nodes",
-        "optional": true
+        "fieldName": "glucose",
+        "fieldType": "number",
+        "label": "Glucose",
+        "unit": "mmol/L",
+        "referenceRange": "2.8–4.4"
+      },
+      {
+        "fieldName": "cell_count",
+        "fieldType": "number",
+        "label": "Cell Count",
+        "unit": "cells/μL",
+        "referenceRange": "0–5"
+      },
+      {
+        "fieldName": "differential",
+        "fieldType": "textarea",
+        "label": "Cell Differential",
+        "referenceRange": "Lymphocytes predominant"
+      }
+    ]
+  },
+  {
+    "name": "Pleural Fluid Analysis",
+    "investigationCode": "inve50m",
+    "category": "microbiology",
+    "subCategory": "body_fluids",
+    "description": "Pleural fluid examination",
+    "cashPrice": 75,
+    "insurancePrice": 52,
+    "costPrice": 20,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE50M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "fluid",
+    "resultTemplate": [
+      {
+        "fieldName": "appearance",
+        "fieldType": "select",
+        "label": "Appearance",
+        "referenceRange": "Straw-colored",
+        "options": ["Straw-colored", "Bloody", "Turbid", "Purulent"]
+      },
+      {
+        "fieldName": "protein",
+        "fieldType": "number",
+        "label": "Protein",
+        "unit": "g/L",
+        "referenceRange": "<30 (Transudate)"
+      },
+      {
+        "fieldName": "ldh",
+        "fieldType": "number",
+        "label": "LDH",
+        "unit": "U/L",
+        "referenceRange": "<200 (Transudate)"
+      },
+      {
+        "fieldName": "cell_count",
+        "fieldType": "number",
+        "label": "Cell Count",
+        "unit": "cells/μL",
+        "referenceRange": "<1000"
+      },
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture",
+        "referenceRange": "No growth",
+        "options": ["No growth", "Growth observed"]
+      }
+    ]
+  },
+  {
+    "name": "Ascitic Fluid Analysis",
+    "investigationCode": "inve51m",
+    "category": "microbiology",
+    "subCategory": "body_fluids",
+    "description": "Ascitic fluid examination",
+    "cashPrice": 70,
+    "insurancePrice": 49,
+    "costPrice": 19,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE51M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "fluid",
+    "resultTemplate": [
+      {
+        "fieldName": "appearance",
+        "fieldType": "select",
+        "label": "Appearance",
+        "referenceRange": "Straw-colored",
+        "options": ["Straw-colored", "Cloudy", "Bloody", "Chylous"]
+      },
+      {
+        "fieldName": "saa_gradient",
+        "fieldType": "number",
+        "label": "Serum-Ascites Albumin Gradient",
+        "unit": "g/L",
+        "referenceRange": "≥1.1 (Portal hypertension)"
+      },
+      {
+        "fieldName": "cell_count",
+        "fieldType": "number",
+        "label": "Cell Count",
+        "unit": "cells/μL",
+        "referenceRange": "<250"
+      },
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture",
+        "referenceRange": "No growth",
+        "options": ["No growth", "Growth observed"]
+      }
+    ]
+  },
+  {
+    "name": "Synovial Fluid Analysis",
+    "investigationCode": "inve52m",
+    "category": "microbiology",
+    "subCategory": "body_fluids",
+    "description": "Joint fluid analysis",
+    "cashPrice": 65,
+    "insurancePrice": 45,
+    "costPrice": 18,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE52M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "fluid",
+    "resultTemplate": [
+      {
+        "fieldName": "appearance",
+        "fieldType": "select",
+        "label": "Appearance",
+        "referenceRange": "Clear, straw-colored",
+        "options": ["Clear, straw-colored", "Cloudy", "Bloody", "Purulent"]
+      },
+      {
+        "fieldName": "wbc_count",
+        "fieldType": "number",
+        "label": "White Cell Count",
+        "unit": "cells/μL",
+        "referenceRange": "<200"
+      },
+      {
+        "fieldName": "crystals",
+        "fieldType": "select",
+        "label": "Crystals",
+        "referenceRange": "None seen",
+        "options": ["None seen", "Urate crystals", "Calcium pyrophosphate", "Hydroxyapatite"]
+      },
+      {
+        "fieldName": "culture_result",
+        "fieldType": "select",
+        "label": "Culture",
+        "referenceRange": "No growth",
+        "options": ["No growth", "Growth observed"]
+      }
+    ]
+  },
+  {
+    "name": "Sputum for AFB (TB)",
+    "investigationCode": "inve53m",
+    "category": "microbiology",
+    "subCategory": "mycobacteriology",
+    "description": "Sputum for acid-fast bacilli",
+    "cashPrice": 40,
+    "insurancePrice": 28,
+    "costPrice": 11,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE53M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "sputum",
+    "resultTemplate": [
+      {
+        "fieldName": "afb_smear",
+        "fieldType": "select",
+        "label": "AFB Smear",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Scanty (1-9/100 fields)", "+1 (10-99/100 fields)", "+2 (1-10/field)", "+3 (>10/field)"]
+      },
+      {
+        "fieldName": "appearance",
+        "fieldType": "select",
+        "label": "Sputum Quality",
+        "referenceRange": "Mucopurulent",
+        "options": ["Saliva", "Mucoid", "Mucopurulent", "Purulent"]
+      }
+    ]
+  },
+  {
+    "name": "GeneXpert MTB/RIF",
+    "investigationCode": "inve54m",
+    "category": "molecular",
+    "subCategory": "tb",
+    "description": "Molecular test for TB and rifampicin resistance",
+    "cashPrice": 120,
+    "insurancePrice": 85,
+    "costPrice": 35,
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE54M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "sputum",
+    "resultTemplate": [
+      {
+        "fieldName": "mtb_detected",
+        "fieldType": "select",
+        "label": "M. tuberculosis Detected",
+        "referenceRange": "Not detected",
+        "options": ["Not detected", "Detected", "Invalid", "Error"]
+      },
+      {
+        "fieldName": "rifampicin_resistance",
+        "fieldType": "select",
+        "label": "Rifampicin Resistance",
+        "referenceRange": "Not detected",
+        "options": ["Not detected", "Detected", "Indeterminate"]
+      },
+      {
+        "fieldName": "semi_quantitative",
+        "fieldType": "select",
+        "label": "Semi-quantitative Result",
+        "referenceRange": "N/A",
+        "options": ["Very low", "Low", "Medium", "High"]
+      }
+    ]
+  },
+  {
+    "name": "COVID-19 PCR Test",
+    "investigationCode": "inve55m",
+    "category": "molecular",
+    "subCategory": "viral",
+    "description": "SARS-CoV-2 PCR test",
+    "cashPrice": 150,
+    "insurancePrice": 105,
+    "costPrice": 40,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE55M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "swab",
+    "resultTemplate": [
+      {
+        "fieldName": "covid_pcr",
+        "fieldType": "select",
+        "label": "SARS-CoV-2 PCR",
+        "referenceRange": "Not detected",
+        "options": ["Not detected", "Detected", "Inconclusive"]
+      },
+      {
+        "fieldName": "ct_value",
+        "fieldType": "number",
+        "label": "Cycle Threshold (Ct) Value",
+        "referenceRange": "N/A"
+      }
+    ]
+  },
+  {
+    "name": "COVID-19 Antigen Test",
+    "investigationCode": "inve56m",
+    "category": "microbiology",
+    "subCategory": "viral",
+    "description": "Rapid SARS-CoV-2 antigen test",
+    "cashPrice": 60,
+    "insurancePrice": 42,
+    "costPrice": 16,
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE56M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "specimenType": "swab",
+    "resultTemplate": [
+      {
+        "fieldName": "covid_antigen",
+        "fieldType": "select",
+        "label": "SARS-CoV-2 Antigen",
+        "referenceRange": "Negative",
+        "options": ["Negative", "Positive", "Invalid"]
       }
     ]
   }

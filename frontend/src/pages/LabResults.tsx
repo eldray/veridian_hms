@@ -1,11 +1,34 @@
-// src/pages/LabResults.tsx - UPDATED WITH SIDE-BY-SIDE LAYOUT & PRINT
+// src/pages/LabResults.tsx - UPDATED WITH PDF GENERATION
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
-import { LabTest, Attendance, Patient } from '../types';
-import { Search, FlaskConical, CheckCircle, Clock, Activity, AlertCircle, ArrowLeft, User, Calendar, Printer } from 'lucide-react';
+import { useMedicalServicesStore } from '../store/medicalServicesStore';
+import { LabTest, Attendance, Patient, LabTestEntry } from '../types';
+import { 
+  Search, 
+  FlaskConical, 
+  CheckCircle, 
+  Clock, 
+  Activity, 
+  AlertCircle, 
+  ArrowLeft, 
+  User, 
+  Calendar, 
+  Printer,
+  Plus,
+  FileText
+} from 'lucide-react';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+
+// Mock hospital data - replace with actual hospital data from your system
+const mockHospital = {
+  name: "City General Hospital",
+  address: "123 Medical Center Drive, Healthcare City",
+  phone: "+1 (555) 123-4567",
+  email: "info@citygeneralhospital.com"
+};
 
 // Helper: Get consistent ID from entity
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -14,7 +37,10 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 
 export default function LabResults() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [selectedTest, setSelectedTest] = useState<{
     attendanceId: string;
     testId: string;
@@ -25,17 +51,32 @@ export default function LabResults() {
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
+  const [isRequestingLab, setIsRequestingLab] = useState(false);
+  const [currentLabRequest, setCurrentLabRequest] = useState<LabTestEntry>({
+    templateId: '',
+    name: '',
+    priority: 'routine',
+    notes: ''
+  });
 
-  const { attendances, updateLabTestStatus, getAttendances } = useAttendanceStore();
+  const { 
+    attendances, 
+    updateLabTestStatus, 
+    getAttendances, 
+    addLabTestToAttendance 
+  } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { user } = useAuthStore();
+  const { labTestTemplates, getLabTestTemplates } = useMedicalServicesStore();
 
   useEffect(() => {
-    getAttendances();
-    loadPatients();
-  }, [getAttendances, loadPatients]);
+    const loadData = async () => {
+      await getAttendances();
+      await loadPatients();
+      await getLabTestTemplates();
+    };
+    loadData();
+  }, [getAttendances, loadPatients, getLabTestTemplates]);
 
   // Enhanced patient matching function
   const findPatient = (attendance: any) => {
@@ -84,15 +125,15 @@ export default function LabResults() {
   // Filter patients based on search term
   const filteredPatients = patients.filter(
     (p) =>
-      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.contact.includes(searchQuery) ||
-      (p.folderNumber && p.folderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
+      p.fullName?.toLowerCase().includes(patientSearch.toLowerCase()) ||
+      p.contact?.includes(patientSearch) ||
+      p.folderNumber?.toLowerCase().includes(patientSearch.toLowerCase())
   );
 
   // Get attendances for selected patient
   const patientAttendances = attendancesWithPatients
     .filter(a => {
-      const patient = findPatient(a);
+      const patient = a.patient;
       return patient && (getEntityId(patient) === selectedPatientId);
     })
     .map(attendance => ({
@@ -136,6 +177,31 @@ export default function LabResults() {
 
   // Check if lab test can be updated
   const canUpdateLabTest = selectedAttendance?.status === 'pending' || selectedAttendance?.status === 'active';
+  const canRequestLab = selectedAttendance && (selectedAttendance.status === 'pending' || selectedAttendance.status === 'active');
+
+  // Generate lab results PDF
+  const handlePrintResults = () => {
+    if (!selectedPatient || !selectedAttendance) {
+      setMessage({ type: 'error', text: 'Please select a patient and attendance first' });
+      return;
+    }
+
+    const completedTests = labTests.filter((t: LabTest) => t.status === 'completed');
+    
+    if (completedTests.length === 0) {
+      setMessage({ type: 'error', text: 'No completed lab tests available for printing' });
+      return;
+    }
+
+    const htmlContent = generatePDF('labResults', {
+      labTests: completedTests,
+      patient: selectedPatient,
+      attendance: selectedAttendance,
+      hospital: mockHospital
+    }, mockHospital);
+
+    openPrintWindow(htmlContent, `Lab Results - ${selectedPatient.fullName}`);
+  };
 
   const handleSubmitResult = async () => {
     if (!selectedTest || !result.trim()) {
@@ -198,13 +264,52 @@ export default function LabResults() {
     }
   };
 
-  const handlePrintResults = () => {
-    // Print functionality will be implemented later
-    console.log('Printing lab results for:', selectedPatient?.fullName);
-    // This will trigger the print dialog when implemented
-    // window.print();
-    setMessage({ type: 'success', text: 'Print functionality will be implemented soon' });
-    setTimeout(() => setMessage(null), 3000);
+  const handleRequestLabTest = async () => {
+    if (!selectedAttendanceId || !currentLabRequest.templateId) {
+      setMessage({ type: 'error', text: 'Please select a lab test to request' });
+      return;
+    }
+
+    if (!canRequestLab) {
+      setMessage({ type: 'error', text: `Cannot request lab tests for ${selectedAttendance?.status} attendance` });
+      return;
+    }
+
+    setIsRequestingLab(true);
+    try {
+      const template = labTestTemplates.find((t) => t._id === currentLabRequest.templateId);
+      if (!template) {
+        setMessage({ type: 'error', text: 'Lab test template not found' });
+        return;
+      }
+
+      const newTest: LabTest = {
+        _id: `lab-${Date.now()}`,
+        templateId: currentLabRequest.templateId,
+        name: template.name,
+        status: 'requested',
+        priority: currentLabRequest.priority,
+        requestedAt: new Date().toISOString(),
+        notes: currentLabRequest.notes
+      };
+
+      await addLabTestToAttendance(selectedAttendanceId, newTest);
+      setMessage({ type: 'success', text: 'Lab test requested successfully!' });
+      
+      // Reset form
+      setCurrentLabRequest({
+        templateId: '',
+        name: '',
+        priority: 'routine',
+        notes: ''
+      });
+      
+      await getAttendances();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to request lab test' });
+    } finally {
+      setIsRequestingLab(false);
+    }
   };
 
   // Statistics
@@ -228,14 +333,15 @@ export default function LabResults() {
               <FlaskConical className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold mb-2">Laboratory Results</h1>
-              <p className="text-blue-100 text-lg">Enter and manage lab test results</p>
+              <h1 className="text-3xl font-bold mb-2">Laboratory Management</h1>
+              <p className="text-blue-100 text-lg">Request lab tests and manage results</p>
             </div>
           </div>
-          {selectedPatient && (
+          {selectedPatient && selectedAttendance && (
             <button
               onClick={handlePrintResults}
-              className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/20 font-semibold"
+              disabled={completedTests.length === 0}
+              className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/20 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Printer className="w-5 h-5" />
               <span>Print Results</span>
@@ -276,10 +382,44 @@ export default function LabResults() {
               <input
                 type="text"
                 placeholder="Search patient by name, contact, or folder number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={patientSearch}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setShowPatientDropdown(true);
+                }}
+                onFocus={() => setShowPatientDropdown(true)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
+              
+              {/* Patient Search Results */}
+              {showPatientDropdown && patientSearch && (
+                <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-gray-300 rounded-xl bg-white shadow-lg">
+                  {filteredPatients.length > 0 ? (
+                    filteredPatients.map((patient) => {
+                      const pid = getEntityId(patient);
+                      if (!pid) return null;
+                      return (
+                        <button
+                          key={pid}
+                          onClick={() => {
+                            setSelectedPatientId(pid);
+                            setPatientSearch(patient.fullName || '');
+                            setShowPatientDropdown(false);
+                          }}
+                          className="w-full text-left p-4 hover:bg-blue-50 border-b last:border-b-0 transition-colors"
+                        >
+                          <div className="font-semibold text-gray-900">{patient.fullName}</div>
+                          <div className="text-sm text-gray-600">
+                            {patient.gender} • {patient.contact} • {patient.folderNumber}
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 text-gray-500 text-center">No patients found</div>
+                  )}
+                </div>
+              )}
             </div>
             
             {selectedPatient && (
@@ -405,11 +545,97 @@ export default function LabResults() {
       {/* Main Content - Split Layout */}
       {selectedAttendance && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Lab Requests */}
+          {/* Left Column - Lab Requests & Management */}
           <div className="space-y-6">
+            {/* Request New Lab Test */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <FlaskConical className="w-6 h-6 text-blue-600" />
+                <Plus className="w-6 h-6 text-blue-600" />
+                Request New Lab Test
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Lab Test *
+                  </label>
+                  <select
+                    value={currentLabRequest.templateId}
+                    onChange={(e) => {
+                      const template = labTestTemplates.find(t => t._id === e.target.value);
+                      setCurrentLabRequest({
+                        ...currentLabRequest,
+                        templateId: e.target.value,
+                        name: template?.name || ''
+                      });
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  >
+                    <option value="">Select lab test...</option>
+                    {labTestTemplates.map((template) => (
+                      <option key={template._id} value={template._id}>
+                        {template.name} {template.price ? `($${template.price})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Priority
+                  </label>
+                  <select
+                    value={currentLabRequest.priority}
+                    onChange={(e) => setCurrentLabRequest({
+                      ...currentLabRequest,
+                      priority: e.target.value as 'routine' | 'urgent'
+                    })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  >
+                    <option value="routine">Routine</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={currentLabRequest.notes}
+                    onChange={(e) => setCurrentLabRequest({
+                      ...currentLabRequest,
+                      notes: e.target.value
+                    })}
+                    rows={3}
+                    placeholder="Any special instructions or notes..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={handleRequestLabTest}
+                  disabled={isRequestingLab || !currentLabRequest.templateId || !canRequestLab}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRequestingLab ? 'Requesting...' : 'Request Lab Test'}
+                </button>
+
+                {!canRequestLab && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="text-sm">Cannot request lab tests for {selectedAttendance?.status} attendance</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pending Lab Requests */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-600" />
                 Lab Requests ({pendingTests.length})
               </h2>
               

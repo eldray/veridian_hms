@@ -10,7 +10,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "seed": "tsx src/seed/seedData.ts",
-    "gen:types": "tsx src/scripts/generateFrontendTypes.ts"
+    "gen:types": "tsx src/scripts/generateFrontendTypes.ts",
+    "gen:meds" : "tsx src/scripts/updateMedications.ts"
   },
   "keywords": [],
   "author": "",

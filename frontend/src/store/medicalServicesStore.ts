@@ -1,4 +1,4 @@
-// stores/medicalServicesStore.ts
+// stores/medicalServicesStore.ts - UPDATED WITH FINANCIAL FIELDS
 import { create } from 'zustand';
 import { 
   getDiagnoses as apiGetDiagnoses,
@@ -87,7 +87,18 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getDiagnoses: async (filters = {}) => {
     set({ isLoading: true });
     try {
+      console.log('🔍 [MedicalServicesStore] Fetching diagnoses...');
       const diagnoses = await apiGetDiagnoses(filters);
+      console.log('🔍 [MedicalServicesStore] Raw API response:', diagnoses);
+      console.log('🔍 [MedicalServicesStore] Diagnoses type:', typeof diagnoses);
+      console.log('🔍 [MedicalServicesStore] Diagnoses count:', diagnoses?.length || 0);
+      
+      if (diagnoses && diagnoses.length > 0) {
+        console.log('🔍 [MedicalServicesStore] First diagnosis:', diagnoses[0]);
+      } else {
+        console.log('🔍 [MedicalServicesStore] No diagnoses returned or empty array');
+      }
+      
       set({ diagnoses, isLoading: false });
     } catch (error) {
       console.error('Failed to fetch diagnoses:', error);

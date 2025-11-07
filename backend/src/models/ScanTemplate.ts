@@ -3,11 +3,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IScanTemplate extends Document {
   name: string;
+  scanCode: string; // Ghana scan code (e.g., "scan01x" for chest X-ray)
   description: string;
-  category: string; // e.g., 'xray', 'ultrasound', 'ct-scan', 'mri'
-  bodyPart: string; // e.g., 'chest', 'abdomen', 'head', 'spine'
-  
-  // PRICING
+  category: string; // 'xray', 'ultrasound', 'ct-scan', 'mri', etc.
+  bodyPart: string; // 'head', 'chest', 'abdomen', 'pelvis', etc.
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -16,45 +15,28 @@ export interface IScanTemplate extends Document {
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
-  
-  // TECHNICAL SPECIFICATIONS
   preparationInstructions?: string;
   duration: number; // in minutes
   contrastRequired: boolean;
-  radiationDose?: string;
-  
-  // REPORT TEMPLATE
-  reportTemplate: [{
-    section: string;
-    fields: [{
-      fieldName: string;
-      fieldType: string; // 'text', 'textarea', 'select', 'measurement'
-      label: string;
-      normalRange?: string;
-      options?: string[];
-      unit?: string;
-    }];
-  }];
-  
+  scanType: string; // 'plain', 'contrast', 'angiography', etc.
   createdAt: Date;
   updatedAt: Date;
 }
 
 const scanTemplateSchema = new Schema<IScanTemplate>({
   name: { type: String, required: true },
+  scanCode: { type: String, required: true, unique: true }, // Unique scan code
   description: { type: String, required: true },
   category: { 
     type: String, 
     required: true,
-    enum: ['xray', 'ultrasound', 'ct-scan', 'mri', 'fluoroscopy', 'mammography', 'other']
+    enum: ['xray', 'ultrasound', 'ct-scan', 'mri', 'fluoroscopy', 'mammography', 'nuclear', 'pet-scan', 'other']
   },
   bodyPart: { 
     type: String, 
     required: true,
-    enum: ['head', 'chest', 'abdomen', 'pelvis', 'spine', 'extremities', 'other']
+    enum: ['head', 'chest', 'neck','abdomen', 'pelvis', 'spine', 'extremities', 'breast', 'other']
   },
-  
-  // PRICING
   cashPrice: { type: Number, required: true, min: 0 },
   insurancePrice: { type: Number, required: true, min: 0 },
   costPrice: { type: Number, required: true, min: 0 },
@@ -63,35 +45,12 @@ const scanTemplateSchema = new Schema<IScanTemplate>({
   tariffCode: String,
   vatRate: { type: Number, default: 0, min: 0, max: 100 },
   isTaxable: { type: Boolean, default: true },
-  
-  // TECHNICAL SPECIFICATIONS
   preparationInstructions: String,
-  duration: { type: Number, required: true, min: 1 }, // in minutes
+  duration: { type: Number, required: true, min: 1 },
   contrastRequired: { type: Boolean, default: false },
-  radiationDose: String,
-  
-  // REPORT TEMPLATE
-  reportTemplate: [{
-    section: String,
-    fields: [{
-      fieldName: String,
-      fieldType: { 
-        type: String, 
-        enum: ['text', 'textarea', 'select', 'measurement', 'boolean'],
-        default: 'text'
-      },
-      label: String,
-      normalRange: String,
-      options: [String],
-      unit: String
-    }]
-  }],
+  scanType: String
 }, {
   timestamps: true
 });
-
-// Index for better query performance
-scanTemplateSchema.index({ category: 1, bodyPart: 1 });
-scanTemplateSchema.index({ isActive: 1 });
 
 export default mongoose.model<IScanTemplate>('ScanTemplate', scanTemplateSchema);

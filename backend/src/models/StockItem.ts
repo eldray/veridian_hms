@@ -1,20 +1,21 @@
-// Enhanced StockItem Model (for drugs/consumables)
+// models/StockItem.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IStockItem extends Document {
   name: string;
   category: string;
   description?: string;
-  unitOfMeasure: string;
+  strength: string; // e.g., "500mg", "200mg", "10mg/ml"
+  unitOfMeasure: string; // e.g., "tablet", "capsule", "ml", "vial"
+  drugCode: string; // Ghana-specific drug code (e.g., "paraceta1", "amoxi2")
   reorderLevel: number;
   currentStock: number;
   unitPrice: number;
   sellingPrice: number;
+  insurancePrice: number;
   supplier: string;
   expiryDate?: Date;
   batchNumber?: string;
-  // ADD THESE FOR BILLING:
-  insurancePrice: number;
   isActive: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
@@ -29,16 +30,17 @@ const stockItemSchema = new Schema<IStockItem>({
   name: { type: String, required: true },
   category: { type: String, required: true },
   description: String,
-  unitOfMeasure: { type: String, required: true },
+  strength: { type: String, required: true }, // Strength like "500mg"
+  unitOfMeasure: { type: String, required: true }, // Unit like "tablet"
+  drugCode: { type: String, required: true, unique: true }, // Ghana drug code
   reorderLevel: { type: Number, required: true },
   currentStock: { type: Number, default: 0 },
   unitPrice: { type: Number, required: true },
   sellingPrice: { type: Number, required: true },
+  insurancePrice: { type: Number, required: true },
   supplier: String,
   expiryDate: Date,
   batchNumber: String,
-  // ADD FOR BILLING:
-  insurancePrice: { type: Number, required: true }, // Price for insurance patients
   isActive: { type: Boolean, default: true },
   requiresAuthorization: { type: Boolean, default: false },
   tariffCode: String,

@@ -1,9 +1,12 @@
-// Enhanced LabTestTemplate Model
+// models/LabTestTemplate.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ILabTestTemplate extends Document {
   name: string;
-  // ADD PRICING:
+  investigationCode: string; // Ghana lab code (e.g., "inve02d" for malaria)
+  category: string; // 'hematology', 'biochemistry', 'microbiology', etc.
+  subCategory?: string;
+  description?: string;
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -12,13 +15,14 @@ export interface ILabTestTemplate extends Document {
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
-  
+  specimenType: string; // 'blood', 'urine', 'stool', 'csf', 'sputum', 'tissue','semen'
   resultTemplate: [{
     fieldName: string;
     fieldType: string;
     label: string;
     referenceRange: string;
     options: string[];
+    unit?: string;
   }];
   createdAt: Date;
   updatedAt: Date;
@@ -26,7 +30,14 @@ export interface ILabTestTemplate extends Document {
 
 const labTestTemplateSchema = new Schema<ILabTestTemplate>({
   name: { type: String, required: true },
-  // ADD PRICING:
+  investigationCode: { type: String, required: true, unique: true }, // Unique investigation code
+  category: { 
+    type: String, 
+    required: true,
+    enum: ['hematology', 'biochemistry', 'microbiology', 'serology', 'immunology', 'toxicology', 'molecular', 'cytology', 'histopathology']
+  },
+  subCategory: String,
+  description: String,
   cashPrice: { type: Number, required: true, min: 0 },
   insurancePrice: { type: Number, required: true, min: 0 },
   costPrice: { type: Number, required: true, min: 0 },
@@ -35,14 +46,23 @@ const labTestTemplateSchema = new Schema<ILabTestTemplate>({
   tariffCode: String,
   vatRate: { type: Number, default: 0, min: 0, max: 100 },
   isTaxable: { type: Boolean, default: true },
-  
+  specimenType: { 
+    type: String, 
+    required: true,
+    enum: ['blood', 'urine', 'stool', 'csf', 'sputum','fluid', 'semen','tissue', 'saliva', 'swab', 'other']
+  },
   resultTemplate: [{
     fieldName: String,
-    fieldType: String,
+    fieldType: { 
+      type: String, 
+      enum: ['number', 'text', 'select', 'textarea', 'boolean'],
+      default: 'text'
+    },
     label: String,
     referenceRange: String,
     options: [String],
-  }],
+    unit: String
+  }]
 }, {
   timestamps: true
 });

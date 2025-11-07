@@ -270,7 +270,8 @@ export const addVitalsToAttendance = (attendanceId: string, data: any) =>
 
 export const getVitalsByAttendance = (attendanceId: string) => 
   api.get(`/attendances/${attendanceId}/vitals`).then(r => r.data);
-
+  
+  
 // Progress Notes Operations
 export const addProgressNoteToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/progress-notes`, data).then(r => r.data);
@@ -307,6 +308,9 @@ export const getAdmissions = (filters?: any) =>
 
 export const getAdmission = (id: string) => 
   api.get(`/admissions/${id}`).then(r => r.data);
+
+export const updateAttendanceType = (id: string, data: any) => 
+  api.patch(`/attendances/${id}/type`, data).then(r => r.data);
 
 export const createAdmission = (data: any) => 
   api.post('/admissions', data).then(r => r.data);
@@ -372,7 +376,15 @@ export const deleteBed = (id: string) =>
 
 // ───── MEDICAL SERVICES ─────
 export const getDiagnoses = (filters?: any) => 
-  api.get('/diagnoses', { params: filters }).then(r => r.data);
+  api.get('/diagnoses', { params: filters }).then(r => {
+    console.log('🔍 [API] /diagnoses response:', r.data);
+    console.log('🔍 [API] Response structure:', {
+      isArray: Array.isArray(r.data),
+      length: Array.isArray(r.data) ? r.data.length : 'not array',
+      keys: Object.keys(r.data || {})
+    });
+    return r.data;
+  });
 
 export const getDiagnosis = (id: string) => 
   api.get(`/diagnoses/${id}`).then(r => r.data);

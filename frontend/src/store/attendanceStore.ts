@@ -29,7 +29,9 @@ import {
   getAttendanceStats as apiGetAttendanceStats,
   addServiceToAttendance as apiAddService,
   removeServiceFromAttendance as apiRemoveService,
+  getVitalsByAttendance,
 } from '../api';
+
 import type { Attendance, Pagination, Vitals, ProgressNote } from '../types';
 
 interface AttendanceState {
@@ -80,7 +82,7 @@ interface AttendanceState {
   getVitals: (attendanceId: string) => Promise<Vitals[]>;
   addProgressNote: (attendanceId: string, data: any) => Promise<void>;
   removeProgressNote: (attendanceId: string, noteId: string) => Promise<void>;
-
+  getVitalsByAttendance: (attendanceId: string) => Promise<Vitals[]>;
   // Billing
   calculateBill: (attendanceId: string) => Promise<any>;
 
@@ -717,6 +719,17 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       throw error;
     }
   },
+getVitalsByAttendance: async (attendanceId: string) => {
+  try {
+    // Use the axios-based function that includes authentication
+    const vitals = await getVitalsByAttendance(attendanceId);
+    return vitals;
+  } catch (error) {
+    console.error('Error fetching vitals:', error);
+    return [];
+  }
+},
+  
 
   // --- PROGRESS NOTES ---
   addProgressNote: async (attendanceId: string, data: any) => {

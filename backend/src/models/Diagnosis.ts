@@ -1,11 +1,11 @@
-// Enhanced Diagnosis Model
+// models/Diagnosis.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IDiagnosis extends Document {
   name: string;
-  icdCode: string;
+  icdCode: string; // ICD-10/11 code (e.g., "A00.0" for Cholera)
+  gdrgCode: string; // G-DRG code (e.g., "A01Z" for infectious diseases)
   description?: string;
-  // ADD THESE PRICING FIELDS:
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -20,7 +20,12 @@ export interface IDiagnosis extends Document {
 
 const diagnosisSchema = new Schema<IDiagnosis>({
   name: { type: String, required: true },
-  icdCode: { type: String, required: true },
+  icdCode: { type: String, required: true }, // Not unique anymore
+  gdrgCode: { type: String, required: true }, // G-DRG code
+  variant: {
+  type: String,
+  enum: ['adult', 'child', 'complicated', 'uncomplicated']
+},
   description: { type: String },
   cashPrice: { type: Number, default: 0, min: 0 },
   insurancePrice: { type: Number, default: 0, min: 0 },

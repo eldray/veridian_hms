@@ -1,4 +1,4 @@
-// src/pages/DispenseMedication.tsx - UPDATED LAYOUT
+// src/pages/DispenseMedication.tsx - UPDATED WITH PRESCRIPTION PRINTING
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -6,6 +6,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { MedicationsSection } from '../components/medical-entries';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import type { Medication, Attendance, Patient, StockItem, MedicationEntry } from '../types';
 import {
   Search,
@@ -20,7 +21,9 @@ import {
   User,
   Calendar,
   Pill,
-  Activity
+  Activity,
+  Printer,
+  FileText
 } from 'lucide-react';
 
 // 🔑 Helper to get consistent ID
@@ -38,6 +41,7 @@ export default function DispenseMedication() {
   const [dispensingId, setDispensingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isAddingMedication, setIsAddingMedication] = useState(false);
+  const [printingPrescriptionId, setPrintingPrescriptionId] = useState<string | null>(null);
 
   const { 
     attendances, 
@@ -156,6 +160,91 @@ export default function DispenseMedication() {
       m.dispensedAt &&
       new Date(m.dispensedAt).toDateString() === new Date().toDateString()
     ).length;
+
+  // Hospital info for PDF generation
+  const hospitalInfo = {
+    name: "MediCare Hospital",
+    address: "123 Health Street, Medical City",
+    phone: "+1 (555) 123-4567",
+    email: "pharmacy@medicarehospital.com"
+  };
+
+  // Print prescription
+  const handlePrintPrescription = async (medication: Medication) => {
+    if (!selectedPatient || !selectedAttendance) {
+      setMessage({ type: 'error', text: 'Patient or attendance information missing' });
+      return;
+    }
+
+    setPrintingPrescriptionId(getEntityId(medication));
+    try {
+      const htmlContent = generatePDF('prescription', {
+        medication,
+        patient: selectedPatient,
+        attendance: selectedAttendance
+      }, hospitalInfo);
+
+      openPrintWindow(htmlContent, `Prescription - ${medication.name}`);
+      
+      setMessage({ type: 'success', text: 'Prescription generated successfully!' });
+    } catch (error: any) {
+      console.error('Error generating prescription:', error);
+      setMessage({ type: 'error', text: 'Failed to generate prescription' });
+    } finally {
+      setPrintingPrescriptionId(null);
+    }
+  };
+
+  // Print all prescriptions
+  const handlePrintAllPrescriptions = async () => {
+    if (!selectedPatient || !selectedAttendance || prescribedMeds.length === 0) {
+      setMessage({ type: 'error', text: 'No prescriptions to print' });
+      return;
+    }
+
+    try {
+      // Generate individual prescriptions and combine them
+      const prescriptionHTMLs = prescribedMeds.map(medication => 
+        generatePDF('prescription', {
+          medication,
+          patient: selectedPatient,
+          attendance: selectedAttendance
+        }, hospitalInfo)
+      );
+
+      // Combine all prescriptions into one print window
+      const combinedHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>All Prescriptions - ${selectedPatient.fullName}</title>
+          <style>
+            .prescription-page {
+              page-break-after: always;
+              margin-bottom: 40px;
+            }
+            .prescription-page:last-child {
+              page-break-after: avoid;
+            }
+          </style>
+        </head>
+        <body>
+          ${prescriptionHTMLs.map(html => 
+            `<div class="prescription-page">${html}</div>`
+          ).join('')}
+        </body>
+        </html>
+      `;
+
+      openPrintWindow(combinedHTML, `All Prescriptions - ${selectedPatient.fullName}`);
+      
+      setMessage({ type: 'success', text: `Generated ${prescribedMeds.length} prescriptions!` });
+    } catch (error: any) {
+      console.error('Error generating prescriptions:', error);
+      setMessage({ type: 'error', text: 'Failed to generate prescriptions' });
+    }
+  };
 
   // Activate attendance
   const handleActivateAttendance = async (attendanceId: string) => {
@@ -378,14 +467,14 @@ export default function DispenseMedication() {
             </div>
             <div>
               <h1 className="text-3xl font-bold mb-2">Medication Dispensing</h1>
-              <p className="text-blue-100 text-lg">Dispense and manage patient medications</p>
+              <p className="text-blue-100 text-lg">Dispense, manage, and print patient medications</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center shadow-lg">
@@ -412,6 +501,15 @@ export default function DispenseMedication() {
             <span className="text-gray-600 text-sm font-medium">Dispensed Today</span>
           </div>
           <p className="text-3xl font-bold text-gray-900">{dispensedToday}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-lg">
+              <Printer className="w-6 h-6 text-purple-600" />
+            </div>
+            <span className="text-gray-600 text-sm font-medium">Ready to Print</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{totalPendingMeds}</p>
         </div>
       </div>
 
@@ -581,6 +679,32 @@ export default function DispenseMedication() {
       {/* Medications for Dispensing */}
       {selectedAttendance && (
         <div className="space-y-6">
+          {/* Print All Prescriptions Button */}
+          {totalPendingMeds > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <Printer className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Print Prescriptions</h3>
+                    <p className="text-sm text-gray-600">
+                      Generate printable prescriptions for all pending medications
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handlePrintAllPrescriptions}
+                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 font-semibold flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print All Prescriptions ({totalPendingMeds})
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Medications for Dispensing */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -592,8 +716,9 @@ export default function DispenseMedication() {
                 <button
                   onClick={handleDispenseAll}
                   disabled={!!dispensingId}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold disabled:opacity-50"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold disabled:opacity-50 flex items-center gap-2"
                 >
+                  <CheckCircle className="w-4 h-4" />
                   {dispensingId === 'all' ? 'Dispensing All...' : 'Dispense All'}
                 </button>
               )}
@@ -625,6 +750,17 @@ export default function DispenseMedication() {
                         )}
                       </div>
                       <div className="flex items-center gap-3">
+                        {/* Print Prescription Button */}
+                        <button
+                          onClick={() => handlePrintPrescription(medication)}
+                          disabled={!!printingPrescriptionId}
+                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all disabled:opacity-50"
+                          title="Print Prescription"
+                        >
+                          <Printer className="w-4 h-4" />
+                          {printingPrescriptionId === getEntityId(medication) ? 'Printing...' : 'Print'}
+                        </button>
+
                         {selectedAttendance.status === 'pending' && (
                           <button
                             onClick={() => handleActivateAttendance(selectedAttendanceId)}
@@ -639,8 +775,9 @@ export default function DispenseMedication() {
                           <button
                             onClick={() => handleDispense(getEntityId(medication) || '')}
                             disabled={dispensingId === getEntityId(medication)}
-                            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 font-semibold"
+                            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 font-semibold flex items-center gap-2"
                           >
+                            <CheckCircle className="w-4 h-4" />
                             {dispensingId === getEntityId(medication) ? 'Dispensing...' : 'Dispense'}
                           </button>
                         )}

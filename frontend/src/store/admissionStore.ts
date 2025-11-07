@@ -1,4 +1,4 @@
-// stores/admissionStore.ts
+// stores/admissionStore.ts - FIXED VERSION
 import { create } from 'zustand';
 import { 
   getAdmissions as apiGetAdmissions,

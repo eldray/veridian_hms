@@ -112,7 +112,15 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        // ✅ FIX: ALWAYS verify token with backend, regardless of existing state
+        // ✅ FIX: Only verify with backend if we don't have a valid user state
+        // This prevents unnecessary API calls on every page refresh
+        if (state.user && state.token) {
+          console.log('✅ Using existing auth state - no backend verification needed');
+          set({ isLoading: false, isInitialized: true });
+          return;
+        }
+
+        // If we have a token but no user state, verify with backend
         set({ isLoading: true });
 
         try {
@@ -130,20 +138,26 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           console.error('❌ Token verification failed:', error);
           
-          // Clear all auth data on verification failure
-          localStorage.removeItem('auth_token');
-          console.log('🗑️ Removed invalid token from localStorage');
-          
-          set({ 
-            user: null, 
-            token: null, 
-            isLoading: false,
-            isInitialized: true 
-          });
-          
-          // Optional: Redirect to login if not already there
-          if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+          // Only clear auth data on 401 Unauthorized, not on network errors
+          if (error.response?.status === 401) {
+            localStorage.removeItem('auth_token');
+            console.log('🗑️ Removed invalid token from localStorage');
+            
+            set({ 
+              user: null, 
+              token: null, 
+              isLoading: false,
+              isInitialized: true 
+            });
+            
+            // Optional: Redirect to login if not already there
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+          } else {
+            // For network errors, keep the token but mark as loading failed
+            console.warn('⚠️ Network error during token verification - keeping existing token');
+            set({ isLoading: false, isInitialized: true });
           }
         }
       },
