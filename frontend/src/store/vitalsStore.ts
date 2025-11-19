@@ -1,77 +1,79 @@
-// stores/vitalsStore.ts - UPDATED TO HANDLE attendanceId CONSISTENTLY
-import { create } from 'zustand';
-import {
-  addVitalsToAttendance as apiAddVitalsToAttendance,
-  getVitalsByAttendance as apiGetVitalsByAttendance
-} from '../api';
-import type { Vitals } from '../types';
-
-interface VitalsState {
-  vitals: Vitals[];
-  isLoading: boolean;
-  error: string | null;
-  // Attendance-based vitals operations (matching your component)
-  addVitalsToAttendance: (attendanceId: string, data: Vitals) => Promise<void>;
-  getVitalsByAttendance: (attendanceId: string) => Promise<Vitals[]>;
-  clearError: () => void;
-  clearVitals: () => void;
-}
-
+// stores/vitalsStore.ts - FIXED VERSION
 export const useVitalsStore = create<VitalsState>((set, get) => ({
   vitals: [],
   isLoading: false,
   error: null,
-  addVitalsToAttendance: async (attendanceId: string, data: Vitals) => {
+  
+  addVitalsToAttendance: async (attendanceId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('📝 Adding vitals to attendance:', { attendanceId, data });
-      const updatedAttendance = await apiAddVitalsToAttendance(attendanceId, data);
-      // Assuming updatedAttendance includes the full updated vitals array (e.g., updatedAttendance.vitals)
-      // Adjust this line if the structure is different based on your API response
-      const attendanceVitalsRaw = Array.isArray(updatedAttendance.vitals) ? updatedAttendance.vitals : [];
-      const attendanceVitals = attendanceVitalsRaw.map(v => ({ ...v, attendanceId }));
-      // Update local state by replacing vitals for this attendance
-      const otherVitals = get().vitals.filter(v => v.attendanceId !== attendanceId);
-      set({
-        vitals: [...attendanceVitals, ...otherVitals],
+      const newVitals = await apiAddVitalsToAttendance(attendanceId, data);
+      set(state => ({
+        vitals: [...state.vitals, newVitals],
         isLoading: false
-      });
-      console.log('✅ Vitals added successfully');
+      }));
     } catch (error: any) {
-      console.error('❌ Failed to add vitals:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to record vitals';
       set({
-        error: errorMessage,
+        error: error.response?.data?.message || error.message || 'Failed to record vitals',
         isLoading: false
       });
-      throw new Error(errorMessage);
+      throw error;
     }
   },
+
   getVitalsByAttendance: async (attendanceId: string) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 Fetching vitals for attendance:', attendanceId);
-      const vitalsDataRaw = await apiGetVitalsByAttendance(attendanceId);
-      const attendanceVitalsRaw = Array.isArray(vitalsDataRaw) ? vitalsDataRaw : [];
-      const attendanceVitals = attendanceVitalsRaw.map(v => ({ ...v, attendanceId }));
-      // Update local state with these vitals
-      const otherVitals = get().vitals.filter(v => v.attendanceId !== attendanceId);
-      set({
-        vitals: [...attendanceVitals, ...otherVitals],
+      const vitals = await apiGetVitalsByAttendance(attendanceId);
+      set(state => ({
+        vitals: [...state.vitals.filter(v => v.attendanceId !== attendanceId), ...vitals],
         isLoading: false
-      });
-      console.log('✅ Vitals fetched:', attendanceVitals.length, 'records');
-      return attendanceVitals;
+      }));
+      return vitals;
     } catch (error: any) {
-      console.error('❌ Failed to fetch vitals:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch vitals';
       set({
-        error: errorMessage,
+        error: error.response?.data?.message || error.message || 'Failed to fetch vitals',
         isLoading: false
       });
-      throw new Error(errorMessage);
+      throw error;
     }
   },
+
+  updateVitals: async (attendanceId: string, vitalsId: string, data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updatedVitals = await apiUpdateVitals(attendanceId, vitalsId, data);
+      set(state => ({
+        vitals: state.vitals.map(v => 
+          v.id === vitalsId ? updatedVitals : v  // ✅ FIXED: Use id consistently
+        ),
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to update vitals',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  deleteVitals: async (attendanceId: string, vitalsId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeleteVitals(attendanceId, vitalsId);
+      set(state => ({
+        vitals: state.vitals.filter(v => v.id !== vitalsId), // ✅ FIXED: Use id consistently
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to delete vitals',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
   clearError: () => set({ error: null }),
-  clearVitals: () => set({ vitals: [] }),
 }));

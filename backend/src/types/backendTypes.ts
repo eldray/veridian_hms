@@ -1,10 +1,56 @@
 // AUTO-GENERATED from backend Mongoose models
 // DO NOT EDIT MANUALLY
 
+export interface IAdmission {
+  _id: string;
+  admissionNumber: string;
+  patientId: string;
+  attendanceId: string;
+  wardId: string;
+  bedId: string;
+  admissionDate: string;
+  admissionTime: string;
+  admittingDoctor: string;
+  reasonForAdmission: string;
+  diagnosis: string;
+  status: string;
+  dischargeDate?: string;
+  dischargeTime?: string;
+  dischargeSummary?: string;
+  dailyNotes: Array<{
+    id: string;
+    date: string;
+    vitals: any;
+    progressNotes: string;
+    medications: any[];
+    procedures: any[];
+    recordedBy: string;
+    recordedAt: string;
+  }>;
+  createdBy: string;
+  // NHIS ADDITIONS
+  admissionType: 'elective' | 'emergency' | 'transfer';
+  admissionSource: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  lengthOfStay: number;
+  principalDiagnosis: {
+    diagnosisId: string;
+    icdCode: string;
+    presentOnAdmission: 'Y' | 'N' | 'U';
+  };
+  secondaryDiagnoses: Array<{
+    diagnosisId: string;
+    icdCode: string;
+    presentOnAdmission: 'Y' | 'N' | 'U';
+    diagnosisType: 'comorbidity' | 'complication';
+  }>;
+}
+
 export interface IAttendance {
   _id: string;
   attendanceNumber: string;
   patientId: string;
+  insuranceProviderId?: string;
   dateTime: string;
   attendanceType: string;
   paymentMode: string;
@@ -22,10 +68,13 @@ export interface IAttendance {
     date: string;
     createdBy: string;
     icdCode?: string;
+    // NHIS ADDITIONS
+    presentOnAdmission?: 'Y' | 'N' | 'U';
+    diagnosisType?: 'principal' | 'secondary' | 'comorbidity';
   }>;
   labTests: Array<{
     templateId: string;
-    status: 'requested' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'requested' | 'completed' | 'cancelled';
     result?: any;
     normalRange?: string;
     units?: string;
@@ -39,7 +88,7 @@ export interface IAttendance {
   }>;
   procedures: Array<{
     templateId: string;
-    status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'scheduled' | 'completed' | 'cancelled';
     scheduledDate?: string;
     performedAt?: string;
     performedBy?: string;
@@ -55,7 +104,7 @@ export interface IAttendance {
     scanType: string;
     description: string;
     bodyPart?: string;
-    status: 'requested' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'requested' | 'completed' | 'cancelled';
     requestedAt: string;
     completedAt?: string;
     result?: string;
@@ -85,17 +134,11 @@ export interface IAttendance {
     prescribedBy: string;
     notes?: string;
   }>;
-  progressNotes: Array<{
-    note: string;
-    type: 'clinical' | 'nursing' | 'progress' | 'discharge';
-    createdBy: string;
-    createdAt: string;
-  }>;
   medicalNotes?: string;
   attendingClinician: string;
   createdBy: string;
   updatedBy?: string;
-  status: 'pending' | 'active' | 'completed' | 'cancelled' | 'admitted' | 'discharged';
+  status: 'pending' | 'completed' | 'cancelled' | 'admitted' | 'discharged';
   admissionId?: string;
   bedId?: string;
   wardId?: string;
@@ -104,14 +147,10 @@ export interface IAttendance {
   totalBill: number;
   paidAmount: number;
   outstandingBalance: number;
-  createdAt: string;
-  updatedAt: string;
-  // Billing related fields
   insuranceClaimId?: string;
   preAuthNumber?: string;
   preAuthApproved: boolean;
   preAuthAmount?: number;
-  // Service tracking
   servicesRendered: Array<{
     serviceItemId: string;
     quantity: number;
@@ -119,6 +158,10 @@ export interface IAttendance {
     performedBy: string;
     notes?: string;
   }>;
+  // NHIS ADDITIONS
+  encounterCategory: 'opd' | 'ipd' | 'daycase';
+  visitCategory: 'general' | 'specialist' | 'emergency' | 'inpatient';
+  referringFacility?: string;
 }
 
 export interface IBill {
@@ -145,7 +188,7 @@ export interface IBill {
   balance: number;
   // Status and tracking
   status: 'draft' | 'pending' | 'partial' | 'paid' | 'cancelled';
-  paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'mixed';
+  paymentMode: 'cash' | 'nhis' | 'private_insurance';
   // Insurance information
   insuranceProviderId?: string;
   preAuthNumber?: string;
@@ -161,42 +204,55 @@ export interface IBill {
   updatedAt: string;
 }
 
-export interface IBillItem {
-  _id: string;
-  billId: string;
-  serviceType: 'diagnosis' | 'lab_test' | 'procedure' | 'medication' | 'ward' | 'consultation' | 'other';
-  serviceReference: string;
-  serviceItemId?: string;
-  serviceName: string;
-  serviceCode: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-  vatAmount: number;
-  totalAmount: number;
-  insuranceCovered: number;
-  patientPayable: number;
-  date: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface IDiagnosis {
   _id: string;
   name: string;
   icdCode: string;
   gdrgCode: string;
+  variant?: 'adult' | 'child' | 'complicated' | 'uncomplicated';
   description?: string;
-  cashPrice: number;
-  insurancePrice: number;
-  costPrice: number;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
-  vatRate: number;
-  isTaxable: boolean;
+  // NHIS ADDITIONS
+  isChronic: boolean;
+  isNHISCovered: boolean;
+  category: 'medical' | 'surgical' | 'obstetric' | 'pediatric' | 'psychiatric';
+}
+
+export interface IGDRGTariff {
+  _id: string;
+  gdrgCode: string;
+  description: string;
+  nhiaTariff: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  isActive: boolean;
+}
+
+export interface IHospital {
+  _id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  imageUrl?: string;
+  // NHIS-SPECIFIC FIELDS
+  nhisFacilityCode: string;
+  nhisFacilityType: string;
+  nhisAccreditationNumber?: string;
+  nhisAccreditationDate?: string;
+  nhisAccreditationExpiry?: string;
+  // Billing Information
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  // Contact Persons for NHIS
+  nhisContactPerson?: string;
+  nhisContactPhone?: string;
+  nhisContactEmail?: string;
+  // Status
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -240,7 +296,7 @@ export interface ILabTestTemplate {
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -319,7 +375,7 @@ export interface IProcedureTemplate {
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -341,7 +397,7 @@ export interface IScanTemplate {
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -359,45 +415,27 @@ export interface IServiceCatalog {
   name: string;
   code: string;
   description?: string;
-  serviceType: 'diagnosis' | 'lab_test' | 'procedure' | 'medication' | 'ward' | 'consultation' | 'other';
+  serviceType: 'diagnosis' | 'lab_test' | 'procedure' | 'medication' | 'ward' | 'consultation' | 'scan' | 'miscellaneous';
   category?: string;
-  // References to existing models
   diagnosisId?: string;
   labTestTemplateId?: string;
   procedureTemplateId?: string;
   stockItemId?: string;
   wardId?: string;
-  // Unified pricing
+  scanTemplateId?: string;
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
   unit: string;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IServiceItem {
-  _id: string;
-  name: string;
-  description?: string;
-  categoryId: string;
-  code: string;
-  cashPrice: number;
-  insurancePrice: number;
-  costPrice: number;
-  unit: string;
-  isActive: boolean;
-  requiresAuthorization: boolean;
-  tariffCode?: string;
-  vatRate: number;
-  isTaxable: boolean;
-  createdAt: string;
-  updatedAt: string;
+  // NHIS ADDITIONS
+  nhisServiceCode: string;
+  nhisCategory?: string;
+  requiresClinicalNotes: boolean;
 }
 
 export interface IStockItem {
@@ -416,7 +454,7 @@ export interface IStockItem {
   supplier: string;
   expiryDate?: string;
   batchNumber?: string;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -430,6 +468,7 @@ export interface IVitals {
   _id: string;
   attendanceId: string;
   patientId: string;
+  isPending: boolean;
   bloodPressure?: {
     systolic: number;
     diastolic: number;
@@ -467,7 +506,7 @@ export interface IWard {
   // ADD PRICING:
   cashDailyRate: number;
   insuranceDailyRate: number;
-  isActive: boolean;
+  isPending: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
   vatRate: number;

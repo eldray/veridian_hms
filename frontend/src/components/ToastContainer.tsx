@@ -1,20 +1,16 @@
-// src/components/ToastContainer.tsx
-import { Toast, ToastType } from './Toast';
+// src/components/ToastContainer.tsx - Better positioning
+import { Toast } from './Toast';
+import { useToastStore } from '../store/toastStore';
 
-interface ToastContainerProps {
-  toasts: Toast[];
-  removeToast: (id: string) => void;
-}
+export function ToastContainer() {
+  const { toasts, removeToast } = useToastStore();
 
-export function ToastContainer({ toasts, removeToast }: ToastContainerProps) {
+  if (toasts.length === 0) return null;
+
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
+    <div className="fixed top-3 right-3 z-50 space-y-2 max-w-xs">
       {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onRemove={removeToast}
-        />
+        <Toast key={toast.id} toast={toast} onRemove={removeToast} />
       ))}
     </div>
   );

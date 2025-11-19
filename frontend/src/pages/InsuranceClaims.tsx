@@ -1,37 +1,53 @@
-// src/pages/InsuranceClaims.tsx - UPDATED WITH STATUS INTEGRATION
+// src/pages/InsuranceClaims.tsx - UPDATED WITH SAME THEME
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
-import { useAttendanceStore } from '../store/attendanceStore'; // ADDED
+import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
-import { useToastStore } from '../store/toastStore';
+import { useToast } from '../store/toastStore';
 import {
   Plus,
   Search,
-  Filter,
   FileText,
   Download,
   Eye,
   CheckCircle,
   Clock,
   XCircle,
-  AlertTriangle,
-  RefreshCw,
   DollarSign,
   PlayCircle,
   Calendar,
   User,
-  Activity
+  Activity,
+  RefreshCw,
+  Send,
+  Shield,
+  ArrowLeft
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function InsuranceClaims() {
-  const { claims, getInsuranceClaims, updateClaimStatus, generateNHISClaimForm, generatePrivateInsuranceClaim, isLoading } = useInsuranceStore();
-  const { attendances, getAttendances } = useAttendanceStore(); // ADDED
+  const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
+
+  const {
+    claims,
+    getInsuranceClaims,
+    updateClaimStatus,
+    generatePrivateInsuranceClaim,
+    generateNHISClaim,
+    submitInsuranceClaim,
+    isLoading: claimsLoading
+  } = useInsuranceStore();
+
+  const { attendances, getAttendances, submitNHISClaim, isLoading: attendanceLoading } = useAttendanceStore();
   const { user } = useAuthStore();
-  const { addToast } = useToastStore();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showPendingAttendances, setShowPendingAttendances] = useState(false); // ADDED
+  const [showPendingAttendances, setShowPendingAttendances] = useState(false);
+  const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
+
+  const isLoading = claimsLoading || attendanceLoading;
 
   useEffect(() => {
     loadData();
@@ -39,106 +55,145 @@ export default function InsuranceClaims() {
 
   const loadData = async () => {
     try {
-      await Promise.all([
-        getInsuranceClaims(),
-        getAttendances() // ADDED: Load attendances for status integration
-      ]);
-    } catch (error) {
-      addToast('Failed to load insurance claims', 'error');
+      await Promise.all([getInsuranceClaims(), getAttendances()]);
+      success('Data loaded', 'Insurance claims ready');
+    } catch {
+      toastError('Load failed', 'Could not fetch claims or visits');
     }
   };
 
-  // ADDED: Get attendances eligible for insurance claims
   const getEligibleAttendances = () => {
-    return attendances.filter(attendance => 
-      (attendance.paymentMode === 'nhis' || attendance.paymentMode === 'private_insurance') &&
-      attendance.status === 'completed' && // Only completed attendances can have claims
-      !claims.some(claim => claim.attendanceId === attendance._id) // No existing claim
+    return attendances.filter(att =>
+      (att.paymentMode === 'nhis' || att.paymentMode === 'private_insurance') &&
+      att.status === 'completed' &&
+      !claims.some(c => c.attendanceId === att._id)
     );
   };
 
   const eligibleAttendances = getEligibleAttendances();
 
   const filteredClaims = claims.filter(claim => {
-    const matchesSearch = claim.claimNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.patient?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.insuranceProvider?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.patient?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   const handleStatusUpdate = async (claimId: string, newStatus: string, approvedAmount?: number) => {
     try {
-      await updateClaimStatus(claimId, { 
+      await updateClaimStatus(claimId, {
         status: newStatus,
         ...(approvedAmount && { approvedAmount })
       });
-      addToast('Claim status updated successfully', 'success');
-    } catch (error) {
-      addToast('Failed to update claim status', 'error');
+      success('Status updated', `Claim is now ${newStatus}`);
+    } catch {
+      toastError('Update failed', 'Could not change claim status');
     }
   };
 
   const handleGenerateClaimForm = async (claim: any) => {
     try {
       let claimForm;
+      
       if (claim.insuranceProvider?.type === 'nhis') {
-        claimForm = await generateNHISClaimForm(claim.attendanceId);
+        claimForm = await generateNHISClaim(claim.attendanceId);
       } else {
         claimForm = await generatePrivateInsuranceClaim(claim.attendanceId, claim.insuranceProviderId);
       }
-      
-      // Download the claim form as JSON (in real app, this would be PDF)
-      const blob = new Blob([JSON.stringify(claimForm, null, 2)], { type: 'application/json' });
+
+      const xmlContent = typeof claimForm === 'string' ? claimForm : 
+                        claimForm.xml || claimForm.data || claimForm;
+
+      if (!xmlContent) {
+        throw new Error('No claim data received');
+      }
+
+      const blob = new Blob([xmlContent], { type: 'text/xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${claim.claimNumber}-claim-form.json`;
+      a.download = `${claim.claimNumber}-${claim.insuranceProvider?.type.toUpperCase()}.xml`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      addToast('Claim form generated successfully', 'success');
-    } catch (error) {
-      addToast('Failed to generate claim form', 'error');
+      success('Claim downloaded', 'XML file ready');
+    } catch (error: any) {
+      console.error('Claim generation error:', error);
+      toastError('Generation failed', error.message || 'Could not create claim file');
     }
   };
 
-  // ADDED: Function to create new claim from attendance
+  const handleSubmitNHISClaim = async (attendanceId: string) => {
+    try {
+      setSubmittingClaims(prev => new Set(prev).add(attendanceId));
+      await submitNHISClaim(attendanceId);
+      success('Claim submitted', 'NHIS claim submitted successfully');
+      await loadData();
+    } catch (error: any) {
+      toastError('Submission failed', error.message || 'Could not submit NHIS claim');
+    } finally {
+      setSubmittingClaims(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(attendanceId);
+        return newSet;
+      });
+    }
+  };
+
   const handleCreateClaim = async (attendance: any) => {
     try {
-      // This would typically open a claim creation form
-      // For now, we'll just show a message
-      addToast(`Ready to create claim for ${attendance.attendanceNumber}`, 'info');
-      console.log('Creating claim for attendance:', attendance);
-    } catch (error) {
-      addToast('Failed to create claim', 'error');
+      let insuranceProviderId = attendance.insuranceProviderId;
+      
+      if (!insuranceProviderId && attendance.paymentMode === 'nhis') {
+        const nhisProvider = useInsuranceStore.getState().providers.find(p => p.type === 'nhis');
+        if (nhisProvider) {
+          insuranceProviderId = nhisProvider._id;
+        }
+      }
+
+      if (!insuranceProviderId) {
+        throw new Error('Insurance provider not found for this attendance');
+      }
+
+      await submitInsuranceClaim({
+        attendanceId: attendance._id,
+        insuranceProviderId: insuranceProviderId,
+        status: 'draft'
+      });
+      success('Claim created', `Draft for ${attendance.attendanceNumber}`);
+      await loadData();
+    } catch (error: any) {
+      toastError('Create failed', error.message || 'Could not start claim');
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'rejected': return <XCircle className="w-5 h-5 text-red-500" />;
-      case 'paid': return <DollarSign className="w-5 h-5 text-blue-500" />;
-      case 'processing': return <Clock className="w-5 h-5 text-amber-500" />;
-      default: return <FileText className="w-5 h-5 text-gray-500" />;
+      case 'approved': return <CheckCircle className="w-5 h-5 text-[var(--icon-green-text)]" />;
+      case 'rejected': return <XCircle className="w-5 h-5 text-[var(--icon-red-text)]" />;
+      case 'paid': return <DollarSign className="w-5 h-5 text-[var(--icon-blue-text)]" />;
+      case 'processing': return <Clock className="w-5 h-5 text-[var(--icon-yellow-text)]" />;
+      case 'submitted': return <FileText className="w-5 h-5 text-[var(--icon-purple-text)]" />;
+      default: return <FileText className="w-5 h-5 text-[var(--text-tertiary)]" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'paid': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'processing': return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'submitted': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'approved': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]';
+      case 'rejected': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]';
+      case 'paid': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]';
+      case 'processing': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]';
+      case 'submitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
   };
 
-  // ADDED: Stats calculation
   const stats = {
     total: claims.length,
     pending: claims.filter(c => ['draft', 'submitted', 'processing'].includes(c.status)).length,
@@ -150,112 +205,142 @@ export default function InsuranceClaims() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
+      {/* Header - SAME THEME as medical entries */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-indigo-600" />
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+          >
+            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
+          </button>
+          <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+            <FileText className="w-6 h-6 text-[var(--icon-purple-text)]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Insurance Claims</h1>
-            <p className="text-gray-600">Manage and track insurance claim submissions</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Insurance Claims</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Manage, submit, and track reimbursements</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/dashboard/insurance-providers')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          >
+            <Shield className="w-4 h-4" />
+            Providers
+          </button>
           {eligibleAttendances.length > 0 && (
             <button
               onClick={() => setShowPendingAttendances(!showPendingAttendances)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-sm font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               New Claim ({eligibleAttendances.length})
             </button>
           )}
           <button
             onClick={loadData}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
           >
-            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
       </div>
 
-      {/* Stats Overview - ADDED */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          <div className="text-sm text-gray-600">Total Claims</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claims</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
-          <div className="text-sm text-gray-600">Pending</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-2xl font-bold text-[var(--icon-yellow-text)]">{stats.pending}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Pending</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
-          <div className="text-sm text-gray-600">Approved</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-2xl font-bold text-[var(--icon-green-text)]">{stats.approved}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Approved</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">{stats.paid}</div>
-          <div className="text-sm text-gray-600">Paid</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-2xl font-bold text-[var(--icon-blue-text)]">{stats.paid}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Paid</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-lg font-bold text-gray-900">GHS {stats.totalAmount.toFixed(2)}</div>
-          <div className="text-sm text-gray-600">Claimed</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-lg font-bold text-[var(--text-primary)]">GHS {stats.totalAmount.toFixed(2)}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Claimed</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-lg font-bold text-green-600">GHS {stats.approvedAmount.toFixed(2)}</div>
-          <div className="text-sm text-gray-600">Approved</div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-lg font-bold text-[var(--icon-green-text)]">GHS {stats.approvedAmount.toFixed(2)}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Approved</div>
         </div>
       </div>
 
-      {/* Eligible Attendances for New Claims - ADDED */}
+      {/* Eligible Attendances */}
       {showPendingAttendances && eligibleAttendances.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <PlayCircle className="w-6 h-6 text-green-600" />
-            Eligible Attendances for Claims ({eligibleAttendances.length})
+        <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+            <PlayCircle className="w-5 h-5 text-[var(--icon-green-text)]" />
+            Eligible for Claims ({eligibleAttendances.length})
           </h2>
-          <div className="space-y-4">
-            {eligibleAttendances.slice(0, 5).map((attendance) => (
-              <div key={attendance._id} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+          <div className="space-y-3">
+            {eligibleAttendances.slice(0, 5).map((att) => (
+              <div key={att._id} className="bg-[var(--icon-green-bg)] rounded-lg p-3 border border-[var(--icon-green-text)]">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-gray-900">{attendance.attendanceNumber}</h3>
-                      <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded-full border">
-                        {attendance.paymentMode}
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-[var(--text-primary)] text-sm">{att.attendanceNumber}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                        att.paymentMode === 'nhis' 
+                          ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]' 
+                          : 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-text)]'
+                      }`}>
+                        {att.paymentMode}
                       </span>
-                      <span className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full border border-green-200">
+                      <span className="text-xs text-[var(--icon-green-text)] bg-[var(--icon-green-bg)] px-2 py-0.5 rounded-full border border-[var(--icon-green-text)]">
                         Completed
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        <span>Patient: {attendance.patient?.fullName || 'Unknown'}</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-[var(--text-secondary)]">
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" />
+                        <span className="truncate">{att.patient?.fullName}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>Date: {new Date(attendance.dateTime).toLocaleDateString()}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{new Date(att.dateTime).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4" />
-                        <span>Type: {attendance.attendanceType}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5" />
+                        <span>{att.attendanceType}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" />
-                        <span>Bill: GHS {attendance.totalBill?.toFixed(2)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5" />
+                        <span>GHS {att.totalBill?.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleCreateClaim(attendance)}
-                    className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                    Create Claim
-                  </button>
+                  <div className="flex gap-2 ml-3">
+                    {att.paymentMode === 'nhis' && (
+                      <button
+                        onClick={() => handleSubmitNHISClaim(att._id)}
+                        disabled={submittingClaims.has(att._id)}
+                        className="px-3 py-1.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white disabled:opacity-50 text-xs flex items-center gap-1"
+                      >
+                        <Send className="w-3 h-3" />
+                        {submittingClaims.has(att._id) ? 'Submitting...' : 'Submit NHIS'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleCreateClaim(att)}
+                      className="px-3 py-1.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white text-xs"
+                    >
+                      Create Draft
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -264,21 +349,21 @@ export default function InsuranceClaims() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
-          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search claims..."
+            placeholder="Search by claim, patient, or provider..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
         >
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
@@ -290,128 +375,100 @@ export default function InsuranceClaims() {
         </select>
       </div>
 
-      {/* Claims Table */}
+      {/* Claims List */}
       {isLoading ? (
         <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="bg-white rounded-2xl p-6 border border-gray-200 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="h-3 bg-gray-200 rounded"></div>
-                <div className="h-3 bg-gray-200 rounded"></div>
-                <div className="h-3 bg-gray-200 rounded"></div>
-                <div className="h-3 bg-gray-200 rounded"></div>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
+              <div className="h-5 bg-[var(--bg-main)] rounded w-1/3 mb-3"></div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
               </div>
             </div>
           ))}
         </div>
       ) : filteredClaims.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No insurance claims found</p>
-          {eligibleAttendances.length > 0 ? (
-            <p className="text-gray-400">
-              You have {eligibleAttendances.length} completed attendances ready for insurance claims
+        <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
+          <FileText className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
+          <p className="text-[var(--text-secondary)]">No claims found</p>
+          {eligibleAttendances.length > 0 && (
+            <p className="text-[var(--text-tertiary)] text-sm mt-1">
+              {eligibleAttendances.length} completed visits ready for claims
             </p>
-          ) : (
-            <p className="text-gray-400">Claims will appear here when submitted</p>
           )}
         </div>
       ) : (
         <div className="space-y-4">
           {filteredClaims.map((claim) => (
-            <div key={claim._id} className="bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
+            <div key={claim._id} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
                   {getStatusIcon(claim.status)}
                   <div>
-                    <h3 className="font-semibold text-gray-900">{claim.claimNumber}</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="font-semibold text-[var(--text-primary)] text-sm">{claim.claimNumber}</h3>
+                    <p className="text-xs text-[var(--text-secondary)]">
                       {claim.patient?.fullName} • {claim.insuranceProvider?.name}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(claim.status)}`}>
-                    {claim.status.replace('_', ' ')}
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(claim.status)}`}>
+                    {claim.status}
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     <button
                       onClick={() => handleGenerateClaimForm(claim)}
-                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="Generate Claim Form"
+                      className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition"
+                      title="Download XML"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4" />
+                    <button className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition">
+                      <Eye className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-gray-600">Claim Amount:</span>
-                  <p className="font-medium">GHS {claim.totalClaimAmount?.toFixed(2)}</p>
+                  <span className="text-[var(--text-secondary)]">Claim:</span>
+                  <p className="font-medium text-[var(--text-primary)]">GHS {claim.totalClaimAmount?.toFixed(2)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-600">Approved Amount:</span>
-                  <p className="font-medium">
-                    {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : 'Pending'}
+                  <span className="text-[var(--text-secondary)]">Approved:</span>
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-600">Submitted:</span>
-                  <p className="font-medium">
-                    {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : 'Not submitted'}
+                  <span className="text-[var(--text-secondary)]">Submitted:</span>
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-600">Provider:</span>
-                  <p className="font-medium">{claim.insuranceProvider?.type.toUpperCase()}</p>
+                  <span className="text-[var(--text-secondary)]">Type:</span>
+                  <p className="font-medium text-[var(--text-primary)]">{claim.insuranceProvider?.type.toUpperCase()}</p>
                 </div>
               </div>
 
-              {/* ADDED: Attendance Information */}
-              {claim.attendance && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Attendance:</span>
-                      <p className="font-medium">{claim.attendance.attendanceNumber}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Status:</span>
-                      <p className="font-medium capitalize">{claim.attendance.status}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Completion:</span>
-                      <p className="font-medium">
-                        {claim.attendance.completedAt ? new Date(claim.attendance.completedAt).toLocaleDateString() : 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons for Accounts/Admin */}
               {(user?.role === 'admin' || user?.role === 'accounts') && (
-                <div className="flex gap-2 pt-4 mt-4 border-t border-gray-100">
+                <div className="flex gap-2 pt-3 mt-3 border-t border-[var(--border-color)]">
                   {claim.status === 'submitted' && (
                     <>
                       <button
-                        onClick={() => handleStatusUpdate(claim._id, 'approved', claim.totalClaimAmount * 0.8)}
-                        className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        onClick={() => handleStatusUpdate(claim._id, 'approved', claim.totalClaimAmount)}
+                        className="flex-1 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white text-xs"
                       >
                         Approve
                       </button>
                       <button
                         onClick={() => handleStatusUpdate(claim._id, 'rejected')}
-                        className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        className="flex-1 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-xs"
                       >
                         Reject
                       </button>
@@ -420,9 +477,9 @@ export default function InsuranceClaims() {
                   {claim.status === 'approved' && (
                     <button
                       onClick={() => handleStatusUpdate(claim._id, 'paid')}
-                      className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex-1 py-1.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white text-xs"
                     >
-                      Mark as Paid
+                      Mark Paid
                     </button>
                   )}
                 </div>

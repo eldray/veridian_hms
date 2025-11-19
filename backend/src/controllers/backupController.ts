@@ -4,7 +4,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { exec } from 'child_process';
 import util from 'util';
-import mongoose from 'mongoose';
 
 const execPromise = util.promisify(exec);
 
@@ -19,41 +18,38 @@ class BackupService {
   private async ensureBackupDir() {
     try {
       await fs.access(this.backupDir);
-    } catch (error) {
+    } catch {
       await fs.mkdir(this.backupDir, { recursive: true });
     }
   }
 
   async createBackup() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `backup-${timestamp}.json`;
+    const filename = `backup-${timestamp}.sql`;
     const filePath = path.join(this.backupDir, filename);
 
     try {
-      // Get all collections from MongoDB
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      const backupData: any = {};
-
-      // Export each collection
-      for (const collection of collections) {
-        const collectionName = collection.name;
-        if (collectionName.startsWith('system.')) continue; // Skip system collections
-        
-        const data = await mongoose.connection.db.collection(collectionName).find({}).toArray();
-        backupData[collectionName] = data;
+      // Extract DB URL from environment
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        throw new Error('DATABASE_URL is not defined in environment');
       }
 
-      // Add metadata
-      backupData.metadata = {
-        version: '1.0',
-        createdAt: new Date().toISOString(),
-        database: mongoose.connection.name,
-        collections: Object.keys(backupData).filter(key => key !== 'metadata')
-      };
+      // Parse DATABASE_URL to extract connection params
+      // Example: postgresql://user:pass@host:port/dbname
+      const url = new URL(dbUrl);
+      const host = url.hostname;
+      const port = url.port || '5432';
+      const dbName = url.pathname.substring(1); // remove leading '/'
+      const user = url.username;
+      const password = url.password;
 
-      // Write backup file
-      const backupContent = JSON.stringify(backupData, null, 2);
-      await fs.writeFile(filePath, backupContent, 'utf8');
+      // Set PGPASSWORD for pg_dump (security note: avoid in prod; use .pgpass instead)
+      const env = { ...process.env, PGPASSWORD: password };
+
+      // Run pg_dump
+      const command = `pg_dump -h ${host} -p ${port} -U ${user} -d ${dbName} -f "${filePath}" --clean --if-exists`;
+      await execPromise(command, { env });
 
       const stats = await fs.stat(filePath);
 
@@ -63,47 +59,39 @@ class BackupService {
         size: stats.size,
         createdAt: new Date().toISOString()
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Backup creation failed:', error);
-      throw new Error(`Backup creation failed: ${(error as Error).message}`);
+      throw new Error(`Backup creation failed: ${error.message || error}`);
     }
   }
 
   async restoreBackup(backupFilePath: string) {
     try {
-      // Read backup file
-      const backupContent = await fs.readFile(backupFilePath, 'utf8');
-      const backupData = JSON.parse(backupContent);
-
-      // Validate backup structure
-      if (!backupData.metadata || !backupData.metadata.collections) {
-        throw new Error('Invalid backup file format');
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        throw new Error('DATABASE_URL is not defined in environment');
       }
 
-      // Clear existing collections (optional - you might want to merge instead)
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      for (const collection of collections) {
-        if (collection.name.startsWith('system.')) continue;
-        await mongoose.connection.db.collection(collection.name).deleteMany({});
-      }
+      const url = new URL(dbUrl);
+      const host = url.hostname;
+      const port = url.port || '5432';
+      const dbName = url.pathname.substring(1);
+      const user = url.username;
+      const password = url.password;
 
-      // Restore data for each collection
-      for (const collectionName of backupData.metadata.collections) {
-        if (collectionName === 'metadata') continue;
-        
-        const collectionData = backupData[collectionName];
-        if (collectionData && collectionData.length > 0) {
-          await mongoose.connection.db.collection(collectionName).insertMany(collectionData);
-        }
-      }
+      const env = { ...process.env, PGPASSWORD: password };
+
+      // Restore using psql
+      const command = `psql -h ${host} -p ${port} -U ${user} -d ${dbName} -f "${backupFilePath}"`;
+      await execPromise(command, { env });
 
       // Clean up uploaded file
       await fs.unlink(backupFilePath);
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Backup restoration failed:', error);
-      throw new Error(`Backup restoration failed: ${(error as Error).message}`);
+      throw new Error(`Backup restoration failed: ${error.message || error}`);
     }
   }
 
@@ -113,10 +101,9 @@ class BackupService {
       const backups = [];
 
       for (const file of files) {
-        if (file.endsWith('.json')) {
+        if (file.endsWith('.sql')) {
           const filePath = path.join(this.backupDir, file);
           const stats = await fs.stat(filePath);
-          
           backups.push({
             filename: file,
             size: stats.size,
@@ -126,7 +113,6 @@ class BackupService {
         }
       }
 
-      // Sort by creation date (newest first)
       return backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (error) {
       console.error('Error getting backup list:', error);
@@ -136,58 +122,22 @@ class BackupService {
 
   async getBackupFilePath(filename: string) {
     const filePath = path.join(this.backupDir, filename);
-    
     try {
       await fs.access(filePath);
       return filePath;
-    } catch (error) {
+    } catch {
       throw new Error('Backup file not found');
     }
   }
 
   async deleteBackup(filename: string) {
     const filePath = path.join(this.backupDir, filename);
-    
     try {
       await fs.access(filePath);
       await fs.unlink(filePath);
       return true;
-    } catch (error) {
+    } catch {
       throw new Error('Backup file not found');
-    }
-  }
-
-  // Alternative method using mongodump (if available)
-  async createMongoDumpBackup() {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `mongodump-${timestamp}`;
-    const backupPath = path.join(this.backupDir, backupName);
-
-    try {
-      const { stdout, stderr } = await execPromise(
-        `mongodump --uri="${process.env.MONGODB_URI}" --out="${backupPath}"`
-      );
-
-      // Create a zip file of the backup
-      const zipFileName = `${backupName}.zip`;
-      const zipFilePath = path.join(this.backupDir, zipFileName);
-      
-      await execPromise(`zip -r "${zipFilePath}" "${backupPath}"`);
-
-      // Clean up the uncompressed backup
-      await fs.rm(backupPath, { recursive: true });
-
-      const stats = await fs.stat(zipFilePath);
-
-      return {
-        filename: zipFileName,
-        path: zipFilePath,
-        size: stats.size,
-        createdAt: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('MongoDump backup failed:', error);
-      throw new Error(`MongoDump backup failed: ${(error as Error).message}`);
     }
   }
 }
@@ -197,7 +147,7 @@ export const createBackup = async (req: Request, res: Response) => {
   try {
     const backupService = new BackupService();
     const result = await backupService.createBackup();
-    
+
     res.json({
       success: true,
       message: 'Backup created successfully',
@@ -226,7 +176,7 @@ export const restoreBackup = async (req: Request, res: Response) => {
 
     const backupService = new BackupService();
     await backupService.restoreBackup(req.file.path);
-    
+
     res.json({
       success: true,
       message: 'Backup restored successfully'
@@ -245,7 +195,7 @@ export const getBackupList = async (req: Request, res: Response) => {
   try {
     const backupService = new BackupService();
     const backups = await backupService.getBackupList();
-    
+
     res.json({
       success: true,
       backups
@@ -265,7 +215,7 @@ export const downloadBackup = async (req: Request, res: Response) => {
     const { filename } = req.params;
     const backupService = new BackupService();
     const filePath = await backupService.getBackupFilePath(filename);
-    
+
     res.download(filePath, filename, (err) => {
       if (err) {
         console.error('Download error:', err);
@@ -290,7 +240,7 @@ export const deleteBackup = async (req: Request, res: Response) => {
     const { filename } = req.params;
     const backupService = new BackupService();
     await backupService.deleteBackup(filename);
-    
+
     res.json({
       success: true,
       message: 'Backup deleted successfully'

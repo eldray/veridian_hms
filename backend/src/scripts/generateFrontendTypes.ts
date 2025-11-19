@@ -1,118 +1,252 @@
 // src/scripts/generateFrontendTypes.ts
 // npm run gen:types
-import { Project, SyntaxKind } from 'ts-morph';
+import { Project } from 'ts-morph';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { PrismaClient } from '@prisma/client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MODELS_DIR = path.resolve(__dirname, '../models');
-const OUTPUT_FILE = path.resolve(__dirname, '../types/backendTypes.ts');
+const PRISMA_SCHEMA_PATH = path.resolve(__dirname, '../../prisma/schema.prisma');
+const OUTPUT_FILE = path.resolve(__dirname, '../../frontend/src/types/backendTypes.ts');
+
+// Map Prisma types to TypeScript types
+const prismaToTsTypeMap: Record<string, string> = {
+  'String': 'string',
+  'Int': 'number',
+  'Float': 'number',
+  'Boolean': 'boolean',
+  'DateTime': 'string', // Convert DateTime to string for frontend
+  'Json': 'any',
+  'Decimal': 'number',
+};
 
 /**
- * Converts backend TypeScript types to frontend-friendly equivalents.
- * - Date → string
- * - ObjectId variants → string
- * - Removes Mongoose/Document references
+ * Convert Prisma field type to TypeScript type
  */
-function toFrontendType(typeStr: string): string {
-  return typeStr
-    // Only replace standalone "Date" (not inside "startDate", etc.)
-    .replace(/\bDate\b/g, 'string')
-    // Replace ObjectId variants (with word boundaries for safety)
-    .replace(/\bmongoose\.Types\.ObjectId\b/g, 'string')
-    .replace(/\bTypes\.ObjectId\b/g, 'string')
-    .replace(/\bObjectId\b/g, 'string')
-    // Clean up imports and document types
-    .replace(/import\(.*?\)\./g, '')
-    .replace(/\bDocument\b\s*[,&]?/g, '')
-    .replace(/extends\s+[^{]+/g, '')
-    .trim();
+function toTypeScriptType(fieldType: string, isOptional: boolean): string {
+  let tsType = prismaToTsTypeMap[fieldType] || fieldType;
+  
+  // Handle optional fields
+  if (isOptional) {
+    tsType += ' | null';
+  }
+  
+  return tsType;
 }
 
-function generateTypes(): void {
-  if (!fs.existsSync(MODELS_DIR)) {
-    console.error(`❌ Models directory not found: ${MODELS_DIR}`);
-    process.exit(1);
-  }
-
-  const project = new Project({
-    tsConfigFilePath: path.resolve(__dirname, '../../tsconfig.json'),
-    skipAddingFilesFromTsConfig: true,
-  });
-
-  const allInterfaces: Array<{ name: string; members: string[] }> = [];
-  const modelFiles = fs.readdirSync(MODELS_DIR).filter(f => f.endsWith('.ts'));
-
-  for (const file of modelFiles) {
-    const filePath = path.join(MODELS_DIR, file);
-    const sourceFile = project.addSourceFileAtPath(filePath);
-
-    // Extract all exported interfaces
-    const interfaces = sourceFile.getInterfaces().filter(i => i.isExported());
-    for (const iface of interfaces) {
-      const name = iface.getName();
-      if (name.includes('<')) continue; // Skip generic interfaces
-
-      const members: string[] = [];
-      iface.getMembers().forEach(member => {
-        if (member.getKind() === SyntaxKind.PropertySignature) {
-          const prop = member.asKind(SyntaxKind.PropertySignature);
-          const propName = prop.getName();
-          let propType = prop.getTypeNode()?.getText() || 'any';
-
-          // Convert to frontend-friendly types
-          propType = toFrontendType(propType);
-
-          // Handle optional properties
-          const isOptional = prop.hasQuestionToken();
-          const questionMark = isOptional ? '?' : '';
-
-          // Handle comments (if any)
-          const commentRanges = prop.getLeadingCommentRanges();
-          const comment = commentRanges.length > 0 ? commentRanges[0].getText() : '';
-
-          let memberStr = '';
-          if (comment) {
-            memberStr += `  ${comment}\n`;
-          }
-          memberStr += `  ${propName}${questionMark}: ${propType};`;
-          members.push(memberStr);
-        }
-      });
-
-      allInterfaces.push({ name, members });
+/**
+ * Extract model definitions from Prisma schema
+ */
+function parsePrismaSchema(schemaContent: string): any {
+  const models: Record<string, any> = {};
+  let currentModel: string | null = null;
+  
+  const lines = schemaContent.split('\n');
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Start of model
+    if (trimmed.startsWith('model ')) {
+      currentModel = trimmed.split(' ')[1];
+      models[currentModel] = { fields: [] };
+      continue;
+    }
+    
+    // End of model
+    if (trimmed === '}' && currentModel) {
+      currentModel = null;
+      continue;
+    }
+    
+    // Field definition
+    if (currentModel && trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('@@')) {
+      const fieldMatch = trimmed.match(/^(\w+)\s+(\w+)(\?)?(\s+@.*)?$/);
+      if (fieldMatch) {
+        const [, fieldName, fieldType, optionalMarker] = fieldMatch;
+        const isOptional = optionalMarker === '?';
+        
+        models[currentModel].fields.push({
+          name: fieldName,
+          type: fieldType,
+          optional: isOptional,
+          raw: trimmed
+        });
+      }
     }
   }
+  
+  return models;
+}
 
-  if (allInterfaces.length === 0) {
-    console.error('❌ No exported interfaces found in models directory.');
-    console.error('💡 Make sure your model files contain: export interface IName { ... }');
+async function generateTypes(): Promise<void> {
+  if (!fs.existsSync(PRISMA_SCHEMA_PATH)) {
+    console.error(`❌ Prisma schema not found: ${PRISMA_SCHEMA_PATH}`);
     process.exit(1);
   }
 
-  // Generate output
-  let output = `// AUTO-GENERATED from backend Mongoose models\n`;
-  output += `// DO NOT EDIT MANUALLY\n\n`;
+  const schemaContent = fs.readFileSync(PRISMA_SCHEMA_PATH, 'utf-8');
+  const models = parsePrismaSchema(schemaContent);
 
-  allInterfaces.forEach(({ name, members }) => {
-    output += `export interface ${name} {\n`;
-    output += `  _id: string;\n`;
-    output += members.join('\n') + '\n';
-    output += `}\n\n`;
-  });
-
-  // Write to file
-  const outputDir = path.dirname(OUTPUT_FILE);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+  if (Object.keys(models).length === 0) {
+    console.error('❌ No models found in Prisma schema.');
+    process.exit(1);
   }
 
-  fs.writeFileSync(OUTPUT_FILE, output, 'utf-8');
-  console.log(`✅ Generated ${allInterfaces.length} interfaces →`);
+  const project = new Project();
+  const sourceFile = project.createSourceFile(OUTPUT_FILE, '', { overwrite: true });
+
+  // Add header comment
+  sourceFile.addStatements([
+    '// AUTO-GENERATED from Prisma schema',
+    '// DO NOT EDIT MANUALLY',
+    '// Generated on: ' + new Date().toISOString(),
+    ''
+  ]);
+
+  // Generate interfaces for each model
+  for (const [modelName, modelData] of Object.entries(models)) {
+    const interfaceDeclaration = sourceFile.addInterface({
+      name: modelName,
+      isExported: true,
+      properties: []
+    });
+
+    // Add fields
+    modelData.fields.forEach((field: any) => {
+      // Skip relation fields that start with lowercase (handled separately if needed)
+      if (field.name === field.name.toLowerCase() && !['id', 'createdAt', 'updatedAt'].includes(field.name)) {
+        const tsType = toTypeScriptType(field.type, field.optional);
+        
+        interfaceDeclaration.addProperty({
+          name: field.name,
+          type: tsType,
+          hasQuestionToken: field.optional
+        });
+      }
+    });
+
+    // Add common timestamp fields if they exist in the model
+    const hasCreatedAt = modelData.fields.some((f: any) => f.name === 'createdAt');
+    const hasUpdatedAt = modelData.fields.some((f: any) => f.name === 'updatedAt');
+    
+    if (hasCreatedAt) {
+      interfaceDeclaration.addProperty({
+        name: 'createdAt',
+        type: 'string'
+      });
+    }
+    
+    if (hasUpdatedAt) {
+      interfaceDeclaration.addProperty({
+        name: 'updatedAt',
+        type: 'string'
+      });
+    }
+
+    sourceFile.addStatements(['']);
+  }
+
+  // Add common API response types
+  sourceFile.addStatements([
+    '// Common API Response Types',
+    'export interface ApiResponse<T> {',
+    '  success: boolean;',
+    '  data: T;',
+    '  message?: string;',
+    '}',
+    '',
+    'export interface PaginatedResponse<T> {',
+    '  data: T[];',
+    '  pagination: {',
+    '    page: number;',
+    '    limit: number;',
+    '    total: number;',
+    '    pages: number;',
+    '  };',
+    '}',
+    '',
+    '// Common Form Data Types',
+    'export interface CreatePatientData {',
+    '  fullName: string;',
+    '  dateOfBirth: string;',
+    '  gender: string;',
+    '  contact: string;',
+    '  emergencyContact?: string;',
+    '  address?: string;',
+    '  nhisNumber?: string;',
+    '}',
+    '',
+    'export interface CreateAdmissionData {',
+    '  patientId: string;',
+    '  wardId: string;',
+    '  bedId: string;',
+    '  reasonForAdmission: string;',
+    '  diagnosis: string;',
+    '  admittingDoctor: string;',
+    '}',
+    '',
+    'export interface CreateAttendanceData {',
+    '  patientId: string;',
+    '  attendanceType: string;',
+    '  paymentMode: string;',
+    '  attendingClinician: string;',
+    '  department: string;',
+    '}',
+    '',
+    'export interface BillItemData {',
+    '  description: string;',
+    '  quantity: number;',
+    '  unitPrice: number;',
+    '  serviceItemId?: string;',
+    '}',
+    '',
+    'export interface CreateBillData {',
+    '  patientId: string;',
+    '  attendanceId: string;',
+    '  paymentMode: string;',
+    '  items: BillItemData[];',
+    '}',
+    '',
+    '// NHIS Specific Types',
+    'export interface NHISClaimStatus {',
+    '  attendanceNumber: string;',
+    '  patientName: string;',
+    '  isClaimReady: boolean;',
+    '  validation: {',
+    '    canSubmit: boolean;',
+    '    errors: string[];',
+    '  };',
+    '  missingRequirements: {',
+    '    nhisNumber: boolean;',
+    '    primaryDiagnosis: boolean;',
+    '    servicesWithMissingCodes: string[];',
+    '  };',
+    '}',
+    '',
+    '// Search and Filter Types',
+    'export interface PatientSearchFilters {',
+    '  search?: string;',
+    '  gender?: string;',
+    '  isActive?: boolean;',
+    '}',
+    '',
+    'export interface AdmissionFilters {',
+    '  status?: string;',
+    '  wardId?: string;',
+    '  startDate?: string;',
+    '  endDate?: string;',
+    '}',
+    ''
+  ]);
+
+  await sourceFile.save();
+  
+  console.log(`✅ Generated ${Object.keys(models).length} interfaces from Prisma schema`);
   console.log(`📁 ${OUTPUT_FILE}`);
 }
 
-generateTypes();
+generateTypes().catch(console.error);

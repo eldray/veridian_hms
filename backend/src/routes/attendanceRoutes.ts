@@ -1,125 +1,90 @@
-// routes/attendanceRoutes.ts - OPTIMIZED VERSION
+// routes/attendanceRoutes.ts - CORRECTED VERSION
 import express from 'express';
+import * as attendanceController from '../controllers/attendanceController';
 import {
-  // CRUD Operations
-  getAttendances,
-  getAttendanceById,
-  createAttendance,
-  updateAttendance,
-  deleteAttendance,
-  getAttendanceStats,
-  
-  // Diagnosis Operations
-  addDiagnosisToAttendance,
-  removeDiagnosisFromAttendance,
-  
-  // Lab Test Operations  
-  addLabTestToAttendance,
-  updateLabTestStatus,
-  removeLabTestFromAttendance,
-  
-  // Procedure Operations
-  addProcedureToAttendance,
-  updateProcedureStatus,
-  removeProcedureFromAttendance,
-  
-  // Medication Operations
-  addMedicationToAttendance,
-  updateMedicationStatus,
-  removeMedicationFromAttendance,
-  
-  // Scan Operations
-  addScanToAttendance,
-  updateScanStatus,
-  removeScanFromAttendance,
-  
-  // Vitals Operations
-  addVitalsToAttendance,
-  getVitalsByAttendance,
-  
-  // Progress Notes Operations
-  addProgressNoteToAttendance,
-  removeProgressNoteFromAttendance,
-  
-  // Status Operations
-  updateAttendanceStatus,
-  
-  // Billing Operations
-  calculateAttendanceBill,
-  // generateBillFromAttendance // REMOVED - doesn't exist in controller
-} from '../controllers/attendanceController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+  protect,
+  requireAdmin,
+  requireDoctor,
+  requireMedicalStaff,
+  requireClinicalStaff,
+  requireLabStaff,
+  requirePharmacyStaff,
+  requireRadiologyStaff,
+  requireRecordsStaff,
+  requireAccountsStaff
+} from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// ===== CRUD OPERATIONS =====
-router.route('/')
-  .get(protect, requireRole(['admin', 'doctor', 'nurse', 'midwife']), getAttendances)
-  .post(protect, requireRole(['admin', 'doctor', 'nurse', 'midwife']), createAttendance);
+// ✅ All routes require authentication
+router.use(protect);
 
-router.get('/stats', protect, requireRole(['admin', 'doctor', 'nurse']), getAttendanceStats);
+// ==========================================
+// ATTENDANCE CRUD OPERATIONS
+// ==========================================
 
-router.route('/:id')
-  .get(protect, requireRole(['admin', 'doctor', 'nurse', 'midwife']), getAttendanceById)
-  .put(protect, requireRole(['admin', 'doctor', 'nurse']), updateAttendance)
-  .delete(protect, requireRole(['admin']), deleteAttendance);
+router.get('/', requireMedicalStaff, attendanceController.getAttendances);
+router.get('/stats', requireMedicalStaff, attendanceController.getAttendanceStats);
+router.get('/:id', requireMedicalStaff, attendanceController.getAttendanceById);
+router.post('/', requireRecordsStaff, attendanceController.createAttendance);
+router.put('/:id', requireMedicalStaff, attendanceController.updateAttendance);
+router.patch('/:id/status', requireMedicalStaff, attendanceController.updateAttendanceStatus);
+router.delete('/:id', requireAdmin, attendanceController.deleteAttendance);
 
-// ===== STATUS OPERATIONS =====
-router.patch('/:id/status', protect, requireRole(['admin', 'doctor']), updateAttendanceStatus);
+// ==========================================
+// DIAGNOSES
+// ==========================================
+router.post('/:id/diagnoses', requireDoctor, attendanceController.addDiagnosisToAttendance);
+router.delete('/:id/diagnoses/:diagnosisId', requireDoctor, attendanceController.removeDiagnosisFromAttendance);
 
-// ===== DIAGNOSIS OPERATIONS =====
-router.route('/:id/diagnoses')
-  .post(protect, requireRole(['admin', 'doctor']), addDiagnosisToAttendance);
+// ==========================================
+// LAB TESTS
+// ==========================================
+router.post('/:id/lab-tests', requireMedicalStaff, attendanceController.addLabTestToAttendance);
+router.patch('/:id/lab-tests/:labTestId', requireLabStaff, attendanceController.updateLabTestStatus);
+router.delete('/:id/lab-tests/:labTestId', requireDoctor, attendanceController.removeLabTestFromAttendance);
 
-router.route('/:id/diagnoses/:diagnosisId')
-  .delete(protect, requireRole(['admin', 'doctor']), removeDiagnosisFromAttendance);
+// ==========================================
+// PROCEDURES
+// ==========================================
+router.post('/:id/procedures', requireDoctor, attendanceController.addProcedureToAttendance);
+router.patch('/:id/procedures/:procedureId', requireMedicalStaff, attendanceController.updateProcedureStatus);
+router.delete('/:id/procedures/:procedureId', requireDoctor, attendanceController.removeProcedureFromAttendance);
 
-// ===== LAB TEST OPERATIONS =====
-router.route('/:id/lab-tests')
-  .post(protect, requireRole(['admin', 'doctor', 'nurse']), addLabTestToAttendance);
+// ==========================================
+// MEDICATIONS
+// ==========================================
+router.post('/:id/medications', requireDoctor, attendanceController.addMedicationToAttendance);
+router.patch('/:id/medications/:medicationId', requireClinicalStaff, attendanceController.updateMedicationStatus);
+router.delete('/:id/medications/:medicationId', requireDoctor, attendanceController.removeMedicationFromAttendance);
 
-router.route('/:id/lab-tests/:labTestId')
-  .put(protect, requireRole(['admin', 'doctor', 'lab_tech']), updateLabTestStatus)
-  .delete(protect, requireRole(['admin', 'doctor']), removeLabTestFromAttendance);
+// ==========================================
+// SCANS
+// ==========================================
+router.post('/:id/scans', requireDoctor, attendanceController.addScanToAttendance);
+router.patch('/:id/scans/:scanId', requireRadiologyStaff, attendanceController.updateScanStatus);
+router.delete('/:id/scans/:scanId', requireDoctor, attendanceController.removeScanFromAttendance);
 
-// ===== PROCEDURE OPERATIONS =====
-router.route('/:id/procedures')
-  .post(protect, requireRole(['admin', 'doctor']), addProcedureToAttendance);
+// ==========================================
+// VITALS
+// ==========================================
+router.post('/:id/vitals', requireMedicalStaff, attendanceController.addVitalsToAttendance);
+router.get('/:id/vitals', requireMedicalStaff, attendanceController.getVitalsByAttendance);
+router.put('/:id/vitals/:vitalsId', requireMedicalStaff, attendanceController.updateVitals);
+router.delete('/:id/vitals/:vitalsId', requireMedicalStaff, attendanceController.deleteVitals);
 
-router.route('/:id/procedures/:procedureId')
-  .put(protect, requireRole(['admin', 'doctor']), updateProcedureStatus)
-  .delete(protect, requireRole(['admin', 'doctor']), removeProcedureFromAttendance);
+// ==========================================
+// SERVICES & BILLING
+// ==========================================
+router.post('/:id/services', requireMedicalStaff, attendanceController.addServiceToAttendance);
+router.delete('/:id/services/:serviceId', requireAccountsStaff, attendanceController.removeServiceFromAttendance);
+router.post('/:id/calculate-bill', requireAccountsStaff, attendanceController.calculateAttendanceBill);
+router.get('/:id/billing-breakdown', requireAccountsStaff, attendanceController.getBillingBreakdown); // ✅ ADDED
 
-// ===== MEDICATION OPERATIONS =====
-router.route('/:id/medications')
-  .post(protect, requireRole(['admin', 'doctor']), addMedicationToAttendance);
-
-router.route('/:id/medications/:medicationId')
-  .put(protect, requireRole(['admin', 'doctor', 'pharmacist']), updateMedicationStatus)
-  .delete(protect, requireRole(['admin', 'doctor']), removeMedicationFromAttendance);
-
-// ===== SCAN OPERATIONS =====
-router.route('/:id/scans')
-  .post(protect, requireRole(['admin', 'doctor']), addScanToAttendance);
-
-router.route('/:id/scans/:scanId')
-  .put(protect, requireRole(['admin', 'doctor', 'lab_tech']), updateScanStatus)
-  .delete(protect, requireRole(['admin', 'doctor']), removeScanFromAttendance);
-
-// ===== VITALS OPERATIONS =====
-router.route('/:id/vitals')
-  .get(protect, requireRole(['admin', 'doctor', 'nurse']), getVitalsByAttendance)
-  .post(protect, requireRole(['admin', 'doctor', 'nurse']), addVitalsToAttendance);
-
-// ===== PROGRESS NOTES OPERATIONS =====
-router.route('/:id/progress-notes')
-  .post(protect, requireRole(['admin', 'doctor', 'nurse']), addProgressNoteToAttendance);
-
-router.route('/:id/progress-notes/:noteId')
-  .delete(protect, requireRole(['admin', 'doctor', 'nurse']), removeProgressNoteFromAttendance);
-
-// ===== BILLING OPERATIONS =====
-router.post('/:id/calculate-bill', protect, requireRole(['admin', 'accounts']), calculateAttendanceBill);
-// router.post('/:id/generate-bill', protect, requireRole(['admin', 'accounts', 'doctor']), generateBillFromAttendance); // REMOVED
+// ==========================================
+// NHIS CLAIM MANAGEMENT
+// ==========================================
+router.get('/:attendanceId/nhis/validate', requireClinicalStaff, attendanceController.validateNHISClaim);
+router.get('/:attendanceId/nhis/generate-claim-data', requireClinicalStaff, attendanceController.generateNHISClaimFromAttendance);
 
 export default router;

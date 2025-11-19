@@ -1,13 +1,37 @@
-import express from 'express';
-import { getWards, getWardById, createWard, updateWard, deleteWard } from '../controllers/wardController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+// routes/bedRoutes.ts
+import { Router } from 'express';
+import {
+  getBeds,
+  getBedById,
+  createBed,
+  updateBed,
+  deleteBed
+} from '../controllers/bedController';
+import {
+  protect,
+  requireRole,
+  requireAdmin,
+  requireMedicalStaff
+} from '../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', protect, requireRole(['doctor', 'nurse', 'admin']), getWards);
-router.get('/:id', protect, requireRole(['doctor', 'nurse', 'admin']), getWardById);
-router.post('/', protect, requireRole(['admin']), createWard);
-router.put('/:id', protect, requireRole(['admin']), updateWard);
-router.delete('/:id', protect, requireRole(['admin']), deleteWard);
+// All routes require authentication
+router.use(protect);
+
+// Get all beds - accessible by medical staff and admin
+router.get('/', requireMedicalStaff, getBeds);
+
+// Get bed by ID - accessible by medical staff and admin
+router.get('/:id', requireMedicalStaff, getBedById);
+
+// Create bed - admin only
+router.post('/', requireAdmin, createBed);
+
+// Update bed - admin only
+router.put('/:id', requireAdmin, updateBed);
+
+// Delete bed - admin only
+router.delete('/:id', requireAdmin, deleteBed);
 
 export default router;

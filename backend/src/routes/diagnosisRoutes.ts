@@ -1,13 +1,55 @@
-import express from 'express';
-import { getDiagnoses, getDiagnosisById, createDiagnosis, updateDiagnosis, deleteDiagnosis } from '../controllers/diagnosisController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+import { Router } from 'express';
+import {
+  getDiagnoses,
+  getDiagnosisById,
+  createDiagnosis,
+  updateDiagnosis,
+  deleteDiagnosis,
+  getDiagnosisStats,
+  bulkUpdateDiagnoses,
+  searchDiagnoses,
+  getDiagnosisCategories,
+  getDiagnosisVariants
+} from '../controllers/diagnosisController';
+import {
+  protect,
+  requireAdmin,
+  requireClinicalStaff
+} from '../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', protect, requireRole(['admin']), getDiagnoses);
-router.get('/:id', protect, requireRole(['admin']), getDiagnosisById);
-router.post('/', protect, requireRole(['admin']), createDiagnosis);
-router.put('/:id', protect, requireRole(['admin']), updateDiagnosis);
-router.delete('/:id', protect, requireRole(['admin']), deleteDiagnosis);
+// All routes require authentication
+router.use(protect);
+
+// Get all diagnoses - accessible by clinical staff and admin
+router.get('/', requireClinicalStaff, getDiagnoses);
+
+// Search diagnoses - accessible by clinical staff and admin
+router.get('/search', requireClinicalStaff, searchDiagnoses);
+
+// Get diagnosis statistics - admin only
+router.get('/stats', requireAdmin, getDiagnosisStats);
+
+// Get diagnosis categories - accessible by clinical staff and admin
+router.get('/categories', requireClinicalStaff, getDiagnosisCategories);
+
+// Get diagnosis variants - accessible by clinical staff and admin
+router.get('/variants', requireClinicalStaff, getDiagnosisVariants);
+
+// Get diagnosis by ID - accessible by clinical staff and admin
+router.get('/:id', requireClinicalStaff, getDiagnosisById);
+
+// Create diagnosis - admin only
+router.post('/', requireAdmin, createDiagnosis);
+
+// Bulk update diagnoses - admin only
+router.post('/bulk-update', requireAdmin, bulkUpdateDiagnoses);
+
+// Update diagnosis - admin only
+router.put('/:id', requireAdmin, updateDiagnosis);
+
+// Delete diagnosis - admin only
+router.delete('/:id', requireAdmin, deleteDiagnosis);
 
 export default router;

@@ -1,59 +1,130 @@
-// backend/middleware/authMiddleware.ts - ADD DEBUGGING
+// backend/middleware/authMiddleware.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import UserModel from '../models/User';
+// ✅ Add this
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+// Extended Request interface
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    userId: string;
+    role: UserRole;
+    username: string;
+    fullName: string;
+    email?: string;
+    licenseNumber?: string;
+    specialization?: string;
+  };
+}
+
+// User roles from Prisma schema
+export type UserRole = 
+  | 'admin' 
+  | 'doctor' 
+  | 'nurse' 
+  | 'midwife' 
+  | 'records' 
+  | 'lab_tech' 
+  | 'pharmacist' 
+  | 'accounts' 
+  | 'sonographer';
 
 interface DecodedToken {
   userId: string;
-  role: string;
+  role: UserRole;
   username: string;
   fullName: string;
+  email?: string;
 }
 
-export const protect = async (req: Request, res: Response, next: NextFunction) => {
+export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    console.log('🔐 Auth Middleware - Headers:', req.headers);
+    console.log('🔐 Auth Middleware - Headers:', {
+      authorization: req.headers.authorization ? 'Present' : 'Missing',
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent']?.substring(0, 50)
+    });
     
     const authHeader = req.headers.authorization;
-    console.log('🔐 Auth Header:', authHeader);
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('❌ No Bearer token found');
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Access denied. No token provided.' 
+      });
     }
 
     const token = authHeader.split(' ')[1];
-    console.log('🔐 Token received (first 50 chars):', token.substring(0, 50) + '...');
     
     if (!token) {
       console.log('❌ No token found after Bearer');
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Access denied. Invalid token format.' 
+      });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as DecodedToken;
-    console.log('✅ Token decoded successfully:', decoded);
-    
-    // Verify user still exists and is active
-    const user = await UserModel.findById(decoded.userId);
-    if (!user) {
-      console.log('❌ User not found for ID:', decoded.userId);
-      return res.status(401).json({ message: 'User no longer exists' });
+    // Verify JWT token
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET not configured');
+      return res.status(500).json({ 
+        success: false,
+        message: 'Server configuration error' 
+      });
     }
 
-    if (!user.isActive) {
-      console.log('❌ User account inactive:', user.username);
-      return res.status(401).json({ message: 'User account is inactive' });
-    }
-
-    console.log('✅ User authenticated:', user.username, 'Role:', user.role);
-    
-    (req as any).user = {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as DecodedToken;
+    console.log('✅ Token decoded successfully:', {
       userId: decoded.userId,
       role: decoded.role,
-      username: decoded.username,
-      fullName: decoded.fullName,
-      _id: user._id // Add this for compatibility
+      username: decoded.username
+    });
+    
+    // Verify user exists and is active using Prisma
+    const user = await prisma.user.findUnique({
+      where: { 
+        id: decoded.userId,
+        isActive: true 
+      },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        role: true,
+        email: true,
+        licenseNumber: true,
+        specialization: true,
+        isActive: true
+      }
+    });
+
+    if (!user) {
+      console.log('❌ User not found or inactive:', decoded.userId);
+      return res.status(401).json({ 
+        success: false,
+        message: 'User account not found or inactive' 
+      });
+    }
+
+    console.log('✅ User authenticated:', {
+      username: user.username,
+      role: user.role,
+      fullName: user.fullName
+    });
+    
+    // Attach user to request
+    req.user = {
+      id: user.id,
+      userId: user.id, // For compatibility
+      role: user.role,
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email || undefined,
+      licenseNumber: user.licenseNumber || undefined,
+      specialization: user.specialization || undefined
     };
     
     next();
@@ -61,53 +132,168 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     console.error('❌ Auth middleware error:', error);
     
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid token' 
+      });
     }
     if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ message: 'Token expired' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Token expired' 
+      });
     }
     
-    res.status(401).json({ message: 'Authentication failed' });
+    res.status(401).json({ 
+      success: false,
+      message: 'Authentication failed' 
+    });
   }
 };
 
-
-export const requireRole = (roles: string[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+// Enhanced role-based access control
+export const requireRole = (allowedRoles: UserRole[]) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const user = (req as any).user;
-      
-      if (!user) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-
-      // If role is not in token, fetch from database
-      let userRole = user.role;
-      if (!userRole) {
-        const userData = await UserModel.findById(user.userId);
-        if (!userData) {
-          return res.status(403).json({ message: 'User not found' });
-        }
-        userRole = userData.role;
-        (req as any).user.role = userRole;
-      }
-
-      if (!userRole || !roles.includes(userRole)) {
+      if (!req.user) {
+        console.log('❌ Role check failed: No user in request');
         return res.status(403).json({ 
-          message: `Access denied. Required roles: ${roles.join(', ')}` 
+          success: false,
+          message: 'Access denied. Authentication required.' 
         });
       }
+
+      const userRole = req.user.role;
+      
+      if (!userRole || !allowedRoles.includes(userRole)) {
+        console.log('❌ Role check failed:', {
+          required: allowedRoles,
+          actual: userRole,
+          user: req.user.username
+        });
+        return res.status(403).json({ 
+          success: false,
+          message: `Access denied. Required roles: ${allowedRoles.join(', ')}. Your role: ${userRole}` 
+        });
+      }
+
+      console.log('✅ Role check passed:', {
+        user: req.user.username,
+        role: userRole,
+        required: allowedRoles
+      });
       
       next();
     } catch (error) {
-      console.error('Role middleware error:', error);
-      res.status(500).json({ message: 'Error verifying user role' });
+      console.error('❌ Role middleware error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error verifying user role' 
+      });
     }
   };
 };
 
-// Specific role middleware functions for common use cases
-export const requireMedicalStaff = requireRole(['doctor', 'nurse', 'midwife']);
-export const requireClinicalStaff = requireRole(['doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist']);
+// Specific role middleware functions with comprehensive coverage
 export const requireAdmin = requireRole(['admin']);
-export const requireRecords = requireRole(['records', 'admin']);
+export const requireMedicalStaff = requireRole([
+  'admin',
+  'doctor', 
+  'nurse', 
+  'midwife', 
+  'lab_tech', 
+  'pharmacist',
+  'sonographer']);
+export const requireClinicalStaff = requireRole([
+  'admin',
+  'doctor', 
+  'nurse', 
+  'midwife', 
+  'lab_tech', 
+  'pharmacist',
+  'sonographer'
+]);
+export const requireLabStaff = requireRole(['lab_tech', 'doctor', 'admin']);
+export const requirePharmacyStaff = requireRole(['pharmacist', 'doctor', 'admin']);
+export const requireRadiologyStaff = requireRole(['sonographer', 'doctor', 'admin']);
+export const requireRecordsStaff = requireRole(['records', 'admin']);
+export const requireAccountsStaff = requireRole(['accounts', 'admin']);
+export const requireDoctor = requireRole(['doctor', 'admin']);
+export const requireNurse = requireRole(['nurse', 'doctor', 'admin']);
+export const requireMidwife = requireRole(['midwife', 'doctor', 'admin']);
+
+// Department-specific access
+export const requirePatientManagement = requireRole([
+  'admin', 'doctor', 'nurse', 'midwife', 'records'
+]);
+export const requireBillingAccess = requireRole([
+  'admin', 'accounts', 'doctor'
+]);
+export const requireLabAccess = requireRole([
+  'admin', 'lab_tech', 'doctor'
+]);
+export const requirePharmacyAccess = requireRole([
+  'admin', 'pharmacist', 'doctor'
+]);
+export const requireRadiologyAccess = requireRole([
+  'admin', 'sonographer', 'doctor'
+]);
+
+// Utility function to check if user can modify specific records
+export const canModifyRecord = (req: AuthRequest, recordOwnerId?: string): boolean => {
+  if (!req.user) return false;
+  
+  // Admin can modify anything
+  if (req.user.role === 'admin') return true;
+  
+  // Doctors can modify records in their department
+  if (req.user.role === 'doctor') return true;
+  
+  // Users can only modify their own records if owner ID is provided
+  if (recordOwnerId && req.user.id === recordOwnerId) return true;
+  
+  return false;
+};
+
+// Middleware to check ownership or admin access
+export const requireOwnershipOrAdmin = (ownerIdField: string = 'userId') => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return res.status(403).json({ 
+          success: false,
+          message: 'Access denied' 
+        });
+      }
+
+      // Admin can access anything
+      if (req.user.role === 'admin') {
+        return next();
+      }
+
+      // Check if user owns the resource
+      const resourceOwnerId = (req.params as any)[ownerIdField] || (req.body as any)[ownerIdField];
+      
+      if (resourceOwnerId && resourceOwnerId === req.user.id) {
+        return next();
+      }
+
+      console.log('❌ Ownership check failed:', {
+        user: req.user.id,
+        resourceOwner: resourceOwnerId,
+        field: ownerIdField
+      });
+
+      return res.status(403).json({ 
+        success: false,
+        message: 'Access denied. You can only access your own records.' 
+      });
+    } catch (error) {
+      console.error('❌ Ownership middleware error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error verifying access' 
+      });
+    }
+  };
+};

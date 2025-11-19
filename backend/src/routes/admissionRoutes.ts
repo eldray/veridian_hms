@@ -1,13 +1,48 @@
+// routes/admissionRoutes.ts - CORRECTED VERSION
 import express from 'express';
-import { getAdmissions, getAdmissionById, createAdmission, updateAdmission, deleteAdmission } from '../controllers/admissionController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+import {
+  getAdmissions,
+  getAdmissionById,
+  createAdmission,
+  updateAdmission,
+  deleteAdmission,
+  updateAdmissionWithNHISData,
+  dischargePatient,
+  addDailyNotes, // ✅ ADDED
+  getAdmissionStats // ✅ ADDED
+} from '../controllers/admissionController';
+import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-router.get('/', protect, requireRole(['doctor', 'nurse', 'admin']), getAdmissions);
-router.get('/:id', protect, requireRole(['doctor', 'nurse', 'admin']), getAdmissionById);
-router.post('/', protect, requireRole(['doctor', 'nurse', 'admin']), createAdmission);
-router.put('/:id', protect, requireRole(['doctor', 'nurse', 'admin']), updateAdmission);
-router.delete('/:id', protect, requireRole(['doctor', 'nurse', 'admin']), deleteAdmission);
+// All routes are protected
+router.use(protect);
+
+// GET /api/admissions - Get all admissions (optional query: ?status=admitted)
+router.get('/', getAdmissions);
+
+// GET /api/admissions/stats - Get admission statistics
+router.get('/stats', getAdmissionStats); // ✅ ADDED
+
+// GET /api/admissions/:id - Get admission by ID
+router.get('/:id', getAdmissionById);
+
+// POST /api/admissions - Create new admission
+router.post('/', createAdmission);
+
+// PUT /api/admissions/:id - Update admission
+router.put('/:id', updateAdmission);
+
+// DELETE /api/admissions/:id - Delete admission
+router.delete('/:id', deleteAdmission);
+
+// PATCH /api/admissions/:id/nhis - Update admission with NHIS IPD data
+router.patch('/:id/nhis', updateAdmissionWithNHISData);
+
+// POST /api/admissions/:id/discharge - Discharge patient
+router.post('/:id/discharge', dischargePatient);
+
+// POST /api/admissions/:id/daily-notes - Add daily notes to admission
+router.post('/:id/daily-notes', addDailyNotes); // ✅ ADDED
 
 export default router;

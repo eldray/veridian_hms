@@ -1,4 +1,4 @@
-// store/scanTemplateStore.ts
+// store/scanTemplateStore.ts - UPDATED WITH ALL API FUNCTIONS
 import { create } from 'zustand';
 import { 
   getScanTemplates as apiGetScanTemplates,
@@ -7,15 +7,19 @@ import {
   updateScanTemplate as apiUpdateScanTemplate,
   deleteScanTemplate as apiDeleteScanTemplate,
   getScanCategories as apiGetScanCategories,
-  getScanBodyParts as apiGetScanBodyParts
+  getScanBodyParts as apiGetScanBodyParts,
+  // ✅ ADDED MISSING FUNCTIONS
+  getScanTypes as apiGetScanTypes,
+  bulkUpdateScanTemplates as apiBulkUpdateScanTemplates
 } from '../api';
 
 interface ScanTemplate {
-  _id: string;
+  id: string;
   name: string;
   description: string;
   category: string;
   bodyPart: string;
+  scanType: string; // ✅ ADDED
   cashPrice: number;
   insurancePrice: number;
   costPrice: number;
@@ -35,17 +39,26 @@ interface ScanTemplateState {
   currentScanTemplate: ScanTemplate | null;
   categories: string[];
   bodyParts: string[];
+  scanTypes: string[]; // ✅ ADDED
   isLoading: boolean;
   error: string | null;
 
-  // Actions
+  // Core Actions
   getScanTemplates: (filters?: any) => Promise<void>;
   getScanTemplate: (id: string) => Promise<void>;
   createScanTemplate: (data: any) => Promise<void>;
   updateScanTemplate: (id: string, data: any) => Promise<void>;
   deleteScanTemplate: (id: string) => Promise<void>;
+  
+  // Metadata Actions
   getScanCategories: () => Promise<void>;
   getScanBodyParts: () => Promise<void>;
+  getScanTypes: () => Promise<void>; // ✅ ADDED
+  
+  // Bulk Operations
+  bulkUpdateScanTemplates: (data: any) => Promise<void>; // ✅ ADDED
+  
+  // Utility Actions
   clearCurrentScanTemplate: () => void;
   clearError: () => void;
 }
@@ -55,6 +68,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
   currentScanTemplate: null,
   categories: [],
   bodyParts: [],
+  scanTypes: [], // ✅ ADDED
   isLoading: false,
   error: null,
 
@@ -101,7 +115,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const updatedTemplate = await apiUpdateScanTemplate(id, data);
       const templates = get().scanTemplates.map(template =>
-        template._id === id ? updatedTemplate : template
+        template.id === id ? updatedTemplate : template
       );
       set({ 
         scanTemplates: templates,
@@ -118,10 +132,10 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await apiDeleteScanTemplate(id);
-      const templates = get().scanTemplates.filter(template => template._id !== id);
+      const templates = get().scanTemplates.filter(template => template.id !== id);
       set({ 
         scanTemplates: templates,
-        currentScanTemplate: get().currentScanTemplate?._id === id ? null : get().currentScanTemplate,
+        currentScanTemplate: get().currentScanTemplate?.id === id ? null : get().currentScanTemplate,
         isLoading: false 
       });
     } catch (error: any) {
@@ -148,6 +162,33 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
       set({ bodyParts, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan body parts' });
+      throw error;
+    }
+  },
+
+  // ✅ ADDED MISSING FUNCTIONS
+  getScanTypes: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const scanTypes = await apiGetScanTypes();
+      set({ scanTypes, isLoading: false });
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to fetch scan types' });
+      throw error;
+    }
+  },
+
+  bulkUpdateScanTemplates: async (data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiBulkUpdateScanTemplates(data);
+      
+      // Refresh scan templates after bulk update
+      await get().getScanTemplates();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to bulk update scan templates' });
       throw error;
     }
   },

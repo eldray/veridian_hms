@@ -1,20 +1,51 @@
-// routes/billRoutes.ts
 import express from 'express';
 import {
   getBills,
   getBillById,
   createBill,
   addPaymentToBill,
-  generateBillReport
+  generateBillFromAttendance,
+  generateBillReport,
+  getBillingBreakdown,
+  updateBillStatus,
+  getBillStatistics
 } from '../controllers/billController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+import { protect, requireAccountsStaff, requireBillingAccess } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-router.get('/', protect, getBills);
-router.get('/:id', protect, getBillById);
-router.get('/:id/report', protect, generateBillReport);
-router.post('/', protect, requireRole(['admin', 'accounts', 'doctor']), createBill);
-router.post('/:id/payment', protect, requireRole(['admin', 'accounts']), addPaymentToBill);
+// All routes are protected
+router.use(protect);
+
+// ==========================================
+// BILL MANAGEMENT ROUTES
+// ==========================================
+
+// GET /api/bills - Get all bills with pagination and filtering
+router.get('/', requireBillingAccess, getBills);
+
+// GET /api/bills/statistics - Get bill statistics
+router.get('/statistics', requireAccountsStaff, getBillStatistics);
+
+// GET /api/bills/:id - Get bill by ID
+router.get('/:id', requireBillingAccess, getBillById);
+
+// GET /api/bills/:id/report - Generate bill report
+router.get('/:id/report', requireBillingAccess, generateBillReport);
+
+// GET /api/bills/:id/breakdown - Get billing breakdown
+router.get('/:id/breakdown', requireBillingAccess, getBillingBreakdown);
+
+// POST /api/bills - Create manual bill
+router.post('/', requireAccountsStaff, createBill);
+
+// POST /api/bills/generate/:attendanceId - Generate bill from attendance services
+router.post('/generate/:attendanceId', requireAccountsStaff, generateBillFromAttendance);
+
+// POST /api/bills/:id/payments - Add payment to bill with payment method
+router.post('/:id/payments', requireAccountsStaff, addPaymentToBill);
+
+// PATCH /api/bills/:id/status - Update bill status
+router.patch('/:id/status', requireAccountsStaff, updateBillStatus);
 
 export default router;

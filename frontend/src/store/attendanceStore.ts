@@ -1,5 +1,8 @@
-// stores/attendanceStore.ts - FULLY ENHANCED WITH STATUS MANAGEMENT + ALL FEATURES
+// stores/attendanceStore.ts - FINAL: NO 'active' STATUS + FULL NHIS + ROBUST
 import { create } from 'zustand';
+import { useGDRGTariffStore } from './gdrgTariffStore';
+import { useHospitalStore } from './hospitalStore';
+import { useSettingsStore } from './settingsStore';
 import {
   getAttendances as apiGetAttendances,
   getAttendance as apiGetAttendance,
@@ -23,16 +26,18 @@ import {
   removeScanFromAttendance as apiRemoveScan,
   addVitalsToAttendance as apiAddVitals,
   getVitalsByAttendance as apiGetVitals,
+  updateVitals as apiUpdateVitals,
+  deleteVitals as apiDeleteVitals,
   addProgressNoteToAttendance as apiAddProgressNote,
   removeProgressNoteFromAttendance as apiRemoveProgressNote,
   calculateAttendanceBill as apiCalculateBill,
   getAttendanceStats as apiGetAttendanceStats,
   addServiceToAttendance as apiAddService,
   removeServiceFromAttendance as apiRemoveService,
-  getVitalsByAttendance,
+  generateNHISClaim as apiGenerateNHISClaim,
+  submitNHISClaim as apiSubmitNHISClaim,
+  generateNHISClaimFromAttendance as apiGenerateNHISClaimFromAttendance
 } from '../api';
-
-import type { Attendance, Pagination, Vitals, ProgressNote } from '../types';
 
 interface AttendanceState {
   attendances: Attendance[];
@@ -42,26 +47,24 @@ interface AttendanceState {
   stats: any;
   error: string | null;
 
-  // Status checking helpers
+  // === STATUS HELPERS (ONLY 'pending') ===
   canAddActivities: (attendance: Attendance) => boolean;
-  canPerformActivities: (attendance: Attendance) => boolean;
   canModifyActivities: (attendance: Attendance) => boolean;
   canAddMedicalEntries: (attendance: Attendance) => boolean;
   canRecordVitals: (attendance: Attendance) => boolean;
   canAddProgressNotes: (attendance: Attendance) => boolean;
   canCompleteAttendance: (attendance: Attendance) => boolean;
 
-  // Main operations
+  // === CORE ===
   getAttendances: (filters?: any) => Promise<void>;
   getAttendance: (id: string) => Promise<void>;
   createAttendance: (data: any) => Promise<Attendance>;
   updateAttendance: (id: string, data: any) => Promise<void>;
   deleteAttendance: (id: string) => Promise<void>;
   updateAttendanceStatus: (id: string, data: any) => Promise<void>;
-  activateAttendance: (id: string) => Promise<void>;
   completeAttendance: (id: string, data?: any) => Promise<void>;
 
-  // Clinical operations (with status validation)
+  // === CLINICAL ===
   addDiagnosis: (attendanceId: string, data: any) => Promise<void>;
   removeDiagnosis: (attendanceId: string, diagnosisId: string) => Promise<void>;
   addLabTest: (attendanceId: string, data: any) => Promise<void>;
@@ -77,23 +80,28 @@ interface AttendanceState {
   updateScanStatus: (attendanceId: string, scanId: string, data: any) => Promise<void>;
   removeScan: (attendanceId: string, scanId: string) => Promise<void>;
 
-  // Vitals & Notes
+  // === VITALS & NOTES ===
   addVitals: (attendanceId: string, data: any) => Promise<void>;
-  getVitals: (attendanceId: string) => Promise<Vitals[]>;
+  getVitalsByAttendance: (attendanceId: string) => Promise<Vitals[]>;
+  updateVitals: (attendanceId: string, vitalsId: string, data: any) => Promise<void>;
+  deleteVitals: (attendanceId: string, vitalsId: string) => Promise<void>;
+
   addProgressNote: (attendanceId: string, data: any) => Promise<void>;
   removeProgressNote: (attendanceId: string, noteId: string) => Promise<void>;
-  getVitalsByAttendance: (attendanceId: string) => Promise<Vitals[]>;
-  // Billing
-  calculateBill: (attendanceId: string) => Promise<any>;
 
-  // Stats
+  // === BILLING & STATS ===
+  calculateBill: (attendanceId: string) => Promise<any>;
   getAttendanceStats: (filters?: any) => Promise<void>;
 
-  // Services
+  // === SERVICES ===
   addService: (attendanceId: string, data: any) => Promise<void>;
   removeService: (attendanceId: string, serviceId: string) => Promise<void>;
 
-  // Utils
+  // === NHIS ===
+  generateNHISClaim: (attendanceId: string) => Promise<any>;
+  submitNHISClaim: (attendanceId: string, data?: any) => Promise<void>;
+
+  // === UTILS ===
   clearCurrentAttendance: () => void;
   clearError: () => void;
 }
@@ -106,777 +114,658 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   stats: null,
   error: null,
 
-  // 🔑 STATUS CHECKING HELPERS
-  canAddActivities: (attendance: Attendance) => {
-    return ['pending', 'active'].includes(attendance.status);
-  },
-  
-  canPerformActivities: (attendance: Attendance) => {
-    return attendance.status === 'active';
-  },
-  
-  canModifyActivities: (attendance: Attendance) => {
-    return ['pending', 'active'].includes(attendance.status);
-  },
-  
-  canAddMedicalEntries: (attendance: Attendance) => {
-    return attendance.status === 'pending';
-  },
-  
-  canRecordVitals: (attendance: Attendance) => {
-    return ['pending', 'active'].includes(attendance.status);
-  },
-  
-  canAddProgressNotes: (attendance: Attendance) => {
-    return ['pending', 'active'].includes(attendance.status);
-  },
-  
-  canCompleteAttendance: (attendance: Attendance) => {
-    return ['pending', 'active'].includes(attendance.status);
-  },
+  // === STATUS HELPERS (ONLY 'pending') ===
+  canAddActivities: (a) => a.status === 'pending',
+  canModifyActivities: (a) => a.status === 'pending',
+  canAddMedicalEntries: (a) => a.status === 'pending',
+  canRecordVitals: (a) => a.status === 'pending',
+  canAddProgressNotes: (a) => a.status === 'pending',
+  canCompleteAttendance: (a) => a.status === 'pending',
 
-  // --- CORE OPERATIONS ---
-  getAttendances: async (filters: any = {}) => {
+  // === CORE ===
+  // ✅ FIXED: Proper API response handling
+  getAttendances: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('🔍 [AttendanceStore] Fetching attendances with filters:', filters);
+      console.log('🔄 Loading attendances with filters:', filters);
       const response = await apiGetAttendances(filters);
-      console.log('🔍 [AttendanceStore] Raw API response:', response);
       
       let attendances = [];
-      
-      // Debug all possible response structures
+      let pagination = null;
+
+      // ✅ Handle different response formats
       if (Array.isArray(response)) {
-        console.log('✅ Response is direct array');
         attendances = response;
       } else if (Array.isArray(response.attendances)) {
-        console.log('✅ Response has attendances array');
         attendances = response.attendances;
+        pagination = response.pagination;
       } else if (Array.isArray(response.data)) {
-        console.log('✅ Response has data array');
         attendances = response.data;
+        pagination = response.pagination;
       } else if (response.data && Array.isArray(response.data.attendances)) {
-        console.log('✅ Response has data.attendances array');
         attendances = response.data.attendances;
-      } else {
-        console.warn('❌ Unexpected response structure:', response);
-        attendances = [];
+        pagination = response.data.pagination;
       }
+
+      console.log('✅ Attendances loaded:', attendances.length);
       
-      console.log('🔍 [AttendanceStore] Processed attendances:', attendances);
-      
-      // Log first attendance to see patient data structure
-      if (attendances.length > 0) {
-        console.log('🔍 [AttendanceStore] First attendance structure:', {
-          id: attendances[0]._id || attendances[0].id,
-          patientId: attendances[0].patientId,
-          patient: attendances[0].patient,
-          allKeys: Object.keys(attendances[0])
-        });
-      }
-      
-      set({
-        attendances,
-        pagination: response.pagination || null,
-        isLoading: false
+      // ✅ Add fullName to patient data for frontend compatibility
+      const attendancesWithFullName = attendances.map(attendance => ({
+        ...attendance,
+        patient: attendance.patient ? {
+          ...attendance.patient,
+          fullName: `${attendance.patient.surname || ''} ${attendance.patient.otherNames || ''}`.trim()
+        } : null
+      }));
+
+      set({ 
+        attendances: attendancesWithFullName, 
+        pagination,
+        isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to fetch attendances:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to fetch attendances'
+      console.error('❌ Failed to fetch attendances:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch attendances';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
   getAttendance: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const attendance = await apiGetAttendance(id);
-      set({ currentAttendance: attendance, isLoading: false });
+      console.log('🔄 Fetching attendance:', id);
+      const response = await apiGetAttendance(id);
+      
+      let attendanceData;
+      if (response.data) {
+        attendanceData = response.data;
+      } else if (response.attendance) {
+        attendanceData = response.attendance;
+      } else {
+        attendanceData = response;
+      }
+
+      // ✅ Add fullName to patient data
+      if (attendanceData.patient) {
+        attendanceData.patient = {
+          ...attendanceData.patient,
+          fullName: `${attendanceData.patient.surname || ''} ${attendanceData.patient.otherNames || ''}`.trim()
+        };
+      }
+
+      console.log('✅ Attendance fetched:', attendanceData.id);
+      set({ currentAttendance: attendanceData, isLoading: false });
     } catch (error: any) {
-      console.error('Failed to fetch attendance:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to fetch attendance'
+      console.error('❌ Failed to fetch attendance:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch attendance';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
-  createAttendance: async (data: any) => {
+  createAttendance: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const newAttendance = await apiCreateAttendance(data);
-      const attendances = get().attendances;
-      set({
-        attendances: [newAttendance, ...attendances],
+      console.log('📝 Creating attendance:', data);
+      const response = await apiCreateAttendance(data);
+      
+      let newAttendance;
+      if (response.attendance) {
+        newAttendance = response.attendance;
+      } else if (response.data) {
+        newAttendance = response.data;
+      } else {
+        newAttendance = response;
+      }
+
+      // ✅ Add fullName to patient data
+      if (newAttendance.patient) {
+        newAttendance.patient = {
+          ...newAttendance.patient,
+          fullName: `${newAttendance.patient.surname || ''} ${newAttendance.patient.otherNames || ''}`.trim()
+        };
+      }
+
+      set((state) => ({ 
+        attendances: [newAttendance, ...state.attendances],
         currentAttendance: newAttendance,
-        isLoading: false
-      });
+        isLoading: false 
+      }));
       return newAttendance;
     } catch (error: any) {
-      console.error('Failed to create attendance:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to create attendance'
+      console.error('❌ Failed to create attendance:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create attendance';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
-  updateAttendance: async (id: string, data: any) => {
+  // ✅ FIXED: Use correct ID field (id instead of id)
+  updateAttendance: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateAttendance(id, data);
-      const attendances = get().attendances.map(attendance =>
-        attendance._id === id ? updatedAttendance : attendance
-      );
+      const updated = await apiUpdateAttendance(id, data);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === id ? updated : a),
+        currentAttendance: get().currentAttendance?.id === id ? updated : get().currentAttendance,
         isLoading: false
       });
     } catch (error: any) {
-      console.error('Failed to update attendance:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update attendance'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update attendance' });
       throw error;
     }
   },
 
-  deleteAttendance: async (id: string) => {
+  deleteAttendance: async (id) => {
     set({ isLoading: true, error: null });
     try {
       await apiDeleteAttendance(id);
-      const attendances = get().attendances.filter(attendance => attendance._id !== id);
       set({
-        attendances,
-        currentAttendance: get().currentAttendance?._id === id ? null : get().currentAttendance,
+        attendances: get().attendances.filter(a => a.id !== id),
+        currentAttendance: get().currentAttendance?.id === id ? null : get().currentAttendance,
         isLoading: false
       });
     } catch (error: any) {
-      console.error('Failed to delete attendance:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to delete attendance'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to delete attendance' });
       throw error;
     }
   },
 
-  updateAttendanceStatus: async (id: string, data: any) => {
+  updateAttendanceStatus: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateAttendanceStatus(id, data);
-      const attendances = get().attendances.map(attendance =>
-        attendance._id === id ? updatedAttendance : attendance
-      );
+      const updated = await apiUpdateAttendanceStatus(id, data);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === id ? updated : a),
+        currentAttendance: get().currentAttendance?.id === id ? updated : get().currentAttendance,
         isLoading: false
       });
     } catch (error: any) {
-      console.error('Failed to update attendance status:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update attendance status'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update status' });
       throw error;
     }
   },
 
-  activateAttendance: async (id: string) => {
-    return get().updateAttendanceStatus(id, { status: 'active' });
-  },
+  completeAttendance: (id, data = {}) => get().updateAttendanceStatus(id, { status: 'completed', ...data }),
 
-  completeAttendance: async (id: string, data: any = {}) => {
-    return get().updateAttendanceStatus(id, { status: 'completed', ...data });
-  },
-
-  // --- DIAGNOSIS ---
-  addDiagnosis: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add diagnosis to completed or cancelled attendance');
-    }
-
+  // === CLINICAL OPERATIONS (ALL REQUIRE 'pending') ===
+  addDiagnosis: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add diagnosis to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddDiagnosis(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const gdrgCode = data.gdrgCode || data.diagnosis?.gdrgCode;
+      if (gdrgCode && !useGDRGTariffStore.getState().getTariff(gdrgCode)) {
+        await useGDRGTariffStore.getState().fetchTariffs();
+      }
+      const updated = await apiAddDiagnosis(attendanceId, data);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a),
+        currentAttendance: updated,
         isLoading: false
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add diagnosis:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add diagnosis'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add diagnosis' });
       throw error;
     }
   },
 
-  removeDiagnosis: async (attendanceId: string, diagnosisId: string) => {
+  removeDiagnosis: async (attendanceId, diagnosisId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveDiagnosis(attendanceId, diagnosisId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const updated = await apiRemoveDiagnosis(attendanceId, diagnosisId);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a),
+        currentAttendance: updated,
         isLoading: false
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove diagnosis:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove diagnosis'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove diagnosis' });
       throw error;
     }
   },
 
-  // --- LAB TESTS ---
-  addLabTest: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add lab test to completed or cancelled attendance');
-    }
-
+  addLabTest: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add lab test to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddLabTest(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const updated = await apiAddLabTest(attendanceId, data);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a),
+        currentAttendance: updated,
         isLoading: false
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add lab test:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add lab test'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add lab test' });
       throw error;
     }
   },
 
-  updateLabTestStatus: async (attendanceId: string, labTestId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canPerformActivities(attendance)) {
-      throw new Error('Cannot update lab test status for non-active attendance');
-    }
-
+  updateLabTestStatus: async (attendanceId, labTestId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || att.status !== 'pending') throw new Error('Cannot update lab test on non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateLabTestStatus(attendanceId, labTestId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const updated = await apiUpdateLabTestStatus(attendanceId, labTestId, data);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a),
+        currentAttendance: updated,
         isLoading: false
       });
     } catch (error: any) {
-      console.error('Failed to update lab test status:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update lab test status'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update lab test status' });
       throw error;
     }
   },
 
-  removeLabTest: async (attendanceId: string, labTestId: string) => {
+  removeLabTest: async (attendanceId, labTestId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveLabTest(attendanceId, labTestId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const updated = await apiRemoveLabTest(attendanceId, labTestId);
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a),
+        currentAttendance: updated,
         isLoading: false
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove lab test:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove lab test'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove lab test' });
       throw error;
     }
   },
 
-  // --- PROCEDURES ---
-  addProcedure: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add procedure to completed or cancelled attendance');
-    }
-
+  // === PROCEDURES, MEDS, SCANS (same pattern) ===
+  addProcedure: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add procedure to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddProcedure(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiAddProcedure(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add procedure:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add procedure'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add procedure' });
       throw error;
     }
   },
 
-  updateProcedureStatus: async (attendanceId: string, procedureId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canPerformActivities(attendance)) {
-      throw new Error('Cannot update procedure status for non-active attendance');
-    }
-
+  updateProcedureStatus: async (attendanceId, procedureId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || att.status !== 'pending') throw new Error('Cannot update procedure on non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateProcedureStatus(attendanceId, procedureId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiUpdateProcedureStatus(attendanceId, procedureId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to update procedure status:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update procedure status'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update procedure status' });
       throw error;
     }
   },
 
-  removeProcedure: async (attendanceId: string, procedureId: string) => {
+  removeProcedure: async (attendanceId, procedureId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveProcedure(attendanceId, procedureId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiRemoveProcedure(attendanceId, procedureId);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove procedure:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove procedure'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove procedure' });
       throw error;
     }
   },
 
-  // --- MEDICATIONS ---
-  addMedication: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add medication to completed or cancelled attendance');
-    }
-
+  addMedication: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add medication to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddMedication(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiAddMedication(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add medication:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add medication'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add medication' });
       throw error;
     }
   },
 
-  updateMedicationStatus: async (attendanceId: string, medicationId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canPerformActivities(attendance)) {
-      throw new Error('Cannot update medication status for non-active attendance');
-    }
-
+  updateMedicationStatus: async (attendanceId, medicationId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || att.status !== 'pending') throw new Error('Cannot dispense on non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to update medication status:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update medication status'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update medication status' });
       throw error;
     }
   },
 
-  removeMedication: async (attendanceId: string, medicationId: string) => {
+  removeMedication: async (attendanceId, medicationId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveMedication(attendanceId, medicationId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiRemoveMedication(attendanceId, medicationId);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove medication:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove medication'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove medication' });
       throw error;
     }
   },
 
-  // --- SCANS ---
-  addScan: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add scan to completed or cancelled attendance');
-    }
-
+  addScan: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add scan to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddScan(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiAddScan(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add scan:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add scan'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add scan' });
       throw error;
     }
   },
 
-  updateScanStatus: async (attendanceId: string, scanId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canPerformActivities(attendance)) {
-      throw new Error('Cannot update scan status for non-active attendance');
-    }
-
+  updateScanStatus: async (attendanceId, scanId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || att.status !== 'pending') throw new Error('Cannot update scan on non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiUpdateScanStatus(attendanceId, scanId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiUpdateScanStatus(attendanceId, scanId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to update scan status:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to update scan status'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to update scan status' });
       throw error;
     }
   },
 
-  removeScan: async (attendanceId: string, scanId: string) => {
+  removeScan: async (attendanceId, scanId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveScan(attendanceId, scanId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiRemoveScan(attendanceId, scanId);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove scan:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove scan'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove scan' });
       throw error;
     }
   },
 
-  // --- VITALS ---
-  addVitals: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canPerformActivities(attendance)) {
-      throw new Error('Cannot record vitals for pending, completed, or cancelled attendance');
-    }
-
+  // === VITALS ===
+  addVitals: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canRecordVitals(att)) throw new Error('Cannot record vitals on non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddVitals(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      const updated = await apiAddVitals(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
+      });
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to record vitals' });
+      throw error;
+    }
+  },
+
+  getVitalsByAttendance: async (attendanceId) => {
+    try {
+      return await apiGetVitals(attendanceId);
+    } catch (error) {
+      console.error('Error fetching vitals:', error);
+      return [];
+    }
+  },
+
+  updateVitals: async (attendanceId: string, vitalsId: string, data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log('📝 Updating vitals:', { attendanceId, vitalsId, data });
+      
+      const response = await apiUpdateVitals(attendanceId, vitalsId, data);
+      
+      // ✅ UPDATE LOCAL STATE
+      const updatedAttendance = await apiGetAttendance(attendanceId);
+      
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => 
+          a.id === attendanceId ? updatedAttendance : a
+        ),
+        currentAttendance: get().currentAttendance?.id === attendanceId 
+          ? updatedAttendance 
+          : get().currentAttendance,
         isLoading: false
       });
+      
+      console.log('✅ Vitals updated successfully');
+      return response.vitals;
     } catch (error: any) {
-      console.error('Failed to add vitals:', error);
+      console.error('❌ Failed to update vitals:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update vitals';
       set({
-        isLoading: false,
-        error: error.message || 'Failed to add vitals'
-      });
-      throw error;
-    }
-  },
-
-  getVitals: async (attendanceId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const vitals = await apiGetVitals(attendanceId);
-      set({ isLoading: false });
-      return vitals;
-    } catch (error: any) {
-      console.error('Failed to get vitals:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to get vitals'
-      });
-      throw error;
-    }
-  },
-getVitalsByAttendance: async (attendanceId: string) => {
-  try {
-    // Use the axios-based function that includes authentication
-    const vitals = await getVitalsByAttendance(attendanceId);
-    return vitals;
-  } catch (error) {
-    console.error('Error fetching vitals:', error);
-    return [];
-  }
-},
-  
-
-  // --- PROGRESS NOTES ---
-  addProgressNote: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add progress note to completed or cancelled attendance');
-    }
-
-    set({ isLoading: true, error: null });
-    try {
-      const updatedAttendance = await apiAddProgressNote(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        error: errorMessage,
         isLoading: false
       });
-    } catch (error: any) {
-      console.error('Failed to add progress note:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add progress note'
-      });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
-  removeProgressNote: async (attendanceId: string, noteId: string) => {
+  deleteVitals: async (attendanceId: string, vitalsId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveProgressNote(attendanceId, noteId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
+      console.log('🗑️ Deleting vitals:', { attendanceId, vitalsId });
+      
+      const response = await apiDeleteVitals(attendanceId, vitalsId);
+      
+      // ✅ UPDATE LOCAL STATE
+      const updatedAttendance = await apiGetAttendance(attendanceId);
+      
       set({
-        attendances,
-        currentAttendance: updatedAttendance,
+        attendances: get().attendances.map(a => 
+          a.id === attendanceId ? updatedAttendance : a
+        ),
+        currentAttendance: get().currentAttendance?.id === attendanceId 
+          ? updatedAttendance 
+          : get().currentAttendance,
         isLoading: false
       });
+      
+      console.log('✅ Vitals deleted successfully');
+      return response;
     } catch (error: any) {
-      console.error('Failed to remove progress note:', error);
+      console.error('❌ Failed to delete vitals:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete vitals';
       set({
-        isLoading: false,
-        error: error.message || 'Failed to remove progress note'
+        error: errorMessage,
+        isLoading: false
       });
+      throw new Error(errorMessage);
+    }
+  },
+
+  // === PROGRESS NOTES ===
+  addProgressNote: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddProgressNotes(att)) throw new Error('Cannot add note to non-pending attendance');
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await apiAddProgressNote(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
+      });
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to add note' });
       throw error;
     }
   },
 
-  // --- BILLING ---
-  calculateBill: async (attendanceId: string) => {
+  removeProgressNote: async (attendanceId, noteId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await apiRemoveProgressNote(attendanceId, noteId);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
+      });
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to remove note' });
+      throw error;
+    }
+  },
+
+  // === BILLING & STATS ===
+  calculateBill: async (attendanceId) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiCalculateBill(attendanceId);
-      if (get().currentAttendance?._id === attendanceId) {
-        await get().getAttendance(attendanceId);
-      }
       set({ isLoading: false });
       return result;
     } catch (error: any) {
-      console.error('Failed to calculate bill:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to calculate bill'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to calculate bill' });
       throw error;
     }
   },
 
-  // --- STATS ---
-  getAttendanceStats: async (filters: any = {}) => {
+  getAttendanceStats: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const stats = await apiGetAttendanceStats(filters);
       set({ stats, isLoading: false });
     } catch (error: any) {
-      console.error('Failed to fetch attendance stats:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to fetch attendance stats'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to fetch stats' });
       throw error;
     }
   },
 
-  // --- SERVICES ---
-  addService: async (attendanceId: string, data: any) => {
-    const attendance = get().attendances.find(a => a._id === attendanceId) || get().currentAttendance;
-    if (!attendance) throw new Error('Attendance not found');
-    if (!get().canAddActivities(attendance)) {
-      throw new Error('Cannot add service to completed or cancelled attendance');
-    }
-
+  // === SERVICES ===
+  addService: async (attendanceId, data) => {
+    const att = get().attendances.find(a => a.id === attendanceId) || get().currentAttendance;
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot add service to non-pending attendance');
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiAddService(attendanceId, data);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiAddService(attendanceId, data);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to add service:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to add service'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to add service' });
       throw error;
     }
   },
 
-  removeService: async (attendanceId: string, serviceId: string) => {
+  removeService: async (attendanceId, serviceId) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedAttendance = await apiRemoveService(attendanceId, serviceId);
-      const attendances = get().attendances.map(att =>
-        att._id === updatedAttendance._id ? updatedAttendance : att
-      );
-      set({
-        attendances,
-        currentAttendance: updatedAttendance,
-        isLoading: false
+      const updated = await apiRemoveService(attendanceId, serviceId);
+      set({ 
+        attendances: get().attendances.map(a => a.id === updated.id ? updated : a), 
+        currentAttendance: updated, 
+        isLoading: false 
       });
       await get().calculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Failed to remove service:', error);
-      set({
-        isLoading: false,
-        error: error.message || 'Failed to remove service'
-      });
+      set({ isLoading: false, error: error.message || 'Failed to remove service' });
       throw error;
     }
   },
 
-  // --- UTILS ---
-  clearCurrentAttendance: () => {
-    set({ currentAttendance: null });
+  // === NHIS CLAIM ===
+  generateNHISClaim: async (attendanceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiGenerateNHISClaim(attendanceId);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to generate NHIS claim' });
+      throw error;
+    }
   },
 
-  clearError: () => {
-    set({ error: null });
+  submitNHISClaim: async (attendanceId: string, data: any = {}) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSubmitNHISClaim(attendanceId, data);
+      
+      // Update the attendance in the local state to reflect the claim submission
+      set(state => ({
+        attendances: state.attendances.map(att => 
+          att.id === attendanceId 
+            ? { ...att, insuranceClaimId: result.data?.id, claimStatus: 'submitted' }
+            : att
+        ),
+        currentAttendance: state.currentAttendance?.id === attendanceId 
+          ? { ...state.currentAttendance, insuranceClaimId: result.data?.id, claimStatus: 'submitted' }
+          : state.currentAttendance,
+        isLoading: false
+      }));
+      
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Failed to submit NHIS claim' });
+      throw error;
+    }
   },
+
+  // === UTILS ===
+  clearCurrentAttendance: () => set({ currentAttendance: null }),
+  clearError: () => set({ error: null }),
 }));

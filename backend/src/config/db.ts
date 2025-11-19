@@ -1,16 +1,19 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+// config/db.ts
+import { PrismaClient } from '@prisma/client'
 
-dotenv.config();
+const prisma = new PrismaClient({
+  log: ['query', 'error', 'warn'], // Enable logging
+  errorFormat: 'colorless',
+})
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI as string);
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
-  }
-};
+// Handle graceful shutdown
+process.on('beforeExit', async () => {
+  await prisma.$disconnect()
+})
 
-export default connectDB;
+process.on('SIGINT', async () => {
+  await prisma.$disconnect()
+  process.exit(0)
+})
+
+export default prisma

@@ -1,69 +1,27 @@
-// src/pages/PatientDetails.tsx - FIXED SYNTAX & IMAGE LOADING
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+// src/pages/PatientDetails.tsx - UPDATED FOR SURNAME + OTHERNAMES
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
-import { useInsuranceStore } from '../store/insuranceStore'; 
-import { 
-  ArrowLeft, 
-  User, 
-  Phone, 
-  Calendar, 
-  MapPin, 
-  CreditCard, 
-  Heart, 
-  Briefcase, 
-  FileText,
-  Plus,
-  Edit,
-  Stethoscope,
-  Folder,
-  Mail,
-  DollarSign,
-  Shield,
-  Info,
-  ClipboardList,
-  History,
-  FileArchive,
-  Droplets,
-  Home,
-  Users,
-  Download,
-  MoreVertical,
-  Badge,
-  Activity,
-  Clock,
-  Pill,
-  FlaskConical,
-  Scissors,
-  AlertCircle,
-  CheckCircle,
-  XCircle
-} from 'lucide-react';
+import { useInsuranceStore } from '../store/insuranceStore';
+import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import { ArrowLeft, Edit, Calendar, Users, FileText, Pill, FlaskConical, Scissors, DollarSign, RefreshCw, AlertCircle, Loader, Trash2 } from 'lucide-react';
 
 export default function PatientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { 
-    patients, 
-    getPatientById, 
-    loadPatients,
-    currentPatient 
-  } = usePatientStore();
-  const { 
-    attendances, 
-    getAttendances 
-  } = useAttendanceStore();
+  const { success, error: toastError } = useToast();
+
+  const { currentPatient, fetchPatient, deletePatient } = usePatientStore();
+  const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
-  const { 
-    providers: insuranceProviders, 
-    getInsuranceProviders 
-  } = useInsuranceStore();
-  
+  const { providers: insuranceProviders, getInsuranceProviders } = useInsuranceStore();
+
   const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records'>('profile');
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     totalVisits: 0,
     completedVisits: 0,
@@ -72,226 +30,424 @@ export default function PatientDetails() {
     totalLabTests: 0
   });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  const patient = patients.find(p => p.id === id || p._id === id) || currentPatient;
-  const patientAttendances = attendances.filter(a => 
-    a.patientId === id || a.patientId === patient?._id || a.patientId === patient?.id
-  );
+  // Extract patient data properly from nested response
+  const patient = useMemo(() => {
+    if (!currentPatient) return null;
+    
+    // Handle different response formats
+    if (currentPatient.data) {
+      return currentPatient.data;
+    } else if (currentPatient.success && currentPatient.data) {
+      return currentPatient.data;
+    } else {
+      return currentPatient;
+    }
+  }, [currentPatient]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        if (id) await getPatientById(id);
-        await getAttendances();
-        await loadPatients();
-        await getInsuranceProviders();
-        calculateStats();
-      } catch (error) {
-        console.error('Error loading patient data:', error);
-      } finally {
-        setIsLoading(false);
+  // ✅ ADDED: Get full name from surname + otherNames
+  const getPatientFullName = (patient: any) => {
+    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+  };
+
+  // Filter patient attendances
+  const patientAttendances = useMemo(() => {
+    if (!patient || !attendances.length) return [];
+    const patientId = patient.id;
+
+    return attendances.filter(attendance => {
+      const attendanceId = attendance.id;
+      
+      // Case 1: Direct patientId string match
+      if (attendance.patientId === patientId) {
+        return true;
       }
-    };
-    loadData();
-  }, [id, getPatientById, getAttendances, loadPatients, getInsuranceProviders]);
 
-  useEffect(() => {
-    calculateStats();
+      // Case 2: Populated patient object with id
+      if (attendance.patient && typeof attendance.patient === 'object') {
+        const patientObjId = attendance.patient.id;
+        if (patientObjId === patientId) {
+          return true;
+        }
+      }
+
+      // Case 3: Nested patient data
+      if (attendance.patient?.id === patientId) {
+        return true;
+      }
+
+      return false;
+    });
   }, [attendances, patient]);
 
-  const calculateStats = () => {
+  // Data loading
+  const loadData = async () => {
+    if (!id) {
+      toastError('Error', 'No patient ID provided');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setRefreshing(true);
+    try {
+      console.log('🔄 Loading patient details for ID:', id);
+      
+      // Load all data in parallel
+      await Promise.all([
+        fetchPatient(id),
+        getAttendances(),
+        getInsuranceProviders()
+      ]);
+      
+      console.log('✅ Patient details loaded successfully');
+      
+      if (patient) {
+        success('Patient loaded', `${getPatientFullName(patient)} details ready`);
+      }
+    } catch (err: any) {
+      console.error('❌ Failed to load patient details:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Could not load patient data';
+      toastError('Load failed', errorMsg);
+      
+      // Redirect if patient not found
+      if (err.response?.status === 404) {
+        navigate('/dashboard/patients');
+      }
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [id, refreshTrigger]);
+
+  // Recalculate stats when attendances change
+  useEffect(() => {
     const totalVisits = patientAttendances.length;
     const completedVisits = patientAttendances.filter(a => a.status === 'completed').length;
-    const pendingVisits = patientAttendances.filter(a => ['pending', 'active'].includes(a.status)).length;
+    const pendingVisits = patientAttendances.filter(a => ['pending', 'active', 'in-progress'].includes(a.status)).length;
     const totalMedications = patientAttendances.reduce((sum, att) => sum + (att.medications?.length || 0), 0);
     const totalLabTests = patientAttendances.reduce((sum, att) => sum + (att.labTests?.length || 0), 0);
 
-    setStats({ totalVisits, completedVisits, pendingVisits, totalMedications, totalLabTests });
-  };
+    setStats({ 
+      totalVisits, 
+      completedVisits, 
+      pendingVisits, 
+      totalMedications, 
+      totalLabTests 
+    });
+  }, [patientAttendances]);
 
-  const handleAttendanceSuccess = (attendance: any) => {
-    console.log('✅ Attendance created successfully:', attendance);
+  const handleAttendanceSuccess = async () => {
     setShowAttendanceModal(false);
-    // Refresh attendances to show the new one
-    getAttendances();
+    try {
+      // Refresh data
+      await getAttendances();
+      setActiveTab('attendances');
+      setRefreshTrigger(prev => prev + 1);
+      success('Check-in complete', 'New visit created');
+    } catch {
+      toastError('Refresh failed', 'Could not update visit list');
+    }
   };
 
   const handleAttendanceClose = () => {
     setShowAttendanceModal(false);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading patient data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!patient) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="text-center bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
-          <User className="w-20 h-20 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Patient Not Found</h2>
-          <Link 
-            to="/dashboard/patients" 
-            className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold shadow-lg"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Patients
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
-  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse']);
+  const handleRefresh = () => {
+    loadData();
+  };
 
   const handleEdit = () => {
-    navigate(`/dashboard/patients/register?edit=true&id=${patient.id || patient._id}`);
+    navigate(`/dashboard/patients/register?edit=true&id=${patient?.id}`);
   };
 
   const handleNewAttendance = () => {
     setShowAttendanceModal(true);
   };
 
+  const handleDeletePatient = async () => {
+    if (!patient?.id) return;
+    
+    try {
+      await deletePatient(patient.id);
+      success('Patient Deleted', 'Patient record has been removed');
+      navigate('/dashboard/patients');
+    } catch (err: any) {
+      toastError('Delete Failed', err.message || 'Failed to delete patient');
+    }
+  };
+
+  // UI Helper Functions
+  const getGenderColor = (gender: string) => {
+    switch (gender?.toLowerCase()) {
+      case 'male': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
+      case 'female': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      if (!dateString) return 'No date';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
+  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse']);
+  const canDelete = hasRole(['admin']);
+
+  // Loading state
+  if (isLoading && !refreshing) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-lg border border-[var(--border-color)] p-10 max-w-md w-full">
+          <Loader className="w-14 h-14 text-[var(--icon-cyan-text)] animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Loading Patient...</h2>
+          <p className="text-[var(--text-secondary)]">Please wait while we load patient details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (!patient) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
+        <div className="text-center bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-8 max-w-md w-full">
+          <AlertCircle className="w-16 h-16 text-[var(--icon-red-text)] mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
+          <p className="text-[var(--text-secondary)] mb-6 text-sm">
+            The patient record does not exist or has been removed.
+          </p>
+          <button
+            onClick={() => navigate('/dashboard/patients')}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Patients
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'profile' as const, label: 'Profile', icon: Users },
+    { id: 'attendances' as const, label: 'Visits', icon: Calendar, count: patientAttendances.length },
+    { id: 'medical-records' as const, label: 'Medical', icon: FileText },
+    { id: 'documents' as const, label: 'Documents', icon: FileText },
+  ];
+
   return (
-    <div className="space-y-6 p-4 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 min-h-screen">
-      {/* Header - Maintained original size */}
-      <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-8 text-white shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
+    <div className="space-y-6 p-6">
+      {/* Header - Matching Dashboard Style */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/dashboard/patients')}
+            className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors bg-[var(--bg-card)] hover:bg-[var(--bg-main)] rounded-lg px-4 py-2 shadow-sm border border-[var(--border-color)]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          
+          <div>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Details</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Record #{patient.folderNumber || patient.id}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          {canCreateAttendance && (
             <button
-              onClick={() => navigate('/dashboard/patients')}
-              className="p-3 hover:bg-white/20 rounded-xl transition-all duration-200 backdrop-blur-sm"
+              onClick={handleNewAttendance}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <Calendar className="w-4 h-4" />
+              New Visit
             </button>
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20 overflow-hidden">
-                {patient.imageUrl ? (
-                  <img 
-                    src={patient.imageUrl} 
-                    alt={patient.fullName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to icon if image fails to load
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : null}
-                {!patient.imageUrl && <User className="w-10 h-10 text-white" />}
+          )}
+
+          {canEdit && (
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Patient
+            </button>
+          )}
+
+          {canDelete && (
+            <button
+              onClick={() => setDeleteConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white">{patient.fullName}</h1>
-                <div className="flex items-center gap-4 text-blue-100 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Folder className="w-5 h-5" />
-                    <span className="font-mono font-semibold">{patient.folderNumber}</span>
-                  </div>
-                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    <span className="capitalize">{patient.gender}</span>
-                  </div>
-                  <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Age:</span>
-                    <span>{patient.age} years</span>
-                  </div>
-                </div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Patient</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone.</p>
               </div>
             </div>
+            <p className="text-gray-700 mb-4">
+              Are you sure you want to delete <strong>{getPatientFullName(patient)}</strong>? 
+              All patient records and visits will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeletePatient}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Delete Patient
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {canCreateAttendance && (
-              <button
-                onClick={handleNewAttendance}
-                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 hover:shadow-lg shadow-md font-semibold border border-green-500/20"
-              >
-                <Plus className="w-5 h-5" />
-                <span>New Attendance</span>
-              </button>
-            )}
-            {canEdit && (
-              <button
-                onClick={handleEdit}
-                className="flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-200 font-semibold border border-white/20"
-              >
-                <Edit className="w-5 h-5" />
-                <span>Edit Patient</span>
-              </button>
-            )}
+        </div>
+      )}
+
+      {/* Patient Header Card */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          {/* Patient Info Section */}
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+              <Users className="w-8 h-8 text-[var(--icon-cyan-text)]" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h1 className="text-2xl font-bold text-[var(--text-primary)] leading-tight">
+                    {getPatientFullName(patient)} {/* ✅ CHANGED */}
+                  </h1>
+                  <p className="text-sm text-[var(--text-secondary)] bg-[var(--bg-main)] px-3 py-1.5 rounded border mt-2 inline-block">
+                    {patient.folderNumber || 'No Folder'} • {patient.ageDisplay || `${patient.age || 'N/A'} years`}
+                  </p>
+                </div>
+                <span className={`px-3 py-1.5 text-sm font-semibold rounded-full ${getGenderColor(patient.gender)}`}>
+                  {patient.gender?.charAt(0).toUpperCase() + patient.gender?.slice(1) || 'Unknown'}
+                </span>
+              </div>
+
+              {/* Details Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                  <Calendar className="w-4 h-4" />
+                  <span className="font-medium">DOB: {formatDate(patient.dateOfBirth)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                  <span className="font-semibold">Contact:</span> {patient.contact || 'N/A'}
+                </div>
+                <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                  <span className="font-semibold">Payment:</span> {patient.paymentMode || 'Cash'}
+                </div>
+                <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                  <span className="font-semibold">Registered:</span> {formatDate(patient.createdAt)}
+                </div>
+              </div>
+
+              {patient.address && (
+                <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                  <p className="text-[var(--text-primary)] text-sm">
+                    <span className="font-semibold">Address:</span> {patient.address}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Compact Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: 'Total Visits', value: stats.totalVisits, icon: Activity, color: 'blue' },
-          { label: 'Completed', value: stats.completedVisits, icon: CheckCircle, color: 'green' },
-          { label: 'Pending', value: stats.pendingVisits, icon: Clock, color: 'yellow' },
-          { label: 'Medications', value: stats.totalMedications, icon: Pill, color: 'purple' },
-          { label: 'Lab Tests', value: stats.totalLabTests, icon: FlaskConical, color: 'red' }
-        ].map((stat, index) => {
-          const Icon = stat.icon;
-          const colorClasses = {
-            blue: 'bg-blue-100 text-blue-600',
-            green: 'bg-green-100 text-green-600',
-            yellow: 'bg-yellow-100 text-yellow-600',
-            purple: 'bg-purple-100 text-purple-600',
-            red: 'bg-red-100 text-red-600'
-          }[stat.color];
-
-          return (
-            <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${colorClasses}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 font-medium">{stat.label}</p>
-                  <p className="text-lg font-bold text-gray-900">{stat.value}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center border border-[var(--border-color)]">
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.totalVisits}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Total Visits</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center border border-[var(--border-color)]">
+          <p className="text-2xl font-bold text-[var(--icon-green-text)]">{stats.completedVisits}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Completed</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center border border-[var(--border-color)]">
+          <p className="text-2xl font-bold text-[var(--icon-yellow-text)]">{stats.pendingVisits}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Pending</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center border border-[var(--border-color)]">
+          <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{stats.totalMedications}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Medications</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center border border-[var(--border-color)]">
+          <p className="text-2xl font-bold text-[var(--icon-purple-text)]">{stats.totalLabTests}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Lab Tests</p>
+        </div>
       </div>
 
-      {/* Compact Tabs */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-1 px-4">
-            {[
-              { id: 'profile' as const, label: 'Profile', icon: User, count: null },
-              { id: 'attendances' as const, label: 'Visits', icon: History, count: patientAttendances.length },
-              { id: 'medical-records' as const, label: 'Medical', icon: ClipboardList, count: null },
-              { id: 'documents' as const, label: 'Documents', icon: FileArchive, count: null },
-            ].map((tab) => {
+      {/* Tabs */}
+      <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)]">
+        <div className="border-b border-[var(--border-color)]">
+          <nav className="flex flex-wrap gap-1 p-2">
+            {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-all duration-200 ${
+                  className={`flex items-center gap-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600 font-semibold'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                   {tab.label}
-                  {tab.count !== null && tab.count > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                      activeTab === tab.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                  {tab.count !== undefined && (
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
                     }`}>
                       {tab.count}
                     </span>
@@ -302,601 +458,85 @@ export default function PatientDetails() {
           </nav>
         </div>
 
-        <div className="p-4">
-          {activeTab === 'profile' && <CompactProfileTab patient={patient} insuranceProviders={insuranceProviders} patientId={patient.id || patient._id} />}
-          {activeTab === 'attendances' && <CompactAttendancesTab attendances={patientAttendances} patient={patient} />}
-          {activeTab === 'medical-records' && <CompactMedicalRecordsTab attendances={patientAttendances} patient={patient} />}
-          {activeTab === 'documents' && <CompactDocumentsTab patient={patient} />}
+        <div className="p-6">
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl p-5 border border-blue-200">
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Basic Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Full Name</span>
+                      <span className="font-bold text-[var(--text-primary)]">{getPatientFullName(patient)}</span> {/* ✅ CHANGED */}
+                    </div>
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Folder Number</span>
+                      <span className="font-bold text-[var(--text-primary)]">{patient.folderNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Gender</span>
+                      <span className="font-bold text-[var(--text-primary)]">{patient.gender || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Date of Birth</span>
+                      <span className="font-bold text-[var(--text-primary)]">{formatDate(patient.dateOfBirth)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Age</span>
+                      <span className="font-bold text-[var(--text-primary)]">{patient.ageDisplay || `${patient.age || 'N/A'} years`}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200">
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Contact Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] text-sm font-medium">Contact Number</span>
+                      <span className="font-bold text-[var(--text-primary)]">{patient.contact || 'N/A'}</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                      <p className="text-[var(--text-secondary)] text-sm font-medium mb-1">Address</p>
+                      <p className="font-bold text-[var(--text-primary)] text-sm">{patient.address || 'No address provided'}</p>
+                    </div>
+                    {patient.additionalInfo?.email && (
+                      <div className="flex justify-between items-center bg-white rounded-lg p-3 border border-[var(--border-color)]">
+                        <span className="text-[var(--text-secondary)] text-sm font-medium">Email</span>
+                        <span className="font-bold text-[var(--text-primary)]">{patient.additionalInfo.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional sections would go here */}
+            </div>
+          )}
+
+          {activeTab !== 'profile' && (
+            <div className="text-center py-16">
+              <FileText className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content
+              </h3>
+              <p className="text-[var(--text-secondary)] text-sm">
+                {activeTab} details and management features are coming soon.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Attendance Modal */}
+      {/* Modal */}
       {showAttendanceModal && (
         <NewAttendanceModal
-          patientId={patient.id || patient._id}
+          patientId={patient.id}
           onSuccess={handleAttendanceSuccess}
           onClose={handleAttendanceClose}
         />
       )}
-    </div>
-  );
-}
-
-// Compact Profile Tab Component - FIXED SYNTAX
-interface CompactProfileTabProps {
-  patient: any;
-  insuranceProviders: any[];
-  patientId: string;
-}
-
-function CompactProfileTab({ patient, insuranceProviders, patientId }: CompactProfileTabProps) {
-  const [activeSection, setActiveSection] = useState<'basic' | 'payment' | 'additional'>('basic');
-
-  const sections = [
-    { id: 'basic' as const, label: 'Basic Info', icon: User },
-    { id: 'additional' as const, label: 'Additional', icon: Info },
-    { id: 'payment' as const, label: 'Payment', icon: CreditCard }
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Compact Section Navigation */}
-      <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`flex items-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 justify-center ${
-                activeSection === section.id
-                  ? 'bg-white text-blue-600 shadow-sm border border-blue-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {section.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Section Content */}
-      <div className="min-h-[400px]">
-        {activeSection === 'basic' && <CompactBasicInfo patient={patient} />}
-        {activeSection === 'payment' && <CompactPaymentInfo patient={patient} insuranceProviders={insuranceProviders} patientId={patientId} />}
-        {activeSection === 'additional' && <CompactAdditionalInfo patient={patient} />}
-      </div>
-    </div>
-  );
-}
-
-// Compact Basic Info Component
-interface CompactBasicInfoProps {
-  patient: any;
-}
-
-function CompactBasicInfo({ patient }: CompactBasicInfoProps) {
-  return (
-    <div className="space-y-4">
-      {/* Folder Number */}
-      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <Folder className="w-5 h-5 text-blue-600" />
-          <div>
-            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Folder Number</p>
-            <p className="text-lg font-bold text-blue-900">{patient.folderNumber}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Basic Info Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <User className="w-4 h-4 text-gray-600" />
-            <p className="text-xs font-semibold text-gray-600 uppercase">Full Name</p>
-          </div>
-          <p className="text-sm font-medium text-gray-900">{patient.fullName}</p>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <User className="w-4 h-4 text-gray-600" />
-            <p className="text-xs font-semibold text-gray-600 uppercase">Gender</p>
-          </div>
-          <p className="text-sm font-medium text-gray-900 capitalize">{patient.gender}</p>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar className="w-4 h-4 text-gray-600" />
-            <p className="text-xs font-semibold text-gray-600 uppercase">Date of Birth</p>
-          </div>
-          <p className="text-sm font-medium text-gray-900">
-            {patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'Not provided'}
-          </p>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Phone className="w-4 h-4 text-gray-600" />
-            <p className="text-xs font-semibold text-gray-600 uppercase">Contact</p>
-          </div>
-          <p className="text-sm font-medium text-gray-900">{patient.contact || 'Not provided'}</p>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200 md:col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="w-4 h-4 text-gray-600" />
-            <p className="text-xs font-semibold text-gray-600 uppercase">Address</p>
-          </div>
-          <p className="text-sm font-medium text-gray-900">{patient.address || 'Not provided'}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Compact Payment Info Component
-interface CompactPaymentInfoProps {
-  patient: any;
-  insuranceProviders: any[];
-  patientId: string;
-}
-
-function CompactPaymentInfo({ patient, insuranceProviders, patientId }: CompactPaymentInfoProps) {
-  const getPaymentModeColor = (paymentMode: string) => {
-    switch (paymentMode) {
-      case 'cash': return 'border-gray-300 bg-gray-50';
-      case 'nhis': return 'border-green-300 bg-green-50';
-      case 'private_insurance': return 'border-purple-300 bg-purple-50';
-      default: return 'border-gray-200 bg-white';
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Current Payment Mode */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-green-600" />
-          <div>
-            <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Current Payment Mode</p>
-            <p className="text-lg font-bold text-green-900 capitalize">{patient.paymentMode || 'Not set'}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Payment Mode Cards */}
-      <div className="grid grid-cols-1 gap-3">
-        {/* Cash Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('cash')} ${
-          patient.paymentMode === 'cash' ? 'ring-2 ring-gray-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Cash</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">Patient pays directly for services</p>
-          {patient.paymentMode === 'cash' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=cash`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-gray-600 text-white rounded text-xs font-medium hover:bg-gray-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-
-        {/* NHIS Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('nhis')} ${
-          patient.paymentMode === 'nhis' ? 'ring-2 ring-green-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'nhis' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <Shield className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">NHIS</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">National Health Insurance Scheme</p>
-          {patient.paymentMode === 'nhis' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=nhis`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-
-        {/* Private Insurance Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('private_insurance')} ${
-          patient.paymentMode === 'private_insurance' ? 'ring-2 ring-purple-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'private_insurance' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <CreditCard className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Private Insurance</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">Private insurance coverage</p>
-          {patient.paymentMode === 'private_insurance' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=private_insurance`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Insurance Details */}
-      {(patient.paymentMode === 'nhis' || patient.paymentMode === 'private_insurance') && patient.insuranceDetails && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Insurance Details</h4>
-          <div className="grid grid-cols-1 gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Insurance Number:</span>
-              <span className="font-medium">{patient.insuranceDetails.insuranceNumber}</span>
-            </div>
-            {patient.paymentMode === 'private_insurance' && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Provider:</span>
-                <span className="font-medium">
-                  {insuranceProviders.find(p => p.id === patient.insuranceDetails?.insuranceProvider)?.name || 'Not provided'}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-600">Start Date:</span>
-              <span className="font-medium">
-                {patient.insuranceDetails.startDate ? new Date(patient.insuranceDetails.startDate).toLocaleDateString() : 'Not provided'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">End Date:</span>
-              <span className="font-medium">
-                {patient.insuranceDetails.endDate ? new Date(patient.insuranceDetails.endDate).toLocaleDateString() : 'Not provided'}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Compact Additional Info Component
-interface CompactAdditionalInfoProps {
-  patient: any;
-}
-
-function CompactAdditionalInfo({ patient }: CompactAdditionalInfoProps) {
-  const additionalInfo = patient.additionalInfo || {};
-
-  return (
-    <div className="space-y-4">
-      {/* Contact & Identification - 2 cards per row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Contact Information */}
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <Mail className="w-4 h-4 text-blue-600" />
-            <h4 className="font-semibold text-gray-900 text-sm">Contact Information</h4>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-gray-600 text-xs font-medium">Email</p>
-              <p className="font-medium text-gray-900">{additionalInfo.email || 'Not provided'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-xs font-medium">House Number</p>
-              <p className="font-medium text-gray-900">{additionalInfo.houseNumber || 'Not provided'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Identification */}
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-purple-600" />
-            <h4 className="font-semibold text-gray-900 text-sm">Identification</h4>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-gray-600 text-xs font-medium">ID Type</p>
-              <p className="font-medium text-gray-900">{additionalInfo.idType || 'Not provided'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-xs font-medium">ID Number</p>
-              <p className="font-medium text-gray-900">{additionalInfo.idNumber || 'Not provided'}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Medical & Emergency Contact - 2 cards per row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Medical Information */}
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <Heart className="w-4 h-4 text-red-600" />
-            <h4 className="font-semibold text-gray-900 text-sm">Medical Information</h4>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-gray-600 text-xs font-medium">Blood Type</p>
-              <p className="font-medium text-gray-900">{additionalInfo.bloodType || 'Not provided'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-xs font-medium">Occupation</p>
-              <p className="font-medium text-gray-900">{additionalInfo.occupation || 'Not provided'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Emergency Contact */}
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-4 h-4 text-green-600" />
-            <h4 className="font-semibold text-gray-900 text-sm">Emergency Contact</h4>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-gray-600 text-xs font-medium">Next of Kin</p>
-              <p className="font-medium text-gray-900">{additionalInfo.nextOfKin || 'Not provided'}</p>
-            </div>
-            {additionalInfo.emergencyContact && (
-              <>
-                <div>
-                  <p className="text-gray-600 text-xs font-medium">Contact Name</p>
-                  <p className="font-medium text-gray-900">{additionalInfo.emergencyContact.name || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs font-medium">Relationship</p>
-                  <p className="font-medium text-gray-900">{additionalInfo.emergencyContact.relationship || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs font-medium">Phone</p>
-                  <p className="font-medium text-gray-900">{additionalInfo.emergencyContact.phone || 'Not provided'}</p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Compact Attendances Tab Component
-interface CompactAttendancesTabProps {
-  attendances: any[];
-  patient: any;
-}
-
-function CompactAttendancesTab({ attendances, patient }: CompactAttendancesTabProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'admitted': return 'bg-purple-100 text-purple-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'active': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (attendances.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <History className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Previous Attendances</h3>
-        <Link
-          to={`/dashboard/attendance/new?patientId=${patient.id || patient._id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-lg hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Create First Attendance
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-gray-900">Attendance History</h3>
-        <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-          {attendances.length} visit{attendances.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
-      {attendances.map((attendance) => (
-        <div key={attendance._id || attendance.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all duration-200 bg-white">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-100 text-blue-600 p-1.5 rounded">
-                <Stethoscope className="w-3 h-3" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 text-sm">{attendance.attendanceNumber}</h4>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getStatusColor(attendance.status)}`}>
-                    {attendance.status.toUpperCase()}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(attendance.dateTime).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <Link
-              to={`/dashboard/attendance/${attendance._id || attendance.id}`}
-              className="text-blue-600 hover:text-blue-700 text-xs font-medium"
-            >
-              View
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-            <div>
-              <p className="text-gray-600">Type</p>
-              <p className="font-medium text-gray-900 capitalize">{attendance.attendanceType?.replace('_', ' ')}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Clinician</p>
-              <p className="font-medium text-gray-900">{attendance.clinicianName || attendance.attendingClinician}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 pt-2 border-t border-gray-100 text-xs text-gray-600">
-            <span className="flex items-center gap-1">
-              <Pill className="w-3 h-3" />
-              {attendance.medications?.length || 0}
-            </span>
-            <span className="flex items-center gap-1">
-              <FlaskConical className="w-3 h-3" />
-              {attendance.labTests?.length || 0}
-            </span>
-            {attendance.totalBill > 0 && (
-              <span className="flex items-center gap-1 ml-auto text-green-600 font-medium">
-                <DollarSign className="w-3 h-3" />
-                ${attendance.totalBill?.toFixed(2)}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Compact Medical Records Tab Component
-interface CompactMedicalRecordsTabProps {
-  attendances: any[];
-  patient: any;
-}
-
-function CompactMedicalRecordsTab({ attendances, patient }: CompactMedicalRecordsTabProps) {
-  const allMedications = attendances.flatMap(att => att.medications || []);
-  const allLabTests = attendances.flatMap(att => att.labTests || []);
-  const allDiagnoses = attendances.flatMap(att => 
-    att.diagnoses?.map((d: any) => ({
-      ...d,
-      attendanceDate: att.dateTime,
-      attendanceType: att.attendanceType
-    })) || []
-  );
-
-  if (attendances.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <ClipboardList className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Medical Records</h3>
-        <p className="text-gray-600 text-sm">Medical records will appear after patient visits</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-blue-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-blue-900">{attendances.length}</p>
-          <p className="text-xs text-blue-700 font-medium">Visits</p>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-green-900">{allMedications.length}</p>
-          <p className="text-xs text-green-700 font-medium">Meds</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-purple-900">{allLabTests.length}</p>
-          <p className="text-xs text-purple-700 font-medium">Tests</p>
-        </div>
-      </div>
-
-      {/* Recent Diagnoses */}
-      {allDiagnoses.length > 0 && (
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Recent Diagnoses</h4>
-          <div className="space-y-2">
-            {allDiagnoses.slice(0, 3).map((diagnosis, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                <div>
-                  <p className="font-medium text-gray-900">{diagnosis.name}</p>
-                  <p className="text-xs text-gray-600">
-                    {new Date(diagnosis.attendanceDate).toLocaleDateString()}
-                  </p>
-                </div>
-                <Link
-                  to={`/dashboard/attendance/${diagnosis.attendanceId}`}
-                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
-                >
-                  View
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Medications */}
-      {allMedications.length > 0 && (
-        <div className="bg-white rounded-lg p-3 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Recent Medications</h4>
-          <div className="space-y-2">
-            {allMedications.slice(0, 3).map((med, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                <div>
-                  <p className="font-medium text-gray-900">{med.name}</p>
-                  <p className="text-xs text-gray-600">{med.dosage} • {med.frequency}</p>
-                </div>
-                <span className={`px-1.5 py-0.5 text-xs rounded ${
-                  med.status === 'dispensed' ? 'bg-green-100 text-green-800' : 
-                  med.status === 'administered' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {med.status?.charAt(0).toUpperCase() + med.status?.slice(1) || 'Prescribed'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Compact Documents Tab Component
-interface CompactDocumentsTabProps {
-  patient: any;
-}
-
-function CompactDocumentsTab({ patient }: CompactDocumentsTabProps) {
-  return (
-    <div className="text-center py-8">
-      <FileArchive className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Documents</h3>
-      <p className="text-gray-600 text-sm mb-4">No documents uploaded yet</p>
-      <div className="flex items-center justify-center gap-2">
-        <button className="inline-flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-lg hover:from-blue-700 hover:to-teal-700 transition-all duration-200 font-semibold text-sm">
-          <Plus className="w-3 h-3" />
-          Upload
-        </button>
-        <button className="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 font-semibold text-sm">
-          <Download className="w-3 h-3" />
-          Template
-        </button>
-      </div>
     </div>
   );
 }

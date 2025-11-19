@@ -1,23 +1,44 @@
-// routes/serviceCatalogRoutes.ts
+// routes/serviceCatalogRoutes.ts - FIXED
 import express from 'express';
-import {
-  getServiceCatalog,
-  getServiceCatalogById,
-  createServiceCatalogItem,
-  updateServiceCatalogItem,
-  deleteServiceCatalogItem,
-  getServiceMetadata
-} from '../controllers/serviceCatalogController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+import * as serviceCatalogController from '../controllers/serviceCatalogController'; // ✅ FIXED: Import all
+import { protect, requireAdmin, requireAccountsStaff, requireRole } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// Service Catalog
-router.get('/', protect, getServiceCatalog);
-router.get('/metadata', protect, getServiceMetadata);
-router.get('/:id', protect, getServiceCatalogById);
-router.post('/', protect, requireRole(['admin']), createServiceCatalogItem);
-router.put('/:id', protect, requireRole(['admin']), updateServiceCatalogItem);
-router.delete('/:id', protect, requireRole(['admin']), deleteServiceCatalogItem);
+// All routes are protected
+router.use(protect);
+
+// GET /api/service-catalog - Get service catalog with filtering
+router.get('/', serviceCatalogController.getServiceCatalog);
+
+// GET /api/service-catalog/metadata - Get service metadata
+router.get('/metadata', serviceCatalogController.getServiceMetadata);
+
+// GET /api/service-catalog/nhis-report - Get NHIS readiness report
+router.get('/nhis-report', requireAccountsStaff, serviceCatalogController.getNHISReadinessReport);
+
+// GET /api/service-catalog/nhis/:nhisCode - Get service by NHIS code
+router.get('/nhis/:nhisCode', serviceCatalogController.getServiceByNHISCode);
+
+// ✅ ADDED: Get services by category
+router.get('/category/:category', serviceCatalogController.getServicesByCategory);
+
+// ✅ ADDED: Check service coverage
+router.post('/check-coverage', serviceCatalogController.checkServiceCoverage);
+
+// ✅ ADDED: Calculate service cost
+router.post('/calculate-cost', serviceCatalogController.calculateServiceCost);
+
+// GET /api/service-catalog/:id - Get service catalog item by ID
+router.get('/:id', serviceCatalogController.getServiceCatalogById);
+
+// POST /api/service-catalog - Create new service catalog item
+router.post('/', requireRole(['admin', 'accounts']), serviceCatalogController.createServiceCatalogItem);
+
+// PUT /api/service-catalog/:id - Update service catalog item
+router.put('/:id', requireRole(['admin', 'accounts']), serviceCatalogController.updateServiceCatalogItem);
+
+// DELETE /api/service-catalog/:id - Delete service catalog item
+router.delete('/:id', requireAdmin, serviceCatalogController.deleteServiceCatalogItem);
 
 export default router;

@@ -1,22 +1,25 @@
-import seedCoreData from './seedCoreData.js';
-import seedMedicalData from './seedMedicalData.js';
+// src/seed/seed.ts
+import { seedCoreData } from './coreSeed';
+import { seedTestData } from './testSeed';
 
-const seedData = async () => {
+export const seedDatabase = async () => {
+  console.log('🏥 Starting comprehensive seeding...');
+  
   try {
-    console.log('🚀 Starting comprehensive database seeding...');
-
-    // Seed core data first (users, patients, etc.)
+    // Always seed core data (JSON files + hospital settings)
     await seedCoreData();
-
-    // Seed medical data (diagnoses, lab tests, procedures, etc.)
-    await seedMedicalData();
-
-    console.log('🎉 All database seeding completed successfully!');
     
+    // Only seed test data in development or when explicitly enabled
+    if (process.env.NODE_ENV === 'development' || process.env.SEED_TEST_DATA === 'true') {
+      await seedTestData();
+      console.log('🧪 Test data seeded (development mode)');
+    } else {
+      console.log('ℹ️  Test data skipped (production mode)');
+    }
+    
+    console.log('✅ All seeding completed successfully!');
   } catch (error) {
-    console.error('💥 Error during database seeding:', error);
+    console.error('❌ Seeding failed:', error);
     throw error;
   }
 };
-
-export default seedData;

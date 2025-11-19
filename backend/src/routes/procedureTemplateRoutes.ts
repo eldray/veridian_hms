@@ -1,13 +1,43 @@
 import express from 'express';
-import { getProcedureTemplates, getProcedureTemplateById, createProcedureTemplate, updateProcedureTemplate, deleteProcedureTemplate } from '../controllers/procedureTemplateController';
-import { protect, requireRole } from '../middleware/authMiddleware';
+import {
+  getProcedureTemplates,
+  getProcedureTemplateById,
+  createProcedureTemplate,
+  updateProcedureTemplate,
+  deleteProcedureTemplate,
+  getProcedureCategories,
+  getProcedureDepartments,
+  bulkUpdateProcedureTemplates
+} from '../controllers/procedureTemplateController';
+import { protect, requireAdmin, requireClinicalStaff } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-router.get('/', protect, requireRole(['admin']), getProcedureTemplates);
-router.get('/:id', protect, requireRole(['admin']), getProcedureTemplateById);
-router.post('/', protect, requireRole(['admin']), createProcedureTemplate);
-router.put('/:id', protect, requireRole(['admin']), updateProcedureTemplate);
-router.delete('/:id', protect, requireRole(['admin']), deleteProcedureTemplate);
+// All routes are protected
+router.use(protect);
+
+// GET /api/procedure-templates - Get all procedure templates (with optional filters)
+router.get('/', requireClinicalStaff, getProcedureTemplates);
+
+// GET /api/procedure-templates/categories - Get all procedure categories
+router.get('/categories', requireClinicalStaff, getProcedureCategories);
+
+// GET /api/procedure-templates/departments - Get all unique departments
+router.get('/departments', requireClinicalStaff, getProcedureDepartments);
+
+// GET /api/procedure-templates/:id - Get a specific procedure template by ID
+router.get('/:id', requireClinicalStaff, getProcedureTemplateById);
+
+// POST /api/procedure-templates - Create a new procedure template
+router.post('/', requireAdmin, createProcedureTemplate);
+
+// PUT /api/procedure-templates/:id - Update a procedure template
+router.put('/:id', requireAdmin, updateProcedureTemplate);
+
+// POST /api/procedure-templates/bulk-update - Bulk update procedure templates
+router.post('/bulk-update', requireAdmin, bulkUpdateProcedureTemplates);
+
+// DELETE /api/procedure-templates/:id - Delete a procedure template
+router.delete('/:id', requireAdmin, deleteProcedureTemplate);
 
 export default router;

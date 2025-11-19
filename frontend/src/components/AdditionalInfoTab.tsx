@@ -1,5 +1,5 @@
-// src/components/AdditionalInfoTab.tsx
-import { Mail, Home, IdCard, Heart, Briefcase, Users, Phone, User } from 'lucide-react';
+// src/components/AdditionalInfoTab.tsx - UPDATED WITH RESPONSIVE DESIGN
+import { Mail, Home, IdCard, Heart, Briefcase, Users, Phone } from 'lucide-react';
 import type { AdditionalInfo } from '../types';
 
 interface AdditionalInfoTabProps {
@@ -30,25 +30,26 @@ export default function AdditionalInfoTab({
   };
 
   return (
-    <div className="space-y-8">
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-4">
+    <div className="space-y-6">
+      {/* Optional Info Header */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-blue-900 mb-2">
           Additional Information (Optional)
         </h3>
-        <p className="text-blue-700 text-sm">
+        <p className="text-blue-700 text-xs">
           These fields are optional and can be filled later if needed.
         </p>
       </div>
 
       {/* Contact Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Mail className="w-6 h-6 text-blue-600" />
+        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Mail className="w-5 h-5 text-blue-600" />
           Contact Information
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
             </label>
             <input
@@ -56,12 +57,12 @@ export default function AdditionalInfoTab({
               value={additionalInfo.email || ''}
               onChange={(e) => updateField('email', e.target.value)}
               placeholder="patient@example.com"
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               <Home className="w-4 h-4 inline mr-2 text-green-600" />
               House Number
             </label>
@@ -70,7 +71,7 @@ export default function AdditionalInfoTab({
               value={additionalInfo.houseNumber || ''}
               onChange={(e) => updateField('houseNumber', e.target.value)}
               placeholder="House/Apartment number"
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             />
           </div>
         </div>
@@ -78,19 +79,19 @@ export default function AdditionalInfoTab({
 
       {/* Identification */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <IdCard className="w-6 h-6 text-purple-600" />
+        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <IdCard className="w-5 h-5 text-purple-600" />
           Identification
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               ID Type
             </label>
             <select
               value={additionalInfo.idType || ''}
               onChange={(e) => updateField('idType', e.target.value)}
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             >
               <option value="">Select ID Type</option>
               <option value="GhanaCard">Ghana Card</option>
@@ -103,7 +104,7 @@ export default function AdditionalInfoTab({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               ID Number
             </label>
             <input
@@ -111,7 +112,7 @@ export default function AdditionalInfoTab({
               value={additionalInfo.idNumber || ''}
               onChange={(e) => updateField('idNumber', e.target.value)}
               placeholder="ID number"
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             />
           </div>
         </div>
@@ -119,19 +120,19 @@ export default function AdditionalInfoTab({
 
       {/* Medical Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Heart className="w-6 h-6 text-red-600" />
+        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Heart className="w-5 h-5 text-red-600" />
           Medical Information
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Blood Type
             </label>
             <select
               value={additionalInfo.bloodType || ''}
               onChange={(e) => updateField('bloodType', e.target.value)}
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             >
               <option value="">Select Blood Type</option>
               <option value="A+">A+</option>
@@ -147,7 +148,7 @@ export default function AdditionalInfoTab({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               <Briefcase className="w-4 h-4 inline mr-2 text-orange-600" />
               Occupation
             </label>
@@ -156,7 +157,7 @@ export default function AdditionalInfoTab({
               value={additionalInfo.occupation || ''}
               onChange={(e) => updateField('occupation', e.target.value)}
               placeholder="Patient's occupation"
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             />
           </div>
         </div>
@@ -164,13 +165,13 @@ export default function AdditionalInfoTab({
 
       {/* Emergency Contact */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Users className="w-6 h-6 text-green-600" />
+        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5 text-green-600" />
           Emergency Contact
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Next of Kin
             </label>
             <input
@@ -178,14 +179,14 @@ export default function AdditionalInfoTab({
               value={additionalInfo.nextOfKin || ''}
               onChange={(e) => updateField('nextOfKin', e.target.value)}
               placeholder="Name of next of kin"
-              className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+              className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
             />
           </div>
 
           <div className="md:col-span-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 rounded-2xl p-6 border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Emergency Contact Name
                 </label>
                 <input
@@ -193,12 +194,12 @@ export default function AdditionalInfoTab({
                   value={additionalInfo.emergencyContact?.name || ''}
                   onChange={(e) => updateEmergencyContact('name', e.target.value)}
                   placeholder="Full name"
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                  className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Relationship
                 </label>
                 <input
@@ -206,12 +207,12 @@ export default function AdditionalInfoTab({
                   value={additionalInfo.emergencyContact?.relationship || ''}
                   onChange={(e) => updateEmergencyContact('relationship', e.target.value)}
                   placeholder="Relationship to patient"
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                  className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Phone className="w-4 h-4 inline mr-2 text-blue-600" />
                   Phone Number
                 </label>
@@ -220,7 +221,7 @@ export default function AdditionalInfoTab({
                   value={additionalInfo.emergencyContact?.phone || ''}
                   onChange={(e) => updateEmergencyContact('phone', e.target.value)}
                   placeholder="Phone number"
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                  className="w-full px-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
                 />
               </div>
             </div>

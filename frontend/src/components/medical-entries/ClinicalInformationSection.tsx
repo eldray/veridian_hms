@@ -1,4 +1,3 @@
-// src/components/medical-entries/ClinicalInformationSection.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Diagnosis, DiagnosisTemplate } from '../../types';
 import { AlertCircle, Save, CheckCircle2, Stethoscope, FileText, Edit, Clock, User, Search, X, DollarSign, Shield } from 'lucide-react';
@@ -57,16 +56,25 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
   const safeDiagnosisTemplates = Array.isArray(diagnosisTemplates) ? diagnosisTemplates : [];
   const hasDiagnosisTemplates = safeDiagnosisTemplates.length > 0;
 
-  // Filter diagnoses based on search
-  const filteredDiagnoses = safeDiagnosisTemplates.filter(diag =>
-    diag.name?.toLowerCase().includes(diagnosisSearch.toLowerCase()) ||
-    diag.icdCode?.toLowerCase().includes(diagnosisSearch.toLowerCase()) ||
-    diag.description?.toLowerCase().includes(diagnosisSearch.toLowerCase())
-  );
+  // Filter diagnoses based on search - with proper null safety
+  const filteredDiagnoses = safeDiagnosisTemplates.filter(diag => {
+    if (!diag) return false;
+    
+    const searchTerm = diagnosisSearch.toLowerCase();
+    
+    return (
+      (diag.name?.toLowerCase() || '').includes(searchTerm) ||
+      (diag.icdCode?.toLowerCase() || '').includes(searchTerm) ||
+      (diag.description?.toLowerCase() || '').includes(searchTerm)
+    );
+  });
 
-  // Calculate price based on payment mode
-  const getDiagnosisPrice = (diagnosisTemplate: DiagnosisTemplate) => {
-    return paymentMode === 'cash' ? diagnosisTemplate.cashPrice : diagnosisTemplate.insurancePrice;
+  // Calculate price based on payment mode - with null safety
+  const getDiagnosisPrice = (diagnosisTemplate: DiagnosisTemplate | null) => {
+    if (!diagnosisTemplate) return 0;
+    return paymentMode === 'cash' 
+      ? diagnosisTemplate.cashPrice || 0 
+      : diagnosisTemplate.insurancePrice || 0;
   };
 
   // Auto-save functionality
@@ -103,7 +111,7 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
       const changes = [];
       if (chiefComplaint) changes.push({ field: 'Chief Complaint', oldValue: '', newValue: chiefComplaint });
-      if (diagnosis) changes.push({ field: 'Diagnosis', oldValue: '', newValue: diagnosis.name });
+      if (diagnosis) changes.push({ field: 'Diagnosis', oldValue: '', newValue: diagnosis.name || '' });
       if (notes) changes.push({ field: 'Medical Notes', oldValue: '', newValue: notes });
 
       if (changes.length > 0) {
@@ -205,25 +213,27 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
   };
 
   const handleDiagnosisSelect = (selectedTemplate: DiagnosisTemplate) => {
+    if (!selectedTemplate) return;
+    
     const diagnosisData: Diagnosis = {
-      _id: selectedTemplate._id,
-      name: selectedTemplate.name,
-      icdCode: selectedTemplate.icdCode,
-      gdrgCode: selectedTemplate.gdrgCode,
+      _id: selectedTemplate._id || '',
+      name: selectedTemplate.name || '',
+      icdCode: selectedTemplate.icdCode || '',
+      gdrgCode: selectedTemplate.gdrgCode || '',
       notes: '',
       primary: true,
       date: new Date().toISOString(),
       createdBy: currentUser?._id || currentUser?.username || '',
-      cashPrice: selectedTemplate.cashPrice,
-      insurancePrice: selectedTemplate.insurancePrice,
-      costPrice: selectedTemplate.costPrice,
-      isActive: selectedTemplate.isActive,
-      requiresAuthorization: selectedTemplate.requiresAuthorization,
-      tariffCode: selectedTemplate.tariffCode,
-      vatRate: selectedTemplate.vatRate,
-      isTaxable: selectedTemplate.isTaxable,
-      createdAt: selectedTemplate.createdAt,
-      updatedAt: selectedTemplate.updatedAt
+      cashPrice: selectedTemplate.cashPrice || 0,
+      insurancePrice: selectedTemplate.insurancePrice || 0,
+      costPrice: selectedTemplate.costPrice || 0,
+      isActive: selectedTemplate.isActive ?? true,
+      requiresAuthorization: selectedTemplate.requiresAuthorization ?? false,
+      tariffCode: selectedTemplate.tariffCode || '',
+      vatRate: selectedTemplate.vatRate || 0,
+      isTaxable: selectedTemplate.isTaxable ?? false,
+      createdAt: selectedTemplate.createdAt || new Date().toISOString(),
+      updatedAt: selectedTemplate.updatedAt || new Date().toISOString()
     };
     handleFieldChange('diagnosis', diagnosisData);
   };
@@ -241,27 +251,27 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
   const showAutoSaveIndicator = hasUnsavedChanges && timeSinceLastSave > 5;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Input Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900">
-            <Stethoscope className="w-5 h-5 text-blue-600" />
+      <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Stethoscope className="w-5 h-5 text-[var(--icon-cyan-text)]" />
             Clinical Information
             {showAutoSaveIndicator && (
-              <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">
-                Unsaved changes • Auto-save in {30 - Math.floor(timeSinceLastSave)}s
+              <span className="text-xs text-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)] px-1.5 py-0.5 rounded">
+                Unsaved • {30 - Math.floor(timeSinceLastSave)}s
               </span>
             )}
           </h2>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {canEdit && hasChanges && (
               <button
                 onClick={handleEdit}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-all text-sm"
               >
-                <Edit className="w-4 h-4" />
+                <Edit className="w-3.5 h-3.5" />
                 <span>Edit</span>
               </button>
             )}
@@ -270,24 +280,24 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
               <>
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-all"
+                  className="px-3 py-1.5 bg-[var(--bg-main)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--border-color)] transition-all text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50 text-sm"
                 >
                   {isSaving ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4" />
-                      <span>Save Changes</span>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save</span>
                     </>
                   )}
                 </button>
@@ -297,159 +307,145 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
             {!hasChanges && canAddEntries && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
               >
-                <Edit className="w-4 h-4" />
-                <span>Start Editing</span>
+                <Edit className="w-3.5 h-3.5" />
+                <span>Start</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Left Column - Chief Complaint & Diagnosis */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Chief Complaint */}
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
                 Chief Complaint *
               </label>
               <textarea
                 placeholder="Describe the patient's main concern, symptoms, and history..."
                 value={chiefComplaint}
                 onChange={(e) => handleFieldChange('chiefComplaint', e.target.value)}
-                rows={8}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+                rows={6}
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent transition-all resize-none text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)]"
                 required
                 disabled={!isEditing && hasChanges}
               />
-              <div className="text-xs text-gray-500 mt-1">
-                {chiefComplaint.length}/1000 characters
+              <div className="text-xs text-[var(--text-secondary)] mt-1">
+                {(chiefComplaint || '').length}/1000
               </div>
             </div>
             
             {/* Diagnosis Search */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
                 Diagnosis
                 {isLoadingDiagnoses && (
-                  <span className="ml-2 text-xs text-yellow-600">(Loading...)</span>
+                  <span className="ml-1 text-xs text-[var(--icon-yellow-text)]">(Loading...)</span>
                 )}
               </label>
               
               {isLoadingDiagnoses ? (
-                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-500">
+                <div className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-secondary)] text-sm">
                   Loading diagnoses...
                 </div>
               ) : !hasDiagnosisTemplates ? (
-                <div className="w-full px-4 py-3 border border-yellow-300 rounded-xl bg-yellow-50 text-yellow-700 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  No diagnosis templates available
+                <div className="w-full px-3 py-2 border border-[var(--icon-yellow-bg)] rounded-lg bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] flex items-center gap-1.5 text-sm">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  No diagnosis templates
                 </div>
               ) : (
                 <div className="relative">
                   {/* Search Input */}
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
                     <input
                       type="text"
-                      placeholder="Search diagnoses by name, ICD code, or description..."
+                      placeholder="Search diagnoses..."
                       value={diagnosisSearch}
                       onChange={(e) => {
                         setDiagnosisSearch(e.target.value);
                         setShowDiagnosisDropdown(true);
                       }}
                       onFocus={() => setShowDiagnosisDropdown(true)}
-                      className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full pl-9 pr-8 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent transition-all text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)]"
                       disabled={!isEditing && hasChanges}
                     />
                     {diagnosisSearch && (
                       <button
                         onClick={clearDiagnosis}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
 
                   {/* Diagnosis Dropdown */}
                   {showDiagnosisDropdown && diagnosisSearch && (
-                    <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded-xl bg-white shadow-lg">
+                    <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
                       {filteredDiagnoses.length > 0 ? (
                         filteredDiagnoses.map((diag) => (
                           <button
-                            key={diag._id}
+                            key={diag?._id || Math.random()}
                             onClick={() => handleDiagnosisSelect(diag)}
-                            className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0 transition-colors"
+                            className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                           >
-                            <div className="font-semibold text-gray-900">{diag.name}</div>
-                            <div className="text-sm text-gray-600 font-mono">ICD-10: {diag.icdCode}</div>
-                            {diag.gdrgCode && (
-                              <div className="text-sm text-gray-600 font-mono">GDRG: {diag.gdrgCode}</div>
-                            )}
-                            <div className="flex items-center gap-4 mt-1 text-xs">
-                              <span className={`px-2 py-1 rounded-full ${
-                                diag.requiresAuthorization 
-                                  ? 'bg-orange-100 text-orange-800' 
-                                  : 'bg-green-100 text-green-800'
+                            <div className="font-semibold text-[var(--text-primary)]">{diag?.name || 'Unnamed'}</div>
+                            <div className="text-xs text-[var(--text-secondary)] font-mono">ICD-10: {diag?.icdCode || 'N/A'}</div>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs">
+                              <span className={`px-1.5 py-0.5 rounded ${
+                                diag?.requiresAuthorization 
+                                  ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' 
+                                  : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                               }`}>
-                                {diag.requiresAuthorization ? 'Auth Required' : 'No Auth'}
+                                {diag?.requiresAuthorization ? 'Auth Req' : 'No Auth'}
                               </span>
-                              <span className="flex items-center gap-1 text-gray-600">
-                                <DollarSign className="w-3 h-3" />
-                                {getDiagnosisPrice(diag).toFixed(2)} ({paymentMode})
+                              <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
+                                <DollarSign className="w-2.5 h-2.5" />
+                                {getDiagnosisPrice(diag).toFixed(2)}
                               </span>
                             </div>
-                            {diag.description && (
-                              <div className="text-xs text-gray-500 mt-1 truncate">{diag.description}</div>
-                            )}
                           </button>
                         ))
                       ) : (
-                        <div className="p-4 text-gray-500 text-center">No diagnoses found</div>
+                        <div className="p-3 text-[var(--text-secondary)] text-center text-sm">No diagnoses found</div>
                       )}
                     </div>
                   )}
 
                   {/* Selected Diagnosis Display */}
                   {diagnosis && !showDiagnosisDropdown && (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl">
+                    <div className="mt-1.5 p-2 bg-[var(--icon-green-bg)] border border-[var(--icon-green-text)] rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-green-900">{diagnosis.name}</div>
-                          <div className="text-sm text-green-700">
-                            ICD-10: {diagnosis.icdCode}
-                            {diagnosis.gdrgCode && ` • GDRG: ${diagnosis.gdrgCode}`}
+                          <div className="font-semibold text-[var(--icon-green-text)] text-sm">{diagnosis.name}</div>
+                          <div className="text-xs text-[var(--icon-green-text)]">
+                            ICD-10: {diagnosis.icdCode || 'N/A'}
                           </div>
-                          <div className="flex items-center gap-4 mt-1 text-xs">
-                            <span className={`px-2 py-1 rounded-full ${
+                          <div className="flex items-center gap-2 mt-0.5 text-xs">
+                            <span className={`px-1.5 py-0.5 rounded ${
                               diagnosis.requiresAuthorization 
-                                ? 'bg-orange-100 text-orange-800' 
-                                : 'bg-green-100 text-green-800'
+                                ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' 
+                                : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                             }`}>
-                              {diagnosis.requiresAuthorization ? (
-                                <span className="flex items-center gap-1">
-                                  <Shield className="w-3 h-3" />
-                                  Authorization Required
-                                </span>
-                              ) : (
-                                'No Authorization'
-                              )}
+                              {diagnosis.requiresAuthorization ? 'Auth Req' : 'No Auth'}
                             </span>
-                            <span className="flex items-center gap-1 text-green-700">
-                              <DollarSign className="w-3 h-3" />
-                              {paymentMode === 'cash' ? diagnosis.cashPrice : diagnosis.insurancePrice} ({paymentMode})
+                            <span className="flex items-center gap-0.5 text-[var(--icon-green-text)]">
+                              <DollarSign className="w-2.5 h-2.5" />
+                              {(paymentMode === 'cash' ? diagnosis.cashPrice : diagnosis.insurancePrice) || 0}
                             </span>
                           </div>
                         </div>
                         {isEditing && (
                           <button
                             onClick={clearDiagnosis}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)]"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -462,46 +458,46 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
           {/* Right Column - Medical Notes */}
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
               Medical Notes & Assessment
             </label>
             <textarea
               placeholder="Enter clinical findings, examination results, assessment, and treatment plan..."
-              value={notes}
+              value={notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
-              rows={12}
-              className="w-full h-full min-h-[200px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+              rows={8}
+              className="w-full min-h-[150px] px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent transition-all resize-none text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)]"
               disabled={!isEditing && hasChanges}
             />
-            <div className="text-xs text-gray-500 mt-1">
-              {notes.length}/2000 characters
+            <div className="text-xs text-[var(--text-secondary)] mt-1">
+              {(notes || '').length}/2000
             </div>
           </div>
         </div>
 
         {/* Save Message & Auto-save Info */}
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-1.5">
           {saveMessage && (
             <div
-              className={`p-3 rounded-xl flex items-center gap-3 border ${
+              className={`p-2 rounded-lg flex items-center gap-2 border text-sm ${
                 saveMessage.type === 'success'
-                  ? 'bg-green-50 text-green-800 border-green-200'
-                  : 'bg-red-50 text-red-800 border-red-200'
+                  ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]'
+                  : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]'
               }`}
             >
               {saveMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
               ) : (
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="w-3.5 h-3.5" />
               )}
-              <span className="text-sm font-medium">{saveMessage.text}</span>
+              <span className="font-medium">{saveMessage.text}</span>
             </div>
           )}
           
           {hasUnsavedChanges && (
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>You have unsaved changes</span>
-              <span>Auto-saves in {30 - Math.min(timeSinceLastSave, 30)}s</span>
+            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+              <span>Unsaved changes</span>
+              <span>Auto-save in {30 - Math.min(timeSinceLastSave, 30)}s</span>
             </div>
           )}
         </div>
@@ -509,23 +505,23 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
       {/* Saved Information Display */}
       {hasChanges && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Clinical Information Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900">
-              <FileText className="w-5 h-5 text-green-600" />
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
+            <h3 className="text-md font-semibold mb-3 flex items-center gap-1.5 text-[var(--text-primary)]">
+              <FileText className="w-4 h-4 text-[var(--icon-green-text)]" />
               Saved Clinical Information
             </h3>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left Column - Complaint & Diagnosis */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Chief Complaint */}
                 {chiefComplaint && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Chief Complaint</h4>
-                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{chiefComplaint}</p>
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Chief Complaint</h4>
+                    <div className="p-3 bg-[var(--icon-cyan-bg)] rounded-lg border border-[var(--icon-cyan-text)]">
+                      <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed text-sm">{chiefComplaint}</p>
                     </div>
                   </div>
                 )}
@@ -533,26 +529,23 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
                 {/* Diagnosis */}
                 {diagnosis && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Diagnosis</h4>
-                    <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                      <div className="font-semibold text-gray-900 text-lg">{diagnosis.name}</div>
-                      <div className="text-sm text-gray-600 mt-2 flex items-center gap-2">
-                        <span className="bg-gray-100 px-2 py-1 rounded-md font-mono">ICD-10: {diagnosis.icdCode}</span>
-                        {diagnosis.gdrgCode && (
-                          <span className="bg-gray-100 px-2 py-1 rounded-md font-mono">GDRG: {diagnosis.gdrgCode}</span>
-                        )}
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Diagnosis</h4>
+                    <div className="p-3 bg-[var(--icon-green-bg)] rounded-lg border border-[var(--icon-green-text)]">
+                      <div className="font-semibold text-[var(--text-primary)] text-sm">{diagnosis.name}</div>
+                      <div className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
+                        <span className="bg-[var(--bg-main)] px-1.5 py-0.5 rounded font-mono">ICD-10: {diagnosis.icdCode || 'N/A'}</span>
                       </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className={`px-2 py-1 rounded-full ${
+                      <div className="flex items-center gap-2 mt-1 text-xs">
+                        <span className={`px-1.5 py-0.5 rounded ${
                           diagnosis.requiresAuthorization 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : 'bg-green-100 text-green-800'
+                            ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' 
+                            : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                         }`}>
-                          {diagnosis.requiresAuthorization ? 'Authorization Required' : 'No Authorization'}
+                          {diagnosis.requiresAuthorization ? 'Auth Required' : 'No Auth'}
                         </span>
-                        <span className="flex items-center gap-1 text-gray-700">
-                          <DollarSign className="w-4 h-4" />
-                          Price: {paymentMode === 'cash' ? diagnosis.cashPrice : diagnosis.insurancePrice} ({paymentMode})
+                        <span className="flex items-center gap-0.5 text-[var(--text-primary)]">
+                          <DollarSign className="w-3 h-3" />
+                          Price: {(paymentMode === 'cash' ? diagnosis.cashPrice : diagnosis.insurancePrice) || 0}
                         </span>
                       </div>
                     </div>
@@ -563,9 +556,9 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
               {/* Right Column - Medical Notes */}
               {notes && (
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Medical Notes & Assessment</h4>
-                  <div className="p-4 bg-green-50 rounded-xl border border-green-200 h-full">
-                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{notes}</p>
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Medical Notes</h4>
+                  <div className="p-3 bg-[var(--icon-green-bg)] rounded-lg border border-[var(--icon-green-text)]">
+                    <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed text-sm">{notes}</p>
                   </div>
                 </div>
               )}
@@ -573,12 +566,12 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
             {/* Last Updated Info */}
             {editHistory.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Clock className="w-4 h-4" />
-                  <span>Last updated: {new Date(editHistory[0].timestamp).toLocaleString()}</span>
-                  <span className="mx-2">•</span>
-                  <User className="w-4 h-4" />
+              <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Last: {new Date(editHistory[0].timestamp).toLocaleString()}</span>
+                  <span className="mx-1">•</span>
+                  <User className="w-3.5 h-3.5" />
                   <span>By: {editHistory[0].user}</span>
                 </div>
               </div>
@@ -587,30 +580,30 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
           {/* Edit History */}
           {editHistory.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900">
-                <Clock className="w-5 h-5 text-purple-600" />
+            <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
+              <h3 className="text-md font-semibold mb-3 flex items-center gap-1.5 text-[var(--text-primary)]">
+                <Clock className="w-4 h-4 text-[var(--icon-purple-text)]" />
                 Edit History
               </h3>
               
-              <div className="space-y-4">
-                {editHistory.map((entry, index) => (
-                  <div key={index} className="border-l-4 border-purple-200 pl-4 py-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="w-4 h-4" />
+              <div className="space-y-2">
+                {editHistory.slice(0, 3).map((entry, index) => (
+                  <div key={index} className="border-l-2 border-[var(--icon-purple-bg)] pl-3 py-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                        <User className="w-3 h-3" />
                         <span className="font-medium">{entry.user}</span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(entry.timestamp).toLocaleString()}
+                      <div className="text-xs text-[var(--text-secondary)]">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                     
-                    <div className="space-y-1">
-                      {entry.changes.map((change, changeIndex) => (
-                        <div key={changeIndex} className="text-sm">
-                          <span className="font-medium text-gray-700">{change.field}:</span>{' '}
-                          <span className="text-gray-600">{change.newValue}</span>
+                    <div className="space-y-0.5">
+                      {entry.changes.slice(0, 2).map((change, changeIndex) => (
+                        <div key={changeIndex} className="text-xs">
+                          <span className="font-medium text-[var(--text-primary)]">{change.field}:</span>{' '}
+                          <span className="text-[var(--text-secondary)] truncate">{change.newValue}</span>
                         </div>
                       ))}
                     </div>
@@ -624,14 +617,14 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
 
       {/* Empty State */}
       {!hasChanges && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-          <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Clinical Information</h3>
-          <p className="text-gray-600 mb-4">Enter clinical details to get started</p>
+        <div className="bg-[var(--bg-card)] rounded-xl p-6 text-center border border-[var(--border-color)]">
+          <FileText className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
+          <h3 className="text-md font-semibold text-[var(--text-primary)] mb-1">No Clinical Information</h3>
+          <p className="text-[var(--text-secondary)] text-sm mb-3">Enter clinical details to get started</p>
           {canAddEntries && (
             <button
               onClick={() => setIsEditing(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+              className="px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
             >
               Add Clinical Information
             </button>

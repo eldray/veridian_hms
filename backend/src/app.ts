@@ -1,96 +1,70 @@
-// server.ts
-import express from 'express';
-import cors from 'cors';
-import { pathToRegexp } from 'path-to-regexp';
-import { servePatientImages } from './middleware/uploadMiddleware';
+// routes/index.ts
+import { Router } from 'express';
 import authRoutes from './routes/authRoutes';
-import profileRoutes from './routes/profileRoutes';
-import settingsRoutes from './routes/settingsRoutes';
 import patientRoutes from './routes/patientRoutes';
+import admissionRoutes from './routes/admissionRoutes';
 import attendanceRoutes from './routes/attendanceRoutes';
 import billRoutes from './routes/billRoutes';
-import stockItemRoutes from './routes/stockItemRoutes';
-import stockTransactionRoutes from './routes/stockTransactionRoutes';
-import admissionRoutes from './routes/admissionRoutes';
-import wardRoutes from './routes/wardRoutes';
-import bedRoutes from './routes/bedRoutes';
 import diagnosisRoutes from './routes/diagnosisRoutes';
+import hospitalRoutes from './routes/hospitalRoutes';
+import insuranceClaimRoutes from './routes/insuranceClaimRoutes'; // Fixed: using insuranceClaimRoutes instead of insuranceRoutes
 import insuranceProviderRoutes from './routes/insuranceProviderRoutes';
-import insuranceRoutes from './routes/insuranceRoutes';
 import labTestTemplateRoutes from './routes/labTestTemplateRoutes';
 import procedureTemplateRoutes from './routes/procedureTemplateRoutes';
-import serviceCatalogRoutes from './routes/serviceCatalogRoutes';
-import hospitalRoutes from './routes/hospitalRoutes';
-import vitalsRoutes from './routes/vitalsRoutes';
 import reportRoutes from './routes/reportRoutes';
-import backupRoutes from './routes/backupRoutes';
 import scanTemplateRoutes from './routes/scanTemplateRoutes';
+import serviceCatalogRoutes from './routes/serviceCatalogRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import stockItemRoutes from './routes/stockItemRoutes';
+import stockTransactionRoutes from './routes/stockTransactionRoutes';
+import wardRoutes from './routes/wardRoutes';
+import bedRoutes from './routes/bedRoutes';
+import profileRoutes from './routes/profileRoutes';
+import departmentRoutes from './routes/departmentRoutes';
+import appointmentRoutes from './routes/appointmentRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import backupRoutes from './routes/backupRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
+const router = Router();
 
+// API routes - Updated to match your file structure
+router.use('/auth', authRoutes);
+router.use('/patients', patientRoutes);
+router.use('/admissions', admissionRoutes);
+router.use('/attendances', attendanceRoutes);
+router.use('/bills', billRoutes);
+router.use('/diagnoses', diagnosisRoutes); // Fixed: should be 'diagnoses' to match your file
+router.use('/hospitals', hospitalRoutes); // Fixed: should be 'hospitals' to match your file
+router.use('/insurance-claims', insuranceClaimRoutes);
+router.use('/insurance-providers', insuranceProviderRoutes);
+router.use('/lab-test-templates', labTestTemplateRoutes);
+router.use('/procedure-templates', procedureTemplateRoutes);
+router.use('/reports', reportRoutes);
+router.use('/scan-templates', scanTemplateRoutes);
+router.use('/service-catalog', serviceCatalogRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/stock-items', stockItemRoutes);
+router.use('/stock-transactions', stockTransactionRoutes);
+router.use('/wards', wardRoutes);
+router.use('/beds', bedRoutes);
+router.use('/profile', profileRoutes);
+router.use('/backup', backupRoutes); // Added missing route
+router.use('/upload', uploadRoutes);
 
-
-const app = express();
-
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true,
-}));
-app.use(express.json());
-
-// Auth & User Management
-app.use('/api/auth', authRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/settings', settingsRoutes);
-
-// Patient & Clinical Management
-app.use('/api/patients', patientRoutes);
-app.use('/api/attendances', attendanceRoutes);
-app.use('/api/admissions', admissionRoutes);
-app.use('/api/vitals', vitalsRoutes);
-
-// Billing & Financial
-app.use('/api/bills', billRoutes);
-app.use('/api/insurance-providers', insuranceProviderRoutes);
-app.use('/api/insurance-claims', insuranceRoutes);
-
-// Inventory & Stock Management
-app.use('/api/stock-items', stockItemRoutes);
-app.use('/api/stock-transactions', stockTransactionRoutes);
-
-// Facility & Ward Management
-app.use('/api/hospitals', hospitalRoutes);
-app.use('/api/wards', wardRoutes);
-app.use('/api/beds', bedRoutes);
-
-// Medical Services & Templates
-app.use('/api/diagnoses', diagnosisRoutes);
-app.use('/api/lab-test-templates', labTestTemplateRoutes);
-app.use('/api/procedure-templates', procedureTemplateRoutes);
-app.use('/api/service-catalog', serviceCatalogRoutes);
-app.use('/api/scan-templates', scanTemplateRoutes);
-
-// Reports & Analytics
-app.use('/api/reports', reportRoutes);
-
-//Backup and Restores
-app.use('/api/backup', backupRoutes)
-
-app.use('/uploads', servePatientImages);
+// Add to your router
+router.use('/departments', departmentRoutes);
+router.use('/appointments', appointmentRoutes);
+router.use('/notifications', notificationRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Hospital Management System API is running',
     timestamp: new Date().toISOString(),
-    services: [
-      'auth', 'profile', 'settings', 'patients', 'attendances', 'admissions',
-      'vitals', 'bills', 'insurance-providers', 'insurance-claims', 'stock-items',
-      'stock-transactions', 'hospitals', 'wards', 'beds', 'diagnoses',
-      'lab-test-templates', 'procedure-templates', 'service-catalog', 'reports'
-    ]
+    version: '1.0.0'
   });
 });
 
-
-
-export default app;
+export default router;

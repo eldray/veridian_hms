@@ -1,4 +1,4 @@
-// src/components/PaymentModeTab.tsx - UPDATED VERSION
+// src/components/PaymentModeTab.tsx - FIXED API INTEGRATION
 import {
   CreditCard,
   Shield,
@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
 } from 'lucide-react';
+import { useToast } from '../store/toastStore';
 import type { PaymentMode, InsuranceDetails, InsuranceProvider } from '../types';
 import { useState, useEffect } from 'react';
 import NewAttendanceModal from './NewAttendanceModal';
@@ -22,7 +23,7 @@ interface PaymentModeTabProps {
   isLoadingProviders?: boolean;
   isOptional?: boolean;
   patientId?: string;
-  onRetryProviders?: () => void; // Add retry callback
+  onRetryProviders?: () => void;
 }
 
 export default function PaymentModeTab({
@@ -38,7 +39,7 @@ export default function PaymentModeTab({
 }: PaymentModeTabProps) {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode>('cash');
-  const [error, setError] = useState<string | null>(null);
+  const { error: toastError, success } = useToast();
 
   // Add debug logs
   useEffect(() => {
@@ -69,7 +70,7 @@ export default function PaymentModeTab({
   const handleAddAttendance = (mode: PaymentMode) => {
     // Validate insurance details for insurance modes
     if ((mode === 'nhis' || mode === 'private_insurance') && !isInsuranceValid()) {
-      setError('Please complete all required insurance details before creating attendance');
+      toastError('Insurance Required', 'Please complete all required insurance details before creating attendance');
       return;
     }
     
@@ -79,7 +80,6 @@ export default function PaymentModeTab({
     // Then open the modal
     setSelectedPaymentMode(mode);
     setShowAttendanceModal(true);
-    setError(null);
   };
 
   const isInsuranceValid = () => {
@@ -95,18 +95,17 @@ export default function PaymentModeTab({
   const handleAttendanceSuccess = (attendance: any) => {
     setShowAttendanceModal(false);
     console.log('✅ Attendance created successfully:', attendance);
-    setError(null);
+    success('Attendance Created', 'New visit has been created successfully');
   };
 
   const handleAttendanceClose = () => {
     setShowAttendanceModal(false);
-    setError(null);
   };
 
   const handleRetryProviders = () => {
-    setError(null);
     if (onRetryProviders) {
       onRetryProviders();
+      success('Refreshing', 'Reloading insurance providers...');
     }
   };
 
@@ -122,24 +121,14 @@ export default function PaymentModeTab({
   // ✅ Defensive render
   if (!onPaymentModeChange || !onInsuranceDetailsChange) {
     return (
-      <div className="p-6 text-center text-gray-600">
+      <div className="p-4 text-center text-gray-600 text-sm">
         ⚠️ Missing required props for PaymentModeTab
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-          <div className="flex items-center gap-2 text-red-700">
-            <AlertCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">{error}</span>
-          </div>
-        </div>
-      )}
-
+    <div className="space-y-4">
       {/* Attendance Modal */}
       {showAttendanceModal && patientId && (
         <NewAttendanceModal
@@ -153,14 +142,14 @@ export default function PaymentModeTab({
 
       {/* Optional payment mode info */}
       {isOptional && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">
                 Payment Mode (Optional)
               </h3>
-              <p className="text-blue-700 text-sm">
+              <p className="text-blue-700 text-xs">
                 You can set the payment mode now or add it later.{' '}
                 <strong>Cash patients</strong> can create attendances
                 immediately. <strong>Insurance patients</strong> need valid
@@ -171,171 +160,176 @@ export default function PaymentModeTab({
         </div>
       )}
 
-      {/* Payment Mode Selection */}
+      {/* Payment Mode Selection - UPDATED WITH SMALLER CARDS */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">
           Select Payment Mode {!isOptional && <span className="text-red-500">*</span>}
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Cash */}
+        {/* FIXED: Smaller card grid with reduced spacing */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Cash - Smaller card */}
           <div
-            className={`border-2 rounded-2xl p-6 cursor-pointer transition-all duration-200 ${
+            className={`border-2 rounded-lg p-3 cursor-pointer transition-all duration-200 min-h-[120px] flex flex-col ${
               paymentMode === 'cash'
-                ? 'border-blue-500 bg-blue-50 shadow-lg'
-                : 'border-gray-300 bg-white hover:border-blue-300 hover:shadow-md'
+                ? 'border-blue-500 bg-blue-50 shadow-md'
+                : 'border-gray-300 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
             onClick={() => {
               onPaymentModeChange('cash');
-              setError(null);
             }}
           >
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-1.5 rounded-lg ${
                   paymentMode === 'cash'
                     ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <DollarSign className="w-6 h-6" />
+                <DollarSign className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-lg text-gray-900">Cash</h3>
+              <h3 className="font-bold text-gray-900 text-sm">Cash</h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Patient pays directly for services. Attendances can be created
-              immediately.
+            <p className="text-gray-600 text-xs mb-2 leading-tight flex-grow">
+              Patient pays directly for services. Attendances can be created immediately.
             </p>
 
             {paymentMode === 'cash' && patientId && (
-              <div className="mt-4 space-y-3">
-                <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-green-700 text-sm font-medium">
+              <div className="mt-auto space-y-1">
+                <div className="p-1.5 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-700 text-xs font-medium">
                     ✓ Ready for immediate attendance creation
                   </p>
                 </div>
                 <button
-                  onClick={() => handleAddAttendance('cash')}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddAttendance('cash');
+                  }}
+                  className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-xs"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3 h-3" />
                   Create Cash Attendance
                 </button>
               </div>
             )}
           </div>
 
-          {/* NHIS */}
+          {/* NHIS - Smaller card */}
           <div
-            className={`border-2 rounded-2xl p-6 cursor-pointer transition-all duration-200 ${
+            className={`border-2 rounded-lg p-3 cursor-pointer transition-all duration-200 min-h-[120px] flex flex-col ${
               paymentMode === 'nhis'
-                ? 'border-green-500 bg-green-50 shadow-lg'
-                : 'border-gray-300 bg-white hover:border-green-300 hover:shadow-md'
+                ? 'border-green-500 bg-green-50 shadow-md'
+                : 'border-gray-300 bg-white hover:border-green-300 hover:shadow-sm'
             }`}
             onClick={() => {
               onPaymentModeChange('nhis');
-              setError(null);
             }}
           >
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-1.5 rounded-lg ${
                   paymentMode === 'nhis'
                     ? 'bg-green-100 text-green-600'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <Shield className="w-6 h-6" />
+                <Shield className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-lg text-gray-900">NHIS</h3>
+              <h3 className="font-bold text-gray-900 text-sm">NHIS</h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              National Health Insurance Scheme. Requires valid insurance
-              details.
+            <p className="text-gray-600 text-xs mb-2 leading-tight flex-grow">
+              National Health Insurance Scheme. Requires valid insurance details.
             </p>
 
             {paymentMode === 'nhis' && patientId && (
-              <div className="mt-4 space-y-3">
-                <div className={`p-3 rounded-xl ${
+              <div className="mt-auto space-y-1">
+                <div className={`p-1.5 rounded-lg ${
                   isInsuranceValid() 
                     ? 'bg-green-50 border border-green-200' 
                     : 'bg-yellow-50 border border-yellow-200'
                 }`}>
-                  <p className={`text-sm font-medium ${
+                  <p className={`text-xs font-medium ${
                     isInsuranceValid() ? 'text-green-700' : 'text-yellow-700'
                   }`}>
                     {isInsuranceValid() ? '✓ Ready for attendance creation' : '⚠ Complete insurance details below'}
                   </p>
                 </div>
                 <button
-                  onClick={() => handleAddAttendance('nhis')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddAttendance('nhis');
+                  }}
                   disabled={!isInsuranceValid()}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
+                  className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg transition-colors font-medium text-xs ${
                     isInsuranceValid()
                       ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3 h-3" />
                   Create NHIS Attendance
                 </button>
               </div>
             )}
           </div>
 
-          {/* Private Insurance */}
+          {/* Private Insurance - Smaller card */}
           <div
-            className={`border-2 rounded-2xl p-6 cursor-pointer transition-all duration-200 ${
+            className={`border-2 rounded-lg p-3 cursor-pointer transition-all duration-200 min-h-[120px] flex flex-col ${
               paymentMode === 'private_insurance'
-                ? 'border-purple-500 bg-purple-50 shadow-lg'
-                : 'border-gray-300 bg-white hover:border-purple-300 hover:shadow-md'
+                ? 'border-purple-500 bg-purple-50 shadow-md'
+                : 'border-gray-300 bg-white hover:border-purple-300 hover:shadow-sm'
             }`}
             onClick={() => {
               onPaymentModeChange('private_insurance');
-              setError(null);
             }}
           >
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-1.5 rounded-lg ${
                   paymentMode === 'private_insurance'
                     ? 'bg-purple-100 text-purple-600'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <CreditCard className="w-6 h-6" />
+                <CreditCard className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-lg text-gray-900">
+              <h3 className="font-bold text-gray-900 text-sm">
                 Private Insurance
               </h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-gray-600 text-xs mb-2 leading-tight flex-grow">
               Private insurance coverage. Select provider and enter details.
             </p>
 
             {paymentMode === 'private_insurance' && patientId && (
-              <div className="mt-4 space-y-3">
-                <div className={`p-3 rounded-xl ${
+              <div className="mt-auto space-y-1">
+                <div className={`p-1.5 rounded-lg ${
                   isInsuranceValid() 
                     ? 'bg-green-50 border border-green-200' 
                     : 'bg-yellow-50 border border-yellow-200'
                 }`}>
-                  <p className={`text-sm font-medium ${
+                  <p className={`text-xs font-medium ${
                     isInsuranceValid() ? 'text-green-700' : 'text-yellow-700'
                   }`}>
                     {isInsuranceValid() ? '✓ Ready for attendance creation' : '⚠ Complete insurance details below'}
                   </p>
                 </div>
                 <button
-                  onClick={() => handleAddAttendance('private_insurance')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddAttendance('private_insurance');
+                  }}
                   disabled={!isInsuranceValid()}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
+                  className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg transition-colors font-medium text-xs ${
                     isInsuranceValid()
                       ? 'bg-purple-600 text-white hover:bg-purple-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3 h-3" />
                   Create Insurance Attendance
                 </button>
               </div>
@@ -344,14 +338,13 @@ export default function PaymentModeTab({
         </div>
 
         {isOptional && paymentMode && (
-          <div className="mt-4 text-center">
+          <div className="mt-3 text-center">
             <button
               type="button"
               onClick={() => {
                 onPaymentModeChange(undefined);
-                setError(null);
               }}
-              className="text-sm text-gray-500 hover:text-gray-700 underline"
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
             >
               Remove payment mode selection
             </button>
@@ -361,15 +354,15 @@ export default function PaymentModeTab({
 
       {/* Insurance Details */}
       {(paymentMode === 'nhis' || paymentMode === 'private_insurance') && (
-        <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900 mb-3">
             Insurance Details <span className="text-red-500">*</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Insurance Number */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Insurance Number *
               </label>
               <input
@@ -379,7 +372,7 @@ export default function PaymentModeTab({
                 onChange={(e) =>
                   updateInsuranceField('insuranceNumber', e.target.value)
                 }
-                className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
                 placeholder="Enter insurance number"
               />
             </div>
@@ -387,28 +380,26 @@ export default function PaymentModeTab({
             {/* Provider Selection for Private Insurance */}
             {paymentMode === 'private_insurance' && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Insurance Provider *
                 </label>
                 <div className="relative">
                   {isLoadingProviders ? (
-                    <div className="flex items-center gap-2 text-gray-500">
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
                       <Loader className="w-4 h-4 animate-spin" />
                       Loading providers...
                     </div>
                   ) : privateProviders.length === 0 ? (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">
-                          No private insurance providers available.
-                        </span>
+                      <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200 text-xs">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>No private insurance providers available.</span>
                       </div>
                       {onRetryProviders && (
                         <button
                           type="button"
                           onClick={handleRetryProviders}
-                          className="flex items-center gap-2 px-3 py-1 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+                          className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors"
                         >
                           <RefreshCw className="w-3 h-3" />
                           Retry
@@ -422,13 +413,13 @@ export default function PaymentModeTab({
                       onChange={(e) =>
                         updateInsuranceField('providerId', e.target.value)
                       }
-                      className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                      className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
                     >
                       <option value="">Select Provider</option>
                       {privateProviders.map((provider) => (
                         <option
-                          key={provider._id}
-                          value={provider._id}
+                          key={provider._id || provider.id}
+                          value={provider._id || provider.id}
                         >
                           {provider.name}
                           {provider.coveragePercentage ? ` - ${provider.coveragePercentage}% coverage` : ''}
@@ -442,7 +433,7 @@ export default function PaymentModeTab({
 
             {/* Start Date */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date *
               </label>
               <input
@@ -452,13 +443,13 @@ export default function PaymentModeTab({
                 onChange={(e) =>
                   updateInsuranceField('startDate', e.target.value)
                 }
-                className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
               />
             </div>
 
             {/* End Date */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 End Date *
               </label>
               <input
@@ -468,15 +459,15 @@ export default function PaymentModeTab({
                 onChange={(e) =>
                   updateInsuranceField('endDate', e.target.value)
                 }
-                className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
               />
             </div>
           </div>
 
           {/* Provider Name Input (for NHIS) */}
           {paymentMode === 'nhis' && (
-            <div className="mt-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Provider Name
               </label>
               <input
@@ -485,15 +476,15 @@ export default function PaymentModeTab({
                 onChange={(e) =>
                   updateInsuranceField('providerName', e.target.value)
                 }
-                className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
                 placeholder="NHIS"
               />
             </div>
           )}
 
           {/* Info */}
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-            <p className="text-yellow-700 text-sm">
+          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-700 text-xs">
               <strong>Note:</strong> Insurance details must be valid and current
               to create attendances. Patients with expired insurance will not be
               able to create new attendances.

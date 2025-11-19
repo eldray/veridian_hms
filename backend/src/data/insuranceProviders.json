@@ -1,54 +1,142 @@
 [
   {
+    "name": "National Health Insurance Scheme (NHIS)",
+    "type": "nhis",
+    "coveragePercentage": 50,
+    "phone": "+233302011122",
+    "email": "claims@nhis.gov.gh",
+    "address": "NHIS Headquarters, Accra",
+    "contactPerson": "NHIS Claims Manager",
+    "isActive": true
+  },
+  {
     "name": "Star Assurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345678",
+    "email": "info@starassurance.com",
+    "address": "Star House, Accra Central",
+    "contactPerson": "Health Claims Department",
+    "isActive": true
   },
   {
     "name": "Enterprise Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345679",
+    "email": "health@enterpriseinsurance.com",
+    "address": "Enterprise Tower, Accra",
+    "contactPerson": "Medical Claims Manager",
+    "isActive": true
   },
   {
     "name": "Metropolitan Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345680",
+    "email": "claims@metropolitan.com",
+    "address": "Metropolitan House, Kumasi",
+    "contactPerson": "Claims Processing Unit",
+    "isActive": true
   },
   {
     "name": "SIC Life Insurance Company",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345681",
+    "email": "healthcare@siclife.com",
+    "address": "SIC Life Building, Accra",
+    "contactPerson": "Health Insurance Division",
+    "isActive": true
   },
   {
     "name": "Glico Healthcare",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345682",
+    "email": "support@glicohealth.com",
+    "address": "Glico Plaza, Accra",
+    "contactPerson": "Customer Service Manager",
+    "isActive": true
   },
   {
     "name": "Premier Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345683",
+    "email": "claims@premierhealth.com",
+    "address": "Premier House, Takoradi",
+    "contactPerson": "Claims Administrator",
+    "isActive": true
   },
   {
     "name": "Apex Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345684",
+    "email": "info@apexhealth.com",
+    "address": "Apex Center, Accra",
+    "contactPerson": "Health Services Coordinator",
+    "isActive": true
   },
   {
     "name": "Phoenix Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345685",
+    "email": "services@phoenixhealth.com",
+    "address": "Phoenix Building, Tamale",
+    "contactPerson": "Medical Claims Officer",
+    "isActive": true
   },
   {
     "name": "Acacia Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345686",
+    "email": "support@acaciahealth.com",
+    "address": "Acacia Complex, Cape Coast",
+    "contactPerson": "Client Relations Manager",
+    "isActive": true
   },
   {
     "name": "Cosmopolitan Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345687",
+    "email": "claims@cosmopolitanhealth.com",
+    "address": "Cosmopolitan Tower, Accra",
+    "contactPerson": "Claims Processing Department",
+    "isActive": true
   },
   {
     "name": "Equity Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345688",
+    "email": "info@equityhealth.com",
+    "address": "Equity House, Kumasi",
+    "contactPerson": "Health Insurance Specialist",
+    "isActive": true
   },
   {
     "name": "GAB Health Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345689",
+    "email": "health@gabinsurance.com",
+    "address": "GAB Plaza, Accra",
+    "contactPerson": "Medical Benefits Manager",
+    "isActive": true
   },
   {
     "name": "Nationwide Medical Insurance",
-    "coveragePercentage": 100
+    "type": "private",
+    "coveragePercentage": 100,
+    "phone": "+233302345690",
+    "email": "claims@nationwidemedical.com",
+    "address": "Nationwide Center, Accra",
+    "contactPerson": "National Claims Director",
+    "isActive": true
   }
 ]

@@ -1,23 +1,41 @@
-// src/store/patientStore.ts - UPDATED WITH IMAGE UPLOAD
+// src/store/patientStore.ts - UPDATED FOR SURNAME + OTHERNAMES
 import { create } from 'zustand';
-import { getPatients, createPatient, getPatient, updatePatient } from '../api';
-import { Patient } from '../types';
+import { 
+  getPatients as apiGetPatients, 
+  createPatient as apiCreatePatient, 
+  getPatient as apiGetPatient, 
+  updatePatient as apiUpdatePatient,
+  deletePatient as apiDeletePatient,
+  getPatientStats as apiGetPatientStats,
+  uploadPatientImage as apiUploadPatientImage,
+  uploadPatientImageBase64 as apiUploadPatientImageBase64
+} from '../api';
+import type { Patient, Pagination } from '../types';
 
 interface PatientState {
   patients: Patient[];
   isLoading: boolean;
   error: string | null;
   currentPatient: Patient | null;
+  patientStats: any;
+  pagination: Pagination | null;
   
-  loadPatients: () => Promise<void>;
+  // Core patient operations
+  loadPatients: (filters?: any) => Promise<void>;
   addPatient: (data: FormData | any) => Promise<Patient>;
   getPatientById: (id: string) => Patient | undefined;
   fetchPatient: (id: string) => Promise<Patient>;
   updatePatient: (id: string, data: FormData | any) => Promise<Patient>;
+  deletePatient: (id: string) => Promise<void>;
+  getPatientStats: () => Promise<void>;
+  
+  // Image operations
   uploadPatientImage: (patientId: string, imageFile: File | string) => Promise<string>;
-  searchPatients: (q: string) => Patient[];
-  clearError: () => void;
+  
+  // Search and utilities
+  searchPatients: (query: string) => Patient[];
   clearCurrentPatient: () => void;
+  clearError: () => void;
 }
 
 export const usePatientStore = create<PatientState>((set, get) => ({
@@ -25,14 +43,30 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   isLoading: false,
   error: null,
   currentPatient: null,
+  patientStats: null,
+  pagination: null,
 
-  loadPatients: async () => {
+  loadPatients: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       console.log('🔄 Loading patients...');
-      const data = await getPatients();
-      console.log('✅ Patients loaded:', data.length);
-      set({ patients: data, isLoading: false });
+      const response = await apiGetPatients(filters);
+      
+      let patients: Patient[] = [];
+      if (Array.isArray(response)) {
+        patients = response;
+      } else if (Array.isArray(response.patients)) {
+        patients = response.patients;
+      } else if (Array.isArray(response.data)) {
+        patients = response.data;
+      }
+      
+      console.log('✅ Patients loaded:', patients.length);
+      set({ 
+        patients, 
+        pagination: response.pagination || null,
+        isLoading: false 
+      });
     } catch (error: any) {
       console.error('❌ Failed to load patients:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load patients';
@@ -49,23 +83,28 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     try {
       console.log('📝 Patient data received:', data);
       
+      // ✅ FIX: Convert fullName to surname + otherNames for backend
+      let processedData = { ...data };
+      if (data.fullName && !data.surname) {
+        const nameParts = data.fullName.trim().split(' ');
+        processedData.surname = nameParts[0] || '';
+        processedData.otherNames = nameParts.slice(1).join(' ') || '';
+        delete processedData.fullName;
+      }
+      
       let newPatient: Patient;
       
-      // If it's already a plain object, send as JSON
       if (!(data instanceof FormData)) {
-        console.log('📤 Sending as JSON data');
-        newPatient = await createPatient(data);
+        console.log('📤 Sending as JSON data:', processedData);
+        newPatient = await apiCreatePatient(processedData);
       } else {
-        // Try FormData first, then fall back to JSON if it fails
         try {
           console.log('📤 Sending as FormData');
-          newPatient = await createPatient(data);
+          newPatient = await apiCreatePatient(processedData);
         } catch (formDataError: any) {
           console.log('🔄 FormData failed, trying JSON format...');
-          // Convert FormData to plain object
           const jsonData: any = {};
           for (let [key, value] of (data as any).entries()) {
-            // Try to parse JSON strings, otherwise use as-is
             if (typeof value === 'string') {
               try {
                 jsonData[key] = JSON.parse(value);
@@ -77,7 +116,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
             }
           }
           console.log('📤 Converted to JSON:', jsonData);
-          newPatient = await createPatient(jsonData);
+          newPatient = await apiCreatePatient(jsonData);
         }
       }
       
@@ -98,15 +137,41 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   getPatientById: (id: string) => {
-    return get().patients.find((patient) => patient.id === id || patient._id === id);
+    return get().patients.find((patient) => patient.id === id);
   },
 
   fetchPatient: async (id: string) => {
+    if (!id || id === 'undefined' || id === 'null') {
+      const errorMsg = 'Invalid patient ID: ID cannot be undefined or null';
+      console.error('❌ Invalid patient ID requested:', id);
+      set({ error: errorMsg, isLoading: false });
+      throw new Error(errorMsg);
+    }
+
     set({ isLoading: true, error: null });
     try {
-      const patient = await getPatient(id);
-      set({ currentPatient: patient, isLoading: false });
-      return patient;
+      console.log('🔄 Fetching patient with ID:', id);
+      const response = await apiGetPatient(id);
+      
+      let patientData;
+      if (response.data) {
+        patientData = response.data;
+        console.log('📦 Extracted patient from response.data');
+      } else if (response.success && response.data) {
+        patientData = response.data;
+        console.log('📦 Extracted patient from success response');
+      } else {
+        patientData = response;
+        console.log('📦 Using direct patient object');
+      }
+      
+      console.log('✅ Patient data extracted:', {
+        id: patientData.id,
+        name: `${patientData.surname} ${patientData.otherNames}`
+      });
+      
+      set({ currentPatient: patientData, isLoading: false });
+      return patientData;
     } catch (error: any) {
       console.error('❌ Failed to fetch patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch patient';
@@ -121,10 +186,19 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   updatePatient: async (id: string, data: FormData | any) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedPatient = await updatePatient(id, data);
+      // ✅ FIX: Convert fullName to surname + otherNames for backend
+      let processedData = { ...data };
+      if (data.fullName && !data.surname) {
+        const nameParts = data.fullName.trim().split(' ');
+        processedData.surname = nameParts[0] || '';
+        processedData.otherNames = nameParts.slice(1).join(' ') || '';
+        delete processedData.fullName;
+      }
+      
+      const updatedPatient = await apiUpdatePatient(id, processedData);
       set((state) => ({
         patients: state.patients.map((patient) =>
-          (patient.id === id || patient._id === id) ? updatedPatient : patient
+          patient.id === id ? updatedPatient : patient
         ),
         currentPatient: state.currentPatient?.id === id ? updatedPatient : state.currentPatient,
         isLoading: false
@@ -141,64 +215,103 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // NEW: Image upload method
- // NEW: Image upload method using consistent API client
-uploadPatientImage: async (patientId: string, imageFile: File | string): Promise<string> => {
-  set({ isLoading: true, error: null });
-  try {
-    let imageUrl: string;
-
-    if (typeof imageFile === 'string') {
-      // Base64 image upload
-      const response = await api.post(`/patients/${patientId}/image-base64`, { image: imageFile });
-      imageUrl = response.data.imageUrl;
-    } else {
-      // File upload using FormData
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      const response = await api.post(`/patients/${patientId}/image`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+  deletePatient: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeletePatient(id);
+      set((state) => ({
+        patients: state.patients.filter((patient) => patient.id !== id),
+        currentPatient: state.currentPatient?.id === id ? null : state.currentPatient,
+        isLoading: false
+      }));
+    } catch (error: any) {
+      console.error('❌ Failed to delete patient:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete patient';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
       });
-      imageUrl = response.data.imageUrl;
+      throw new Error(errorMessage);
     }
+  },
 
-    // Update store
-    set((state) => ({
-      patients: state.patients.map(patient =>
-        (patient.id === patientId || patient._id === patientId) 
-          ? { ...patient, imageUrl } 
-          : patient
-      ),
-      currentPatient: state.currentPatient?.id === patientId 
-        ? { ...state.currentPatient, imageUrl } 
-        : state.currentPatient,
-      isLoading: false
-    }));
+  getPatientStats: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const stats = await apiGetPatientStats();
+      set({ patientStats: stats, isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Failed to fetch patient stats:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch patient stats';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
+    }
+  },
 
-    return imageUrl;
-  } catch (error: any) {
-    console.error('❌ Failed to upload patient image:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to upload image';
-    set({ error: errorMessage, isLoading: false });
-    throw new Error(errorMessage);
-  }
-},
+  uploadPatientImage: async (patientId: string, imageFile: File | string): Promise<string> => {
+    set({ isLoading: true, error: null });
+    try {
+      let imageUrl: string;
 
+      if (typeof imageFile === 'string') {
+        console.log('📸 Uploading base64 image for patient:', patientId);
+        const response = await apiUploadPatientImageBase64(patientId, imageFile);
+        imageUrl = response.imageUrl || response.data?.imageUrl;
+      } else {
+        console.log('📸 Uploading file image for patient:', patientId);
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const response = await apiUploadPatientImage(patientId, formData);
+        imageUrl = response.imageUrl || response.data?.imageUrl;
+      }
+
+      console.log('✅ Image uploaded successfully:', imageUrl);
+
+      set((state) => ({
+        patients: state.patients.map(patient =>
+          patient.id === patientId 
+            ? { ...patient, imageUrl } 
+            : patient
+        ),
+        currentPatient: state.currentPatient?.id === patientId 
+          ? { ...state.currentPatient, imageUrl } 
+          : state.currentPatient,
+        isLoading: false
+      }));
+
+      return imageUrl;
+    } catch (error: any) {
+      console.error('❌ Failed to upload patient image:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload image';
+      set({ error: errorMessage, isLoading: false });
+      throw new Error(errorMessage);
+    }
+  },
 
   searchPatients: (query: string) => {
     if (!query.trim()) return get().patients;
     
     const lowerQuery = query.toLowerCase();
-    return get().patients.filter((patient) =>
-      patient.fullName?.toLowerCase().includes(lowerQuery) ||
-      patient.contact?.includes(query) ||
-      patient.folderNumber?.toLowerCase().includes(lowerQuery) ||
-      patient.id?.toLowerCase().includes(lowerQuery) ||
-      patient._id?.toLowerCase().includes(lowerQuery) ||
-      patient.additionalInfo?.idNumber?.toLowerCase().includes(lowerQuery)
-    );
+    return get().patients.filter((patient) => {
+      const fullName = `${patient.surname} ${patient.otherNames}`.toLowerCase();
+      return (
+        fullName.includes(lowerQuery) ||
+        patient.contact?.includes(query) ||
+        patient.folderNumber?.toLowerCase().includes(lowerQuery) ||
+        patient.id?.toLowerCase().includes(lowerQuery) ||
+        patient.additionalInfo?.idNumber?.toLowerCase().includes(lowerQuery)
+      );
+    });
   },
 
-  clearError: () => set({ error: null }),
-  clearCurrentPatient: () => set({ currentPatient: null }),
+  clearCurrentPatient: () => {
+    set({ currentPatient: null });
+  },
+
+  clearError: () => {
+    set({ error: null });
+  },
 }));

@@ -1,12 +1,30 @@
+// controllers/adminController.ts
 import { Request, Response } from 'express';
-import UserModel from '../models/User';
-import HospitalModel from '../models/Hospital';
 import { body, validationResult } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 // Get all users (admin only)
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    const users = await UserModel.find().select('-password').sort({ createdAt: -1 });
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        licenseNumber: true,
+        specialization: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    
     res.json(users);
   } catch (error) {
     console.error('Get all users error:', error);
@@ -34,6 +52,16 @@ export const updateUser = [
       const { fullName, email, phone, licenseNumber, specialization, role, isActive } = req.body;
       const userId = req.params.id;
 
+      // Check if user exists
+      const existingUser = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!existingUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Prepare update data
       const updateData: any = { updatedAt: new Date() };
       if (fullName) updateData.fullName = fullName;
       if (email) updateData.email = email;
@@ -56,19 +84,34 @@ export const updateUser = [
         });
       }
 
-      const user = await UserModel.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true, runValidators: true }
-      ).select('-password');
-
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          licenseNumber: true,
+          specialization: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
 
       res.json(user);
     } catch (error) {
       console.error('Update user error:', error);
+      
+      // Handle Prisma unique constraint violation
+      if (error.code === 'P2002') {
+        return res.status(400).json({ 
+          message: 'Email already exists' 
+        });
+      }
+      
       res.status(500).json({ message: 'Server error updating user' });
     }
   }
@@ -79,18 +122,34 @@ export const deactivateUser = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
 
-    const user = await UserModel.findByIdAndUpdate(
-      userId,
-      { 
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { 
         isActive: false,
         updatedAt: new Date()
       },
-      { new: true }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        licenseNumber: true,
+        specialization: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
     res.json({ message: 'User deactivated successfully', user });
   } catch (error) {
@@ -102,7 +161,9 @@ export const deactivateUser = async (req: Request, res: Response) => {
 // Get hospital details
 export const getHospitalDetails = async (req: Request, res: Response) => {
   try {
-    const hospital = await HospitalModel.findOne();
+    // Since we only have one hospital, get the first one
+    const hospital = await prisma.hospital.findFirst();
+    
     res.json(hospital);
   } catch (error) {
     console.error('Get hospital details error:', error);
@@ -127,28 +188,29 @@ export const updateHospitalDetails = [
       const { name, address, phone, email, imageUrl } = req.body;
 
       // Since we only have one hospital, update the first one or create if doesn't exist
-      let hospital = await HospitalModel.findOne();
+      let hospital = await prisma.hospital.findFirst();
       
       if (hospital) {
-        hospital = await HospitalModel.findByIdAndUpdate(
-          hospital._id,
-          { 
+        hospital = await prisma.hospital.update({
+          where: { id: hospital.id },
+          data: { 
             name, 
             address, 
             phone, 
             email, 
             imageUrl,
             updatedAt: new Date()
-          },
-          { new: true, runValidators: true }
-        );
+          }
+        });
       } else {
-        hospital = await HospitalModel.create({
-          name,
-          address,
-          phone,
-          email,
-          imageUrl
+        hospital = await prisma.hospital.create({
+          data: {
+            name,
+            address,
+            phone,
+            email,
+            imageUrl
+          }
         });
       }
 

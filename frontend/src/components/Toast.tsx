@@ -1,4 +1,4 @@
-// src/components/Toast.tsx
+// src/components/Toast.tsx - More compact
 import { useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 
@@ -45,23 +45,23 @@ export function Toast({ toast, onRemove }: ToastProps) {
   const Icon = icons[toast.type];
 
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-lg border ${styles[toast.type]} shadow-lg animate-in slide-in-from-right-full duration-300`}>
-      <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+    <div className={`flex items-start gap-3 p-3 rounded-lg border ${styles[toast.type]} shadow-lg animate-in slide-in-from-right-full duration-300 max-w-xs`}>
+      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
         toast.type === 'success' ? 'text-green-600' :
         toast.type === 'error' ? 'text-red-600' :
         toast.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
       }`} />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm">{toast.title}</p>
+        <p className="font-medium text-sm leading-tight">{toast.title}</p>
         {toast.message && (
-          <p className="text-sm opacity-90 mt-1">{toast.message}</p>
+          <p className="text-xs opacity-90 mt-1 leading-relaxed">{toast.message}</p>
         )}
       </div>
       <button
         onClick={() => onRemove(toast.id)}
         className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
       >
-        <X className="w-4 h-4" />
+        <X className="w-3 h-3" />
       </button>
     </div>
   );

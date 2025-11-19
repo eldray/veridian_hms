@@ -9,42 +9,37 @@ interface ToastState {
   clearToasts: () => void;
 }
 
-export const useToastStore = create<ToastState>((set, get) => ({
+export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
-  
+
   addToast: (toast) => {
-    const id = Math.random().toString(36).substring(2, 9);
+    const id = Math.random().toString(36).substr(2, 9);
+    const duration = toast.duration ?? (toast.type === 'error' ? 8000 : 5000);
     set((state) => ({
-      toasts: [...state.toasts, { ...toast, id }]
+      toasts: [...state.toasts, { ...toast, id, duration }],
     }));
   },
-  
+
   removeToast: (id) => {
     set((state) => ({
-      toasts: state.toasts.filter((toast) => toast.id !== id)
+      toasts: state.toasts.filter((t) => t.id !== id),
     }));
   },
-  
-  clearToasts: () => {
-    set({ toasts: [] });
-  },
+
+  clearToasts: () => set({ toasts: [] }),
 }));
 
-// Helper hooks for common toast types
+// Helper hook
 export const useToast = () => {
   const { addToast } = useToastStore();
-  
   return {
-    success: (title: string, message?: string, duration?: number) => 
+    success: (title: string, message?: string, duration?: number) =>
       addToast({ type: 'success', title, message, duration }),
-    
-    error: (title: string, message?: string, duration?: number) => 
+    error: (title: string, message?: string, duration?: number) =>
       addToast({ type: 'error', title, message, duration }),
-    
-    warning: (title: string, message?: string, duration?: number) => 
+    warning: (title: string, message?: string, duration?: number) =>
       addToast({ type: 'warning', title, message, duration }),
-    
-    info: (title: string, message?: string, duration?: number) => 
+    info: (title: string, message?: string, duration?: number) =>
       addToast({ type: 'info', title, message, duration }),
   };
 };

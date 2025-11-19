@@ -1,55 +1,41 @@
-// src/pages/ServiceCatalog.tsx - UPDATED WITH STATUS INTEGRATION
+// src/pages/ServiceCatalog.tsx
 import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
-import { useAttendanceStore } from '../store/attendanceStore'; // ADDED
+import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
-import { useToastStore } from '../store/toastStore';
+import { useToast } from '../store/toastStore';
 import {
-  Plus,
-  Search,
-  Filter,
-  ClipboardList,
-  Edit,
-  Trash2,
-  RefreshCw,
-  DollarSign,
-  Shield,
-  Activity,
-  FlaskConical,
-  Pill,
-  Building,
-  Stethoscope,
-  X,
-  Save,
-  TrendingUp,
-  Users,
-  BarChart3
+  Plus, Search, Filter, ClipboardList, Edit, Trash2, RefreshCw,
+  DollarSign, Shield, Activity, FlaskConical, Pill, Building, Stethoscope,
+  X, Save, TrendingUp, Users, BarChart3
 } from 'lucide-react';
 
 export default function ServiceCatalog() {
-  const { 
-    serviceCatalog, 
+  const {
+    serviceCatalog,
     serviceMetadata,
-    getServiceCatalog, 
+    getServiceCatalog,
     getServiceMetadata,
-    createServiceCatalogItem, 
-    updateServiceCatalogItem, 
+    createServiceCatalogItem,
+    updateServiceCatalogItem,
     deleteServiceCatalogItem,
-    isLoading 
+    isLoading
   } = useMedicalServicesStore();
-  const { attendances, getAttendances } = useAttendanceStore(); // ADDED
+  const { attendances, getAttendances } = useAttendanceStore();
   const { user } = useAuthStore();
-  const { addToast } = useToastStore();
-  
+  const { success, error: toastError } = useToast();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterServiceType, setFilterServiceType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [showAnalytics, setShowAnalytics] = useState(false); // ADDED
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    nhisServiceCode: '',
     description: '',
     serviceType: 'consultation',
     category: 'consultation',
@@ -67,82 +53,68 @@ export default function ServiceCatalog() {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    try {
-      await Promise.all([
-        getServiceCatalog(), 
-        getServiceMetadata(),
-        getAttendances() // ADDED: Load attendances for analytics
-      ]);
-    } catch (error) {
-      addToast('Failed to load service catalog', 'error');
-    }
-  };
+const loadData = async () => {
+  try {
+    await Promise.all([
+      getServiceCatalog(),
+      getServiceMetadata(),
+      getAttendances()
+    ]);
+  } catch (err) {
+    console.error('Load data error:', err);
+    toastError('Load failed', 'Could not load service data');
+  }
+};
 
-  // ADDED: Service usage analytics
+  // Analytics
   const getServiceUsageAnalytics = () => {
     const analytics = {
       totalServices: serviceCatalog.length,
       byServiceType: {} as Record<string, number>,
       byCategory: {} as Record<string, number>,
       totalRevenue: 0,
-      mostUsedServices: [] as Array<{name: string, usage: number, revenue: number}>
+      mostUsedServices: [] as Array<{id: string, name: string, usage: number, revenue: number}>
     };
 
-    // Calculate service usage from attendances
     serviceCatalog.forEach(service => {
       let usage = 0;
       let revenue = 0;
 
       attendances.forEach(attendance => {
-        // Check diagnoses
+        const price = attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+
         if (attendance.diagnoses?.some((d: any) => d.diagnosisId === service.diagnosisId)) {
-          usage++;
-          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+          usage++; revenue += price;
         }
-
-        // Check lab tests
         if (attendance.labTests?.some((lt: any) => lt.templateId === service.labTestTemplateId)) {
-          usage++;
-          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+          usage++; revenue += price;
         }
-
-        // Check procedures
         if (attendance.procedures?.some((p: any) => p.templateId === service.procedureTemplateId)) {
-          usage++;
-          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+          usage++; revenue += price;
         }
-
-        // Check medications
         if (attendance.medications?.some((m: any) => m.stockItemId === service.stockItemId)) {
-          usage++;
-          revenue += service.cashPrice; // Medications typically use cash price
+          usage++; revenue += service.cashPrice;
         }
-
-        // Check services rendered
         if (attendance.servicesRendered?.some((s: any) => s.serviceItemId === service._id)) {
-          usage++;
-          revenue += attendance.paymentMode === 'cash' ? service.cashPrice : service.insurancePrice;
+          usage++; revenue += price;
         }
       });
 
       if (usage > 0) {
-        analytics.mostUsedServices.push({
-          name: service.name,
-          usage,
-          revenue
+        analytics.mostUsedServices.push({ 
+          id: service._id,
+          name: service.name, 
+          usage, 
+          revenue 
         });
       }
 
-      // Aggregate by service type and category
       analytics.byServiceType[service.serviceType] = (analytics.byServiceType[service.serviceType] || 0) + 1;
       analytics.byCategory[service.category] = (analytics.byCategory[service.category] || 0) + 1;
       analytics.totalRevenue += revenue;
     });
 
-    // Sort by usage
     analytics.mostUsedServices.sort((a, b) => b.usage - a.usage);
-
     return analytics;
   };
 
@@ -151,78 +123,114 @@ export default function ServiceCatalog() {
   const filteredServices = serviceCatalog.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          service.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                         (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesServiceType = filterServiceType === 'all' || service.serviceType === filterServiceType;
     const matchesCategory = filterCategory === 'all' || service.category === filterCategory;
     return matchesSearch && matchesServiceType && matchesCategory;
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingItem) {
-        await updateServiceCatalogItem(editingItem._id, formData);
-        addToast('Service item updated successfully', 'success');
-      } else {
-        await createServiceCatalogItem(formData);
-        addToast('Service item created successfully', 'success');
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setFormLoading(true);
+  
+  try {
+    if (editingItem) {
+      // FIX 1: Validate that editingItem has an _id
+      if (!editingItem._id) {
+        throw new Error('Cannot update service: missing service ID');
       }
-      setShowForm(false);
-      setEditingItem(null);
-      resetForm();
-      loadData(); // Refresh to update analytics
-    } catch (error) {
-      addToast('Failed to save service item', 'error');
+      
+      await updateServiceCatalogItem(editingItem._id, formData);
+      success('Service Updated', `${formData.name} has been updated successfully`);
+    } else {
+      await createServiceCatalogItem(formData);
+      success('Service Created', `${formData.name} has been added to the catalog`);
     }
-  };
+    
+    // FIX 2: Reset form first, then close modal
+    resetForm();
+    setEditingItem(null);
+    setShowForm(false);
+    
+    // FIX 3: Reload data with error handling
+    await loadData();
+    
+  } catch (error: any) {
+    console.error('Save error:', error);
+    toastError(
+      'Save Failed', 
+      error?.message || 'Could not save service item. Please try again.'
+    );
+  } finally {
+    setFormLoading(false);
+  }
+};
 
-  const handleEdit = (item: any) => {
-    setEditingItem(item);
-    setFormData({
-      name: item.name,
-      code: item.code,
-      description: item.description || '',
-      serviceType: item.serviceType,
-      category: item.category || 'consultation',
-      cashPrice: item.cashPrice,
-      insurancePrice: item.insurancePrice,
-      costPrice: item.costPrice,
-      unit: item.unit,
-      requiresAuthorization: item.requiresAuthorization,
-      tariffCode: item.tariffCode || '',
-      vatRate: item.vatRate,
-      isTaxable: item.isTaxable,
-    });
-    setShowForm(true);
-  };
+const handleEdit = (item: any) => {
+  // FIX 4: Validate item before editing
+  if (!item || !item._id) {
+    toastError('Error', 'Cannot edit this service item');
+    return;
+  }
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this service item?')) {
-      try {
-        await deleteServiceCatalogItem(id);
-        addToast('Service item deleted successfully', 'success');
-        loadData(); // Refresh to update analytics
-      } catch (error) {
-        addToast('Failed to delete service item', 'error');
-      }
-    }
-  };
+  setEditingItem(item);
+  setFormData({
+    name: item.name || '',
+    code: item.code || '',
+    nhisServiceCode: item.nhisServiceCode || '',
+    description: item.description || '',
+    serviceType: item.serviceType || 'consultation',
+    category: item.category || 'consultation',
+    cashPrice: item.cashPrice || 0,
+    insurancePrice: item.insurancePrice || 0,
+    costPrice: item.costPrice || 0,
+    unit: item.unit || 'Each',
+    requiresAuthorization: item.requiresAuthorization || false,
+    tariffCode: item.tariffCode || '',
+    vatRate: item.vatRate || 0,
+    isTaxable: item.isTaxable !== undefined ? item.isTaxable : true,
+  });
+  setShowForm(true);
+};
+
+const handleDelete = async (id: string) => {
+  // FIX 5: Validate ID before deleting
+  if (!id) {
+    toastError('Error', 'Cannot delete this service item');
+    return;
+  }
+
+  if (!window.confirm('Are you sure you want to delete this service?')) return;
+  
+  try {
+    await deleteServiceCatalogItem(id);
+    success('Service Deleted', 'Service has been removed successfully');
+    await loadData();
+  } catch (error: any) {
+    console.error('Delete error:', error);
+    toastError(
+      'Delete Failed', 
+      error?.message || 'Could not delete service. Please try again.'
+    );
+  }
+};
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      code: '',
-      description: '',
+      name: '', 
+      code: '', 
+      nhisServiceCode: '',
+      description: '', 
       serviceType: 'consultation',
-      category: 'consultation',
-      cashPrice: 0,
-      insurancePrice: 0,
+      category: 'consultation', 
+      cashPrice: 0, 
+      insurancePrice: 0, 
       costPrice: 0,
-      unit: 'Each',
-      requiresAuthorization: false,
-      tariffCode: '',
-      vatRate: 0,
-      isTaxable: true,
+      unit: 'Each', 
+      requiresAuthorization: false, 
+      tariffCode: '', 
+      vatRate: 0, 
+      isTaxable: true
     });
   };
 
@@ -232,390 +240,318 @@ export default function ServiceCatalog() {
     resetForm();
   };
 
-  const getServiceIcon = (serviceType: string) => {
-    switch (serviceType) {
-      case 'consultation': return <Stethoscope className="w-5 h-5" />;
-      case 'lab_test': return <FlaskConical className="w-5 h-5" />;
-      case 'procedure': return <Activity className="w-5 h-5" />;
-      case 'medication': return <Pill className="w-5 h-5" />;
-      case 'ward': return <Building className="w-5 h-5" />;
-      default: return <ClipboardList className="w-5 h-5" />;
-    }
+  const getServiceIcon = (type: string) => {
+    const icons: Record<string, JSX.Element> = {
+      consultation: <Stethoscope className="w-4 h-4" />,
+      lab_test: <FlaskConical className="w-4 h-4" />,
+      procedure: <Activity className="w-4 h-4" />,
+      medication: <Pill className="w-4 h-4" />,
+      ward: <Building className="w-4 h-4" />,
+      scan: <Activity className="w-4 h-4" />,
+    };
+    return icons[type] || <ClipboardList className="w-4 h-4" />;
   };
 
-  const getServiceColor = (serviceType: string) => {
-    switch (serviceType) {
-      case 'consultation': return 'bg-blue-100 text-blue-800';
-      case 'lab_test': return 'bg-green-100 text-green-800';
-      case 'procedure': return 'bg-purple-100 text-purple-800';
-      case 'medication': return 'bg-red-100 text-red-800';
-      case 'ward': return 'bg-amber-100 text-amber-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getServiceColor = (type: string) => {
+    const colors: Record<string, string> = {
+      consultation: 'bg-blue-100 text-blue-800',
+      lab_test: 'bg-green-100 text-green-800',
+      procedure: 'bg-purple-100 text-purple-800',
+      medication: 'bg-red-100 text-red-800',
+      ward: 'bg-amber-100 text-amber-800',
+      scan: 'bg-indigo-100 text-indigo-800',
+    };
+    return colors[type] || 'bg-gray-100 text-gray-800';
   };
 
-  const getPriceColor = (cashPrice: number, insurancePrice: number) => {
-    if (insurancePrice > cashPrice) return 'text-green-600';
-    if (insurancePrice < cashPrice) return 'text-red-600';
+  const getPriceColor = (cash: number, ins: number) => {
+    if (ins > cash) return 'text-green-600';
+    if (ins < cash) return 'text-red-600';
     return 'text-gray-600';
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-teal-100 rounded-2xl flex items-center justify-center">
-            <ClipboardList className="w-6 h-6 text-teal-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
+            <ClipboardList className="w-5 h-5 text-teal-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Service Catalog</h1>
-            <p className="text-gray-600">Manage all billable services and procedures</p>
+            <h1 className="text-xl font-bold text-gray-900">Service Catalog</h1>
+            <p className="text-sm text-gray-600">Manage billable services</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex gap-2">
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
           >
-            <TrendingUp className="w-5 h-5" />
+            <TrendingUp className="w-4 h-4" />
             Analytics
           </button>
           {user?.role === 'admin' && (
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Add Service
             </button>
           )}
         </div>
       </div>
 
-      {/* Service Analytics - ADDED */}
+      {/* Analytics Panel */}
       {showAnalytics && (
-        <div className="bg-white rounded-2xl p-6 border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-teal-600" />
-            Service Usage Analytics
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
-              <div className="text-2xl font-bold text-gray-900">{serviceAnalytics.totalServices}</div>
-              <div className="text-sm text-gray-600">Total Services</div>
-            </div>
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-              <div className="text-2xl font-bold text-gray-900">{serviceAnalytics.mostUsedServices.length}</div>
-              <div className="text-sm text-gray-600">Active Services</div>
-            </div>
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
-              <div className="text-2xl font-bold text-gray-900">
-                GHS {serviceAnalytics.totalRevenue.toFixed(2)}
-              </div>
-              <div className="text-sm text-gray-600">Total Revenue</div>
-            </div>
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
-              <div className="text-2xl font-bold text-gray-900">
-                {serviceAnalytics.mostUsedServices[0]?.usage || 0}
-              </div>
-              <div className="text-sm text-gray-600">Most Used Service</div>
-            </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-teal-600" />
+            <h2 className="text-lg font-bold text-gray-900">Service Analytics</h2>
           </div>
-
-          {/* Most Used Services */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            {[
+              { id: 'total', label: 'Total', value: serviceAnalytics.totalServices, color: 'blue' },
+              { id: 'active', label: 'Active', value: serviceAnalytics.mostUsedServices.length, color: 'green' },
+              { id: 'revenue', label: 'Revenue', value: `GHS ${serviceAnalytics.totalRevenue.toFixed(2)}`, color: 'purple' },
+              { id: 'top-used', label: 'Top Used', value: serviceAnalytics.mostUsedServices[0]?.usage || 0, color: 'amber' },
+            ].map(({ id, label, value, color }) => (
+              <div key={id} className={`bg-${color}-50 rounded-lg p-3 border border-${color}-200`}>
+                <div className="text-lg font-bold text-gray-900">{value}</div>
+                <div className="text-xs text-gray-600">{label}</div>
+              </div>
+            ))}
+          </div>
           {serviceAnalytics.mostUsedServices.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Used Services</h3>
-              <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Top Services</h3>
+              <div className="space-y-2">
                 {serviceAnalytics.mostUsedServices.slice(0, 5).map((service, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-teal-600 bg-teal-100 w-8 h-8 rounded-full flex items-center justify-center">
+                  <div key={service.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-teal-600 bg-teal-100 w-6 h-6 rounded-full flex items-center justify-center">
                         {index + 1}
                       </span>
-                      <div>
-                        <span className="font-semibold text-gray-900">{service.name}</span>
-                        <p className="text-sm text-gray-600">{service.usage} uses</p>
-                      </div>
+                      <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{service.name}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-gray-900">GHS {service.revenue.toFixed(2)}</div>
-                      <div className="text-sm text-gray-600">Revenue</div>
+                      <div className="text-sm font-bold text-gray-900">GHS {service.revenue.toFixed(2)}</div>
+                      <div className="text-xs text-gray-600">{service.usage} uses</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Service Type Distribution */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Type Distribution</h3>
-              <div className="space-y-3">
-                {Object.entries(serviceAnalytics.byServiceType).map(([type, count]) => (
-                  <div key={type} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 capitalize">{type.replace('_', ' ')}</span>
-                    <div className="flex items-center gap-3">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-teal-600 h-2 rounded-full"
-                          style={{ 
-                            width: `${(count / serviceAnalytics.totalServices) * 100}%` 
-                          }}
-                        />
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {count}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Distribution</h3>
-              <div className="space-y-3">
-                {Object.entries(serviceAnalytics.byCategory).map(([category, count]) => (
-                  <div key={category} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 capitalize">{category}</span>
-                    <div className="flex items-center gap-3">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ 
-                            width: `${(count / serviceAnalytics.totalServices) * 100}%` 
-                          }}
-                        />
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {count}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Service Form Modal */}
+      {/* Compact Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-5 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">
                 {editingItem ? 'Edit Service' : 'Add New Service'}
               </h2>
-              <button
-                onClick={handleCancel}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
+              <button onClick={handleCancel} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                  <input 
+                    type="text" 
+                    required 
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Enter service name"
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
 
-    <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Code *
-                  </label>
-                  <input
-                    type="text"
-                    required
+                {/* Code */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Code *</label>
+                  <input 
+                    type="text" 
+                    required 
                     value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Enter unique code"
+                    onChange={e => setFormData({ ...formData, code: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
 
+                {/* NHIS Service Code */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Type *
-                  </label>
-                  <select
+                  <label className="block text-xs font-medium text-gray-700 mb-1">NHIS Code</label>
+                  <input 
+                    type="text" 
+                    value={formData.nhisServiceCode}
+                    onChange={e => setFormData({ ...formData, nhisServiceCode: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Service Type */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
+                  <select 
                     value={formData.serviceType}
-                    onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   >
-                    <option value="consultation">Consultation</option>
-                    <option value="lab_test">Lab Test</option>
-                    <option value="procedure">Procedure</option>
-                    <option value="medication">Medication</option>
-                    <option value="ward">Ward</option>
-                    <option value="other">Other</option>
+                    {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
+                      <option key={t} value={t}>
+                        {t.replace('_', ' ').toUpperCase()}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Category */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category *
-                  </label>
-                  <select
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                  <select 
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   >
-                    <option value="consultation">Consultation</option>
-                    <option value="diagnostic">Diagnostic</option>
-                    <option value="procedural">Procedural</option>
-                    <option value="pharmacy">Pharmacy</option>
-                    <option value="ward">Ward</option>
-                    <option value="laboratory">Laboratory</option>
-                    <option value="radiology">Radiology</option>
-                    <option value="other">Other</option>
+                    {['consultation', 'diagnostic', 'procedural', 'pharmacy', 'ward', 'laboratory', 'radiology', 'other'].map(c => (
+                      <option key={c} value={c}>
+                        {c.toUpperCase()}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Unit */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cash Price (GHS) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.cashPrice}
-                    onChange={(e) => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Insurance Price (GHS) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.insurancePrice}
-                    onChange={(e) => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cost Price (GHS) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.costPrice}
-                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                  <input 
+                    type="text" 
                     value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="e.g., Each, Session, Day"
+                    onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
 
+                {/* Cash Price */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tariff Code
-                  </label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Cash Price *</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    value={formData.cashPrice} 
+                    onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Insurance Price */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Price *</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    value={formData.insurancePrice} 
+                    onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Cost Price */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Cost Price *</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    value={formData.costPrice} 
+                    onChange={e => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Tariff Code */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tariff Code</label>
+                  <input 
+                    type="text" 
                     value={formData.tariffCode}
-                    onChange={(e) => setFormData({ ...formData, tariffCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Enter tariff code"
+                    onChange={e => setFormData({ ...formData, tariffCode: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
 
+                {/* VAT Rate */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    VAT Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.vatRate}
-                    onChange={(e) => setFormData({ ...formData, vatRate: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  <label className="block text-xs font-medium text-gray-700 mb-1">VAT Rate %</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.vatRate} 
+                    onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
               </div>
 
+              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
+                <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                <textarea 
+                  rows={2} 
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  placeholder="Enter service description"
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
 
-              <div className="flex items-center gap-4">
+              {/* Checkboxes */}
+              <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <input 
+                    type="checkbox" 
                     checked={formData.requiresAuthorization}
-                    onChange={(e) => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
-                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
+                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-4 h-4"
                   />
-                  <span className="text-sm font-medium text-gray-700">Requires Authorization</span>
+                  <span className="text-sm text-gray-700">Requires Authorization</span>
                 </label>
-
+                
                 <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <input 
+                    type="checkbox" 
                     checked={formData.isTaxable}
-                    onChange={(e) => setFormData({ ...formData, isTaxable: e.target.checked })}
-                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })}
+                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-4 h-4"
                   />
-                  <span className="text-sm font-medium text-gray-700">Taxable</span>
+                  <span className="text-sm text-gray-700">Taxable</span>
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
+              {/* Form Actions */}
+              <div className="flex gap-2 pt-3 border-t border-gray-200">
+                <button 
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                  disabled={formLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors text-sm font-medium"
                 >
                   <Save className="w-4 h-4" />
-                  {editingItem ? 'Update Service' : 'Create Service'}
+                  {formLoading ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
                 </button>
-                <button
-                  type="button"
+                <button 
+                  type="button" 
                   onClick={handleCancel}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                  disabled={formLoading}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
@@ -625,157 +561,128 @@ export default function ServiceCatalog() {
         </div>
       )}
 
+      {/* Rest of your existing code for filters and services grid remains the same */}
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 relative">
-          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search services..."
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          <input 
+            type="text" 
+            placeholder="Search services..." 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500"
           />
         </div>
-        <select
-          value={filterServiceType}
-          onChange={(e) => setFilterServiceType(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+        <select 
+          value={filterServiceType} 
+          onChange={e => setFilterServiceType(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500"
         >
-          <option value="all">All Service Types</option>
-          <option value="consultation">Consultation</option>
-          <option value="lab_test">Lab Test</option>
-          <option value="procedure">Procedure</option>
-          <option value="medication">Medication</option>
-          <option value="ward">Ward</option>
-          <option value="other">Other</option>
+          <option value="all">All Types</option>
+          {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
+            <option key={t} value={t}>{t.replace('_', ' ')}</option>
+          ))}
         </select>
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+        <select 
+          value={filterCategory} 
+          onChange={e => setFilterCategory(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-500"
         >
           <option value="all">All Categories</option>
-          <option value="consultation">Consultation</option>
-          <option value="diagnostic">Diagnostic</option>
-          <option value="procedural">Procedural</option>
-          <option value="pharmacy">Pharmacy</option>
-          <option value="ward">Ward</option>
-          <option value="laboratory">Laboratory</option>
-          <option value="radiology">Radiology</option>
-          <option value="other">Other</option>
+          {['consultation', 'diagnostic', 'procedural', 'pharmacy', 'ward', 'laboratory', 'radiology', 'other'].map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
-        <button
-          onClick={loadData}
+        <button 
+          onClick={loadData} 
           disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
-          <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Services Grid */}
+      {/* Services Grid - Keep your existing grid code */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="bg-white rounded-2xl p-6 border border-gray-200 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={`skeleton-${i}`} className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
         </div>
       ) : filteredServices.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-          <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No services found</p>
-          <p className="text-gray-400">Get started by adding your first service</p>
+        <div className="text-center py-8 bg-white rounded-xl border border-gray-200">
+          <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">No services found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredServices.map((service) => (
-            <div key={service._id} className="bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getServiceColor(service.serviceType)}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredServices.map(service => (
+            <div key={service._id} className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-sm transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getServiceColor(service.serviceType)}`}>
                     {getServiceIcon(service.serviceType)}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{service.name}</h3>
-                    <div className="flex gap-2 mt-1">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getServiceColor(service.serviceType)}`}>
+                    <h3 className="text-sm font-semibold text-gray-900">{service.name}</h3>
+                    <div className="flex gap-1 mt-1">
+                      <span className={`text-xs px-2 py-0.5 rounded ${getServiceColor(service.serviceType)}`}>
                         {service.serviceType.replace('_', ' ')}
                       </span>
-                      {service.category && service.category !== 'other' && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {service.category}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
-                {service.requiresAuthorization && (
-                  <Shield className="w-5 h-5 text-amber-500" title="Requires Authorization" />
-                )}
+                {service.requiresAuthorization && <Shield className="w-4 h-4 text-amber-500" />}
               </div>
-
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between items-center text-sm">
+              <div className="space-y-1.5 text-xs mb-3">
+                <div className="flex justify-between">
                   <span className="text-gray-600">Code:</span>
                   <span className="font-mono font-medium">{service.code}</span>
                 </div>
-                
-                {service.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{service.description}</p>
-                )}
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                {/* ADD THIS NHIS CODE DISPLAY */}
+{service.nhisServiceCode && (
+  <div className="flex justify-between">
+    <span className="text-gray-600">NHIS Code:</span>
+    <span className="font-mono font-medium text-blue-600">{service.nhisServiceCode}</span>
+  </div>
+  )}
+
+                {service.description && <p className="text-gray-600 line-clamp-1">{service.description}</p>}
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div className="flex items-center gap-1 text-gray-600 mb-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span>Cash Price:</span>
+                    <div className="flex items-center gap-1 text-gray-600 mb-0.5">
+                      <DollarSign className="w-3 h-3" /> Cash
                     </div>
-                    <p className="font-medium">GHS {service.cashPrice?.toFixed(2)}</p>
+                    <p className="font-medium">GHS {service.cashPrice.toFixed(2)}</p>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 text-gray-600 mb-1">
-                      <Shield className="w-4 h-4" />
-                      <span>Insurance:</span>
+                    <div className="flex items-center gap-1 text-gray-600 mb-0.5">
+                      <Shield className="w-3 h-3" /> Insurance
                     </div>
                     <p className={`font-medium ${getPriceColor(service.cashPrice, service.insurancePrice)}`}>
-                      GHS {service.insurancePrice?.toFixed(2)}
+                      GHS {service.insurancePrice.toFixed(2)}
                     </p>
                   </div>
                 </div>
-
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Cost Price:</span>
-                  <span className="font-medium text-gray-900">GHS {service.costPrice?.toFixed(2)}</span>
-                </div>
-
-                {service.tariffCode && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Tariff Code:</span>
-                    <span className="font-medium">{service.tariffCode}</span>
-                  </div>
-                )}
               </div>
-
               {user?.role === 'admin' && (
-                <div className="flex gap-2 pt-4 border-t border-gray-100">
-                  <button
+                <div className="flex gap-1 pt-2 border-t border-gray-100">
+                  <button 
                     onClick={() => handleEdit(service)}
-                    className="flex-1 py-2 text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 py-1.5 text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 text-xs"
                   >
-                    <Edit className="w-4 h-4" />
-                    Edit
+                    <Edit className="w-3 h-3" /> Edit
                   </button>
-                  <button
+                  <button 
                     onClick={() => handleDelete(service._id)}
-                    className="flex-1 py-2 text-red-600 hover:text-red-800 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 py-1.5 text-red-600 hover:text-red-800 flex items-center justify-center gap-1 text-xs"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
+                    <Trash2 className="w-3 h-3" /> Delete
                   </button>
                 </div>
               )}

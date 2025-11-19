@@ -1,0 +1,17 @@
+gdrgCode,description,nhiaTariff
+MAL01,Uncomplicated Malaria,420.00
+MAL02,Complicated Malaria,850.00
+PNEU01,Uncomplicated Pneumonia,650.00
+PNEU02,Pneumonia with complications,1200.00
+DEL01,Normal delivery,850.00
+DEL02,Caesarean section,1800.00
+APP01,Appendectomy,1100.00
+DIAB01,Type 2 Diabetes uncomplicated,520.00
+DIAB02,Type 2 Diabetes with complications,950.00
+HTEN01,Hypertension uncomplicated,480.00
+INVE01,Basic laboratory investigations,150.00
+INVE02,Full blood count,280.00
+CONS01,General consultation,45.00
+CONS02,Specialist consultation,120.00
+ANC01,Antenatal first visit,200.00
+ANC02,Antenatal follow-up,150.00

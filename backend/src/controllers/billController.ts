@@ -1,605 +1,828 @@
-// controllers/billController.ts - COMPLETE VERSION
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { body, validationResult } from 'express-validator';
-import Bill from '../models/Bill';
-import BillItem from '../models/BillItem';
-import Attendance from '../models/Attendance';
-import Patient from '../models/Patient';
+import { PrismaClient, BillStatus, PaymentMode } from '@prisma/client';
+import { AuthRequest } from '../middleware/authMiddleware';
+import { BillingService } from '../services/BillingService';
 
-// COMPLETE createBill function that was missing
+const prisma = new PrismaClient();
+
+// Utility function for consistent error responses
+const handleError = (res: Response, message: string, error: any, statusCode = 500) => {
+  console.error(`❌ ${message}:`, error);
+  res.status(statusCode).json({
+    success: false,
+    message,
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+};
+
+/**
+ * Get all bills with filtering
+ */
+export const getBills = async (req: AuthRequest, res: Response) => {
+  try {
+    const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
+    
+    console.log('💰 Fetching bills with filters:', {
+      patientId, status, paymentMode, dateFrom, dateTo
+    });
+
+    const where: any = {};
+    if (patientId) where.patientId = patientId as string;
+    
+    // Status filtering
+    if (status) {
+      if (typeof status === 'string' && status.includes(',')) {
+        const statusArray = status.split(',').map(s => s.trim());
+        where.status = { in: statusArray };
+      } else {
+        where.status = status as BillStatus;
+      }
+    }
+
+    // Payment mode filtering
+    if (paymentMode) {
+      where.paymentMode = paymentMode as PaymentMode;
+    }
+    
+    // Date filtering
+    if (dateFrom || dateTo) {
+      where.billDate = {};
+      if (dateFrom) where.billDate.gte = new Date(dateFrom as string);
+      if (dateTo) where.billDate.lte = new Date(dateTo as string);
+    }
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [bills, total] = await Promise.all([
+      prisma.bill.findMany({
+        where,
+        include: {
+          patient: {
+            select: {
+              id: true,
+              surname: true,
+otherNames: true,
+              folderNumber: true,
+              contact: true
+            }
+          },
+          attendance: {
+            select: {
+              id: true,
+              attendanceNumber: true,
+              attendanceType: true,
+              encounterCategory: true
+            }
+          },
+          admission: {
+            select: {
+              id: true,
+              admissionNumber: true,
+              status: true
+            }
+          },
+          insuranceProvider: {
+            select: {
+              id: true,
+              name: true,
+              type: true
+            }
+          },
+          createdBy: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true
+            }
+          }
+        },
+        orderBy: {
+          billDate: 'desc'
+        },
+        skip,
+        take: limitNum
+      }),
+      prisma.bill.count({ where })
+    ]);
+
+    console.log(`✅ Found ${bills.length} bills out of ${total}`);
+
+    res.json({
+      success: true,
+      data: bills,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalBills: total,
+        hasNext: pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1
+      }
+    });
+  } catch (error) {
+    handleError(res, 'Error fetching bills', error);
+  }
+};
+
+/**
+ * Get bill by ID
+ */
+export const getBillById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    console.log('💰 Fetching bill by ID:', id);
+
+    const bill = await prisma.bill.findUnique({
+      where: { id },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            surname: true,
+otherNames: true,
+            folderNumber: true,
+            contact: true,
+            paymentMode: true
+          }
+        },
+        attendance: {
+          select: {
+            id: true,
+            attendanceNumber: true,
+            attendanceType: true,
+            encounterCategory: true,
+            dateTime: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNumber: true,
+            status: true,
+            admissionDate: true
+          }
+        },
+        insuranceProvider: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            coveragePercentage: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        updatedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        insuranceClaims: {
+          select: {
+            id: true,
+            claimNumber: true,
+            status: true,
+            totalClaimAmount: true,
+            submissionDate: true
+          }
+        }
+      }
+    });
+
+    if (!bill) {
+      console.log('❌ Bill not found:', id);
+      return res.status(404).json({ 
+        success: false,
+        message: 'Bill not found' 
+      });
+    }
+
+    console.log('✅ Bill fetched successfully:', bill.billNumber);
+
+    res.json({
+      success: true,
+      data: bill
+    });
+  } catch (error) {
+    handleError(res, 'Error fetching bill', error);
+  }
+};
+
+/**
+ * Generate bill from attendance using BillingService
+ */
+export const generateBillFromAttendance = async (req: AuthRequest, res: Response) => {
+  try {
+    const { attendanceId } = req.params;
+    console.log('💰 Generating bill from attendance:', attendanceId);
+
+    const result = await BillingService.generateBillFromAttendance(attendanceId);
+
+    const populatedBill = await prisma.bill.findUnique({
+      where: { id: result.bill.id },
+      include: {
+        patient: {
+          select: {
+            surname: true,
+otherNames: true,
+            folderNumber: true,
+            contact: true
+          }
+        },
+        attendance: {
+          select: {
+            attendanceNumber: true,
+            attendanceType: true
+          }
+        },
+        createdBy: {
+          select: {
+            fullName: true
+          }
+        }
+      }
+    });
+
+    console.log('✅ Bill generated successfully:', result.bill.billNumber);
+
+    res.json({
+      success: true,
+      message: 'Bill generated successfully',
+      data: {
+        bill: populatedBill,
+        summary: result.summary,
+        breakdown: {
+          totalServices: result.summary.itemCount,
+          hasExemptions: result.summary.hasExemptedServices,
+          requiresAuth: result.summary.requiresAuthorization
+        }
+      }
+    });
+  } catch (error) {
+    handleError(res, 'Error generating bill', error);
+  }
+};
+
+/**
+ * Create bill manually with items
+ */
 export const createBill = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
-  body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'mixed']).withMessage('Valid payment mode is required'),
+  body('paymentMode').isIn(['cash', 'nhis', 'private_insurance']).withMessage('Valid payment mode is required'),
+  body('items').isArray({ min: 1 }).withMessage('At least one bill item is required'),
 
-  async (req: Request, res: Response) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        console.log('🔍 Create bill validation errors:', errors.array());
+        return res.status(400).json({ 
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
       }
 
-      const session = await mongoose.startSession();
-      session.startTransaction();
+      const { patientId, attendanceId, paymentMode, items, insuranceProviderId } = req.body;
 
-      try {
-        const { patientId, attendanceId, billItems = [], ...billData } = req.body;
+      console.log('💰 Creating manual bill:', { patientId, attendanceId, paymentMode, itemsCount: items.length });
 
-        // Validate attendance and patient
-        const attendance = await Attendance.findById(attendanceId).session(session);
-        const patient = await Patient.findById(patientId).session(session);
-        
-        if (!attendance) {
-          await session.abortTransaction();
-          return res.status(404).json({ message: 'Attendance not found' });
-        }
+      const result = await prisma.$transaction(async (tx) => {
+        // Validate patient and attendance
+        const [patient, attendance] = await Promise.all([
+          tx.patient.findUnique({ where: { id: patientId } }),
+          tx.attendance.findUnique({ 
+            where: { id: attendanceId },
+            include: { insuranceProvider: true }
+          })
+        ]);
+
         if (!patient) {
-          await session.abortTransaction();
-          return res.status(404).json({ message: 'Patient not found' });
+          throw new Error('Patient not found');
+        }
+        if (!attendance) {
+          throw new Error('Attendance not found');
         }
 
-        // Calculate totals from bill items
-        let subtotal = 0;
-        let taxAmount = 0;
-        let insuranceCovered = 0;
-        const billItemIds = [];
+        // Use BillingService for calculations
+        const billItems = [];
+        let totalCashPrice = 0;
+        let totalInsuranceCovered = 0;
+        let totalPatientPayable = 0;
 
-        // Create bill items and calculate totals
-        for (const item of billItems) {
-          const itemTotal = item.unitPrice * item.quantity;
-          const itemDiscount = item.discount || 0;
-          const itemVat = item.vatAmount || 0;
-          const itemInsuranceCovered = item.insuranceCovered || 0;
-          const itemPatientPayable = item.patientPayable || 0;
+        for (const item of items) {
+          const calculation = await BillingService.calculateServiceBilling(
+            item.serviceItemId,
+            item.quantity,
+            paymentMode as PaymentMode,
+            attendance.insuranceProvider
+          );
 
-          const billItem = await BillItem.create([{
-            billId: null, // Will update after bill creation
-            serviceType: item.serviceType,
-            serviceReference: item.serviceReference,
-            serviceName: item.serviceName,
-            serviceCode: item.serviceCode,
-            description: item.description,
+          totalCashPrice += calculation.cashPrice;
+          totalInsuranceCovered += calculation.insuranceCovered;
+          totalPatientPayable += calculation.patientPayable;
+
+          billItems.push({
+            serviceItemId: item.serviceItemId,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: itemDiscount,
-            vatAmount: itemVat,
-            totalAmount: itemTotal,
-            insuranceCovered: itemInsuranceCovered,
-            patientPayable: itemPatientPayable,
-            date: new Date(),
-            createdBy: (req as any).user._id
-          }], { session });
-
-          billItemIds.push(billItem[0]._id);
-          subtotal += itemTotal;
-          taxAmount += itemVat;
-          insuranceCovered += itemInsuranceCovered;
+            calculation: calculation,
+            cashPrice: calculation.cashPrice,
+            insuranceCovered: calculation.insuranceCovered,
+            patientPayable: calculation.patientPayable,
+            requiresAuthorization: calculation.requiresAuthorization
+          });
         }
-
-        // Calculate final totals
-        const discount = billData.discount || 0;
-        const totalAmount = subtotal - discount + taxAmount;
-        const patientPayable = totalAmount - insuranceCovered;
 
         // Create bill
-        const bill = await Bill.create([{
-          ...billData,
-          patientId,
-          attendanceId,
-          admissionId: attendance.admissionId,
-          billItems: billItemIds,
-          subtotal,
-          discount,
-          taxAmount,
-          totalAmount,
-          insuranceCovered,
-          patientPayable,
-          paidAmount: 0,
-          balance: patientPayable,
-          status: patientPayable > 0 ? 'pending' : 'paid',
-          createdBy: (req as any).user._id
-        }], { session });
-
-        // Update bill items with bill ID
-        await BillItem.updateMany(
-          { _id: { $in: billItemIds } },
-          { $set: { billId: bill[0]._id } },
-          { session }
-        );
-
-        // Update attendance with bill reference
-        attendance.billId = bill[0]._id;
-        await attendance.save({ session });
-
-        await session.commitTransaction();
-
-        // Populate and return the created bill
-        const populatedBill = await Bill.findById(bill[0]._id)
-          .populate('patientId', 'fullName folderNumber contact')
-          .populate('attendanceId', 'attendanceNumber attendanceType')
-          .populate('billItems')
-          .populate('createdBy', 'fullName');
-
-        res.status(201).json(populatedBill);
-      } catch (error) {
-        await session.abortTransaction();
-        throw error;
-      } finally {
-        session.endSession();
-      }
-    } catch (error) {
-      console.error('Error creating bill:', error);
-      res.status(500).json({ message: 'Error creating bill', error });
-    }
-  }
-];
-
-// REAL-TIME: Generate/Update bill when service is added to attendance
-export const updateAttendanceBill = async (attendanceId: string) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const attendance = await Attendance.findById(attendanceId)
-      .populate('diagnoses.diagnosisId')
-      .populate('labTests.templateId')
-      .populate('procedures.templateId')
-      .populate('medications.stockItemId')
-      .session(session);
-
-    if (!attendance) {
-      throw new Error('Attendance not found');
-    }
-
-    const billItems = [];
-    let subtotal = 0;
-    let taxAmount = 0;
-    let insuranceCovered = 0;
-
-    // Process diagnoses
-    for (const diag of attendance.diagnoses) {
-      if (diag.diagnosisId) {
-        const diagnosis = diag.diagnosisId as any;
-        const price = attendance.paymentMode === 'cash' 
-          ? diagnosis.cashPrice 
-          : diagnosis.insurancePrice;
-        const vatAmount = diagnosis.isTaxable ? price * (diagnosis.vatRate / 100) : 0;
-        const total = price + vatAmount;
-        
-        subtotal += price;
-        taxAmount += vatAmount;
-        
-        const insuranceCover = attendance.paymentMode !== 'cash' ? total : 0;
-        insuranceCovered += insuranceCover;
-        
-        billItems.push({
-          serviceType: 'diagnosis',
-          serviceReference: diagnosis._id,
-          serviceName: diagnosis.name,
-          serviceCode: diagnosis.icdCode,
-          description: `Diagnosis: ${diagnosis.name}`,
-          quantity: 1,
-          unitPrice: price,
-          vatAmount: vatAmount,
-          totalAmount: total,
-          insuranceCovered: insuranceCover,
-          patientPayable: attendance.paymentMode === 'cash' ? total : 0
-        });
-      }
-    }
-
-    // Process lab tests
-    for (const lab of attendance.labTests) {
-      if (lab.templateId) {
-        const labTest = lab.templateId as any;
-        const price = attendance.paymentMode === 'cash'
-          ? labTest.cashPrice
-          : labTest.insurancePrice;
-        const vatAmount = labTest.isTaxable ? price * (labTest.vatRate / 100) : 0;
-        const total = price + vatAmount;
-        
-        subtotal += price;
-        taxAmount += vatAmount;
-        
-        const insuranceCover = attendance.paymentMode !== 'cash' ? total : 0;
-        insuranceCovered += insuranceCover;
-        
-        billItems.push({
-          serviceType: 'lab_test',
-          serviceReference: labTest._id,
-          serviceName: labTest.name,
-          serviceCode: `LAB-${labTest._id}`,
-          description: `Lab Test: ${labTest.name}`,
-          quantity: 1,
-          unitPrice: price,
-          vatAmount: vatAmount,
-          totalAmount: total,
-          insuranceCovered: insuranceCover,
-          patientPayable: attendance.paymentMode === 'cash' ? total : 0
-        });
-      }
-    }
-
-    // Process medications
-    for (const med of attendance.medications) {
-      if (med.stockItemId) {
-        const medication = med.stockItemId as any;
-        const price = attendance.paymentMode === 'cash'
-          ? medication.sellingPrice
-          : medication.insurancePrice;
-        const vatAmount = medication.isTaxable ? (price * med.quantity) * (medication.vatRate / 100) : 0;
-        const total = (price * med.quantity) + vatAmount;
-        
-        subtotal += price * med.quantity;
-        taxAmount += vatAmount;
-        
-        const insuranceCover = attendance.paymentMode !== 'cash' ? total : 0;
-        insuranceCovered += insuranceCover;
-        
-        billItems.push({
-          serviceType: 'medication',
-          serviceReference: medication._id,
-          serviceName: medication.name,
-          serviceCode: `MED-${medication._id}`,
-          description: `Medication: ${medication.name} - ${med.dosage}`,
-          quantity: med.quantity,
-          unitPrice: price,
-          vatAmount: vatAmount,
-          totalAmount: total,
-          insuranceCovered: insuranceCover,
-          patientPayable: attendance.paymentMode === 'cash' ? total : 0
-        });
-      }
-    }
-
-    // Process procedures
-    for (const proc of attendance.procedures) {
-      if (proc.templateId) {
-        const procedure = proc.templateId as any;
-        const price = attendance.paymentMode === 'cash'
-          ? procedure.cashPrice
-          : procedure.insurancePrice;
-        const vatAmount = procedure.isTaxable ? price * (procedure.vatRate / 100) : 0;
-        const total = price + vatAmount;
-        
-        subtotal += price;
-        taxAmount += vatAmount;
-        
-        const insuranceCover = attendance.paymentMode !== 'cash' ? total : 0;
-        insuranceCovered += insuranceCover;
-        
-        billItems.push({
-          serviceType: 'procedure',
-          serviceReference: procedure._id,
-          serviceName: procedure.name,
-          serviceCode: procedure.code,
-          description: `Procedure: ${procedure.name}`,
-          quantity: 1,
-          unitPrice: price,
-          vatAmount: vatAmount,
-          totalAmount: total,
-          insuranceCovered: insuranceCover,
-          patientPayable: attendance.paymentMode === 'cash' ? total : 0
-        });
-      }
-    }
-
-    const totalAmount = subtotal + taxAmount;
-    const patientPayable = totalAmount - insuranceCovered;
-
-    // Check if bill already exists
-    let bill = await Bill.findOne({ attendanceId }).session(session);
-
-    if (bill) {
-      // Update existing bill
-      bill.subtotal = subtotal;
-      bill.taxAmount = taxAmount;
-      bill.totalAmount = totalAmount;
-      bill.insuranceCovered = insuranceCovered;
-      bill.patientPayable = patientPayable;
-      bill.balance = patientPayable - bill.paidAmount;
-      bill.updatedBy = (req as any)?.user?._id;
-      
-      // Update bill status based on payments
-      if (bill.balance <= 0 && bill.paidAmount > 0) {
-        bill.status = 'paid';
-      } else if (bill.paidAmount > 0) {
-        bill.status = 'partial';
-      } else {
-        bill.status = 'pending';
-      }
-      
-      await bill.save({ session });
-
-      // Update existing bill items
-      await BillItem.deleteMany({ billId: bill._id }).session(session);
-      
-    } else {
-      // Create new bill
-      bill = await Bill.create([{
-        patientId: attendance.patientId,
-        attendanceId: attendance._id,
-        admissionId: attendance.admissionId,
-        paymentMode: attendance.paymentMode,
-        subtotal,
-        taxAmount,
-        totalAmount,
-        insuranceCovered,
-        patientPayable,
-        paidAmount: 0,
-        balance: patientPayable,
-        status: patientPayable > 0 ? 'pending' : 'paid',
-        claimStatus: attendance.paymentMode !== 'cash' ? 'pending' : 'not_required',
-        createdBy: (req as any)?.user?._id
-      }], { session });
-      bill = bill[0];
-    }
-
-    // Create bill items
-    const billItemDocs = [];
-    for (const item of billItems) {
-      const billItem = await BillItem.create([{
-        ...item,
-        billId: bill._id,
-        date: new Date(),
-        createdBy: (req as any)?.user?._id
-      }], { session });
-      billItemDocs.push(billItem[0]._id);
-    }
-
-    // Update bill with bill items
-    bill.billItems = billItemDocs;
-    await bill.save({ session });
-
-    // Update attendance with bill reference
-    attendance.billId = bill._id;
-    attendance.totalBill = totalAmount;
-    attendance.outstandingBalance = patientPayable;
-    await attendance.save({ session });
-
-    await session.commitTransaction();
-
-    return {
-      bill,
-      summary: {
-        subtotal,
-        taxAmount,
-        totalAmount,
-        insuranceCovered,
-        patientPayable,
-        balance: patientPayable - (bill.paidAmount || 0)
-      }
-    };
-
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
-};
-
-// API endpoint to manually generate/update bill
-export const generateBillFromAttendance = async (req: Request, res: Response) => {
-  try {
-    const { attendanceId } = req.params;
-    
-    const result = await updateAttendanceBill(attendanceId);
-    
-    const populatedBill = await Bill.findById(result.bill._id)
-      .populate('patientId', 'fullName folderNumber contact')
-      .populate('attendanceId', 'attendanceNumber attendanceType')
-      .populate('billItems')
-      .populate('createdBy', 'fullName');
-
-    res.json({
-      message: 'Bill generated/updated successfully',
-      bill: populatedBill,
-      summary: result.summary
-    });
-  } catch (error) {
-    console.error('Error generating bill:', error);
-    res.status(500).json({ message: 'Error generating bill', error });
-  }
-};
-
-// Keep your existing functions (getBills, getBillById, addPaymentToBill, generateBillReport)
-// ... [Your existing functions remain the same]
-
-export const getBills = async (req: Request, res: Response) => {
-  try {
-    const { patientId, status, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
-    
-    const filter: any = {};
-    if (patientId) filter.patientId = patientId;
-    if (status) filter.status = status;
-    if (dateFrom || dateTo) {
-      filter.billDate = {};
-      if (dateFrom) filter.billDate.$gte = new Date(dateFrom as string);
-      if (dateTo) filter.billDate.$lte = new Date(dateTo as string);
-    }
-
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-
-    const bills = await Bill.find(filter)
-      .populate('patientId', 'fullName folderNumber contact')
-      .populate('attendanceId', 'attendanceNumber attendanceType')
-      .populate('admissionId', 'admissionNumber')
-      .populate('insuranceProviderId', 'name')
-      .populate('createdBy', 'fullName')
-      .populate({
-        path: 'billItems',
-        populate: {
-          path: 'serviceItemId',
-          select: 'name code categoryId'
-        }
-      })
-      .sort({ billDate: -1 })
-      .skip(skip)
-      .limit(parseInt(limit as string));
-
-    const total = await Bill.countDocuments(filter);
-
-    res.json({
-      bills,
-      pagination: {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        total,
-        pages: Math.ceil(total / parseInt(limit as string))
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching bills:', error);
-    res.status(500).json({ message: 'Error fetching bills', error });
-  }
-};
-
-export const getBillById = async (req: Request, res: Response) => {
-  try {
-    const bill = await Bill.findById(req.params.id)
-      .populate('patientId')
-      .populate('attendanceId')
-      .populate('admissionId')
-      .populate('insuranceProviderId')
-      .populate('createdBy', 'fullName')
-      .populate('updatedBy', 'fullName')
-      .populate({
-        path: 'billItems',
-        populate: {
-          path: 'serviceItemId',
-          populate: {
-            path: 'categoryId',
-            select: 'name code'
-          }
-        }
-      });
-
-    if (!bill) {
-      return res.status(404).json({ message: 'Bill not found' });
-    }
-
-    res.json(bill);
-  } catch (error) {
-    console.error('Error fetching bill:', error);
-    res.status(500).json({ message: 'Error fetching bill', error });
-  }
-};
-
-export const addPaymentToBill = [
-  body('amount').isNumeric().withMessage('Amount must be a number'),
-  body('paymentMode').isIn(['cash', 'card', 'mobile_money', 'bank_transfer']).withMessage('Valid payment mode is required'),
-
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { amount, paymentMode, reference } = req.body;
-      
-      const bill = await Bill.findById(req.params.id);
-      if (!bill) {
-        return res.status(404).json({ message: 'Bill not found' });
-      }
-
-      bill.paidAmount += amount;
-      await bill.save();
-
-      const updatedBill = await Bill.findById(bill._id)
-        .populate('patientId', 'fullName folderNumber contact')
-        .populate('attendanceId', 'attendanceNumber attendanceType')
-        .populate({
-          path: 'billItems',
-          populate: {
-            path: 'serviceItemId',
-            populate: {
-              path: 'categoryId',
-              select: 'name code'
+        const bill = await tx.bill.create({
+          data: {
+            patientId,
+            attendanceId,
+            admissionId: attendance.admissionId,
+            paymentMode: paymentMode as PaymentMode,
+            insuranceProviderId: attendance.insuranceProviderId,
+            billNumber: `BIL-${Date.now()}`,
+            items: billItems as any,
+            subtotal: totalCashPrice,
+            taxAmount: 0,
+            totalAmount: totalCashPrice,
+            insuranceCovered: totalInsuranceCovered,
+            patientPayable: totalPatientPayable,
+            paidAmount: 0,
+            balance: totalPatientPayable,
+            status: totalPatientPayable <= 0 ? 'paid' : 'pending',
+            createdById: req.user?.id
+          },
+          include: {
+            patient: {
+              select: {
+                surname: true,
+otherNames: true,
+                folderNumber: true,
+                contact: true
+              }
+            },
+            attendance: {
+              select: {
+                attendanceNumber: true,
+                attendanceType: true
+              }
+            },
+            createdBy: {
+              select: {
+                fullName: true
+              }
             }
           }
         });
 
-      res.json({
-        message: 'Payment added successfully',
-        bill: updatedBill,
-        payment: {
-          amount,
-          paymentMode,
-          reference,
-          date: new Date()
-        }
+        // Update attendance with bill reference
+        await tx.attendance.update({
+          where: { id: attendanceId },
+          data: {
+            billId: bill.id,
+            totalBill: totalCashPrice,
+            outstandingBalance: totalPatientPayable
+          }
+        });
+
+        return {
+          bill,
+          summary: {
+            totalCashPrice,
+            totalInsuranceCovered,
+            totalPatientPayable,
+            itemCount: billItems.length
+          }
+        };
+      });
+
+      console.log('✅ Manual bill created successfully:', result.bill.billNumber);
+
+      res.status(201).json({
+        success: true,
+        message: 'Bill created successfully',
+        data: result
       });
     } catch (error) {
-      console.error('Error adding payment:', error);
-      res.status(500).json({ message: 'Error adding payment', error });
+      handleError(res, 'Error creating bill', error);
     }
   }
 ];
 
-export const generateBillReport = async (req: Request, res: Response) => {
-  try {
-    const bill = await Bill.findById(req.params.id)
-      .populate('patientId')
-      .populate('attendanceId')
-      .populate('insuranceProviderId')
-      .populate('createdBy', 'fullName')
-      .populate({
-        path: 'billItems',
-        populate: {
-          path: 'serviceItemId',
-          populate: {
-            path: 'categoryId',
-            select: 'name'
-          }
+/**
+ * Add payment to bill with payment method tracking
+ */
+export const addPaymentToBill = [
+  body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
+  body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Valid payment method is required'),
+  body('reference').optional().isString(),
+  body('notes').optional().isString(),
+
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        console.log('🔍 Add payment validation errors:', errors.array());
+        return res.status(400).json({ 
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { amount, paymentMethod, reference, notes } = req.body;
+      const { id } = req.params;
+
+      console.log('💳 Adding payment to bill:', { billId: id, amount, paymentMethod });
+
+      const result = await prisma.$transaction(async (tx) => {
+        const bill = await tx.bill.findUnique({
+          where: { id }
+        });
+
+        if (!bill) {
+          throw new Error('Bill not found');
         }
+
+        const paymentAmount = parseFloat(amount);
+        const newPaidAmount = bill.paidAmount + paymentAmount;
+        const newBalance = bill.totalAmount - newPaidAmount;
+
+        // Determine new bill status
+        let newStatus: BillStatus = bill.status;
+        if (newBalance <= 0) {
+          newStatus = 'paid';
+        } else if (newPaidAmount > 0) {
+          newStatus = 'partial';
+        }
+
+        // Update bill
+        const updatedBill = await tx.bill.update({
+          where: { id },
+          data: {
+            paidAmount: newPaidAmount,
+            balance: newBalance,
+            status: newStatus,
+            updatedAt: new Date(),
+            updatedById: req.user?.id
+          },
+          include: {
+            patient: {
+              select: {
+                surname: true,
+otherNames: true,
+                folderNumber: true,
+                contact: true
+              }
+            },
+            attendance: {
+              select: {
+                attendanceNumber: true,
+                attendanceType: true
+              }
+            }
+          }
+        });
+
+        // Note: Payment tracking would go here when Payment model is added
+        await tx.payment.create({
+           data: {
+             billId: id,
+             amount: paymentAmount,
+             paymentMethod,
+             reference: reference || `PAY-${Date.now()}`,
+             receivedById: req.user?.id,
+             notes,
+             transactionDate: new Date()
+           }
+         });
+
+        return {
+          bill: updatedBill,
+          payment: {
+            amount: paymentAmount,
+            paymentMethod,
+            reference: reference || `PAY-${Date.now()}`,
+            transactionDate: new Date(),
+            notes
+          }
+        };
       });
 
+      console.log('✅ Payment added successfully to bill:', result.bill.billNumber);
+
+      res.json({
+        success: true,
+        message: 'Payment added successfully',
+        data: result
+      });
+    } catch (error) {
+      handleError(res, 'Error adding payment', error);
+    }
+  }
+];
+
+/**
+ * Generate bill report (for printing/export)
+ */
+export const generateBillReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    console.log('📊 Generating bill report for:', id);
+
+    const bill = await prisma.bill.findUnique({
+      where: { id },
+      include: {
+        patient: {
+          select: {
+            surname: true,
+otherNames: true,
+            folderNumber: true,
+            contact: true,
+            address: true
+          }
+        },
+        attendance: {
+          select: {
+            attendanceNumber: true,
+            attendanceType: true,
+            dateTime: true
+          }
+        },
+        admission: {
+          select: {
+            admissionNumber: true,
+            admissionDate: true
+          }
+        },
+        insuranceProvider: {
+          select: {
+            name: true,
+            coveragePercentage: true
+          }
+        },
+        createdBy: {
+          select: {
+            fullName: true
+          }
+        }
+      }
+    });
+
     if (!bill) {
-      return res.status(404).json({ message: 'Bill not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Bill not found' 
+      });
     }
 
-    // Generate comprehensive report
     const report = {
       billInfo: {
         billNumber: bill.billNumber,
         billDate: bill.billDate,
-        status: bill.status
+        status: bill.status,
+        paymentMode: bill.paymentMode
       },
       patientInfo: {
-        name: (bill.patientId as any).fullName,
-        folderNumber: (bill.patientId as any).folderNumber,
-        contact: (bill.patientId as any).contact
+        name: bill.patient.fullName,
+        folderNumber: bill.patient.folderNumber,
+        contact: bill.patient.contact,
+        address: bill.patient.address
       },
       attendanceInfo: {
-        attendanceNumber: (bill.attendanceId as any).attendanceNumber,
-        type: (bill.attendanceId as any).attendanceType,
-        date: (bill.attendanceId as any).dateTime
+        attendanceNumber: bill.attendance?.attendanceNumber,
+        type: bill.attendance?.attendanceType,
+        date: bill.attendance?.dateTime
       },
-      items: bill.billItems.map((item: any) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.totalAmount,
-        category: item.serviceItemId.categoryId.name
-      })),
+      admissionInfo: bill.admission ? {
+        admissionNumber: bill.admission.admissionNumber,
+        admissionDate: bill.admission.admissionDate
+      } : null,
+      items: bill.items,
       financialSummary: {
         subtotal: bill.subtotal,
-        discount: bill.discount,
         tax: bill.taxAmount,
         total: bill.totalAmount,
         insuranceCovered: bill.insuranceCovered,
         patientPayable: bill.patientPayable,
         paidAmount: bill.paidAmount,
         balance: bill.balance
-      }
+      },
+      insuranceInfo: bill.insuranceProvider ? {
+        provider: bill.insuranceProvider.name,
+        coveragePercentage: bill.insuranceProvider.coveragePercentage
+      } : null
     };
 
-    res.json(report);
+    console.log('✅ Bill report generated successfully');
+
+    res.json({
+      success: true,
+      data: report
+    });
   } catch (error) {
-    console.error('Error generating bill report:', error);
-    res.status(500).json({ message: 'Error generating bill report', error });
+    handleError(res, 'Error generating bill report', error);
+  }
+};
+
+/**
+ * Get billing breakdown for a bill
+ */
+export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    console.log('📋 Getting billing breakdown for bill:', id);
+
+    const bill = await prisma.bill.findUnique({
+      where: { id },
+      include: {
+        attendance: {
+          select: {
+            id: true
+          }
+        }
+      }
+    });
+
+    if (!bill) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Bill not found' 
+      });
+    }
+
+    const breakdown = await BillingService.getBillingBreakdown(bill.attendance.id);
+
+    res.json({
+      success: true,
+      data: {
+        billId: bill.id,
+        billNumber: bill.billNumber,
+        paymentMode: bill.paymentMode,
+        breakdown
+      }
+    });
+  } catch (error) {
+    handleError(res, 'Error getting billing breakdown', error);
+  }
+};
+
+/**
+ * Update bill status
+ */
+export const updateBillStatus = [
+  body('status').isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Valid status is required'),
+
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      console.log('📝 Updating bill status:', { id, status });
+
+      const bill = await prisma.bill.update({
+        where: { id },
+        data: {
+          status: status as BillStatus,
+          updatedAt: new Date(),
+          updatedById: req.user?.id
+        },
+        include: {
+          patient: {
+            select: {
+              surname: true,
+otherNames: true,
+              folderNumber: true
+            }
+          },
+          attendance: {
+            select: {
+              attendanceNumber: true
+            }
+          }
+        }
+      });
+
+      console.log('✅ Bill status updated successfully:', bill.billNumber);
+
+      res.json({
+        success: true,
+        message: 'Bill status updated successfully',
+        data: bill
+      });
+    } catch (error) {
+      handleError(res, 'Error updating bill status', error);
+    }
+  }
+];
+
+/**
+ * Get bill statistics
+ */
+export const getBillStatistics = async (req: AuthRequest, res: Response) => {
+  try {
+    const { period = 'month' } = req.query;
+    console.log('📊 Getting bill statistics for period:', period);
+
+    const date = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        break;
+      case 'week':
+        startDate = new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(date.getMonth() / 3);
+        startDate = new Date(date.getFullYear(), quarter * 3, 1);
+        break;
+      case 'year':
+        startDate = new Date(date.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    const where = {
+      billDate: { gte: startDate }
+    };
+
+    const [
+      totalBills,
+      totalAmount,
+      totalPaid,
+      totalPending,
+      byPaymentMode,
+      byStatus
+    ] = await Promise.all([
+      prisma.bill.count({ where }),
+      prisma.bill.aggregate({ where, _sum: { totalAmount: true } }),
+      prisma.bill.aggregate({ where, _sum: { paidAmount: true } }),
+      prisma.bill.count({ where: { ...where, status: { in: ['pending', 'partial'] } } }),
+      prisma.bill.groupBy({
+        by: ['paymentMode'],
+        where,
+        _count: { id: true },
+        _sum: { totalAmount: true, paidAmount: true }
+      }),
+      prisma.bill.groupBy({
+        by: ['status'],
+        where,
+        _count: { id: true },
+        _sum: { totalAmount: true, paidAmount: true }
+      })
+    ]);
+
+    const stats = {
+      period: {
+        start: startDate,
+        end: new Date(),
+        type: period
+      },
+      summary: {
+        totalBills,
+        totalAmount: totalAmount._sum.totalAmount || 0,
+        totalPaid: totalPaid._sum.paidAmount || 0,
+        totalPending,
+        collectionRate: totalAmount._sum.totalAmount ? 
+          ((totalPaid._sum.paidAmount || 0) / totalAmount._sum.totalAmount) * 100 : 0
+      },
+      byPaymentMode,
+      byStatus
+    };
+
+    console.log('✅ Bill statistics fetched successfully');
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    handleError(res, 'Error fetching bill statistics', error);
   }
 };
