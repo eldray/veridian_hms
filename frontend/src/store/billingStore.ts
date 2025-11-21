@@ -1,4 +1,4 @@
-// stores/billingStore.ts - UPDATED WITH ALL API FUNCTIONS
+// stores/billingStore.ts - FIXED TO MATCH BACKEND RESPONSE
 import { create } from 'zustand';
 import { 
   getBills as apiGetBills,
@@ -6,7 +6,6 @@ import {
   createBill as apiCreateBill,
   updateBill as apiUpdateBill,
   deleteBill as apiDeleteBill,
-  // ✅ ADDED MISSING FUNCTIONS
   addPaymentToBill as apiAddPaymentToBill,
   generateBillFromAttendance as apiGenerateBillFromAttendance,
   generateBillReport as apiGenerateBillReport,
@@ -30,7 +29,7 @@ interface BillingState {
   updateBill: (id: string, data: any) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
   
-  // ✅ ADDED MISSING FUNCTIONS
+  // Payment functions
   addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<void>;
   generateBillFromAttendance: (attendanceId: string) => Promise<Bill>;
   generateBillReport: (billId: string) => Promise<any>;
@@ -46,20 +45,44 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   currentBill: null,
   isLoading: false,
   pagination: null,
-  billStatistics: null, // ✅ ADDED
+  billStatistics: null,
 
   getBills: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const response = await apiGetBills(filters);
+      console.log('📊 Billing Store - API Response:', response);
+      
+      // Handle different response structures
+      let billsArray: Bill[] = [];
+      let paginationData = null;
+
+      if (Array.isArray(response)) {
+        billsArray = response;
+      } else if (response && Array.isArray(response.data)) {
+        billsArray = response.data;
+        paginationData = response.pagination;
+      } else if (response && Array.isArray(response.bills)) {
+        billsArray = response.bills;
+        paginationData = response.pagination;
+      } else {
+        console.warn('Unexpected bills API response structure:', response);
+        billsArray = [];
+      }
+
+      console.log('✅ Billing Store - Processed Bills:', billsArray.length);
+      
       set({ 
-        bills: response.bills || response.data || response,
-        pagination: response.pagination || null,
+        bills: billsArray,
+        pagination: paginationData,
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to fetch bills:', error);
-      set({ isLoading: false });
+      console.error('❌ Failed to fetch bills:', error);
+      set({ 
+        bills: [],
+        isLoading: false 
+      });
       throw error;
     }
   },
@@ -68,9 +91,10 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const bill = await apiGetBill(id);
+      console.log('📄 Billing Store - Single Bill:', bill);
       set({ currentBill: bill, isLoading: false });
     } catch (error: any) {
-      console.error('Failed to fetch bill:', error);
+      console.error('❌ Failed to fetch bill:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -87,7 +111,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to create bill:', error);
+      console.error('❌ Failed to create bill:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -106,7 +130,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to update bill:', error);
+      console.error('❌ Failed to update bill:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -123,13 +147,12 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to delete bill:', error);
+      console.error('❌ Failed to delete bill:', error);
       set({ isLoading: false });
       throw error;
     }
   },
 
-  // ✅ ADDED MISSING FUNCTIONS
   addPaymentToBill: async (billId: string, paymentData: Partial<Payment>) => {
     set({ isLoading: true });
     try {
@@ -146,7 +169,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to add payment:', error);
+      console.error('❌ Failed to add payment:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -164,7 +187,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       });
       return newBill;
     } catch (error: any) {
-      console.error('Failed to generate bill from attendance:', error);
+      console.error('❌ Failed to generate bill from attendance:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -177,7 +200,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       set({ isLoading: false });
       return report;
     } catch (error: any) {
-      console.error('Failed to generate bill report:', error);
+      console.error('❌ Failed to generate bill report:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -190,7 +213,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       set({ isLoading: false });
       return breakdown;
     } catch (error: any) {
-      console.error('Failed to get billing breakdown:', error);
+      console.error('❌ Failed to get billing breakdown:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -201,7 +224,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     try {
       const updatedBill = await apiUpdateBillStatus(billId, { status, ...data });
       
-      // Update bills list
       const bills = get().bills.map(bill => 
         bill.id === billId ? updatedBill : bill
       );
@@ -212,7 +234,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to update bill status:', error);
+      console.error('❌ Failed to update bill status:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -227,7 +249,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to fetch bill statistics:', error);
+      console.error('❌ Failed to fetch bill statistics:', error);
       set({ isLoading: false });
       throw error;
     }

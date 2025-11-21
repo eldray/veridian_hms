@@ -5,17 +5,78 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
+import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
-import { Header } from '../components/vitals/Header';
-import { PatientSelection } from '../components/vitals/PatientSelection';
-import { AttendanceSelection } from '../components/vitals/AttendanceSelection';
-import { VitalsVisualization } from '../components/vitals/VitalsVisualization';
-import { AlertCircle, Activity, RefreshCw } from 'lucide-react';
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { ChevronLeft, RefreshCw, Activity, Plus, User, Calendar, AlertTriangle } from 'lucide-react';
 import type { Vitals, VitalsEntry, Patient, Attendance } from '../types/vitals';
 
 // Helper function
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
   return entity?._id || entity?.id;
+};
+
+// Helper function to check if vital is abnormal and get color
+const getVitalStatus = (type: string, value: any): { color: string; isAbnormal: boolean } => {
+  if (!value) return { color: 'text-gray-600', isAbnormal: false };
+  
+  switch (type) {
+    case 'bloodPressure':
+      if (typeof value === 'string') {
+        const [systolic, diastolic] = value.split('/').map(Number);
+        // High BP: Systolic > 140 or Diastolic > 90
+        // Low BP: Systolic < 90 or Diastolic < 60
+        if (systolic > 140 || diastolic > 90) {
+          return { color: 'text-red-600', isAbnormal: true };
+        } else if (systolic < 90 || diastolic < 60) {
+          return { color: 'text-yellow-600', isAbnormal: true };
+        } else {
+          return { color: 'text-green-600', isAbnormal: false };
+        }
+      }
+      return { color: 'text-gray-600', isAbnormal: false };
+    
+    case 'temperature':
+      // High fever: > 38°C, Hypothermia: < 35°C
+      if (value > 38.0) {
+        return { color: 'text-red-600', isAbnormal: true };
+      } else if (value < 35.0) {
+        return { color: 'text-yellow-600', isAbnormal: true };
+      } else {
+        return { color: 'text-green-600', isAbnormal: false };
+      }
+    
+    case 'pulse':
+      // Tachycardia: > 100 bpm, Bradycardia: < 60 bpm
+      if (value > 100) {
+        return { color: 'text-red-600', isAbnormal: true };
+      } else if (value < 60) {
+        return { color: 'text-yellow-600', isAbnormal: true };
+      } else {
+        return { color: 'text-green-600', isAbnormal: false };
+      }
+    
+    case 'respiration':
+      // Tachypnea: > 20 bpm, Bradypnea: < 12 bpm
+      if (value > 20) {
+        return { color: 'text-red-600', isAbnormal: true };
+      } else if (value < 12) {
+        return { color: 'text-yellow-600', isAbnormal: true };
+      } else {
+        return { color: 'text-green-600', isAbnormal: false };
+      }
+    
+    case 'spo2':
+      // Hypoxemia: < 95%
+      if (value < 95) {
+        return { color: 'text-red-600', isAbnormal: true };
+      } else {
+        return { color: 'text-green-600', isAbnormal: false };
+      }
+    
+    default:
+      return { color: 'text-gray-600', isAbnormal: false };
+  }
 };
 
 export default function Vitals() {
@@ -30,21 +91,16 @@ export default function Vitals() {
     updateVitals,
     deleteVitals,
     getVitalsByAttendance,
-    updateAttendanceStatus,
     canRecordVitals
   } = useAttendanceStore();
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
   // State
-  const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
-  const [activatingAttendance, setActivatingAttendance] = useState(false);
   const [previousVitals, setPreviousVitals] = useState<Vitals[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showVisualization, setShowVisualization] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal and edit states
@@ -56,7 +112,6 @@ export default function Vitals() {
     setRefreshing(true);
     try {
       await Promise.all([loadPatients(), getAttendances()]);
-      success('Data loaded', 'Vitals page ready');
     } catch (err: any) {
       error('Load failed', 'Could not load patient data');
     } finally {
@@ -68,61 +123,9 @@ export default function Vitals() {
     loadData();
   }, [loadPatients, getAttendances]);
 
-  // Simple patient filtering
-  const patientAttendances = useMemo(() => {
-    if (!selectedPatientId || !attendances.length) return [];
-
-    const filtered = attendances.filter(attendance => {
-      const possiblePatientIds = [
-        attendance.patientId,
-        attendance.patient?.id,
-        attendance.patient?._id,
-        attendance.data?.patientId,
-        attendance.patientId?._id,
-        attendance.patientId?.id
-      ]
-        .filter(Boolean)
-        .map(id => id?.toString())
-        .filter(id => id && id !== 'undefined');
-
-      return possiblePatientIds.includes(selectedPatientId);
-    });
-
-    return filtered
-      .sort((a, b) => new Date(b.dateTime || b.createdAt || '').getTime() - new Date(a.dateTime || a.createdAt || '').getTime())
-      .map(attendance => ({
-        ...attendance,
-        patient: patients.find(p => getEntityId(p) === selectedPatientId) || attendance.patient
-      }));
-  }, [attendances, selectedPatientId, patients]);
-
   // Selected entities
   const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
-  const selectedAttendance = patientAttendances.find((a) => getEntityId(a) === selectedAttendanceId);
-
-  // Auto-select latest pending attendance when patient is selected
-  useEffect(() => {
-    if (selectedPatientId && patientAttendances.length > 0) {
-      const getBestAttendanceToSelect = () => {
-        const pending = patientAttendances.filter(a => a.status === 'pending');
-        if (pending.length > 0) {
-          return pending[0];
-        }
-        
-        const active = patientAttendances.filter(a => a.status === 'active');
-        if (active.length > 0) {
-          return active[0];
-        }
-        
-        return patientAttendances[0];
-      };
-
-      const bestAttendance = getBestAttendanceToSelect();
-      if (bestAttendance) {
-        setSelectedAttendanceId(getEntityId(bestAttendance) || '');
-      }
-    }
-  }, [selectedPatientId, patientAttendances]);
+  const selectedAttendance = attendances.find((a) => getEntityId(a) === selectedAttendanceId);
 
   // Load previous vitals when attendance changes
   useEffect(() => {
@@ -144,24 +147,6 @@ export default function Vitals() {
 
   // Status checks
   const canRecordVitalsForSelected = selectedAttendance ? canRecordVitals(selectedAttendance) : false;
-  const isAttendancePending = selectedAttendance?.status === 'pending';
-
-  // Event handlers
-  const handleActivateAttendance = async (attendance?: any) => {
-    const attendanceId = attendance ? getEntityId(attendance) : selectedAttendanceId;
-    if (!attendanceId) return;
-    
-    setActivatingAttendance(true);
-    try {
-      await updateAttendanceStatus(attendanceId, { status: 'active' });
-      success('Attendance Activated', 'You can now record vitals');
-      await getAttendances();
-    } catch (err: any) {
-      error('Activation Failed', err.message || 'Failed to activate attendance');
-    } finally {
-      setActivatingAttendance(false);
-    }
-  };
 
   // Handle form submission
   const handleSubmitVitals = async (vitalsData: VitalsEntry) => {
@@ -177,21 +162,18 @@ export default function Vitals() {
   
     setIsLoading(true);
     try {
-      // ✅ FIXED: Use id instead of _id
-      if (editingVitals && editingVitals.id) { // Changed _id to id
-        await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData); // Changed _id to id
+      if (editingVitals && editingVitals.id) {
+        await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
         success('Vitals Updated', 'Vitals updated successfully!');
       } else {
-        // ✅ FIXED: Use id consistently
         await addVitals(selectedAttendanceId, {
           ...vitalsData,
           recordedAt: new Date().toISOString(),
-          recordedBy: user?.id || user?.username || 'Unknown', // Removed _id reference
+          recordedBy: user?.id || user?.username || 'Unknown',
         });
         success('Vitals Recorded', 'Vitals recorded successfully!');
       }
   
-      // Reload vitals
       const updatedVitals = await getVitalsByAttendance(selectedAttendanceId);
       setPreviousVitals(updatedVitals || []);
       
@@ -204,217 +186,300 @@ export default function Vitals() {
       setIsLoading(false);
     }
   };
-
-  // Edit vitals handler
   const handleEditVitals = (vitals: Vitals) => {
     setEditingVitals(vitals);
     setShowVitalsModal(true);
   };
 
-  // Delete vitals handler
-  const handleDeleteVitals = async (vitals: Vitals) => {
-    if (!selectedAttendanceId || !vitals.id) return; // Changed _id to id
-    
-    if (!confirm('Are you sure you want to delete these vitals? This action cannot be undone.')) return;
-    
-    setIsLoading(true);
-    try {
-      await deleteVitals(selectedAttendanceId, vitals.id); // Changed _id to id
-      success('Vitals Deleted', 'Vitals record deleted successfully!');
-      
-      const updatedVitals = await getVitalsByAttendance(selectedAttendanceId);
-      setPreviousVitals(updatedVitals || []);
-    } catch (err: any) {
-      error('Delete Failed', err.message || 'Failed to delete vitals');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Get latest vitals for display
+  const latestVitals = previousVitals.length > 0 ? previousVitals[previousVitals.length - 1] : null;
 
-  // Open modal for new vitals
-  const handleOpenVitalsModal = () => {
-    setEditingVitals(null);
-    setShowVitalsModal(true);
-  };
+  // Check if any vital is abnormal
+  const hasAbnormalVitals = latestVitals ? (
+    (latestVitals.bloodPressure && getVitalStatus('bloodPressure', latestVitals.bloodPressure).isAbnormal) ||
+    (latestVitals.temperature !== undefined && getVitalStatus('temperature', latestVitals.temperature).isAbnormal) ||
+    (latestVitals.pulse !== undefined && getVitalStatus('pulse', latestVitals.pulse).isAbnormal) ||
+    (latestVitals.respiration !== undefined && getVitalStatus('respiration', latestVitals.respiration).isAbnormal) ||
+    (latestVitals.spo2 !== undefined && getVitalStatus('spo2', latestVitals.spo2).isAbnormal)
+  ) : false;
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]';
-      case 'active': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-bg)]';
-      case 'completed': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-bg)]';
-      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-bg)]';
-      case 'admitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'admitted': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+            className="p-2 hover:bg-white rounded-lg transition-all duration-200"
           >
-            <svg className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <div className="w-12 h-12 bg-[var(--icon-red-bg)] rounded-xl flex items-center justify-center">
-            <Activity className="w-6 h-6 text-[var(--icon-red-text)]" />
+          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+            <Activity className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Vital Signs</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Record and monitor patient vital signs</p>
+            <h1 className="text-xl font-bold text-gray-900">Vital Signs</h1>
+            <p className="text-sm text-gray-600">Record and monitor patient vital signs</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          {previousVitals.length > 0 && (
-            <button
-              onClick={() => setShowVisualization(!showVisualization)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-                showVisualization
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-bg)]'
-                  : 'bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-main)]'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              {showVisualization ? 'Hide Overview' : 'Show Overview'}
-            </button>
-          )}
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={loadData}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
-      {/* Patient and Attendance Selection */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PatientSelection
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Patient & Attendance Selection */}
+        <PatientAttendanceSelector
           patients={patients}
-          patientSearch={patientSearch}
-          setPatientSearch={setPatientSearch}
+          attendances={attendances}
           selectedPatientId={selectedPatientId}
-          setSelectedPatientId={setSelectedPatientId}
-          showPatientDropdown={showPatientDropdown}
-          setShowPatientDropdown={setShowPatientDropdown}
-          selectedPatient={selectedPatient}
+          selectedAttendanceId={selectedAttendanceId}
+          onPatientSelect={setSelectedPatientId}
+          onAttendanceSelect={setSelectedAttendanceId}
+          onClearSelection={() => setPreviousVitals([])}
         />
 
-        {selectedPatientId && (
-          <AttendanceSelection
-            patientAttendances={patientAttendances}
-            selectedAttendanceId={selectedAttendanceId}
-            setSelectedAttendanceId={setSelectedAttendanceId}
-            selectedPatientId={selectedPatientId}
-            navigate={navigate}
-            onActivateAttendance={handleActivateAttendance}
-            activatingAttendance={activatingAttendance}
-          />
-        )}
-      </div>
-
-      {/* Vitals Visualization */}
-      {showVisualization && previousVitals.length > 0 && (
-        <VitalsVisualization vitals={previousVitals} />
-      )}
-
-      {/* Attendance Status & Actions */}
-      {selectedAttendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-                Visit: {selectedAttendance.attendanceNumber || `Visit ${new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}`}
-              </h3>
-              <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedAttendance.status || '')}`}>
-                  Status: {selectedAttendance.status}
-                </span>
-                <span>Date: {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
-                <span>Type: {selectedAttendance.attendanceType?.replace(/_/g, ' ') || 'General'}</span>
+        {/* Patient & Visit Overview */}
+        {selectedPatient && selectedAttendance && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{selectedPatient.fullName}</h3>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                    <span>{selectedPatient.age} years • {selectedPatient.gender}</span>
+                    <span>•</span>
+                    <span>ID: {selectedPatient.folderNumber}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-lg font-semibold text-gray-900">
+                  {selectedAttendance.attendanceNumber || 'Current Visit'}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedAttendance.status || '')}`}>
+                    {selectedAttendance.status}
+                  </span>
+                  <span>{new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              {!canRecordVitalsForSelected && selectedAttendance.status === 'pending' && (
-                <button
-                  onClick={() => handleActivateAttendance()}
-                  disabled={activatingAttendance}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Activity className="w-4 h-4" />
-                  {activatingAttendance ? 'Activating...' : 'Activate Visit'}
-                </button>
-              )}
-              
+          </div>
+        )}
+
+        {/* Vitals Tracking */}
+        {selectedAttendance && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-900">Vital Signs Tracking</h2>
+                {hasAbnormalVitals && (
+                  <div className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Abnormal Values</span>
+                  </div>
+                )}
+              </div>
               {canRecordVitalsForSelected && (
                 <button
-                  onClick={handleOpenVitalsModal}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors font-medium"
+                  onClick={() => setShowVitalsModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  <Activity className="w-4 h-4" />
-                  Record Vitals
+                  <Plus className="w-4 h-4" />
+                  Record New Vitals
                 </button>
               )}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Vitals History */}
-      {previousVitals.length > 0 && (
-        <VitalsHistory
-          vitals={previousVitals}
-          onEdit={handleEditVitals}
-          onDelete={handleDeleteVitals}
-          isLoading={isLoading}
-        />
-      )}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Current Vitals - Horizontal display with alerts */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900">Current Vitals</h3>
+                {latestVitals ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex flex-wrap gap-4 justify-between">
+                      {latestVitals.bloodPressure && (() => {
+                        const { color, isAbnormal } = getVitalStatus('bloodPressure', latestVitals.bloodPressure);
+                        return (
+                          <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-gray-600 font-medium text-sm">BP</span>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-lg font-bold ${color}`}>
+                                {latestVitals.bloodPressure}
+                              </span>
+                              {isAbnormal && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                            </div>
+                            <span className="text-xs text-gray-500">mmHg</span>
+                          </div>
+                        );
+                      })()}
+                      
+                      {latestVitals.temperature !== undefined && (() => {
+                        const { color, isAbnormal } = getVitalStatus('temperature', latestVitals.temperature);
+                        return (
+                          <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-gray-600 font-medium text-sm">Temp</span>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-lg font-bold ${color}`}>
+                                {latestVitals.temperature}°C
+                              </span>
+                              {isAbnormal && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
+                      {latestVitals.pulse !== undefined && (() => {
+                        const { color, isAbnormal } = getVitalStatus('pulse', latestVitals.pulse);
+                        return (
+                          <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-gray-600 font-medium text-sm">Pulse</span>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-lg font-bold ${color}`}>
+                                {latestVitals.pulse}
+                              </span>
+                              {isAbnormal && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                            </div>
+                            <span className="text-xs text-gray-500">bpm</span>
+                          </div>
+                        );
+                      })()}
+                      
+                      {latestVitals.respiration !== undefined && (() => {
+                        const { color, isAbnormal } = getVitalStatus('respiration', latestVitals.respiration);
+                        return (
+                          <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-gray-600 font-medium text-sm">Resp</span>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-lg font-bold ${color}`}>
+                                {latestVitals.respiration}
+                              </span>
+                              {isAbnormal && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                            </div>
+                            <span className="text-xs text-gray-500">bpm</span>
+                          </div>
+                        );
+                      })()}
+                      
+                      {latestVitals.spo2 !== undefined && (() => {
+                        const { color, isAbnormal } = getVitalStatus('spo2', latestVitals.spo2);
+                        return (
+                          <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-gray-600 font-medium text-sm">SpO2</span>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-lg font-bold ${color}`}>
+                                {latestVitals.spo2}%
+                              </span>
+                              {isAbnormal && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
+                      {latestVitals.weight !== undefined && (
+                        <div className="flex flex-col items-center min-w-[80px]">
+                          <span className="text-gray-600 font-medium text-sm">Weight</span>
+                          <span className="text-lg font-bold text-gray-900">
+                            {latestVitals.weight}
+                          </span>
+                          <span className="text-xs text-gray-500">kg</span>
+                        </div>
+                      )}
+                      
+                      {latestVitals.height !== undefined && (
+                        <div className="flex flex-col items-center min-w-[80px]">
+                          <span className="text-gray-600 font-medium text-sm">Height</span>
+                          <span className="text-lg font-bold text-gray-900">
+                            {latestVitals.height}
+                          </span>
+                          <span className="text-xs text-gray-500">cm</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {latestVitals.notes && (
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <span className="text-sm text-gray-600 font-medium">Notes: </span>
+                        <span className="text-sm text-gray-700">{latestVitals.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    No vitals recorded for this visit
+                  </div>
+                )}
+              </div>
 
-      {/* Cannot record vitals message */}
-      {selectedAttendanceId && !canRecordVitalsForSelected && selectedAttendance?.status === 'pending' && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-5">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-[var(--icon-yellow-text)]" />
-            <div>
-              <h3 className="font-semibold text-[var(--icon-yellow-text)]">Visit Not Active</h3>
-              <p className="text-[var(--icon-yellow-text)] text-sm mt-1">
-                This visit needs to be activated before you can record vitals.
-              </p>
+              {/* Vitals Trend Graph - 2/3 width */}
+              <div className="xl:col-span-2 space-y-4">
+                <h3 className="font-semibold text-gray-900">Vitals Trend</h3>
+                {previousVitals.length > 0 ? (
+                  <div className="h-96">
+                    <VitalsTrendGraph vitals={previousVitals} />
+                  </div>
+                ) : (
+                  <div className="h-96 bg-gray-50 rounded-lg flex items-center justify-center text-gray-500">
+                    No vitals history to display
+                  </div>
+                )}
+              </div>
             </div>
-            <button
-              onClick={() => handleActivateAttendance()}
-              disabled={activatingAttendance}
-              className="ml-auto px-4 py-2 bg-[var(--icon-yellow-text)] text-white rounded-lg hover:bg-[var(--icon-yellow-text)]/80 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {activatingAttendance ? 'Activating...' : 'Activate Visit'}
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* No vitals recorded message */}
-      {selectedAttendanceId && canRecordVitalsForSelected && previousVitals.length === 0 && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
-          <Activity className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Vitals Recorded</h3>
-          <p className="text-[var(--text-secondary)] mb-4">No vital signs have been recorded for this visit yet.</p>
-          <button
-            onClick={handleOpenVitalsModal}
-            className="px-6 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors font-medium"
-          >
-            Record First Vitals
-          </button>
-        </div>
-      )}
+        {/* Vitals History Table */}
+        {previousVitals.length > 0 && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Vitals History</h3>
+            <VitalsHistory 
+              vitals={previousVitals}
+              onEdit={handleEditVitals} 
+              onDelete={async (vitals) => {
+                if (!selectedAttendanceId || !vitals.id) return;
+                
+                if (!confirm('Are you sure you want to delete these vitals?')) return;
+                
+                setIsLoading(true);
+                try {
+                  await deleteVitals(selectedAttendanceId, vitals.id);
+                  success('Vitals Deleted', 'Vitals record deleted successfully!');
+                  
+                  const updatedVitals = await getVitalsByAttendance(selectedAttendanceId);
+                  setPreviousVitals(updatedVitals || []);
+                } catch (err: any) {
+                  error('Delete Failed', err.message || 'Failed to delete vitals');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Vitals Form Modal */}
       <VitalsFormModal

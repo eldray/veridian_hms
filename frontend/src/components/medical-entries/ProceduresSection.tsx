@@ -11,7 +11,7 @@ interface ProceduresSectionProps {
   procedureTemplates: ProcedureTemplate[];
   canAddEntries: boolean;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance';
-  currentUser?: { fullName?: string; username?: string; _id?: string };
+  currentUser?: { fullName?: string; username?: string; id?: string };
 }
 
 const ProceduresSection: React.FC<ProceduresSectionProps> = ({
@@ -77,11 +77,11 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
     
     onProcedureChange({
       ...currentProcedure,
-      templateId: template._id,
+      templateId: template.id,
       name: template.name,
       scheduledDate: formattedDate,
       status: 'scheduled',
-      createdBy: currentUser?._id || currentUser?.username || ''
+      createdBy: currentUser?.id || currentUser?.username || ''
     });
     setProcedureSearch(template.name);
     setShowProcedureDropdown(false);
@@ -97,7 +97,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
     setProcedureSearch('');
   };
 
-  const selectedTemplate = procedureTemplates.find(t => t._id === currentProcedure.templateId);
+  const selectedTemplate = procedureTemplates.find(t => t.id === currentProcedure.templateId);
 
   // Format date for display
   const formatScheduledDate = (dateString: string) => {
@@ -154,7 +154,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                 {filteredProcedureTemplates.length > 0 ? (
                   filteredProcedureTemplates.map((template) => (
                     <button
-                      key={template._id}
+                      key={template.id}
                       onClick={() => handleProcedureSelect(template)}
                       className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                     >
@@ -291,9 +291,9 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
             </div>
             <div className="divide-y divide-[var(--border-color)]">
               {procedures.map((procedure) => {
-                const template = procedureTemplates.find(t => t._id === procedure.templateId);
+                const template = procedureTemplates.find(t => t.id === procedure.templateId);
                 return (
-                  <div key={procedure._id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                  <div key={procedure.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -315,7 +315,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                       </div>
                       <button
                         onClick={() => {
-                          const updatedProcedures = procedures.filter(p => p._id !== procedure._id);
+                          const updatedProcedures = procedures.filter(p => p.id !== procedure.id);
                           // You'll need to pass a setProcedures function to update the parent state
                         }}
                         className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4"
@@ -332,7 +332,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
 
         {/* Authorization Warning */}
         {procedures.some(procedure => {
-          const template = procedureTemplates.find(t => t._id === procedure.templateId);
+          const template = procedureTemplates.find(t => t.id === procedure.templateId);
           return template?.requiresAuthorization;
         }) && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">

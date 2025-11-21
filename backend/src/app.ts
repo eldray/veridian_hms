@@ -7,9 +7,9 @@ import attendanceRoutes from './routes/attendanceRoutes';
 import billRoutes from './routes/billRoutes';
 import diagnosisRoutes from './routes/diagnosisRoutes';
 import hospitalRoutes from './routes/hospitalRoutes';
-import insuranceClaimRoutes from './routes/insuranceClaimRoutes'; // Fixed: using insuranceClaimRoutes instead of insuranceRoutes
+import insuranceClaimRoutes from './routes/insuranceClaimRoutes'; 
 import insuranceProviderRoutes from './routes/insuranceProviderRoutes';
-import labTestTemplateRoutes from './routes/labTestTemplateRoutes';
+import labTestTemplateRoutes from './routes/labTestRoutes';
 import procedureTemplateRoutes from './routes/procedureTemplateRoutes';
 import reportRoutes from './routes/reportRoutes';
 import scanTemplateRoutes from './routes/scanTemplateRoutes';
@@ -25,12 +25,14 @@ import appointmentRoutes from './routes/appointmentRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import backupRoutes from './routes/backupRoutes';
 import uploadRoutes from './routes/uploadRoutes';
+import dashboardRoutes from './routes/dashboardRoutes'; 
 
 const router = Router();
 
 // API routes - Updated to match your file structure
 router.use('/auth', authRoutes);
 router.use('/patients', patientRoutes);
+router.use('/dashboard', dashboardRoutes); 
 router.use('/admissions', admissionRoutes);
 router.use('/attendances', attendanceRoutes);
 router.use('/bills', billRoutes);

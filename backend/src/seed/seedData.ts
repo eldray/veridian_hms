@@ -1,25 +1,47 @@
-// src/seed/seed.ts
+// src/seed/seedData.ts
 import { seedCoreData } from './coreSeed';
-import { seedTestData } from './testSeed';
+import { seedTestData, initializeDatabase } from './testSeed';
 
 export const seedDatabase = async () => {
-  console.log('🏥 Starting comprehensive seeding...');
+  console.log('🏥 Starting comprehensive database initialization...');
   
   try {
-    // Always seed core data (JSON files + hospital settings)
-    await seedCoreData();
+    // ✅ SAFE: Check and seed core data only if needed (uses upsert, won't delete patient data)
+    console.log('📚 Step 1: Configuring core data (diagnoses, templates, etc.)...');
+    const coreResult = await seedCoreData(false); // force=false for safety
     
-    // Only seed test data in development or when explicitly enabled
-    if (process.env.NODE_ENV === 'development' || process.env.SEED_TEST_DATA === 'true') {
-      await seedTestData();
-      console.log('🧪 Test data seeded (development mode)');
-    } else {
-      console.log('ℹ️  Test data skipped (production mode)');
+    if (coreResult.skipped) {
+      console.log('✅ Core data already configured, proceeding...');
+    } else if (coreResult.success) {
+      console.log('✅ Core data configured successfully');
     }
+
+    // ✅ SAFE: Initialize test data only if needed (checks for existing data)
+    console.log('📚 Step 2: Checking test data status...');
+    const initializationResult = await initializeDatabase();
     
-    console.log('✅ All seeding completed successfully!');
+    console.log('📊 Database initialization result:', {
+      initialized: initializationResult.initialized,
+      seeded: initializationResult.seeded,
+      reason: initializationResult.reason
+    });
+
+    if (initializationResult.seeded) {
+      console.log('🎉 Test data seeded successfully!');
+    } else {
+      console.log(`ℹ️  Test data status: ${initializationResult.reason}`);
+    }
+
+    console.log('✅ Database initialization completed successfully!');
+    
+    return {
+      success: true,
+      coreData: coreResult,
+      testData: initializationResult
+    };
+
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    console.error('❌ Database initialization failed:', error);
     throw error;
   }
 };

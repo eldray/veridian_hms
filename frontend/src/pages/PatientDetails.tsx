@@ -53,74 +53,73 @@ export default function PatientDetails() {
   };
 
   // Filter patient attendances
-  const patientAttendances = useMemo(() => {
-    if (!patient || !attendances.length) return [];
-    const patientId = patient.id;
+// ✅ FIXED: Simplified attendance filtering
+const patientAttendances = useMemo(() => {
+  if (!patient || !attendances.length) return [];
+  
+  const patientId = patient.id;
+  console.log('🔍 Filtering attendances for patient:', patientId);
+  console.log('📊 Total attendances to filter:', attendances.length);
 
-    return attendances.filter(attendance => {
-      const attendanceId = attendance.id;
-      
-      // Case 1: Direct patientId string match
-      if (attendance.patientId === patientId) {
-        return true;
-      }
-
-      // Case 2: Populated patient object with id
-      if (attendance.patient && typeof attendance.patient === 'object') {
-        const patientObjId = attendance.patient.id;
-        if (patientObjId === patientId) {
-          return true;
-        }
-      }
-
-      // Case 3: Nested patient data
-      if (attendance.patient?.id === patientId) {
-        return true;
-      }
-
-      return false;
-    });
-  }, [attendances, patient]);
-
-  // Data loading
-  const loadData = async () => {
-    if (!id) {
-      toastError('Error', 'No patient ID provided');
-      setIsLoading(false);
-      return;
+  // Simple direct filtering - remove complex nested checks
+  const filtered = attendances.filter(attendance => {
+    // Direct patientId match (most common case)
+    if (attendance.patientId === patientId) {
+      return true;
     }
+    
+    // Handle populated patient object
+    if (attendance.patient && attendance.patient.id === patientId) {
+      return true;
+    }
+    
+    return false;
+  });
 
-    setIsLoading(true);
-    setRefreshing(true);
-    try {
-      console.log('🔄 Loading patient details for ID:', id);
-      
-      // Load all data in parallel
+  console.log('✅ Found attendances for patient:', filtered.length);
+  return filtered;
+}, [attendances, patient]);
+
+// ✅ FIXED: Improved data loading with better error handling
+const loadData = async () => {
+  if (!id) {
+    toastError('Error', 'No patient ID provided');
+    setIsLoading(false);
+    return;
+  }
+
+  setIsLoading(true);
+  setRefreshing(true);
+  try {
+    console.log('🔄 Loading patient details for ID:', id);
+    
+    // Load patient first, then other data
+    await fetchPatient(id);
+    
+    // Only load other data if patient was found
+    if (currentPatient) {
       await Promise.all([
-        fetchPatient(id),
-        getAttendances(),
+        getAttendances({ patientId: id }), // ✅ FIXED: Filter attendances by patient ID
         getInsuranceProviders()
       ]);
-      
-      console.log('✅ Patient details loaded successfully');
-      
-      if (patient) {
-        success('Patient loaded', `${getPatientFullName(patient)} details ready`);
-      }
-    } catch (err: any) {
-      console.error('❌ Failed to load patient details:', err);
-      const errorMsg = err.response?.data?.message || err.message || 'Could not load patient data';
-      toastError('Load failed', errorMsg);
-      
-      // Redirect if patient not found
-      if (err.response?.status === 404) {
-        navigate('/dashboard/patients');
-      }
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
     }
-  };
+    
+    console.log('✅ Patient details loaded successfully');
+    
+  } catch (err: any) {
+    console.error('❌ Failed to load patient details:', err);
+    const errorMsg = err.response?.data?.message || err.message || 'Could not load patient data';
+    toastError('Load failed', errorMsg);
+    
+    // Redirect if patient not found
+    if (err.response?.status === 404) {
+      navigate('/dashboard/patients');
+    }
+  } finally {
+    setIsLoading(false);
+    setRefreshing(false);
+  }
+};
 
   useEffect(() => {
     loadData();

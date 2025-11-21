@@ -1,4 +1,4 @@
-// src/pages/DispenseMedication.tsx - COMPLETE UPDATED VERSION
+// src/pages/DispenseMedication.tsx - UPDATED VERSION
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -9,9 +9,7 @@ import { useToast } from '../store/toastStore';
 import type { Medication, Attendance, Patient, MedicationEntry } from '../types';
 
 // Reusable components
-import { PatientSelection } from '../components/vitals/PatientSelection';
-import { AttendanceSelection } from '../components/vitals/AttendanceSelection';
-import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import { DispenseStats } from '../components/reusable/DispenseStats';
 import { PrintPrescriptionsSection } from '../components/reusable/PrintPrescriptionsSection';
@@ -28,8 +26,8 @@ import {
 } from 'lucide-react';
 
 // Helper function
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-  return entity?.id || entity?._id;
+const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
+  return entity?.id || entity?.id;
 };
 
 export default function Pharmacy() {
@@ -39,10 +37,8 @@ export default function Pharmacy() {
   // State
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   
   const [dispensingId, setDispensingId] = useState<string | null>(null);
   const [isAddingMedication, setIsAddingMedication] = useState(false);
@@ -58,7 +54,6 @@ export default function Pharmacy() {
     updateAttendanceStatus,
     addMedicationToAttendance,
     canAddMedicalEntries,
-    getVitalsByAttendance
   } = useAttendanceStore();
 
   const { patients, loadPatients } = usePatientStore();
@@ -90,7 +85,7 @@ export default function Pharmacy() {
     loadData();
   }, []);
 
-  // Patient matching logic - FIXED inconsistent ID access
+  // Patient matching logic
   const patientAttendances = useMemo(() => {
     if (!selectedPatientId || !attendances.length) return [];
 
@@ -98,7 +93,6 @@ export default function Pharmacy() {
       const possiblePatientIds = [
         attendance.patientId,
         attendance.patient?.id,
-        attendance.patient?._id,
         attendance.data?.patientId
       ]
         .filter(Boolean)
@@ -118,22 +112,6 @@ export default function Pharmacy() {
 
   const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId);
   const selectedAttendance = patientAttendances.find(a => getEntityId(a) === selectedAttendanceId);
-
-  // Vitals display
-  const [latestVitals, setLatestVitals] = useState<any>(null);
-  useEffect(() => {
-    const loadVitals = async () => {
-      if (selectedAttendanceId) {
-        try {
-          const vitals = await getVitalsByAttendance(selectedAttendanceId);
-          setLatestVitals(vitals?.length ? vitals[vitals.length - 1] : null);
-        } catch {
-          setLatestVitals(null);
-        }
-      }
-    };
-    loadVitals();
-  }, [selectedAttendanceId, getVitalsByAttendance]);
 
   // Reset attendance selection when patient changes
   useEffect(() => {
@@ -223,6 +201,13 @@ export default function Pharmacy() {
     } catch {
       toastError('Failed', 'Could not cancel attendance');
     }
+  };
+
+  // Handle clear selection
+  const handleClearSelection = () => {
+    setSelectedPatientId('');
+    setSelectedAttendanceId('');
+    setDispensingId(null);
   };
 
   // Print functions
@@ -344,7 +329,7 @@ export default function Pharmacy() {
     }
   };
 
-  // ✅ FIXED: Dispense function with proper field names and structure
+  // Dispense function
   const handleDispense = async (medicationId: string) => {
     if (!selectedAttendanceId) return;
     const attendance = attendances.find(a => getEntityId(a) === selectedAttendanceId);
@@ -361,9 +346,8 @@ export default function Pharmacy() {
     const medication = attendance.medications?.find(m => getEntityId(m) === medicationId);
     if (!medication) return toastError('Not found', 'Medication missing');
 
-    // ✅ FIXED: Handle both id and _id for stock item matching
     const stockItem = stockItems.find(s => 
-      s.id === medication.stockItemId || s._id === medication.stockItemId
+      s.id === medication.stockItemId || s.id === medication.stockItemId
     );
     if (!stockItem || stockItem.currentStock < medication.quantity) {
       return toastError('Low stock', `Only ${stockItem?.currentStock || 0} available`);
@@ -377,13 +361,12 @@ export default function Pharmacy() {
               ...m, 
               status: 'dispensed', 
               dispensedAt: new Date().toISOString(), 
-              dispensedById: user?.id || user?._id || '' // ✅ FIXED: dispensedById not dispensedBy
+              dispensedById: user?.id || user?.id || ''
             }
           : m
       );
       await updateAttendance(selectedAttendanceId, { medications: updatedMeds });
       
-      // ✅ FIXED: Proper transaction structure
       await addTransaction({
         stockItemId: medication.stockItemId!,
         transactionType: 'dispense',
@@ -391,13 +374,13 @@ export default function Pharmacy() {
         balanceAfter: (stockItem.currentStock - medication.quantity),
         reference: `Dispensed for ${attendance.attendanceNumber}`,
         notes: `Dispensed: ${medication.name} for patient ${selectedPatient?.fullName}`,
-        performedById: user?.id || user?._id || '', // ✅ FIXED: performedById
+        performedById: user?.id || user?.id || '',
         transactionDate: new Date().toISOString()
       });
       
       success(`${medication.name}`, 'Dispensed successfully');
       await getAttendances();
-      await getStockItems(); // Refresh stock levels
+      await getStockItems();
     } catch {
       toastError('Dispense failed', 'Try again');
     } finally {
@@ -405,7 +388,7 @@ export default function Pharmacy() {
     }
   };
 
-  // ✅ FIXED: Dispense all function
+  // Dispense all function
   const handleDispenseAll = async () => {
     if (!selectedAttendanceId) return;
     const attendance = attendances.find(a => getEntityId(a) === selectedAttendanceId);
@@ -422,7 +405,7 @@ export default function Pharmacy() {
     // Check stock for all medications first
     for (const med of meds) {
       const stock = stockItems.find(s => 
-        s.id === med.stockItemId || s._id === med.stockItemId
+        s.id === med.stockItemId || s.id === med.stockItemId
       );
       if (!stock || stock.currentStock < med.quantity) {
         return toastError('Low stock', `${med.name} insufficient stock`);
@@ -437,7 +420,7 @@ export default function Pharmacy() {
               ...m, 
               status: 'dispensed', 
               dispensedAt: new Date().toISOString(), 
-              dispensedById: user?.id || user?._id || '' // ✅ FIXED
+              dispensedById: user?.id || user?.id || ''
             }
           : m
       );
@@ -446,7 +429,7 @@ export default function Pharmacy() {
       // Create transactions for all medications
       for (const med of meds) {
         const stock = stockItems.find(s => 
-          s.id === med.stockItemId || s._id === med.stockItemId
+          s.id === med.stockItemId || s.id === med.stockItemId
         );
         if (stock) {
           await addTransaction({
@@ -456,7 +439,7 @@ export default function Pharmacy() {
             balanceAfter: (stock.currentStock - med.quantity),
             reference: `Bulk dispense - ${attendance.attendanceNumber}`,
             notes: `Dispensed: ${med.name} for patient ${selectedPatient?.fullName}`,
-            performedById: user?.id || user?._id || '',
+            performedById: user?.id || user?.id || '',
             transactionDate: new Date().toISOString()
           });
         }
@@ -464,7 +447,7 @@ export default function Pharmacy() {
       
       success('All medications dispensed', 'Stock updated');
       await getAttendances();
-      await getStockItems(); // Refresh stock levels
+      await getStockItems();
     } catch {
       toastError('Bulk dispense failed', 'Try again');
     } finally {
@@ -472,7 +455,7 @@ export default function Pharmacy() {
     }
   };
 
-  // ✅ FIXED: Add medication function with proper structure
+  // Add medication function
   const handleAddMedication = async (medicationData: MedicationEntry) => {
     if (!selectedAttendanceId) return toastError('Select visit', 'Choose an attendance first');
     if (!selectedPatientId) return toastError('Select patient', 'Choose a patient first');
@@ -481,9 +464,8 @@ export default function Pharmacy() {
       return toastError('Read Only', 'Cannot add medications to completed attendance');
     }
 
-    // ✅ FIXED: Handle both id and _id for stock item matching
     const stockItem = stockItems.find(s => 
-      s.id === medicationData.stockItemId || s._id === medicationData.stockItemId
+      s.id === medicationData.stockItemId || s.id === medicationData.stockItemId
     );
     if (!stockItem) return toastError('Not found', 'Stock item missing');
     if (stockItem.currentStock < medicationData.quantity) {
@@ -492,9 +474,8 @@ export default function Pharmacy() {
 
     setIsAddingMedication(true);
     try {
-      // ✅ FIXED: Proper Medication structure with all required fields
       const newMed: Medication = {
-        id: `med-${Date.now()}`, // ✅ FIXED: Use 'id' not '_id'
+        id: `med-${Date.now()}`,
         attendanceId: selectedAttendanceId,
         patientId: selectedPatientId,
         stockItemId: medicationData.stockItemId,
@@ -507,7 +488,7 @@ export default function Pharmacy() {
         instructions: medicationData.instructions,
         status: 'prescribed',
         prescribedAt: new Date().toISOString(),
-        prescribedById: user?.id || user?._id || '', // ✅ FIXED: prescribedById
+        prescribedById: user?.id || user?.id || '',
         cashPrice: stockItem.cashPrice || 0,
         insurancePrice: stockItem.insurancePrice || 0,
         costPrice: stockItem.costPrice || 0,
@@ -535,29 +516,29 @@ export default function Pharmacy() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+            className="p-2 hover:bg-white rounded-lg transition-all duration-200"
           >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-            <Pill className="w-6 h-6 text-[var(--icon-purple-text)]" />
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+            <Pill className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Medication Dispensing</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Dispense, manage, and print prescriptions</p>
+            <h1 className="text-xl font-bold text-gray-900">Medication Dispensing</h1>
+            <p className="text-sm text-gray-600">Dispense, manage, and print prescriptions</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/dashboard/medical-entries')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm text-gray-700"
           >
             <Package className="w-4 h-4" />
             Medical Entries
@@ -565,7 +546,7 @@ export default function Pharmacy() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -573,270 +554,291 @@ export default function Pharmacy() {
         </div>
       </div>
 
-      {/* Stats */}
-      <DispenseStats
-        totalPending={totalPendingMeds}
-        totalDispensed={totalDispensedMeds}
-        dispensedToday={dispensedToday}
-        readyToPrint={totalPendingMeds}
-      />
-
-      {/* Patient & Attendance Selection */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PatientSelection
-          patients={patients}
-          patientSearch={patientSearch}
-          setPatientSearch={setPatientSearch}
-          selectedPatientId={selectedPatientId}
-          setSelectedPatientId={setSelectedPatientId}
-          showPatientDropdown={showPatientDropdown}
-          setShowPatientDropdown={setShowPatientDropdown}
-          selectedPatient={selectedPatient}
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Stats */}
+        <DispenseStats
+          totalPending={totalPendingMeds}
+          totalDispensed={totalDispensedMeds}
+          dispensedToday={dispensedToday}
+          readyToPrint={totalPendingMeds}
         />
-        
-        {selectedPatientId && (
-          <AttendanceSelection
-            patientAttendances={patientAttendances}
-            selectedAttendanceId={selectedAttendanceId}
-            setSelectedAttendanceId={setSelectedAttendanceId}
-            selectedPatientId={selectedPatientId}
-            navigate={navigate}
-            onActivateAttendance={handleActivateAttendance}
-            activatingAttendance={activatingAttendance}
+
+        {/* Patient & Attendance Selection */}
+        <PatientAttendanceSelector
+          patients={patients}
+          attendances={attendances}
+          selectedPatientId={selectedPatientId}
+          selectedAttendanceId={selectedAttendanceId}
+          onPatientSelect={setSelectedPatientId}
+          onAttendanceSelect={setSelectedAttendanceId}
+          onClearSelection={handleClearSelection}
+        />
+
+        {/* Patient & Visit Overview */}
+        {selectedPatient && selectedAttendance && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Pill className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{selectedPatient.fullName}</h3>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                    <span>{selectedPatient.age} years • {selectedPatient.gender}</span>
+                    <span>•</span>
+                    <span>ID: {selectedPatient.folderNumber}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-lg font-semibold text-gray-900">
+                  {selectedAttendance.attendanceNumber || 'Current Visit'}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedAttendance.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    selectedAttendance.status === 'active' ? 'bg-green-100 text-green-800' :
+                    selectedAttendance.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                    selectedAttendance.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {selectedAttendance.status}
+                  </span>
+                  <span>{new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Attendance Actions */}
+        {selectedAttendance && (
+          <AttendanceActions
+            attendance={selectedAttendance}
+            onActivate={handleActivateAttendance}
+            onComplete={handleCompleteAttendance}
+            onCancel={handleCancelAttendance}
+            isActivating={activatingAttendance}
+            isCompleting={completingAttendance}
           />
         )}
-      </div>
 
-      {/* Vitals Display */}
-      {selectedAttendance && latestVitals && (
-        <VitalsDisplay vitals={latestVitals} />
-      )}
-
-      {/* Attendance Actions */}
-      {selectedAttendance && (
-        <AttendanceActions
-          attendance={selectedAttendance}
-          onActivate={handleActivateAttendance}
-          onComplete={handleCompleteAttendance}
-          onCancel={handleCancelAttendance}
-          isActivating={activatingAttendance}
-          isCompleting={completingAttendance}
-        />
-      )}
-
-      {/* Main Content */}
-      {selectedAttendance && (
-        <div className="space-y-6">
-          {/* Read-only indicator */}
-          {isReadOnly && (
-            <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-                <p className="text-[var(--icon-yellow-text)] font-medium">View Only Mode</p>
+        {/* Main Content */}
+        {selectedAttendance && (
+          <div className="space-y-6">
+            {/* Read-only indicator */}
+            {isReadOnly && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                <div className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-yellow-600" />
+                  <p className="text-yellow-800 font-medium">View Only Mode</p>
+                </div>
+                <p className="text-yellow-700 text-sm mt-1">
+                  This visit is {selectedAttendance.status}. Medications can be viewed but not modified.
+                </p>
               </div>
-              <p className="text-[var(--icon-yellow-text)] text-sm mt-1">
-                This visit is {selectedAttendance.status}. Medications can be viewed but not modified.
-              </p>
-            </div>
-          )}
+            )}
 
-          {/* Print Section */}
-          <PrintPrescriptionsSection
-            prescribedMeds={prescribedMeds}
-            selectedPatient={selectedPatient}
-            selectedAttendance={selectedAttendance}
-            onPrintAll={handlePrintAllPrescriptions}
-            onPrintSingle={handlePrintPrescription}
-            printingPrescriptionId={printingPrescriptionId}
-            isReadOnly={isReadOnly}
-          />
-
-          {/* Medications for Dispensing */}
-          {prescribedMeds.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Package className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-                  Medications Ready for Dispensing ({prescribedMeds.length})
-                </h3>
-                {!isReadOnly && (
-                  <button
-                    onClick={handleDispenseAll}
-                    disabled={dispensingId === 'all'}
-                    className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors disabled:opacity-50 font-medium"
-                  >
-                    {dispensingId === 'all' ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Dispensing All...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Dispense All
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-              
-              <div className="space-y-3">
-                {prescribedMeds.map((medication) => (
-                  <div
-                    key={getEntityId(medication)}
-                    className="flex items-center justify-between p-4 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="font-semibold text-[var(--text-primary)]">{medication.name}</h4>
-                        <span className="px-2 py-1 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-full text-xs font-medium">
-                          Pending
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-[var(--text-secondary)]">
-                        <div>
-                          <span className="font-medium">Dosage:</span> {medication.dosage}
-                        </div>
-                        <div>
-                          <span className="font-medium">Frequency:</span> {medication.frequency}
-                        </div>
-                        <div>
-                          <span className="font-medium">Duration:</span> {medication.duration}
-                        </div>
-                        <div>
-                          <span className="font-medium">Qty:</span> {medication.quantity}
-                        </div>
-                      </div>
-                      {medication.instructions && (
-                        <p className="text-sm text-[var(--text-secondary)] mt-2">
-                          <span className="font-medium">Instructions:</span> {medication.instructions}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={() => handlePrintPrescription(medication)}
-                        disabled={printingPrescriptionId === getEntityId(medication)}
-                        className="p-2 text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
-                      
-                      {!isReadOnly && (
-                        <button
-                          onClick={() => handleDispense(getEntityId(medication)!)}
-                          disabled={dispensingId === getEntityId(medication)}
-                          className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors disabled:opacity-50 text-sm font-medium"
-                        >
-                          {dispensingId === getEntityId(medication) ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              Dispensing...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-3 h-3" />
-                              Dispense
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dispensed Medications */}
-          {dispensedMeds.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-6">
-              <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
-                <CheckCircle className="w-5 h-5 text-[var(--icon-green-text)]" />
-                Dispensed Medications ({dispensedMeds.length})
-              </h3>
-              
-              <div className="space-y-3">
-                {dispensedMeds.map((medication) => (
-                  <div
-                    key={getEntityId(medication)}
-                    className="flex items-center justify-between p-4 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="font-semibold text-[var(--text-primary)]">{medication.name}</h4>
-                        <span className="px-2 py-1 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-full text-xs font-medium">
-                          Dispensed
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-[var(--text-secondary)]">
-                        <div>
-                          <span className="font-medium">Dosage:</span> {medication.dosage}
-                        </div>
-                        <div>
-                          <span className="font-medium">Frequency:</span> {medication.frequency}
-                        </div>
-                        <div>
-                          <span className="font-medium">Qty:</span> {medication.quantity}
-                        </div>
-                        <div>
-                          <span className="font-medium">Dispensed:</span>{" "}
-                          {medication.dispensedAt ? new Date(medication.dispensedAt).toLocaleDateString() : 'N/A'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Add Medication Section - Only show for active/pending */}
-          {!isReadOnly && (
-            <AddMedicationsSection
-              onAddMedication={handleAddMedication}
-              stockItems={stockItems}
-              isAddingMedication={isAddingMedication}
+            {/* Print Section */}
+            <PrintPrescriptionsSection
+              prescribedMeds={prescribedMeds}
+              selectedPatient={selectedPatient}
+              selectedAttendance={selectedAttendance}
+              onPrintAll={handlePrintAllPrescriptions}
+              onPrintSingle={handlePrintPrescription}
+              printingPrescriptionId={printingPrescriptionId}
+              isReadOnly={isReadOnly}
             />
-          )}
-        </div>
-      )}
 
-      {/* Empty States */}
-      {selectedPatientId && !selectedAttendanceId && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-yellow-text)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--icon-yellow-text)] mb-4">Please select an existing attendance to dispense medications.</p>
-        </div>
-      )}
+            {/* Medications for Dispensing */}
+            {prescribedMeds.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-yellow-600" />
+                    Medications Ready for Dispensing ({prescribedMeds.length})
+                  </h3>
+                  {!isReadOnly && (
+                    <button
+                      onClick={handleDispenseAll}
+                      disabled={dispensingId === 'all'}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-600 hover:text-white transition-colors disabled:opacity-50 font-medium"
+                    >
+                      {dispensingId === 'all' ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Dispensing All...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Dispense All
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="space-y-3">
+                  {prescribedMeds.map((medication) => (
+                    <div
+                      key={getEntityId(medication)}
+                      className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-semibold text-gray-900">{medication.name}</h4>
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                            Pending
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Dosage:</span> {medication.dosage}
+                          </div>
+                          <div>
+                            <span className="font-medium">Frequency:</span> {medication.frequency}
+                          </div>
+                          <div>
+                            <span className="font-medium">Duration:</span> {medication.duration}
+                          </div>
+                          <div>
+                            <span className="font-medium">Qty:</span> {medication.quantity}
+                          </div>
+                        </div>
+                        {medication.instructions && (
+                          <p className="text-sm text-gray-600 mt-2">
+                            <span className="font-medium">Instructions:</span> {medication.instructions}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => handlePrintPrescription(medication)}
+                          disabled={printingPrescriptionId === getEntityId(medication)}
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => handleDispense(getEntityId(medication)!)}
+                            disabled={dispensingId === getEntityId(medication)}
+                            className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-medium"
+                          >
+                            {dispensingId === getEntityId(medication) ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                Dispensing...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-3 h-3" />
+                                Dispense
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-      {selectedAttendance && !canAddEntries && (
-        <div className="bg-[var(--icon-red-bg)] border border-[var(--icon-red-text)] rounded-xl p-6 text-center">
-          <Ban className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-red-text)] mb-2">Cannot Dispense Medications</h3>
-          <p className="text-[var(--icon-red-text)]">
-            This attendance is <span className="font-bold">{selectedAttendance.status}</span> and cannot be modified.
-          </p>
-        </div>
-      )}
+            {/* Dispensed Medications */}
+            {dispensedMeds.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Dispensed Medications ({dispensedMeds.length})
+                </h3>
+                
+                <div className="space-y-3">
+                  {dispensedMeds.map((medication) => (
+                    <div
+                      key={getEntityId(medication)}
+                      className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-semibold text-gray-900">{medication.name}</h4>
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                            Dispensed
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Dosage:</span> {medication.dosage}
+                          </div>
+                          <div>
+                            <span className="font-medium">Frequency:</span> {medication.frequency}
+                          </div>
+                          <div>
+                            <span className="font-medium">Qty:</span> {medication.quantity}
+                          </div>
+                          <div>
+                            <span className="font-medium">Dispensed:</span>{" "}
+                            {medication.dispensedAt ? new Date(medication.dispensedAt).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add Medication Section - Only show for active/pending */}
+            {!isReadOnly && (
+              <AddMedicationsSection
+                onAddMedication={handleAddMedication}
+                stockItems={stockItems}
+                isAddingMedication={isAddingMedication}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Empty States */}
+        {selectedPatientId && !selectedAttendanceId && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-yellow-800 mb-2">No Attendance Selected</h3>
+            <p className="text-yellow-700 mb-4">Please select an existing attendance to dispense medications.</p>
+          </div>
+        )}
+
+        {selectedAttendance && !canAddEntries && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <Ban className="w-12 h-12 text-red-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Cannot Dispense Medications</h3>
+            <p className="text-red-700">
+              This attendance is <span className="font-bold">{selectedAttendance.status}</span> and cannot be modified.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // Loading Screen
 const LoadingScreen: React.FC = () => (
-  <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-    <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-      <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-      <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Pharmacy...</h2>
-      <p className="text-[var(--text-secondary)] text-sm mt-1">Fetching patient and medication data</p>
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+      <div className="w-14 h-14 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <h2 className="text-xl font-bold text-gray-900">Loading Pharmacy...</h2>
+      <p className="text-gray-600 text-sm mt-1">Fetching patient and medication data</p>
     </div>
   </div>
 );
 
-// Add Medications Section Component - FIXED stock item matching
+// Add Medications Section Component
 const AddMedicationsSection: React.FC<{
   onAddMedication: (med: MedicationEntry) => void;
   stockItems: any[];
@@ -873,22 +875,22 @@ const AddMedicationsSection: React.FC<{
   };
 
   return (
-    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-6">
-      <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
-        <Pill className="w-5 h-5 text-[var(--icon-purple-text)]" />
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+        <Pill className="w-5 h-5 text-purple-600" />
         Add New Medication
       </h3>
       
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Medication
           </label>
           <select
             value={currentMed.stockItemId}
             onChange={(e) => {
               const stockItem = stockItems.find(s => 
-                s.id === e.target.value || s._id === e.target.value // ✅ FIXED: Handle both id and _id
+                s.id === e.target.value || s.id === e.target.value
               );
               setCurrentMed(prev => ({
                 ...prev,
@@ -896,12 +898,12 @@ const AddMedicationsSection: React.FC<{
                 name: stockItem?.name || ''
               }));
             }}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             required
           >
             <option value="">Select medication</option>
             {stockItems.map(item => (
-              <option key={item.id || item._id} value={item.id || item._id}>
+              <option key={item.id || item.id} value={item.id || item.id}>
                 {item.name} ({item.currentStock} in stock)
               </option>
             ))}
@@ -909,70 +911,70 @@ const AddMedicationsSection: React.FC<{
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Dosage
           </label>
           <input
             type="text"
             value={currentMed.dosage}
             onChange={(e) => setCurrentMed(prev => ({ ...prev, dosage: e.target.value }))}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             placeholder="e.g., 500mg"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Frequency
           </label>
           <input
             type="text"
             value={currentMed.frequency}
             onChange={(e) => setCurrentMed(prev => ({ ...prev, frequency: e.target.value }))}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             placeholder="e.g., 3 times daily"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Duration
           </label>
           <input
             type="text"
             value={currentMed.duration}
             onChange={(e) => setCurrentMed(prev => ({ ...prev, duration: e.target.value }))}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             placeholder="e.g., 7 days"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Quantity
           </label>
           <input
             type="number"
             value={currentMed.quantity}
             onChange={(e) => setCurrentMed(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             min="1"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Instructions
           </label>
           <input
             type="text"
             value={currentMed.instructions}
             onChange={(e) => setCurrentMed(prev => ({ ...prev, instructions: e.target.value }))}
-            className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
             placeholder="Additional instructions"
           />
         </div>
@@ -981,7 +983,7 @@ const AddMedicationsSection: React.FC<{
           <button
             type="submit"
             disabled={isAddingMedication}
-            className="flex items-center gap-2 px-6 py-3 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors font-medium disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-3 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-600 hover:text-white transition-colors font-medium disabled:opacity-50"
           >
             {isAddingMedication ? (
               <>

@@ -6,10 +6,8 @@ import {
   updateDiagnosis,
   deleteDiagnosis,
   getDiagnosisStats,
-  bulkUpdateDiagnoses,
   searchDiagnoses,
   getDiagnosisCategories,
-  getDiagnosisVariants
 } from '../controllers/diagnosisController';
 import {
   protect,
@@ -34,17 +32,11 @@ router.get('/stats', requireAdmin, getDiagnosisStats);
 // Get diagnosis categories - accessible by clinical staff and admin
 router.get('/categories', requireClinicalStaff, getDiagnosisCategories);
 
-// Get diagnosis variants - accessible by clinical staff and admin
-router.get('/variants', requireClinicalStaff, getDiagnosisVariants);
-
 // Get diagnosis by ID - accessible by clinical staff and admin
 router.get('/:id', requireClinicalStaff, getDiagnosisById);
 
 // Create diagnosis - admin only
 router.post('/', requireAdmin, createDiagnosis);
-
-// Bulk update diagnoses - admin only
-router.post('/bulk-update', requireAdmin, bulkUpdateDiagnoses);
 
 // Update diagnosis - admin only
 router.put('/:id', requireAdmin, updateDiagnosis);

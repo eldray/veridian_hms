@@ -1,4 +1,4 @@
-// src/pages/LabResults.tsx - COMPLETE UPDATED VERSION
+// src/pages/LabResults.tsx - UPDATED VERSION
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -10,9 +10,7 @@ import { LabTest, Attendance, Patient } from '../types';
 import { LabTestEntry } from '../types/medical-entries';
 
 // Reusable components
-import { PatientSelection } from '../components/vitals/PatientSelection';
-import { AttendanceSelection } from '../components/vitals/AttendanceSelection';
-import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import { LabStats } from '../components/reusable/LabStats';
 import { LabRequestSection } from '../components/reusable/LabRequestSection';
@@ -30,8 +28,8 @@ import {
 } from 'lucide-react';
 
 // Helper function
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-  return entity?.id || entity?._id;
+const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
+  return entity?.id || entity?.id;
 };
 
 export default function Laboratory() {
@@ -41,10 +39,8 @@ export default function Laboratory() {
   // State
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [selectedTest, setSelectedTest] = useState<{
     attendanceId: string;
     testId: string;
@@ -68,7 +64,7 @@ export default function Laboratory() {
     status: 'requested'
   });
 
-  // Stores - UPDATED with proper method names
+  // Stores
   const {
     attendances,
     updateLabTestStatus,
@@ -108,7 +104,7 @@ export default function Laboratory() {
     loadData();
   }, []);
 
-  // Patient matching logic - FIXED inconsistent ID access
+  // Patient matching logic
   const patientAttendances = useMemo(() => {
     if (!selectedPatientId || !attendances.length) return [];
 
@@ -116,7 +112,7 @@ export default function Laboratory() {
       const possiblePatientIds = [
         attendance.patientId,
         attendance.patient?.id,
-        attendance.patient?._id,
+        attendance.patient?.id,
         attendance.data?.patientId
       ]
         .filter(Boolean)
@@ -136,22 +132,6 @@ export default function Laboratory() {
 
   const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId);
   const selectedAttendance = patientAttendances.find(a => getEntityId(a) === selectedAttendanceId);
-
-  // Vitals display
-  const [latestVitals, setLatestVitals] = useState<any>(null);
-  useEffect(() => {
-    const loadVitals = async () => {
-      if (selectedAttendanceId) {
-        try {
-          const vitals = await getVitalsByAttendance(selectedAttendanceId);
-          setLatestVitals(vitals?.length ? vitals[vitals.length - 1] : null);
-        } catch {
-          setLatestVitals(null);
-        }
-      }
-    };
-    loadVitals();
-  }, [selectedAttendanceId, getVitalsByAttendance]);
 
   // Reset attendance selection when patient changes
   useEffect(() => {
@@ -271,7 +251,7 @@ export default function Laboratory() {
     });
   };
 
-  // Submit result - FIXED field names
+  // Submit result
   const handleSubmitResult = async () => {
     if (!selectedTest || !result.trim()) {
       toastError('Result missing', 'Please enter test result');
@@ -299,7 +279,7 @@ export default function Laboratory() {
           normalRange: normalRange || undefined,
           units: units || undefined,
           notes: notes || undefined,
-          performedById: user?.id || user?._id || '', // ✅ FIXED: performedById not performedBy
+          performedById: user?.id || user?.id || '',
           completedAt: new Date().toISOString(),
         }
       );
@@ -323,14 +303,14 @@ export default function Laboratory() {
     setNotes('');
   };
 
-  // Mark in progress - FIXED field names
+  // Mark in progress
   const handleMarkInProgress = async (testId: string) => {
     if (!selectedAttendanceId) return;
 
     try {
       await updateLabTestStatus(selectedAttendanceId, testId, {
         status: 'in_progress',
-        performedById: user?.id || user?._id || '', // ✅ FIXED: performedById
+        performedById: user?.id || user?.id || '',
       });
       success('Status updated', 'Test in progress');
       await getAttendances();
@@ -340,7 +320,7 @@ export default function Laboratory() {
     }
   };
 
-  // Request lab test - FIXED object creation
+  // Request lab test
   const handleRequestLabTest = async () => {
     if (!selectedAttendanceId || !currentLabRequest.templateId) {
       toastError('Selection required', 'Please select a lab test');
@@ -354,15 +334,13 @@ export default function Laboratory() {
 
     setIsRequestingLab(true);
     try {
-      // ✅ FIXED: Handle both id and _id for template matching
       const template = labTestTemplates.find(t => 
-        t.id === currentLabRequest.templateId || t._id === currentLabRequest.templateId
+        t.id === currentLabRequest.templateId || t.id === currentLabRequest.templateId
       );
       if (!template) throw new Error('Template not found');
 
-      // ✅ FIXED: Use proper LabTest structure with required fields
       const newTest: LabTest = {
-        id: `lab-${Date.now()}`, // ✅ FIXED: Use 'id' not '_id'
+        id: `lab-${Date.now()}`,
         attendanceId: selectedAttendanceId,
         patientId: selectedPatientId,
         templateId: currentLabRequest.templateId,
@@ -374,7 +352,7 @@ export default function Laboratory() {
         priority: currentLabRequest.priority,
         requestedAt: new Date().toISOString(),
         notes: currentLabRequest.notes,
-        createdById: user?.id || user?._id || '',
+        createdById: user?.id || user?.id || '',
         cashPrice: template.cashPrice || 0,
         insurancePrice: template.insurancePrice || 0,
         costPrice: template.costPrice || 0,
@@ -421,34 +399,42 @@ export default function Laboratory() {
     }
   };
 
+  // Handle clear selection
+  const handleClearSelection = () => {
+    setSelectedPatientId('');
+    setSelectedAttendanceId('');
+    setSelectedTest(null);
+    resetResultForm();
+  };
+
   if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+            className="p-2 hover:bg-white rounded-lg transition-all duration-200"
           >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <div className="w-12 h-12 bg-[var(--icon-blue-bg)] rounded-xl flex items-center justify-center">
-            <FlaskConical className="w-6 h-6 text-[var(--icon-blue-text)]" />
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+            <FlaskConical className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Laboratory Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Request tests, enter results, print reports</p>
+            <h1 className="text-xl font-bold text-gray-900">Laboratory Management</h1>
+            <p className="text-sm text-gray-600">Request tests, enter results, print reports</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/dashboard/medical-entries')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm text-gray-700"
           >
             <FlaskConical className="w-4 h-4" />
             Medical Entries
@@ -456,7 +442,7 @@ export default function Laboratory() {
           <button
             onClick={handlePrintResults}
             disabled={completedTests.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
           >
             <Printer className="w-4 h-4" />
             Print Results ({completedTests.length})
@@ -464,7 +450,7 @@ export default function Laboratory() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -472,152 +458,173 @@ export default function Laboratory() {
         </div>
       </div>
 
-      {/* Patient & Attendance Selection */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PatientSelection
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Patient & Attendance Selection */}
+        <PatientAttendanceSelector
           patients={patients}
-          patientSearch={patientSearch}
-          setPatientSearch={setPatientSearch}
+          attendances={attendances}
           selectedPatientId={selectedPatientId}
-          setSelectedPatientId={setSelectedPatientId}
-          showPatientDropdown={showPatientDropdown}
-          setShowPatientDropdown={setShowPatientDropdown}
-          selectedPatient={selectedPatient}
+          selectedAttendanceId={selectedAttendanceId}
+          onPatientSelect={setSelectedPatientId}
+          onAttendanceSelect={setSelectedAttendanceId}
+          onClearSelection={handleClearSelection}
         />
-        
-        {selectedPatientId && (
-          <AttendanceSelection
-            patientAttendances={patientAttendances}
-            selectedAttendanceId={selectedAttendanceId}
-            setSelectedAttendanceId={setSelectedAttendanceId}
-            selectedPatientId={selectedPatientId}
-            navigate={navigate}
-            onActivateAttendance={handleActivateAttendance}
-            activatingAttendance={activatingAttendance}
+
+        {/* Patient & Visit Overview */}
+        {selectedPatient && selectedAttendance && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <FlaskConical className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{selectedPatient.fullName}</h3>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                    <span>{selectedPatient.age} years • {selectedPatient.gender}</span>
+                    <span>•</span>
+                    <span>ID: {selectedPatient.folderNumber}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-lg font-semibold text-gray-900">
+                  {selectedAttendance.attendanceNumber || 'Current Visit'}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedAttendance.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    selectedAttendance.status === 'active' ? 'bg-green-100 text-green-800' :
+                    selectedAttendance.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                    selectedAttendance.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {selectedAttendance.status}
+                  </span>
+                  <span>{new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Attendance Actions */}
+        {selectedAttendance && (
+          <AttendanceActions
+            attendance={selectedAttendance}
+            onActivate={handleActivateAttendance}
+            onComplete={handleCompleteAttendance}
+            onCancel={handleCancelAttendance}
+            isActivating={activatingAttendance}
+            isCompleting={completingAttendance}
           />
         )}
-      </div>
 
-      {/* Vitals Display */}
-      {selectedAttendance && latestVitals && (
-        <VitalsDisplay vitals={latestVitals} />
-      )}
+        {/* Stats */}
+        {selectedAttendance && (
+          <LabStats
+            totalPending={totalPending}
+            inProgressCount={inProgressCount}
+            completedCount={completedCount}
+          />
+        )}
 
-      {/* Attendance Actions */}
-      {selectedAttendance && (
-        <AttendanceActions
-          attendance={selectedAttendance}
-          onActivate={handleActivateAttendance}
-          onComplete={handleCompleteAttendance}
-          onCancel={handleCancelAttendance}
-          isActivating={activatingAttendance}
-          isCompleting={completingAttendance}
-        />
-      )}
+        {/* Main Content */}
+        {selectedAttendance && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Lab Request Section */}
+              {canAddEntries && (
+                <LabRequestSection
+                  currentLabRequest={currentLabRequest}
+                  onLabRequestChange={setCurrentLabRequest}
+                  onRequestLabTest={handleRequestLabTest}
+                  labTestTemplates={labTestTemplates}
+                  selectedAttendance={selectedAttendance}
+                  isRequestingLab={isRequestingLab}
+                />
+              )}
 
-      {/* Stats */}
-      {selectedAttendance && (
-        <LabStats
-          totalPending={totalPending}
-          inProgressCount={inProgressCount}
-          completedCount={completedCount}
-        />
-      )}
-
-      {/* Main Content */}
-      {selectedAttendance && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Lab Request Section */}
-            {canAddEntries && (
-              <LabRequestSection
-                currentLabRequest={currentLabRequest}
-                onLabRequestChange={setCurrentLabRequest}
-                onRequestLabTest={handleRequestLabTest}
-                labTestTemplates={labTestTemplates}
-                selectedAttendance={selectedAttendance}
-                isRequestingLab={isRequestingLab}
+              {/* Pending Tests */}
+              <PendingTestsSection
+                pendingTests={pendingTests}
+                selectedTest={selectedTest}
+                onTestSelect={handleTestSelect}
+                onMarkInProgress={handleMarkInProgress}
+                selectedAttendanceId={selectedAttendanceId}
+                canUpdateLabTest={canUpdateLabTest}
               />
-            )}
 
-            {/* Pending Tests */}
-            <PendingTestsSection
-              pendingTests={pendingTests}
-              selectedTest={selectedTest}
-              onTestSelect={handleTestSelect}
-              onMarkInProgress={handleMarkInProgress}
-              selectedAttendanceId={selectedAttendanceId}
-              canUpdateLabTest={canUpdateLabTest}
-            />
+              {/* Completed Tests */}
+              <CompletedTestsSection completedTests={completedTests} />
+            </div>
 
-            {/* Completed Tests */}
-            <CompletedTestsSection completedTests={completedTests} />
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Lab Results Entry */}
+              <LabResultsEntry
+                selectedTest={selectedTest}
+                selectedTestData={selectedTestData}
+                selectedPatient={selectedPatient}
+                selectedAttendance={selectedAttendance}
+                result={result}
+                normalRange={normalRange}
+                units={units}
+                notes={notes}
+                onResultChange={setResult}
+                onNormalRangeChange={setNormalRange}
+                onUnitsChange={setUnits}
+                onNotesChange={setNotes}
+                onSubmitResult={handleSubmitResult}
+                onCancel={resetResultForm}
+                isLoading={isSubmitting}
+                canUpdateLabTest={canUpdateLabTest}
+              />
+            </div>
           </div>
+        )}
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Lab Results Entry */}
-            <LabResultsEntry
-              selectedTest={selectedTest}
-              selectedTestData={selectedTestData}
-              selectedPatient={selectedPatient}
-              selectedAttendance={selectedAttendance}
-              result={result}
-              normalRange={normalRange}
-              units={units}
-              notes={notes}
-              onResultChange={setResult}
-              onNormalRangeChange={setNormalRange}
-              onUnitsChange={setUnits}
-              onNotesChange={setNotes}
-              onSubmitResult={handleSubmitResult}
-              onCancel={resetResultForm}
-              isLoading={isSubmitting}
-              canUpdateLabTest={canUpdateLabTest}
-            />
+        {/* Empty States */}
+        {selectedPatientId && !selectedAttendanceId && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-yellow-800 mb-2">No Attendance Selected</h3>
+            <p className="text-yellow-700 mb-4">Please select an existing attendance to manage lab tests.</p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Empty States */}
-      {selectedPatientId && !selectedAttendanceId && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-yellow-text)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--icon-yellow-text)] mb-4">Please select an existing attendance to manage lab tests.</p>
-        </div>
-      )}
+        {selectedAttendance && !canAddEntries && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <Ban className="w-12 h-12 text-red-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Cannot Manage Lab Tests</h3>
+            <p className="text-red-700">
+              This attendance is <span className="font-bold">{selectedAttendance.status}</span> and cannot be modified.
+            </p>
+          </div>
+        )}
 
-      {selectedAttendance && !canAddEntries && (
-        <div className="bg-[var(--icon-red-bg)] border border-[var(--icon-red-text)] rounded-xl p-6 text-center">
-          <Ban className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-red-text)] mb-2">Cannot Manage Lab Tests</h3>
-          <p className="text-[var(--icon-red-text)]">
-            This attendance is <span className="font-bold">{selectedAttendance.status}</span> and cannot be modified.
-          </p>
-        </div>
-      )}
-
-      {/* No Lab Tests Message */}
-      {selectedAttendance && labTests.length === 0 && canAddEntries && (
-        <div className="bg-[var(--icon-blue-bg)] border border-[var(--icon-blue-text)] rounded-xl p-6 text-center">
-          <FlaskConical className="w-12 h-12 text-[var(--icon-blue-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-blue-text)] mb-2">No Lab Tests</h3>
-          <p className="text-[var(--icon-blue-text)]">Use the form above to request lab tests for this patient.</p>
-        </div>
-      )}
+        {/* No Lab Tests Message */}
+        {selectedAttendance && labTests.length === 0 && canAddEntries && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+            <FlaskConical className="w-12 h-12 text-blue-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">No Lab Tests</h3>
+            <p className="text-blue-700">Use the form above to request lab tests for this patient.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // Loading Screen
 const LoadingScreen: React.FC = () => (
-  <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-    <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-      <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-      <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Laboratory...</h2>
-      <p className="text-[var(--text-secondary)] text-sm mt-1">Fetching patient and test data</p>
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+      <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <h2 className="text-xl font-bold text-gray-900">Loading Laboratory...</h2>
+      <p className="text-gray-600 text-sm mt-1">Fetching patient and test data</p>
     </div>
   </div>
 );

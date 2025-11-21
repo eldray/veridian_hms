@@ -1,10 +1,9 @@
-import { User, Calendar, Phone, MapPin, Folder, Camera } from 'lucide-react';
+import { User, Calendar, Phone, MapPin, Camera } from 'lucide-react';
 
 interface BasicInfoFormProps {
   formData: {
-    folderNumber: string;
-    surname: string; // ✅ CHANGED: surname instead of fullName
-    otherNames: string; // ✅ ADDED: otherNames field
+    surname: string;
+    otherNames: string;
     gender: 'male' | 'female' | 'other';
     dateOfBirth: string;
     contact: string;
@@ -52,22 +51,21 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   calculateAge
 }) => {
   
-  // ✅ ADDED: Helper to get full name for display
   const getFullName = () => {
     return `${formData.surname} ${formData.otherNames}`.trim();
   };
 
   return (
     <div className="space-y-4">
-      {/* Patient Photo */}
+      {/* Patient Photo - Compact */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <Camera className="w-5 h-5 text-blue-600" />
+        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+          <Camera className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           Patient Photo
         </h2>
-        <div className="flex flex-col sm:flex-row items-start gap-4">
-          <div className="relative">
-            <div className="w-24 h-24 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+        <div className="flex items-start gap-3">
+          <div className="relative flex-shrink-0">
+            <div className="w-16 h-16 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] flex items-center justify-center overflow-hidden">
               {imagePreview ? (
                 <img
                   src={imagePreview}
@@ -79,57 +77,58 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   }}
                 />
               ) : (
-                <User className="w-8 h-8 text-gray-400" />
+                <User className="w-5 h-5 text-[var(--text-tertiary)]" />
               )}
             </div>
             {imagePreview && (
               <button
                 type="button"
                 onClick={removeImage}
-                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow hover:bg-red-600 transition-colors"
+                className="absolute -top-1 -right-1 bg-[var(--icon-red-text)] text-white rounded-full p-0.5 shadow hover:bg-red-600 transition-colors text-xs"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
           
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="flex-1 min-w-0">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Upload Photo {isUploadingImage && '(Uploading...)'}
             </label>
             <input
               type="file"
               accept="image/*"
               onChange={onImageChange}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              className="w-full px-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-xs"
               disabled={isUploadingImage}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              JPG, PNG or GIF (max. 5MB). Image will be automatically compressed.
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
+              JPG, PNG or GIF (max. 5MB)
             </p>
           </div>
         </div>
       </div>
 
-      {/* Basic Information with SURNAME + OTHERNAMES */}
+      {/* Basic Information - Compact Grid */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Basic Information</h2>
+        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-3">Basic Information</h2>
         
-        {/* Name Preview */}
+        {/* Name Preview - Compact */}
         {formData.surname && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Name Preview:</strong> {getFullName()}
+          <div className="mb-3 p-2 bg-[var(--icon-cyan-bg)] border border-[var(--icon-cyan-text)]/20 rounded text-xs">
+            <p className="text-[var(--icon-cyan-text)] font-medium">
+              <span className="text-[var(--text-secondary)]">Name Preview:</span> {getFullName()}
             </p>
           </div>
         )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Compact 2-column grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {/* Title Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
               Title
             </label>
             <select
@@ -138,7 +137,7 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 ...additionalInfo,
                 title: e.target.value as 'Mr' | 'Mrs' | 'Miss' | 'Dr' | 'Prof' | 'Rev' | 'Other'
               })}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              className="w-full px-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
             >
               <option value="">Select Title</option>
               <option value="Mr">Mr</option>
@@ -151,62 +150,46 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             </select>
           </div>
 
-          {/* Folder Number */}
+          {/* Surname field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Folder Number
-            </label>
-            <div className="relative">
-              <Folder className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={formData.folderNumber}
-                onChange={(e) => onFormDataChange({ ...formData, folderNumber: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
-                placeholder="Folder number"
-              />
-            </div>
-          </div>
-
-          {/* ✅ CHANGED: Surname field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Surname <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Surname <span className="text-[var(--icon-red-text)]">*</span>
             </label>
             <input
               type="text"
               required
               value={formData.surname}
               onChange={(e) => onFormDataChange({ ...formData, surname: e.target.value })}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              className="w-full px-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
               placeholder="Enter surname"
             />
           </div>
 
-          {/* ✅ ADDED: Other Names field */}
+          {/* Other Names field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Other Names <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Other Names <span className="text-[var(--icon-red-text)]">*</span>
             </label>
             <input
               type="text"
               required
               value={formData.otherNames}
               onChange={(e) => onFormDataChange({ ...formData, otherNames: e.target.value })}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              className="w-full px-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
               placeholder="Enter other names"
             />
           </div>
 
+          {/* Gender */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gender <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Gender <span className="text-[var(--icon-red-text)]">*</span>
             </label>
             <select
               required
               value={formData.gender}
               onChange={(e) => onFormDataChange({ ...formData, gender: e.target.value as any })}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+              className="w-full px-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
             >
               <option value="male">Male</option>
               <option value="female">Female</option>
@@ -214,19 +197,23 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             </select>
           </div>
 
+          {/* Date of Birth */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date of Birth <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Date of Birth <span className="text-[var(--icon-red-text)]">*</span>
             </label>
-            <input
-              type="date"
-              required
-              value={formData.dateOfBirth}
-              onChange={(e) => onFormDataChange({ ...formData, dateOfBirth: e.target.value })}
-              className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
-            />
+            <div className="relative">
+              <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-[var(--text-tertiary)]" />
+              <input
+                type="date"
+                required
+                value={formData.dateOfBirth}
+                onChange={(e) => onFormDataChange({ ...formData, dateOfBirth: e.target.value })}
+                className="w-full pl-7 pr-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+              />
+            </div>
             {formData.dateOfBirth && (
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-[var(--icon-green-text)] mt-1 font-medium">
                 Age: {calculateAge(formData.dateOfBirth).display}
                 {isEditMode && currentPatient?.ageDisplay && 
                   calculateAge(formData.dateOfBirth).display !== currentPatient.ageDisplay && 
@@ -235,41 +222,43 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
               </p>
             )}
             {!formData.dateOfBirth && isEditMode && currentPatient?.ageDisplay && (
-              <p className="text-xs text-yellow-600 mt-1">
+              <p className="text-xs text-[var(--icon-yellow-text)] mt-1">
                 Stored age: {currentPatient.ageDisplay}
               </p>
             )}
           </div>
 
+          {/* Contact Number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contact Number <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Contact Number <span className="text-[var(--icon-red-text)]">*</span>
             </label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Phone className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-[var(--text-tertiary)]" />
               <input
                 type="tel"
                 required
                 value={formData.contact}
                 onChange={(e) => onFormDataChange({ ...formData, contact: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+                className="w-full pl-7 pr-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
                 placeholder="Phone number"
               />
             </div>
           </div>
 
-          <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Address <span className="text-red-500">*</span>
+          {/* Address - Full width */}
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Address <span className="text-[var(--icon-red-text)]">*</span>
             </label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <MapPin className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-[var(--text-tertiary)]" />
               <input
                 type="text"
                 required
                 value={formData.address}
                 onChange={(e) => onFormDataChange({ ...formData, address: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+                className="w-full pl-7 pr-2 py-1.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
                 placeholder="Full residential address"
               />
             </div>

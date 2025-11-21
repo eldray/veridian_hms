@@ -11,7 +11,7 @@ interface LabTestsSectionProps {
   labTestTemplates: LabTestTemplate[];
   canAddEntries: boolean;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance';
-  currentUser?: { fullName?: string; username?: string; _id?: string };
+  currentUser?: { fullName?: string; username?: string; id?: string };
 }
 
 const LabTestsSection: React.FC<LabTestsSectionProps> = ({
@@ -78,7 +78,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   const handleTemplateSelect = (template: LabTestTemplate) => {
     onLabChange({
       ...currentLab,
-      templateId: template._id,
+      templateId: template.id,
       name: template.name,
       status: 'requested'
     });
@@ -107,7 +107,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
 
   // Get selected template for display
   const selectedTemplate = currentLab.templateId 
-    ? labTestTemplates.find(t => t._id === currentLab.templateId)
+    ? labTestTemplates.find(t => t.id === currentLab.templateId)
     : null;
 
   return (
@@ -151,7 +151,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
               >
                 {filteredTemplates.map((template) => (
                   <button
-                    key={template._id}
+                    key={template.id}
                     onClick={() => handleTemplateSelect(template)}
                     className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                   >
@@ -273,9 +273,9 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
             </div>
             <div className="divide-y divide-[var(--border-color)]">
               {labTests.map((test) => {
-                const template = labTestTemplates.find(t => t._id === test.templateId);
+                const template = labTestTemplates.find(t => t.id === test.templateId);
                 return (
-                  <div key={test._id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                  <div key={test.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -296,7 +296,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                       </div>
                       <button
                         onClick={() => {
-                          const updatedTests = labTests.filter(t => t._id !== test._id);
+                          const updatedTests = labTests.filter(t => t.id !== test.id);
                           // You'll need to pass a setLabTests function to update the parent state
                         }}
                         className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4"
@@ -313,7 +313,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
 
         {/* Authorization Warning */}
         {labTests.some(test => {
-          const template = labTestTemplates.find(t => t._id === test.templateId);
+          const template = labTestTemplates.find(t => t.id === test.templateId);
           return template?.requiresAuthorization;
         }) && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">

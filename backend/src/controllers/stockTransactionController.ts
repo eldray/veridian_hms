@@ -1,7 +1,8 @@
-// controllers/stockTransactionController.ts - SIMPLIFIED
+// controllers/stockTransactionController.ts - UPDATED FOR SCHEMA ALIGNMENT
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StockTransactionType } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 export const getStockTransactions = async (req: Request, res: Response) => {
@@ -18,7 +19,7 @@ export const getStockTransactions = async (req: Request, res: Response) => {
     const where: any = {};
 
     if (stockItemId) where.stockItemId = stockItemId as string;
-    if (transactionType) where.transactionType = transactionType as string;
+    if (transactionType) where.transactionType = transactionType as StockTransactionType;
     
     if (startDate || endDate) {
       where.transactionDate = {};
@@ -39,6 +40,19 @@ export const getStockTransactions = async (req: Request, res: Response) => {
               category: true,
               unitOfMeasure: true,
               currentStock: true
+            }
+          },
+          // ✅ ADDED: Include related entities
+          requisition: {
+            select: {
+              requisitionNumber: true,
+              status: true
+            }
+          },
+          invoice: {
+            select: {
+              invoiceNumber: true,
+              supplierName: true
             }
           }
         },
@@ -81,6 +95,25 @@ export const getStockTransactionById = async (req: Request, res: Response) => {
             currentStock: true,
             reorderLevel: true
           }
+        },
+        // ✅ ADDED: Include related entities
+        requisition: {
+          select: {
+            requisitionNumber: true,
+            status: true,
+            requestingDepartment: {
+              select: {
+                name: true
+              }
+            }
+          }
+        },
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            supplierName: true,
+            invoiceDate: true
+          }
         }
       }
     });
@@ -102,7 +135,7 @@ export const getStockTransactionById = async (req: Request, res: Response) => {
 export const createStockTransaction = [
   body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
   body('transactionType')
-    .isIn(['purchase', 'sale', 'return', 'adjustment', 'transfer', 'consumption'])
+    .isIn(['purchase', 'adjustment', 'requisition', 'sale']) // ✅ UPDATED: Matches StockTransactionType enum
     .withMessage('Valid transaction type is required'),
   body('quantity')
     .isInt({ min: 1 })
@@ -119,7 +152,10 @@ export const createStockTransaction = [
         stockItemId,
         transactionType,
         quantity,
-        notes
+        reference,
+        notes,
+        requisitionId,
+        invoiceId
       } = req.body;
 
       // Validate stock item exists
@@ -131,18 +167,36 @@ export const createStockTransaction = [
         return res.status(404).json({ message: 'Stock item not found' });
       }
 
+      // ✅ ADDED: Validate requisition if provided
+      if (requisitionId) {
+        const requisition = await prisma.requisition.findUnique({
+          where: { id: requisitionId }
+        });
+        if (!requisition) {
+          return res.status(404).json({ message: 'Requisition not found' });
+        }
+      }
+
+      // ✅ ADDED: Validate invoice if provided
+      if (invoiceId) {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: invoiceId }
+        });
+        if (!invoice) {
+          return res.status(404).json({ message: 'Invoice not found' });
+        }
+      }
+
       // Calculate new stock level
       let newStockLevel = stockItem.currentStock;
       const quantityNum = parseInt(quantity);
 
       switch (transactionType) {
         case 'purchase':
-        case 'return':
           newStockLevel += quantityNum;
           break;
         case 'sale':
-        case 'consumption':
-        case 'transfer':
+        case 'requisition':
           if (stockItem.currentStock < quantityNum) {
             return res.status(400).json({ 
               message: `Insufficient stock. Available: ${stockItem.currentStock}, Requested: ${quantityNum}` 
@@ -151,7 +205,7 @@ export const createStockTransaction = [
           newStockLevel -= quantityNum;
           break;
         case 'adjustment':
-          newStockLevel += quantityNum;
+          newStockLevel += quantityNum; // Can be positive or negative based on quantity
           if (newStockLevel < 0) {
             return res.status(400).json({ 
               message: 'Adjustment would result in negative stock' 
@@ -166,10 +220,13 @@ export const createStockTransaction = [
         const transaction = await tx.stockTransaction.create({
           data: {
             stockItemId,
-            transactionType,
+            transactionType: transactionType as StockTransactionType,
             quantity: quantityNum,
             balanceAfter: newStockLevel,
+            reference,
             notes,
+            requisitionId,
+            invoiceId,
             performedBy: (req as any).user?.id || 'system'
           },
           include: {
@@ -208,6 +265,7 @@ export const createStockTransaction = [
 
 export const updateStockTransaction = [
   body('notes').optional().isString(),
+  body('reference').optional().isString(),
 
   async (req: Request, res: Response) => {
     try {
@@ -216,11 +274,12 @@ export const updateStockTransaction = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      // Only allow updating notes for safety
+      // Only allow updating notes and reference for safety
       const transaction = await prisma.stockTransaction.update({
         where: { id: req.params.id },
         data: {
           notes: req.body.notes,
+          reference: req.body.reference,
           updatedAt: new Date()
         },
         include: {
@@ -293,10 +352,18 @@ export const getStockMovementReport = async (req: Request, res: Response) => {
     const summary = transactions.reduce((acc, transaction) => {
       const quantity = transaction.quantity;
       
-      if (transaction.transactionType === 'purchase' || transaction.transactionType === 'return') {
+      if (transaction.transactionType === 'purchase') {
         acc.totalIncoming += quantity;
-      } else if (transaction.transactionType === 'sale' || transaction.transactionType === 'consumption') {
+      } else if (transaction.transactionType === 'sale' || transaction.transactionType === 'requisition') {
         acc.totalOutgoing += quantity;
+      }
+      // adjustment can be both incoming and outgoing based on quantity sign
+      else if (transaction.transactionType === 'adjustment') {
+        if (quantity > 0) {
+          acc.totalIncoming += quantity;
+        } else {
+          acc.totalOutgoing += Math.abs(quantity);
+        }
       }
       
       acc.totalTransactions++;
@@ -331,7 +398,7 @@ export const getLowStockAlerts = async (req: Request, res: Response) => {
         currentStock: {
           lte: prisma.stockItem.fields.reorderLevel
         },
-        isPending: false
+        isActive: true // ✅ FIXED: Use isActive instead of isPending
       },
       select: {
         id: true,
@@ -386,6 +453,18 @@ export const getStockItemTransactionHistory = async (req: Request, res: Response
               drugCode: true,
               unitOfMeasure: true
             }
+          },
+          requisition: {
+            select: {
+              requisitionNumber: true,
+              status: true
+            }
+          },
+          invoice: {
+            select: {
+              invoiceNumber: true,
+              supplierName: true
+            }
           }
         },
         orderBy: { transactionDate: 'desc' },
@@ -399,7 +478,9 @@ export const getStockItemTransactionHistory = async (req: Request, res: Response
       stockItem: {
         id: stockItem.id,
         name: stockItem.name,
-        drugCode: stockItem.drugCode
+        drugCode: stockItem.drugCode,
+        currentStock: stockItem.currentStock,
+        reorderLevel: stockItem.reorderLevel
       },
       transactions,
       pagination: {
@@ -417,3 +498,109 @@ export const getStockItemTransactionHistory = async (req: Request, res: Response
     });
   }
 };
+
+// ✅ ADDED: Function to create transaction from requisition
+export const createRequisitionTransaction = [
+  body('requisitionId').notEmpty().withMessage('Requisition ID is required'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { requisitionId } = req.body;
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Get requisition with items
+        const requisition = await tx.requisition.findUnique({
+          where: { id: requisitionId },
+          include: {
+            requisitionItems: {
+              include: {
+                stockItem: true
+              }
+            }
+          }
+        });
+
+        if (!requisition) {
+          throw new Error('Requisition not found');
+        }
+
+        if (requisition.status !== 'approved') {
+          throw new Error('Requisition must be approved before fulfillment');
+        }
+
+        const transactions = [];
+
+        // Create transactions for each requisition item
+        for (const item of requisition.requisitionItems) {
+          const quantityToFulfill = item.quantityApproved || item.quantityRequested;
+          
+          if (item.stockItem.currentStock < quantityToFulfill) {
+            throw new Error(`Insufficient stock for ${item.stockItem.name}. Available: ${item.stockItem.currentStock}, Required: ${quantityToFulfill}`);
+          }
+
+          // Create transaction
+          const transaction = await tx.stockTransaction.create({
+            data: {
+              stockItemId: item.stockItemId,
+              transactionType: 'requisition',
+              quantity: quantityToFulfill,
+              balanceAfter: item.stockItem.currentStock - quantityToFulfill,
+              reference: requisition.requisitionNumber,
+              notes: `Requisition fulfillment for ${requisition.requisitionNumber}`,
+              requisitionId: requisition.id,
+              performedBy: (req as any).user?.id || 'system'
+            }
+          });
+
+          // Update stock item
+          await tx.stockItem.update({
+            where: { id: item.stockItemId },
+            data: {
+              currentStock: {
+                decrement: quantityToFulfill
+              }
+            }
+          });
+
+          // Update requisition item fulfilled quantity
+          await tx.requisitionItem.update({
+            where: { id: item.id },
+            data: {
+              quantityFulfilled: quantityToFulfill
+            }
+          });
+
+          transactions.push(transaction);
+        }
+
+        // Update requisition status
+        await tx.requisition.update({
+          where: { id: requisitionId },
+          data: {
+            status: 'fulfilled',
+            fulfilledAt: new Date(),
+            fulfilledById: (req as any).user?.id
+          }
+        });
+
+        return transactions;
+      });
+
+      res.status(201).json({
+        message: 'Requisition transactions created successfully',
+        transactions: result
+      });
+    } catch (error) {
+      console.error('Error creating requisition transactions:', error);
+      res.status(500).json({ 
+        message: 'Error creating requisition transactions', 
+        error: (error as Error).message 
+      });
+    }
+  }
+];

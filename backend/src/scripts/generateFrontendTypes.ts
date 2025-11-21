@@ -1,10 +1,8 @@
 // src/scripts/generateFrontendTypes.ts
-// npm run gen:types
 import { Project } from 'ts-morph';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { PrismaClient } from '@prisma/client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,10 +16,13 @@ const prismaToTsTypeMap: Record<string, string> = {
   'Int': 'number',
   'Float': 'number',
   'Boolean': 'boolean',
-  'DateTime': 'string', // Convert DateTime to string for frontend
+  'DateTime': 'string',
   'Json': 'any',
   'Decimal': 'number',
 };
+
+// List of Prisma scalar types
+const PRISMA_SCALAR_TYPES = new Set(['String', 'Int', 'Float', 'Boolean', 'DateTime', 'Json', 'Decimal']);
 
 /**
  * Convert Prisma field type to TypeScript type
@@ -38,11 +39,22 @@ function toTypeScriptType(fieldType: string, isOptional: boolean): string {
 }
 
 /**
+ * Check if a field type is a scalar (not a model reference)
+ */
+function isScalarType(fieldType: string): boolean {
+  return PRISMA_SCALAR_TYPES.has(fieldType) || 
+         fieldType.startsWith('@') || 
+         fieldType.includes('[') || 
+         fieldType.includes(']');
+}
+
+/**
  * Extract model definitions from Prisma schema
  */
 function parsePrismaSchema(schemaContent: string): any {
   const models: Record<string, any> = {};
   let currentModel: string | null = null;
+  let inModel = false;
   
   const lines = schemaContent.split('\n');
   
@@ -53,28 +65,49 @@ function parsePrismaSchema(schemaContent: string): any {
     if (trimmed.startsWith('model ')) {
       currentModel = trimmed.split(' ')[1];
       models[currentModel] = { fields: [] };
+      inModel = true;
       continue;
     }
     
     // End of model
     if (trimmed === '}' && currentModel) {
       currentModel = null;
+      inModel = false;
       continue;
     }
     
-    // Field definition
-    if (currentModel && trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('@@')) {
-      const fieldMatch = trimmed.match(/^(\w+)\s+(\w+)(\?)?(\s+@.*)?$/);
+    // Field definition - improved regex to handle more cases
+    if (inModel && currentModel && trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('@@')) {
+      // Match field definitions more flexibly
+      const fieldMatch = trimmed.match(/^(\w+)\s+([\w\[\]\?]+)(\?)?(\s+@.*)?$/);
       if (fieldMatch) {
         const [, fieldName, fieldType, optionalMarker] = fieldMatch;
-        const isOptional = optionalMarker === '?';
+        const isOptional = optionalMarker === '?' || fieldType.endsWith('?');
+        const cleanFieldType = fieldType.replace('?', '');
         
         models[currentModel].fields.push({
           name: fieldName,
-          type: fieldType,
+          type: cleanFieldType,
           optional: isOptional,
-          raw: trimmed
+          raw: trimmed,
+          isScalar: isScalarType(cleanFieldType)
         });
+      } else if (trimmed.includes('@relation')) {
+        // Handle relation fields specifically
+        const relationMatch = trimmed.match(/^(\w+)\s+(\w+)(\?)?(\s+@.*)?$/);
+        if (relationMatch) {
+          const [, fieldName, fieldType, optionalMarker] = relationMatch;
+          const isOptional = optionalMarker === '?';
+          
+          models[currentModel].fields.push({
+            name: fieldName,
+            type: fieldType,
+            optional: isOptional,
+            raw: trimmed,
+            isScalar: false, // Relations are not scalars
+            isRelation: true
+          });
+        }
       }
     }
   }
@@ -107,18 +140,48 @@ async function generateTypes(): Promise<void> {
     ''
   ]);
 
+  // First, generate all enums from the schema
+  const enumRegex = /enum\s+(\w+)\s*{([^}]*)}/g;
+  let enumMatch;
+  const enums: string[] = [];
+  
+  while ((enumMatch = enumRegex.exec(schemaContent)) !== null) {
+    const enumName = enumMatch[1];
+    enums.push(enumName);
+    
+    sourceFile.addStatements([
+      `export enum ${enumName} {`
+    ]);
+    
+    const enumValues = enumMatch[2].split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('//'))
+      .map(line => {
+        const valueMatch = line.match(/^(\w+)/);
+        return valueMatch ? valueMatch[1] : null;
+      })
+      .filter(Boolean);
+    
+    enumValues.forEach(value => {
+      sourceFile.addStatements([`  ${value} = '${value}',`]);
+    });
+    
+    sourceFile.addStatements(['}', '']);
+  }
+
   // Generate interfaces for each model
   for (const [modelName, modelData] of Object.entries(models)) {
+    console.log(`Generating interface for ${modelName} with ${modelData.fields.length} fields`);
+    
     const interfaceDeclaration = sourceFile.addInterface({
       name: modelName,
       isExported: true,
       properties: []
     });
 
-    // Add fields
+    // Add all scalar fields (non-relations)
     modelData.fields.forEach((field: any) => {
-      // Skip relation fields that start with lowercase (handled separately if needed)
-      if (field.name === field.name.toLowerCase() && !['id', 'createdAt', 'updatedAt'].includes(field.name)) {
+      if (field.isScalar) {
         const tsType = toTypeScriptType(field.type, field.optional);
         
         interfaceDeclaration.addProperty({
@@ -129,28 +192,10 @@ async function generateTypes(): Promise<void> {
       }
     });
 
-    // Add common timestamp fields if they exist in the model
-    const hasCreatedAt = modelData.fields.some((f: any) => f.name === 'createdAt');
-    const hasUpdatedAt = modelData.fields.some((f: any) => f.name === 'updatedAt');
-    
-    if (hasCreatedAt) {
-      interfaceDeclaration.addProperty({
-        name: 'createdAt',
-        type: 'string'
-      });
-    }
-    
-    if (hasUpdatedAt) {
-      interfaceDeclaration.addProperty({
-        name: 'updatedAt',
-        type: 'string'
-      });
-    }
-
     sourceFile.addStatements(['']);
   }
 
-  // Add common API response types
+  // Add common API response types (keep your existing ones)
   sourceFile.addStatements([
     '// Common API Response Types',
     'export interface ApiResponse<T> {',
@@ -245,7 +290,7 @@ async function generateTypes(): Promise<void> {
 
   await sourceFile.save();
   
-  console.log(`✅ Generated ${Object.keys(models).length} interfaces from Prisma schema`);
+  console.log(`✅ Generated ${Object.keys(models).length} interfaces and ${enums.length} enums from Prisma schema`);
   console.log(`📁 ${OUTPUT_FILE}`);
 }
 

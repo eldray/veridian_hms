@@ -1,4 +1,4 @@
-// src/App.tsx - COMPLETE FIXED VERSION
+// src/App.tsx - UPDATED WITH NEW STOCK PAGES
 import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { ToastContainer } from './components/ToastContainer';
@@ -9,7 +9,6 @@ import {
   Navigate,
   Outlet,
 } from 'react-router-dom';
-
 
 // Pages
 import DashboardLayout from './layouts/DashboardLayout';
@@ -26,12 +25,11 @@ import Pharmacy from './pages/Pharmacy';
 import MedicalEntries from './pages/MedicalEntries';
 import ProcessPayment from './pages/ProcessPayment';
 import Login from './pages/Login';
-// import LandingPage from './pages/LandingPage';
 import Vitals from './pages/Vitals';
-//import UserRegistration from './pages/UserRegistration';
 import PatientDetails from './pages/PatientDetails';
 import AttendanceDetails from './pages/AttendanceDetails';
 import UserManagement from './pages/UserManagement';
+import MedicalServicesManagement from './pages/MedicalServicesManagement';
 import UserProfile from './pages/UserProfile';
 import Settings from './pages/Settings';
 import StockManagement from './pages/StockManagement';
@@ -42,9 +40,15 @@ import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
 import Appointments from './pages/Appointments';
 import Departments from './pages/Departments';
+
+// NEW STOCK MANAGEMENT PAGES
+import InvoiceManagement from './pages/InvoiceManagement';
+import RequisitionManagement from './pages/RequisitionManagement';
+import StockTransactions from './pages/StockTransactions';
+
 import './App.css';
 
-// Role Permissions
+// Role Permissions - UPDATED WITH NEW PERMISSIONS
 const rolePermissions = {
   admin: ['*'],
   doctor: [
@@ -54,18 +58,21 @@ const rolePermissions = {
   ],
   nurse: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'ward_management', 'appointments'
+    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions'
   ],
   midwife: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'ward_management', 'appointments'
+    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions'
   ],
   records: ['dashboard', 'patients', 'attendance', 'reports', 'profile'],
   lab_tech: ['dashboard', 'patients', 'attendance', 'lab_results', 'profile'],
-  pharmacist: ['dashboard', 'pharmacy', 'inventory', 'stock_management', 'profile'],
+  pharmacist: [
+    'dashboard', 'pharmacy', 'inventory', 'stock_management', 'profile',
+    'invoices', 'requisitions', 'stock_transactions'
+  ],
   accounts: [
     'dashboard', 'billing', 'reports', 'process_payment', 'insurance_providers',
-    'insurance_claims', 'profile'
+    'insurance_claims', 'profile', 'invoices', 'stock_transactions'
   ],
   sonographer: [
     'dashboard', 'patients', 'attendance', 'medical_entries', 'profile',
@@ -93,6 +100,14 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/inventory': 'inventory',
     '/dashboard/pharmacy': 'pharmacy',
     '/dashboard/stock': 'stock_management',
+    
+    // NEW STOCK MANAGEMENT ROUTES
+    '/dashboard/invoices': 'invoices',
+    '/dashboard/invoices/create': 'invoices',
+    '/dashboard/requisitions': 'requisitions',
+    '/dashboard/requisitions/create': 'requisitions',
+    '/dashboard/transactions': 'stock_transactions',
+    
     '/dashboard/laboratory': 'laboratory',
     '/dashboard/medical-entries': 'medical_entries',
     '/dashboard/vitals': 'vitals',
@@ -105,6 +120,7 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/notifications': 'dashboard',
     '/dashboard/appointments': 'appointments',
     '/dashboard/departments': 'departments',
+    '/dashboard/medicalservices': 'medicalservices',
   };
 
   const permission = routeMap[routePath];
@@ -114,6 +130,10 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (routePath.match(/^\/dashboard\/patients\/[^/]+$/)) return perms?.includes('patients');
   if (routePath.match(/^\/dashboard\/attendance\/[^/]+$/)) return perms?.includes('attendance');
   if (routePath.match(/^\/dashboard\/billing\/[^/]+\/payment$/)) return perms?.includes('billing');
+  
+  // NEW: Dynamic stock management routes
+  if (routePath.match(/^\/dashboard\/invoices\/[^/]+$/)) return perms?.includes('invoices');
+  if (routePath.match(/^\/dashboard\/requisitions\/[^/]+$/)) return perms?.includes('requisitions');
 
   return false;
 };
@@ -207,7 +227,7 @@ function App() {
         <Route path="/laboratory" element={<Navigate to="/dashboard/laboratory" replace />} />
         <Route path="/pharmacy" element={<Navigate to="/dashboard/pharmacy" replace />} />
 
-        {/* Dashboard Routes - FIXED ORDER: Specific routes before dynamic routes */}
+        {/* Dashboard Routes - UPDATED WITH NEW STOCK MANAGEMENT ROUTES */}
         <Route path="/dashboard" element={<DashboardLayoutWrapper />}>
           <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           
@@ -231,6 +251,17 @@ function App() {
           <Route path="pharmacy" element={<ProtectedRoute><Pharmacy /></ProtectedRoute>} />
           <Route path="stock" element={<ProtectedRoute><StockManagement /></ProtectedRoute>} />
           
+          {/* ✅ NEW STOCK MANAGEMENT ROUTES */}
+          <Route path="invoices/create" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+          <Route path="invoices/:id" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+          <Route path="invoices" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+          
+          <Route path="requisitions/create" element={<ProtectedRoute><RequisitionManagement /></ProtectedRoute>} />
+          <Route path="requisitions/:id" element={<ProtectedRoute><RequisitionManagement /></ProtectedRoute>} />
+          <Route path="requisitions" element={<ProtectedRoute><RequisitionManagement /></ProtectedRoute>} />
+          
+          <Route path="transactions" element={<ProtectedRoute><StockTransactions /></ProtectedRoute>} />
+          
           {/* ✅ FIXED: Billing routes - specific before dynamic */}
           <Route path="billing/:billId/payment" element={<ProtectedRoute><ProcessPayment /></ProtectedRoute>} />
           <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
@@ -247,6 +278,7 @@ function App() {
           <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
           <Route path="departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+          <Route path="medicalservices" element={<ProtectedRoute><MedicalServicesManagement /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

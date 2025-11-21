@@ -26,23 +26,33 @@ export default function Patients() {
   const { hasRole } = useAuthStore();
   const { success, error } = useToast();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setRefreshing(true);
-        console.log('🔄 Loading patients in Patients component...');
-        await loadPatients();
-        console.log('✅ Patients loaded:', patients.length);
-      } catch (err) {
-        console.error('❌ Failed to load patients:', err);
-        error('Load Failed', 'Failed to load patients');
-      } finally {
-        setRefreshing(false);
-      }
-    };
+useEffect(() => {
+  const loadData = async () => {
+    // Prevent multiple simultaneous loads
+    if (isLoading && !refreshing) return;
+    
+    try {
+      setRefreshing(true);
+      console.log('🔄 Loading patients in Patients component...');
+      await loadPatients();
+      console.log('✅ Patients loaded:', patients.length);
+    } catch (err) {
+      console.error('❌ Failed to load patients:', err);
+      error('Load Failed', 'Failed to load patients');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-    loadData();
-  }, [loadPatients]);
+  loadData();
+}, []); // ✅ Load only once on mount
+
+// Add this cleanup to prevent memory leaks
+useEffect(() => {
+  return () => {
+    // Cleanup if needed
+  };
+}, []);
 
   // ✅ FIX: Get full name from surname + otherNames
   const getPatientFullName = (patient: any) => {

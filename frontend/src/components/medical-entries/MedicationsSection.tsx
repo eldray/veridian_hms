@@ -16,7 +16,7 @@ interface MedicationsSectionProps {
   dispensingId?: string | null;
   selectedAttendanceId?: string;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance';
-  currentUser?: { fullName?: string; username?: string; _id?: string };
+  currentUser?: { fullName?: string; username?: string; id?: string };
 }
 
 const MedicationsSection: React.FC<MedicationsSectionProps> = ({
@@ -70,8 +70,8 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   ];
 
   // Helper function to get entity ID
-  const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-    return entity?._id || entity?.id;
+  const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
+    return entity?.id || entity?.id;
   };
 
   const getMedicationPrice = (stockItem: StockItem) => {
@@ -104,7 +104,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
 
   // Get dosage options based on selected medication strength
   const getDosageOptions = () => {
-    const selectedMed = medicationStockItems.find(item => item._id === currentMed.stockItemId);
+    const selectedMed = medicationStockItems.find(item => item.id === currentMed.stockItemId);
     if (!selectedMed?.strength) return [];
 
     const strength = selectedMed.strength;
@@ -128,7 +128,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   const handleMedicationSelect = (stockItem: StockItem) => {
     onMedChange({
       ...currentMed,
-      stockItemId: stockItem._id,
+      stockItemId: stockItem.id,
       name: stockItem.name,
       status: 'prescribed'
     });
@@ -146,7 +146,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
     setMedicationSearch('');
   };
 
-  const selectedMedication = medicationStockItems.find(item => item._id === currentMed.stockItemId);
+  const selectedMedication = medicationStockItems.find(item => item.id === currentMed.stockItemId);
   const dosageOptions = getDosageOptions();
 
   return (
@@ -196,7 +196,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                     {filteredMedications.length > 0 ? (
                       filteredMedications.map((item) => (
                         <button
-                          key={item._id}
+                          key={item.id}
                           onClick={() => handleMedicationSelect(item)}
                           className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                         >

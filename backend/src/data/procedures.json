@@ -7,7 +7,7 @@
     "insurancePrice": 700,
     "costPrice": 400,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -39,7 +39,7 @@
     "insurancePrice": 260,
     "costPrice": 150,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY04A",
     "vatRate": 0,
     "isTaxable": false,
@@ -87,7 +87,7 @@
     "insurancePrice": 120,
     "costPrice": 70,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY07A",
     "vatRate": 0,
     "isTaxable": false,
@@ -135,7 +135,7 @@
     "insurancePrice": 220,
     "costPrice": 120,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -167,7 +167,7 @@
     "insurancePrice": 100,
     "costPrice": 60,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG04A",
     "vatRate": 0,
     "isTaxable": false,
@@ -183,7 +183,7 @@
     "insurancePrice": 220,
     "costPrice": 130,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG04X",
     "vatRate": 0,
     "isTaxable": false,
@@ -199,7 +199,7 @@
     "insurancePrice": 70,
     "costPrice": 40,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-DENT01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -215,7 +215,7 @@
     "insurancePrice": 50,
     "costPrice": 30,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-DENT02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -231,7 +231,7 @@
     "insurancePrice": 25,
     "costPrice": 15,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -247,7 +247,7 @@
     "insurancePrice": 12,
     "costPrice": 8,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -263,7 +263,7 @@
     "insurancePrice": 8,
     "costPrice": 5,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -279,7 +279,7 @@
     "insurancePrice": 18,
     "costPrice": 10,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB04A",
     "vatRate": 0,
     "isTaxable": false,
@@ -295,7 +295,7 @@
     "insurancePrice": 22,
     "costPrice": 12,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB05A",
     "vatRate": 0,
     "isTaxable": false,
@@ -311,7 +311,7 @@
     "insurancePrice": 30,
     "costPrice": 18,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB06A",
     "vatRate": 0,
     "isTaxable": false,
@@ -327,7 +327,7 @@
     "insurancePrice": 8,
     "costPrice": 5,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB07A",
     "vatRate": 0,
     "isTaxable": false,
@@ -343,7 +343,7 @@
     "insurancePrice": 50,
     "costPrice": 30,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-RAD01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -359,7 +359,7 @@
     "insurancePrice": 100,
     "costPrice": 60,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-RAD02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -375,7 +375,7 @@
     "insurancePrice": 85,
     "costPrice": 50,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-RAD03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -391,7 +391,7 @@
     "insurancePrice": 35,
     "costPrice": 20,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -407,7 +407,7 @@
     "insurancePrice": 12,
     "costPrice": 8,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -423,7 +423,7 @@
     "insurancePrice": 10,
     "costPrice": 6,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -439,7 +439,7 @@
     "insurancePrice": 22,
     "costPrice": 14,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER04A",
     "vatRate": 0,
     "isTaxable": false,
@@ -455,7 +455,7 @@
     "insurancePrice": 8,
     "costPrice": 5,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-PED01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -471,7 +471,7 @@
     "insurancePrice": 4,
     "costPrice": 2,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-PED02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -487,7 +487,7 @@
     "insurancePrice": 40,
     "costPrice": 25,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-PED03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -503,7 +503,7 @@
     "insurancePrice": 170,
     "costPrice": 100,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG05A",
     "vatRate": 0,
     "isTaxable": false,
@@ -535,7 +535,7 @@
     "insurancePrice": 150,
     "costPrice": 90,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG07A",
     "vatRate": 0,
     "isTaxable": false,
@@ -551,7 +551,7 @@
     "insurancePrice": 190,
     "costPrice": 120,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG07B",
     "vatRate": 0,
     "isTaxable": false,
@@ -567,7 +567,7 @@
     "insurancePrice": 85,
     "costPrice": 50,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-SURG08A",
     "vatRate": 0,
     "isTaxable": false,
@@ -599,7 +599,7 @@
     "insurancePrice": 50,
     "costPrice": 30,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY09A",
     "vatRate": 0,
     "isTaxable": false,
@@ -615,7 +615,7 @@
     "insurancePrice": 75,
     "costPrice": 45,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY10A",
     "vatRate": 0,
     "isTaxable": false,
@@ -631,7 +631,7 @@
     "insurancePrice": 18,
     "costPrice": 10,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OBGY11A",
     "vatRate": 0,
     "isTaxable": false,
@@ -647,7 +647,7 @@
     "insurancePrice": 70,
     "costPrice": 40,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OPHTH02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -663,7 +663,7 @@
     "insurancePrice": 42,
     "costPrice": 25,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-OPHTH03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -679,7 +679,7 @@
     "insurancePrice": 60,
     "costPrice": 35,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-DENT03A",
     "vatRate": 0,
     "isTaxable": false,
@@ -727,7 +727,7 @@
     "insurancePrice": 26,
     "costPrice": 15,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB09A",
     "vatRate": 0,
     "isTaxable": false,
@@ -743,7 +743,7 @@
     "insurancePrice": 35,
     "costPrice": 20,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB10A",
     "vatRate": 0,
     "isTaxable": false,
@@ -759,7 +759,7 @@
     "insurancePrice": 50,
     "costPrice": 30,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-LAB11A",
     "vatRate": 0,
     "isTaxable": false,
@@ -775,7 +775,7 @@
     "insurancePrice": 42,
     "costPrice": 25,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-RAD04A",
     "vatRate": 0,
     "isTaxable": false,
@@ -823,7 +823,7 @@
     "insurancePrice": 18,
     "costPrice": 10,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER06A",
     "vatRate": 0,
     "isTaxable": false,
@@ -839,7 +839,7 @@
     "insurancePrice": 42,
     "costPrice": 25,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-THER06X",
     "vatRate": 0,
     "isTaxable": false,
@@ -855,7 +855,7 @@
     "insurancePrice": 25,
     "costPrice": 15,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-ENT01A",
     "vatRate": 0,
     "isTaxable": false,
@@ -871,7 +871,7 @@
     "insurancePrice": 50,
     "costPrice": 30,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-ENT02A",
     "vatRate": 0,
     "isTaxable": false,
@@ -887,7 +887,7 @@
     "insurancePrice": 35,
     "costPrice": 20,
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROC-ENT03A",
     "vatRate": 0,
     "isTaxable": false,

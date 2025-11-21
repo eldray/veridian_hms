@@ -1,18 +1,15 @@
-// controllers/attendanceController.ts - CORRECTED VERSION (First 100 lines showing fixes)
+// controllers/attendanceController.ts - COMPLETE UPDATED VERSION
 import { Request, Response } from 'express';
-// ✅ FIXED: Removed duplicate PrismaClient import
-import { PrismaClient, EncounterCategory, VisitCategory, AttendanceStatus, PaymentMode } from '@prisma/client';
+import { PrismaClient, EncounterCategory, VisitCategory, AttendanceStatus, PaymentMode, AdmissionType } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
 
 // Import the services
 import { BillingService } from '../services/BillingService';
-import { ServiceCatalogService } from '../services/ServiceCatalogService';
 import { InsuranceService } from '../services/InsuranceService';
-import { NHISClaimService } from '../services/NHISClaimService';
 
 const prisma = new PrismaClient();
 
-// ✅ UPDATED: Valid attendance types
+// ✅ UPDATED: Valid attendance types (removed general_consultation)
 const VALID_ATTENDANCE_TYPES = [
   'emergency_acute',
   'antenatal',
@@ -20,9 +17,82 @@ const VALID_ATTENDANCE_TYPES = [
   'chronic_followup',
   'specialist_consultation',
   'delivery',
-  'surgery',
-  'general_consultation'
+  'surgery'
 ];
+
+// ✅ ADD THIS VALIDATION FUNCTION AT THE TOP
+const validateAttendanceAllowsServiceAddition = async (attendanceId: string): Promise<void> => {
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    select: { status: true }
+  });
+
+  if (!attendance) {
+    throw new Error('Attendance not found');
+  }
+
+  // ✅ ONLY allow service additions when attendance is pending
+  if (attendance.status !== 'pending') {
+    throw new Error(`Cannot add services to ${attendance.status} attendance. Only pending attendances allow service additions.`);
+  }
+};
+
+// ✅ FIXED: Calculate age from patient's dateOfBirth and attendance date
+const calculateAgeAtAttendance = (dateOfBirth: Date, attendanceDate: Date): number => {
+  const birthDate = new Date(dateOfBirth);
+  const attendance = new Date(attendanceDate);
+  
+  let age = attendance.getFullYear() - birthDate.getFullYear();
+  const monthDiff = attendance.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && attendance.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
+
+// ✅ NEW: Determine GDRG category for NHIS claims
+const determineGDRGCategory = (attendanceType: string, patientAge: number, diagnoses: any[] = []): string => {
+  // Base mapping by attendance type
+  const baseMapping: Record<string, string> = {
+    'emergency_acute': 'adult_medicine',
+    'antenatal': 'obstetrics_gynaecology', 
+    'postnatal': 'obstetrics_gynaecology',
+    'chronic_followup': 'adult_medicine',
+    'specialist_consultation': 'specialist',
+    'delivery': 'obstetrics_gynaecology',
+    'surgery': 'adult_surgery'
+  };
+
+  let baseCategory = baseMapping[attendanceType] || 'out_patient';
+
+  // Pediatric adjustment
+  if (patientAge < 12) {
+    const pediatricMap: Record<string, string> = {
+      'adult_medicine': 'paediatrics',
+      'adult_surgery': 'paediatric_surgery',
+      'out_patient': 'paediatrics',
+    };
+    baseCategory = pediatricMap[baseCategory] || baseCategory;
+  }
+
+  return baseCategory;
+};
+
+// ✅ NEW: Determine service category
+const determineServiceCategory = (attendanceType: string): string => {
+  const mapping: Record<string, string> = {
+    'emergency_acute': 'opd',
+    'antenatal': 'opd',
+    'postnatal': 'opd',
+    'chronic_followup': 'opd',
+    'specialist_consultation': 'opd',
+    'delivery': 'ipd',
+    'surgery': 'ipd'
+  };
+  return mapping[attendanceType] || 'opd';
+};
 
 // ✅ UPDATED: Determine encounter category
 const determineNHISEncounterType = (attendanceType: string, admissionId?: string): string => {
@@ -39,9 +109,8 @@ const determineNHISEncounterType = (attendanceType: string, admissionId?: string
 // ✅ Map to visit category
 const mapToNHISVisitCategory = (attendanceType: string): string => {
   const mapping: Record<string, string> = {
-    'general_consultation': 'general',
-    'specialist_consultation': 'specialist',
     'emergency_acute': 'emergency',
+    'specialist_consultation': 'specialist',
     'delivery': 'inpatient',
     'surgery': 'inpatient',
     'antenatal': 'general',
@@ -51,81 +120,18 @@ const mapToNHISVisitCategory = (attendanceType: string): string => {
   return mapping[attendanceType] || 'general';
 };
 
-// ✅ NHIS CLAIM VALIDATION
-export const validateNHISClaim = async (req: Request, res: Response) => {
-  try {
-    const { attendanceId } = req.params;
-    const validation = await NHISClaimService.validateNHISClaim(attendanceId);
-    
-    res.json({
-      message: validation.isValid ? 'Claim is valid' : 'Claim validation failed',
-      ...validation
-    });
-  } catch (error) {
-    console.error('Error validating NHIS claim:', error);
-    res.status(500).json({ 
-      message: 'Error validating NHIS claim', 
-      error: (error as Error).message 
-    });
-  }
-};
-
 // ✅ Map attendance types to default service codes
 const getDefaultServiceCode = (type: string): string | null => {
   const map: Record<string, string> = {
-    general_consultation: 'CONS-GEN',
-    specialist_consultation: 'CONS-SPEC',
-    antenatal: 'ANC-01',
-    postnatal: 'PNC-01',
-    emergency_acute: 'EMER-CONS',
-    chronic_followup: 'CONS-FOLLOW',
-    delivery: 'DELIVERY',
-    surgery: 'SURGERY'
+    'emergency_acute': 'OPDCO6A',
+    'specialist_consultation': 'OPDCO6A',
+    'antenatal': 'OPDCO2A',
+    'postnatal': 'OPDCO2A',
+    'chronic_followup': 'OPDCO6A',
+    'delivery': 'OBGY34A',
+    'surgery': 'ASURO1A'
   };
   return map[type] || null;
-};
-
-// ✅ FIXED: addServiceToAttendanceAndBill helper function with duplicate check
-const addServiceToAttendanceAndBill = async (
-  attendanceId: string,
-  serviceItemId: string,
-  userId: string,
-  quantity = 1
-) => {
-  const attendance = await prisma.attendance.findUnique({
-    where: { id: attendanceId },
-    include: {
-      servicesRendered: true
-    }
-  });
-
-  if (!attendance) throw new Error('Attendance not found');
-
-  // ✅ ADDED: Check if service already exists to prevent duplicates
-  const existingService = attendance.servicesRendered.find(
-    s => s.serviceItemId === serviceItemId
-  );
-
-  if (existingService) {
-    console.log(`Service ${serviceItemId} already exists for attendance ${attendanceId}`);
-    return attendance; // Return without adding duplicate
-  }
-
-  // Add new service
-  await prisma.serviceRendered.create({
-    data: {
-      attendanceId,
-      serviceItemId,
-      quantity,
-      date: new Date(),
-      performedById: userId
-    }
-  });
-
-  // Regenerate bill
-  await BillingService.generateBillFromAttendance(attendanceId);
-
-  return attendance;
 };
 
 // Helper function to identify chronic conditions
@@ -143,7 +149,69 @@ const isChronicDiagnosis = (diagnosis: any): boolean => {
   );
 };
 
-// ✅ GET ALL ATTENDANCES
+// ✅ FIXED: addServiceToAttendanceAndBill helper function with correct field names
+const addServiceToAttendanceAndBill = async (
+  attendanceId: string,
+  serviceCatalogId: string, // ✅ FIXED: serviceCatalogId
+  userId: string,
+  quantity = 1
+) => {
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    include: {
+      servicesRendered: true
+    }
+  });
+
+  if (!attendance) throw new Error('Attendance not found');
+
+  // ✅ ADDED: Check if service already exists to prevent duplicates
+  const existingService = attendance.servicesRendered.find(
+    s => s.serviceCatalogId === serviceCatalogId // ✅ FIXED: serviceCatalogId
+  );
+
+  if (existingService) {
+    console.log(`Service ${serviceCatalogId} already exists for attendance ${attendanceId}`);
+    return attendance; // Return without adding duplicate
+  }
+
+  // Add new service
+  await prisma.serviceRendered.create({
+    data: {
+      attendanceId,
+      serviceCatalogId, // ✅ FIXED: serviceCatalogId
+      quantity,
+      date: new Date(),
+      performedById: userId
+    }
+  });
+
+  // Regenerate bill
+  await BillingService.generateBillFromAttendance(attendanceId);
+
+  return attendance;
+};
+
+// ✅ NHIS CLAIM VALIDATION
+export const validateNHISClaim = async (req: Request, res: Response) => {
+  try {
+    const { attendanceId } = req.params;
+    const validation = await InsuranceService.validateClaimReadiness(attendanceId, 'NHIS');
+    
+    res.json({
+      message: validation.isValid ? 'Claim is valid' : 'Claim validation failed',
+      ...validation
+    });
+  } catch (error) {
+    console.error('Error validating NHIS claim:', error);
+    res.status(500).json({ 
+      message: 'Error validating NHIS claim', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ✅ GET ALL ATTENDANCES - UPDATED WITH CORRECT RELATIONS
 export const getAttendances = async (req: Request, res: Response) => {
   try {
     const { 
@@ -201,7 +269,8 @@ export const getAttendances = async (req: Request, res: Response) => {
           admission: {
             select: {
               admissionNumber: true,
-              status: true
+              status: true,
+              admissionType: true // ✅ ADDED
             }
           },
           bed: {
@@ -234,27 +303,33 @@ export const getAttendances = async (req: Request, res: Response) => {
           },
           labTests: {
             include: {
-              template: {
+              serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
                 select: {
                   name: true,
-                  investigationCode: true
+                  code: true
                 }
               }
             }
           },
           procedures: {
             include: {
-              template: {
+              serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
                 select: {
                   name: true,
-                  procedureCode: true 
+                  code: true
                 }
               }
             }
           },
           medications: {
             include: {
-              stockItem: {
+              serviceCatalog: { // ✅ UPDATED: stockItem → serviceCatalog for pricing
+                select: {
+                  name: true,
+                  code: true
+                }
+              },
+              stockItem: { // ✅ KEEP for inventory
                 select: {
                   name: true,
                   drugCode: true,
@@ -265,11 +340,11 @@ export const getAttendances = async (req: Request, res: Response) => {
           },
           servicesRendered: {
             include: {
-              serviceItem: {
+              serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
                 select: {
                   name: true,
                   code: true,
-                  cashPrice: true,
+                  nhisServiceCode: true,
                   serviceCategory: true
                 }
               }
@@ -284,6 +359,7 @@ export const getAttendances = async (req: Request, res: Response) => {
       }),
       prisma.attendance.count({ where })
     ]);
+
     const attendancesWithFullName = attendances.map(attendance => ({
       ...attendance,
       patient: attendance.patient ? {
@@ -291,6 +367,7 @@ export const getAttendances = async (req: Request, res: Response) => {
         fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim()
       } : null
     }));
+
     res.json({
       attendances: attendancesWithFullName,
       pagination: {
@@ -309,7 +386,7 @@ export const getAttendances = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ GET ATTENDANCE BY ID
+// ✅ GET ATTENDANCE BY ID - UPDATED WITH CORRECT RELATIONS
 export const getAttendanceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -355,9 +432,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         ward: {
           select: {
             wardName: true,
-            wardType: true,
-            cashDailyRate: true,
-            insuranceDailyRate: true
+            wardType: true
           }
         },
         bill: true,
@@ -374,7 +449,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         },
         labTests: {
           include: {
-            template: true,
+            serviceCatalog: true, // ✅ UPDATED: template → serviceCatalog
             performedBy: {
               select: {
                 fullName: true,
@@ -391,7 +466,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         },
         procedures: {
           include: {
-            template: true,
+            serviceCatalog: true, // ✅ UPDATED: template → serviceCatalog
             performedBy: {
               select: {
                 fullName: true,
@@ -408,7 +483,8 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         },
         medications: {
           include: {
-            stockItem: true,
+            serviceCatalog: true, // ✅ UPDATED for pricing
+            stockItem: true, // ✅ KEEP for inventory
             prescribedBy: {
               select: {
                 fullName: true,
@@ -431,11 +507,11 @@ export const getAttendanceById = async (req: Request, res: Response) => {
         },
         servicesRendered: {
           include: {
-            serviceItem: {
+            serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
               select: {
                 name: true,
                 code: true,
-                cashPrice: true,
+                nhisServiceCode: true,
                 description: true,
                 serviceCategory: true
               }
@@ -458,14 +534,16 @@ export const getAttendanceById = async (req: Request, res: Response) => {
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance not found' });
     }
-// Add fullName to patient
-const attendanceWithFullName = {
-  ...attendance,
-  patient: attendance.patient ? {
-    ...attendance.patient,
-    fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim()
-  } : null
-};
+
+    // Add fullName to patient
+    const attendanceWithFullName = {
+      ...attendance,
+      patient: attendance.patient ? {
+        ...attendance.patient,
+        fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim()
+      } : null
+    };
+
     res.json(attendanceWithFullName);
   } catch (error) {
     console.error('Error fetching attendance:', error);
@@ -473,7 +551,7 @@ const attendanceWithFullName = {
   }
 };
 
-// ✅ CREATE ATTENDANCE - UPDATED WITH NEW TYPES
+// ✅ CREATE ATTENDANCE - UPDATED WITH SCHEMA FIXES
 export const createAttendance = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceType').isIn(VALID_ATTENDANCE_TYPES).withMessage('Valid attendance type is required'),
@@ -623,11 +701,15 @@ export const createAttendance = [
         }
       }
 
-      // ✅ Determine encounter category with new types
+      // ✅ Determine categories with new helper functions
       const encounterCategory = determineNHISEncounterType(
         req.body.attendanceType,
         req.body.admissionId
       );
+
+      const patientAge = calculateAgeAtAttendance(patient.dateOfBirth, new Date());
+      const gdrgCategory = determineGDRGCategory(req.body.attendanceType, patientAge);
+      const serviceCategory = determineServiceCategory(req.body.attendanceType);
 
       // ✅ GENERATE ATTENDANCE NUMBER
       const generateAttendanceNumber = async (): Promise<string> => {
@@ -663,6 +745,8 @@ export const createAttendance = [
           complaints: req.body.complaints || 'No complaints recorded',
           visitCategory: mapToNHISVisitCategory(req.body.attendanceType) as any,
           encounterCategory: encounterCategory as any,
+          gdrgCategory, // ✅ ADDED
+          serviceCategory: serviceCategory as any, // ✅ ADDED
           referringFacility: req.body.referringFacility,
           createdById: user.id,
           diagnoses: chronicDiagnoses.length > 0 ? {
@@ -678,18 +762,21 @@ export const createAttendance = [
         }
       });
 
-      // Add default consultation service
+      // ✅ FIXED: Add default consultation service with correct field names
       const defaultCode = getDefaultServiceCode(req.body.attendanceType);
       if (defaultCode) {
         const service = await prisma.serviceCatalog.findFirst({
-          where: { code: defaultCode, isPending: true }
+          where: { 
+            code: defaultCode, 
+            isActive: true
+          }
         });
         
         if (service) {
           await prisma.serviceRendered.create({
             data: {
               attendanceId: attendance.id,
-              serviceItemId: service.id,
+              serviceCatalogId: service.id, // ✅ FIXED: serviceCatalogId
               quantity: 1,
               date: new Date(),
               performedById: user.id
@@ -715,18 +802,13 @@ export const createAttendance = [
         }
       });
 
-      // Link bill to attendance
-      await prisma.attendance.update({
-        where: { id: attendance.id },
-        data: { billId: bill.id }
-      });
-
-      // ✅ Generate initial bill using EnhancedBillingService
+      // ✅ Generate initial bill using BillingService
       await BillingService.generateBillFromAttendance(attendance.id);
 
       // If delivery or surgery, might create admission
       if (['delivery', 'surgery'].includes(req.body.attendanceType)) {
         // Add logic for automatic admission if needed
+        console.log(`⚠️ Consider creating admission for ${req.body.attendanceType} attendance`);
       }
 
       const populatedAttendance = await prisma.attendance.findUnique({
@@ -742,24 +824,21 @@ export const createAttendance = [
           bill: true,
           servicesRendered: {
             include: {
-              serviceItem: true
+              serviceCatalog: true // ✅ FIXED: serviceCatalog
             }
           }
         }
       });
 
-            // Then add fullName to the response
-      const responseAttendance = {
-        ...populatedAttendance,
-        patient: populatedAttendance?.patient ? {
-          ...populatedAttendance.patient,
-          fullName: `${populatedAttendance.patient.surname} ${populatedAttendance.patient.otherNames}`.trim()
-        } : null
-      };
-
       res.status(201).json({
         message: 'Attendance created successfully',
-        attendance: populatedAttendance
+        attendance: populatedAttendance,
+        categories: {
+          encounterCategory,
+          visitCategory: mapToNHISVisitCategory(req.body.attendanceType),
+          gdrgCategory,
+          serviceCategory
+        }
       });
     } catch (error) {
       console.error('Error creating attendance:', error);
@@ -771,106 +850,361 @@ export const createAttendance = [
   }
 ];
 
-export const updateAttendance = async (req: Request, res: Response) => {
+// ✅ UPDATED: LAB TESTS - USING SERVICE CATALOG DIRECTLY
+export const addLabTestToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
+  body('priority').optional().isIn(['routine', 'urgent', 'stat']),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, priority, notes } = req.body; // ✅ UPDATED
+      const user = (req as any).user;
+      
+      // ✅ VALIDATE SERVICE EXISTS AND IS LAB TEST TYPE
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId } // ✅ UPDATED
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'lab_test') {
+        return res.status(400).json({ message: 'Service is not a lab test type' });
+      }
+
+      const attendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id }
+      });
+
+      if (!attendance) {
+        return res.status(404).json({ message: 'Attendance not found' });
+      }
+
+      // ✅ CREATE LAB TEST WITH SERVICE CATALOG LINK
+      await prisma.labTest.create({
+        data: {
+          attendanceId: req.params.id,
+          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
+          status: 'requested',
+          priority: priority || 'routine',
+          requestedAt: new Date(),
+          createdById: user.id,
+          notes
+        }
+      });
+
+      // Auto-add service & bill
+      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id },
+        include: {
+          labTests: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          servicesRendered: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          bill: true
+        }
+      });
+      
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding lab test:', error);
+      res.status(500).json({ message: 'Error adding lab test', error });
+    }
+  }
+];
+
+// ✅ UPDATED: PROCEDURES - USING SERVICE CATALOG DIRECTLY
+export const addProcedureToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
+  body('scheduledDate').optional().isISO8601().withMessage('Scheduled date must be valid'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, scheduledDate, notes, assistantId } = req.body; // ✅ UPDATED
+      const user = (req as any).user;
+      
+      // ✅ VALIDATE SERVICE EXISTS AND IS PROCEDURE TYPE
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId } // ✅ UPDATED
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'procedure') {
+        return res.status(400).json({ message: 'Service is not a procedure type' });
+      }
+
+      await prisma.procedure.create({
+        data: {
+          attendanceId: req.params.id,
+          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
+          status: 'scheduled',
+          scheduledDate: scheduledDate ? new Date(scheduledDate) : new Date(),
+          notes: notes || '',
+          assistantId: assistantId,
+          createdById: user.id
+        }
+      });
+
+      // Auto-add service & bill
+      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id },
+        include: {
+          procedures: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          servicesRendered: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          bill: true
+        }
+      });
+
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding procedure:', error);
+      res.status(500).json({ message: 'Error adding procedure', error });
+    }
+  }
+];
+
+// ✅ UPDATED: SCANS - USING SERVICE CATALOG DIRECTLY
+export const addScanToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, priority, notes } = req.body; // ✅ UPDATED
+      const user = (req as any).user;
+      
+      // ✅ VALIDATE SERVICE EXISTS AND IS SCAN TYPE
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId } // ✅ UPDATED
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'scan') {
+        return res.status(400).json({ message: 'Service is not a scan type' });
+      }
+
+      await prisma.scan.create({
+        data: {
+          attendanceId: req.params.id,
+          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
+          status: 'requested',
+          priority: priority || 'routine',
+          requestedAt: new Date(),
+          createdById: user.id,
+          notes
+        }
+      });
+
+      // Auto-add service & bill
+      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id },
+        include: {
+          scans: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          servicesRendered: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          bill: true
+        }
+      });
+
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding scan:', error);
+      res.status(500).json({ message: 'Error adding scan', error });
+    }
+  }
+];
+
+// ... REST OF THE FUNCTIONS (updateAttendance, deleteAttendance, etc.) remain similar but with field name updates ...
+
+// ✅ FIXED: generateNHISClaimFromAttendance with correct field names
+export const generateNHISClaimFromAttendance = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    
-    const attendance = await prisma.attendance.update({
-      where: { id: req.params.id },
-      data: {
-        ...req.body,
-        updatedById: user.id,
-        updatedAt: new Date()
-      },
+    const { attendanceId } = req.params;
+
+    console.log('🏥 Generating NHIS Claim from Attendance:', attendanceId);
+
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
       include: {
-        patient: true,
-        createdBy: true,
-        updatedBy: true,
+        patient: {
+          select: {
+            surname: true,
+            otherNames: true,
+            dateOfBirth: true,
+            gender: true
+          }
+        },
         diagnoses: {
           include: {
-            diagnosis: true
-          }
-        },
-        labTests: {
-          include: {
-            template: true
-          }
-        },
-        procedures: {
-          include: {
-            template: true
+            diagnosis: {
+              select: {
+                name: true,
+                icdCode: true,
+                gdrgCode: true
+              }
+            }
           }
         },
         servicesRendered: {
           include: {
-            serviceItem: true
+            serviceCatalog: { // ✅ FIXED: serviceCatalog
+              select: {
+                name: true,
+                code: true,
+                nhisServiceCode: true,
+                serviceCategory: true
+              }
+            }
           }
-        },
-        admission: true,
-        bill: true
+        }
       }
     });
 
-    res.json(attendance);
-  } catch (error) {
-    console.error('Error updating attendance:', error);
-    res.status(500).json({ message: 'Error updating attendance', error });
-  }
-};
-
-export const deleteAttendance = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    
-    const attendance = await prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        patient: true,
-        bill: true
-      }
-    });
-    
     if (!attendance) {
-      return res.status(404).json({ message: 'Attendance not found' });
-    }
-
-    if (attendance.billId) {
-      return res.status(400).json({ 
-        message: 'Cannot delete attendance with associated bill. Please delete the bill first.' 
+      return res.status(404).json({ 
+        success: false,
+        message: 'Attendance not found' 
       });
     }
 
-    if (attendance.status === 'completed' || attendance.status === 'admitted') {
-      return res.status(400).json({ 
-        message: `Cannot delete ${attendance.status} attendance. Only pending can be deleted.` 
+    // Validate NHIS attendance
+    if (attendance.paymentMode !== 'nhis') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only NHIS attendances can generate NHIS claims'
       });
     }
 
-    await prisma.attendance.delete({
-      where: { id }
-    });
+    if (!attendance.nhisCCC) {
+      return res.status(400).json({
+        success: false,
+        message: 'NHIS CCC number is required for claim generation'
+      });
+    }
 
-    res.json({ 
-      message: 'Attendance deleted successfully',
-      deletedAttendance: {
-        id: attendance.id,
-        attendanceNumber: attendance.attendanceNumber,
-        patientName: attendance.patient ? 
-  `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim() : 
-  'Unknown Patient',
-        date: attendance.dateTime,
-        status: attendance.status
+    // ✅ FIXED: Prepare NHIS services with correct field names
+    const nhisServices = attendance.servicesRendered
+      .filter(service => service.serviceCatalog.nhisServiceCode) // ✅ FIXED: serviceCatalog
+      .map(service => ({
+        description: service.serviceCatalog.name, // ✅ FIXED: serviceCatalog
+        nhisServiceCode: service.serviceCatalog.nhisServiceCode, // ✅ FIXED: serviceCatalog
+        quantity: service.quantity,
+        // ✅ NO PRICES SUBMITTED TO NHIS - they use their own tariff
+      }));
+
+    if (nhisServices.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No NHIS-covered services found for this attendance'
+      });
+    }
+
+    const primaryDiagnosis = attendance.diagnoses.find(d => d.primary) || attendance.diagnoses[0];
+
+    // ✅ FIXED: Compose patient name from schema fields
+    const patientFullName = `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim();
+
+    // Prepare NHIS claim data (no prices)
+    const claimData = {
+      claimType: 'NHIS',
+      encounterType: attendance.encounterCategory,
+      patient: {
+        nhisNumber: attendance.nhisCCC,
+        fullName: patientFullName,
+        dateOfBirth: attendance.patient.dateOfBirth,
+        gender: attendance.patient.gender
+      },
+      clinical: {
+        attendanceDate: attendance.dateTime,
+        gdrgCategory: attendance.gdrgCategory, // ✅ ADDED
+        primaryDiagnosis: primaryDiagnosis ? {
+          description: primaryDiagnosis.diagnosis.name,
+          icdCode: primaryDiagnosis.diagnosis.icdCode,
+          gdrgCode: primaryDiagnosis.diagnosis.gdrgCode
+        } : null
+      },
+      services: nhisServices,
+      metadata: {
+        totalServices: nhisServices.length,
+        servicesWithNHISCodes: nhisServices.length,
+        totalServicesRendered: attendance.servicesRendered.length
+      }
+    };
+
+    console.log('✅ NHIS Claim data prepared successfully (no prices submitted)');
+
+    res.json({
+      success: true,
+      message: 'NHIS claim data generated successfully',
+      data: claimData,
+      note: 'NHIS claims only submit service codes - NHIS determines pricing from their tariff',
+      validation: {
+        hasPrimaryDiagnosis: !!primaryDiagnosis,
+        hasNHISServices: nhisServices.length > 0,
+        hasValidNHISNumber: !!attendance.nhisCCC,
+        meetsClaimRequirements: !!primaryDiagnosis && nhisServices.length > 0 && !!attendance.nhisCCC
       }
     });
+
   } catch (error) {
-    console.error('Error deleting attendance:', error);
+    console.error('❌ Error generating NHIS claim from attendance:', error);
     res.status(500).json({ 
-      message: 'Error deleting attendance', 
-      error: (error as Error).message 
+      success: false,
+      message: 'Error generating NHIS claim from attendance', 
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
 };
 
+// ... Export other functions (they remain largely the same with field name updates) ...
 // ✅ UPDATE ATTENDANCE STATUS
 export const updateAttendanceStatus = [
   body('status').isIn(['pending','completed', 'cancelled', 'admitted', 'discharged'])
@@ -884,8 +1218,13 @@ export const updateAttendanceStatus = [
       }
 
       const { status, dischargeNotes, followUpDate } = req.body;
+      const user = (req as any).user;
       
-      const updateData: any = { status };
+      const updateData: any = { 
+        status,
+        updatedById: user.id,
+        updatedAt: new Date()
+      };
       
       if (status === 'discharged' && dischargeNotes) {
         updateData.medicalNotes = dischargeNotes;
@@ -912,7 +1251,7 @@ export const updateAttendanceStatus = [
   }
 ];
 
-// ✅ ADD/REMOVE DIAGNOSIS
+// ✅ ADD/REMOVE DIAGNOSIS - UNCHANGED (uses correct diagnosis relations)
 export const addDiagnosisToAttendance = [
   body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
   async (req: Request, res: Response) => {
@@ -1008,260 +1347,10 @@ export const removeDiagnosisFromAttendance = async (req: Request, res: Response)
   }
 };
 
-// ✅ LAB TESTS - USING SERVICE CATALOG SERVICE
-export const addLabTestToAttendance = [
-  body('templateId').notEmpty().withMessage('Lab test template ID is required'),
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { templateId, priority } = req.body;
-      const user = (req as any).user;
-      
-      const labTemplate = await prisma.labTestTemplate.findUnique({
-        where: { id: templateId }
-      });
-
-      if (!labTemplate) {
-        return res.status(404).json({ message: 'Lab test template not found' });
-      }
-
-      const attendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id }
-      });
-
-      if (!attendance) {
-        return res.status(404).json({ message: 'Attendance not found' });
-      }
-
-      await prisma.labTest.create({
-        data: {
-          attendanceId: req.params.id,
-          templateId,
-          status: 'requested',
-          priority: priority || 'routine',
-          requestedAt: new Date(),
-          createdById: user.id
-        }
-      });
-
-      // Auto-add service & bill USING SERVICE CATALOG SERVICE
-      const serviceId = await ServiceCatalogService.findServiceForReference('lab_test', templateId);
-      if (serviceId) {
-        await addServiceToAttendanceAndBill(req.params.id, serviceId, user.id);
-      }
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          labTests: {
-            include: {
-              template: true
-            }
-          },
-          servicesRendered: {
-            include: {
-              serviceItem: true
-            }
-          },
-          bill: true
-        }
-      });
-      
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding lab test:', error);
-      res.status(500).json({ message: 'Error adding lab test', error });
-    }
-  }
-];
-
-export const updateLabTestStatus = [
-  body('status').isIn(['requested', 'completed', 'cancelled']).withMessage('Valid status is required'),
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { status, result, normalRange, units, performedById, verifiedById, notes } = req.body;
-      
-      const updateData: any = { status };
-      if (result !== undefined) updateData.result = result;
-      if (normalRange) updateData.normalRange = normalRange;
-      if (units) updateData.units = units;
-      if (performedById) updateData.performedById = performedById;
-      if (verifiedById) updateData.verifiedById = verifiedById;
-      if (notes) updateData.notes = notes;
-      if (status === 'completed') updateData.completedAt = new Date();
-
-      await prisma.labTest.update({
-        where: { id: req.params.labTestId },
-        data: updateData
-      });
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          labTests: {
-            include: {
-              template: true,
-              performedBy: true,
-              verifiedBy: true
-            }
-          },
-          bill: true
-        }
-      });
-
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error updating lab test:', error);
-      res.status(500).json({ message: 'Error updating lab test', error });
-    }
-  }
-];
-
-export const removeLabTestFromAttendance = async (req: Request, res: Response) => {
-  try {
-    await prisma.labTest.delete({
-      where: { id: req.params.labTestId }
-    });
-
-    res.json({ message: 'Lab test removed successfully' });
-  } catch (error) {
-    console.error('Error removing lab test:', error);
-    res.status(500).json({ message: 'Error removing lab test', error });
-  }
-};
-
-// ✅ PROCEDURES - USING SERVICE CATALOG SERVICE
-export const addProcedureToAttendance = [
-  body('templateId').notEmpty().withMessage('Procedure template ID is required'),
-  body('scheduledDate').optional().isISO8601().withMessage('Scheduled date must be valid'),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { templateId, scheduledDate, notes } = req.body;
-      const user = (req as any).user;
-      
-      const procedureTemplate = await prisma.procedureTemplate.findUnique({
-        where: { id: templateId }
-      });
-
-      if (!procedureTemplate) {
-        return res.status(404).json({ message: 'Procedure template not found' });
-      }
-
-      await prisma.procedure.create({
-        data: {
-          attendanceId: req.params.id,
-          templateId,
-          status: 'scheduled',
-          scheduledDate: scheduledDate ? new Date(scheduledDate) : new Date(),
-          notes: notes || '',
-          createdById: user.id
-        }
-      });
-
-      // Auto-add service & bill USING SERVICE CATALOG SERVICE
-      const serviceId = await ServiceCatalogService.findServiceForReference('procedure', templateId);
-      if (serviceId) {
-        await addServiceToAttendanceAndBill(req.params.id, serviceId, user.id);
-      }
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          procedures: {
-            include: {
-              template: true
-            }
-          },
-          servicesRendered: {
-            include: {
-              serviceItem: true
-            }
-          },
-          bill: true
-        }
-      });
-
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding procedure:', error);
-      res.status(500).json({ message: 'Error adding procedure', error });
-    }
-  }
-];
-
-export const updateProcedureStatus = [
-  body('status').isIn(['scheduled', 'completed', 'cancelled']).withMessage('Valid status is required'),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { status, performedAt, performedById, notes } = req.body;
-      
-      const updateData: any = { status };
-      if (performedAt) updateData.performedAt = new Date(performedAt);
-      if (performedById) updateData.performedById = performedById;
-      if (notes) updateData.notes = notes;
-
-      await prisma.procedure.update({
-        where: { id: req.params.procedureId },
-        data: updateData
-      });
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          procedures: {
-            include: {
-              template: true
-            }
-          },
-          bill: true
-        }
-      });
-
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error updating procedure:', error);
-      res.status(500).json({ message: 'Error updating procedure', error });
-    }
-  }
-];
-
-export const removeProcedureFromAttendance = async (req: Request, res: Response) => {
-  try {
-    await prisma.procedure.delete({
-      where: { id: req.params.procedureId }
-    });
-
-    res.json({ message: 'Procedure removed successfully' });
-  } catch (error) {
-    console.error('Error removing procedure:', error);
-    res.status(500).json({ message: 'Error removing procedure', error });
-  }
-};
-
-// ✅ MEDICATIONS - USING SERVICE CATALOG SERVICE
+// ✅ UPDATED: MEDICATIONS - USING SERVICE CATALOG FOR PRICING
 export const addMedicationToAttendance = [
   body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for pricing'), // ✅ ADDED
   body('name').notEmpty().withMessage('Medication name is required'),
   body('dosage').notEmpty().withMessage('Dosage is required'),
   body('frequency').notEmpty().withMessage('Frequency is required'),
@@ -1275,9 +1364,22 @@ export const addMedicationToAttendance = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { stockItemId, name, dosage, frequency, duration, quantity = 1, route, instructions, notes } = req.body;
+      const { 
+        stockItemId, 
+        serviceCatalogId, // ✅ ADDED for pricing
+        name, 
+        dosage, 
+        frequency, 
+        duration, 
+        quantity = 1, 
+        route, 
+        instructions, 
+        notes 
+      } = req.body;
+      
       const user = (req as any).user;
 
+      // ✅ VALIDATE STOCK ITEM EXISTS
       const stockItem = await prisma.stockItem.findUnique({
         where: { id: stockItemId }
       });
@@ -1286,11 +1388,26 @@ export const addMedicationToAttendance = [
         return res.status(404).json({ message: 'Stock item not found' });
       }
 
+      // ✅ VALIDATE SERVICE CATALOG EXISTS AND IS MEDICATION TYPE
+      const serviceCatalog = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId }
+      });
+
+      if (!serviceCatalog) {
+        return res.status(404).json({ message: 'Service catalog item not found' });
+      }
+
+      if (serviceCatalog.serviceType !== 'medication') {
+        return res.status(400).json({ message: 'Service is not a medication type' });
+      }
+
+      // ✅ CREATE MEDICATION WITH BOTH LINKS
       await prisma.medication.create({
         data: {
           attendanceId: req.params.id,
-          stockItemId,
-          name: stockItem?.name || name,
+          stockItemId, // For inventory tracking
+          serviceCatalogId, // ✅ ADDED for pricing
+          name: stockItem.name || name,
           dosage,
           frequency: frequency || 'As directed',
           duration: duration || 'Until finished',
@@ -1304,23 +1421,21 @@ export const addMedicationToAttendance = [
         }
       });
 
-      // Auto-add service & bill USING SERVICE CATALOG SERVICE
-      const serviceId = await ServiceCatalogService.findServiceForReference('medication', stockItemId);
-      if (serviceId) {
-        await addServiceToAttendanceAndBill(req.params.id, serviceId, user.id, quantity);
-      }
+      // ✅ Auto-add service & bill USING SERVICE CATALOG
+      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id, quantity);
 
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
           medications: {
             include: {
-              stockItem: true
+              serviceCatalog: true, // ✅ UPDATED for pricing
+              stockItem: true // For inventory info
             }
           },
           servicesRendered: {
             include: {
-              serviceItem: true
+              serviceCatalog: true // ✅ UPDATED
             }
           },
           bill: true
@@ -1371,6 +1486,7 @@ export const updateMedicationStatus = [
         include: {
           medications: {
             include: {
+              serviceCatalog: true, // ✅ UPDATED
               stockItem: true
             }
           },
@@ -1388,9 +1504,33 @@ export const updateMedicationStatus = [
 
 export const removeMedicationFromAttendance = async (req: Request, res: Response) => {
   try {
+    const medication = await prisma.medication.findUnique({
+      where: { id: req.params.medicationId },
+      select: { serviceCatalogId: true }
+    });
+
     await prisma.medication.delete({
       where: { id: req.params.medicationId }
     });
+
+    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
+    if (medication?.serviceCatalogId) {
+      const serviceRendered = await prisma.serviceRendered.findFirst({
+        where: {
+          attendanceId: req.params.id,
+          serviceCatalogId: medication.serviceCatalogId
+        }
+      });
+
+      if (serviceRendered) {
+        await prisma.serviceRendered.delete({
+          where: { id: serviceRendered.id }
+        });
+
+        // Regenerate bill
+        await BillingService.generateBillFromAttendance(req.params.id);
+      }
+    }
 
     res.json({ message: 'Medication removed successfully' });
   } catch (error) {
@@ -1399,11 +1539,9 @@ export const removeMedicationFromAttendance = async (req: Request, res: Response
   }
 };
 
-// ✅ SCANS - USING SERVICE CATALOG SERVICE
-export const addScanToAttendance = [
-  body('scanType').notEmpty().withMessage('Scan type is required'),
-  body('description').notEmpty().withMessage('Description is required'),
-  
+// ✅ UPDATE LAB TEST STATUS
+export const updateLabTestStatus = [
+  body('status').isIn(['requested', 'completed', 'cancelled']).withMessage('Valid status is required'),
   async (req: Request, res: Response) => {
     try {
       const errors = validationResult(req);
@@ -1411,47 +1549,30 @@ export const addScanToAttendance = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { scanType, description, bodyPart, priority } = req.body;
-      const user = (req as any).user;
+      const { status, result, normalRange, units, performedById, verifiedById, notes } = req.body;
       
-      // Find scan template
-      const scanTemplate = await prisma.scanTemplate.findFirst({
-        where: {
-          name: scanType,
-          bodyPart: bodyPart || undefined
-        }
-      });
-      
-      if (!scanTemplate) {
-        return res.status(404).json({ message: 'Scan template not found' });
-      }
+      const updateData: any = { status };
+      if (result !== undefined) updateData.result = result;
+      if (normalRange) updateData.normalRange = normalRange;
+      if (units) updateData.units = units;
+      if (performedById) updateData.performedById = performedById;
+      if (verifiedById) updateData.verifiedById = verifiedById;
+      if (notes) updateData.notes = notes;
+      if (status === 'completed') updateData.completedAt = new Date();
 
-      await prisma.scan.create({
-        data: {
-          attendanceId: req.params.id,
-          scanType,
-          description,
-          bodyPart: bodyPart || '',
-          status: 'requested',
-          priority: priority || 'routine',
-          requestedAt: new Date(),
-          createdById: user.id
-        }
+      await prisma.labTest.update({
+        where: { id: req.params.labTestId },
+        data: updateData
       });
-
-      // Auto-add service & bill USING SERVICE CATALOG SERVICE
-      const serviceId = await ServiceCatalogService.findServiceForReference('scan', scanTemplate.id);
-      if (serviceId) {
-        await addServiceToAttendanceAndBill(req.params.id, serviceId, user.id);
-      }
 
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          scans: true,
-          servicesRendered: {
+          labTests: {
             include: {
-              serviceItem: true
+              serviceCatalog: true, // ✅ UPDATED
+              performedBy: true,
+              verifiedBy: true
             }
           },
           bill: true
@@ -1460,12 +1581,132 @@ export const addScanToAttendance = [
 
       res.json(updatedAttendance);
     } catch (error) {
-      console.error('Error adding scan:', error);
-      res.status(500).json({ message: 'Error adding scan', error });
+      console.error('Error updating lab test:', error);
+      res.status(500).json({ message: 'Error updating lab test', error });
     }
   }
 ];
 
+export const removeLabTestFromAttendance = async (req: Request, res: Response) => {
+  try {
+    const labTest = await prisma.labTest.findUnique({
+      where: { id: req.params.labTestId },
+      select: { serviceCatalogId: true }
+    });
+
+    await prisma.labTest.delete({
+      where: { id: req.params.labTestId }
+    });
+
+    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
+    if (labTest?.serviceCatalogId) {
+      const serviceRendered = await prisma.serviceRendered.findFirst({
+        where: {
+          attendanceId: req.params.id,
+          serviceCatalogId: labTest.serviceCatalogId
+        }
+      });
+
+      if (serviceRendered) {
+        await prisma.serviceRendered.delete({
+          where: { id: serviceRendered.id }
+        });
+
+        // Regenerate bill
+        await BillingService.generateBillFromAttendance(req.params.id);
+      }
+    }
+
+    res.json({ message: 'Lab test removed successfully' });
+  } catch (error) {
+    console.error('Error removing lab test:', error);
+    res.status(500).json({ message: 'Error removing lab test', error });
+  }
+};
+
+// ✅ UPDATE PROCEDURE STATUS
+export const updateProcedureStatus = [
+  body('status').isIn(['scheduled', 'completed', 'cancelled']).withMessage('Valid status is required'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { status, performedAt, performedById, notes, complications, outcome } = req.body;
+      
+      const updateData: any = { status };
+      if (performedAt) updateData.performedAt = new Date(performedAt);
+      if (performedById) updateData.performedById = performedById;
+      if (notes) updateData.notes = notes;
+      if (complications) updateData.complications = complications;
+      if (outcome) updateData.outcome = outcome;
+
+      await prisma.procedure.update({
+        where: { id: req.params.procedureId },
+        data: updateData
+      });
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id },
+        include: {
+          procedures: {
+            include: {
+              serviceCatalog: true // ✅ UPDATED
+            }
+          },
+          bill: true
+        }
+      });
+
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error updating procedure:', error);
+      res.status(500).json({ message: 'Error updating procedure', error });
+    }
+  }
+];
+
+export const removeProcedureFromAttendance = async (req: Request, res: Response) => {
+  try {
+    const procedure = await prisma.procedure.findUnique({
+      where: { id: req.params.procedureId },
+      select: { serviceCatalogId: true }
+    });
+
+    await prisma.procedure.delete({
+      where: { id: req.params.procedureId }
+    });
+
+    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
+    if (procedure?.serviceCatalogId) {
+      const serviceRendered = await prisma.serviceRendered.findFirst({
+        where: {
+          attendanceId: req.params.id,
+          serviceCatalogId: procedure.serviceCatalogId
+        }
+      });
+
+      if (serviceRendered) {
+        await prisma.serviceRendered.delete({
+          where: { id: serviceRendered.id }
+        });
+
+        // Regenerate bill
+        await BillingService.generateBillFromAttendance(req.params.id);
+      }
+    }
+
+    res.json({ message: 'Procedure removed successfully' });
+  } catch (error) {
+    console.error('Error removing procedure:', error);
+    res.status(500).json({ message: 'Error removing procedure', error });
+  }
+};
+
+// ✅ UPDATE SCAN STATUS
 export const updateScanStatus = [
   body('status').isIn(['requested', 'completed', 'cancelled']).withMessage('Valid status is required'),
   
@@ -1496,7 +1737,7 @@ export const updateScanStatus = [
         include: {
           scans: {
             include: {
-              performedBy: true
+              serviceCatalog: true // ✅ UPDATED
             }
           },
           bill: true
@@ -1513,9 +1754,33 @@ export const updateScanStatus = [
 
 export const removeScanFromAttendance = async (req: Request, res: Response) => {
   try {
+    const scan = await prisma.scan.findUnique({
+      where: { id: req.params.scanId },
+      select: { serviceCatalogId: true }
+    });
+
     await prisma.scan.delete({
       where: { id: req.params.scanId }
     });
+
+    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
+    if (scan?.serviceCatalogId) {
+      const serviceRendered = await prisma.serviceRendered.findFirst({
+        where: {
+          attendanceId: req.params.id,
+          serviceCatalogId: scan.serviceCatalogId
+        }
+      });
+
+      if (serviceRendered) {
+        await prisma.serviceRendered.delete({
+          where: { id: serviceRendered.id }
+        });
+
+        // Regenerate bill
+        await BillingService.generateBillFromAttendance(req.params.id);
+      }
+    }
 
     res.json({ message: 'Scan removed successfully' });
   } catch (error) {
@@ -1524,7 +1789,7 @@ export const removeScanFromAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ VITALS - COMPLETE FIXED VERSION
+// ✅ VITALS - COMPLETE FIXED VERSION (UNCHANGED)
 export const addVitalsToAttendance = [
   body('bloodPressure').optional().isString(),
   body('temperature').optional().isNumeric(),
@@ -1574,7 +1839,7 @@ export const addVitalsToAttendance = [
       const newVitals = await prisma.vitals.create({
         data: {
           attendanceId: req.params.id,
-          patientId: attendance.patientId, // ✅ CRITICAL: Add patientId
+          patientId: attendance.patientId,
           bloodPressure: vitalsData.bloodPressure,
           temperature: vitalsData.temperature,
           pulse: vitalsData.pulse,
@@ -1787,9 +2052,9 @@ export const deleteVitals = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ SERVICES & BILLING - USING BILLING SERVICE
+// ✅ FIXED: SERVICES & BILLING - USING SERVICE CATALOG
 export const addServiceToAttendance = [
-  body('serviceItemId').notEmpty().withMessage('Service item ID is required'),
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   async (req: Request, res: Response) => {
     try {
@@ -1799,7 +2064,7 @@ export const addServiceToAttendance = [
       }
 
       const service = await prisma.serviceCatalog.findUnique({
-        where: { id: req.body.serviceItemId }
+        where: { id: req.body.serviceCatalogId }
       });
 
       if (!service) {
@@ -1816,7 +2081,7 @@ export const addServiceToAttendance = [
 
       await addServiceToAttendanceAndBill(
         req.params.id, 
-        service.id, 
+        service.id,
         (req as any).user.id, 
         req.body.quantity || 1
       );
@@ -1826,7 +2091,7 @@ export const addServiceToAttendance = [
         include: {
           servicesRendered: {
             include: {
-              serviceItem: true
+              serviceCatalog: true
             }
           },
           bill: true
@@ -1840,6 +2105,7 @@ export const addServiceToAttendance = [
     }
   }
 ];
+
 // ✅ UPDATE: Fix the getBillingBreakdown endpoint
 export const getBillingBreakdown = async (req: Request, res: Response) => {
   try {
@@ -1874,7 +2140,6 @@ export const removeServiceFromAttendance = async (req: Request, res: Response) =
 // ✅ UPDATE: Fix the calculateAttendanceBill endpoint
 export const calculateAttendanceBill = async (req: Request, res: Response) => {
   try {
-    // ✅ FIXED: Use the correct method
     const billResult = await BillingService.generateBillFromAttendance(req.params.id);
     
     res.json({
@@ -1888,7 +2153,6 @@ export const calculateAttendanceBill = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error calculating bill', error });
   }
 };
-
 
 // ✅ STATISTICS
 export const getAttendanceStats = async (req: Request, res: Response) => {
@@ -1945,139 +2209,104 @@ export const getAttendanceStats = async (req: Request, res: Response) => {
   }
 };
 
-
-// ✅ UPDATE: Fix the generateNHISClaimFromAttendance function
-export const generateNHISClaimFromAttendance = async (req: Request, res: Response) => {
+// ✅ DELETE ATTENDANCE
+export const deleteAttendance = async (req: Request, res: Response) => {
   try {
-    const { attendanceId } = req.params;
-
-    console.log('🏥 Generating NHIS Claim from Attendance:', attendanceId);
-
+    const { id } = req.params;
+    
     const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
+      where: { id },
       include: {
-        patient: {
-          select: {
-            surname: true,
-            otherNames: true,
-            dateOfBirth: true,
-            gender: true
-          }
-        },
+        patient: true,
+        bill: true
+      }
+    });
+    
+    if (!attendance) {
+      return res.status(404).json({ message: 'Attendance not found' });
+    }
+
+    if (attendance.billId) {
+      return res.status(400).json({ 
+        message: 'Cannot delete attendance with associated bill. Please delete the bill first.' 
+      });
+    }
+
+    if (attendance.status === 'completed' || attendance.status === 'admitted') {
+      return res.status(400).json({ 
+        message: `Cannot delete ${attendance.status} attendance. Only pending can be deleted.` 
+      });
+    }
+
+    await prisma.attendance.delete({
+      where: { id }
+    });
+
+    res.json({ 
+      message: 'Attendance deleted successfully',
+      deletedAttendance: {
+        id: attendance.id,
+        attendanceNumber: attendance.attendanceNumber,
+        patientName: attendance.patient ? 
+          `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim() : 
+          'Unknown Patient',
+        date: attendance.dateTime,
+        status: attendance.status
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    res.status(500).json({ 
+      message: 'Error deleting attendance', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ✅ UPDATE ATTENDANCE
+export const updateAttendance = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    
+    const attendance = await prisma.attendance.update({
+      where: { id: req.params.id },
+      data: {
+        ...req.body,
+        updatedById: user.id,
+        updatedAt: new Date()
+      },
+      include: {
+        patient: true,
+        createdBy: true,
+        updatedBy: true,
         diagnoses: {
           include: {
-            diagnosis: {
-              select: {
-                name: true,
-                icdCode: true,
-                gdrgCode: true
-              }
-            }
+            diagnosis: true
+          }
+        },
+        labTests: {
+          include: {
+            serviceCatalog: true // ✅ UPDATED
+          }
+        },
+        procedures: {
+          include: {
+            serviceCatalog: true // ✅ UPDATED
           }
         },
         servicesRendered: {
           include: {
-            serviceItem: {
-              select: {
-                name: true,
-                code: true,
-                nhisServiceCode: true, // ✅ ONLY NHIS codes, no prices
-                serviceCategory: true
-              }
-            }
+            serviceCatalog: true // ✅ UPDATED
           }
-        }
+        },
+        admission: true,
+        bill: true
       }
     });
 
-    if (!attendance) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Attendance not found' 
-      });
-    }
-
-    // Validate NHIS attendance
-    if (attendance.paymentMode !== 'nhis') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only NHIS attendances can generate NHIS claims'
-      });
-    }
-
-    if (!attendance.nhisCCC) {
-      return res.status(400).json({
-        success: false,
-        message: 'NHIS CCC number is required for claim generation'
-      });
-    }
-
-    // Prepare NHIS services (ONLY codes, no prices)
-    const nhisServices = attendance.servicesRendered
-      .filter(service => service.serviceItem.nhisServiceCode) // Only services with NHIS codes
-      .map(service => ({
-        description: service.serviceItem.name,
-        nhisServiceCode: service.serviceItem.nhisServiceCode, // NHIS tariff code
-        quantity: service.quantity,
-        // ✅ NO PRICES SUBMITTED TO NHIS - they use their own tariff
-      }));
-
-    if (nhisServices.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No NHIS-covered services found for this attendance'
-      });
-    }
-
-    const primaryDiagnosis = attendance.diagnoses.find(d => d.primary) || attendance.diagnoses[0];
-
-    // Prepare NHIS claim data (no prices)
-    const claimData = {
-      claimType: 'NHIS',
-      encounterType: attendance.encounterCategory,
-      patient: {
-        nhisNumber: attendance.nhisCCC,
-        fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim(), // ✅ COMPOSED
-        dateOfBirth: attendance.patient.dateOfBirth,
-        gender: attendance.patient.gender
-      },
-      clinical: {
-        attendanceDate: attendance.dateTime,
-        primaryDiagnosis: primaryDiagnosis ? {
-          description: primaryDiagnosis.diagnosis.name,
-          icdCode: primaryDiagnosis.diagnosis.icdCode,
-          gdrgCode: primaryDiagnosis.diagnosis.gdrgCode
-        } : null
-      },
-      services: nhisServices, // ✅ Only services with NHIS codes, no prices
-      metadata: {
-        totalServices: nhisServices.length,
-        servicesWithNHISCodes: nhisServices.length,
-        totalServicesRendered: attendance.servicesRendered.length
-      }
-    };
-
-    console.log('✅ NHIS Claim data prepared successfully (no prices submitted)');
-
-    res.json({
-      success: true,
-      message: 'NHIS claim data generated successfully',
-      data: claimData,
-      note: 'NHIS claims only submit service codes - NHIS determines pricing from their tariff',
-      validation: {
-        hasPrimaryDiagnosis: !!primaryDiagnosis,
-        hasNHISServices: nhisServices.length > 0,
-        hasValidNHISNumber: !!attendance.nhisCCC,
-        meetsClaimRequirements: !!primaryDiagnosis && nhisServices.length > 0 && !!attendance.nhisCCC
-      }
-    });
-
+    res.json(attendance);
   } catch (error) {
-    console.error('❌ Error generating NHIS claim from attendance:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error generating NHIS claim from attendance', 
-      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-    });
+    console.error('Error updating attendance:', error);
+    res.status(500).json({ message: 'Error updating attendance', error });
   }
 };

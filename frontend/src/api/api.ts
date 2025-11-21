@@ -1,4 +1,4 @@
-// src/api/api.ts - COMPLETE FIXED VERSION
+// src/api/api.ts - FIXED VERSION (REMOVED ID TRANSFORM + BLOB FIX)
 import axios from 'axios';
 
 const api = axios.create({
@@ -7,135 +7,7 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// ✅ COMPREHENSIVE DATA TRANSFORMATION UTILITIES
-const DataTransformer = {
-  /**
-   * Transform backend 'id' to frontend '_id' and ensure consistency
-   */
-  transformIds: (data: any): any => {
-    if (!data) return data;
-    
-    // Handle arrays
-    if (Array.isArray(data)) {
-      return data.map(item => DataTransformer.transformIds(item));
-    }
-    
-    // Handle objects
-    if (typeof data === 'object' && data !== null) {
-      const transformed: any = {};
-      
-      for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          const value = data[key];
-          
-          // Transform 'id' to '_id' while keeping original
-          if (key === 'id') {
-            transformed._id = value;
-            transformed.id = value; // Keep both for compatibility
-          } 
-          // Transform nested objects and arrays
-          else if (typeof value === 'object' && value !== null) {
-            transformed[key] = DataTransformer.transformIds(value);
-          } 
-          // Keep primitive values as-is
-          else {
-            transformed[key] = value;
-          }
-        }
-      }
-      
-      // Ensure _id exists if id exists
-      if (data.id && !data._id) {
-        transformed._id = data.id;
-      }
-      
-      return transformed;
-    }
-    
-    // Return primitives as-is
-    return data;
-  },
-
-  /**
-   * Transform frontend '_id' back to backend 'id' for requests
-   */
-  reverseTransformIds: (data: any): any => {
-    if (!data) return data;
-    
-    // Handle arrays
-    if (Array.isArray(data)) {
-      return data.map(item => DataTransformer.reverseTransformIds(item));
-    }
-    
-    // Handle objects
-    if (typeof data === 'object' && data !== null) {
-      const transformed: any = {};
-      
-      for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          const value = data[key];
-          
-          // Transform '_id' to 'id' for backend
-          if (key === '_id') {
-            transformed.id = value;
-          } 
-          // Don't include _id in requests to backend
-          else if (key !== '_id') {
-            // Transform nested objects and arrays
-            if (typeof value === 'object' && value !== null) {
-              transformed[key] = DataTransformer.reverseTransformIds(value);
-            } 
-            // Keep primitive values as-is
-            else {
-              transformed[key] = value;
-            }
-          }
-        }
-      }
-      
-      return transformed;
-    }
-    
-    // Return primitives as-is
-    return data;
-  },
-
-  /**
-   * Normalize common response formats from backend
-   */
-  normalizeResponse: (response: any): any => {
-    if (!response) return response;
-    
-    // Handle different backend response formats
-    let data = response;
-    
-    // Format 1: { data: [], pagination: {} }
-    if (response.data !== undefined && Array.isArray(response.data)) {
-      data = response.data;
-    }
-    // Format 2: { attendances: [], pagination: {} }
-    else if (response.attendances !== undefined && Array.isArray(response.attendances)) {
-      data = response.attendances;
-    }
-    // Format 3: { patients: [], pagination: {} }
-    else if (response.patients !== undefined && Array.isArray(response.patients)) {
-      data = response.patients;
-    }
-    // Format 4: { vitals: [] }
-    else if (response.vitals !== undefined && Array.isArray(response.vitals)) {
-      data = response.vitals;
-    }
-    // Format 5: Direct array
-    else if (Array.isArray(response)) {
-      data = response;
-    }
-    
-    // Apply ID transformation
-    return DataTransformer.transformIds(data);
-  }
-};
-
-// Request interceptor to add auth token and transform data
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     // Get token from localStorage
@@ -152,19 +24,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Transform request data for backend (convert _id to id)
-    if (config.data) {
-      console.log('🔄 Transforming request data for backend');
-      config.data = DataTransformer.reverseTransformIds(config.data);
-      
-      // Log transformed data for debugging
-      console.log('📤 Request data after transformation:', {
-        originalKeys: Object.keys(config.data),
-        hasId: 'id' in config.data,
-        has_id: '_id' in config.data
-      });
-    }
-    
     return config;
   },
   (error) => {
@@ -173,34 +32,56 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors and transform data
+// Response interceptor to handle errors - FIXED FOR BLOB RESPONSES
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Success:', {
       url: response.config.url,
       status: response.status,
       dataType: typeof response.data,
-      isArray: Array.isArray(response.data)
+      isArray: Array.isArray(response.data),
+      responseType: response.config.responseType
     });
     
-    // Transform response data for frontend (convert id to _id)
-    if (response.data) {
-      console.log('🔄 Transforming response data for frontend');
+    // ✅ FIX: Skip transformation for blob responses (file downloads)
+    if (response.config.responseType === 'blob') {
+      console.log('📦 Blob response detected - skipping transformation');
+      return response;
+    }
+    
+    // Only transform JSON responses
+    if (response.data && typeof response.data === 'object') {
+      console.log('🔄 Processing JSON response data');
       
-      const originalData = response.data;
-      response.data = DataTransformer.normalizeResponse(response.data);
+      // Handle different backend response formats
+      let normalizedData = response.data;
       
-      // Log transformation details for debugging
-      console.log('📥 Response transformation:', {
-        originalType: Array.isArray(originalData) ? 'array' : 'object',
-        transformedType: Array.isArray(response.data) ? 'array' : 'object',
-        originalLength: Array.isArray(originalData) ? originalData.length : 'N/A',
-        transformedLength: Array.isArray(response.data) ? response.data.length : 'N/A',
-        sampleItem: Array.isArray(response.data) && response.data.length > 0 ? {
-          keys: Object.keys(response.data[0]),
-          hasId: 'id' in response.data[0],
-          has_id: '_id' in response.data[0]
-        } : 'N/A'
+      // Format 1: { data: [], pagination: {} }
+      if (response.data.data !== undefined && Array.isArray(response.data.data)) {
+        normalizedData = response.data.data;
+      }
+      // Format 2: { attendances: [], pagination: {} }
+      else if (response.data.attendances !== undefined && Array.isArray(response.data.attendances)) {
+        normalizedData = response.data.attendances;
+      }
+      // Format 3: { patients: [], pagination: {} }
+      else if (response.data.patients !== undefined && Array.isArray(response.data.patients)) {
+        normalizedData = response.data.patients;
+      }
+      // Format 4: { vitals: [] }
+      else if (response.data.vitals !== undefined && Array.isArray(response.data.vitals)) {
+        normalizedData = response.data.vitals;
+      }
+      // Format 5: Direct array or object
+      else if (Array.isArray(response.data) || typeof response.data === 'object') {
+        normalizedData = response.data;
+      }
+      
+      response.data = normalizedData;
+      
+      console.log('📥 Response processed:', {
+        originalType: Array.isArray(response.data) ? 'array' : 'object',
+        length: Array.isArray(response.data) ? response.data.length : 'N/A'
       });
     }
     

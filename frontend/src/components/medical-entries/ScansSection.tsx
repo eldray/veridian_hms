@@ -12,7 +12,7 @@ interface ScansSectionProps {
   scanTemplates: ScanTemplate[]; // ✅ ADDED
   canAddEntries: boolean;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance';
-  currentUser?: { fullName?: string; username?: string; _id?: string };
+  currentUser?: { fullName?: string; username?: string; id?: string };
   onRemoveScan?: (scanId: string) => void; // ✅ ADDED
 }
 
@@ -91,7 +91,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   const handleScanSelect = (template: ScanTemplate) => {
     onScanChange({
       ...currentScan,
-      templateId: template.id || template._id, // ✅ ADDED
+      templateId: template.id || template.id, // ✅ ADDED
       scanType: template.name,
       description: template.description || '',
       bodyPart: template.bodyPart || '',
@@ -113,7 +113,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   };
 
   const selectedTemplate = scanTemplates.find(t => 
-    t.id === currentScan.templateId || t._id === currentScan.templateId || t.name === currentScan.scanType
+    t.id === currentScan.templateId || t.id === currentScan.templateId || t.name === currentScan.scanType
   );
 
   // ✅ FIXED: Handle scan removal
@@ -168,7 +168,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                 {filteredScanTemplates.length > 0 ? (
                   filteredScanTemplates.map((template) => (
                     <button
-                      key={template.id || template._id} // ✅ FIXED: Consistent ID
+                      key={template.id || template.id} // ✅ FIXED: Consistent ID
                       onClick={() => handleScanSelect(template)}
                       className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                     >
@@ -319,10 +319,10 @@ const ScansSection: React.FC<ScansSectionProps> = ({
             <div className="divide-y divide-[var(--border-color)]">
               {scans.map((scan) => {
                 const template = scanTemplates.find(t => 
-                  t.id === scan.templateId || t._id === scan.templateId || t.name === scan.scanType
+                  t.id === scan.templateId || t.id === scan.templateId || t.name === scan.scanType
                 );
                 return (
-                  <div key={scan.id || scan._id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                  <div key={scan.id || scan.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -343,7 +343,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                       </div>
                       {canAddEntries && onRemoveScan && (
                         <button
-                          onClick={() => handleRemoveScan(scan.id || scan._id)}
+                          onClick={() => handleRemoveScan(scan.id || scan.id)}
                           className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4 px-2 py-1 text-sm"
                         >
                           Remove
@@ -360,7 +360,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
         {/* Authorization Warning */}
         {scans.some(scan => {
           const template = scanTemplates.find(t => 
-            t.id === scan.templateId || t._id === scan.templateId || t.name === scan.scanType
+            t.id === scan.templateId || t.id === scan.templateId || t.name === scan.scanType
           );
           return template?.requiresAuthorization;
         }) && (

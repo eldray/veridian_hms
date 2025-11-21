@@ -8,7 +8,6 @@ import {
   getScanCategories,
   getScanBodyParts,
   getScanTypes,
-  bulkUpdateScanTemplates
 } from '../controllers/scanTemplateController';
 import { protect, requireRadiologyStaff, requireAdmin } from '../middleware/authMiddleware';
 
@@ -34,9 +33,6 @@ router.post('/', requireRadiologyStaff, createScanTemplate);
 
 // PUT /api/scan-templates/:id - Update a scan template
 router.put('/:id', requireRadiologyStaff, updateScanTemplate);
-
-// POST /api/scan-templates/bulk-update - Bulk update scan templates
-router.post('/bulk-update', requireAdmin, bulkUpdateScanTemplates);
 
 // DELETE /api/scan-templates/:id - Delete a scan template
 router.delete('/:id', requireAdmin, deleteScanTemplate);

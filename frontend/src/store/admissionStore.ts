@@ -53,7 +53,6 @@ interface AdmissionState {
 const transformAdmission = (admission: any) => ({
   ...admission,
   id: admission.id || admission.id,
-  id: admission.id || admission.id,
   // Ensure dailyNotes is always an array
   dailyNotes: admission.dailyNotes || [],
   // Ensure secondaryDiagnoses is always an array

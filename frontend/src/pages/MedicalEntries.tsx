@@ -6,8 +6,9 @@ import { useStockStore } from '../store/stockStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { PatientSelection } from '../components/vitals/PatientSelection';
-import { AttendanceSelection } from '../components/vitals/AttendanceSelection';
+
+// Reusable components
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
 import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import NewAttendanceModal from '../components/NewAttendanceModal';
@@ -20,12 +21,13 @@ import ProceduresSection from '../components/medical-entries/ProceduresSection';
 import ScansSection from '../components/medical-entries/ScansSection';
 
 import { AlertCircle, Ban, RefreshCw, Stethoscope, Pill, FileText, FlaskConical, Scissors, Scan } from 'lucide-react';
-import type { Medication, LabTest, Procedure, Scan as ScanType, Diagnosis, ProgressNote, Attendance, Patient } from '../types';
+import type { Medication, LabTest, Procedure, Scan as ScanType, Diagnosis, Attendance, Patient } from '../types';
 import type { MedicationEntry, LabTestEntry, ProcedureEntry, ScanEntry } from '../types/medical-entries';
 
 // Helper: Get consistent ID
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-  return entity?.id || entity?._id;
+// Use same pattern as working pages
+const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
+  return entity?.id || entity?.id;
 };
 
 export default function MedicalEntries() {
@@ -71,10 +73,8 @@ export default function MedicalEntries() {
   const [selectedAttendanceForEdit, setSelectedAttendanceForEdit] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
 
   // Medical entries state
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -103,7 +103,7 @@ export default function MedicalEntries() {
     route: 'oral',
     instructions: '',
     status: 'prescribed',
-    prescribedBy: user?.id || user?._id || user?.username || ''
+    prescribedBy: user?.id || user?.id || user?.username || ''
   });
 
   const [currentLab, setCurrentLab] = useState<LabTestEntry>({
@@ -120,7 +120,7 @@ export default function MedicalEntries() {
     scheduledDate: '',
     notes: '',
     status: 'scheduled',
-    createdBy: user?.id || user?._id || user?.username || ''
+    createdBy: user?.id || user?.id || user?.username || ''
   });
 
   const [currentScan, setCurrentScan] = useState<ScanEntry>({
@@ -138,17 +138,24 @@ export default function MedicalEntries() {
     try {
       setRefreshing(true);
       setIsLoading(true);
-
+  
+      // Load only essential data first
       await Promise.all([
         loadPatients(),
         getAttendances(),
         getStockItems(),
-        getDiagnoses(),
         getLabTestTemplates(),
         getProcedureTemplates(),
-        getScanTemplates(),
+        getScanTemplates()
       ]);
-
+  
+      // Load diagnoses separately (less critical)
+      try {
+        await getDiagnoses();
+      } catch (err) {
+        console.warn('Diagnoses load failed, continuing without them:', err);
+      }
+  
       success('Data loaded', 'Medical entries ready');
     } catch {
       toastError('Load failed', 'Could not load data. Please try again.');
@@ -170,7 +177,7 @@ export default function MedicalEntries() {
       const possiblePatientIds = [
         attendance.patientId,
         attendance.patient?.id,
-        attendance.patient?._id,
+        attendance.patient?.id,
         attendance.data?.patientId
       ]
         .filter(Boolean)
@@ -317,7 +324,7 @@ export default function MedicalEntries() {
       return;
     }
 
-    const stockItem = stockItems.find(s => s.id === currentMed.stockItemId || s._id === currentMed.stockItemId);
+    const stockItem = stockItems.find(s => s.id === currentMed.stockItemId || s.id === currentMed.stockItemId);
     if (!stockItem) {
       toastError('Not found', 'Medication not in stock');
       return;
@@ -329,6 +336,7 @@ export default function MedicalEntries() {
 
     const newMed: Medication = {
       id: `med-${Date.now()}`,
+      attendanceId: selectedAttendanceId,
       stockItemId: currentMed.stockItemId,
       name: stockItem.name,
       dosage: currentMed.dosage,
@@ -339,16 +347,9 @@ export default function MedicalEntries() {
       instructions: currentMed.instructions,
       status: 'prescribed',
       prescribedAt: new Date().toISOString(),
-      prescribedBy: user?.id || user?._id || user?.username || '',
+      prescribedBy: user?.id || user?.id || user?.username || '',
+      prescribedById: user?.id || user?.id || user?.username || '',
       notes: currentMed.instructions,
-      cashPrice: stockItem.cashPrice || stockItem.sellingPrice || 0,
-      insurancePrice: stockItem.insurancePrice || 0,
-      costPrice: stockItem.costPrice || stockItem.unitPrice || 0,
-      isActive: true,
-      requiresAuthorization: stockItem.requiresAuthorization || false,
-      tariffCode: stockItem.tariffCode || '',
-      vatRate: stockItem.vatRate || 0,
-      isTaxable: stockItem.isTaxable || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -364,7 +365,7 @@ export default function MedicalEntries() {
       route: 'oral',
       instructions: '',
       status: 'prescribed',
-      prescribedBy: user?.id || user?._id || user?.username || ''
+      prescribedBy: user?.id || user?.id || user?.username || ''
     });
     success('Added', 'Medication prescribed');
   };
@@ -379,7 +380,7 @@ export default function MedicalEntries() {
       return;
     }
 
-    const template = labTestTemplates.find(t => t.id === currentLab.templateId || t._id === currentLab.templateId);
+    const template = labTestTemplates.find(t => t.id === currentLab.templateId || t.id === currentLab.templateId);
     if (!template) {
       toastError('Not found', 'Test template missing');
       return;
@@ -387,20 +388,14 @@ export default function MedicalEntries() {
 
     const newTest: LabTest = {
       id: `lab-${Date.now()}`,
+      attendanceId: selectedAttendanceId,
       templateId: currentLab.templateId,
       name: template.name,
       status: 'requested',
       priority: currentLab.priority,
       requestedAt: new Date().toISOString(),
       notes: currentLab.notes,
-      cashPrice: template.cashPrice || 0,
-      insurancePrice: template.insurancePrice || 0,
-      costPrice: template.costPrice || 0,
-      isActive: true,
-      requiresAuthorization: template.requiresAuthorization || false,
-      tariffCode: template.tariffCode || '',
-      vatRate: template.vatRate || 0,
-      isTaxable: template.isTaxable || false,
+      createdById: user?.id || user?.id || user?.username || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -420,7 +415,7 @@ export default function MedicalEntries() {
       return;
     }
 
-    const template = procedureTemplates.find(t => t.id === currentProcedure.templateId || t._id === currentProcedure.templateId);
+    const template = procedureTemplates.find(t => t.id === currentProcedure.templateId || t.id === currentProcedure.templateId);
     if (!template) {
       toastError('Not found', 'Procedure template missing');
       return;
@@ -428,20 +423,14 @@ export default function MedicalEntries() {
 
     const newProcedure: Procedure = {
       id: `proc-${Date.now()}`,
+      attendanceId: selectedAttendanceId,
       templateId: currentProcedure.templateId,
       name: template.name,
       status: 'scheduled',
       scheduledDate: currentProcedure.scheduledDate,
       notes: currentProcedure.notes,
-      createdBy: user?.id || user?._id || user?.username || '',
-      cashPrice: template.cashPrice || 0,
-      insurancePrice: template.insurancePrice || 0,
-      costPrice: template.costPrice || 0,
-      isActive: true,
-      requiresAuthorization: template.requiresAuthorization || false,
-      tariffCode: template.tariffCode || '',
-      vatRate: template.vatRate || 0,
-      isTaxable: template.isTaxable || false,
+      createdBy: user?.id || user?.id || user?.username || '',
+      createdById: user?.id || user?.id || user?.username || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -453,7 +442,7 @@ export default function MedicalEntries() {
       scheduledDate: '',
       notes: '',
       status: 'scheduled',
-      createdBy: user?.id || user?._id || user?.username || ''
+      createdBy: user?.id || user?.id || user?.username || ''
     });
     success('Added', 'Procedure scheduled');
   };
@@ -471,13 +460,14 @@ export default function MedicalEntries() {
     // Find scan template for pricing and validation
     const scanTemplate = scanTemplates.find(t => 
       currentScan.templateId ? 
-        (t.id === currentScan.templateId || t._id === currentScan.templateId) : 
+        (t.id === currentScan.templateId || t.id === currentScan.templateId) : 
         t.name.toLowerCase().includes(currentScan.scanType.toLowerCase())
     );
 
     const newScan: ScanType = {
       id: `scan-${Date.now()}`,
-      templateId: currentScan.templateId || scanTemplate?.id || scanTemplate?._id,
+      attendanceId: selectedAttendanceId,
+      templateId: currentScan.templateId || scanTemplate?.id || scanTemplate?.id || '',
       scanType: currentScan.scanType,
       description: currentScan.description,
       bodyPart: currentScan.bodyPart,
@@ -485,14 +475,8 @@ export default function MedicalEntries() {
       priority: currentScan.priority,
       requestedAt: new Date().toISOString(),
       notes: currentScan.notes,
-      cashPrice: scanTemplate?.cashPrice || 0,
-      insurancePrice: scanTemplate?.insurancePrice || 0,
-      costPrice: scanTemplate?.costPrice || 0,
-      isActive: true,
-      requiresAuthorization: scanTemplate?.requiresAuthorization || false,
-      tariffCode: scanTemplate?.tariffCode || '',
-      vatRate: scanTemplate?.vatRate || 0,
-      isTaxable: scanTemplate?.isTaxable || false,
+      imageUrls: [],
+      createdById: user?.id || user?.id || user?.username || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -526,65 +510,89 @@ export default function MedicalEntries() {
 
     setIsSubmitting(true);
     try {
+      console.log('Submitting medical entries...');
+      
       // Update attendance with basic info
       await updateAttendance(selectedAttendanceId, {
         complaints: chiefComplaint,
         medicalNotes: notes
       });
+      console.log('✅ Updated attendance complaints and notes');
 
       // Add diagnosis if selected
       if (diagnosis) {
         await addDiagnosisToAttendance(selectedAttendanceId, {
-          diagnosisId: diagnosis.id || diagnosis._id,
+          diagnosisId: diagnosis.id || diagnosis.id,
           primary: true,
           notes: notes,
           date: new Date().toISOString(),
-          createdById: user?.id || user?._id || user?.username || ''
+          createdById: user?.id || user?.id || user?.username || ''
         });
+        console.log('✅ Added diagnosis');
       }
 
       // Add all medical entries with proper backend structure
       const medicalEntries = [
-        ...labTests.map(test => addLabTestToAttendance(selectedAttendanceId, {
-          templateId: test.templateId,
-          priority: test.priority,
-          notes: test.notes,
-          createdById: user?.id || user?._id || user?.username || ''
-        })),
-        ...procedures.map(proc => addProcedureToAttendance(selectedAttendanceId, {
-          templateId: proc.templateId,
-          scheduledDate: proc.scheduledDate,
-          notes: proc.notes,
-          createdById: user?.id || user?._id || user?.username || ''
-        })),
-        ...scans.map(scan => addScanToAttendance(selectedAttendanceId, {
-          templateId: scan.templateId,
-          scanType: scan.scanType,
-          description: scan.description,
-          bodyPart: scan.bodyPart,
-          priority: scan.priority,
-          notes: scan.notes,
-          createdById: user?.id || user?._id || user?.username || ''
-        })),
-        ...medications.map(med => addMedicationToAttendance(selectedAttendanceId, {
-          stockItemId: med.stockItemId,
-          name: med.name,
-          dosage: med.dosage,
-          frequency: med.frequency,
-          duration: med.duration,
-          quantity: med.quantity,
-          route: med.route,
-          instructions: med.instructions,
-          prescribedById: user?.id || user?._id || user?.username || ''
-        })),
+        ...labTests.map(test => {
+          console.log('Adding lab test:', test.name);
+          return addLabTestToAttendance(selectedAttendanceId, {
+            templateId: test.templateId,
+            priority: test.priority,
+            notes: test.notes,
+            createdById: user?.id || user?.id || user?.username || ''
+          });
+        }),
+        ...procedures.map(proc => {
+          console.log('Adding procedure:', proc.name);
+          return addProcedureToAttendance(selectedAttendanceId, {
+            templateId: proc.templateId,
+            scheduledDate: proc.scheduledDate,
+            notes: proc.notes,
+            createdById: user?.id || user?.id || user?.username || ''
+          });
+        }),
+        ...scans.map(scan => {
+          console.log('Adding scan:', scan.scanType);
+          return addScanToAttendance(selectedAttendanceId, {
+            templateId: scan.templateId,
+            scanType: scan.scanType,
+            description: scan.description,
+            bodyPart: scan.bodyPart,
+            priority: scan.priority,
+            notes: scan.notes,
+            createdById: user?.id || user?.id || user?.username || ''
+          });
+        }),
+        ...medications.map(med => {
+          console.log('Adding medication:', med.name);
+          return addMedicationToAttendance(selectedAttendanceId, {
+            stockItemId: med.stockItemId,
+            name: med.name,
+            dosage: med.dosage,
+            frequency: med.frequency,
+            duration: med.duration,
+            quantity: med.quantity,
+            route: med.route,
+            instructions: med.instructions,
+            prescribedById: user?.id || user?.id || user?.username || ''
+          });
+        }),
       ];
 
       await Promise.all(medicalEntries);
+      console.log('✅ All medical entries added successfully');
+
+      // ✅ CRITICAL: Refresh attendance data to load the saved entries
+      await getAttendances();
+      console.log('✅ Refreshed attendances');
 
       success('Saved', 'All medical entries saved successfully');
-      resetForm();
+      
+      // ✅ DON'T reset the form - let the data stay visible
+      // The useEffect will reload it from the refreshed attendance data
+      
     } catch (error: any) {
-      console.error('Save failed:', error);
+      console.error('❌ Save failed:', error);
       toastError('Save failed', error.message || 'Could not save entries');
     } finally {
       setIsSubmitting(false);
@@ -602,18 +610,151 @@ export default function MedicalEntries() {
     setActiveTab('clinical');
   };
 
-  // Reset attendance selection when patient changes
-  useEffect(() => {
+  // Handle clear selection
+  const handleClearSelection = () => {
+    setSelectedPatientId('');
     setSelectedAttendanceId('');
-  }, [selectedPatientId]);
+    resetForm();
+  };
 
-  // Reset form when attendance changes
+  // ✅ CRITICAL FIX: Load existing medical entries from selected attendance
   useEffect(() => {
     if (selectedAttendance) {
-      // Load existing data from attendance if needed
+      console.log('Loading medical entries from attendance:', selectedAttendance);
+      
+      // Load existing data from attendance
       setChiefComplaint(selectedAttendance.complaints || '');
       setNotes(selectedAttendance.medicalNotes || '');
+      
+      // ✅ CRITICAL: Load existing diagnoses
+      if (selectedAttendance.diagnoses && selectedAttendance.diagnoses.length > 0) {
+        const primaryDiagnosis = selectedAttendance.diagnoses.find(d => d.primary);
+        if (primaryDiagnosis && primaryDiagnosis.diagnosis) {
+          setDiagnosis(primaryDiagnosis.diagnosis);
+          console.log('Loaded primary diagnosis:', primaryDiagnosis.diagnosis);
+        }
+      } else {
+        setDiagnosis(null);
+      }
+      
+      // ✅ CRITICAL: Load existing medications
+      if (selectedAttendance.medications && selectedAttendance.medications.length > 0) {
+        const meds = selectedAttendance.medications.map(med => ({
+          id: med.id,
+          attendanceId: med.attendanceId,
+          stockItemId: med.stockItemId || '',
+          name: med.name,
+          dosage: med.dosage || '',
+          frequency: med.frequency || '',
+          duration: med.duration || '',
+          quantity: med.quantity || 1,
+          route: med.route || 'oral',
+          instructions: med.instructions || '',
+          status: med.status || 'prescribed',
+          prescribedAt: med.prescribedAt,
+          prescribedBy: med.prescribedById || med.prescribedBy?.id || '',
+          prescribedById: med.prescribedById || med.prescribedBy?.id || '',
+          notes: med.notes || '',
+          createdAt: med.createdAt || new Date().toISOString(),
+          updatedAt: med.updatedAt || new Date().toISOString(),
+          stockItem: med.stockItem
+        }));
+        setMedications(meds);
+        console.log('Loaded medications:', meds.length);
+      } else {
+        setMedications([]);
+      }
+      
+      // ✅ CRITICAL: Load existing lab tests
+      if (selectedAttendance.labTests && selectedAttendance.labTests.length > 0) {
+        const tests = selectedAttendance.labTests.map(test => ({
+          id: test.id,
+          attendanceId: test.attendanceId,
+          templateId: test.templateId,
+          name: test.template?.name || 'Unknown Test',
+          status: test.status || 'requested',
+          priority: test.priority || 'routine',
+          requestedAt: test.requestedAt,
+          completedAt: test.completedAt,
+          notes: test.notes || '',
+          result: test.result,
+          normalRange: test.normalRange,
+          units: test.units,
+          performedById: test.performedById,
+          verifiedById: test.verifiedById,
+          createdById: test.createdById,
+          createdAt: test.createdAt || new Date().toISOString(),
+          updatedAt: test.updatedAt || new Date().toISOString(),
+          template: test.template
+        }));
+        setLabTests(tests);
+        console.log('Loaded lab tests:', tests.length);
+      } else {
+        setLabTests([]);
+      }
+      
+      // ✅ CRITICAL: Load existing procedures
+      if (selectedAttendance.procedures && selectedAttendance.procedures.length > 0) {
+        const procs = selectedAttendance.procedures.map(proc => ({
+          id: proc.id,
+          attendanceId: proc.attendanceId,
+          templateId: proc.templateId,
+          name: proc.template?.name || 'Unknown Procedure',
+          status: proc.status || 'scheduled',
+          scheduledDate: proc.scheduledDate || '',
+          performedAt: proc.performedAt,
+          notes: proc.notes || '',
+          complications: proc.complications,
+          outcome: proc.outcome,
+          cost: proc.cost,
+          duration: proc.duration,
+          performedById: proc.performedById,
+          assistantId: proc.assistantId,
+          createdById: proc.createdById,
+          createdBy: proc.createdBy?.id || proc.createdById || '',
+          createdAt: proc.createdAt || new Date().toISOString(),
+          updatedAt: proc.updatedAt || new Date().toISOString(),
+          template: proc.template
+        }));
+        setProcedures(procs);
+        console.log('Loaded procedures:', procs.length);
+      } else {
+        setProcedures([]);
+      }
+      
+      // ✅ CRITICAL: Load existing scans
+      if (selectedAttendance.scans && selectedAttendance.scans.length > 0) {
+        const scansList = selectedAttendance.scans.map(scan => ({
+          id: scan.id,
+          attendanceId: scan.attendanceId,
+          templateId: scan.templateId || '',
+          scanType: scan.scanType,
+          description: scan.description,
+          bodyPart: scan.bodyPart || '',
+          status: scan.status || 'requested',
+          priority: scan.priority || 'routine',
+          requestedAt: scan.requestedAt,
+          completedAt: scan.completedAt,
+          result: scan.result,
+          findings: scan.findings,
+          impression: scan.impression,
+          imageUrls: scan.imageUrls || [],
+          performedById: scan.performedById,
+          verifiedById: scan.verifiedById,
+          createdById: scan.createdById,
+          notes: scan.notes || '',
+          createdAt: scan.createdAt || new Date().toISOString(),
+          updatedAt: scan.updatedAt || new Date().toISOString(),
+          template: scan.template
+        }));
+        setScans(scansList);
+        console.log('Loaded scans:', scansList.length);
+      } else {
+        setScans([]);
+      }
+      
     } else {
+      // Reset form if no attendance selected
       resetForm();
     }
   }, [selectedAttendance]);
@@ -691,30 +832,49 @@ export default function MedicalEntries() {
       </div>
 
       {/* Patient & Attendance Selection */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PatientSelection
-          patients={patients}
-          patientSearch={patientSearch}
-          setPatientSearch={setPatientSearch}
-          selectedPatientId={selectedPatientId}
-          setSelectedPatientId={setSelectedPatientId}
-          showPatientDropdown={showPatientDropdown}
-          setShowPatientDropdown={setShowPatientDropdown}
-          selectedPatient={selectedPatient}
-        />
-        
-        {selectedPatientId && (
-          <AttendanceSelection
-            patientAttendances={patientAttendances}
-            selectedAttendanceId={selectedAttendanceId}
-            setSelectedAttendanceId={setSelectedAttendanceId}
-            selectedPatientId={selectedPatientId}
-            navigate={navigate}
-            onActivateAttendance={handleActivateAttendance}
-            activatingAttendance={activatingAttendance}
-          />
-        )}
-      </div>
+      <PatientAttendanceSelector
+        patients={patients}
+        attendances={attendances}
+        selectedPatientId={selectedPatientId}
+        selectedAttendanceId={selectedAttendanceId}
+        onPatientSelect={setSelectedPatientId}
+        onAttendanceSelect={setSelectedAttendanceId}
+        onClearSelection={handleClearSelection}
+      />
+
+      {/* Patient & Visit Overview */}
+      {selectedPatient && selectedAttendance && (
+        <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+                <Pill className="w-6 h-6 text-[var(--icon-purple-text)]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">{selectedPatient.fullName}</h3>
+                <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)] mt-1">
+                  <span>{selectedPatient.age} years • {selectedPatient.gender}</span>
+                  <span>•</span>
+                  <span>ID: {selectedPatient.folderNumber}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="text-right">
+              <div className="text-lg font-semibold text-[var(--text-primary)]">
+                {selectedAttendance.attendanceNumber || 'Current Visit'}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedAttendance.status || '')}`}>
+                  Status: {selectedAttendance.status}
+                </span>
+                <span>Date: {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
+                <span>Type: {selectedAttendance.attendanceType?.replace(/_/g, ' ') || 'General'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vitals Display */}
       {selectedAttendance && latestVitals && (

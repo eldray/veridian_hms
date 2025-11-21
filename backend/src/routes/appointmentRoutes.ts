@@ -5,7 +5,8 @@ import {
   createAppointment,
   updateAppointment,
   deleteAppointment,
-  getDoctorSchedule
+  getDoctorSchedule,
+  getAppointmentStatistics // ADD THIS
 } from '../controllers/appointmentController';
 import { protect, requireRole } from '../middleware/authMiddleware';
 
@@ -16,6 +17,7 @@ router.use(protect);
 
 // Basic CRUD operations
 router.get('/', getAppointments);
+router.get('/stats', getAppointmentStatistics); // ADD THIS LINE
 router.get('/schedule', getDoctorSchedule);
 router.get('/:id', getAppointmentById);
 router.post('/', requireRole(['admin', 'doctor', 'nurse', 'records']), createAppointment);

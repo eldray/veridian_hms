@@ -382,25 +382,25 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
 };
 
 export const updateProfile = [
-  // Validation rules
+  // UPDATED VALIDATION RULES - Make everything optional for updates
   body('fullName')
     .optional()
     .trim()
     .notEmpty().withMessage('Full name cannot be empty')
     .isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
   body('email')
-    .optional()
+    .optional({ checkFalsy: true }) // Allow empty strings
     .isEmail().withMessage('Valid email required')
     .normalizeEmail(),
   body('phone')
-    .optional()
+    .optional({ checkFalsy: true }) // Allow empty strings
     .trim()
-    .matches(/^[+]?[\d\s-()]+$/).withMessage('Valid phone number required'),
+    .matches(/^[+]?[\d\s-()]*$/).withMessage('Valid phone number required'), // Allow empty with *
   body('licenseNumber')
-    .optional()
+    .optional({ checkFalsy: true }) // Allow empty strings
     .trim(),
   body('specialization')
-    .optional()
+    .optional({ checkFalsy: true }) // Allow empty strings
     .trim(),
 
   async (req: AuthRequest, res: Response) => {
@@ -408,10 +408,12 @@ export const updateProfile = [
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         console.log('🔍 Profile update validation errors:', errors.array());
+        console.log('🔍 Request body received:', req.body);
         return res.status(400).json({
           success: false,
           errors: errors.array(),
-          message: 'Validation failed'
+          message: 'Validation failed',
+          receivedData: req.body // Add this for debugging
         });
       }
 
@@ -426,33 +428,23 @@ export const updateProfile = [
       const userId = req.user.id;
 
       console.log('📝 Updating profile for user:', req.user.username);
+      console.log('📝 Update data received:', { fullName, email, phone, licenseNumber, specialization });
 
-      // Prepare update data
+      // Prepare update data - handle empty strings
       const updateData: any = { 
         updatedAt: new Date() 
       };
 
-      if (fullName) updateData.fullName = fullName.trim();
-      if (email) updateData.email = email.toLowerCase().trim();
-      if (phone) updateData.phone = phone.trim();
-      if (licenseNumber) updateData.licenseNumber = licenseNumber.trim();
-      if (specialization) updateData.specialization = specialization.trim();
+      if (fullName !== undefined) updateData.fullName = fullName.trim();
+      if (email !== undefined) updateData.email = email ? email.toLowerCase().trim() : null;
+      if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+      if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber ? licenseNumber.trim() : null;
+      if (specialization !== undefined) updateData.specialization = specialization ? specialization.trim() : null;
 
-      // Validate license number for roles that require it
-      if (licenseNumber && LICENSE_REQUIRED_ROLES.includes(req.user.role) && !licenseNumber) {
-        return res.status(400).json({
-          success: false,
-          message: `License number is required for ${req.user.role} role`
-        });
-      }
+      console.log('📝 Processed update data:', updateData);
 
-      // Validate specialization for doctors
-      if (specialization && req.user.role === 'doctor' && !specialization) {
-        return res.status(400).json({
-          success: false,
-          message: 'Specialization is required for doctor role'
-        });
-      }
+      // Remove license validation for updates - users might want to remove it
+      // Remove specialization validation for updates
 
       const user = await prisma.user.update({
         where: { 

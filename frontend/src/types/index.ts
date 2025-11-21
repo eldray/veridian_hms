@@ -1,5 +1,5 @@
 // ======================
-// CORE ENUMS (MATCHING BACKEND)
+// CORE ENUMS (UPDATED TO MATCH BACKEND)
 // ======================
 
 export type UserRole =
@@ -41,7 +41,7 @@ export type SecondaryDiagnosisType = 'comorbidity' | 'complication';
 
 // Billing
 export type BillStatus = 'draft' | 'pending' | 'partial' | 'paid' | 'cancelled';
-export type ClaimStatus = 'draft' | 'not_required' | 'pending' | 'submitted' | 'approved' | 'partially_approved' | 'rejected' | 'paid';
+export type ClaimStatus = 'draft' | 'submitted' | 'approved' | 'paid' | 'rejected'; // Updated to match backend
 
 // Clinical
 export type LabTestStatus = 'requested' | 'completed' | 'cancelled';
@@ -65,13 +65,46 @@ export type ServiceType = 'consultation' | 'ward' | 'lab_test' | 'scan' | 'medic
 export type ServiceCategory = 'opd' | 'ipd' | 'diagnostics' | 'pharmacy' | 'other';
 export type NHISCoverageType = 'full' | 'partial' | 'not_covered';
 
+// Diagnosis Categories (Updated to match backend)
+export type DiagnosisCategory = 
+  | 'infectiousAndParasitic'
+  | 'neoplasms'
+  | 'bloodAndImmune'
+  | 'endocrineNutritionalMetabolic'
+  | 'mentalAndBehavioral'
+  | 'nervousSystem'
+  | 'eyeAndAdnexa'
+  | 'earAndMastoid'
+  | 'circulatory'
+  | 'respiratory'
+  | 'digestive'
+  | 'skinAndSubcutaneous'
+  | 'musculoskeletal'
+  | 'genitourinary'
+  | 'pregnancyChildbirthPuerperium'
+  | 'perinatalPeriod'
+  | 'congenitalMalformations'
+  | 'symptomsSignsAbnormalFindings'
+  | 'injuryPoisoningExternalCauses'
+  | 'externalMorbidity'
+  | 'factorsInfluencingHealthStatus';
+
+// Insurance
+export type InsuranceType = 'nhis' | 'private';
+
+// Stock & Requisitions
+export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale';
+export type RequisitionStatus = 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
+export type RequisitionUrgency = 'routine' | 'urgent' | 'emergency';
+
 // ======================
-// USER & AUTHENTICATION
+// USER & AUTHENTICATION (UPDATED)
 // ======================
 
 export interface User {
   id: string;
   username: string;
+  password: string; // Added from backend
   fullName: string;
   role: UserRole;
   email?: string;
@@ -85,7 +118,7 @@ export interface User {
 }
 
 // ======================
-// PATIENT (UPDATED TO MATCH BACKEND PRISMA)
+// PATIENT (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface InsuranceDetails {
@@ -125,22 +158,18 @@ export interface Patient {
   gender: Gender;
   dateOfBirth: string;
   age: number;
+  ageInMonths?: number;
   contact: string;
   address: string;
   paymentMode?: PaymentMode;
-  insuranceDetails?: InsuranceDetails;
-  additionalInfo?: AdditionalInfo;
-  billingAddress?: {
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-  };
-  employer?: {
-    name: string;
-    address: string;
-    phone: string;
-  };
+  
+  // ✅ ADD THIS FIELD (matches your Prisma schema)
+  insuranceNumber?: string; // ← Patient's main insurance number
+  
+  insuranceDetails?: InsuranceDetails; // Stored as JSON in backend
+  additionalInfo?: AdditionalInfo; // Stored as JSON in backend
+  billingAddress?: any;
+  employer?: any;
   imageUrl?: string;
   registeredAt: string;
   registeredBy: string;
@@ -148,9 +177,8 @@ export interface Patient {
   createdAt: string;
   updatedAt: string;
 }
-
 // ======================
-// ATTENDANCE (UPDATED TO MATCH BACKEND PRISMA)
+// ATTENDANCE (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface AttendanceDiagnosis {
@@ -162,8 +190,8 @@ export interface AttendanceDiagnosis {
   date: string;
   createdById: string;
   icdCode?: string;
-  presentOnAdmission?: PresentOnAdmission;
-  diagnosisType?: DiagnosisType;
+  presentOnAdmission?: PresentOnAdmission; // Added from backend
+  diagnosisType?: DiagnosisType; // Added from backend
   createdAt: string;
 }
 
@@ -186,29 +214,24 @@ export interface Attendance {
   bedId?: string;
   wardId?: string;
   
-  attendanceType: AttendanceType;
+  attendanceType: AttendanceType; // Added from backend
   dateTime: string;
   paymentMode: PaymentMode;
   nhisCCC?: string;
   complaints: string;
   medicalNotes?: string;
   
-  // NHIS Service Categorization
-  encounterCategory: EncounterCategory;
-  visitCategory: VisitCategory;
+  encounterCategory: EncounterCategory; // Added from backend
+  visitCategory: VisitCategory; // Added from backend
   
-  // Billing
   totalBill: number;
   paidAmount: number;
   outstandingBalance: number;
   
-  // Insurance Claims
   insuranceClaimId?: string;
   preAuthNumber?: string;
-  preAuthApproved: boolean;
-  preAuthAmount?: number;
   
-  status: AttendanceStatus;
+  status: AttendanceStatus; // Added from backend
   referringFacility?: string;
   
   createdById: string;
@@ -235,20 +258,8 @@ export interface Attendance {
   vitals: Vitals[];
 }
 
-// Add this to your src/types/index.ts file
-export interface VitalsEntry {
-  bloodPressure?: string;
-  temperature?: number;
-  pulse?: number;
-  respiration?: number;
-  spo2?: number;
-  weight?: number;
-  height?: number;
-  notes?: string;
-}
-
 // ======================
-// BILLING (UPDATED TO MATCH BACKEND PRISMA)
+// BILLING (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface BillItem {
@@ -282,7 +293,7 @@ export interface Bill {
   attendanceId: string;
   admissionId?: string;
   
-  items: BillItem[];
+  items: BillItem[]; // Stored as JSON in backend
   subtotal: number;
   discount: number;
   taxAmount: number;
@@ -295,11 +306,10 @@ export interface Bill {
   status: BillStatus;
   paymentMode: PaymentMode;
   
-  // Insurance information
   insuranceProviderId?: string;
   preAuthNumber?: string;
   claimNumber?: string;
-  claimStatus: ClaimStatus;
+  claimStatus: ClaimStatus; // Added from backend
   
   createdById: string;
   updatedById?: string;
@@ -318,13 +328,13 @@ export interface Bill {
 }
 
 // ======================
-// INSURANCE (UPDATED TO MATCH BACKEND PRISMA)
+// INSURANCE (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface InsuranceProvider {
   id: string;
   name: string;
-  type: 'nhis' | 'private';
+  type: InsuranceType;
   coveragePercentage: number;
   isActive: boolean;
   contactInfo?: any;
@@ -353,6 +363,10 @@ export interface InsuranceClaim {
   preAuthNumber?: string;
   diagnosisCodes: string[];
   procedureCodes: string[];
+  labTestCodes: string[]; // Added from backend
+  medicationCodes: string[]; // Added from backend
+  scanCodes: string[]; // Added from backend
+  serviceCodes: string[]; // Added from backend
   notes?: string;
   
   createdById: string;
@@ -370,31 +384,19 @@ export interface InsuranceClaim {
 }
 
 // ======================
-// CLINICAL TEMPLATES (UPDATED TO MATCH BACKEND PRISMA)
+// CLINICAL TEMPLATES (UPDATED TO MATCH BACKEND)
 // ======================
-
-export type DiagnosisVariant = 'adult' | 'child' | 'complicated' | 'uncomplicated';
-export type DiagnosisCategory = 'medical' | 'surgical' | 'obstetric' | 'pediatric' | 'psychiatric';
 
 export interface Diagnosis {
   id: string;
   name: string;
   icdCode: string;
   gdrgCode: string;
-  variant?: DiagnosisVariant;
   description?: string;
-  isPending: boolean;
-  requiresAuthorization: boolean;
-  tariffCode?: string;
-  isChronic: boolean;
-  isNHISCovered: boolean;
   category: DiagnosisCategory;
   createdAt: string;
   updatedAt: string;
 }
-
-export type LabCategory = 'hematology' | 'biochemistry' | 'microbiology' | 'serology' | 'immunology' | 'toxicology' | 'molecular' | 'cytology' | 'histopathology';
-export type SpecimenType = 'blood' | 'urine' | 'stool' | 'csf' | 'sputum' | 'fluid' | 'semen' | 'tissue' | 'saliva' | 'swab' | 'other';
 
 export interface LabTestTemplate {
   id: string;
@@ -408,9 +410,7 @@ export interface LabTestTemplate {
   insurancePrice: number;
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
-  isPending: boolean;
+  isActive: boolean; // Added from backend
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -419,8 +419,6 @@ export interface LabTestTemplate {
   createdAt: string;
   updatedAt: string;
 }
-
-export type ProcedureCategory = 'surgical' | 'diagnostic' | 'therapeutic' | 'obstetric' | 'pediatric' | 'dental' | 'ophthalmic';
 
 export interface ProcedureTemplate {
   id: string;
@@ -434,9 +432,7 @@ export interface ProcedureTemplate {
   insurancePrice: number;
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
-  isPending: boolean;
+  isActive: boolean; // Added from backend
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -444,9 +440,6 @@ export interface ProcedureTemplate {
   createdAt: string;
   updatedAt: string;
 }
-
-export type ScanCategory = 'xray' | 'ultrasound' | 'ct_scan' | 'mri' | 'fluoroscopy' | 'mammography' | 'nuclear' | 'pet_scan' | 'other';
-export type BodyPart = 'head' | 'chest' | 'neck' | 'abdomen' | 'pelvis' | 'spine' | 'extremities' | 'breast' | 'other';
 
 export interface ScanTemplate {
   id: string;
@@ -461,9 +454,7 @@ export interface ScanTemplate {
   insurancePrice: number;
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
-  isPending: boolean;
+  isActive: boolean; // Added from backend
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -491,12 +482,10 @@ export interface StockItem {
   insurancePrice: number;
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
   supplier?: string;
   expiryDate?: string;
   batchNumber?: string;
-  isPending: boolean;
+  isActive: boolean; // Added from backend
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -506,7 +495,7 @@ export interface StockItem {
 }
 
 // ======================
-// CLINICAL ENTRIES (UPDATED TO MATCH BACKEND PRISMA)
+// CLINICAL ENTRIES (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface Vitals {
@@ -575,7 +564,7 @@ export interface LabTest {
   verifiedById?: string;
   notes?: string;
   createdById: string;
-  priority: Priority;
+  priority: Priority; // Added from backend
   createdAt: string;
   updatedAt: string;
   
@@ -628,7 +617,7 @@ export interface Scan {
   verifiedById?: string;
   imageUrls: string[];
   createdById: string;
-  priority: ScanPriority;
+  priority: ScanPriority; // Added from backend
   createdAt: string;
   updatedAt: string;
   
@@ -640,7 +629,7 @@ export interface Scan {
 }
 
 // ======================
-// ADMISSIONS & WARDS (UPDATED TO MATCH BACKEND PRISMA)
+// ADMISSIONS & WARDS (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface Ward {
@@ -653,10 +642,8 @@ export interface Ward {
   nhisDailyRate?: number;
   insuranceDailyRate: number;
   isNHISCovered: boolean;
-  nhisRequiresAuth: boolean;
   isPrivateInsExempted: boolean;
-  isPending: boolean;
-  requiresAuthorization: boolean;
+  isActive: boolean; // Added from backend
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -684,8 +671,8 @@ export interface AdmissionSecondaryDiagnosis {
   admissionId: string;
   diagnosisId: string;
   icdCode: string;
-  presentOnAdmission: PresentOnAdmission;
-  diagnosisType: SecondaryDiagnosisType;
+  presentOnAdmission: PresentOnAdmission; // Added from backend
+  diagnosisType: SecondaryDiagnosisType; // Added from backend
   createdAt: string;
   
   admission?: Admission;
@@ -719,15 +706,15 @@ export interface Admission {
   dischargeDate?: string;
   dischargeTime?: string;
   dischargeSummary?: string;
-  dailyNotes: DailyNote[];
+  dailyNotes?: any;
   createdBy: string;
-  admissionType: AdmissionType;
-  admissionSource: AdmissionSource;
-  dischargeStatus?: DischargeStatus;
+  admissionType: AdmissionType; // Added from backend
+  admissionSource: AdmissionSource; // Added from backend
+  dischargeStatus?: DischargeStatus; // Added from backend
   lengthOfStay: number;
   principalDiagnosisId: string;
   principalIcdCode: string;
-  principalPresentOnAdmission: PresentOnAdmission;
+  principalPresentOnAdmission: PresentOnAdmission; // Added from backend
   createdAt: string;
   updatedAt: string;
   
@@ -741,7 +728,7 @@ export interface Admission {
 }
 
 // ======================
-// SERVICE CATALOG (UPDATED TO MATCH BACKEND PRISMA)
+// SERVICE CATALOG (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface ServiceCatalog {
@@ -757,12 +744,10 @@ export interface ServiceCatalog {
   nhisServiceCode?: string;
   isNHISCovered: boolean;
   tariffCode?: string;
-  nhisCoverageType: NHISCoverageType;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
+  nhisCoverageType: NHISCoverageType; // Added from backend
   isPrivateInsuranceExempted: boolean;
   unit: string;
-  isPending: boolean;
+  isActive: boolean; // Added from backend
   requiresClinicalNotes: boolean;
   vatRate: number;
   isTaxable: boolean;
@@ -787,7 +772,7 @@ export interface ServiceCatalog {
 }
 
 // ======================
-// APPOINTMENTS (UPDATED TO MATCH BACKEND PRISMA)
+// APPOINTMENTS (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface Appointment {
@@ -818,7 +803,102 @@ export interface Appointment {
 }
 
 // ======================
-// DEPARTMENTS
+// STOCK & INVENTORY (UPDATED TO MATCH BACKEND)
+// ======================
+
+export interface StockTransaction {
+  id: string;
+  stockItemId: string;
+  transactionType: StockTransactionType;
+  quantity: number;
+  balanceAfter: number;
+  reference?: string;
+  notes?: string;
+  transactionDate: string;
+  performedBy: string;
+  requisitionId?: string;
+  invoiceId?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  stockItem?: StockItem;
+  requisition?: Requisition;
+  invoice?: Invoice;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  supplierName: string;
+  invoiceDate: string;
+  totalAmount: number;
+  notes?: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  createdBy?: User;
+  invoiceItems: InvoiceItem[];
+  stockTransactions: StockTransaction[];
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoiceId: string;
+  stockItemId: string;
+  quantity: number;
+  unitCost: number;
+  batchNumber?: string;
+  expiryDate?: string;
+  createdAt: string;
+  
+  stockItem?: StockItem;
+  invoice?: Invoice;
+}
+
+export interface Requisition {
+  id: string;
+  requisitionNumber: string;
+  requestingDepartmentId: string;
+  requestedById: string;
+  urgency: RequisitionUrgency;
+  requiredDate?: string;
+  purpose?: string;
+  status: RequisitionStatus;
+  approvedById?: string;
+  approvedAt?: string;
+  fulfilledById?: string;
+  fulfilledAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  requestingDepartment?: Department;
+  requestedBy?: User;
+  approvedBy?: User;
+  fulfilledBy?: User;
+  requisitionItems: RequisitionItem[];
+  stockTransactions: StockTransaction[];
+}
+
+export interface RequisitionItem {
+  id: string;
+  requisitionId: string;
+  stockItemId: string;
+  quantityRequested: number;
+  quantityApproved?: number;
+  quantityFulfilled: number;
+  purpose?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  stockItem?: StockItem;
+  requisition?: Requisition;
+}
+
+// ======================
+// OTHER TYPES (UPDATED TO MATCH BACKEND)
 // ======================
 
 export interface Department {
@@ -835,11 +915,8 @@ export interface Department {
   head?: User;
   users: User[];
   appointments: Appointment[];
+  requisitions: Requisition[];
 }
-
-// ======================
-// NOTIFICATIONS
-// ======================
 
 export interface Notification {
   id: string;
@@ -859,11 +936,19 @@ export interface Notification {
   user?: User;
 }
 
-// ======================
-// HOSPITAL & GDRG TARIFFS
-// ======================
-
-export type FacilityType = 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
+export interface ConsultationType {
+  id: string;
+  name: string;
+  code: string;
+  cashPrice: number;
+  nhisPrice: number;
+  insurancePrice: number;
+  isNHISCovered: boolean;
+  isPrivateInsExempted: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface HospitalInfo {
   id: string;
@@ -900,45 +985,7 @@ export interface GDRGTariff {
 }
 
 // ======================
-// STOCK TRANSACTIONS
-// ======================
-
-export interface StockTransaction {
-  id: string;
-  stockItemId: string;
-  transactionType: string;
-  quantity: number;
-  balanceAfter: number;
-  reference?: string;
-  notes?: string;
-  transactionDate: string;
-  performedBy: string;
-  createdAt: string;
-  updatedAt: string;
-  
-  stockItem?: StockItem;
-}
-
-// ======================
-// CONSULTATION TYPES
-// ======================
-
-export interface ConsultationType {
-  id: string;
-  name: string;
-  code: string;
-  cashPrice: number;
-  nhisPrice: number;
-  insurancePrice: number;
-  isNHISCovered: boolean;
-  isPrivateInsExempted: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ======================
-// UTILITY TYPES
+// UTILITY TYPES (UNCHANGED)
 // ======================
 
 export interface Pagination {

@@ -10,25 +10,27 @@ const prisma = new PrismaClient();
 const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
 
-
-// Helper function to calculate age
-function calculateAge(dateOfBirth: string | Date): number {
+// Helper function to calculate age with months
+function calculateAgeWithMonths(dateOfBirth: string | Date): { years: number, months: number, display: string } {
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
+  
+  let years = today.getFullYear() - birthDate.getFullYear();
+  let months = today.getMonth() - birthDate.getMonth();
+  
+  if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+    years--;
+    months += 12;
   }
+  if (today.getDate() < birthDate.getDate()) months--;
 
-  return age;
-}
+  let display = '';
+  if (years === 0 && months === 0) display = 'Newborn';
+  else if (years === 0) display = `${months} month${months !== 1 ? 's' : ''}`;
+  else if (months === 0) display = `${years} year${years !== 1 ? 's' : ''}`;
+  else display = `${years} year${years !== 1 ? 's' : ''} ${months} month${months !== 1 ? 's' : ''}`;
 
-// Helper function to validate email
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return { years, months, display };
 }
 
 // Helper function to normalize date for backend
@@ -43,7 +45,6 @@ function normalizeDateForBackend(dateString: string): Date {
     throw new Error(`Invalid date format: ${dateString}`);
   }
 }
-
 
 export const getPatients = async (req: AuthRequest, res: Response) => {
   try {
@@ -66,7 +67,7 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build where clause for filtering - FIXED SEARCH TO HANDLE FULL NAME
+    // Build where clause for filtering
     const where: any = {};
 
     if (search) {
@@ -125,7 +126,7 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
       take: limitNum
     });
 
-    // PROPERLY Add fullName field by combining surname + otherNames
+    // Add fullName field by combining surname + otherNames
     const patientsWithFullName = patients.map(patient => ({
       ...patient,
       fullName: `${patient.surname} ${patient.otherNames}`.trim()
@@ -268,7 +269,7 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
             doctor: {
               select: {
                 id: true,
-                fullName: true, // This comes from User model
+                fullName: true,
                 username: true
               }
             },
@@ -291,7 +292,7 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // PROPERLY Add fullName by combining surname + otherNames
+    // Add fullName by combining surname + otherNames
     const patientWithFullName = {
       ...patient,
       fullName: `${patient.surname} ${patient.otherNames}`.trim()
@@ -314,7 +315,7 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
 };
 
 export const createPatient = [
-  // Validation rules - CORRECTLY USING SURNAME AND OTHER NAMES
+  // Validation rules
   body('surname').notEmpty().withMessage('Surname is required').trim().escape(),
   body('otherNames').notEmpty().withMessage('Other names are required').trim().escape(),
   body('gender').isIn(['male', 'female', 'other']).withMessage('Valid gender is required'),
@@ -413,17 +414,20 @@ export const createPatient = [
 
       const folderNumber = `PAT-${nextNumber}`;
 
-      // Calculate age
-      const age = calculateAge(dateOfBirth);
+      // Calculate age with months
+      const ageData = calculateAgeWithMonths(dateOfBirth);
 
-      // Prepare patient data - CORRECTLY USING SURNAME AND OTHER NAMES
+      // Prepare patient data - REMOVE ageDisplay
       const patientData = {
         folderNumber,
         surname: req.body.surname,
         otherNames: req.body.otherNames,
         gender: req.body.gender as Gender,
         dateOfBirth: dateOfBirth,
-        age,
+        age: ageData.years,
+        ageInMonths: ageData.months,
+        // ❌ REMOVE THIS LINE - ageDisplay is not in Prisma model
+        // ageDisplay: ageData.display,
         contact: req.body.contact,
         address: req.body.address,
         paymentMode: req.body.paymentMode as PaymentMode,
@@ -433,7 +437,7 @@ export const createPatient = [
         employer: req.body.employer || {},
         imageUrl: req.body.imageUrl,
         insuranceProviderId,
-        registeredBy: req.user?.id || 'system' // Use ID instead of name for consistency
+        registeredBy: req.user?.id || 'system'
       };
 
       // Create patient with transaction for data consistency
@@ -455,7 +459,7 @@ export const createPatient = [
         return newPatient;
       });
 
-      // PROPERLY Add fullName by combining surname + otherNames
+      // Add fullName by combining surname + otherNames
       const patientWithFullName = {
         ...patient,
         fullName: `${patient.surname} ${patient.otherNames}`.trim()
@@ -479,7 +483,7 @@ export const createPatient = [
 ];
 
 export const updatePatient = [
-  // Validation rules for update - CORRECTLY USING SURNAME AND OTHER NAMES
+  // Validation rules for update
   body('surname').optional().notEmpty().withMessage('Surname cannot be empty').trim().escape(),
   body('otherNames').optional().notEmpty().withMessage('Other names cannot be empty').trim().escape(),
   body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Valid gender is required'),
@@ -528,10 +532,28 @@ export const updatePatient = [
       // Prepare update data
       const updateData: any = { ...req.body };
 
-      // Handle date conversion
+      // ❌ REMOVE ageDisplay since it's not in Prisma model
+      if (updateData.ageDisplay !== undefined) {
+        delete updateData.ageDisplay;
+      }
+
+      // Prevent folder number updates
+      if (updateData.folderNumber) {
+        delete updateData.folderNumber;
+      }
+
+      // Handle date conversion and age calculation
       if (req.body.dateOfBirth) {
         updateData.dateOfBirth = normalizeDateForBackend(req.body.dateOfBirth);
-        updateData.age = calculateAge(req.body.dateOfBirth);
+        const ageData = calculateAgeWithMonths(req.body.dateOfBirth);
+        updateData.age = ageData.years;
+        updateData.ageInMonths = ageData.months;
+        // Don't set ageDisplay here since it's not in the model
+      }
+
+      // Handle ageInMonths when provided separately
+      if (req.body.ageInMonths !== undefined) {
+        updateData.ageInMonths = req.body.ageInMonths;
       }
 
       // Handle insurance provider ID
@@ -560,7 +582,7 @@ export const updatePatient = [
         }
       });
 
-      // PROPERLY Add fullName by combining surname + otherNames
+      // Add fullName by combining surname + otherNames
       const patientWithFullName = {
         ...patient,
         fullName: `${patient.surname} ${patient.otherNames}`.trim()
@@ -584,7 +606,7 @@ export const updatePatient = [
   }
 ];
 
-
+// ... rest of the functions (deletePatient, uploadPatientImage, uploadPatientImageBase64, getPatientStats) remain the same
 export const deletePatient = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;

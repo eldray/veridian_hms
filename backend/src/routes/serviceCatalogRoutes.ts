@@ -1,6 +1,6 @@
-// routes/serviceCatalogRoutes.ts - FIXED
+// routes/serviceCatalogRoutes.ts - UPDATED
 import express from 'express';
-import * as serviceCatalogController from '../controllers/serviceCatalogController'; // ✅ FIXED: Import all
+import * as serviceCatalogController from '../controllers/serviceCatalogController';
 import { protect, requireAdmin, requireAccountsStaff, requireRole } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -20,14 +20,17 @@ router.get('/nhis-report', requireAccountsStaff, serviceCatalogController.getNHI
 // GET /api/service-catalog/nhis/:nhisCode - Get service by NHIS code
 router.get('/nhis/:nhisCode', serviceCatalogController.getServiceByNHISCode);
 
-// ✅ ADDED: Get services by category
+// GET /api/service-catalog/category/:category - Get services by category
 router.get('/category/:category', serviceCatalogController.getServicesByCategory);
 
-// ✅ ADDED: Check service coverage
+// POST /api/service-catalog/check-coverage - Check service coverage
 router.post('/check-coverage', serviceCatalogController.checkServiceCoverage);
 
-// ✅ ADDED: Calculate service cost
+// POST /api/service-catalog/calculate-cost - Calculate service cost
 router.post('/calculate-cost', serviceCatalogController.calculateServiceCost);
+
+// POST /api/service-catalog/bulk-update-nhis - Bulk update NHIS codes
+router.post('/bulk-update-nhis', requireRole(['admin', 'accounts']), serviceCatalogController.bulkUpdateNHISCodes);
 
 // GET /api/service-catalog/:id - Get service catalog item by ID
 router.get('/:id', serviceCatalogController.getServiceCatalogById);

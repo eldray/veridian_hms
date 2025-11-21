@@ -1,37 +1,44 @@
-// services/EnhancedBillingService.ts
+// services/BillingService.ts - COMPLETE UPDATED VERSION
 import { PrismaClient, PaymentMode } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
-interface BillingCalculation {
+export interface BillingCalculation {
   cashPrice: number;
+  nhisPrice: number;
+  insurancePrice: number;
   insuranceCovered: number;
   patientPayable: number;
-  copayAmount: number;
-  isExempted: boolean;
   requiresAuthorization: boolean;
-  coverageType?: string;
+  coverageType: 'full' | 'partial' | 'not_covered';
+  isExempted: boolean;
+  copayAmount: number;
 }
 
-interface BillItem {
-  serviceId: string;
+export interface ServiceCoverage {
+  isCovered: boolean;
+  coverageType: 'full' | 'partial' | 'not_covered';
+  requiresAuthorization: boolean;
+  patientResponsibility: number;
+  insuranceCovered: number;
+  isExempted: boolean;
+  notes?: string;
+}
+
+export interface BillItem {
+  serviceCatalogId: string; // ✅ UPDATED: serviceId → serviceCatalogId
   serviceName: string;
   serviceCode: string;
   nhisServiceCode?: string;
   quantity: number;
-  
-  // PRICING FIELDS
   cashPrice: number;
   nhisPrice: number;
   insurancePrice: number;
   unitPrice: number;
   totalCashPrice: number;
-  
-  // Coverage breakdown
   insuranceCovered: number;
   patientCopay: number;
   patientPayable: number;
-  
-  // Metadata
   isExempted: boolean;
   requiresAuth: boolean;
   coverageType?: string;
@@ -39,190 +46,198 @@ interface BillItem {
 }
 
 export class BillingService {
-  
-  /**
-   * 🎯 CORRECTED BILLING CALCULATION ENGINE
-   */
   static async calculateServiceBilling(
-    serviceId: string,
+    serviceCatalogId: string, // ✅ UPDATED: serviceId → serviceCatalogId
     quantity: number,
     paymentMode: PaymentMode,
     insuranceProvider?: any
   ): Promise<BillingCalculation> {
-    
     const service = await prisma.serviceCatalog.findUnique({
-      where: { id: serviceId }
+      where: { id: serviceCatalogId }, // ✅ UPDATED
+      include: { pricing: true }
     });
 
     if (!service) {
       throw new Error('Service not found');
     }
 
-    const totalCashPrice = service.cashPrice * quantity;
-    
-    // ==================== CASH PAYMENT ====================
-    if (paymentMode === 'cash') {
-      return {
-        cashPrice: totalCashPrice,
-        insuranceCovered: 0,
-        patientPayable: totalCashPrice,
-        copayAmount: 0,
-        isExempted: false,
-        requiresAuthorization: false
-      };
+    if (!service.pricing) {
+      throw new Error('Service pricing not configured');
     }
-    
-    // ==================== NHIS PAYMENT ====================
-    if (paymentMode === 'nhis') {
-      // Check if service is NHIS covered
-      if (!service.isNHISCovered || service.nhisCoverageType === 'not_covered') {
-        return {
-          cashPrice: totalCashPrice,
-          insuranceCovered: 0,
-          patientPayable: totalCashPrice,
-          copayAmount: 0,
-          isExempted: true,
-          requiresAuthorization: false,
-          coverageType: 'not_covered'
-        };
-      }
-      
-      // NHIS pays their predetermined price, patient pays difference
-      const nhisCovered = service.nhisPrice * quantity; // What NHIS will pay (their tariff)
-      const patientCopay = Math.max(0, totalCashPrice - nhisCovered); // Patient pays difference
-      
-      return {
-        cashPrice: totalCashPrice,
-        insuranceCovered: nhisCovered, // NHIS pays their tariff
-        patientPayable: patientCopay,  // Patient pays difference
-        copayAmount: patientCopay,
-        isExempted: false,
-        requiresAuthorization: service.nhisRequiresAuth,
-        coverageType: service.nhisCoverageType
-      };
+
+    const baseCashPrice = service.pricing.cashPrice * quantity;
+    const baseNHISPrice = service.pricing.nhisPrice * quantity;
+    const baseInsurancePrice = service.pricing.insurancePrice * quantity;
+
+    let insuranceCovered = 0;
+    let patientPayable = 0;
+    let requiresAuthorization = false;
+    let isExempted = false;
+    let copayAmount = 0;
+
+    switch (paymentMode) {
+      case 'cash':
+        patientPayable = baseCashPrice;
+        insuranceCovered = 0;
+        requiresAuthorization = false;
+        isExempted = false;
+        break;
+
+      case 'nhis':
+        if (!service.isNHISCovered) {
+          isExempted = true;
+          insuranceCovered = 0;
+          patientPayable = baseCashPrice;
+        } else {
+          requiresAuthorization = service.requiresAuthorization || false;
+          
+          if (service.nhisCoverageType === 'full') {
+            insuranceCovered = baseNHISPrice;
+            patientPayable = 0;
+            copayAmount = 0;
+          } else if (service.nhisCoverageType === 'partial') {
+            insuranceCovered = baseNHISPrice;
+            patientPayable = Math.max(0, baseCashPrice - baseNHISPrice);
+            copayAmount = patientPayable;
+          } else {
+            insuranceCovered = 0;
+            patientPayable = baseCashPrice;
+            isExempted = true;
+          }
+        }
+        break;
+
+      case 'private_insurance':
+        if (!insuranceProvider) {
+          throw new Error('Insurance provider required for private insurance billing');
+        }
+
+        // ✅ UPDATED: Check if service is covered by private insurance
+        const isPrivateCovered = service.isNHISCovered !== false; // Default to true if not specified
+        if (!isPrivateCovered) {
+          isExempted = true;
+          insuranceCovered = 0;
+          patientPayable = baseCashPrice;
+        } else {
+          requiresAuthorization = service.requiresAuthorization || true;
+          const coveragePercentage = insuranceProvider.coveragePercentage || 80;
+          insuranceCovered = (baseInsurancePrice * coveragePercentage) / 100;
+          patientPayable = baseInsurancePrice - insuranceCovered;
+          copayAmount = patientPayable;
+        }
+        break;
     }
-    
-    // ==================== PRIVATE INSURANCE PAYMENT ====================
-    if (paymentMode === 'private_insurance') {
-      if (!insuranceProvider) {
-        throw new Error('Insurance provider required for private insurance billing');
-      }
-      
-      // Check if service is EXEMPTED from insurance
-      if (service.isPrivateInsuranceExempted) {
-        return {
-          cashPrice: totalCashPrice,
-          insuranceCovered: 0,
-          patientPayable: totalCashPrice,
-          copayAmount: 0,
-          isExempted: true,
-          requiresAuthorization: false,
-          coverageType: 'exempted'
-        };
-      }
-      
-      // Private insurance: We submit OUR prices, they pay percentage
-      const totalInsurancePrice = service.insurancePrice * quantity;
-      const coverageRate = insuranceProvider.coveragePercentage / 100;
-      const insuranceCovered = totalInsurancePrice * coverageRate;
-      const patientPayable = totalInsurancePrice - insuranceCovered;
-      
-      return {
-        cashPrice: totalCashPrice,
-        insuranceCovered,           // Insurance pays percentage of OUR price
-        patientPayable,             // Patient pays remaining percentage
-        copayAmount: patientPayable,
-        isExempted: false,
-        requiresAuthorization: service.privateInsRequiresAuth,
-        coverageType: 'covered'
-      };
-    }
-    
-    // Fallback to cash
+
     return {
-      cashPrice: totalCashPrice,
-      insuranceCovered: 0,
-      patientPayable: totalCashPrice,
-      copayAmount: 0,
-      isExempted: false,
-      requiresAuthorization: false
+      cashPrice: baseCashPrice,
+      nhisPrice: baseNHISPrice,
+      insurancePrice: baseInsurancePrice,
+      insuranceCovered,
+      patientPayable,
+      requiresAuthorization,
+      coverageType: service.nhisCoverageType,
+      isExempted,
+      copayAmount
     };
   }
 
-  /**
-   * 🎯 GENERATE PRIVATE INSURANCE CLAIM DATA
-   */
-  static async generatePrivateInsuranceClaim(attendanceId: string) {
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      include: {
-        patient: true,
-        insuranceProvider: true,
-        servicesRendered: {
-          include: {
-            serviceItem: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                insurancePrice: true, // OUR price for insurance
-                serviceCategory: true
-              }
-            }
-          }
-        },
-        bill: true
-      }
+  static async validateServiceCoverage(
+    serviceCatalogId: string, // ✅ UPDATED
+    paymentMode: PaymentMode,
+    insuranceProvider?: any
+  ): Promise<ServiceCoverage> {
+    const service = await prisma.serviceCatalog.findUnique({
+      where: { id: serviceCatalogId }, // ✅ UPDATED
+      include: { pricing: true }
     });
 
-    if (!attendance) throw new Error('Attendance not found');
-    if (!attendance.insuranceProvider) throw new Error('Insurance provider not found');
+    if (!service) {
+      throw new Error('Service not found');
+    }
 
-    const claimItems = attendance.servicesRendered.map(service => ({
-      serviceCode: service.serviceItem.code,
-      serviceName: service.serviceItem.name,
-      serviceCategory: service.serviceItem.serviceCategory,
-      quantity: service.quantity,
-      unitPrice: service.serviceItem.insurancePrice, // OUR submitted price
-      totalPrice: service.quantity * service.serviceItem.insurancePrice
-    }));
+    let isCovered = true;
+    let requiresAuthorization = false;
+    let notes = '';
+    let patientResponsibility = 0;
+    let insuranceCovered = 0;
+    let isExempted = false;
 
-    const totalClaimAmount = claimItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const insuranceCoverage = attendance.insuranceProvider.coveragePercentage / 100;
-    const insurancePays = totalClaimAmount * insuranceCoverage;
-    const patientPaid = totalClaimAmount - insurancePays;
+    switch (paymentMode) {
+      case 'cash':
+        patientResponsibility = service.pricing?.cashPrice || 0;
+        insuranceCovered = 0;
+        notes = 'Patient pays full amount';
+        break;
+
+      case 'nhis':
+        if (!service.isNHISCovered) {
+          isCovered = false;
+          isExempted = true;
+          notes = 'Service not covered by NHIS';
+          patientResponsibility = service.pricing?.cashPrice || 0;
+        } else {
+          requiresAuthorization = service.requiresAuthorization || false;
+          
+          if (service.nhisCoverageType === 'full') {
+            insuranceCovered = service.pricing?.nhisPrice || 0;
+            patientResponsibility = 0;
+            notes = 'NHIS covers full cost';
+          } else if (service.nhisCoverageType === 'partial') {
+            insuranceCovered = service.pricing?.nhisPrice || 0;
+            patientResponsibility = (service.pricing?.cashPrice || 0) - insuranceCovered;
+            notes = `NHIS partial coverage - patient copay: GHS ${patientResponsibility.toFixed(2)}`;
+          } else {
+            insuranceCovered = 0;
+            patientResponsibility = service.pricing?.cashPrice || 0;
+            isExempted = true;
+            notes = 'Service listed but not covered by NHIS';
+          }
+        }
+        break;
+
+      case 'private_insurance':
+        if (!insuranceProvider) {
+          throw new Error('Insurance provider required');
+        }
+
+        const isPrivateCovered = service.isNHISCovered !== false;
+        if (!isPrivateCovered) {
+          isCovered = false;
+          isExempted = true;
+          notes = 'Service not covered by private insurance';
+          patientResponsibility = service.pricing?.cashPrice || 0;
+        } else {
+          requiresAuthorization = service.requiresAuthorization || true;
+          const coveragePercentage = insuranceProvider.coveragePercentage || 80;
+          insuranceCovered = ((service.pricing?.insurancePrice || 0) * coveragePercentage) / 100;
+          patientResponsibility = (service.pricing?.insurancePrice || 0) - insuranceCovered;
+          notes = `Covered at ${coveragePercentage}% by ${insuranceProvider.name}`;
+        }
+        break;
+    }
 
     return {
-      claimType: 'PRIVATE_INSURANCE',
-      insuranceProvider: attendance.insuranceProvider.name,
-      coveragePercentage: attendance.insuranceProvider.coveragePercentage,
-      patient: {
-        name: attendance.patient.fullName,
-        insuranceId: attendance.patient.insuranceDetails?.memberId || 'N/A'
-      },
-      services: claimItems,
-      financials: {
-        totalClaimAmount,
-        insurancePays,
-        patientPaid,
-        coverageRate: insuranceCoverage
-      },
-      attendanceId: attendance.id,
-      billId: attendance.bill?.id
+      isCovered,
+      coverageType: service.nhisCoverageType,
+      requiresAuthorization,
+      patientResponsibility,
+      insuranceCovered,
+      isExempted,
+      notes
     };
   }
 
-  /**
-   * 🎯 GENERATE COMPLETE BILL FROM ATTENDANCE
-   */
   static async generateBillFromAttendance(attendanceId: string) {
     return await prisma.$transaction(async (tx) => {
-      
       const attendance = await tx.attendance.findUnique({
         where: { id: attendanceId },
         include: {
           servicesRendered: {
-            include: { serviceItem: true }
+            include: { 
+              serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
+                include: { pricing: true }
+              }
+            }
           },
           patient: true,
           insuranceProvider: true
@@ -252,8 +267,8 @@ export class BillingService {
       let requiresAuthorization = false;
 
       for (const rendered of attendance.servicesRendered) {
-        const service = rendered.serviceItem;
-        if (!service) continue;
+        const service = rendered.serviceCatalog; // ✅ UPDATED
+        if (!service || !service.pricing) continue;
 
         const calculation = await this.calculateServiceBilling(
           service.id,
@@ -271,13 +286,15 @@ export class BillingService {
         if (calculation.requiresAuthorization) requiresAuthorization = true;
 
         billItems.push({
-          serviceId: service.id,
+          serviceCatalogId: service.id, // ✅ UPDATED
           serviceName: service.name,
           serviceCode: service.code,
           nhisServiceCode: service.nhisServiceCode || undefined,
           quantity: rendered.quantity,
-          cashPrice: service.cashPrice,
-          unitPrice: service.cashPrice,
+          cashPrice: service.pricing.cashPrice,
+          nhisPrice: service.pricing.nhisPrice,
+          insurancePrice: service.pricing.insurancePrice,
+          unitPrice: service.pricing.cashPrice,
           totalCashPrice: calculation.cashPrice,
           insuranceCovered: calculation.insuranceCovered,
           patientCopay: calculation.copayAmount,
@@ -303,7 +320,7 @@ export class BillingService {
         patientPayable: totalPatientPayable,
         paidAmount: 0,
         balance: totalPatientPayable,
-        status: totalPatientPayable <= 0 ? ('paid' as const) : ('pending' as const)
+        status: totalPatientPayable <= 0 ? 'paid' as const : 'pending' as const
       };
 
       if (!bill) {
@@ -311,7 +328,6 @@ export class BillingService {
           data: {
             patientId: attendance.patientId,
             attendanceId: attendance.id,
-            admissionId: attendance.admissionId,
             paymentMode: attendance.paymentMode,
             insuranceProviderId: attendance.insuranceProviderId,
             billNumber: `BILL-${Date.now()}`,
@@ -330,7 +346,6 @@ export class BillingService {
       await tx.attendance.update({
         where: { id: attendanceId },
         data: {
-          billId: bill.id,
           totalBill: totalCashPrice,
           outstandingBalance: totalPatientPayable
         }
@@ -352,15 +367,16 @@ export class BillingService {
     });
   }
 
-  /**
-   * 🎯 GET BILLING BREAKDOWN FOR DISPLAY
-   */
   static async getBillingBreakdown(attendanceId: string) {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
         servicesRendered: {
-          include: { serviceItem: true }
+          include: { 
+            serviceCatalog: { // ✅ UPDATED
+              include: { pricing: true }
+            }
+          }
         },
         insuranceProvider: true,
         bill: true
@@ -387,7 +403,8 @@ export class BillingService {
           opd: [] as any[],
           ipd: [] as any[],
           diagnostics: [] as any[],
-          pharmacy: [] as any[]
+          pharmacy: [] as any[],
+          other: [] as any[]
         }
       },
       
@@ -405,8 +422,8 @@ export class BillingService {
     };
 
     for (const rendered of attendance.servicesRendered) {
-      const service = rendered.serviceItem;
-      if (!service) continue;
+      const service = rendered.serviceCatalog; // ✅ UPDATED
+      if (!service || !service.pricing) continue;
 
       const calculation = await this.calculateServiceBilling(
         service.id,
@@ -452,73 +469,52 @@ export class BillingService {
     return breakdown;
   }
 
-  /**
-   * 🎯 VALIDATE INSURANCE COVERAGE FOR SERVICE
-   */
-  static async validateServiceCoverage(
-    serviceId: string,
+  static async calculateBillTotal(
+    serviceItems: Array<{
+      serviceCatalogId: string; // ✅ UPDATED
+      quantity: number;
+    }>,
     paymentMode: PaymentMode,
-    insuranceProviderId?: string
+    insuranceProvider?: any
   ) {
-    const service = await prisma.serviceCatalog.findUnique({
-      where: { id: serviceId }
-    });
+    let totalCash = 0;
+    let totalNHIS = 0;
+    let totalInsurance = 0;
+    let totalInsuranceCovered = 0;
+    let totalPatientPayable = 0;
+    const items = [];
 
-    if (!service) {
-      throw new Error('Service not found');
-    }
+    for (const item of serviceItems) {
+      const calculation = await this.calculateServiceBilling(
+        item.serviceCatalogId, // ✅ UPDATED
+        item.quantity,
+        paymentMode,
+        insuranceProvider
+      );
 
-    let insuranceProvider = null;
-    if (insuranceProviderId) {
-      insuranceProvider = await prisma.insuranceProvider.findUnique({
-        where: { id: insuranceProviderId }
+      totalCash += calculation.cashPrice;
+      totalNHIS += calculation.nhisPrice;
+      totalInsurance += calculation.insurancePrice;
+      totalInsuranceCovered += calculation.insuranceCovered;
+      totalPatientPayable += calculation.patientPayable;
+
+      items.push({
+        serviceCatalogId: item.serviceCatalogId, // ✅ UPDATED
+        quantity: item.quantity,
+        calculation
       });
     }
 
-    const calculation = await this.calculateServiceBilling(
-      serviceId,
-      1,
-      paymentMode,
-      insuranceProvider
-    );
-
     return {
-      isCovered: calculation.insuranceCovered > 0,
-      isExempted: calculation.isExempted,
-      requiresAuthorization: calculation.requiresAuthorization,
-      patientWillPay: calculation.patientPayable,
-      insuranceWillCover: calculation.insuranceCovered,
-      coverageType: calculation.coverageType,
-      message: this.getCoverageMessage(calculation, paymentMode)
+      subtotal: totalCash,
+      insuranceCovered: totalInsuranceCovered,
+      patientPayable: totalPatientPayable,
+      items,
+      summary: {
+        cashTotal: totalCash,
+        nhisTotal: totalNHIS,
+        insuranceTotal: totalInsurance
+      }
     };
-  }
-
-  /**
-   * Helper: Generate user-friendly coverage message
-   */
-  private static getCoverageMessage(calc: BillingCalculation, mode: PaymentMode): string {
-    if (mode === 'cash') {
-      return 'Patient pays full amount';
-    }
-
-    if (calc.isExempted) {
-      return 'Service not covered by insurance - patient pays full amount';
-    }
-
-    if (mode === 'nhis') {
-      if (calc.coverageType === 'full') {
-        return 'NHIS covers full cost - patient pays nothing';
-      }
-      if (calc.coverageType === 'partial') {
-        return `NHIS covers part - patient pays GHS ${calc.copayAmount.toFixed(2)} copay`;
-      }
-      return 'Not covered by NHIS - patient pays full amount';
-    }
-
-    if (mode === 'private_insurance') {
-      return `Insurance covers GHS ${calc.insuranceCovered.toFixed(2)} - patient pays GHS ${calc.patientPayable.toFixed(2)}`;
-    }
-
-    return 'Payment calculation available';
   }
 }

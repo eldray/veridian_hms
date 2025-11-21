@@ -947,17 +947,48 @@ async function calculateMortalityRate(startDate: string, endDate: string): Promi
 }
 
 // Comprehensive Financial Report
+// Add to your reportController.js
 export const getFinancialReport = async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, reportType = 'summary' } = req.query;
+    const { period, dateFrom, dateTo } = req.query;
 
-    const where: any = {};
-    if (startDate || endDate) {
-      where.dateTime = {};
-      if (startDate) where.dateTime.gte = new Date(startDate as string);
-      if (endDate) where.dateTime.lte = new Date(endDate as string);
+    // Handle dashboard request (today period)
+    if (period === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const revenueData = await prisma.bill.aggregate({
+        where: {
+          billDate: {
+            gte: today,
+            lte: endOfToday
+          },
+          status: 'paid'
+        },
+        _sum: {
+          paidAmount: true
+        }
+      });
+
+      return res.json({
+        totalRevenue: revenueData._sum.paidAmount || 0,
+        period: 'today',
+        dateFrom: today,
+        dateTo: endOfToday
+      });
     }
 
+    // Original financial report logic for other cases
+    const where: any = {};
+    if (dateFrom || dateTo) {
+      where.dateTime = {};
+      if (dateFrom) where.dateTime.gte = new Date(dateFrom as string);
+      if (dateTo) where.dateTime.lte = new Date(dateTo as string);
+    }
+
+    // ... rest of your original financial report logic
     const attendances = await prisma.attendance.findMany({
       where,
       include: {
@@ -1002,12 +1033,7 @@ export const getFinancialReport = async (req: Request, res: Response) => {
       return acc;
     }, {} as any);
 
-    const breakdown = Object.values(financialData).map((item: any) => ({
-      ...item,
-      averageBillAmount: item.totalAttendances > 0 
-        ? Math.round((item.totalRevenue / item.totalAttendances) * 100) / 100 
-        : 0
-    }));
+    const breakdown = Object.values(financialData);
 
     // Summary statistics
     const summary = Object.values(financialData).reduce((acc: any, curr: any) => {
@@ -1020,8 +1046,8 @@ export const getFinancialReport = async (req: Request, res: Response) => {
 
     res.json({
       reportPeriod: {
-        startDate: startDate || 'Beginning',
-        endDate: endDate || 'Now'
+        startDate: dateFrom || 'Beginning',
+        endDate: dateTo || 'Now'
       },
       summary,
       breakdown,
@@ -1129,25 +1155,93 @@ otherNames: true,
 };
 
 // Clinical Statistics Report
+// Update your existing getClinicalReport function
 export const getClinicalReport = async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, diagnosisCode, attendingClinician } = req.query;
+    const { period, dateFrom, dateTo, diagnosisCode, attendingClinician } = req.query;
 
+    // Handle dashboard request (30 days period)
+    if (period === '30days') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const endDate = dateTo ? new Date(dateTo as string) : new Date();
+      
+      const clinicalData = await prisma.attendance.findMany({
+        where: {
+          dateTime: {
+            gte: thirtyDaysAgo,
+            lte: endDate
+          }
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              surname: true,
+              otherNames: true,
+              gender: true,
+              dateOfBirth: true
+            }
+          },
+          diagnoses: {
+            include: {
+              diagnosis: {
+                select: {
+                  name: true,
+                  icdCode: true,
+                  category: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { dateTime: 'desc' }
+      });
+
+      // Generate diagnosis trends for dashboard
+      const diagnosisCount: Record<string, number> = {};
+      
+      clinicalData.forEach(attendance => {
+        if (attendance.diagnoses && Array.isArray(attendance.diagnoses)) {
+          attendance.diagnoses.forEach((diag: any) => {
+            const diagnosisName = diag.diagnosis?.name || diag.icdCode || 'Unknown Diagnosis';
+            diagnosisCount[diagnosisName] = (diagnosisCount[diagnosisName] || 0) + 1;
+          });
+        }
+      });
+
+      const diagnosisTrends = Object.entries(diagnosisCount)
+        .map(([disease, patients]) => ({ disease, patients }))
+        .sort((a, b) => b.patients - a.patients)
+        .slice(0, 10);
+
+      return res.json({
+        diagnosisTrends,
+        totalAttendances: clinicalData.length,
+        period: '30days',
+        dateFrom: thirtyDaysAgo,
+        dateTo: endDate
+      });
+    }
+
+    // Original clinical report logic for other cases
     const where: any = {};
-    if (startDate || endDate) {
+    if (dateFrom || dateTo) {
       where.dateTime = {};
-      if (startDate) where.dateTime.gte = new Date(startDate as string);
-      if (endDate) where.dateTime.lte = new Date(endDate as string);
+      if (dateFrom) where.dateTime.gte = new Date(dateFrom as string);
+      if (dateTo) where.dateTime.lte = new Date(dateTo as string);
     }
     if (attendingClinician) where.attendingClinician = attendingClinician;
 
+    // ... rest of your original clinical report logic
     const clinicalData = await prisma.attendance.findMany({
       where,
       include: {
         patient: {
           select: {
             surname: true,
-otherNames: true,
+            otherNames: true,
             gender: true,
             dateOfBirth: true
           }
@@ -1157,7 +1251,8 @@ otherNames: true,
             diagnosis: {
               select: {
                 name: true,
-                code: true
+                icdCode: true,
+                category: true
               }
             }
           }
@@ -1176,24 +1271,22 @@ otherNames: true,
       orderBy: { dateTime: 'desc' }
     });
 
-    // Process clinical data
+    // Process clinical data for detailed report
     const clinicalReport = clinicalData.reduce((acc, attendance) => {
       attendance.diagnoses.forEach(diagnosisItem => {
         const diagnosis = diagnosisItem.diagnosis;
         if (!diagnosis) return;
 
-        const key = `${diagnosis.name}-${diagnosis.code}-${attendance.attendingClinician}-${attendance.dateTime.getMonth() + 1}`;
+        const key = `${diagnosis.name}-${diagnosis.icdCode}-${attendance.dateTime.getMonth() + 1}`;
         
         if (!acc[key]) {
           acc[key] = {
             diagnosis: diagnosis.name,
-            icdCode: diagnosis.code,
-            clinician: attendance.attendingClinician,
+            icdCode: diagnosis.icdCode,
             month: attendance.dateTime.getMonth() + 1,
             totalCases: 0,
             ages: [],
-            genders: [],
-            comorbidities: new Set()
+            genders: []
           };
         }
         
@@ -1206,13 +1299,6 @@ otherNames: true,
         }
         
         acc[key].genders.push(attendance.patient.gender);
-        
-        // Add comorbidities from other diagnoses
-        attendance.diagnoses.forEach(d => {
-          if (d.diagnosis && d.diagnosis.name !== diagnosis.name) {
-            acc[key].comorbidities.add(d.diagnosis.name);
-          }
-        });
       });
       
       return acc;
@@ -1223,7 +1309,6 @@ otherNames: true,
       return {
         diagnosis: item.diagnosis,
         icdCode: item.icdCode,
-        clinician: item.clinician,
         month: item.month,
         totalCases: item.totalCases,
         averageAge: item.ages.length > 0 
@@ -1232,14 +1317,13 @@ otherNames: true,
         genderDistribution: {
           male: genders.filter((g: string) => g === 'male').length,
           female: genders.filter((g: string) => g === 'female').length
-        },
-        commonComorbidities: Array.from(item.comorbidities).slice(0, 5)
+        }
       };
     });
 
     res.json({
       reportType: 'Clinical Statistics',
-      period: { startDate, endDate },
+      period: { dateFrom, dateTo },
       clinicalReport: reportData,
       generatedAt: new Date()
     });

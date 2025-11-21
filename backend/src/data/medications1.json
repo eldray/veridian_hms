@@ -13,7 +13,7 @@
     "insurancePrice": 0.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "VITC-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -33,7 +33,7 @@
     "insurancePrice": 1.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MULTIVIT1",
     "vatRate": 0,
     "isTaxable": true,
@@ -53,7 +53,7 @@
     "insurancePrice": 0.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "CALC-CARB1",
     "vatRate": 0,
     "isTaxable": true,
@@ -73,7 +73,7 @@
     "insurancePrice": 0.40,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "ZINC-SULF1",
     "vatRate": 0,
     "isTaxable": true,
@@ -93,7 +93,7 @@
     "insurancePrice": 1.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "VITD3-1K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -113,7 +113,7 @@
     "insurancePrice": 2.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "OMEGA3-1K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -133,7 +133,7 @@
     "insurancePrice": 3.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROBIO-10B1",
     "vatRate": 0,
     "isTaxable": true,
@@ -153,7 +153,7 @@
     "insurancePrice": 0.70,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "L-LYS-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -173,7 +173,7 @@
     "insurancePrice": 4.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "COQ10-1001",
     "vatRate": 0,
     "isTaxable": true,
@@ -193,7 +193,7 @@
     "insurancePrice": 2.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GINK-1201",
     "vatRate": 0,
     "isTaxable": true,
@@ -213,7 +213,7 @@
     "insurancePrice": 1.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MILKTH-1501",
     "vatRate": 0,
     "isTaxable": true,
@@ -233,7 +233,7 @@
     "insurancePrice": 1.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "TURM-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -253,7 +253,7 @@
     "insurancePrice": 1.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "ECHIN-4001",
     "vatRate": 0,
     "isTaxable": true,
@@ -273,7 +273,7 @@
     "insurancePrice": 0.90,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GARLIC-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -293,7 +293,7 @@
     "insurancePrice": 0.60,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "BIOTIN-5K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -313,7 +313,7 @@
     "insurancePrice": 5.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "COLLAGEN-10G1",
     "vatRate": 0,
     "isTaxable": true,
@@ -333,7 +333,7 @@
     "insurancePrice": 8.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "L-CARN-1K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -353,7 +353,7 @@
     "insurancePrice": 1.10,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MELAT-3MG1",
     "vatRate": 0,
     "isTaxable": true,
@@ -373,7 +373,7 @@
     "insurancePrice": 2.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "5HTP-1001",
     "vatRate": 0,
     "isTaxable": true,
@@ -393,7 +393,7 @@
     "insurancePrice": 3.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "ASHW-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -413,7 +413,7 @@
     "insurancePrice": 1.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "VALER-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -433,7 +433,7 @@
     "insurancePrice": 2.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "STJW-3001",
     "vatRate": 0,
     "isTaxable": true,
@@ -453,7 +453,7 @@
     "insurancePrice": 4.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GLUC-CHON1",
     "vatRate": 0,
     "isTaxable": true,
@@ -473,7 +473,7 @@
     "insurancePrice": 6.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MSM-1K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -493,7 +493,7 @@
     "insurancePrice": 3.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "HYAL-1001",
     "vatRate": 0,
     "isTaxable": true,
@@ -513,7 +513,7 @@
     "insurancePrice": 2.10,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "L-THEAN1",
     "vatRate": 0,
     "isTaxable": true,
@@ -533,7 +533,7 @@
     "insurancePrice": 4.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "RHOD-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -553,7 +553,7 @@
     "insurancePrice": 2.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GINS-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -573,7 +573,7 @@
     "insurancePrice": 3.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MACA-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -593,7 +593,7 @@
     "insurancePrice": 2.90,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SAWPAL-3201",
     "vatRate": 0,
     "isTaxable": true,
@@ -613,7 +613,7 @@
     "insurancePrice": 1.60,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "CRAN-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -633,7 +633,7 @@
     "insurancePrice": 4.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PROST-SUP1",
     "vatRate": 0,
     "isTaxable": true,
@@ -653,7 +653,7 @@
     "insurancePrice": 3.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "EPO-13001",
     "vatRate": 0,
     "isTaxable": true,
@@ -673,7 +673,7 @@
     "insurancePrice": 0.95,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "IRON-BIS1",
     "vatRate": 0,
     "isTaxable": true,
@@ -693,7 +693,7 @@
     "insurancePrice": 0.55,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "VITB12-1K1",
     "vatRate": 0,
     "isTaxable": true,
@@ -713,7 +713,7 @@
     "insurancePrice": 0.75,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "VITE-4001",
     "vatRate": 0,
     "isTaxable": true,
@@ -733,7 +733,7 @@
     "insurancePrice": 0.65,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SELEN-2001",
     "vatRate": 0,
     "isTaxable": true,
@@ -753,7 +753,7 @@
     "insurancePrice": 0.85,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "CHROM-2001",
     "vatRate": 0,
     "isTaxable": true,
@@ -773,7 +773,7 @@
     "insurancePrice": 1.05,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "POT-CIT1",
     "vatRate": 0,
     "isTaxable": true,
@@ -793,7 +793,7 @@
     "insurancePrice": 2.30,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "LUT-20MG1",
     "vatRate": 0,
     "isTaxable": true,
@@ -813,7 +813,7 @@
     "insurancePrice": 3.10,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "BILB-1601",
     "vatRate": 0,
     "isTaxable": true,
@@ -833,7 +833,7 @@
     "insurancePrice": 2.90,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "LUT-ZEA1",
     "vatRate": 0,
     "isTaxable": true,
@@ -853,7 +853,7 @@
     "insurancePrice": 4.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "ALA-6001",
     "vatRate": 0,
     "isTaxable": true,
@@ -873,7 +873,7 @@
     "insurancePrice": 2.70,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "NAC-6001",
     "vatRate": 0,
     "isTaxable": true,
@@ -893,7 +893,7 @@
     "insurancePrice": 1.90,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "QUERC-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -913,7 +913,7 @@
     "insurancePrice": 5.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "RESV-2501",
     "vatRate": 0,
     "isTaxable": true,
@@ -933,7 +933,7 @@
     "insurancePrice": 6.50,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "PYCN-501",
     "vatRate": 0,
     "isTaxable": true,
@@ -953,7 +953,7 @@
     "insurancePrice": 2.40,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GSE-1001",
     "vatRate": 0,
     "isTaxable": true,
@@ -973,7 +973,7 @@
     "insurancePrice": 3.00,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "POME-5001",
     "vatRate": 0,
     "isTaxable": true,
@@ -993,7 +993,7 @@
     "insurancePrice": 1.80,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "GREEN-TEA1",
     "vatRate": 0,
     "isTaxable": true,
@@ -1013,7 +1013,7 @@
     "insurancePrice": 2.20,
     "supplier": "Private Pharmacy",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "CRAN-DMAN1",
     "vatRate": 0,
     "isTaxable": true,

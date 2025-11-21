@@ -39,38 +39,68 @@ export default function UserProfile() {
     }
   }, [user]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      await updateProfile(profileData);
-      success('Profile Updated', 'Your profile has been updated successfully');
-    } catch (err: any) {
-      error('Update Failed', err.response?.data?.message || 'Failed to update profile');
-    }
+// In your profile component, before sending:
+const handleProfileSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Prepare data - convert empty strings to null for optional fields
+  const preparedData = {
+    fullName: profileData.fullName || '',
+    email: profileData.email || null, // Send null instead of empty string
+    phone: profileData.phone || null,
+    licenseNumber: profileData.licenseNumber || null,
+    specialization: profileData.specialization || null
   };
+  
+  console.log('📤 Sending profile data:', preparedData);
+  
+  try {
+    await updateProfile(preparedData);
+    success('Profile Updated', 'Your profile has been updated successfully');
+  } catch (err: any) {
+    console.error('❌ Profile update failed:', err);
+    const errorMessage = err.response?.data?.message || 
+                        err.response?.data?.errors?.[0]?.msg || 
+                        'Failed to update profile';
+    error('Update Failed', errorMessage);
+  }
+};
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handlePasswordSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      error('Password Mismatch', 'New passwords do not match');
-      return;
-    }
+  // Enhanced validation
+  if (passwordData.newPassword !== passwordData.confirmPassword) {
+    error('Password Mismatch', 'New passwords do not match');
+    return;
+  }
 
-    if (passwordData.newPassword.length < 6) {
-      error('Invalid Password', 'New password must be at least 6 characters');
-      return;
-    }
+  if (passwordData.newPassword.length < 6) {
+    error('Invalid Password', 'New password must be at least 6 characters');
+    return;
+  }
 
-    try {
-      await changePassword(passwordData.currentPassword, passwordData.newPassword);
-      success('Password Changed', 'Your password has been updated successfully');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err: any) {
-      error('Password Change Failed', err.response?.data?.message || 'Failed to change password');
-    }
-  };
+  // Check password strength
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+  if (!strongPasswordRegex.test(passwordData.newPassword)) {
+    error(
+      'Weak Password', 
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    );
+    return;
+  }
+
+  try {
+    await changePassword(passwordData.currentPassword, passwordData.newPassword);
+    success('Password Changed', 'Your password has been updated successfully');
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.message || 
+                        err.response?.data?.errors?.[0]?.msg || 
+                        'Failed to change password';
+    error('Password Change Failed', errorMessage);
+  }
+};
 
   const medicalRoles = ['doctor', 'nurse', 'midwife'];
   const isMedicalStaff = user && medicalRoles.includes(user.role);

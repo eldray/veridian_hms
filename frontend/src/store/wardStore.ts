@@ -53,14 +53,12 @@ interface WardState {
 // Helper function to transform backend data to frontend format
 const transformWard = (ward: any): Ward => ({
   ...ward,
-  id: ward.id || ward.id,
-  id: ward.id || ward.id,
+  id: ward.id,
 });
 
 const transformBed = (bed: any): Bed => ({
   ...bed,
-  id: bed.id || bed.id,
-  id: bed.id || bed.id,
+  id: bed.id,
 });
 
 export const useWardStore = create<WardState>((set, get) => ({
@@ -148,7 +146,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       const updatedWard = await apiUpdateWard(id, data);
       const transformedWard = transformWard(updatedWard.ward || updatedWard);
       const wards = get().wards.map(ward => 
-        (ward.id === id || ward.id === id) ? transformedWard : ward
+        (ward.id === id) ? transformedWard : ward
       );
       set({ 
         wards,
@@ -168,7 +166,7 @@ export const useWardStore = create<WardState>((set, get) => ({
     try {
       await apiDeleteWard(id);
       const wards = get().wards.filter(ward => 
-        !(ward.id === id || ward.id === id)
+        !(ward.id === id)
       );
       set({ 
         wards,
@@ -259,7 +257,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       const updatedBed = await apiUpdateBed(id, data);
       const transformedBed = transformBed(updatedBed.bed || updatedBed);
       const beds = get().beds.map(bed => 
-        (bed.id === id || bed.id === id) ? transformedBed : bed
+        (bed.id === id) ? transformedBed : bed
       );
       set({ 
         beds,
@@ -279,7 +277,7 @@ export const useWardStore = create<WardState>((set, get) => ({
     try {
       await apiDeleteBed(id);
       const beds = get().beds.filter(bed => 
-        !(bed.id === id || bed.id === id)
+        !(bed.id === id)
       );
       set({ 
         beds,

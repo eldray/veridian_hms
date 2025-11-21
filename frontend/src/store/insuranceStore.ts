@@ -1,4 +1,4 @@
-// src/store/insuranceStore.ts - UPDATED WITH ALL API FUNCTIONS
+// src/store/insuranceStore.ts - CLEAN SIMPLIFIED VERSION
 import { create } from 'zustand';
 import {
   getInsuranceProviders as apiGetInsuranceProviders,
@@ -8,18 +8,15 @@ import {
   deleteInsuranceProvider as apiDeleteInsuranceProvider,
   getInsuranceClaims as apiGetInsuranceClaims,
   getInsuranceClaim as apiGetInsuranceClaim,
-  submitInsuranceClaim as apiSubmitInsuranceClaim,
-  updateClaimStatus as apiUpdateClaimStatus,
-  // ✅ ADDED MISSING IMPORTS
-  generateNHISClaim as apiGenerateNHISClaim,
-  generateNHISClaimForm as apiGenerateNHISClaimForm,
-  submitNHISClaim as apiSubmitNHISClaim,
-  downloadNHISClaimXML as apiDownloadNHISClaimXML,
-  getNHISClaimSummary as apiGetNHISClaimSummary,
-  getClaimByAttendanceId as apiGetClaimByAttendanceId,
-  createInsuranceClaimForAttendance as apiCreateInsuranceClaimForAttendance,
-  generateInsuranceClaimData as apiGenerateInsuranceClaimData,
-  generatePrivateInsuranceClaim as apiGeneratePrivateInsuranceClaim
+  
+  // ONLY THE 7 SIMPLIFIED FUNCTIONS WE NEED
+  generateClaimDraft as apiGenerateClaimDraft,
+  getClaimDraft as apiGetClaimDraft,
+  updateClaimDraft as apiUpdateClaimDraft,
+  finalizeClaim as apiFinalizeClaim,
+  generateClaimXML as apiGenerateClaimXML,
+  generateClaimPrint as apiGenerateClaimPrint,
+  getFinalizedClaimsTotal as apiGetFinalizedClaimsTotal,
 } from '../api';
 import type { InsuranceProvider, InsuranceClaim, Pagination } from '../types';
 
@@ -28,9 +25,10 @@ interface InsuranceState {
   claims: InsuranceClaim[];
   currentProvider: InsuranceProvider | null;
   currentClaim: InsuranceClaim | null;
+  currentDraft: any | null;
   isLoading: boolean;
   pagination: Pagination | null;
-  nhisClaimSummary: any; // ✅ ADDED
+  finalizedClaimsTotal: any;
 
   // Provider Management
   getInsuranceProviders: (filters?: any) => Promise<void>;
@@ -42,28 +40,20 @@ interface InsuranceState {
   // Claims Management
   getInsuranceClaims: (filters?: any) => Promise<void>;
   getInsuranceClaim: (id: string) => Promise<void>;
-  submitInsuranceClaim: (data: any) => Promise<void>;
-  updateClaimStatus: (id: string, data: any) => Promise<void>;
 
-  // ✅ ADDED MISSING FUNCTIONS
-  // NHIS Claims
-  generateNHISClaimForm: (attendanceId: string) => Promise<any>;
-  submitNHISClaim: (attendanceId: string, data: any) => Promise<any>;
-  downloadNHISClaimXML: (attendanceId: string) => Promise<void>;
-  getNHISClaimSummary: (filters?: any) => Promise<void>;
-
-  // Attendance-based Claims
-  getClaimByAttendanceId: (attendanceId: string) => Promise<InsuranceClaim | null>;
-  createInsuranceClaimForAttendance: (attendanceId: string, data: any) => Promise<InsuranceClaim>;
-  generateInsuranceClaimData: (attendanceId: string) => Promise<any>;
-
-  // Claim Generation
-  generateNHISClaim: (attendanceId: string) => Promise<any>;
-  generatePrivateInsuranceClaim: (attendanceId: string, insuranceProviderId: string) => Promise<any>;
+  // SIMPLIFIED WORKFLOW (ONLY THESE 7 FUNCTIONS)
+  generateClaimDraft: (attendanceId: string) => Promise<InsuranceClaim>;
+  getClaimDraft: (claimId: string) => Promise<any>;
+  updateClaimDraft: (claimId: string, data: any) => Promise<InsuranceClaim>;
+  finalizeClaim: (claimId: string) => Promise<InsuranceClaim>;
+  generateClaimXML: (claimId: string) => Promise<void>;
+  generateClaimPrint: (claimId: string) => Promise<any>;
+  getFinalizedClaimsTotal: (filters?: any) => Promise<void>;
 
   clearCurrentProvider: () => void;
   clearCurrentClaim: () => void;
-  clearError: () => void; // ✅ ADDED
+  clearCurrentDraft: () => void;
+  clearError: () => void;
 }
 
 export const useInsuranceStore = create<InsuranceState>((set, get) => ({
@@ -71,10 +61,12 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   claims: [],
   currentProvider: null,
   currentClaim: null,
+  currentDraft: null,
   isLoading: false,
   pagination: null,
-  nhisClaimSummary: null, // ✅ ADDED
+  finalizedClaimsTotal: null,
 
+  // Provider functions (unchanged)...
   getInsuranceProviders: async (filters = {}) => {
     set({ isLoading: true });
     try {
@@ -199,148 +191,104 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  submitInsuranceClaim: async (data: any) => {
+  // SIMPLIFIED WORKFLOW FUNCTIONS (ONLY THESE 7)
+  generateClaimDraft: async (attendanceId: string) => {
     set({ isLoading: true });
     try {
-      const newClaim = await apiSubmitInsuranceClaim(data);
-      set({
-        claims: [newClaim, ...get().claims],
-        currentClaim: newClaim,
-        isLoading: false
+      const draft = await apiGenerateClaimDraft(attendanceId);
+      set({ 
+        currentDraft: draft,
+        isLoading: false 
+      });
+      return draft;
+    } catch (error: any) {
+      console.error('Failed to generate claim draft:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  getClaimDraft: async (claimId: string) => {
+    set({ isLoading: true });
+    try {
+      const draftData = await apiGetClaimDraft(claimId);
+      set({ 
+        currentDraft: draftData,
+        isLoading: false 
+      });
+      return draftData;
+    } catch (error: any) {
+      console.error('Failed to fetch claim draft:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  updateClaimDraft: async (claimId: string, data: any) => {
+    set({ isLoading: true });
+    try {
+      const updatedDraft = await apiUpdateClaimDraft(claimId, data);
+      set({ 
+        currentDraft: updatedDraft,
+        isLoading: false 
+      });
+      return updatedDraft;
+    } catch (error: any) {
+      console.error('Failed to update claim draft:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  finalizeClaim: async (claimId: string) => {
+    set({ isLoading: true });
+    try {
+      const finalizedClaim = await apiFinalizeClaim(claimId);
+      set({ 
+        currentDraft: null, // Clear draft after finalizing
+        currentClaim: finalizedClaim,
+        isLoading: false 
+      });
+      return finalizedClaim;
+    } catch (error: any) {
+      console.error('Failed to finalize claim:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  generateClaimXML: async (claimId: string) => {
+    try {
+      await apiGenerateClaimXML(claimId);
+    } catch (error: any) {
+      console.error('Failed to generate claim XML:', error);
+      throw error;
+    }
+  },
+
+  generateClaimPrint: async (claimId: string) => {
+    set({ isLoading: true });
+    try {
+      const printData = await apiGenerateClaimPrint(claimId);
+      set({ isLoading: false });
+      return printData;
+    } catch (error: any) {
+      console.error('Failed to generate claim print:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  getFinalizedClaimsTotal: async (filters = {}) => {
+    set({ isLoading: true });
+    try {
+      const totalData = await apiGetFinalizedClaimsTotal(filters);
+      set({ 
+        finalizedClaimsTotal: totalData,
+        isLoading: false 
       });
     } catch (error: any) {
-      console.error('Failed to submit insurance claim:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  updateClaimStatus: async (id: string, data: any) => {
-    set({ isLoading: true });
-    try {
-      const updatedClaim = await apiUpdateClaimStatus(id, data);
-      set({
-        claims: get().claims.map(c => c.id === id ? updatedClaim : c),
-        currentClaim: updatedClaim,
-        isLoading: false
-      });
-    } catch (error: any) {
-      console.error('Failed to update claim status:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  // ✅ ADDED MISSING FUNCTIONS
-  generateNHISClaimForm: async (attendanceId: string) => {
-    set({ isLoading: true });
-    try {
-      const claimForm = await apiGenerateNHISClaimForm(attendanceId);
-      set({ isLoading: false });
-      return claimForm;
-    } catch (error: any) {
-      console.error('Failed to generate NHIS claim form:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  submitNHISClaim: async (attendanceId: string, data: any) => {
-    set({ isLoading: true });
-    try {
-      const result = await apiSubmitNHISClaim(attendanceId, data);
-      set({ isLoading: false });
-      return result;
-    } catch (error: any) {
-      console.error('Failed to submit NHIS claim:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  downloadNHISClaimXML: async (attendanceId: string) => {
-    try {
-      await apiDownloadNHISClaimXML(attendanceId);
-    } catch (error: any) {
-      console.error('Failed to download NHIS claim XML:', error);
-      throw error;
-    }
-  },
-
-  getNHISClaimSummary: async (filters = {}) => {
-    set({ isLoading: true });
-    try {
-      const summary = await apiGetNHISClaimSummary(filters);
-      set({ nhisClaimSummary: summary, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch NHIS claim summary:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  getClaimByAttendanceId: async (attendanceId: string) => {
-    try {
-      const claim = await apiGetClaimByAttendanceId(attendanceId);
-      return claim;
-    } catch (error: any) {
-      console.error('Failed to fetch claim by attendance ID:', error);
-      return null;
-    }
-  },
-
-  createInsuranceClaimForAttendance: async (attendanceId: string, data: any) => {
-    set({ isLoading: true });
-    try {
-      const newClaim = await apiCreateInsuranceClaimForAttendance(attendanceId, data);
-      set({
-        claims: [newClaim, ...get().claims],
-        currentClaim: newClaim,
-        isLoading: false
-      });
-      return newClaim;
-    } catch (error: any) {
-      console.error('Failed to create insurance claim for attendance:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  generateInsuranceClaimData: async (attendanceId: string) => {
-    set({ isLoading: true });
-    try {
-      const claimData = await apiGenerateInsuranceClaimData(attendanceId);
-      set({ isLoading: false });
-      return claimData;
-    } catch (error: any) {
-      console.error('Failed to generate insurance claim data:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  // Claim Generation Methods (FIXED)
-  generateNHISClaim: async (attendanceId: string) => {
-    set({ isLoading: true });
-    try {
-      const response = await apiGenerateNHISClaim(attendanceId);
-      set({ isLoading: false });
-      return response;
-    } catch (error: any) {
-      console.error('Failed to generate NHIS claim:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  generatePrivateInsuranceClaim: async (attendanceId: string, insuranceProviderId: string) => {
-    set({ isLoading: true });
-    try {
-      const response = await apiGeneratePrivateInsuranceClaim(attendanceId, insuranceProviderId);
-      set({ isLoading: false });
-      return response;
-    } catch (error: any) {
-      console.error('Failed to generate private insurance claim:', error);
+      console.error('Failed to fetch finalized claims total:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -348,5 +296,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
 
   clearCurrentProvider: () => set({ currentProvider: null }),
   clearCurrentClaim: () => set({ currentClaim: null }),
-  clearError: () => set({ error: null }), // ✅ ADDED
+  clearCurrentDraft: () => set({ currentDraft: null }),
+  clearError: () => set({ error: null }),
 }));

@@ -34,9 +34,6 @@ import {
   getAttendanceStats as apiGetAttendanceStats,
   addServiceToAttendance as apiAddService,
   removeServiceFromAttendance as apiRemoveService,
-  generateNHISClaim as apiGenerateNHISClaim,
-  submitNHISClaim as apiSubmitNHISClaim,
-  generateNHISClaimFromAttendance as apiGenerateNHISClaimFromAttendance
 } from '../api';
 
 interface AttendanceState {
@@ -209,6 +206,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       throw new Error(errorMessage);
     }
   },
+
+  // In your attendanceStore.ts - Add this method
+getAttendancesByPatient: async (patientId: string) => {
+  set({ isLoading: true, error: null });
+  try {
+    const response = await apiGetAttendances({ patientId });
+    // ... handle response
+    set({ attendances: filteredAttendances, isLoading: false });
+  } catch (error: any) {
+    set({ isLoading: false, error: error.message });
+    throw error;
+  }
+},
 
   createAttendance: async (data) => {
     set({ isLoading: true, error: null });
@@ -723,44 +733,6 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       set({ isLoading: false, error: error.message || 'Failed to remove service' });
-      throw error;
-    }
-  },
-
-  // === NHIS CLAIM ===
-  generateNHISClaim: async (attendanceId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiGenerateNHISClaim(attendanceId);
-      set({ isLoading: false });
-      return result;
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to generate NHIS claim' });
-      throw error;
-    }
-  },
-
-  submitNHISClaim: async (attendanceId: string, data: any = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiSubmitNHISClaim(attendanceId, data);
-      
-      // Update the attendance in the local state to reflect the claim submission
-      set(state => ({
-        attendances: state.attendances.map(att => 
-          att.id === attendanceId 
-            ? { ...att, insuranceClaimId: result.data?.id, claimStatus: 'submitted' }
-            : att
-        ),
-        currentAttendance: state.currentAttendance?.id === attendanceId 
-          ? { ...state.currentAttendance, insuranceClaimId: result.data?.id, claimStatus: 'submitted' }
-          : state.currentAttendance,
-        isLoading: false
-      }));
-      
-      return result;
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to submit NHIS claim' });
       throw error;
     }
   },

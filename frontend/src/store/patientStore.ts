@@ -1,4 +1,4 @@
-// src/store/patientStore.ts - UPDATED FOR SURNAME + OTHERNAMES
+// src/store/patientStore.ts - COMPLETE FIXED VERSION
 import { create } from 'zustand';
 import { 
   getPatients as apiGetPatients, 
@@ -20,7 +20,6 @@ interface PatientState {
   patientStats: any;
   pagination: Pagination | null;
   
-  // Core patient operations
   loadPatients: (filters?: any) => Promise<void>;
   addPatient: (data: FormData | any) => Promise<Patient>;
   getPatientById: (id: string) => Patient | undefined;
@@ -28,15 +27,56 @@ interface PatientState {
   updatePatient: (id: string, data: FormData | any) => Promise<Patient>;
   deletePatient: (id: string) => Promise<void>;
   getPatientStats: () => Promise<void>;
-  
-  // Image operations
   uploadPatientImage: (patientId: string, imageFile: File | string) => Promise<string>;
-  
-  // Search and utilities
   searchPatients: (query: string) => Patient[];
   clearCurrentPatient: () => void;
   clearError: () => void;
 }
+
+// ✅ HELPER: Add fullName to patient object for frontend compatibility
+const addFullNameToPatient = (patient: any): Patient => {
+  if (!patient) return patient;
+  
+  return {
+    ...patient,
+    fullName: `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
+  };
+};
+
+// ✅ HELPER: Extract patient data from various API response formats
+const extractPatientData = (response: any): Patient => {
+  let patientData;
+  
+  // Handle nested response structures
+  if (response.data?.patient) {
+    patientData = response.data.patient;
+  } else if (response.patient) {
+    patientData = response.patient;
+  } else if (response.data) {
+    patientData = response.data;
+  } else {
+    patientData = response;
+  }
+  
+  return addFullNameToPatient(patientData);
+};
+
+// ✅ HELPER: Extract patients array from various API response formats
+const extractPatientsArray = (response: any): Patient[] => {
+  let patientsArray = [];
+  
+  if (Array.isArray(response)) {
+    patientsArray = response;
+  } else if (Array.isArray(response.patients)) {
+    patientsArray = response.patients;
+  } else if (Array.isArray(response.data?.patients)) {
+    patientsArray = response.data.patients;
+  } else if (Array.isArray(response.data)) {
+    patientsArray = response.data;
+  }
+  
+  return patientsArray.map(addFullNameToPatient);
+};
 
 export const usePatientStore = create<PatientState>((set, get) => ({
   patients: [],
@@ -49,22 +89,16 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   loadPatients: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 Loading patients...');
+      console.log('🔄 Loading patients with filters:', filters);
       const response = await apiGetPatients(filters);
       
-      let patients: Patient[] = [];
-      if (Array.isArray(response)) {
-        patients = response;
-      } else if (Array.isArray(response.patients)) {
-        patients = response.patients;
-      } else if (Array.isArray(response.data)) {
-        patients = response.data;
-      }
+      const patients = extractPatientsArray(response);
+      const pagination = response.pagination || response.data?.pagination || null;
       
       console.log('✅ Patients loaded:', patients.length);
       set({ 
         patients, 
-        pagination: response.pagination || null,
+        pagination,
         isLoading: false 
       });
     } catch (error: any) {
@@ -81,49 +115,31 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   addPatient: async (data: FormData | any) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('📝 Patient data received:', data);
+      console.log('📝 Creating patient');
       
-      // ✅ FIX: Convert fullName to surname + otherNames for backend
-      let processedData = { ...data };
-      if (data.fullName && !data.surname) {
-        const nameParts = data.fullName.trim().split(' ');
-        processedData.surname = nameParts[0] || '';
-        processedData.otherNames = nameParts.slice(1).join(' ') || '';
-        delete processedData.fullName;
-      }
-      
-      let newPatient: Patient;
+      // ✅ Convert fullName to surname + otherNames if needed
+      let processedData = data instanceof FormData ? data : { ...data };
       
       if (!(data instanceof FormData)) {
-        console.log('📤 Sending as JSON data:', processedData);
-        newPatient = await apiCreatePatient(processedData);
-      } else {
-        try {
-          console.log('📤 Sending as FormData');
-          newPatient = await apiCreatePatient(processedData);
-        } catch (formDataError: any) {
-          console.log('🔄 FormData failed, trying JSON format...');
-          const jsonData: any = {};
-          for (let [key, value] of (data as any).entries()) {
-            if (typeof value === 'string') {
-              try {
-                jsonData[key] = JSON.parse(value);
-              } catch {
-                jsonData[key] = value;
-              }
-            } else {
-              jsonData[key] = value;
-            }
-          }
-          console.log('📤 Converted to JSON:', jsonData);
-          newPatient = await apiCreatePatient(jsonData);
+        if (data.fullName && !data.surname) {
+          const nameParts = data.fullName.trim().split(' ');
+          processedData.surname = nameParts[0] || '';
+          processedData.otherNames = nameParts.slice(1).join(' ') || '';
+          delete processedData.fullName;
         }
+        console.log('📤 Sending as JSON:', processedData);
       }
       
+      const response = await apiCreatePatient(processedData);
+      const newPatient = extractPatientData(response);
+      
+      console.log('✅ Patient created:', newPatient.id);
+      
       set((state) => ({ 
-        patients: [...state.patients, newPatient],
+        patients: [newPatient, ...state.patients],
         isLoading: false 
       }));
+      
       return newPatient;
     } catch (error: any) {
       console.error('❌ Failed to add patient:', error);
@@ -143,31 +159,21 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   fetchPatient: async (id: string) => {
     if (!id || id === 'undefined' || id === 'null') {
       const errorMsg = 'Invalid patient ID: ID cannot be undefined or null';
-      console.error('❌ Invalid patient ID requested:', id);
+      console.error('❌ Invalid patient ID:', id);
       set({ error: errorMsg, isLoading: false });
       throw new Error(errorMsg);
     }
 
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 Fetching patient with ID:', id);
+      console.log('🔄 Fetching patient:', id);
       const response = await apiGetPatient(id);
       
-      let patientData;
-      if (response.data) {
-        patientData = response.data;
-        console.log('📦 Extracted patient from response.data');
-      } else if (response.success && response.data) {
-        patientData = response.data;
-        console.log('📦 Extracted patient from success response');
-      } else {
-        patientData = response;
-        console.log('📦 Using direct patient object');
-      }
+      const patientData = extractPatientData(response);
       
-      console.log('✅ Patient data extracted:', {
+      console.log('✅ Patient fetched:', {
         id: patientData.id,
-        name: `${patientData.surname} ${patientData.otherNames}`
+        fullName: patientData.fullName
       });
       
       set({ currentPatient: patientData, isLoading: false });
@@ -186,16 +192,25 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   updatePatient: async (id: string, data: FormData | any) => {
     set({ isLoading: true, error: null });
     try {
-      // ✅ FIX: Convert fullName to surname + otherNames for backend
-      let processedData = { ...data };
-      if (data.fullName && !data.surname) {
-        const nameParts = data.fullName.trim().split(' ');
-        processedData.surname = nameParts[0] || '';
-        processedData.otherNames = nameParts.slice(1).join(' ') || '';
-        delete processedData.fullName;
+      console.log('📝 Updating patient:', id);
+      
+      // ✅ Convert fullName to surname + otherNames if needed
+      let processedData = data instanceof FormData ? data : { ...data };
+      
+      if (!(data instanceof FormData)) {
+        if (data.fullName && !data.surname) {
+          const nameParts = data.fullName.trim().split(' ');
+          processedData.surname = nameParts[0] || '';
+          processedData.otherNames = nameParts.slice(1).join(' ') || '';
+          delete processedData.fullName;
+        }
       }
       
-      const updatedPatient = await apiUpdatePatient(id, processedData);
+      const response = await apiUpdatePatient(id, processedData);
+      const updatedPatient = extractPatientData(response);
+      
+      console.log('✅ Patient updated:', updatedPatient.id);
+      
       set((state) => ({
         patients: state.patients.map((patient) =>
           patient.id === id ? updatedPatient : patient
@@ -203,6 +218,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         currentPatient: state.currentPatient?.id === id ? updatedPatient : state.currentPatient,
         isLoading: false
       }));
+      
       return updatedPatient;
     } catch (error: any) {
       console.error('❌ Failed to update patient:', error);
@@ -218,7 +234,11 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   deletePatient: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
+      console.log('🗑️ Deleting patient:', id);
       await apiDeletePatient(id);
+      
+      console.log('✅ Patient deleted:', id);
+      
       set((state) => ({
         patients: state.patients.filter((patient) => patient.id !== id),
         currentPatient: state.currentPatient?.id === id ? null : state.currentPatient,
@@ -238,7 +258,9 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   getPatientStats: async () => {
     set({ isLoading: true, error: null });
     try {
+      console.log('📊 Fetching patient stats');
       const stats = await apiGetPatientStats();
+      console.log('✅ Patient stats loaded');
       set({ patientStats: stats, isLoading: false });
     } catch (error: any) {
       console.error('❌ Failed to fetch patient stats:', error);
@@ -296,7 +318,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     
     const lowerQuery = query.toLowerCase();
     return get().patients.filter((patient) => {
-      const fullName = `${patient.surname} ${patient.otherNames}`.toLowerCase();
+      const fullName = patient.fullName?.toLowerCase() || 
+                       `${patient.surname} ${patient.otherNames}`.toLowerCase();
       return (
         fullName.includes(lowerQuery) ||
         patient.contact?.includes(query) ||

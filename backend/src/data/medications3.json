@@ -13,7 +13,7 @@
     "insurancePrice": 0.45,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-NIFED1",
     "vatRate": 0,
     "isTaxable": false,
@@ -33,7 +33,7 @@
     "insurancePrice": 0.7,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-NIFED2",
     "vatRate": 0,
     "isTaxable": false,
@@ -53,7 +53,7 @@
     "insurancePrice": 0.35,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PROPR1",
     "vatRate": 0,
     "isTaxable": false,
@@ -73,7 +73,7 @@
     "insurancePrice": 0.5,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-SPIRO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -93,7 +93,7 @@
     "insurancePrice": 0.3,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-FURO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -113,7 +113,7 @@
     "insurancePrice": 3.15,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-FURO2",
     "vatRate": 0,
     "isTaxable": false,
@@ -133,7 +133,7 @@
     "insurancePrice": 0.45,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-DIGOX1",
     "vatRate": 0,
     "isTaxable": false,
@@ -153,7 +153,7 @@
     "insurancePrice": 0.9,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-NITRO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -173,7 +173,7 @@
     "insurancePrice": 0.6,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ISOS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -193,7 +193,7 @@
     "insurancePrice": 2.3,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CLOPID1",
     "vatRate": 0,
     "isTaxable": false,
@@ -213,7 +213,7 @@
     "insurancePrice": 0.8,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LISINO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -233,7 +233,7 @@
     "insurancePrice": 1.2,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LISINO2",
     "vatRate": 0,
     "isTaxable": false,
@@ -253,7 +253,7 @@
     "insurancePrice": 1.8,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-VALS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -273,7 +273,7 @@
     "insurancePrice": 0.25,
     "supplier": "CardioCare Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-HCTZ1",
     "vatRate": 0,
     "isTaxable": false,
@@ -293,7 +293,7 @@
     "insurancePrice": 0.5,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-RANIT1",
     "vatRate": 0,
     "isTaxable": false,
@@ -313,7 +313,7 @@
     "insurancePrice": 0.9,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-RANIT2",
     "vatRate": 0,
     "isTaxable": false,
@@ -333,7 +333,7 @@
     "insurancePrice": 0.45,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CIMET1",
     "vatRate": 0,
     "isTaxable": false,
@@ -353,7 +353,7 @@
     "insurancePrice": 0.6,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-FAMOT1",
     "vatRate": 0,
     "isTaxable": false,
@@ -373,7 +373,7 @@
     "insurancePrice": 0.99,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-FAMOT2",
     "vatRate": 0,
     "isTaxable": false,
@@ -393,7 +393,7 @@
     "insurancePrice": 1.6,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ESOME1",
     "vatRate": 0,
     "isTaxable": false,
@@ -413,7 +413,7 @@
     "insurancePrice": 2.3,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ESOME2",
     "vatRate": 0,
     "isTaxable": false,
@@ -433,7 +433,7 @@
     "insurancePrice": 1.35,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LANSO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -453,7 +453,7 @@
     "insurancePrice": 1.5,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PANTO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -473,7 +473,7 @@
     "insurancePrice": 0.3,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-METOC1",
     "vatRate": 0,
     "isTaxable": false,
@@ -493,7 +493,7 @@
     "insurancePrice": 2.25,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-METOC2",
     "vatRate": 0,
     "isTaxable": false,
@@ -513,7 +513,7 @@
     "insurancePrice": 0.45,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-DOMP1",
     "vatRate": 0,
     "isTaxable": false,
@@ -533,7 +533,7 @@
     "insurancePrice": 1.2,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ONDAN1",
     "vatRate": 0,
     "isTaxable": false,
@@ -553,7 +553,7 @@
     "insurancePrice": 4.5,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ONDAN2",
     "vatRate": 0,
     "isTaxable": false,
@@ -573,7 +573,7 @@
     "insurancePrice": 0.5,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-HYOS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -593,7 +593,7 @@
     "insurancePrice": 3.15,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-HYOS2",
     "vatRate": 0,
     "isTaxable": false,
@@ -613,7 +613,7 @@
     "insurancePrice": 0.35,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-DICY1",
     "vatRate": 0,
     "isTaxable": false,
@@ -633,7 +633,7 @@
     "insurancePrice": 0.3,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LOPER1",
     "vatRate": 0,
     "isTaxable": false,
@@ -653,7 +653,7 @@
     "insurancePrice": 5.4,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-KAOL1",
     "vatRate": 0,
     "isTaxable": false,
@@ -673,7 +673,7 @@
     "insurancePrice": 0.45,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-ORS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -693,7 +693,7 @@
     "insurancePrice": 13.5,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LACTU1",
     "vatRate": 0,
     "isTaxable": false,
@@ -713,7 +713,7 @@
     "insurancePrice": 0.25,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-BISAC1",
     "vatRate": 0,
     "isTaxable": false,
@@ -733,7 +733,7 @@
     "insurancePrice": 0.15,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-SENNA1",
     "vatRate": 0,
     "isTaxable": false,
@@ -753,7 +753,7 @@
     "insurancePrice": 0.9,
     "supplier": "Supplements Ghana",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-PSYL1",
     "vatRate": 0,
     "isTaxable": true,
@@ -773,7 +773,7 @@
     "insurancePrice": 7.65,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-MILKM1",
     "vatRate": 0,
     "isTaxable": false,
@@ -793,7 +793,7 @@
     "insurancePrice": 0.2,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ALUHY1",
     "vatRate": 0,
     "isTaxable": false,
@@ -813,7 +813,7 @@
     "insurancePrice": 0.35,
     "supplier": "GI Care Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-SIMET1",
     "vatRate": 0,
     "isTaxable": false,
@@ -833,7 +833,7 @@
     "insurancePrice": 0.45,
     "supplier": "Emergency Meds",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CHAR1",
     "vatRate": 0,
     "isTaxable": false,
@@ -853,7 +853,7 @@
     "insurancePrice": 0.3,
     "supplier": "Steroids Pharma",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PRED1",
     "vatRate": 0,
     "isTaxable": false,
@@ -873,7 +873,7 @@
     "insurancePrice": 0.45,
     "supplier": "Steroids Pharma",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-DEXA1",
     "vatRate": 0,
     "isTaxable": false,
@@ -893,7 +893,7 @@
     "insurancePrice": 3.6,
     "supplier": "Steroids Pharma",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-DEXA2",
     "vatRate": 0,
     "isTaxable": false,
@@ -913,7 +913,7 @@
     "insurancePrice": 9,
     "supplier": "Steroids Pharma",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-HYDRO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -933,7 +933,7 @@
     "insurancePrice": 0.25,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CETI1",
     "vatRate": 0,
     "isTaxable": false,
@@ -953,7 +953,7 @@
     "insurancePrice": 0.35,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LORA1",
     "vatRate": 0,
     "isTaxable": false,
@@ -973,7 +973,7 @@
     "insurancePrice": 0.12,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CHLORPH1",
     "vatRate": 0,
     "isTaxable": false,
@@ -993,7 +993,7 @@
     "insurancePrice": 0.3,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PROM1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1013,7 +1013,7 @@
     "insurancePrice": 2.25,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PROM2",
     "vatRate": 0,
     "isTaxable": false,
@@ -1033,7 +1033,7 @@
     "insurancePrice": 1.8,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PHENIR1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1053,7 +1053,7 @@
     "insurancePrice": 13.5,
     "supplier": "Emergency Meds",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-EPINE1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1073,7 +1073,7 @@
     "insurancePrice": 0.5,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-AMINOP1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1093,7 +1093,7 @@
     "insurancePrice": 7.2,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-AMINOP2",
     "vatRate": 0,
     "isTaxable": false,
@@ -1113,7 +1113,7 @@
     "insurancePrice": 0.6,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-THEOP1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1133,7 +1133,7 @@
     "insurancePrice": 1.6,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-MONTE1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1153,7 +1153,7 @@
     "insurancePrice": 1.2,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-MONTE2",
     "vatRate": 0,
     "isTaxable": false,
@@ -1173,7 +1173,7 @@
     "insurancePrice": 1.4,
     "supplier": "Respiratory Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-MONTE3",
     "vatRate": 0,
     "isTaxable": false,
@@ -1193,7 +1193,7 @@
     "insurancePrice": 0.5,
     "supplier": "Allergy Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-LEVOC1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1213,7 +1213,7 @@
     "insurancePrice": 0.35,
     "supplier": "Cold Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-PSEUD1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1233,7 +1233,7 @@
     "insurancePrice": 0.2,
     "supplier": "Cold Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-GUAIF1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1253,7 +1253,7 @@
     "insurancePrice": 0.4,
     "supplier": "Cold Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-AMBRO1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1273,7 +1273,7 @@
     "insurancePrice": 0.25,
     "supplier": "Cold Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-BROMH1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1293,7 +1293,7 @@
     "insurancePrice": 0.5,
     "supplier": "Cold Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CARBOC1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1313,7 +1313,7 @@
     "insurancePrice": 4.05,
     "supplier": "IV Fluids Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-NS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1333,7 +1333,7 @@
     "insurancePrice": 4.95,
     "supplier": "IV Fluids Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-D5W1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1353,7 +1353,7 @@
     "insurancePrice": 5.85,
     "supplier": "IV Fluids Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-DS1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1373,7 +1373,7 @@
     "insurancePrice": 6.75,
     "supplier": "IV Fluids Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-RL1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1393,7 +1393,7 @@
     "insurancePrice": 2.7,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-IVSET1",
     "vatRate": 0,
     "isTaxable": true,
@@ -1413,7 +1413,7 @@
     "insurancePrice": 0.45,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-SYR5",
     "vatRate": 0,
     "isTaxable": true,
@@ -1433,7 +1433,7 @@
     "insurancePrice": 0.63,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-SYR10",
     "vatRate": 0,
     "isTaxable": true,
@@ -1453,7 +1453,7 @@
     "insurancePrice": 0.27,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-NEED21",
     "vatRate": 0,
     "isTaxable": true,
@@ -1473,7 +1473,7 @@
     "insurancePrice": 0.23,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-NEED23",
     "vatRate": 0,
     "isTaxable": true,
@@ -1493,7 +1493,7 @@
     "insurancePrice": 5.85,
     "supplier": "Dermatology Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-CALAM1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1513,7 +1513,7 @@
     "insurancePrice": 4.05,
     "supplier": "Dermatology Care",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "MED-ZINC1",
     "vatRate": 0,
     "isTaxable": false,
@@ -1533,7 +1533,7 @@
     "insurancePrice": 4.95,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-POVID1",
     "vatRate": 0,
     "isTaxable": true,
@@ -1553,7 +1553,7 @@
     "insurancePrice": 3.15,
     "supplier": "Medical Supplies Ltd",
     "isActive": true,
-    "requiresAuthorization": false,
+
     "tariffCode": "SUPP-H2O2",
     "vatRate": 0,
     "isTaxable": true,

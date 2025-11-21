@@ -12,7 +12,8 @@ export const getBeds = async (req: Request, res: Response) => {
           select: {
             id: true,
             wardName: true,
-            wardType: true
+            wardType: true,
+            isActive: true // ✅ ADDED: Include ward active status
           }
         },
         currentPatient: {

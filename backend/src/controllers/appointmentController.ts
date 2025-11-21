@@ -325,6 +325,68 @@ export const deleteAppointment = async (req: Request, res: Response) => {
   }
 };
 
+// Add this to your existing appointmentController.js
+export const getAppointmentStatistics = async (req: Request, res: Response) => {
+  try {
+    const { dateFrom } = req.query;
+    
+    const whereClause: any = {};
+    
+    if (dateFrom) {
+      whereClause.appointmentDate = {
+        gte: new Date(dateFrom as string)
+      };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [stats, todayStats] = await Promise.all([
+      // Overall statistics
+      prisma.appointment.groupBy({
+        by: ['status'],
+        where: whereClause,
+        _count: {
+          id: true
+        }
+      }),
+      
+      // Today's appointments
+      prisma.appointment.count({
+        where: {
+          appointmentDate: {
+            gte: today
+          },
+          status: {
+            in: ['scheduled', 'confirmed']
+          }
+        }
+      })
+    ]);
+
+    // Transform to more usable format
+    const result = {
+      scheduled: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0,
+      today: todayStats
+    };
+
+    stats.forEach(stat => {
+      result[stat.status] = stat._count.id;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Appointment stats error:', error);
+    res.status(500).json({ 
+      error: 'Failed to load appointment statistics',
+      details: error.message 
+    });
+  }
+};
+
 export const getDoctorSchedule = async (req: Request, res: Response) => {
   try {
     const { doctorId, date } = req.query;

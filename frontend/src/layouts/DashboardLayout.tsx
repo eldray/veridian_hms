@@ -3,6 +3,7 @@ import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useHospitalStore } from '../store/hospitalStore';
 import {
   Hospital,
   LayoutDashboard,
@@ -37,19 +38,9 @@ import {
   Moon,
   MessageSquare,
 } from 'lucide-react';
-import { getHospital } from '../api';
 
 interface DashboardLayoutProps {
   children: ReactNode;
-}
-
-interface HospitalData {
-  id: string;
-  name: string;
-  type?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -57,9 +48,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
-  const [hospital, setHospital] = useState<HospitalData | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
@@ -67,6 +56,35 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
+  // Use hospital store instead of local state
+  const { hospital, fetchHospital, isLoading: hospitalLoading } = useHospitalStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, hasRole } = useAuthStore();
+  const { 
+    notifications: storeNotifications, 
+    unreadCount: storeUnreadCount,
+    markAsRead,
+    markAllAsRead 
+  } = useNotificationStore();
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Use store method instead of direct API call
+  useEffect(() => {
+    const loadHospital = async () => {
+      try {
+        await fetchHospital();
+      } catch (error) {
+        console.error('Error fetching hospital data:', error);
+        // Fallback data is handled in the store
+      }
+    };
+    
+    loadHospital();
+  }, [fetchHospital]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(prev => {
@@ -83,39 +101,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout, hasRole } = useAuthStore();
-  const { 
-    notifications: storeNotifications, 
-    unreadCount: storeUnreadCount,
-    markAsRead,
-    markAllAsRead 
-  } = useNotificationStore();
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const notificationDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchHospital = async () => {
-      try {
-        setLoading(true);
-        const hospitalData = await getHospital();
-        setHospital(hospitalData);
-      } catch (error) {
-        console.error('Error fetching hospital data:', error);
-        setHospital({
-          id: '1',
-          name: 'Veridian Hospital',
-          type: 'General Hospital'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHospital();
-  }, []);
 
   const handleLogout = () => {
     logout();
@@ -193,9 +178,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
 
-          {/* Centered Hospital Name */}
+          {/* Centered Hospital Name - UPDATED */}
           <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-            {loading ? (
+            {hospitalLoading ? (
               <div className="animate-pulse">
                 <div className="h-4 w-32 bg-[var(--text-tertiary)] rounded"></div>
                 <div className="h-3 w-24 bg-[var(--text-tertiary)] rounded mt-1 mx-auto"></div>
@@ -395,8 +380,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="w-6 h-6 bg-[var(--bg-card)] rounded flex items-center justify-center">
                   <Heart className="w-3 h-3 text-[var(--text-secondary)]" />
                 </div>
-
-                                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col min-w-0">
                   <h1 className="text-xs font-bold text-[var(--text-primary)] truncate">Navigation</h1>
                 </div>
               </div>

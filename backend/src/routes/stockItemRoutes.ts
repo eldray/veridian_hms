@@ -8,7 +8,6 @@ import {
   deleteStockItem,
   getLowStockItems,
   getStockCategories,
-  bulkUpdateStock
 } from '../controllers/stockItemController'; // ✅ FIXED: Added all imports
 import { protect, requireRole } from '../middleware/authMiddleware';
 
@@ -34,9 +33,6 @@ router.post('/', requireRole(['admin', 'pharmacist']), createStockItem);
 
 // PUT /api/stock-items/:id - Update a stock item
 router.put('/:id', requireRole(['admin', 'pharmacist']), updateStockItem);
-
-// PATCH /api/stock-items/bulk-update - Bulk update stock levels
-router.patch('/bulk-update', requireRole(['admin', 'pharmacist']), bulkUpdateStock);
 
 // DELETE /api/stock-items/:id - Delete a stock item
 router.delete('/:id', requireRole(['admin']), deleteStockItem);

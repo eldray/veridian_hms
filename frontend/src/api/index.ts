@@ -77,17 +77,17 @@ export const getUsers = () =>
 export const getUserStats = () => 
   api.get('/auth/users/stats').then(r => r.data);
 
-// Profile management
+// Profile management - CORRECTED ENDPOINTS
 export const getProfile = () => 
-  api.get('/profile/profile').then(r => r.data);
+  api.get('/auth/profile').then(r => r.data);
 
 export const updateProfile = (data: any) => 
-  api.put('/profile/profile', data).then(r => r.data);
+  api.put('/auth/profile', data).then(r => r.data);
 
 export const changePassword = (currentPassword: string, newPassword: string) => 
-  api.put('/profile/password', { currentPassword, newPassword }).then(r => r.data);
+  api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data); // Fixed endpoint
 
-// ───── SETTINGS (Admin only) ─────
+  // ───── SETTINGS (Admin only) ─────
 export const getHospitalDetails = () => 
   api.get('/settings/hospital').then(r => r.data);
 
@@ -149,49 +149,38 @@ export const updateInsuranceProvider = (id: string, data: any) =>
 export const deleteInsuranceProvider = (id: string) => 
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
-// ───── INSURANCE CLAIMS ─────
+
+// ───── INSURANCE CLAIMS ───── (SIMPLIFIED - ONLY 7 FUNCTIONS)
+export const generateClaimDraft = (attendanceId: string) => 
+  api.post('/insurance-claims/drafts', { attendanceId }).then(r => r.data);
+
+export const getClaimDraft = (claimId: string) => 
+  api.get(`/insurance-claims/drafts/${claimId}`).then(r => r.data);
+
+export const updateClaimDraft = (claimId: string, data: any) => 
+  api.patch(`/insurance-claims/drafts/${claimId}`, data).then(r => r.data);
+
+export const finalizeClaim = (claimId: string) => 
+  api.post(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
+
+export const generateClaimXML = (claimId: string) => 
+  api.get(`/insurance-claims/${claimId}/xml`, { responseType: 'blob' }).then(r => r.data);
+
+export const generateClaimPrint = (claimId: string) => 
+  api.get(`/insurance-claims/${claimId}/print`).then(r => r.data);
+
+export const getFinalizedClaimsTotal = (filters?: any) => 
+  api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
+
+// KEEP ONLY THESE 3 FOR VIEWING (optional)
 export const getInsuranceClaims = (filters?: any) => 
-  api.get('/insurance-claims', { params: filters }).then(r => {
-    return handleResponse<InsuranceClaim>(r.data);
-  });
+  api.get('/insurance-claims', { params: filters }).then(r => r.data);
 
 export const getInsuranceClaim = (id: string) => 
   api.get(`/insurance-claims/${id}`).then(r => r.data);
 
-export const submitInsuranceClaim = (data: any) => 
-  api.post('/insurance-claims', data).then(r => r.data);
-
-export const updateClaimStatus = (id: string, data: any) => 
-  api.patch(`/insurance-claims/${id}/status`, data).then(r => r.data);
-
-export const generateNHISClaimForm = (attendanceId: string) => 
-  api.get(`/insurance-claims/nhis-claim/${attendanceId}`).then(r => r.data);
-
-export const generateNHISClaim = (attendanceId: string) => 
-  api.get(`/insurance-claims/nhis/${attendanceId}/generate`).then(r => r.data);
-
-export const submitNHISClaim = (attendanceId: string, data: any) => 
-  api.post(`/insurance-claims/nhis/${attendanceId}/submit`, data).then(r => r.data);
-
-export const downloadNHISClaimXML = (attendanceId: string) => 
-  api.get(`/insurance-claims/nhis/${attendanceId}/download-xml`, { 
-    responseType: 'blob' 
-  }).then(r => r.data);
-
-export const getNHISClaimSummary = (filters?: any) => 
-  api.get('/insurance-claims/nhis-summary', { params: filters }).then(r => r.data);
-
 export const getClaimByAttendanceId = (attendanceId: string) => 
   api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
-
-export const createInsuranceClaimForAttendance = (attendanceId: string, data: any) => 
-  api.post(`/insurance-claims/attendance/${attendanceId}`, data).then(r => r.data);
-
-export const generatePrivateInsuranceClaim = (attendanceId: string, insuranceProviderId: string) => 
-  api.get(`/insurance-claims/private/${attendanceId}/${insuranceProviderId}/generate`).then(r => r.data);
-
-export const generateInsuranceClaimData = (attendanceId: string) => 
-  api.get(`/insurance-claims/attendance/${attendanceId}/generate`).then(r => r.data);
 
 // ───── PATIENTS ─────
 export const getPatient = (id: string) => 
@@ -452,9 +441,23 @@ export const generateNHISClaimFromAttendance = (attendanceId: string) =>
   api.get(`/attendances/${attendanceId}/nhis/generate-claim-data`).then(r => r.data);
 
 // ───── BILLS & PAYMENTS ─────
+// In your src/api/index.ts - Update the getBills function
 export const getBills = (filters?: any) => 
-  api.get('/bills', { params: filters }).then(r => handleResponse<Bill>(r.data));
-
+  api.get('/bills', { params: filters }).then(r => {
+    console.log('📊 API Bills Response:', r.data);
+    
+    // Handle different response structures
+    if (Array.isArray(r.data)) {
+      return r.data; // Direct array
+    } else if (r.data && Array.isArray(r.data.data)) {
+      return r.data.data; // { data: [] } format
+    } else if (r.data && Array.isArray(r.data.bills)) {
+      return r.data.bills; // { bills: [] } format
+    } else {
+      console.warn('Unexpected bills API structure:', r.data);
+      return [];
+    }
+  });
 export const getBill = (id: string) => 
   api.get(`/bills/${id}`).then(r => r.data);
 
@@ -593,6 +596,7 @@ export const getStockCategories = () =>
 export const bulkUpdateStock = (data: any) => 
   api.patch('/stock-items/bulk-update', data).then(r => r.data);
 
+// ───── STOCK TRANSACTIONS ─────
 export const getStockTransactions = (filters?: any) => 
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
 
@@ -613,6 +617,50 @@ export const getLowStockAlerts = () =>
 
 export const getStockItemTransactionHistory = (stockItemId: string) => 
   api.get(`/stock-transactions/stock-item/${stockItemId}`).then(r => r.data);
+
+// ───── INVOICES ─────
+export const getInvoices = (filters?: any) => 
+  api.get('/invoices', { params: filters }).then(r => handleResponse<Invoice>(r.data));
+
+export const getInvoice = (id: string) => 
+  api.get(`/invoices/${id}`).then(r => r.data);
+
+export const createInvoice = (data: any) => 
+  api.post('/invoices', data).then(r => r.data);
+
+export const updateInvoice = (id: string, data: any) => 
+  api.put(`/invoices/${id}`, data).then(r => r.data);
+
+export const deleteInvoice = (id: string) => 
+  api.delete(`/invoices/${id}`).then(r => r.data);
+
+// ───── REQUISITIONS ─────
+export const getRequisitions = (filters?: any) => 
+  api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
+
+export const getRequisition = (id: string) => 
+  api.get(`/requisitions/${id}`).then(r => r.data);
+
+export const createRequisition = (data: any) => 
+  api.post('/requisitions', data).then(r => r.data);
+
+export const updateRequisition = (id: string, data: any) => 
+  api.put(`/requisitions/${id}`, data).then(r => r.data);
+
+export const deleteRequisition = (id: string) => 
+  api.delete(`/requisitions/${id}`).then(r => r.data);
+
+export const submitRequisition = (id: string) => 
+  api.patch(`/requisitions/${id}/submit`).then(r => r.data);
+
+export const approveRequisition = (id: string) => 
+  api.patch(`/requisitions/${id}/approve`).then(r => r.data);
+
+export const fulfillRequisition = (id: string, data: any) => 
+  api.post(`/requisitions/${id}/fulfill`, data).then(r => r.data);
+
+export const cancelRequisition = (id: string) => 
+  api.patch(`/requisitions/${id}/cancel`).then(r => r.data);
 
 // ───── MEDICAL SERVICES ─────
 export const getDiagnoses = (filters?: any) => 
@@ -993,22 +1041,95 @@ export const getAppointmentCalendar = (month: string, year: string) =>
 // BACKUP SYSTEM
 // ======================
 
-export const createBackup = () => 
-  api.post('/backup/create').then(r => r.data);
+export const createBackup = async () => {
+  const response = await api.post('/backup/create');
+  return response.data;
+};
 
-export const restoreBackup = (formData: FormData) => 
-  api.post('/backup/restore', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }).then(r => r.data);
+export const restoreBackup = async (backupFile) => {
+  const formData = new FormData();
+  formData.append('backupFile', backupFile);
+  
+  const response = await api.post('/backup/restore', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
 
-export const getBackupList = () => 
-  api.get('/backup/list').then(r => r.data);
+export const getBackupList = async () => {
+  const response = await api.get('/backup/list');
+  return response.data.backups;
+};
 
-export const downloadBackup = (filename: string) => 
-  api.get(`/backup/download/${filename}`, { responseType: 'blob' }).then(r => r.data);
+// src/api/index.ts - FIXED DOWNLOAD FUNCTION
+export const downloadBackup = async (filename: string) => {
+  try {
+    console.log('📥 Starting download for:', filename);
+    
+    const response = await api.get(`/backup/download/${filename}`, {
+      responseType: 'blob', // Ensure response is treated as blob
+      headers: {
+        'Accept': 'application/octet-stream'
+      }
+    });
 
-export const deleteBackup = (filename: string) => 
-  api.delete(`/backup/${filename}`).then(r => r.data);
+    console.log('📦 Download response:', {
+      status: response.status,
+      type: response.headers['content-type'],
+      size: response.data?.size || 'unknown'
+    });
+
+    // ✅ FIXED: Validate that response.data is a Blob
+    if (!(response.data instanceof Blob)) {
+      console.error('❌ Response data is not a Blob:', typeof response.data);
+      throw new Error('Invalid response format: expected Blob');
+    }
+
+    // ✅ FIXED: Create proper Blob with correct MIME type
+    const blob = new Blob([response.data], {
+      type: response.headers['content-type'] || 'application/octet-stream'
+    });
+
+    // ✅ FIXED: Create download link and trigger download
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    console.log('✅ Download triggered successfully');
+    return blob;
+    
+  } catch (error: any) {
+    console.error('❌ Download failed:', error);
+    
+    // Enhanced error handling
+    if (error.response?.status === 404) {
+      throw new Error('Backup file not found on server');
+    } else if (error.response?.status === 500) {
+      throw new Error('Server error during download');
+    } else if (error.message?.includes('Invalid response format')) {
+      throw new Error('Server returned invalid file format');
+    } else {
+      throw new Error(error.response?.data?.message || error.message || 'Download failed');
+    }
+  }
+};
+export const deleteBackup = async (filename) => {
+  const response = await api.delete(`/backup/${filename}`);
+  return response.data;
+};
 
 // ======================
 // UPLOAD SYSTEM (Static file serving)
@@ -1157,25 +1278,27 @@ export default {
   getBillStatistics,
   
   // Insurance
-  getInsuranceProviders,
-  getInsuranceProvider,
-  createInsuranceProvider,
-  updateInsuranceProvider,
-  deleteInsuranceProvider,
-  getInsuranceClaims,
-  getInsuranceClaim,
-  submitInsuranceClaim,
-  updateClaimStatus,
-  generateNHISClaimForm,
-  generateNHISClaim,
-  submitNHISClaim,
-  downloadNHISClaimXML,
-  getNHISClaimSummary,
-  getClaimByAttendanceId,
-  createInsuranceClaimForAttendance,
-  generatePrivateInsuranceClaim,
-  generateInsuranceClaimData,
-  
+// Insurance - SIMPLIFIED WORKFLOW
+getInsuranceProviders,
+getInsuranceProvider,
+createInsuranceProvider,
+updateInsuranceProvider,
+deleteInsuranceProvider,
+
+// Claims Management (Viewing Only)
+getInsuranceClaims,
+getInsuranceClaim,
+getClaimByAttendanceId,
+
+// NEW SIMPLIFIED WORKFLOW (7 functions)
+generateClaimDraft,
+getClaimDraft,
+updateClaimDraft,
+finalizeClaim,
+generateClaimXML,
+generateClaimPrint,
+getFinalizedClaimsTotal,
+
   // Medical Services
   getDiagnoses,
   getDiagnosis,

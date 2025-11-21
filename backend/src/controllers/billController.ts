@@ -1,3 +1,4 @@
+// controllers/billController.ts - COMPLETE UPDATED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient, BillStatus, PaymentMode } from '@prisma/client';
@@ -16,9 +17,6 @@ const handleError = (res: Response, message: string, error: any, statusCode = 50
   });
 };
 
-/**
- * Get all bills with filtering
- */
 export const getBills = async (req: AuthRequest, res: Response) => {
   try {
     const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
@@ -30,7 +28,6 @@ export const getBills = async (req: AuthRequest, res: Response) => {
     const where: any = {};
     if (patientId) where.patientId = patientId as string;
     
-    // Status filtering
     if (status) {
       if (typeof status === 'string' && status.includes(',')) {
         const statusArray = status.split(',').map(s => s.trim());
@@ -40,12 +37,10 @@ export const getBills = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Payment mode filtering
     if (paymentMode) {
       where.paymentMode = paymentMode as PaymentMode;
     }
     
-    // Date filtering
     if (dateFrom || dateTo) {
       where.billDate = {};
       if (dateFrom) where.billDate.gte = new Date(dateFrom as string);
@@ -64,7 +59,7 @@ export const getBills = async (req: AuthRequest, res: Response) => {
             select: {
               id: true,
               surname: true,
-otherNames: true,
+              otherNames: true,
               folderNumber: true,
               contact: true
             }
@@ -126,9 +121,6 @@ otherNames: true,
   }
 };
 
-/**
- * Get bill by ID
- */
 export const getBillById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -141,7 +133,7 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             surname: true,
-otherNames: true,
+            otherNames: true,
             folderNumber: true,
             contact: true,
             paymentMode: true
@@ -186,6 +178,9 @@ otherNames: true,
             username: true
           }
         },
+        payments: {
+          orderBy: { transactionDate: 'desc' }
+        },
         insuranceClaims: {
           select: {
             id: true,
@@ -217,9 +212,6 @@ otherNames: true,
   }
 };
 
-/**
- * Generate bill from attendance using BillingService
- */
 export const generateBillFromAttendance = async (req: AuthRequest, res: Response) => {
   try {
     const { attendanceId } = req.params;
@@ -233,7 +225,7 @@ export const generateBillFromAttendance = async (req: AuthRequest, res: Response
         patient: {
           select: {
             surname: true,
-otherNames: true,
+            otherNames: true,
             folderNumber: true,
             contact: true
           }
@@ -272,9 +264,6 @@ otherNames: true,
   }
 };
 
-/**
- * Create bill manually with items
- */
 export const createBill = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
@@ -293,12 +282,11 @@ export const createBill = [
         });
       }
 
-      const { patientId, attendanceId, paymentMode, items, insuranceProviderId } = req.body;
+      const { patientId, attendanceId, paymentMode, items } = req.body;
 
       console.log('💰 Creating manual bill:', { patientId, attendanceId, paymentMode, itemsCount: items.length });
 
       const result = await prisma.$transaction(async (tx) => {
-        // Validate patient and attendance
         const [patient, attendance] = await Promise.all([
           tx.patient.findUnique({ where: { id: patientId } }),
           tx.attendance.findUnique({ 
@@ -307,14 +295,9 @@ export const createBill = [
           })
         ]);
 
-        if (!patient) {
-          throw new Error('Patient not found');
-        }
-        if (!attendance) {
-          throw new Error('Attendance not found');
-        }
+        if (!patient) throw new Error('Patient not found');
+        if (!attendance) throw new Error('Attendance not found');
 
-        // Use BillingService for calculations
         const billItems = [];
         let totalCashPrice = 0;
         let totalInsuranceCovered = 0;
@@ -322,7 +305,7 @@ export const createBill = [
 
         for (const item of items) {
           const calculation = await BillingService.calculateServiceBilling(
-            item.serviceItemId,
+            item.serviceId,
             item.quantity,
             paymentMode as PaymentMode,
             attendance.insuranceProvider
@@ -333,17 +316,12 @@ export const createBill = [
           totalPatientPayable += calculation.patientPayable;
 
           billItems.push({
-            serviceItemId: item.serviceItemId,
+            serviceId: item.serviceId,
             quantity: item.quantity,
-            calculation: calculation,
-            cashPrice: calculation.cashPrice,
-            insuranceCovered: calculation.insuranceCovered,
-            patientPayable: calculation.patientPayable,
-            requiresAuthorization: calculation.requiresAuthorization
+            calculation
           });
         }
 
-        // Create bill
         const bill = await tx.bill.create({
           data: {
             patientId,
@@ -367,7 +345,7 @@ export const createBill = [
             patient: {
               select: {
                 surname: true,
-otherNames: true,
+                otherNames: true,
                 folderNumber: true,
                 contact: true
               }
@@ -386,7 +364,6 @@ otherNames: true,
           }
         });
 
-        // Update attendance with bill reference
         await tx.attendance.update({
           where: { id: attendanceId },
           data: {
@@ -420,9 +397,6 @@ otherNames: true,
   }
 ];
 
-/**
- * Add payment to bill with payment method tracking
- */
 export const addPaymentToBill = [
   body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
   body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Valid payment method is required'),
@@ -447,19 +421,13 @@ export const addPaymentToBill = [
       console.log('💳 Adding payment to bill:', { billId: id, amount, paymentMethod });
 
       const result = await prisma.$transaction(async (tx) => {
-        const bill = await tx.bill.findUnique({
-          where: { id }
-        });
-
-        if (!bill) {
-          throw new Error('Bill not found');
-        }
+        const bill = await tx.bill.findUnique({ where: { id } });
+        if (!bill) throw new Error('Bill not found');
 
         const paymentAmount = parseFloat(amount);
         const newPaidAmount = bill.paidAmount + paymentAmount;
         const newBalance = bill.totalAmount - newPaidAmount;
 
-        // Determine new bill status
         let newStatus: BillStatus = bill.status;
         if (newBalance <= 0) {
           newStatus = 'paid';
@@ -467,7 +435,6 @@ export const addPaymentToBill = [
           newStatus = 'partial';
         }
 
-        // Update bill
         const updatedBill = await tx.bill.update({
           where: { id },
           data: {
@@ -481,7 +448,7 @@ export const addPaymentToBill = [
             patient: {
               select: {
                 surname: true,
-otherNames: true,
+                otherNames: true,
                 folderNumber: true,
                 contact: true
               }
@@ -495,18 +462,17 @@ otherNames: true,
           }
         });
 
-        // Note: Payment tracking would go here when Payment model is added
         await tx.payment.create({
-           data: {
-             billId: id,
-             amount: paymentAmount,
-             paymentMethod,
-             reference: reference || `PAY-${Date.now()}`,
-             receivedById: req.user?.id,
-             notes,
-             transactionDate: new Date()
-           }
-         });
+          data: {
+            billId: id,
+            amount: paymentAmount,
+            paymentMethod,
+            reference: reference || `PAY-${Date.now()}`,
+            receivedById: req.user?.id,
+            notes,
+            transactionDate: new Date()
+          }
+        });
 
         return {
           bill: updatedBill,
@@ -533,9 +499,6 @@ otherNames: true,
   }
 ];
 
-/**
- * Generate bill report (for printing/export)
- */
 export const generateBillReport = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -547,7 +510,7 @@ export const generateBillReport = async (req: AuthRequest, res: Response) => {
         patient: {
           select: {
             surname: true,
-otherNames: true,
+            otherNames: true,
             folderNumber: true,
             contact: true,
             address: true
@@ -595,7 +558,7 @@ otherNames: true,
         paymentMode: bill.paymentMode
       },
       patientInfo: {
-        name: bill.patient.fullName,
+        name: `${bill.patient.surname} ${bill.patient.otherNames}`,
         folderNumber: bill.patient.folderNumber,
         contact: bill.patient.contact,
         address: bill.patient.address
@@ -636,9 +599,6 @@ otherNames: true,
   }
 };
 
-/**
- * Get billing breakdown for a bill
- */
 export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -648,9 +608,7 @@ export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
       where: { id },
       include: {
         attendance: {
-          select: {
-            id: true
-          }
+          select: { id: true }
         }
       }
     });
@@ -678,9 +636,6 @@ export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
   }
 };
 
-/**
- * Update bill status
- */
 export const updateBillStatus = [
   body('status').isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Valid status is required'),
 
@@ -696,7 +651,7 @@ export const updateBillStatus = [
       }
 
       const { id } = req.params;
-      const { status, notes } = req.body;
+      const { status } = req.body;
 
       console.log('📝 Updating bill status:', { id, status });
 
@@ -711,7 +666,7 @@ export const updateBillStatus = [
           patient: {
             select: {
               surname: true,
-otherNames: true,
+              otherNames: true,
               folderNumber: true
             }
           },
@@ -736,9 +691,6 @@ otherNames: true,
   }
 ];
 
-/**
- * Get bill statistics
- */
 export const getBillStatistics = async (req: AuthRequest, res: Response) => {
   try {
     const { period = 'month' } = req.query;

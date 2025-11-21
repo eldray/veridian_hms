@@ -7,8 +7,7 @@ import {
   deleteProcedureTemplate,
   getProcedureCategories,
   getProcedureDepartments,
-  bulkUpdateProcedureTemplates
-} from '../controllers/procedureTemplateController';
+} from '../controllers/procedureController';
 import { protect, requireAdmin, requireClinicalStaff } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -33,9 +32,6 @@ router.post('/', requireAdmin, createProcedureTemplate);
 
 // PUT /api/procedure-templates/:id - Update a procedure template
 router.put('/:id', requireAdmin, updateProcedureTemplate);
-
-// POST /api/procedure-templates/bulk-update - Bulk update procedure templates
-router.post('/bulk-update', requireAdmin, bulkUpdateProcedureTemplates);
 
 // DELETE /api/procedure-templates/:id - Delete a procedure template
 router.delete('/:id', requireAdmin, deleteProcedureTemplate);

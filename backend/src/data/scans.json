@@ -10,7 +10,7 @@
     "insurancePrice": 85,
     "costPrice": 40,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN01X",
     "vatRate": 0,
     "isTaxable": false,
@@ -30,7 +30,7 @@
     "insurancePrice": 80,
     "costPrice": 35,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "Fasting for 6 hours required",
@@ -49,7 +49,7 @@
     "insurancePrice": 70,
     "costPrice": 30,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "Full bladder required – drink 1L water 1 hour before",
@@ -68,7 +68,7 @@
     "insurancePrice": 75,
     "costPrice": 35,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "Full bladder preferred",
@@ -87,7 +87,7 @@
     "insurancePrice": 68,
     "costPrice": 30,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "Full bladder required",
@@ -106,7 +106,7 @@
     "insurancePrice": 75,
     "costPrice": 35,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN06X",
     "vatRate": 0,
     "isTaxable": false,
@@ -126,7 +126,7 @@
     "insurancePrice": 80,
     "costPrice": 38,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN07X",
     "vatRate": 0,
     "isTaxable": false,
@@ -146,7 +146,7 @@
     "insurancePrice": 90,
     "costPrice": 45,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN08X",
     "vatRate": 0,
     "isTaxable": false,
@@ -166,7 +166,7 @@
     "insurancePrice": 88,
     "costPrice": 42,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN09X",
     "vatRate": 0,
     "isTaxable": false,
@@ -186,7 +186,7 @@
     "insurancePrice": 70,
     "costPrice": 32,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN10X",
     "vatRate": 0,
     "isTaxable": false,
@@ -206,7 +206,7 @@
     "insurancePrice": 68,
     "costPrice": 30,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN11X",
     "vatRate": 0,
     "isTaxable": false,
@@ -226,7 +226,7 @@
     "insurancePrice": 65,
     "costPrice": 28,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN12X",
     "vatRate": 0,
     "isTaxable": false,
@@ -246,7 +246,7 @@
     "insurancePrice": 68,
     "costPrice": 30,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN13X",
     "vatRate": 0,
     "isTaxable": false,
@@ -266,7 +266,7 @@
     "insurancePrice": 60,
     "costPrice": 25,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN14X",
     "vatRate": 0,
     "isTaxable": false,
@@ -286,7 +286,7 @@
     "insurancePrice": 150,
     "costPrice": 70,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN15M",
     "vatRate": 0,
     "isTaxable": false,
@@ -306,7 +306,7 @@
     "insurancePrice": 70,
     "costPrice": 32,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "No special preparation",
@@ -325,7 +325,7 @@
     "insurancePrice": 75,
     "costPrice": 35,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "No special preparation",
@@ -344,7 +344,7 @@
     "insurancePrice": 80,
     "costPrice": 38,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN18X",
     "vatRate": 0,
     "isTaxable": false,
@@ -364,7 +364,7 @@
     "insurancePrice": 75,
     "costPrice": 35,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN19X",
     "vatRate": 0,
     "isTaxable": false,
@@ -384,7 +384,7 @@
     "insurancePrice": 210,
     "costPrice": 100,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN20F",
     "vatRate": 0,
     "isTaxable": false,
@@ -404,7 +404,7 @@
     "insurancePrice": 250,
     "costPrice": 120,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN21X",
     "vatRate": 0,
     "isTaxable": false,
@@ -424,7 +424,7 @@
     "insurancePrice": 230,
     "costPrice": 110,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN22X",
     "vatRate": 0,
     "isTaxable": false,
@@ -444,7 +444,7 @@
     "insurancePrice": 380,
     "costPrice": 200,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN23C",
     "vatRate": 0,
     "isTaxable": false,
@@ -464,7 +464,7 @@
     "insurancePrice": 500,
     "costPrice": 280,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN24C",
     "vatRate": 0,
     "isTaxable": false,
@@ -484,7 +484,7 @@
     "insurancePrice": 420,
     "costPrice": 220,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "tariffCode": "SCAN-SCAN25C",
     "vatRate": 0,
     "isTaxable": false,
@@ -504,7 +504,7 @@
     "insurancePrice": 70,
     "costPrice": 32,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN26X",
     "vatRate": 0,
     "isTaxable": false,
@@ -524,7 +524,7 @@
     "insurancePrice": 85,
     "costPrice": 40,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN27U",
     "vatRate": 0,
     "isTaxable": false,
@@ -544,7 +544,7 @@
     "insurancePrice": 125,
     "costPrice": 60,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "Wear loose clothing; no lotions on legs",
@@ -563,7 +563,7 @@
     "insurancePrice": 135,
     "costPrice": 65,
     "isPending": false,
-    "requiresAuthorization": true,
+
     "vatRate": 0,
     "isTaxable": false,
     "preparationInstructions": "No special preparation",
@@ -582,7 +582,7 @@
     "insurancePrice": 60,
     "costPrice": 25,
     "isPending": false,
-    "requiresAuthorization": false,
+
     "tariffCode": "SCAN-SCAN30X",
     "vatRate": 0,
     "isTaxable": false,

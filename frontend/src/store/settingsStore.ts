@@ -1,28 +1,30 @@
-// src/store/settingsStore.ts - UPDATED WITH USER MANAGEMENT
+// src/store/settingsStore.ts - UPDATED & ALIGNED
 import { create } from 'zustand';
-import { 
-  getHospitalDetails as apiGetHospitalDetails,
-  updateHospitalDetails as apiUpdateHospitalDetails,
-  getAllUsers as apiGetAllUsers,
-  updateUser as apiUpdateUser,
-  deactivateUser as apiDeactivateUser,
-  getHospital as apiGetHospital,
-  // Backup functions
-  createBackup as apiCreateBackup,
-  restoreBackup as apiRestoreBackup,
-  getBackupList as apiGetBackupList,
-  downloadBackup as apiDownloadBackup,
-  deleteBackup as apiDeleteBackup,
-  // NHIS Settings
-  getHospitalNHISSettings as apiGetNHISSettings,
-  updateHospitalNHISSettings as apiUpdateNHISSettings,
+import {
+  // Hospital Management
+  getHospitalDetails,
+  updateHospitalDetails,
+  getHospital,
+  getHospitalNHISSettings,
+  updateHospitalNHISSettings,
+
   // User Management
-  getUsers as apiGetUsers,
-  getUserStats as apiGetUserStats,
-  getUsersByDepartment as apiGetUsersByDepartment,
-  updateUserDepartment as apiUpdateUserDepartment
-} from '../api';
-import type { User, Hospital } from '../types';
+  getAllUsers,
+  updateUser,
+  deactivateUser,
+  getUsers,
+  getUserStats,
+  getUsersByDepartment,
+  updateUserDepartment,
+
+  // Backup & Restore
+  createBackup,
+  restoreBackup,
+  getBackupList,
+  downloadBackup,
+  deleteBackup,
+} from '../api'; // ✅ USING UNIFIED API INDEX
+import type { User, Hospital, BackupFile } from '../types';
 
 interface NHISConfig {
   providerId: string;
@@ -36,42 +38,40 @@ interface NHISConfig {
 interface SettingsState {
   hospital: Hospital | null;
   users: User[];
-  backups: any[];
+  backups: BackupFile[];
   isLoading: boolean;
   error: string | null;
   pagination: any;
   nhisConfig: NHISConfig;
-  userStats: any; // ✅ ADDED
-  
+  userStats: any;
+
   // Hospital Management
   getHospitalDetails: () => Promise<void>;
   updateHospitalDetails: (data: Partial<Hospital>) => Promise<Hospital>;
   getHospital: () => Promise<void>;
   loadHospitalOnStartup: () => Promise<void>;
   clearHospital: () => void;
-  
+
   // User Management
   getAllUsers: (filters?: any) => Promise<void>;
   updateUser: (userId: string, data: Partial<User>) => Promise<User>;
   deactivateUser: (userId: string) => Promise<void>;
-  
-  // ✅ ADDED USER MANAGEMENT FUNCTIONS
   getUsers: (filters?: any) => Promise<void>;
   getUserStats: () => Promise<void>;
   getUsersByDepartment: (departmentId: string) => Promise<User[]>;
   updateUserDepartment: (userId: string, departmentId: string) => Promise<void>;
-  
+
   // Backup & Restore
   createBackup: () => Promise<any>;
   restoreBackup: (backupFile: File) => Promise<any>;
-  getBackupList: () => Promise<any[]>;
+  getBackupList: () => Promise<BackupFile[]>;
   downloadBackup: (filename: string) => Promise<void>;
   deleteBackup: (filename: string) => Promise<void>;
-  
+
   // NHIS Configuration
   getNHISConfig: () => Promise<void>;
   updateNHISConfig: (config: Partial<NHISConfig>) => Promise<void>;
-  
+
   clearError: () => void;
 }
 
@@ -90,42 +90,51 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     claimEndpoint: '',
     isActive: false
   },
-  userStats: null, // ✅ ADDED
+  userStats: null,
 
   // Hospital Management
   getHospitalDetails: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const hospital = await apiGetHospitalDetails();
+      const hospital = await getHospitalDetails();
       set({ hospital, isLoading: false });
     } catch (error: any) {
       console.error('Failed to fetch hospital details:', error);
-      set({ isLoading: false, error: error.message || 'Failed to fetch hospital details' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch hospital details'
+      });
       throw error;
     }
   },
 
   updateHospitalDetails: async (data: Partial<Hospital>) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const hospital = await apiUpdateHospitalDetails(data);
+      const hospital = await updateHospitalDetails(data);
       set({ hospital, isLoading: false });
       return hospital;
     } catch (error: any) {
       console.error('Failed to update hospital details:', error);
-      set({ isLoading: false, error: error.message || 'Failed to update hospital details' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to update hospital details'
+      });
       throw error;
     }
   },
 
   getHospital: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const hospital = await apiGetHospital();
+      const hospital = await getHospital();
       set({ hospital, isLoading: false });
     } catch (error: any) {
       console.error('Failed to fetch hospital:', error);
-      set({ isLoading: false, error: error.message || 'Failed to fetch hospital' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch hospital'
+      });
       throw error;
     }
   },
@@ -134,7 +143,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const hospital = get().hospital;
     if (hospital?.nhisFacilityCode) return;
 
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       await get().getHospital();
     } catch (error) {
@@ -150,64 +159,75 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   // User Management
   getAllUsers: async (filters = {}) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const response = await apiGetAllUsers(filters);
-      set({ 
+      const response = await getAllUsers(filters);
+      set({
         users: response.users || response.data || response,
         pagination: response.pagination || null,
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: any) {
       console.error('Failed to fetch users:', error);
-      set({ isLoading: false, error: error.message || 'Failed to fetch users' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch users'
+      });
       throw error;
     }
   },
 
   updateUser: async (userId: string, data: Partial<User>) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const updatedUser = await apiUpdateUser(userId, data);
-      const users = get().users.map(user => 
+      const updatedUser = await updateUser(userId, data);
+      const users = get().users.map(user =>
         user.id === userId ? updatedUser : user
       );
       set({ users, isLoading: false });
       return updatedUser;
     } catch (error: any) {
       console.error('Failed to update user:', error);
-      set({ isLoading: false, error: error.message || 'Failed to update user' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to update user'
+      });
       throw error;
     }
   },
 
   deactivateUser: async (userId: string) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      await apiDeactivateUser(userId);
-      const users = get().users.map(user => 
+      await deactivateUser(userId);
+      const users = get().users.map(user =>
         user.id === userId ? { ...user, isActive: false } : user
       );
       set({ users, isLoading: false });
     } catch (error: any) {
       console.error('Failed to deactivate user:', error);
-      set({ isLoading: false, error: error.message || 'Failed to deactivate user' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to deactivate user'
+      });
       throw error;
     }
   },
 
-  // ✅ ADDED USER MANAGEMENT FUNCTIONS
   getUsers: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetUsers(filters);
-      set({ 
+      const response = await getUsers(filters);
+      set({
         users: response.users || response.data || response,
         pagination: response.pagination || null,
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to fetch users' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch users'
+      });
       throw error;
     }
   },
@@ -215,10 +235,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   getUserStats: async () => {
     set({ isLoading: true, error: null });
     try {
-      const stats = await apiGetUserStats();
+      const stats = await getUserStats();
       set({ userStats: stats, isLoading: false });
     } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to fetch user stats' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch user stats'
+      });
       throw error;
     }
   },
@@ -226,11 +249,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   getUsersByDepartment: async (departmentId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const users = await apiGetUsersByDepartment(departmentId);
+      const users = await getUsersByDepartment(departmentId);
       set({ isLoading: false });
       return users;
     } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to fetch department users' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch department users'
+      });
       throw error;
     }
   },
@@ -238,29 +264,35 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   updateUserDepartment: async (userId: string, departmentId: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiUpdateUserDepartment(userId, departmentId);
-      
+      await updateUserDepartment(userId, departmentId);
+
       // Update local state
-      const updatedUsers = get().users.map(user => 
+      const updatedUsers = get().users.map(user =>
         user.id === userId ? { ...user, departmentId } : user
       );
-      
+
       set({ users: updatedUsers, isLoading: false });
     } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to update user department' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to update user department'
+      });
       throw error;
     }
   },
 
-  // Backup & Restore
+  // Backup & Restore - FIXED DOWNLOAD FUNCTION
   createBackup: async () => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiCreateBackup();
+      const result = await createBackup();
       set({ isLoading: false });
       return result;
     } catch (error: any) {
-      set({ error: error.message || 'Failed to create backup', isLoading: false });
+      set({
+        error: error.response?.data?.message || 'Failed to create backup',
+        isLoading: false
+      });
       throw error;
     }
   },
@@ -270,12 +302,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const formData = new FormData();
       formData.append('backupFile', backupFile);
-      
-      const result = await apiRestoreBackup(formData);
+
+      const result = await restoreBackup(formData);
       set({ isLoading: false });
       return result;
     } catch (error: any) {
-      set({ error: error.message || 'Failed to restore backup', isLoading: false });
+      set({
+        error: error.response?.data?.message || 'Failed to restore backup',
+        isLoading: false
+      });
       throw error;
     }
   },
@@ -283,57 +318,91 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   getBackupList: async () => {
     set({ isLoading: true, error: null });
     try {
-      const backups = await apiGetBackupList();
-      set({ backups, isLoading: false });
-      return backups;
+      const response = await getBackupList();
+      // Ensure backups is always an array
+      const backups = Array.isArray(response) ? response : 
+                     (response.data && Array.isArray(response.data)) ? response.data : 
+                     (response.backups && Array.isArray(response.backups)) ? response.backups : [];
+      
+      set({ 
+        backups,
+        isLoading: false 
+      });
     } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch backup list', isLoading: false });
-      throw error;
+      set({
+        error: error.response?.data?.message || 'Failed to fetch backups',
+        isLoading: false,
+        backups: [] // Ensure empty array on error
+      });
     }
   },
 
-  downloadBackup: async (filename: string) => {
-    try {
-      await apiDownloadBackup(filename);
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to download backup' });
-      throw error;
-    }
-  },
+  // ✅ FIXED: Proper download implementation
+downloadBackup: async (filename: string) => {
+  set({ isLoading: true, error: null });
+  try {
+    console.log('🔄 Store: Starting download for', filename);
+    
+    // Just call the API function - it handles the download internally
+    await downloadBackup(filename);
+    
+    set({ isLoading: false });
+    
+  } catch (error: any) {
+    console.error('❌ Store: Download failed:', error);
+    
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to download backup';
+    set({
+      error: errorMessage,
+      isLoading: false
+    });
+    
+    throw new Error(errorMessage);
+  }
+},
 
   deleteBackup: async (filename: string) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      await apiDeleteBackup(filename);
+      await deleteBackup(filename);
       const backups = get().backups.filter(backup => backup.filename !== filename);
       set({ backups, isLoading: false });
     } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Failed to delete backup' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to delete backup'
+      });
       throw error;
     }
   },
 
   // NHIS Configuration
   getNHISConfig: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const nhisConfig = await apiGetNHISSettings();
+      const nhisConfig = await getHospitalNHISSettings();
       set({ nhisConfig, isLoading: false });
     } catch (error: any) {
       console.error('Failed to fetch NHIS config:', error);
-      set({ isLoading: false, error: error.message || 'Failed to fetch NHIS config' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to fetch NHIS config'
+      });
       throw error;
     }
   },
 
   updateNHISConfig: async (config: Partial<NHISConfig>) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const nhisConfig = await apiUpdateNHISSettings(config);
+      const nhisConfig = await updateHospitalNHISSettings(config);
       set({ nhisConfig, isLoading: false });
     } catch (error: any) {
       console.error('Failed to update NHIS config:', error);
-      set({ isLoading: false, error: error.message || 'Failed to update NHIS config' });
+      set({
+        isLoading: false,
+        error: error.response?.data?.message || 'Failed to update NHIS config'
+      });
       throw error;
     }
   },

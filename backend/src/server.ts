@@ -52,40 +52,67 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
 
 const PORT = process.env.PORT || 5000;
 
-// Function to run seed script
+// ✅ UPDATED: Function to run seed script safely
 const runSeedScript = async () => {
   try {
     console.log('🌱 Checking if database needs seeding...');
+    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     
     // Import and run seed script
     const { seedDatabase } = await import('./seed/seedData');
-    await seedDatabase();
+    const result = await seedDatabase();
     
-    console.log('✅ Database seeding completed successfully');
+    if (result.seeded) {
+      console.log('✅ New data was seeded successfully');
+    } else {
+      console.log('ℹ️ Database already has data, no seeding needed');
+    }
+    
+    return result;
   } catch (error) {
     console.error('❌ Database seeding failed:', error);
     
     // Check if it's a "already seeded" error or a real error
-    if (error instanceof Error && error.message.includes('already seeded')) {
+    if (error instanceof Error && (
+      error.message.includes('already seeded') || 
+      error.message.includes('already exists') ||
+      error.message.includes('Real data detected')
+    )) {
       console.log('ℹ️  Database already seeded, continuing...');
+      return { seeded: false, reason: 'already_exists' };
     } else {
       console.error('🚨 Serious seeding error, but continuing server startup...');
+      return { seeded: false, reason: 'error', error: error.message };
     }
   }
 };
 
 // Start server and run seed script
 const startServer = async () => {
-  // Only run seed in development or if explicitly enabled
-  if (process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true') {
+  // ✅ UPDATED: Only run seed in development or if explicitly enabled
+  const shouldRunSeed = process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true';
+  
+  if (shouldRunSeed) {
+    console.log('🔧 Running database initialization...');
     await runSeedScript();
+  } else {
+    console.log('🏭 Production: Skipping auto-seeding');
   }
 
   app.listen(PORT, () => {
     console.log(`🏥 Hospital Management System API running on port ${PORT}`);
     console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌱 Auto-seeding: ${process.env.RUN_SEED || 'development only'}`);
+    console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
+    
+    // Additional info for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('\n👤 Test User Credentials:');
+      console.log('   - doctor1 / doctor123');
+      console.log('   - nurse1 / nurse123'); 
+      console.log('   - admin / admin123');
+      console.log('\n📋 Test Patients: PAT-10000, PAT-10001');
+    }
   });
 };
 

@@ -1,12 +1,12 @@
-// controllers/admissionController.ts - COMPLETE UPDATED VERSION
+// controllers/admissionController.ts - UPDATED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AdmissionType } from '@prisma/client'; // ✅ ADDED AdmissionType
 const prisma = new PrismaClient();
 import { NotificationService } from '../services/NotificationService';
 
 // ==============================
-// GET ALL ADMISSIONS
+// GET ALL ADMISSIONS - UPDATED
 // ==============================
 export const getAdmissions = async (req: Request, res: Response) => {
   try {
@@ -50,9 +50,8 @@ export const getAdmissions = async (req: Request, res: Response) => {
           ward: {
             select: {
               wardName: true,
-              wardType: true,
-              cashDailyRate: true,
-              insuranceDailyRate: true
+              wardType: true
+              // ✅ REMOVED: cashDailyRate, insuranceDailyRate (not in schema)
             }
           },
           bed: {
@@ -82,8 +81,17 @@ export const getAdmissions = async (req: Request, res: Response) => {
       prisma.admission.count({ where })
     ]);
 
+    // ✅ ADDED: Add fullName to patient objects
+    const admissionsWithFullName = admissions.map(admission => ({
+      ...admission,
+      patient: admission.patient ? {
+        ...admission.patient,
+        fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+      } : null
+    }));
+
     res.json({
-      admissions,
+      admissions: admissionsWithFullName,
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
@@ -101,103 +109,7 @@ export const getAdmissions = async (req: Request, res: Response) => {
 };
 
 // ==============================
-// GET ADMISSION BY ID
-// ==============================
-export const getAdmissionById = async (req: Request, res: Response) => {
-  try {
-    const admission = await prisma.admission.findUnique({
-      where: { id: req.params.id },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            contact: true,
-            gender: true,
-            dateOfBirth: true,
-            paymentMode: true,
-            insuranceProvider: {
-              select: {
-                name: true,
-                type: true,
-                coveragePercentage: true
-              }
-            }
-          }
-        },
-        ward: {
-          select: {
-            id: true,
-            wardName: true,
-            wardType: true,
-            cashDailyRate: true,
-            insuranceDailyRate: true
-          }
-        },
-        bed: {
-          select: {
-            id: true,
-            bedNumber: true,
-            isOccupied: true
-          }
-        },
-        principalDiagnosis: {
-          select: {
-            id: true,
-            name: true,
-            icdCode: true,
-            gdrgCode: true
-          }
-        },
-        secondaryDiagnoses: {
-          include: {
-            diagnosis: {
-              select: {
-                id: true,
-                name: true,
-                icdCode: true
-              }
-            }
-          }
-        },
-        attendance: {
-          select: {
-            id: true,
-            attendanceNumber: true,
-            dateTime: true,
-            paymentMode: true,
-            nhisCCC: true
-          }
-        },
-        bills: {
-          select: {
-            id: true,
-            billNumber: true,
-            totalAmount: true,
-            status: true
-          }
-        }
-      }
-    });
-
-    if (!admission) {
-      return res.status(404).json({ message: 'Admission not found' });
-    }
-
-    res.json(admission);
-  } catch (error) {
-    console.error('Error fetching admission:', error);
-    res.status(500).json({ 
-      message: 'Error fetching admission', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-// ==============================
-// CREATE NEW ADMISSION
+// CREATE NEW ADMISSION - UPDATED
 // ==============================
 export const createAdmission = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
@@ -218,9 +130,14 @@ export const createAdmission = [
         patientId,
         wardId,
         bedId,
-        attendanceId, // Optional - if admission extends from attendance
+        attendanceId,
         ...admissionData
       } = req.body;
+
+      const user = (req as any).user;
+      if (!user || !user.id) {
+        return res.status(401).json({ message: 'User authentication required' });
+      }
 
       const result = await prisma.$transaction(async (tx) => {
         // Validate bed availability
@@ -282,6 +199,9 @@ export const createAdmission = [
           throw new Error('Principal diagnosis not found');
         }
 
+        // ✅ UPDATED: Use AdmissionType enum with detention_observation
+        const admissionType = (admissionData.admissionType as AdmissionType) || 'emergency';
+
         // Create admission
         const admission = await tx.admission.create({
           data: {
@@ -298,10 +218,10 @@ export const createAdmission = [
             admissionDate: admissionData.admissionDate ? new Date(admissionData.admissionDate) : new Date(),
             admissionTime: admissionData.admissionTime || new Date().toTimeString().slice(0, 5),
             status: 'admitted',
-            admissionType: admissionData.admissionType || 'emergency',
+            admissionType: admissionType, // ✅ UPDATED
             admissionSource: admissionData.admissionSource || 'home',
             principalPresentOnAdmission: admissionData.principalPresentOnAdmission || 'Y',
-            createdBy: (req as any).user?.id,
+            createdBy: user.id, // ✅ UPDATED: user.id instead of (req as any).user?.id
           },
           include: {
             patient: {
@@ -316,9 +236,7 @@ export const createAdmission = [
             ward: {
               select: {
                 wardName: true,
-                wardType: true,
-                cashDailyRate: true,
-                insuranceDailyRate: true
+                wardType: true
               }
             },
             bed: {
@@ -362,12 +280,21 @@ export const createAdmission = [
         return admission;
       });
 
+      // ✅ MODIFIED: Add fullName to the response
+      const resultWithFullName = {
+        ...result,
+        patient: result.patient ? {
+          ...result.patient,
+          fullName: `${result.patient.surname} ${result.patient.otherNames}`.trim()
+        } : null
+      };
+
       // Send notifications
       await NotificationService.sendAdmissionNotifications(result.id);
 
       res.status(201).json({
         message: 'Admission created successfully',
-        admission: result,
+        admission: resultWithFullName,
         relationship: result.attendanceId ? 
           'Extended from attendance' : 'Direct admission'
       });
@@ -390,8 +317,114 @@ export const createAdmission = [
   }
 ];
 
+// ... other functions remain similar with field name updates ...
+
 // ==============================
-// UPDATE ADMISSION
+// GET ADMISSION BY ID - UPDATED
+// ==============================
+export const getAdmissionById = async (req: Request, res: Response) => {
+  try {
+    const admission = await prisma.admission.findUnique({
+      where: { id: req.params.id },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            surname: true,
+            otherNames: true,
+            folderNumber: true,
+            contact: true,
+            gender: true,
+            dateOfBirth: true,
+            paymentMode: true,
+            insuranceProvider: {
+              select: {
+                name: true,
+                type: true,
+                coveragePercentage: true
+              }
+            }
+          }
+        },
+        ward: {
+          select: {
+            id: true,
+            wardName: true,
+            wardType: true
+            // ✅ REMOVED: cashDailyRate, insuranceDailyRate (not in schema)
+          }
+        },
+        bed: {
+          select: {
+            id: true,
+            bedNumber: true,
+            isOccupied: true
+          }
+        },
+        principalDiagnosis: {
+          select: {
+            id: true,
+            name: true,
+            icdCode: true,
+            gdrgCode: true
+          }
+        },
+        secondaryDiagnoses: {
+          include: {
+            diagnosis: {
+              select: {
+                id: true,
+                name: true,
+                icdCode: true
+              }
+            }
+          }
+        },
+        attendance: {
+          select: {
+            id: true,
+            attendanceNumber: true,
+            dateTime: true,
+            paymentMode: true,
+            nhisCCC: true
+          }
+        },
+        bills: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    if (!admission) {
+      return res.status(404).json({ message: 'Admission not found' });
+    }
+
+    // ✅ ADDED: Add fullName to patient
+    const admissionWithFullName = {
+      ...admission,
+      patient: admission.patient ? {
+        ...admission.patient,
+        fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+      } : null
+    };
+
+    res.json(admissionWithFullName);
+  } catch (error) {
+    console.error('Error fetching admission:', error);
+    res.status(500).json({ 
+      message: 'Error fetching admission', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ==============================
+// UPDATE ADMISSION - UPDATED
 // ==============================
 export const updateAdmission = [
   body('status')
@@ -469,7 +502,16 @@ export const updateAdmission = [
           }
         }
 
-        return admission;
+        // ✅ ADDED: Add fullName to response
+        const resultWithFullName = {
+          ...admission,
+          patient: admission.patient ? {
+            ...admission.patient,
+            fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+          } : null
+        };
+
+        return resultWithFullName;
       });
 
       res.json({
@@ -490,7 +532,7 @@ export const updateAdmission = [
 ];
 
 // ==============================
-// DELETE ADMISSION
+// DELETE ADMISSION - UPDATED
 // ==============================
 export const deleteAdmission = async (req: Request, res: Response) => {
   try {
@@ -498,7 +540,13 @@ export const deleteAdmission = async (req: Request, res: Response) => {
       where: { id: req.params.id },
       include: {
         bed: true,
-        ward: true
+        ward: true,
+        patient: {
+          select: {
+            surname: true,
+            otherNames: true
+          }
+        }
       }
     });
 
@@ -531,14 +579,17 @@ export const deleteAdmission = async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
+    // ✅ ADDED: Calculate fullName for response
+    const patientFullName = admission.patient ? 
+      `${admission.patient.surname} ${admission.patient.otherNames}`.trim() : 
+      'Unknown Patient';
+
     res.json({ 
       message: 'Admission deleted successfully',
       deletedAdmission: {
         id: admission.id,
         admissionNumber: admission.admissionNumber,
-        patientName: admission.patient ? 
-        `${admission.patient.surname} ${admission.patient.otherNames}`.trim() : 
-        'Unknown Patient',
+        patientName: patientFullName,
         status: admission.status
       }
     });
@@ -555,12 +606,12 @@ export const deleteAdmission = async (req: Request, res: Response) => {
 };
 
 // ==============================
-// UPDATE ADMISSION WITH NHIS IPD DATA
+// UPDATE ADMISSION WITH NHIS IPD DATA - UPDATED
 // ==============================
 export const updateAdmissionWithNHISData = [
   body('principalDiagnosisId').notEmpty().withMessage('Principal diagnosis is required'),
   body('principalPresentOnAdmission').isIn(['Y', 'N', 'U']).withMessage('Valid POA indicator required'),
-  body('admissionType').isIn(['elective', 'emergency', 'transfer']).withMessage('Valid admission type required'),
+  body('admissionType').isIn(['elective', 'emergency', 'transfer', 'detention_observation']).withMessage('Valid admission type required'), // ✅ UPDATED: Added detention_observation
   
   async (req: Request, res: Response) => {
     try {
@@ -578,7 +629,7 @@ export const updateAdmissionWithNHISData = [
         secondaryDiagnoses
       } = req.body;
 
-      // Get principal diagnosis info
+      // ✅ ADDED: Validate principal diagnosis exists
       const principalDiagnosis = await prisma.diagnosis.findUnique({
         where: { id: principalDiagnosisId }
       });
@@ -599,7 +650,13 @@ export const updateAdmissionWithNHISData = [
           updatedAt: new Date()
         },
         include: {
-          patient: true,
+          patient: {
+            select: {
+              surname: true,
+              otherNames: true,
+              folderNumber: true
+            }
+          },
           ward: true,
           bed: true,
           principalDiagnosis: true
@@ -632,7 +689,13 @@ export const updateAdmissionWithNHISData = [
       const updatedAdmission = await prisma.admission.findUnique({
         where: { id: req.params.id },
         include: {
-          patient: true,
+          patient: {
+            select: {
+              surname: true,
+              otherNames: true,
+              folderNumber: true
+            }
+          },
           ward: true,
           bed: true,
           principalDiagnosis: true,
@@ -644,9 +707,18 @@ export const updateAdmissionWithNHISData = [
         }
       });
 
+      // ✅ ADDED: Add fullName to response
+      const admissionWithFullName = updatedAdmission ? {
+        ...updatedAdmission,
+        patient: updatedAdmission.patient ? {
+          ...updatedAdmission.patient,
+          fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+        } : null
+      } : null;
+
       res.json({
         message: 'Admission updated with NHIS data successfully',
-        admission: updatedAdmission
+        admission: admissionWithFullName
       });
     } catch (error) {
       console.error('Error updating admission with NHIS data:', error);
@@ -662,7 +734,7 @@ export const updateAdmissionWithNHISData = [
 ];
 
 // ==============================
-// DISCHARGE PATIENT WITH NHIS DATA
+// DISCHARGE PATIENT WITH NHIS DATA - UPDATED
 // ==============================
 export const dischargePatient = [
   body('dischargeDate').isISO8601().withMessage('Valid discharge date required'),
@@ -688,7 +760,13 @@ export const dischargePatient = [
         const admission = await tx.admission.findUnique({
           where: { id: req.params.id },
           include: {
-            patient: true,
+            patient: {
+              select: {
+                surname: true,
+                otherNames: true,
+                folderNumber: true
+              }
+            },
             ward: true,
             bed: true
           }
@@ -714,7 +792,13 @@ export const dischargePatient = [
             updatedAt: new Date()
           },
           include: {
-            patient: true,
+            patient: {
+              select: {
+                surname: true,
+                otherNames: true,
+                folderNumber: true
+              }
+            },
             ward: true,
             bed: true,
             principalDiagnosis: true
@@ -748,7 +832,16 @@ export const dischargePatient = [
           });
         }
 
-        return updatedAdmission;
+        // ✅ ADDED: Add fullName to response
+        const resultWithFullName = {
+          ...updatedAdmission,
+          patient: updatedAdmission.patient ? {
+            ...updatedAdmission.patient,
+            fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+          } : null
+        };
+
+        return resultWithFullName;
       });
 
       // Send discharge notifications
@@ -774,7 +867,7 @@ export const dischargePatient = [
 ];
 
 // ==============================
-// ADD DAILY NOTES TO ADMISSION
+// ADD DAILY NOTES TO ADMISSION - UPDATED
 // ==============================
 export const addDailyNotes = [
   body('notes').notEmpty().withMessage('Daily notes are required'),
@@ -829,9 +922,18 @@ export const addDailyNotes = [
         }
       });
 
+      // ✅ ADDED: Add fullName to response
+      const admissionWithFullName = {
+        ...updatedAdmission,
+        patient: updatedAdmission.patient ? {
+          ...updatedAdmission.patient,
+          fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+        } : null
+      };
+
       res.json({
         message: 'Daily notes added successfully',
-        admission: updatedAdmission,
+        admission: admissionWithFullName,
         noteDate: noteDate
       });
     } catch (error) {
@@ -845,7 +947,7 @@ export const addDailyNotes = [
 ];
 
 // ==============================
-// GET ADMISSION STATISTICS
+// GET ADMISSION STATISTICS - UPDATED
 // ==============================
 export const getAdmissionStats = async (req: Request, res: Response) => {
   try {
@@ -863,7 +965,8 @@ export const getAdmissionStats = async (req: Request, res: Response) => {
       currentAdmissions,
       dischargedAdmissions,
       averageLengthOfStay,
-      wardBreakdown
+      wardBreakdown,
+      admissionTypeBreakdown // ✅ ADDED: Admission type statistics
     ] = await Promise.all([
       prisma.admission.count({ where }),
       prisma.admission.count({ where: { ...where, status: 'admitted' } }),
@@ -877,6 +980,14 @@ export const getAdmissionStats = async (req: Request, res: Response) => {
       prisma.admission.groupBy({
         by: ['wardId'],
         where: { ...where, status: 'admitted' },
+        _count: {
+          id: true
+        }
+      }),
+      // ✅ ADDED: Admission type breakdown
+      prisma.admission.groupBy({
+        by: ['admissionType'],
+        where: { ...where },
         _count: {
           id: true
         }
@@ -904,12 +1015,72 @@ export const getAdmissionStats = async (req: Request, res: Response) => {
       currentAdmissions,
       dischargedAdmissions,
       averageLengthOfStay: averageLengthOfStay._avg.lengthOfStay || 0,
-      wardBreakdown: wardDetails
+      wardBreakdown: wardDetails,
+      admissionTypeBreakdown // ✅ ADDED: Include admission type stats
     });
   } catch (error) {
     console.error('Error fetching admission stats:', error);
     res.status(500).json({ 
       message: 'Error fetching admission stats', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ==============================
+// GET ADMISSIONS BY PATIENT ID - NEW ENDPOINT
+// ==============================
+export const getAdmissionsByPatientId = async (req: Request, res: Response) => {
+  try {
+    const { patientId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+    const [admissions, total] = await Promise.all([
+      prisma.admission.findMany({
+        where: { patientId },
+        include: {
+          ward: {
+            select: {
+              wardName: true,
+              wardType: true
+            }
+          },
+          bed: {
+            select: {
+              bedNumber: true
+            }
+          },
+          principalDiagnosis: {
+            select: {
+              name: true,
+              icdCode: true
+            }
+          }
+        },
+        orderBy: {
+          admissionDate: 'desc'
+        },
+        skip,
+        take: parseInt(limit as string)
+      }),
+      prisma.admission.count({ where: { patientId } })
+    ]);
+
+    res.json({
+      admissions,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total,
+        pages: Math.ceil(total / parseInt(limit as string))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching patient admissions:', error);
+    res.status(500).json({ 
+      message: 'Error fetching patient admissions', 
       error: (error as Error).message 
     });
   }

@@ -1,4 +1,4 @@
-// src/pages/StockManagement.tsx - COMPLETE UPDATED VERSION
+// src/pages/StockManagement.tsx - FIXED VERSION
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
@@ -11,19 +11,18 @@ import {
   Edit, 
   Trash2, 
   RefreshCw,
-  TrendingUp, 
+  FileText,
+  ClipboardList,
+  History,
+  TrendingUp,
   TrendingDown, 
   Calendar,
   Grid,
   List,
   ArrowLeft
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-
-// Helper function for consistent ID handling
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-  return entity?.id || entity?._id;
-};
+import { useNavigate, Link } from 'react-router-dom';
+import type { StockItem } from '../types';
 
 export default function StockManagement() {
   const {
@@ -33,8 +32,6 @@ export default function StockManagement() {
     updateStockItem,
     deleteStockItem,
     createStockTransaction,
-    getLowStockItems, // ✅ ADDED: Use available store method
-    getStockCategories, // ✅ ADDED: Use available store method
     isLoading
   } = useStockStore();
   const { user } = useAuthStore();
@@ -46,75 +43,61 @@ export default function StockManagement() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
   // State for pagination and view mode
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9);
   const [viewMode, setViewMode] = useState<'grid' | 'line'>('grid');
 
-  // ✅ FIXED: Added missing required fields
+  // ✅ ALIGNED WITH BACKEND StockItem INTERFACE
   const [formData, setFormData] = useState({
     name: '',
     category: 'medication',
     description: '',
-    strength: '',
-    unitOfMeasure: 'tablets',
-    drugCode: '',
+    unitOfMeasure: '',
     reorderLevel: 10,
     costPrice: 0,
     cashPrice: 0,
     nhisPrice: 0,
     insurancePrice: 0,
+    supplier: '',
     isNHISCovered: false,
+    isPrivateInsExempted: false,
     nhisRequiresAuth: false,
     privateInsRequiresAuth: false,
-    isPrivateInsExempted: false,
-    supplier: '',
-    vatRate: 0,
-    isTaxable: false,
-    tariffCode: '',
-    isMedication: true,
-    isActive: true
   });
 
-  // ✅ FIXED: Added missing required transaction fields
+  // ✅ ALIGNED WITH BACKEND StockTransaction INTERFACE
   const [transactionData, setTransactionData] = useState({
-    transactionType: 'stock_in' as 'stock_in' | 'stock_out' | 'adjustment',
+    transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale',
     quantity: 0,
-    balanceAfter: 0, // ✅ ADDED: Required field
     reference: '',
-    notes: '',
-    transactionDate: new Date().toISOString(), // ✅ ADDED: Required field
-    performedById: '' // ✅ ADDED: Will be set from user
+    notes: ''
   });
 
   useEffect(() => {
-    loadStockData();
+    loadStockItems();
   }, []);
 
-  const loadStockData = async () => {
+  const loadStockItems = async () => {
     try {
       await getStockItems();
-      await getStockCategories(); // ✅ ADDED: Load categories
-      await getLowStockItems(); // ✅ ADDED: Load low stock alerts
       setCurrentPage(1);
     } catch {
-      toastError('Load failed', 'Could not load stock data');
+      toastError('Load failed', 'Could not load stock items');
     }
   };
 
   const filteredItems = stockItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (item.drugCode?.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (item.description?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // ✅ FIXED: Use store method for low stock items
-  const lowStockItems = useStockStore.getState().getLocalLowStockItems();
+  const lowStockItems = stockItems.filter(item => item.currentStock <= item.reorderLevel);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
@@ -131,15 +114,12 @@ export default function StockManagement() {
     setCurrentPage(1);
   };
 
-  // ✅ FIXED: Handle both id and _id fields
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingItem) {
-        const itemId = getEntityId(editingItem);
-        if (!itemId) throw new Error('Invalid item ID');
-        
-        await updateStockItem(itemId, formData);
+        // ✅ Use consistent ID field
+        await updateStockItem(editingItem.id, formData);
         success('Updated', 'Stock item updated');
       } else {
         await createStockItem(formData);
@@ -148,136 +128,88 @@ export default function StockManagement() {
       setShowForm(false);
       setEditingItem(null);
       resetForm();
-      loadStockData();
+      loadStockItems();
     } catch {
       toastError('Save failed', 'Could not save stock item');
     }
   };
 
-  // ✅ FIXED: Proper transaction structure with all required fields
   const handleTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
-    
     try {
-      const stockItemId = getEntityId(selectedItem);
-      if (!stockItemId) throw new Error('Invalid stock item ID');
-
-      // Calculate balance after transaction
-      const currentStock = selectedItem.currentStock || 0;
-      let balanceAfter = currentStock;
-      
-      if (transactionData.transactionType === 'stock_in') {
-        balanceAfter = currentStock + transactionData.quantity;
-      } else if (transactionData.transactionType === 'stock_out') {
-        balanceAfter = currentStock - transactionData.quantity;
-      }
-
-      const transactionPayload = {
-        stockItemId,
-        transactionType: transactionData.transactionType,
-        quantity: transactionData.quantity,
-        balanceAfter,
-        reference: transactionData.reference,
-        notes: transactionData.notes,
-        transactionDate: new Date().toISOString(),
-        performedById: user?.id || user?._id || '' // ✅ FIXED: Use proper user ID
-      };
-
-      await createStockTransaction(transactionPayload);
+      // ✅ Aligned transaction data
+      await createStockTransaction({
+        stockItemId: selectedItem.id, // ✅ Use 'id' not '_id'
+        ...transactionData
+      });
       success('Recorded', 'Transaction completed');
       setShowTransactionForm(false);
       setSelectedItem(null);
       resetTransactionForm();
-      loadStockData();
+      loadStockItems();
     } catch {
-      toastError('Transaction failed', 'Could not record transaction');
+      toastError('Transaction failed', 'Could not record');
     }
   };
 
-  // ✅ FIXED: Handle both id and _id fields
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: StockItem) => {
     setEditingItem(item);
     setFormData({
       name: item.name,
       category: item.category,
       description: item.description || '',
-      strength: item.strength || '',
       unitOfMeasure: item.unitOfMeasure,
-      drugCode: item.drugCode || '',
       reorderLevel: item.reorderLevel,
       costPrice: item.costPrice || 0,
       cashPrice: item.cashPrice || 0,
       nhisPrice: item.nhisPrice || 0,
       insurancePrice: item.insurancePrice || 0,
+      supplier: item.supplier || '',
       isNHISCovered: item.isNHISCovered || false,
+      isPrivateInsExempted: item.isPrivateInsExempted || false,
       nhisRequiresAuth: item.nhisRequiresAuth || false,
       privateInsRequiresAuth: item.privateInsRequiresAuth || false,
-      isPrivateInsExempted: item.isPrivateInsExempted || false,
-      supplier: item.supplier || '',
-      vatRate: item.vatRate || 0,
-      isTaxable: item.isTaxable || false,
-      tariffCode: item.tariffCode || '',
-      isMedication: item.isMedication !== undefined ? item.isMedication : true,
-      isActive: item.isActive !== undefined ? item.isActive : true
     });
     setShowForm(true);
   };
 
-  // ✅ FIXED: Handle both id and _id fields
-  const handleDelete = async (item: any) => {
-    const itemId = getEntityId(item);
-    if (!itemId) {
-      toastError('Error', 'Invalid item ID');
-      return;
-    }
-
-    if (!window.confirm(`Delete "${item.name}"?`)) return;
-    
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this item?')) return;
     try {
-      await deleteStockItem(itemId);
+      await deleteStockItem(id);
       success('Deleted', 'Item removed');
-      loadStockData();
+      loadStockItems();
     } catch {
-      toastError('Delete failed', 'Could not delete item');
+      toastError('Delete failed', 'Could not delete');
     }
   };
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      category: 'medication',
-      description: '',
-      strength: '',
-      unitOfMeasure: 'tablets',
-      drugCode: '',
-      reorderLevel: 10,
-      costPrice: 0,
+      name: '', 
+      category: 'medication', 
+      description: '', 
+      unitOfMeasure: '',
+      reorderLevel: 10, 
+      costPrice: 0, 
       cashPrice: 0,
       nhisPrice: 0,
-      insurancePrice: 0,
+      insurancePrice: 0, 
+      supplier: '', 
       isNHISCovered: false,
+      isPrivateInsExempted: false,
       nhisRequiresAuth: false,
       privateInsRequiresAuth: false,
-      isPrivateInsExempted: false,
-      supplier: '',
-      vatRate: 0,
-      isTaxable: false,
-      tariffCode: '',
-      isMedication: true,
-      isActive: true
     });
   };
 
   const resetTransactionForm = () => {
     setTransactionData({
-      transactionType: 'stock_in',
+      transactionType: 'purchase',
       quantity: 0,
-      balanceAfter: 0,
       reference: '',
-      notes: '',
-      transactionDate: new Date().toISOString(),
-      performedById: ''
+      notes: ''
     });
   };
 
@@ -293,7 +225,7 @@ export default function StockManagement() {
     resetTransactionForm();
   };
 
-  const isLowStock = (item: any) => item.currentStock <= item.reorderLevel;
+  const isLowStock = (item: StockItem) => item.currentStock <= item.reorderLevel;
 
   return (
     <div className="space-y-6 p-6">
@@ -307,6 +239,32 @@ export default function StockManagement() {
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
+          
+          {/* ✅ FIXED: Proper JSX for navigation buttons */}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/dashboard/invoices"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            >
+              <FileText className="w-4 h-4" />
+              Invoices
+            </Link>
+            <Link
+              to="/dashboard/requisitions"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            >
+              <ClipboardList className="w-4 h-4" />
+              Requisitions
+            </Link>
+            <Link
+              to="/dashboard/transactions"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            >
+              <History className="w-4 h-4" />
+              Transactions
+            </Link>
+          </div>
+          
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Stock Management</h1>
             <p className="text-[var(--text-secondary)] text-sm">Track inventory and reorder levels</p>
@@ -389,7 +347,7 @@ export default function StockManagement() {
           </div>
 
           <button
-            onClick={loadStockData}
+            onClick={loadStockItems}
             disabled={isLoading}
             className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
           >
@@ -464,7 +422,7 @@ export default function StockManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {paginatedItems.map(item => (
               <div
-                key={getEntityId(item)}
+                key={item.id}
                 className={`bg-[var(--bg-card)] rounded-xl p-4 border ${
                   isLowStock(item) ? 'border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]' : 'border-[var(--border-color)]'
                 } hover:shadow-sm transition-shadow`}
@@ -478,16 +436,9 @@ export default function StockManagement() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-[var(--text-primary)] text-sm">{item.name}</h3>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
-                          {item.category}
-                        </span>
-                        {item.drugCode && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
-                            {item.drugCode}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
+                        {item.category}
+                      </span>
                     </div>
                   </div>
                   {isLowStock(item) && <AlertTriangle className="w-4 h-4 text-[var(--icon-yellow-text)]" />}
@@ -504,20 +455,26 @@ export default function StockManagement() {
                     <span className="text-[var(--text-secondary)]">Reorder:</span>
                     <span className="font-medium text-[var(--text-primary)]">{item.reorderLevel}</span>
                   </div>
-                  {item.strength && (
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-secondary)]">Cost Price:</span>
+                    <span className="font-medium">
+                      ${(item.costPrice || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-secondary)]">Cash Price:</span>
+                    <span className="font-medium">
+                      ${(item.cashPrice || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  {item.nhisPrice > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[var(--text-secondary)]">Strength:</span>
-                      <span className="font-medium text-[var(--text-primary)]">{item.strength}</span>
+                      <span className="text-[var(--text-secondary)]">NHIS Price:</span>
+                      <span className="font-medium text-green-600">
+                        ${item.nhisPrice.toFixed(2)}
+                      </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Cost:</span>
-                    <span className="font-medium">${item.costPrice?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Selling:</span>
-                    <span className="font-medium">${item.cashPrice?.toFixed(2) || '0.00'}</span>
-                  </div>
                 </div>
 
                 {user?.role === 'admin' && (
@@ -538,7 +495,7 @@ export default function StockManagement() {
                       <Edit className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={() => handleDelete(item)}
+                      onClick={() => handleDelete(item.id)}
                       className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -563,7 +520,7 @@ export default function StockManagement() {
             <div className="divide-y divide-[var(--border-color)]">
               {paginatedItems.map(item => (
                 <div
-                  key={getEntityId(item)}
+                  key={item.id}
                   className={`grid grid-cols-12 gap-4 p-4 items-center ${
                     isLowStock(item) ? 'bg-[var(--icon-yellow-bg)]' : ''
                   }`}
@@ -581,11 +538,6 @@ export default function StockManagement() {
                           <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
                             {item.category}
                           </span>
-                          {item.drugCode && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
-                              {item.drugCode}
-                            </span>
-                          )}
                           {isLowStock(item) && (
                             <AlertTriangle className="w-3 h-3 text-[var(--icon-yellow-text)]" />
                           )}
@@ -602,7 +554,9 @@ export default function StockManagement() {
                     <span className="text-sm text-[var(--text-primary)]">{item.reorderLevel}</span>
                   </div>
                   <div className="col-span-2 text-center">
-                    <span className="text-sm font-medium">${item.costPrice?.toFixed(2) || '0.00'}</span>
+                    <span className="text-sm font-medium">
+                      ${(item.costPrice || 0).toFixed(2)}
+                    </span>
                   </div>
                   <div className="col-span-2 text-center">
                     {user?.role === 'admin' && (
@@ -625,7 +579,7 @@ export default function StockManagement() {
                           <Edit className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => handleDelete(item)}
+                          onClick={() => handleDelete(item.id)}
                           className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
                           title="Delete"
                         >
@@ -695,15 +649,15 @@ export default function StockManagement() {
         </div>
       )}
 
-      {/* Add/Edit Modal - UPDATED with all required fields */}
+      {/* Add/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">
               {editingItem ? 'Edit Item' : 'Add New Item'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input 
                   type="text" 
                   required 
@@ -724,23 +678,9 @@ export default function StockManagement() {
                 <input 
                   type="text" 
                   required 
-                  placeholder="Unit of Measure *" 
+                  placeholder="Unit *" 
                   value={formData.unitOfMeasure}
                   onChange={e => setFormData({ ...formData, unitOfMeasure: e.target.value })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
-                  type="text" 
-                  placeholder="Strength" 
-                  value={formData.strength}
-                  onChange={e => setFormData({ ...formData, strength: e.target.value })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
-                  type="text" 
-                  placeholder="Drug Code" 
-                  value={formData.drugCode}
-                  onChange={e => setFormData({ ...formData, drugCode: e.target.value })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
                 />
                 <input 
@@ -776,8 +716,7 @@ export default function StockManagement() {
                   type="number" 
                   step="0.01" 
                   min="0" 
-                  required 
-                  placeholder="NHIS Price *"
+                  placeholder="NHIS Price"
                   value={formData.nhisPrice} 
                   onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
@@ -786,8 +725,7 @@ export default function StockManagement() {
                   type="number" 
                   step="0.01" 
                   min="0" 
-                  required 
-                  placeholder="Insurance Price *"
+                  placeholder="Insurance Price"
                   value={formData.insurancePrice} 
                   onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
@@ -799,65 +737,48 @@ export default function StockManagement() {
                   onChange={e => setFormData({ ...formData, supplier: e.target.value })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
                 />
-                <input 
-                  type="text" 
-                  placeholder="Tariff Code" 
-                  value={formData.tariffCode}
-                  onChange={e => setFormData({ ...formData, tariffCode: e.target.value })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  max="100"
-                  placeholder="VAT Rate %"
-                  value={formData.vatRate} 
-                  onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
               </div>
               
-              {/* Checkbox options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                  <input
-                    type="checkbox"
+              {/* Insurance Options */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
                     checked={formData.isNHISCovered}
                     onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]"
+                    className="rounded border-[var(--border-color)]"
                   />
-                  NHIS Covered
+                  <span>NHIS Covered</span>
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
                     checked={formData.nhisRequiresAuth}
                     onChange={e => setFormData({ ...formData, nhisRequiresAuth: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]"
+                    className="rounded border-[var(--border-color)]"
                   />
-                  NHIS Requires Auth
+                  <span>NHIS Requires Authorization</span>
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                  <input
-                    type="checkbox"
-                    checked={formData.isTaxable}
-                    onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]"
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.isPrivateInsExempted}
+                    onChange={e => setFormData({ ...formData, isPrivateInsExempted: e.target.checked })}
+                    className="rounded border-[var(--border-color)]"
                   />
-                  Taxable
+                  <span>Private Insurance Exempted</span>
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                  <input
-                    type="checkbox"
-                    checked={formData.isMedication}
-                    onChange={e => setFormData({ ...formData, isMedication: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]"
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.privateInsRequiresAuth}
+                    onChange={e => setFormData({ ...formData, privateInsRequiresAuth: e.target.checked })}
+                    className="rounded border-[var(--border-color)]"
                   />
-                  Is Medication
+                  <span>Private Insurance Requires Auth</span>
                 </label>
               </div>
-
+              
               <textarea 
                 placeholder="Description" 
                 rows={2} 
@@ -865,7 +786,6 @@ export default function StockManagement() {
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
               />
-              
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button 
                   type="button" 
@@ -886,16 +806,13 @@ export default function StockManagement() {
         </div>
       )}
 
-      {/* Transaction Modal - UPDATED with proper structure */}
+      {/* Transaction Modal */}
       {showTransactionForm && selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">
               Transaction - {selectedItem.name}
             </h2>
-            <div className="mb-4 p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-              <p className="text-sm text-[var(--text-secondary)]">Current Stock: <span className="font-semibold text-[var(--text-primary)]">{selectedItem.currentStock} {selectedItem.unitOfMeasure}</span></p>
-            </div>
             <form onSubmit={handleTransactionSubmit} className="space-y-4">
               <select 
                 required 
@@ -903,9 +820,10 @@ export default function StockManagement() {
                 onChange={e => setTransactionData({ ...transactionData, transactionType: e.target.value as any })}
                 className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
               >
-                <option value="stock_in">Stock In</option>
-                <option value="stock_out">Stock Out</option>
+                <option value="purchase">Purchase (Stock In)</option>
+                <option value="sale">Sale (Stock Out)</option>
                 <option value="adjustment">Adjustment</option>
+                <option value="requisition">Requisition</option>
               </select>
               <input 
                 type="number" 
