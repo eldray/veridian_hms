@@ -254,9 +254,6 @@ export const uploadPatientImageBase64 = (patientId: string, base64Image: string)
   api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image })
     .then(r => r.data);
 
-export const getPatientStats = () => 
-  api.get('/patients/stats').then(r => r.data);
-
 export const deletePatient = (id: string) => 
   api.delete(`/patients/${id}`).then(r => r.data);
 
@@ -441,9 +438,8 @@ export const generateNHISClaimFromAttendance = (attendanceId: string) =>
   api.get(`/attendances/${attendanceId}/nhis/generate-claim-data`).then(r => r.data);
 
 // ───── BILLS & PAYMENTS ─────
-// In your src/api/index.ts - Update the getBills function
 export const getBills = (filters?: any) => 
-  api.get('/bills', { params: filters }).then(r => {
+  api.get('/bills', { params: filters }).then(r => { 
     console.log('📊 API Bills Response:', r.data);
     
     // Handle different response structures
@@ -1186,7 +1182,6 @@ export default {
   updatePatient,
   uploadPatientImage,
   uploadPatientImageBase64,
-  getPatientStats,
   deletePatient,
   
   // Attendances

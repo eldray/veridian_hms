@@ -72,12 +72,15 @@ export default function Dashboard() {
     setIsLoading(true);
     setRefreshing(true);
     setErrors([]);
-
+  
     const { start: todayStart, end: todayEnd } = getTodayRange();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
+  
     try {
+      console.log('🔄 Loading dashboard data...');
+      console.log('📅 Date range:', { todayStart, todayEnd });
+  
       const [
         patientRes,
         attendanceRes,
@@ -101,7 +104,7 @@ export default function Dashboard() {
           limit: 10, 
           sortBy: 'dateTime', 
           sortOrder: 'desc',
-          include: 'patient'
+          include: 'Patient'
         }),
         getDashboardStats(),
         getAppointmentStatistics({ dateFrom: todayStart }),
@@ -116,7 +119,40 @@ export default function Dashboard() {
           dateTo: todayEnd
         })
       ]);
-
+  
+      console.log('📊 API Results:', {
+        patients: patientRes.status,
+        attendances: attendanceRes.status,
+        bills: billRes.status,
+        admissions: admissionRes.status,
+        claims: claimRes.status,
+        stock: stockRes.status,
+        recentAttendances: recentAttendanceRes.status,
+        dashboardStats: dashboardStatsRes.status,
+        appointments: appointmentStatsRes.status,
+        financial: financialReportRes.status,
+        clinical: clinicalReportRes.status
+      });
+  
+      // Debug recent attendances specifically
+      if (recentAttendanceRes.status === 'fulfilled') {
+        console.log('🔍 Recent Attendances Data:', recentAttendanceRes.value);
+        if (Array.isArray(recentAttendanceRes.value)) {
+          console.log('👥 First attendance patient data:', recentAttendanceRes.value[0]?.Patient);
+          console.log('📝 All recent attendances:', recentAttendanceRes.value.map((a: any) => ({
+            id: a.id,
+            attendanceNumber: a.attendanceNumber,
+            patientName: a.Patient ? `${a.Patient.surname} ${a.Patient.otherNames}` : 'No Patient',
+            dateTime: a.dateTime
+          })));
+        }
+      }
+  
+      // Debug dashboard stats
+      if (dashboardStatsRes.status === 'fulfilled') {
+        console.log('📈 Dashboard Stats Data:', dashboardStatsRes.value);
+      }
+  
       const newErrors: string[] = [];
       let totalPatients = 0;
       let todayVisits = 0;
@@ -129,55 +165,68 @@ export default function Dashboard() {
       let completedProcedures = 0;
       let recentAttendancesList: any[] = [];
       let diagnosisTrendsList: any[] = [];
-
+  
+      // Use dashboard stats if available, otherwise fallback to individual API calls
       if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
         const dashboardData = dashboardStatsRes.value;
+        console.log('✅ Using dashboard stats:', dashboardData);
+        
         totalPatients = dashboardData.totalPatients || 0;
         todayVisits = dashboardData.todayVisits || 0;
         activeAdmissions = dashboardData.activeAdmissions || 0;
         totalRevenue = dashboardData.totalRevenue || 0;
+        completedProcedures = dashboardData.completedProcedures || 0;
       } else {
+        console.log('❌ Dashboard stats failed, using fallback');
+        if (dashboardStatsRes.status === 'rejected') {
+          console.error('Dashboard stats error:', dashboardStatsRes.reason);
+        }
+  
+        // Fallback to individual API calls
         if (patientRes.status === 'fulfilled') {
           totalPatients = Array.isArray(patientRes.value) ? patientRes.value.length : 0;
         } else {
           newErrors.push('Patients');
+          console.error('Patients API failed:', patientRes.reason);
         }
-
+  
         if (attendanceRes.status === 'fulfilled') {
           todayVisits = Array.isArray(attendanceRes.value) ? attendanceRes.value.length : 0;
+          console.log('📋 Today visits count:', todayVisits);
         } else {
           newErrors.push("Today's Visits");
+          console.error('Attendances API failed:', attendanceRes.reason);
         }
-
+  
         if (admissionRes.status === 'fulfilled') {
           activeAdmissions = Array.isArray(admissionRes.value) ? admissionRes.value.length : 0;
         } else {
           newErrors.push('Admissions');
         }
       }
-
+  
       if (financialReportRes.status === 'fulfilled' && financialReportRes.value) {
         const financialData = financialReportRes.value;
         totalRevenue = financialData.totalRevenue || totalRevenue;
       }
-
+  
       if (clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
         const clinicalData = clinicalReportRes.value;
         diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || [];
       }
-
+  
       if (billRes.status === 'fulfilled') {
         pendingBills = Array.isArray(billRes.value) ? billRes.value.length : 0;
       } else {
         newErrors.push('Bills');
       }
-
+  
       if (claimRes.status === 'fulfilled') {
         pendingClaims = Array.isArray(claimRes.value) ? claimRes.value.length : 0;
       } else {
         newErrors.push('Claims');
       }
-
+  
       if (stockRes.status === 'fulfilled') {
         const stockItems = Array.isArray(stockRes.value) ? stockRes.value : [];
         lowStockItems = stockItems.filter((item: any) => 
@@ -186,18 +235,21 @@ export default function Dashboard() {
       } else {
         newErrors.push('Stock');
       }
-
+  
       if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value) {
         const appointmentData = appointmentStatsRes.value;
         scheduledAppointments = appointmentData.scheduled || appointmentData.today || 0;
       }
-
+  
       if (recentAttendanceRes.status === 'fulfilled') {
         recentAttendancesList = Array.isArray(recentAttendanceRes.value) 
           ? recentAttendanceRes.value.slice(0, 10)
           : [];
+        console.log('✅ Recent attendances loaded:', recentAttendancesList.length);
+      } else {
+        console.error('Recent attendances failed:', recentAttendanceRes.reason);
       }
-
+  
       if (diagnosisTrendsList.length === 0 && recentAttendanceRes.status === 'fulfilled') {
         const allAttendances = Array.isArray(recentAttendanceRes.value) ? recentAttendanceRes.value : [];
         const diagnosisCount: Record<string, number> = {};
@@ -210,13 +262,26 @@ export default function Dashboard() {
             });
           }
         });
-
+  
         diagnosisTrendsList = Object.entries(diagnosisCount)
           .map(([name, count]) => ({ disease: name, patients: count }))
           .sort((a, b) => b.patients - a.patients)
           .slice(0, 5);
       }
-
+  
+      console.log('🎯 Final stats:', {
+        totalPatients,
+        todayVisits,
+        activeAdmissions,
+        pendingBills,
+        pendingClaims,
+        lowStockItems,
+        totalRevenue,
+        scheduledAppointments,
+        completedProcedures,
+        recentAttendancesCount: recentAttendancesList.length
+      });
+  
       setStats({
         totalPatients,
         todayVisits,
@@ -228,7 +293,7 @@ export default function Dashboard() {
         scheduledAppointments,
         completedProcedures
       });
-
+  
       setRecentAttendances(recentAttendancesList);
       setDiagnosisTrends(diagnosisTrendsList);
       setErrors(newErrors);
@@ -239,6 +304,7 @@ export default function Dashboard() {
         toastError('Partial data loaded', `Some data could not be loaded: ${newErrors.join(', ')}`);
       }
     } catch (err) {
+      console.error('💥 Dashboard load error:', err);
       toastError('Refresh failed', 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
@@ -304,9 +370,9 @@ export default function Dashboard() {
     return modeMap[mode] || 'Cash';
   };
 
-  const getPatientFullName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+  const getPatientFullName = (attendance: any) => {
+    if (!attendance.Patient) return 'Unknown Patient'; // ✅ FIXED: Capitalized
+    return `${attendance.Patient.surname || ''} ${attendance.Patient.otherNames || ''}`.trim();
   };
 
   const formatTime = (dateString: string) => {
@@ -601,8 +667,8 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {recentAttendances.map((attendance) => {
-                  const patient = attendance.patient || {};
-                  const fullName = getPatientFullName(patient);
+                  const fullName = getPatientFullName(attendance);
+                  const patient = attendance.Patient || {}; // ✅ FIXED: Capitalized
                   
                   return (
                     <Link 
@@ -619,7 +685,7 @@ export default function Dashboard() {
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
                           <span className="bg-gray-100 px-1.5 py-0.5 rounded border">
-                            {patient.folderNumber || 'No Folder'}
+                          {patient.folderNumber || 'No Folder'} 
                           </span>
                           <span className="bg-gray-100 px-1.5 py-0.5 rounded border">
                             {attendance.attendanceNumber}

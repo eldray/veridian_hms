@@ -35,7 +35,7 @@ useEffect(() => {
       setRefreshing(true);
       console.log('🔄 Loading patients in Patients component...');
       await loadPatients();
-      console.log('✅ Patients loaded:', patients.length);
+      console.log('✅ Patients loaded successfully');
     } catch (err) {
       console.error('❌ Failed to load patients:', err);
       error('Load Failed', 'Failed to load patients');

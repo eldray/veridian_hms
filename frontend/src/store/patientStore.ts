@@ -6,7 +6,6 @@ import {
   getPatient as apiGetPatient, 
   updatePatient as apiUpdatePatient,
   deletePatient as apiDeletePatient,
-  getPatientStats as apiGetPatientStats,
   uploadPatientImage as apiUploadPatientImage,
   uploadPatientImageBase64 as apiUploadPatientImageBase64
 } from '../api';
@@ -17,7 +16,6 @@ interface PatientState {
   isLoading: boolean;
   error: string | null;
   currentPatient: Patient | null;
-  patientStats: any;
   pagination: Pagination | null;
   
   loadPatients: (filters?: any) => Promise<void>;
@@ -26,7 +24,6 @@ interface PatientState {
   fetchPatient: (id: string) => Promise<Patient>;
   updatePatient: (id: string, data: FormData | any) => Promise<Patient>;
   deletePatient: (id: string) => Promise<void>;
-  getPatientStats: () => Promise<void>;
   uploadPatientImage: (patientId: string, imageFile: File | string) => Promise<string>;
   searchPatients: (query: string) => Patient[];
   clearCurrentPatient: () => void;
@@ -83,7 +80,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   isLoading: false,
   error: null,
   currentPatient: null,
-  patientStats: null,
   pagination: null,
 
   loadPatients: async (filters = {}) => {
@@ -247,24 +243,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Failed to delete patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to delete patient';
-      set({ 
-        error: errorMessage,
-        isLoading: false 
-      });
-      throw new Error(errorMessage);
-    }
-  },
-
-  getPatientStats: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      console.log('📊 Fetching patient stats');
-      const stats = await apiGetPatientStats();
-      console.log('✅ Patient stats loaded');
-      set({ patientStats: stats, isLoading: false });
-    } catch (error: any) {
-      console.error('❌ Failed to fetch patient stats:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch patient stats';
       set({ 
         error: errorMessage,
         isLoading: false 

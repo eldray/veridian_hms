@@ -58,7 +58,7 @@ export const getInsuranceClaims = async (req: AuthRequest, res: Response) => {
       prisma.insuranceClaim.findMany({
         where,
         include: {
-          insuranceProvider: {
+          InsuranceProvider: { // ✅ FIXED: Capitalized
             select: {
               id: true,
               name: true,
@@ -66,7 +66,7 @@ export const getInsuranceClaims = async (req: AuthRequest, res: Response) => {
               coveragePercentage: true
             }
           },
-          patient: {
+          Patient: { // ✅ FIXED: Capitalized
             select: {
               id: true,
               folderNumber: true,
@@ -75,7 +75,7 @@ export const getInsuranceClaims = async (req: AuthRequest, res: Response) => {
               contact: true
             }
           },
-          attendance: {
+          Attendance: { // ✅ FIXED: Capitalized
             select: {
               id: true,
               attendanceNumber: true,
@@ -83,14 +83,14 @@ export const getInsuranceClaims = async (req: AuthRequest, res: Response) => {
               status: true
             }
           },
-          bill: {
+          Bill: { // ✅ FIXED: Capitalized
             select: {
               id: true,
               billNumber: true,
               totalAmount: true
             }
           },
-          createdBy: {
+          User_InsuranceClaim_createdByIdToUser: { // ✅ FIXED: Correct relation name
             select: {
               id: true,
               fullName: true,
@@ -147,7 +147,7 @@ export const getInsuranceClaim = async (req: AuthRequest, res: Response) => {
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             name: true,
@@ -155,7 +155,7 @@ export const getInsuranceClaim = async (req: AuthRequest, res: Response) => {
             coveragePercentage: true
           }
         },
-        patient: {
+        Patient: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             folderNumber: true,
@@ -164,7 +164,7 @@ export const getInsuranceClaim = async (req: AuthRequest, res: Response) => {
             contact: true
           }
         },
-        attendance: {
+        Attendance: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             attendanceNumber: true,
@@ -172,7 +172,7 @@ export const getInsuranceClaim = async (req: AuthRequest, res: Response) => {
             status: true
           }
         },
-        bill: {
+        Bill: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             billNumber: true,
@@ -180,7 +180,7 @@ export const getInsuranceClaim = async (req: AuthRequest, res: Response) => {
             insuranceCovered: true
           }
         },
-        createdBy: {
+        User_InsuranceClaim_createdByIdToUser: { // ✅ FIXED: Correct relation name
           select: {
             id: true,
             fullName: true,
@@ -255,16 +255,16 @@ export const generateClaimDraft = [
         const attendance = await tx.attendance.findUnique({
           where: { id: attendanceId },
           include: {
-            patient: {
+            Patient: { // ✅ FIXED: Capitalized
               include: {
-                insuranceProvider: true
+                InsuranceProvider: true // ✅ FIXED: Capitalized
               }
             },
-            insuranceProvider: true,
-            bill: true,
-            diagnoses: {
+            InsuranceProvider: true, // ✅ FIXED: Capitalized
+            Bill: true, // ✅ CORRECT
+            AttendanceDiagnosis: { // ✅ FIXED: Correct relation name
               include: { 
-                diagnosis: {
+                Diagnosis: {
                   select: {
                     id: true,
                     name: true,
@@ -274,9 +274,9 @@ export const generateClaimDraft = [
                 } 
               }
             },
-            servicesRendered: {
+            ServiceRendered: { // ✅ FIXED: Capitalized
               include: { 
-                serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -287,9 +287,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            labTests: {
+            LabTest: { // ✅ FIXED: Capitalized
               include: {
-                serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -299,9 +299,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            medications: {
+            Medication: { // ✅ FIXED: Capitalized
               include: {
-                serviceCatalog: { // ✅ UPDATED for pricing codes
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -309,7 +309,7 @@ export const generateClaimDraft = [
                     nhisServiceCode: true
                   }
                 },
-                stockItem: { // ✅ KEEP for drug codes
+                StockItem: {
                   select: {
                     id: true,
                     name: true,
@@ -318,9 +318,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            procedures: {
+            Procedure: { // ✅ FIXED: Capitalized
               include: {
-                serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -330,9 +330,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            scans: {
+            Scan: { // ✅ FIXED: Capitalized
               include: {
-                serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -423,8 +423,8 @@ export const generateClaimDraft = [
             notes: `Insurance Number: ${insuranceNumber}, CCC: ${attendanceCCC}`
           },
           include: {
-            insuranceProvider: true,
-            patient: {
+            InsuranceProvider: true, // ✅ FIXED: Capitalized
+            Patient: { // ✅ FIXED: Capitalized
               select: {
                 id: true,
                 folderNumber: true,
@@ -432,13 +432,13 @@ export const generateClaimDraft = [
                 otherNames: true
               }
             },
-            attendance: {
+            Attendance: { // ✅ FIXED: Capitalized
               select: {
                 id: true,
                 attendanceNumber: true
               }
             },
-            bill: {
+            Bill: { // ✅ FIXED: Capitalized
               select: {
                 id: true,
                 billNumber: true
@@ -497,7 +497,7 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: claimId },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             name: true,
@@ -505,7 +505,7 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
             coveragePercentage: true
           }
         },
-        patient: {
+        Patient: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             folderNumber: true,
@@ -516,17 +516,17 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
             contact: true
           }
         },
-        attendance: {
+        Attendance: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             attendanceNumber: true,
             dateTime: true,
             status: true,
-            encounterCategory: true,
-            nhisCCC: true
+            nhisCCC: true,
+            encounterCategory: true
           }
         },
-        bill: {
+        Bill: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             billNumber: true,
@@ -535,7 +535,7 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
             patientPayable: true
           }
         },
-        createdBy: {
+        User_InsuranceClaim_createdByIdToUser: { // ✅ FIXED: Correct relation name
           select: {
             id: true,
             fullName: true,
@@ -1095,7 +1095,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: claimId },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -1103,7 +1103,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             coveragePercentage: true
           }
         },
-        patient: {
+        Patient: {
           select: {
             id: true,
             folderNumber: true,
@@ -1114,7 +1114,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             contact: true
           }
         },
-        attendance: {
+        Attendance: {
           select: {
             id: true,
             attendanceNumber: true,
@@ -1124,7 +1124,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             encounterCategory: true
           }
         },
-        bill: {
+        Bill: {
           select: {
             id: true,
             billNumber: true,
@@ -1133,13 +1133,13 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             patientPayable: true
           }
         },
-        createdBy: {
+        // ✅ FIX: Use correct relation names
+        User_InsuranceClaim_createdByIdToUser: {
           select: {
-            id: true,
             fullName: true,
             username: true
           }
-        }
+        },
       }
     });
 
@@ -1169,19 +1169,22 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
       include: {
         diagnoses: {
           include: {
-            diagnosis: {
-              select: {
-                id: true,
-                name: true,
-                icdCode: true,
-                gdrgCode: true
+            AttendanceDiagnosis: {
+              include: {
+                Diagnosis: true,
+                User: {
+                  select: {
+                    fullName: true,
+                    role: true
+                  }
+                }
               }
-            }
+            },
           }
         },
         servicesRendered: {
           include: {
-            serviceCatalog: {
+            ServiceCatalog: {
               select: {
                 id: true,
                 name: true,
@@ -1192,7 +1195,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        labTests: {
+        LabTest: {
           include: {
             serviceCatalog: {
               select: {
@@ -1204,7 +1207,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        medications: {
+        Medication: {
           include: {
             serviceCatalog: {
               select: {
@@ -1214,7 +1217,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
                 nhisServiceCode: true
               }
             },
-            stockItem: {
+            StockItem: {
               select: {
                 id: true,
                 name: true,
@@ -1223,9 +1226,9 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        procedures: {
+        Procedure: {
           include: {
-            serviceCatalog: {
+            ServiceCatalog: {
               select: {
                 id: true,
                 name: true,
@@ -1235,9 +1238,9 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        scans: {
+        Scan: {
           include: {
-            serviceCatalog: {
+            ServiceCatalog: {
               select: {
                 id: true,
                 name: true,
@@ -1320,14 +1323,14 @@ export const getFinalizedClaimsTotal = async (req: AuthRequest, res: Response) =
         ...(dateFrom || dateTo ? { submissionDate: dateFilter } : {})
       },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
             type: true
           }
         },
-        patient: {
+        Patient: { // ✅ FIXED: Capitalized relation name
           select: {
             id: true,
             folderNumber: true,
@@ -1344,26 +1347,26 @@ export const getFinalizedClaimsTotal = async (req: AuthRequest, res: Response) =
     
     const byInsuranceType = {
       nhis: {
-        claims: finalizedClaims.filter(claim => claim.insuranceProvider?.type === 'nhis'),
+        claims: finalizedClaims.filter(claim => claim.InsuranceProvider?.type === 'nhis'), // ✅ FIXED: Capitalized
         totalAmount: finalizedClaims
-          .filter(claim => claim.insuranceProvider?.type === 'nhis')
+          .filter(claim => claim.InsuranceProvider?.type === 'nhis') // ✅ FIXED: Capitalized
           .reduce((sum, claim) => sum + claim.totalClaimAmount, 0)
       },
       private: {
-        claims: finalizedClaims.filter(claim => claim.insuranceProvider?.type === 'private'),
+        claims: finalizedClaims.filter(claim => claim.InsuranceProvider?.type === 'private'), // ✅ FIXED: Capitalized
         totalAmount: finalizedClaims
-          .filter(claim => claim.insuranceProvider?.type === 'private')
+          .filter(claim => claim.InsuranceProvider?.type === 'private') // ✅ FIXED: Capitalized
           .reduce((sum, claim) => sum + claim.totalClaimAmount, 0)
       }
     };
 
-    // ✅ ADDED: Calculate patient full names for response
+    // ✅ FIXED: Safe patient data access with fallbacks
     const claimsWithFullNames = finalizedClaims.map(claim => ({
       id: claim.id,
       claimNumber: claim.claimNumber,
-      patientName: `${claim.patient.surname} ${claim.patient.otherNames}`.trim(),
-      patientFolder: claim.patient.folderNumber,
-      insuranceProvider: claim.insuranceProvider?.name,
+      patientName: claim.Patient ? `${claim.Patient.surname || ''} ${claim.Patient.otherNames || ''}`.trim() : 'Unknown Patient', // ✅ FIXED: Capitalized + safe access
+      patientFolder: claim.Patient?.folderNumber || 'No Folder', // ✅ FIXED: Capitalized + safe access
+      insuranceProvider: claim.InsuranceProvider?.name, // ✅ FIXED: Capitalized
       amount: claim.totalClaimAmount,
       submissionDate: claim.submissionDate
     }));
@@ -1526,8 +1529,8 @@ export const updateClaimStatus = [
         where: { id: claimId },
         data: updateData,
         include: {
-          insuranceProvider: true,
-          patient: {
+          InsuranceProvider: true,
+          Patient: {
             select: {
               id: true,
               folderNumber: true,
@@ -1535,7 +1538,7 @@ export const updateClaimStatus = [
               otherNames: true
             }
           },
-          attendance: {
+          Attendance: {
             select: {
               id: true,
               attendanceNumber: true

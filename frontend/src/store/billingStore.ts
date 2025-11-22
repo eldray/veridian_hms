@@ -47,45 +47,49 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   pagination: null,
   billStatistics: null,
 
-  getBills: async (filters = {}) => {
-    set({ isLoading: true });
-    try {
-      const response = await apiGetBills(filters);
-      console.log('📊 Billing Store - API Response:', response);
-      
-      // Handle different response structures
-      let billsArray: Bill[] = [];
-      let paginationData = null;
+// stores/billingStore.ts - FIXED TO MATCH YOUR BACKEND
+getBills: async (filters = {}) => {
+  if (get().isLoading) return;
+  
+  set({ isLoading: true });
+  try {
+    const response = await apiGetBills(filters);
+    console.log('📊 Billing Store - API Response:', response);
+    
+    // ✅ FIXED: Match your exact backend response structure
+    let billsArray: Bill[] = [];
+    let paginationData = null;
 
-      if (Array.isArray(response)) {
-        billsArray = response;
-      } else if (response && Array.isArray(response.data)) {
-        billsArray = response.data;
-        paginationData = response.pagination;
-      } else if (response && Array.isArray(response.bills)) {
-        billsArray = response.bills;
-        paginationData = response.pagination;
-      } else {
-        console.warn('Unexpected bills API response structure:', response);
-        billsArray = [];
-      }
-
-      console.log('✅ Billing Store - Processed Bills:', billsArray.length);
-      
-      set({ 
-        bills: billsArray,
-        pagination: paginationData,
-        isLoading: false 
-      });
-    } catch (error: any) {
-      console.error('❌ Failed to fetch bills:', error);
-      set({ 
-        bills: [],
-        isLoading: false 
-      });
-      throw error;
+    // Your backend returns: { success: true, data: bills[], pagination: {} }
+    if (response && response.success === true) {
+      billsArray = response.data || [];
+      paginationData = response.pagination || null;
+    } 
+    // If the API wrapper already extracts the data
+    else if (Array.isArray(response)) {
+      billsArray = response;
     }
-  },
+    else {
+      console.warn('Unexpected bills API response structure:', response);
+      billsArray = [];
+    }
+
+    console.log('✅ Billing Store - Processed Bills:', billsArray.length);
+    
+    set({ 
+      bills: billsArray,
+      pagination: paginationData,
+      isLoading: false 
+    });
+  } catch (error: any) {
+    console.error('❌ Failed to fetch bills:', error);
+    set({ 
+      bills: [],
+      isLoading: false 
+    });
+    throw error;
+  }
+},
 
   getBill: async (id: string) => {
     set({ isLoading: true });

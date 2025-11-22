@@ -51,7 +51,7 @@ export type MedicationStatus = 'prescribed' | 'dispensed' | 'administered' | 'ca
 export type Priority = 'routine' | 'urgent' | 'stat';
 export type ScanPriority = 'routine' | 'urgent';
 export type DiagnosisType = 'principal' | 'secondary' | 'comorbidity';
-
+export type DiagnosisVariant = 'adult' | 'child' | 'complicated' | 'uncomplicated';
 // Appointments
 export type AppointmentStatus = 'scheduled' | 'confirmed' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
 export type AppointmentType = 'consultation' | 'follow_up' | 'procedure' | 'antenatal' | 'postnatal' | 'vaccination' | 'lab_test' | 'scan' | 'other';
@@ -59,6 +59,73 @@ export type AppointmentType = 'consultation' | 'follow_up' | 'procedure' | 'ante
 // Notifications
 export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'system' | 'appointment' | 'billing' | 'clinical';
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+// Add this to your CORE ENUMS section
+export type DiagnosisVariant = 'adult' | 'child' | 'complicated' | 'uncomplicated';
+
+// Add these missing enums too if they're highlighted:
+export type LabCategory = 
+  | 'hematology'
+  | 'biochemistry'
+  | 'microbiology'
+  | 'serology'
+  | 'immunology'
+  | 'toxicology'
+  | 'molecular'
+  | 'cytology'
+  | 'histopathology';
+
+export type ProcedureCategory = 
+  | 'surgical'
+  | 'diagnostic'
+  | 'therapeutic'
+  | 'obstetric'
+  | 'pediatric'
+  | 'dental'
+  | 'ophthalmic';
+
+export type ScanCategory = 
+  | 'xray'
+  | 'ultrasound'
+  | 'ct_scan'
+  | 'mri'
+  | 'fluoroscopy'
+  | 'mammography'
+  | 'nuclear'
+  | 'pet_scan'
+  | 'other';
+
+export type SpecimenType = 
+  | 'blood'
+  | 'urine'
+  | 'stool'
+  | 'csf'
+  | 'sputum'
+  | 'fluid'
+  | 'semen'
+  | 'tissue'
+  | 'saliva'
+  | 'swab'
+  | 'other';
+
+export type BodyPart = 
+  | 'head'
+  | 'chest'
+  | 'neck'
+  | 'abdomen'
+  | 'pelvis'
+  | 'spine'
+  | 'extremities'
+  | 'breast'
+  | 'other';
+
+export type FacilityType = 
+  | 'Tertiary'
+  | 'Secondary'
+  | 'Primary'
+  | 'Clinic'
+  | 'Health_Center'
+  | 'Maternity_Home'; 
 
 // Service Catalog
 export type ServiceType = 'consultation' | 'ward' | 'lab_test' | 'scan' | 'medication' | 'procedure' | 'diagnosis' | 'miscellaneous';
@@ -162,21 +229,27 @@ export interface Patient {
   contact: string;
   address: string;
   paymentMode?: PaymentMode;
-  
-  // ✅ ADD THIS FIELD (matches your Prisma schema)
-  insuranceNumber?: string; // ← Patient's main insurance number
-  
-  insuranceDetails?: InsuranceDetails; // Stored as JSON in backend
-  additionalInfo?: AdditionalInfo; // Stored as JSON in backend
+  insuranceProviderId?: string; // ✅ Add this
+  insuranceDetails?: InsuranceDetails;
+  additionalInfo?: AdditionalInfo;
   billingAddress?: any;
   employer?: any;
   imageUrl?: string;
   registeredAt: string;
   registeredBy: string;
-  insuranceProviderId?: string;
   createdAt: string;
   updatedAt: string;
+  
+  // ✅ Add these relations that exist in your schema
+  admissions?: Admission[];
+  attendances?: Attendance[];
+  bills?: Bill[];
+  insuranceClaims?: InsuranceClaim[];
+  vitals?: Vitals[];
+  appointments?: Appointment[];
+  currentBed?: Bed; // For bed.currentPatientId relation
 }
+
 // ======================
 // ATTENDANCE (UPDATED TO MATCH BACKEND)
 // ======================
@@ -392,8 +465,14 @@ export interface Diagnosis {
   name: string;
   icdCode: string;
   gdrgCode: string;
+  variant?: DiagnosisVariant; // ✅ Add this
   description?: string;
   category: DiagnosisCategory;
+  isActive: boolean; // ✅ Add this
+  requiresAuthorization: boolean; // ✅ Add this
+  isChronic: boolean; // ✅ Add this
+  isNHISCovered: boolean; // ✅ Add this
+  tariffCode?: string; // ✅ Add this
   createdAt: string;
   updatedAt: string;
 }
@@ -525,6 +604,7 @@ export interface Medication {
   id: string;
   attendanceId: string;
   stockItemId?: string;
+  serviceCatalogId?: string;
   name: string;
   dosage?: string;
   frequency?: string;
@@ -564,6 +644,7 @@ export interface LabTest {
   verifiedById?: string;
   notes?: string;
   createdById: string;
+  serviceCatalogId?: string;
   priority: Priority; // Added from backend
   createdAt: string;
   updatedAt: string;
@@ -584,6 +665,7 @@ export interface Procedure {
   performedAt?: string;
   performedById?: string;
   assistantId?: string;
+  serviceCatalogId?: string;
   notes?: string;
   complications?: string;
   outcome?: string;
@@ -604,6 +686,7 @@ export interface Scan {
   id: string;
   attendanceId: string;
   templateId: string;
+  serviceCatalogId?: string;
   scanType: string;
   description: string;
   bodyPart?: string;
@@ -638,12 +721,10 @@ export interface Ward {
   wardType: string;
   totalBeds: number;
   occupiedBeds: number;
-  cashDailyRate: number;
-  nhisDailyRate?: number;
-  insuranceDailyRate: number;
+
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  isActive: boolean; // Added from backend
+  isActive: boolean;
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -738,37 +819,56 @@ export interface ServiceCatalog {
   description?: string;
   serviceCategory: ServiceCategory;
   serviceType: ServiceType;
-  cashPrice: number;
-  nhisPrice: number;
-  insurancePrice: number;
+  
   nhisServiceCode?: string;
   isNHISCovered: boolean;
   tariffCode?: string;
-  nhisCoverageType: NHISCoverageType; // Added from backend
+  nhisCoverageType: NHISCoverageType;
   isPrivateInsuranceExempted: boolean;
   unit: string;
-  isActive: boolean; // Added from backend
+  isActive: boolean;
   requiresClinicalNotes: boolean;
-  vatRate: number;
-  isTaxable: boolean;
+  
+  // Template relationships
   diagnosisId?: string;
   labTestTemplateId?: string;
   procedureTemplateId?: string;
   stockItemId?: string;
   wardId?: string;
   scanTemplateId?: string;
+  consultationTypeId?: string;
   createdById?: string;
+  
   createdAt: string;
   updatedAt: string;
   
+  // Relations
   diagnosis?: Diagnosis;
   labTestTemplate?: LabTestTemplate;
   procedureTemplate?: ProcedureTemplate;
   stockItem?: StockItem;
   ward?: Ward;
   scanTemplate?: ScanTemplate;
+  consultationType?: ConsultationType;
   createdBy?: User;
   servicesRendered: ServiceRendered[];
+  pricing?: ServicePricing; // ✅ Add this new relation
+}
+
+export interface ServicePricing {
+  id: string;
+  serviceCatalogId: string;
+  cashPrice: number;
+  nhisPrice: number;
+  insurancePrice: number;
+  vatRate: number;
+  isTaxable: boolean;
+  effectiveDate: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  
+  serviceCatalog?: ServiceCatalog;
 }
 
 // ======================

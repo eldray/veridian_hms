@@ -40,7 +40,7 @@ export const getAppointments = async (req: Request, res: Response) => {
       prisma.appointment.findMany({
         where,
         include: {
-          patient: {
+          Patient: { // ✅ FIXED: Capitalized
             select: {
               id: true,
               surname: true,
@@ -49,14 +49,14 @@ export const getAppointments = async (req: Request, res: Response) => {
               contact: true
             }
           },
-          doctor: {
+          doctor: { // ✅ CORRECT: Lowercase (matches your schema)
             select: {
               id: true,
               fullName: true,
               role: true
             }
           },
-          department: {
+          department: { // ✅ CORRECT: Lowercase (matches your schema)
             select: {
               id: true,
               name: true
@@ -93,7 +93,7 @@ export const getAppointmentById = async (req: Request, res: Response) => {
     const appointment = await prisma.appointment.findUnique({
       where: { id: req.params.id },
       include: {
-        patient: {
+        Patient: { // ✅ FIXED: Capitalized
           select: {
             id: true,
             surname: true,
@@ -102,14 +102,14 @@ export const getAppointmentById = async (req: Request, res: Response) => {
             contact: true
           }
         },
-        doctor: {
+        doctor: { // ✅ CORRECT: Lowercase
           select: {
             id: true,
             fullName: true,
             role: true
           }
         },
-        department: {
+        department: { // ✅ CORRECT: Lowercase
           select: {
             id: true,
             name: true
@@ -202,7 +202,7 @@ export const createAppointment = [
           createdBy: (req as any).user?.id || 'system'
         },
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -271,7 +271,7 @@ export const updateAppointment = [
           updatedAt: new Date()
         },
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -410,14 +410,14 @@ export const getDoctorSchedule = async (req: Request, res: Response) => {
         }
       },
       include: {
-        patient: {
+        Patient: { // ✅ FIXED: Capitalized
           select: {
             surname: true,
             otherNames: true,
             folderNumber: true
           }
         },
-        department: {
+        department: { // ✅ CORRECT: Lowercase
           select: {
             name: true
           }

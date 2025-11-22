@@ -34,16 +34,16 @@ export const getInsuranceProviders = async (req: AuthRequest, res: Response) => 
       where.type = type as InsuranceType;
     }
 
-    const providers = await prisma.insuranceProvider.findMany({
+    const providers = await prisma.InsuranceProvider.findMany({
       where,
       orderBy: { name: 'asc' },
       include: {
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         }
       }

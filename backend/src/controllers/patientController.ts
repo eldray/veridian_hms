@@ -91,14 +91,14 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
     const patients = await prisma.patient.findMany({
       where,
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
             type: true
           }
         },
-        admissions: {
+        Admission: {
           take: 1,
           orderBy: { createdAt: 'desc' },
           select: {
@@ -108,7 +108,7 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
             admissionDate: true
           }
         },
-        attendances: {
+        Attendance: {
           take: 1,
           orderBy: { createdAt: 'desc' },
           select: {
@@ -166,7 +166,7 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
     const patient = await prisma.patient.findUnique({
       where: { id },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -175,32 +175,34 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
             isActive: true
           }
         },
-        admissions: {
+        Admission: {
           include: {
-            ward: {
+            Ward: {
               select: {
                 id: true,
                 wardName: true,
                 wardType: true
               }
             },
-            bed: {
+            Bed: {
               select: {
                 id: true,
                 bedNumber: true,
                 isOccupied: true
               }
             },
-            principalDiagnosis: {
+            // ✅ CORRECT: Use the relation name from your schema
+            Diagnosis: {
               select: {
                 id: true,
                 name: true,
                 icdCode: true
               }
             },
-            secondaryDiagnoses: {
+            // If you need secondary diagnoses too:
+            AdmissionSecondaryDiagnosis: {
               include: {
-                diagnosis: {
+                Diagnosis: {
                   select: {
                     id: true,
                     name: true,
@@ -209,14 +211,14 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
                 }
               }
             }
-          },
-          orderBy: { createdAt: 'desc' }
+          }
         },
-        attendances: {
+        Attendance: {
           include: {
-            diagnoses: {
+            // ✅ CORRECT: Use the relation names from your schema
+            AttendanceDiagnosis: {
               include: {
-                diagnosis: {
+                Diagnosis: {
                   select: {
                     id: true,
                     name: true,
@@ -225,13 +227,13 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            vitals: {
+            Vitals: {
               orderBy: { recordedAt: 'desc' },
               take: 10
             },
-            labTests: {
+            LabTest: {
               include: {
-                template: {
+                LabTestTemplate: {
                   select: {
                     id: true,
                     name: true,
@@ -245,11 +247,11 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
           },
           orderBy: { createdAt: 'desc' }
         },
-        vitals: {
+        Vitals: {
           orderBy: { recordedAt: 'desc' },
           take: 20
         },
-        bills: {
+        Bill: {
           orderBy: { createdAt: 'desc' },
           take: 10,
           select: {
@@ -380,7 +382,7 @@ export const createPatient = [
         }
 
         // Validate insurance provider exists
-        const provider = await prisma.insuranceProvider.findUnique({
+        const provider = await prisma.InsuranceProvider.findUnique({
           where: { id: insuranceProviderId }
         });
 
@@ -417,7 +419,7 @@ export const createPatient = [
       // Calculate age with months
       const ageData = calculateAgeWithMonths(dateOfBirth);
 
-      // Prepare patient data - REMOVE ageDisplay
+      // Prepare patient data
       const patientData = {
         folderNumber,
         surname: req.body.surname,
@@ -426,8 +428,6 @@ export const createPatient = [
         dateOfBirth: dateOfBirth,
         age: ageData.years,
         ageInMonths: ageData.months,
-        // ❌ REMOVE THIS LINE - ageDisplay is not in Prisma model
-        // ageDisplay: ageData.display,
         contact: req.body.contact,
         address: req.body.address,
         paymentMode: req.body.paymentMode as PaymentMode,
@@ -437,7 +437,9 @@ export const createPatient = [
         employer: req.body.employer || {},
         imageUrl: req.body.imageUrl,
         insuranceProviderId,
-        registeredBy: req.user?.id || 'system'
+        registeredBy: req.user?.id || 'system',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       // Create patient with transaction for data consistency
@@ -445,7 +447,7 @@ export const createPatient = [
         const newPatient = await tx.patient.create({
           data: patientData,
           include: {
-            insuranceProvider: {
+            InsuranceProvider: {
               select: {
                 id: true,
                 name: true,
@@ -532,7 +534,7 @@ export const updatePatient = [
       // Prepare update data
       const updateData: any = { ...req.body };
 
-      // ❌ REMOVE ageDisplay since it's not in Prisma model
+      // Remove ageDisplay since it's not in Prisma model
       if (updateData.ageDisplay !== undefined) {
         delete updateData.ageDisplay;
       }
@@ -548,7 +550,6 @@ export const updatePatient = [
         const ageData = calculateAgeWithMonths(req.body.dateOfBirth);
         updateData.age = ageData.years;
         updateData.ageInMonths = ageData.months;
-        // Don't set ageDisplay here since it's not in the model
       }
 
       // Handle ageInMonths when provided separately
@@ -561,6 +562,9 @@ export const updatePatient = [
         updateData.insuranceProviderId = req.body.insuranceProviderId;
       }
 
+      // Add updatedAt timestamp
+      updateData.updatedAt = new Date();
+
       // Remove undefined fields
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === undefined) {
@@ -572,7 +576,7 @@ export const updatePatient = [
         where: { id },
         data: updateData,
         include: {
-          insuranceProvider: {
+          InsuranceProvider: {
             select: {
               id: true,
               name: true,
@@ -605,8 +609,6 @@ export const updatePatient = [
     }
   }
 ];
-
-// ... rest of the functions (deletePatient, uploadPatientImage, uploadPatientImageBase64, getPatientStats) remain the same
 export const deletePatient = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -706,9 +708,12 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
     // Update patient with new image URL
     const updatedPatient = await prisma.patient.update({
       where: { id: patientId },
-      data: { imageUrl },
+      data: { 
+        imageUrl,
+        updatedAt: new Date()
+      },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -835,9 +840,12 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
     // Update patient with new image URL
     const updatedPatient = await prisma.patient.update({
       where: { id: patientId },
-      data: { imageUrl },
+      data: { 
+        imageUrl,
+        updatedAt: new Date()
+      },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -883,49 +891,6 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
       success: false,
       message: 'Error uploading image',
       error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-    });
-  }
-};
-
-export const getPatientStats = async (req: AuthRequest, res: Response) => {
-  try {
-    console.log('📊 Getting patient statistics...');
-
-    const totalPatients = await prisma.patient.count();
-    const patientsByGender = await prisma.patient.groupBy({
-      by: ['gender'],
-      _count: true
-    });
-    const patientsByPaymentMode = await prisma.patient.groupBy({
-      by: ['paymentMode'],
-      _count: true
-    });
-    const recentPatients = await prisma.patient.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-        }
-      }
-    });
-
-    const stats = {
-      total: totalPatients,
-      byGender: patientsByGender,
-      byPaymentMode: patientsByPaymentMode,
-      recent: recentPatients
-    };
-
-    console.log('✅ Patient statistics fetched');
-
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    console.error('❌ Error fetching patient stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching patient statistics'
     });
   }
 };

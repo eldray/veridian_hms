@@ -53,14 +53,14 @@ router.get('/demographic', requireClinicalStaff, getDemographicReport);
 // GET /api/reports/financial - Financial report
 router.get('/financial', requireAccountsStaff, getFinancialReport);
 
+// GET /api/reports/revenue - Revenue analysis report
+router.get('/revenue', requireAccountsStaff, getRevenueReport);
+
 // GET /api/reports/insurance-claims - Insurance claims report
 router.get('/insurance-claims', requireAccountsStaff, getInsuranceClaimsReport);
 
 // GET /api/reports/clinical - Clinical statistics report
 router.get('/clinical', requireClinicalStaff, getClinicalReport);
-
-// GET /api/reports/revenue - Revenue analysis report
-router.get('/revenue', requireAccountsStaff, getRevenueReport);
 
 // GET /api/reports/attendance - Attendance statistics report
 router.get('/attendance', requireClinicalStaff, getAttendanceReport);

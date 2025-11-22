@@ -1,4 +1,3 @@
-// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,340 +7,95 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==================== STREAMLINED CORE MODELS ====================
-
-model User {
-  id             String   @id @default(cuid())
-  username       String   @unique
-  password       String
-  fullName       String
-  role           UserRole
-  email          String?
-  phone          String?
-  licenseNumber  String?
-  specialization String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  departmentId   String?
-
-  department Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
-
-  // Relations
-  createdAttendances      Attendance[]          @relation("AttendanceCreatedBy")
-  updatedAttendances      Attendance[]          @relation("AttendanceUpdatedBy")
-  attendanceDiagnoses     AttendanceDiagnosis[]
-  createdBills            Bill[]                @relation("BillCreatedBy")
-  updatedBills            Bill[]                @relation("BillUpdatedBy")
-  createdInsuranceClaims  InsuranceClaim[]      @relation("InsuranceClaimCreatedBy")
-  updatedInsuranceClaims  InsuranceClaim[]      @relation("InsuranceClaimUpdatedBy")
-  createdLabTests         LabTest[]             @relation("LabTestCreatedBy")
-  performedLabTests       LabTest[]             @relation("LabTestPerformedBy")
-  verifiedLabTests        LabTest[]             @relation("LabTestVerifiedBy")
-  administeredMedications Medication[]          @relation("MedicationAdministeredBy")
-  dispensedMedications    Medication[]          @relation("MedicationDispensedBy")
-  prescribedMedications   Medication[]          @relation("MedicationPrescribedBy")
-  assistedProcedures      Procedure[]           @relation("ProcedureAssistant")
-  createdProcedures       Procedure[]           @relation("ProcedureCreatedBy")
-  performedProcedures     Procedure[]           @relation("ProcedurePerformedBy")
-  createdScans            Scan[]                @relation("ScanCreatedBy")
-  performedScans          Scan[]                @relation("ScanPerformedBy")
-  verifiedScans           Scan[]                @relation("ScanVerifiedBy")
-  servicesRendered        ServiceRendered[]
-  vitals                  Vitals[]
-  doctorAppointments      Appointment[]         @relation("DoctorAppointments")
-  headedDepartment        Department?           @relation("DepartmentHead")
-  notifications           Notification[]
-  createdServiceCatalogs  ServiceCatalog[]      @relation("ServiceCatalogCreatedBy")
-  receivedPayments        Payment[]             @relation("PaymentReceivedBy")
-  createdInvoices         Invoice[]             @relation("InvoiceCreatedBy")
-  requestedRequisitions   Requisition[]         @relation("RequisitionRequestedBy")
-  approvedRequisitions    Requisition[]         @relation("RequisitionApprovedBy")
-  fulfilledRequisitions   Requisition[]         @relation("RequisitionFulfilledBy")
-
-  @@map("users")
-}
-
-model Department {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  headId      String?  @unique
-  isActive    Boolean  @default(true)
-  color       String?  @default("#3B82F6")
-  icon        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  users        User[]        @relation("DepartmentUsers")
-  appointments Appointment[]
-  head         User?         @relation("DepartmentHead", fields: [headId], references: [id])
-  requisitions Requisition[] @relation("RequisitionDepartment")
-
-  @@map("departments")
-}
-
-// ==================== PATIENT & ATTENDANCE MODELS ====================
-
-model Patient {
-  id                  String       @id @default(cuid())
-  folderNumber        String       @unique
-  surname             String
-  otherNames          String
-  gender              Gender
-  dateOfBirth         DateTime
-  age                 Int
-  ageInMonths         Int?
-  contact             String
-  address             String
-  paymentMode         PaymentMode?
-  insuranceNumber     String? // Patient's main insurance/membership/NHIS number
-  insuranceDetails    Json?
-  additionalInfo      Json?
-  billingAddress      Json?
-  employer            Json?
-  imageUrl            String?
-  registeredAt        DateTime     @default(now())
-  registeredBy        String
-  insuranceProviderId String?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-
-  admissions        Admission[]
-  attendances       Attendance[]
-  beds              Bed[]
-  bills             Bill[]
-  insuranceClaims   InsuranceClaim[]
-  insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
-  vitals            Vitals[]
-  appointments      Appointment[]
-
-  @@index([folderNumber])
-  @@index([paymentMode])
-  @@index([surname])
-  @@index([otherNames])
-  @@index([insuranceNumber])
-  @@map("patients")
-}
-
-model Attendance {
-  id                  String  @id @default(cuid())
-  attendanceNumber    String  @unique
-  patientId           String
-  insuranceProviderId String?
-  bedId               String?
-  wardId              String?
-
-  // ✅ STREAMLINED ATTENDANCE TYPES
-  attendanceType AttendanceType
-  dateTime       DateTime       @default(now())
-  paymentMode    PaymentMode
-  nhisCCC        String? // CCC for THIS specific attendance/claim
-
-  complaints   String  @default("No complaints recorded")
-  medicalNotes String?
-
-  // Service Categorization
-  encounterCategory EncounterCategory @default(opd)
-  visitCategory     VisitCategory     @default(general)
-
-  // ✅ ADDED: Better NHIS claims grouping
-  gdrgCategory    String? // adult_surgery, paediatrics, obstetrics, etc.
-  serviceCategory ServiceCategory? // opd, ipd, diagnostics, pharmacy
-
-  // Billing
-  totalBill          Float @default(0)
-  paidAmount         Float @default(0)
-  outstandingBalance Float @default(0)
-
-  // Insurance Claims
-  insuranceClaimId String? @unique
-  preAuthNumber    String?
-
-  status            AttendanceStatus @default(pending)
-  referringFacility String?
-
-  createdById String
-  updatedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
-  createdBy         User               @relation("AttendanceCreatedBy", fields: [createdById], references: [id])
-  updatedBy         User?              @relation("AttendanceUpdatedBy", fields: [updatedById], references: [id])
-  bed               Bed?               @relation(fields: [bedId], references: [id])
-  ward              Ward?              @relation(fields: [wardId], references: [id])
-  insuranceClaim    InsuranceClaim?    @relation("AttendanceInsuranceClaim")
-
-  // Related entities
-  diagnoses        AttendanceDiagnosis[]
-  labTests         LabTest[]
-  medications      Medication[]
-  procedures       Procedure[]
-  scans            Scan[]
-  servicesRendered ServiceRendered[]
-  vitals           Vitals[]
-  bill             Bill?                 @relation("AttendanceBill")
-  admission        Admission?            @relation("AdmissionAttendance")
-
-  @@index([attendanceType])
-  @@index([paymentMode])
-  @@index([patientId])
-  @@index([dateTime])
-  @@index([status])
-  @@index([nhisCCC])
-  @@index([gdrgCategory]) // ✅ ADDED INDEX
-  @@map("attendances")
-}
-
-// ==================== CLINICAL DATA MODELS ====================
-
-model Diagnosis {
-  id          String            @id @default(cuid())
-  name        String
-  icdCode     String            @unique
-  gdrgCode    String
-  description String?
-  category    DiagnosisCategory
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  gdrgTariff          GDRGTariff?                   @relation(fields: [gdrgCode], references: [gdrgCode])
-  principalAdmissions Admission[]                   @relation("PrincipalDiagnosis")
-  secondaryAdmissions AdmissionSecondaryDiagnosis[]
-  attendanceDiagnoses AttendanceDiagnosis[]
-  serviceCatalogs     ServiceCatalog[]
-
-  @@index([gdrgCode])
-  @@map("diagnoses")
-}
-
-model AttendanceDiagnosis {
-  id                 String              @id @default(cuid())
-  attendanceId       String
-  diagnosisId        String
-  primary            Boolean             @default(false)
-  notes              String?
-  date               DateTime            @default(now())
-  createdById        String
-  icdCode            String?
-  gdrgCategory       String?
-  presentOnAdmission PresentOnAdmission?
-  diagnosisType      DiagnosisType?
-  createdAt          DateTime            @default(now())
-
-  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  createdBy  User       @relation(fields: [createdById], references: [id])
-  diagnosis  Diagnosis  @relation(fields: [diagnosisId], references: [id])
-
-  @@unique([attendanceId, diagnosisId, diagnosisType])
-  @@map("attendance_diagnoses")
-}
-
-model Vitals {
-  id            String   @id @default(cuid())
-  attendanceId  String
-  patientId     String
-  bloodPressure String?
-  temperature   Float?
-  pulse         Int?
-  respiration   Int?
-  spo2          Float?
-  weight        Float?
-  height        Float?
-  bmi           Float?
-  notes         String?
-  recordedById  String
-  recordedAt    DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  patient    Patient    @relation(fields: [patientId], references: [id])
-  recordedBy User       @relation(fields: [recordedById], references: [id])
-
-  @@index([attendanceId])
-  @@index([patientId])
-  @@map("vitals")
-}
-
-// ==================== UNIFIED SERVICE CATALOG ====================
-
-model ServiceCatalog {
-  id          String  @id @default(cuid())
-  name        String
-  code        String  @unique
-  description String?
-
-  // Service Classification
-  serviceType     ServiceType
-  serviceCategory ServiceCategory @default(opd)
-  subType         String? // hematology, surgery, ultrasound, etc.
-
-  // NHIS Compliance
-  nhisServiceCode  String? // Maps to JSON tariff codes (INVE01D, ASURO1A, etc.)
-  tariffCode       String? // GDRG code if applicable
-  isNHISCovered    Boolean          @default(true)
-  nhisCoverageType NHISCoverageType @default(full)
-
-  // Service Metadata (JSON for flexibility)
-  metadata Json? // {specimenType, duration, bodyPart, preparationInstructions, etc.}
-
-  // Authorization Requirements
-  requiresAuthorization Boolean @default(false)
-  isActive              Boolean @default(true)
-  requiresClinicalNotes Boolean @default(false)
-
-  unit        String   @default("Each")
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  createdBy        User?             @relation("ServiceCatalogCreatedBy", fields: [createdById], references: [id])
-  servicesRendered ServiceRendered[]
-  pricing          ServicePricing?
-  labTests         LabTest[]
-  procedures       Procedure[]
-  scans            Scan[]
-  medications      Medication[]
-  wardServices     WardService[]
-  diagnosis        Diagnosis?        @relation(fields: [diagnosisId], references: [id])
-  diagnosisId      String?
-
-  @@index([serviceCategory, serviceType])
-  @@index([serviceType, isActive])
-  @@index([code])
-  @@index([nhisServiceCode])
-  @@map("service_catalog")
-}
-
+// =============== NEW MODELS ===============
 model ServicePricing {
-  id               String   @id @default(cuid())
-  serviceCatalogId String   @unique
+  id               String         @id @default(cuid())
+  serviceCatalogId String         @unique
   cashPrice        Float
-  nhisPrice        Float
+  nhisPrice        Float          @default(0)
   insurancePrice   Float
-  vatRate          Float    @default(0)
-  isTaxable        Boolean  @default(true)
-  effectiveDate    DateTime @default(now())
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
+  vatRate          Float          @default(0)
+  isTaxable        Boolean        @default(true)
+  effectiveDate    DateTime       @default(now())
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  serviceCatalog   ServiceCatalog @relation(fields: [serviceCatalogId], references: [id], onDelete: Cascade)
 
   @@map("service_pricing")
 }
 
-// ==================== SERVICE EXECUTION MODELS ====================
+// =============== ENHANCED MODELS ===============
+model ServiceCatalog {
+  id                         String           @id @default(cuid())
+  name                       String
+  code                       String           @unique
+  description                String?
+  serviceCategory            ServiceCategory  @default(opd)
+  serviceType                ServiceType
+  // REMOVED direct pricing fields since we have ServicePricing now
+  nhisServiceCode            String?
+  isNHISCovered              Boolean          @default(true)
+  tariffCode                 String?
+  nhisCoverageType           NHISCoverageType @default(full)
+  nhisRequiresAuth           Boolean          @default(false)
+  privateInsRequiresAuth     Boolean          @default(false)
+  isPrivateInsuranceExempted Boolean          @default(false)
+  unit                       String           @default("Each")
+  isPending                  Boolean          @default(true)
+  requiresClinicalNotes      Boolean          @default(false)
 
+  // NEW FIELDS for enhanced functionality
+  subType  String? // lab category, procedure category, etc.
+  metadata Json? // service-specific configuration
+  isActive Boolean @default(true)
+
+  // Enhanced relationships
+  diagnosisId         String?
+  labTestTemplateId   String?
+  procedureTemplateId String?
+  stockItemId         String?
+  wardId              String?
+  scanTemplateId      String?
+  consultationTypeId  String?
+  createdById         String?
+
+  // Relations
+  User              User?              @relation(fields: [createdById], references: [id])
+  Diagnosis         Diagnosis?         @relation(fields: [diagnosisId], references: [id])
+  LabTestTemplate   LabTestTemplate?   @relation(fields: [labTestTemplateId], references: [id])
+  ProcedureTemplate ProcedureTemplate? @relation(fields: [procedureTemplateId], references: [id])
+  ScanTemplate      ScanTemplate?      @relation(fields: [scanTemplateId], references: [id])
+  StockItem         StockItem?         @relation(fields: [stockItemId], references: [id])
+  Ward              Ward?              @relation(fields: [wardId], references: [id])
+  ConsultationType  ConsultationType?  @relation(fields: [consultationTypeId], references: [id])
+
+  // New pricing relationship
+  pricing         ServicePricing?
+  ServiceRendered ServiceRendered[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  labTests    LabTest[]
+  scans       Scan[]
+  procedures  Procedure[]
+  medications Medication[]
+
+  @@index([code])
+  @@index([isPrivateInsuranceExempted])
+  @@index([nhisCoverageType])
+  @@index([nhisServiceCode])
+  @@index([serviceCategory, serviceType])
+  @@index([serviceType, isPending])
+  @@index([isActive])
+}
+
+// =============== MODELS WITH SERVICE CATALOG RELATIONSHIPS ===============
 model LabTest {
   id               String        @id @default(cuid())
   attendanceId     String
-  serviceCatalogId String // Link to unified service catalog
+  templateId       String
+  serviceCatalogId String? // NEW: Link to service catalog
   status           LabTestStatus @default(requested)
   result           Json?
   normalRange      String?
@@ -351,52 +105,32 @@ model LabTest {
   performedById    String?
   verifiedById     String?
   notes            String?
-  isActive         Boolean       @default(true)
   createdById      String
   priority         Priority      @default(routine)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  attendance     Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  createdBy      User           @relation("LabTestCreatedBy", fields: [createdById], references: [id])
-  performedBy    User?          @relation("LabTestPerformedBy", fields: [performedById], references: [id])
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
-  verifiedBy     User?          @relation("LabTestVerifiedBy", fields: [verifiedById], references: [id])
+  // Relations
+  Attendance                       Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User_LabTest_createdByIdToUser   User            @relation("LabTest_createdByIdToUser", fields: [createdById], references: [id])
+  User_LabTest_performedByIdToUser User?           @relation("LabTest_performedByIdToUser", fields: [performedById], references: [id])
+  LabTestTemplate                  LabTestTemplate @relation(fields: [templateId], references: [id])
+  User_LabTest_verifiedByIdToUser  User?           @relation("LabTest_verifiedByIdToUser", fields: [verifiedById], references: [id])
+  ServiceCatalog                   ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id]) // NEW
 
-  @@map("lab_tests")
-}
-
-model Procedure {
-  id               String          @id @default(cuid())
-  attendanceId     String
-  serviceCatalogId String // Link to unified service catalog
-  status           ProcedureStatus @default(scheduled)
-  scheduledDate    DateTime?
-  performedAt      DateTime?
-  performedById    String?
-  assistantId      String?
-  notes            String?
-  complications    String?
-  outcome          String?
-  cost             Float?
-  duration         Int?
-  createdById      String
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-
-  assistant      User?          @relation("ProcedureAssistant", fields: [assistantId], references: [id])
-  attendance     Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  createdBy      User           @relation("ProcedureCreatedBy", fields: [createdById], references: [id])
-  performedBy    User?          @relation("ProcedurePerformedBy", fields: [performedById], references: [id])
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
-
-  @@map("procedures")
+  @@index([attendanceId])
+  @@index([serviceCatalogId])
+  @@index([status])
 }
 
 model Scan {
   id               String       @id @default(cuid())
   attendanceId     String
-  serviceCatalogId String // Link to unified service catalog
+  templateId       String
+  serviceCatalogId String? // NEW: Link to service catalog
+  scanType         String
+  description      String
+  bodyPart         String?
   status           ScanStatus   @default(requested)
   requestedAt      DateTime     @default(now())
   completedAt      DateTime?
@@ -411,20 +145,56 @@ model Scan {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  attendance     Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  createdBy      User           @relation("ScanCreatedBy", fields: [createdById], references: [id])
-  performedBy    User?          @relation("ScanPerformedBy", fields: [performedById], references: [id])
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
-  verifiedBy     User?          @relation("ScanVerifiedBy", fields: [verifiedById], references: [id])
+  // Relations
+  Attendance                    Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User_Scan_createdByIdToUser   User            @relation("Scan_createdByIdToUser", fields: [createdById], references: [id])
+  User_Scan_performedByIdToUser User?           @relation("Scan_performedByIdToUser", fields: [performedById], references: [id])
+  ScanTemplate                  ScanTemplate    @relation(fields: [templateId], references: [id])
+  User_Scan_verifiedByIdToUser  User?           @relation("Scan_verifiedByIdToUser", fields: [verifiedById], references: [id])
+  ServiceCatalog                ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id]) // NEW
 
-  @@map("scans")
+  @@index([attendanceId])
+  @@index([serviceCatalogId])
+  @@index([status])
+}
+
+model Procedure {
+  id               String          @id @default(cuid())
+  attendanceId     String
+  templateId       String
+  serviceCatalogId String? // NEW: Link to service catalog
+  status           ProcedureStatus @default(scheduled)
+  scheduledDate    DateTime?
+  performedAt      DateTime?
+  performedById    String?
+  assistantId      String?
+  notes            String?
+  complications    String?
+  outcome          String?
+  cost             Float?
+  duration         Int?
+  createdById      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  // Relations
+  User_Procedure_assistantIdToUser   User?             @relation("Procedure_assistantIdToUser", fields: [assistantId], references: [id])
+  Attendance                         Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User_Procedure_createdByIdToUser   User              @relation("Procedure_createdByIdToUser", fields: [createdById], references: [id])
+  User_Procedure_performedByIdToUser User?             @relation("Procedure_performedByIdToUser", fields: [performedById], references: [id])
+  ProcedureTemplate                  ProcedureTemplate @relation(fields: [templateId], references: [id])
+  ServiceCatalog                     ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id]) // NEW
+
+  @@index([attendanceId])
+  @@index([serviceCatalogId])
+  @@index([status])
 }
 
 model Medication {
   id               String           @id @default(cuid())
   attendanceId     String
-  serviceCatalogId String? // Link to unified service catalog for pricing
-  stockItemId      String? // Link to inventory for dispensing
+  stockItemId      String?
+  serviceCatalogId String? // NEW: Link to service catalog
   name             String
   dosage           String?
   frequency        String?
@@ -443,80 +213,82 @@ model Medication {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  administeredBy User?           @relation("MedicationAdministeredBy", fields: [administeredById], references: [id])
-  attendance     Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  dispensedBy    User?           @relation("MedicationDispensedBy", fields: [dispensedById], references: [id])
-  prescribedBy   User            @relation("MedicationPrescribedBy", fields: [prescribedById], references: [id])
-  serviceCatalog ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
-  stockItem      StockItem?      @relation(fields: [stockItemId], references: [id])
+  // Relations
+  User_Medication_administeredByIdToUser User?           @relation("Medication_administeredByIdToUser", fields: [administeredById], references: [id])
+  Attendance                             Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User_Medication_dispensedByIdToUser    User?           @relation("Medication_dispensedByIdToUser", fields: [dispensedById], references: [id])
+  User_Medication_prescribedByIdToUser   User            @relation("Medication_prescribedByIdToUser", fields: [prescribedById], references: [id])
+  StockItem                              StockItem?      @relation(fields: [stockItemId], references: [id])
+  ServiceCatalog                         ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id]) // NEW
 
-  @@map("medications")
-}
-
-model ServiceRendered {
-  id               String   @id @default(cuid())
-  attendanceId     String
-  serviceCatalogId String
-  quantity         Int      @default(1)
-  date             DateTime @default(now())
-  performedById    String
-  notes            String?
-  createdAt        DateTime @default(now())
-
-  attendance     Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  performedBy    User           @relation(fields: [performedById], references: [id])
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
-
-  @@map("services_rendered")
-}
-
-// ==================== BILLING & CLAIMS MODELS ====================
-
-model Bill {
-  id                  String      @id @default(cuid())
-  billNumber          String      @unique
-  patientId           String
-  attendanceId        String      @unique
-  admissionId         String?
-  items               Json // Simplified - will use service catalog pricing
-  subtotal            Float       @default(0)
-  discount            Float       @default(0)
-  taxAmount           Float       @default(0)
-  totalAmount         Float       @default(0)
-  insuranceCovered    Float       @default(0)
-  patientPayable      Float       @default(0)
-  paidAmount          Float       @default(0)
-  balance             Float       @default(0)
-  status              BillStatus  @default(draft)
-  paymentMode         PaymentMode
-  insuranceProviderId String?
-  preAuthNumber       String?
-  claimNumber         String?
-  claimStatus         ClaimStatus @default(draft)
-  createdById         String
-  updatedById         String?
-  billDate            DateTime    @default(now())
-  dueDate             DateTime?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-
-  admission         Admission?         @relation(fields: [admissionId], references: [id])
-  attendance        Attendance         @relation("AttendanceBill", fields: [attendanceId], references: [id])
-  createdBy         User               @relation("BillCreatedBy", fields: [createdById], references: [id])
-  insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
-  patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  updatedBy         User?              @relation("BillUpdatedBy", fields: [updatedById], references: [id])
-  insuranceClaims   InsuranceClaim[]
-  payments          Payment[]
-
-  @@index([patientId])
   @@index([attendanceId])
-  @@index([billNumber])
+  @@index([serviceCatalogId])
   @@index([status])
-  @@index([billDate])
-  @@map("bills")
 }
 
+// =============== ENHANCED ATTENDANCE MODEL ===============
+model Attendance {
+  id                  String            @id @default(cuid())
+  attendanceNumber    String            @unique
+  patientId           String
+  insuranceProviderId String?
+  bedId               String?
+  wardId              String?
+  attendanceType      AttendanceType
+  dateTime            DateTime          @default(now())
+  paymentMode         PaymentMode
+  nhisCCC             String?
+  complaints          String            @default("No complaints recorded")
+  medicalNotes        String?
+  encounterCategory   EncounterCategory @default(opd)
+  visitCategory       VisitCategory     @default(general)
+
+  // NEW FIELDS for enhanced functionality
+  gdrgCategory    String? // For NHIS GDRG categorization
+  serviceCategory ServiceCategory? // Main service category
+
+  totalBill          Float            @default(0)
+  paidAmount         Float            @default(0)
+  outstandingBalance Float            @default(0)
+  insuranceClaimId   String?          @unique
+  preAuthNumber      String?
+  preAuthApproved    Boolean          @default(false)
+  preAuthAmount      Float?
+  status             AttendanceStatus @default(pending)
+  referringFacility  String?
+  createdById        String
+  updatedById        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  // Relations
+  Admission                         Admission?
+  Bed                               Bed?                  @relation(fields: [bedId], references: [id])
+  User_Attendance_createdByIdToUser User                  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
+  InsuranceProvider                 InsuranceProvider?    @relation(fields: [insuranceProviderId], references: [id])
+  Patient                           Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_Attendance_updatedByIdToUser User?                 @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
+  Ward                              Ward?                 @relation(fields: [wardId], references: [id])
+  AttendanceDiagnosis               AttendanceDiagnosis[]
+  Bill                              Bill?
+  InsuranceClaim                    InsuranceClaim?
+  LabTest                           LabTest[]
+  Medication                        Medication[]
+  Procedure                         Procedure[]
+  Scan                              Scan[]
+  ServiceRendered                   ServiceRendered[]
+  Vitals                            Vitals[]
+
+  @@index([attendanceType])
+  @@index([dateTime])
+  @@index([patientId])
+  @@index([paymentMode])
+  @@index([status])
+  @@index([gdrgCategory])
+  @@index([serviceCategory])
+}
+
+// =============== ENHANCED INSURANCE CLAIM MODEL ===============
 model InsuranceClaim {
   id                  String      @id @default(cuid())
   claimNumber         String      @unique
@@ -525,100 +297,154 @@ model InsuranceClaim {
   insuranceProviderId String
   attendanceId        String      @unique
   totalClaimAmount    Float       @default(0)
+  approvedAmount      Float?
+  rejectedAmount      Float?
+  paidAmount          Float?
   status              ClaimStatus @default(draft)
+  submissionDate      DateTime?
+  approvalDate        DateTime?
+  paymentDate         DateTime?
+  preAuthNumber       String?
 
-  // Complete claim data
-  diagnosisCodes  String[] @default([])
-  procedureCodes  String[] @default([])
-  labTestCodes    String[] @default([])
-  medicationCodes String[] @default([])
-  scanCodes       String[] @default([])
-  serviceCodes    String[] @default([])
+  // ENHANCED: Support for all service types
+  diagnosisCodes String[]
+  procedureCodes String[]
+  labTestCodes   String[] // NEW
+  serviceCodes   String[] // NEW
+  scanCodes      String[] // NEW
 
-  submissionDate DateTime?
-  preAuthNumber  String?
-  notes          String?
-  createdById    String
-  updatedById    String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  notes       String?
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  attendance        Attendance        @relation("AttendanceInsuranceClaim", fields: [attendanceId], references: [id])
-  bill              Bill              @relation(fields: [billId], references: [id], onDelete: Cascade)
-  createdBy         User              @relation("InsuranceClaimCreatedBy", fields: [createdById], references: [id])
-  insuranceProvider InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
-  patient           Patient           @relation(fields: [patientId], references: [id])
-  updatedBy         User?             @relation("InsuranceClaimUpdatedBy", fields: [updatedById], references: [id])
+  // Relations
+  Attendance                            Attendance        @relation(fields: [attendanceId], references: [id])
+  Bill                                  Bill              @relation(fields: [billId], references: [id], onDelete: Cascade)
+  User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
+  InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
+  Patient                               Patient           @relation(fields: [patientId], references: [id])
+  User_InsuranceClaim_updatedByIdToUser User?             @relation("InsuranceClaim_updatedByIdToUser", fields: [updatedById], references: [id])
 
-  @@map("insurance_claims")
+  @@index([claimNumber])
+  @@index([status])
+  @@index([submissionDate])
 }
 
-model Payment {
-  id              String        @id @default(cuid())
-  billId          String
-  amount          Float
-  paymentMethod   PaymentMethod
-  reference       String?
-  transactionDate DateTime      @default(now())
-  receivedById    String
-  notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+// =============== EXISTING MODELS (UPDATED WITH CUID) ===============
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  headId      String?  @unique
+  isActive    Boolean  @default(true)
+  color       String?  @default("#3B82F6")
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  bill       Bill @relation(fields: [billId], references: [id])
-  receivedBy User @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  Requisitions Requisition[]
+  users        User[]        @relation("DepartmentUsers")
+  appointments Appointment[]
+  head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
 
-  @@index([billId])
-  @@index([transactionDate])
-  @@map("payments")
+  @@index([isActive])
+  @@index([headId])
+  @@map("departments")
 }
 
-// ==================== INPATIENT MODELS ====================
+model Appointment {
+  id                String            @id @default(cuid())
+  appointmentNumber String            @unique @default(uuid())
+  patientId         String
+  doctorId          String?
+  departmentId      String?
+  title             String
+  description       String?
+  appointmentDate   DateTime
+  appointmentTime   String
+  duration          Int               @default(30)
+  status            AppointmentStatus @default(scheduled)
+  type              AppointmentType   @default(consultation)
+  isNHIS            Boolean           @default(false)
+  nhisCCC           String?
+  reminderSent      Boolean           @default(false)
+  checkedIn         Boolean           @default(false)
+  checkedInAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  doctor     User?       @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: SetNull)
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentDate])
+  @@index([patientId, status])
+  @@index([doctorId, appointmentDate])
+  @@index([departmentId, appointmentDate])
+  @@index([status, appointmentDate])
+  @@map("appointments")
+}
+
+model Notification {
+  id         String               @id @default(cuid())
+  userId     String
+  title      String
+  message    String
+  type       NotificationType     @default(info)
+  priority   NotificationPriority @default(medium)
+  actionType String?
+  actionId   String?
+  actionUrl  String?
+  isRead     Boolean              @default(false)
+  isArchived Boolean              @default(false)
+  createdAt  DateTime             @default(now())
+  readAt     DateTime?
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
 
 model Admission {
-  id                 String    @id @default(cuid())
-  admissionNumber    String    @unique
-  patientId          String
-  attendanceId       String?   @unique
-  wardId             String
-  bedId              String
-  admissionDate      DateTime
-  admissionTime      String
-  admittingDoctor    String
-  reasonForAdmission String
-  diagnosis          String
-  status             String    @default("admitted")
-  dischargeDate      DateTime?
-  dischargeTime      String?
-  dischargeSummary   String?
-  dailyNotes         Json?
-  createdBy          String
-
-  // ✅ UPDATED: Added detention_observation
-  admissionType   AdmissionType    @default(emergency)
-  admissionSource AdmissionSource  @default(home)
-  dischargeStatus DischargeStatus?
-  lengthOfStay    Int              @default(0)
-
+  id                          String                        @id @default(cuid())
+  admissionNumber             String                        @unique
+  patientId                   String
+  attendanceId                String?                       @unique
+  wardId                      String
+  bedId                       String
+  admissionDate               DateTime
+  admissionTime               String
+  admittingDoctor             String
+  reasonForAdmission          String
+  diagnosis                   String
+  status                      String                        @default("admitted")
+  dischargeDate               DateTime?
+  dischargeTime               String?
+  dischargeSummary            String?
+  dailyNotes                  Json?
+  createdBy                   String
+  admissionType               AdmissionType                 @default(emergency)
+  admissionSource             AdmissionSource               @default(home)
+  dischargeStatus             DischargeStatus?
+  lengthOfStay                Int                           @default(0)
   principalDiagnosisId        String
   principalIcdCode            String
-  principalPresentOnAdmission PresentOnAdmission @default(Y)
-  createdAt                   DateTime           @default(now())
-  updatedAt                   DateTime           @updatedAt
+  principalPresentOnAdmission PresentOnAdmission            @default(Y)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @default(now())
+  Attendance                  Attendance?                   @relation(fields: [attendanceId], references: [id])
+  Bed                         Bed                           @relation(fields: [bedId], references: [id])
+  Patient                     Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Diagnosis                   Diagnosis                     @relation(fields: [principalDiagnosisId], references: [id])
+  Ward                        Ward                          @relation(fields: [wardId], references: [id])
+  AdmissionSecondaryDiagnosis AdmissionSecondaryDiagnosis[]
+  Bill                        Bill[]
 
-  attendance         Attendance?                   @relation("AdmissionAttendance", fields: [attendanceId], references: [id])
-  bed                Bed                           @relation(fields: [bedId], references: [id])
-  patient            Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  principalDiagnosis Diagnosis                     @relation("PrincipalDiagnosis", fields: [principalDiagnosisId], references: [id])
-  ward               Ward                          @relation(fields: [wardId], references: [id])
-  secondaryDiagnoses AdmissionSecondaryDiagnosis[]
-  bills              Bill[]
-
-  @@index([patientId])
   @@index([admissionNumber])
+  @@index([patientId])
   @@index([status])
-  @@index([admissionType]) // ✅ ADDED INDEX
-  @@map("admissions")
 }
 
 model AdmissionSecondaryDiagnosis {
@@ -629,241 +455,143 @@ model AdmissionSecondaryDiagnosis {
   presentOnAdmission PresentOnAdmission     @default(Y)
   diagnosisType      SecondaryDiagnosisType
   createdAt          DateTime               @default(now())
-
-  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  diagnosis Diagnosis @relation(fields: [diagnosisId], references: [id])
+  Admission          Admission              @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  Diagnosis          Diagnosis              @relation(fields: [diagnosisId], references: [id])
 
   @@unique([admissionId, diagnosisId, diagnosisType])
-  @@map("admission_secondary_diagnoses")
 }
 
-model Ward {
-  id           String   @id @default(cuid())
-  wardName     String
-  wardType     String
-  totalBeds    Int
-  occupiedBeds Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  admissions   Admission[]
-  attendances  Attendance[]
-  beds         Bed[]
-  wardServices WardService[]
-
-  @@map("wards")
-}
-
-model WardService {
-  id               String   @id @default(cuid())
-  wardId           String
-  serviceCatalogId String
-  createdAt        DateTime @default(now())
-
-  ward           Ward           @relation(fields: [wardId], references: [id], onDelete: Cascade)
-  serviceCatalog ServiceCatalog @relation(fields: [serviceCatalogId], references: [id])
-
-  @@unique([wardId, serviceCatalogId])
-  @@map("ward_services")
+model AttendanceDiagnosis {
+  id                 String              @id @default(cuid())
+  attendanceId       String
+  diagnosisId        String
+  primary            Boolean             @default(false)
+  notes              String?
+  date               DateTime            @default(now())
+  createdById        String
+  icdCode            String?
+  presentOnAdmission PresentOnAdmission?
+  diagnosisType      DiagnosisType?
+  createdAt          DateTime            @default(now())
+  Attendance         Attendance          @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User               User                @relation(fields: [createdById], references: [id])
+  Diagnosis          Diagnosis           @relation(fields: [diagnosisId], references: [id])
 }
 
 model Bed {
-  id               String   @id @default(cuid())
+  id               String       @id @default(cuid())
   wardId           String
   bedNumber        String
-  isOccupied       Boolean  @default(false)
-  currentPatientId String?  @unique
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  admissions     Admission[]
-  attendances    Attendance[]
-  currentPatient Patient?     @relation(fields: [currentPatientId], references: [id])
-  ward           Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  isOccupied       Boolean      @default(false)
+  currentPatientId String?      @unique
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @default(now())
+  Admission        Admission[]
+  Attendance       Attendance[]
+  Patient          Patient?     @relation(fields: [currentPatientId], references: [id])
+  Ward             Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
 
   @@unique([wardId, bedNumber])
-  @@map("beds")
 }
 
-// ==================== INVENTORY MODELS ====================
+model Bill {
+  id                          String             @id @default(cuid())
+  billNumber                  String             @unique
+  patientId                   String
+  attendanceId                String             @unique
+  admissionId                 String?
+  items                       Json
+  subtotal                    Float              @default(0)
+  discount                    Float              @default(0)
+  taxAmount                   Float              @default(0)
+  totalAmount                 Float              @default(0)
+  insuranceCovered            Float              @default(0)
+  patientPayable              Float              @default(0)
+  paidAmount                  Float              @default(0)
+  balance                     Float              @default(0)
+  status                      BillStatus         @default(draft)
+  paymentMode                 PaymentMode
+  insuranceProviderId         String?
+  preAuthNumber               String?
+  claimNumber                 String?
+  claimStatus                 ClaimStatus        @default(not_required)
+  createdById                 String
+  updatedById                 String?
+  billDate                    DateTime           @default(now())
+  dueDate                     DateTime?
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+  Admission                   Admission?         @relation(fields: [admissionId], references: [id])
+  Attendance                  Attendance         @relation(fields: [attendanceId], references: [id])
+  User_Bill_createdByIdToUser User               @relation("Bill_createdByIdToUser", fields: [createdById], references: [id])
+  InsuranceProvider           InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
+  Patient                     Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_Bill_updatedByIdToUser User?              @relation("Bill_updatedByIdToUser", fields: [updatedById], references: [id])
+  InsuranceClaim              InsuranceClaim[]
+  Payment                     Payment[]
 
-model StockItem {
-  id            String  @id @default(cuid())
-  name          String
-  category      String
-  description   String?
-  strength      String
-  unitOfMeasure String
-  drugCode      String  @unique
-
-  // Stock Management
-  reorderLevel Int
-  currentStock Int @default(0)
-
-  // Pricing now through ServiceCatalog
-  costPrice    Float // For inventory costing only
-  supplier     String?
-  expiryDate   DateTime?
-  batchNumber  String?
-  isActive     Boolean   @default(true)
-  isMedication Boolean   @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  medications       Medication[]
-  stockTransactions StockTransaction[]
-  invoiceItems      InvoiceItem[]      @relation("InvoiceItemStockItem")
-  requisitionItems  RequisitionItem[]  @relation("RequisitionItemStockItem")
-
-  @@map("stock_items")
+  @@index([attendanceId])
+  @@index([billDate])
+  @@index([billNumber])
+  @@index([patientId])
+  @@index([status])
 }
 
-model Invoice {
-  id            String   @id @default(cuid())
-  invoiceNumber String   @unique
-  supplierName  String
-  invoiceDate   DateTime
-  totalAmount   Float
-  notes         String?
-  createdById   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  createdBy         User               @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
-  invoiceItems      InvoiceItem[]
-  stockTransactions StockTransaction[]
-
-  @@index([invoiceNumber])
-  @@index([supplierName])
-  @@index([invoiceDate])
-  @@map("invoices")
+model ConsultationType {
+  id                   String           @id @default(cuid())
+  name                 String
+  code                 String           @unique
+  cashPrice            Float
+  nhisPrice            Float            @default(0)
+  insurancePrice       Float
+  isNHISCovered        Boolean          @default(true)
+  isPrivateInsExempted Boolean          @default(false)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  serviceCatalogs      ServiceCatalog[]
 }
 
-model InvoiceItem {
-  id          String    @id @default(cuid())
-  invoiceId   String
-  stockItemId String
-  quantity    Int
-  unitCost    Float
-  batchNumber String?
-  expiryDate  DateTime?
-  createdAt   DateTime  @default(now())
-
-  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  stockItem StockItem @relation("InvoiceItemStockItem", fields: [stockItemId], references: [id])
-
-  @@unique([invoiceId, stockItemId])
-  @@map("invoice_items")
+model Diagnosis {
+  id                          String                        @id @default(cuid())
+  name                        String                        
+  icdCode                     String                        @unique
+  gdrgCode                    String                         
+  variant                     DiagnosisVariant?
+  description                 String?
+  isActive                   Boolean                       @default(true)
+  requiresAuthorization       Boolean                       @default(false)
+  tariffCode                  String?
+  isChronic                   Boolean                       @default(false)
+  isNHISCovered               Boolean                       @default(true)
+  category                    DiagnosisCategory             @default(infectiousAndParasitic)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  Admission                   Admission[]
+  AdmissionSecondaryDiagnosis AdmissionSecondaryDiagnosis[]
+  AttendanceDiagnosis         AttendanceDiagnosis[]
+  GDRGTariff                  GDRGTariff[]
+  ServiceCatalog              ServiceCatalog[]
 }
 
-model Requisition {
-  id                     String             @id @default(cuid())
-  requisitionNumber      String             @unique
-  requestingDepartmentId String
-  requestedById          String
-  urgency                RequisitionUrgency @default(routine)
-  requiredDate           DateTime?
-  purpose                String?
-  status                 RequisitionStatus  @default(draft)
-  approvedById           String?
-  approvedAt             DateTime?
-  fulfilledById          String?
-  fulfilledAt            DateTime?
-  notes                  String?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-
-  requestingDepartment Department         @relation("RequisitionDepartment", fields: [requestingDepartmentId], references: [id])
-  requestedBy          User               @relation("RequisitionRequestedBy", fields: [requestedById], references: [id])
-  approvedBy           User?              @relation("RequisitionApprovedBy", fields: [approvedById], references: [id])
-  fulfilledBy          User?              @relation("RequisitionFulfilledBy", fields: [fulfilledById], references: [id])
-  requisitionItems     RequisitionItem[]
-  stockTransactions    StockTransaction[]
-
-  @@map("requisitions")
-}
-
-model RequisitionItem {
-  id                String   @id @default(cuid())
-  requisitionId     String
-  stockItemId       String
-  quantityRequested Int
-  quantityApproved  Int?
-  quantityFulfilled Int      @default(0)
-  purpose           String?
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  requisition Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
-  stockItem   StockItem   @relation("RequisitionItemStockItem", fields: [stockItemId], references: [id])
-
-  @@map("requisition_items")
-}
-
-model StockTransaction {
-  id              String               @id @default(cuid())
-  stockItemId     String
-  transactionType StockTransactionType
-  quantity        Int
-  balanceAfter    Int
-  reference       String? // Invoice number for purchases, Requisition number for requisitions
-  notes           String?
-  transactionDate DateTime             @default(now())
-  performedBy     String
-  requisitionId   String? // For requisition-based transactions
-  invoiceId       String? // For purchase invoice-based transactions
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-
-  stockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
-  requisition Requisition? @relation(fields: [requisitionId], references: [id])
-  invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
-
-  @@map("stock_transactions")
-}
-
-// ==================== SUPPORTING MODELS ====================
-
-model InsuranceProvider {
-  id                 String        @id @default(cuid())
-  name               String        @unique
-  type               InsuranceType
-  coveragePercentage Float
-  isActive           Boolean       @default(true)
-  contactInfo        Json?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-
-  attendances     Attendance[]
-  bills           Bill[]
-  insuranceClaims InsuranceClaim[]
-  patients        Patient[]
-
-  @@map("insurance_providers")
-}
-
-// Add to your schema.prisma
 model GDRGTariff {
   id            String    @id @default(cuid())
   gdrgCode      String    @unique
   description   String
-  category      String // adult_surgery, paediatrics, obstetrics, etc.
+  category      String
   nhiaTariff    Float
+  ageGroup      String?
   effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  diagnosisId   String
+  Diagnosis     Diagnosis @relation(fields: [diagnosisId], references: [id])
 
-  diagnoses Diagnosis[]
-
-  @@index([gdrgCode])
-  @@index([category])
+  @@index([gdrgCode, effectiveFrom])
   @@index([isActive])
-  @@map("gdrg_tariffs")
+  @@index([category])
 }
 
 model Hospital {
@@ -887,64 +615,393 @@ model Hospital {
   isActive                Boolean      @default(true)
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
-
-  @@map("hospitals")
 }
 
-model Appointment {
-  id                String            @id @default(cuid())
-  appointmentNumber String            @unique @default(uuid())
-  patientId         String
-  doctorId          String?
-  departmentId      String?
-  title             String
-  description       String?
-  appointmentDate   DateTime
-  appointmentTime   String
-  duration          Int               @default(30)
-  status            AppointmentStatus @default(scheduled)
-  type              AppointmentType   @default(consultation)
-  reminderSent      Boolean           @default(false)
-  checkedIn         Boolean           @default(false)
-  checkedInAt       DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String
-
-  department Department? @relation(fields: [departmentId], references: [id])
-  doctor     User?       @relation("DoctorAppointments", fields: [doctorId], references: [id])
-  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  @@map("appointments")
+model InsuranceProvider {
+  id                 String           @id @default(cuid())
+  name               String           @unique
+  type               InsuranceType
+  coveragePercentage Float
+  isActive           Boolean          @default(true)
+  contactInfo        Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  Attendance         Attendance[]
+  Bill               Bill[]
+  InsuranceClaim     InsuranceClaim[]
+  Patient            Patient[]
 }
 
-model Notification {
-  id         String               @id @default(cuid())
-  userId     String
-  title      String
-  message    String
-  type       NotificationType     @default(info)
-  priority   NotificationPriority @default(medium)
-  actionType String?
-  actionId   String?
-  actionUrl  String?
-  isRead     Boolean              @default(false)
-  isArchived Boolean              @default(false)
-  createdAt  DateTime             @default(now())
-  readAt     DateTime?
+model Invoice {
+  id               String             @id @default(cuid())
+  invoiceNumber    String             @unique
+  supplierName     String
+  invoiceDate      DateTime
+  totalAmount      Float
+  notes            String?
+  createdById      String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  User             User               @relation(fields: [createdById], references: [id])
+  InvoiceItem      InvoiceItem[]
+  StockTransaction StockTransaction[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
+  @@index([invoiceDate])
+  @@index([invoiceNumber])
+  @@index([supplierName])
 }
 
-// ==================== ENUMS ====================
+model InvoiceItem {
+  id          String    @id @default(cuid())
+  invoiceId   String
+  stockItemId String
+  quantity    Int
+  unitCost    Float
+  batchNumber String?
+  expiryDate  DateTime?
+  createdAt   DateTime  @default(now())
+  Invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  StockItem   StockItem @relation(fields: [stockItemId], references: [id])
+
+  @@unique([invoiceId, stockItemId])
+}
+
+model LabTestTemplate {
+  id                     String           @id @default(cuid())
+  name                   String
+  investigationCode      String           @unique
+  category               LabCategory
+  subCategory            String?
+  description            String?
+  // REMOVED pricing fields since we have ServicePricing now
+  isNHISCovered          Boolean          @default(true)
+  isPrivateInsExempted   Boolean          @default(false)
+  nhisRequiresAuth       Boolean          @default(false)
+  privateInsRequiresAuth Boolean          @default(false)
+  isActive               Boolean          @default(true)
+  tariffCode             String?
+  vatRate                Float            @default(0)
+  isTaxable              Boolean          @default(true)
+  specimenType           SpecimenType
+  resultTemplate         Json?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  LabTest                LabTest[]
+  ServiceCatalog         ServiceCatalog[]
+}
+
+model Patient {
+  id                  String             @id @default(cuid())
+  folderNumber        String             @unique
+  surname             String
+  otherNames          String
+  gender              Gender
+  dateOfBirth         DateTime
+  age                 Int
+  ageInMonths         Int?
+  contact             String
+  address             String
+  paymentMode         PaymentMode?
+  insuranceDetails    Json?
+  additionalInfo      Json?
+  billingAddress      Json?
+  employer            Json?
+  imageUrl            String?
+  registeredAt        DateTime           @default(now())
+  registeredBy        String
+  insuranceProviderId String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime
+  Admission           Admission[]
+  Attendance          Attendance[]
+  Bed                 Bed?
+  Bill                Bill[]
+  InsuranceClaim      InsuranceClaim[]
+  InsuranceProvider   InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
+  Vitals              Vitals[]
+  appointments        Appointment[]
+
+  @@index([folderNumber])
+  @@index([otherNames])
+  @@index([paymentMode])
+  @@index([surname])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  billId          String
+  amount          Float
+  paymentMethod   PaymentMethod
+  reference       String?
+  transactionDate DateTime      @default(now())
+  receivedById    String
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  Bill            Bill          @relation(fields: [billId], references: [id])
+  User            User          @relation(fields: [receivedById], references: [id])
+
+  @@index([billId])
+  @@index([transactionDate])
+}
+
+model ProcedureTemplate {
+  id                     String            @id @default(cuid())
+  name                   String
+  procedureCode          String            @unique
+  description            String?
+  category               ProcedureCategory
+  department             String
+  isNHISCovered          Boolean           @default(true)
+  isPrivateInsExempted   Boolean           @default(false)
+  nhisRequiresAuth       Boolean           @default(false)
+  privateInsRequiresAuth Boolean           @default(false)
+  isActive               Boolean           @default(true)
+  tariffCode             String?
+  vatRate                Float             @default(0)
+  isTaxable              Boolean           @default(true)
+  duration               Int               @default(30)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime
+  Procedure              Procedure[]
+  ServiceCatalog         ServiceCatalog[]
+}
+
+model Requisition {
+  id                                   String             @id @default(cuid())
+  requisitionNumber                    String             @unique
+  requestingDepartmentId               String
+  requestedById                        String
+  urgency                              RequisitionUrgency @default(routine)
+  requiredDate                         DateTime?
+  purpose                              String?
+  status                               RequisitionStatus  @default(draft)
+  approvedById                         String?
+  approvedAt                           DateTime?
+  fulfilledById                        String?
+  fulfilledAt                          DateTime?
+  notes                                String?
+  createdAt                            DateTime           @default(now())
+  updatedAt                            DateTime
+  User_Requisition_approvedByIdToUser  User?              @relation("Requisition_approvedByIdToUser", fields: [approvedById], references: [id])
+  User_Requisition_fulfilledByIdToUser User?              @relation("Requisition_fulfilledByIdToUser", fields: [fulfilledById], references: [id])
+  User_Requisition_requestedByIdToUser User               @relation("Requisition_requestedByIdToUser", fields: [requestedById], references: [id])
+  departments                          Department         @relation(fields: [requestingDepartmentId], references: [id])
+  RequisitionItem                      RequisitionItem[]
+  StockTransaction                     StockTransaction[]
+}
+
+model RequisitionItem {
+  id                String      @id @default(cuid())
+  requisitionId     String
+  stockItemId       String
+  quantityRequested Int
+  quantityApproved  Int?
+  quantityFulfilled Int         @default(0)
+  purpose           String?
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  Requisition       Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  StockItem         StockItem   @relation(fields: [stockItemId], references: [id])
+}
+
+model ScanTemplate {
+  id                      String           @id @default(cuid())
+  name                    String
+  investigationCode       String
+  scanCode                String           @unique
+  description             String
+  category                ScanCategory
+  bodyPart                BodyPart
+  isNHISCovered           Boolean          @default(true)
+  isPrivateInsExempted    Boolean          @default(false)
+  nhisRequiresAuth        Boolean          @default(false)
+  privateInsRequiresAuth  Boolean          @default(false)
+  isActive               Boolean          @default(true)
+  tariffCode              String?
+  vatRate                 Float            @default(0)
+  isTaxable               Boolean          @default(true)
+  preparationInstructions String?
+  duration                Int
+  contrastRequired        Boolean          @default(false)
+  scanType                String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  Scan                    Scan[]
+  ServiceCatalog          ServiceCatalog[]
+}
+
+model ServiceRendered {
+  id             String         @id @default(cuid())
+  attendanceId   String
+  serviceItemId  String
+  quantity       Int            @default(1)
+  date           DateTime       @default(now())
+  performedById  String
+  notes          String?
+  createdAt      DateTime       @default(now())
+  Attendance     Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  User           User           @relation(fields: [performedById], references: [id])
+  ServiceCatalog ServiceCatalog @relation(fields: [serviceItemId], references: [id])
+}
+
+model StockItem {
+  id                     String             @id @default(cuid())
+  name                   String
+  category               String
+  description            String?
+  strength               String
+  unitOfMeasure          String
+  drugCode               String             @unique
+  reorderLevel           Int
+  currentStock           Int                @default(0)
+  costPrice              Float
+  // REMOVED pricing fields since we have ServicePricing now
+  isNHISCovered          Boolean            @default(true)
+  isPrivateInsExempted   Boolean            @default(false)
+  nhisRequiresAuth       Boolean            @default(false)
+  privateInsRequiresAuth Boolean            @default(false)
+  supplier               String?
+  expiryDate             DateTime?
+  batchNumber            String?
+  isActive               Boolean            @default(true)
+  tariffCode             String?
+  vatRate                Float              @default(0)
+  isTaxable              Boolean            @default(true)
+  isMedication           Boolean            @default(true)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  InvoiceItem            InvoiceItem[]
+  Medication             Medication[]
+  RequisitionItem        RequisitionItem[]
+  ServiceCatalog         ServiceCatalog[]
+  StockTransaction       StockTransaction[]
+}
+
+model StockTransaction {
+  id              String               @id @default(cuid())
+  stockItemId     String
+  transactionType StockTransactionType
+  quantity        Int
+  balanceAfter    Int
+  reference       String?
+  notes           String?
+  transactionDate DateTime             @default(now())
+  performedBy     String
+  requisitionId   String?
+  invoiceId       String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  Invoice         Invoice?             @relation(fields: [invoiceId], references: [id])
+  Requisition     Requisition?         @relation(fields: [requisitionId], references: [id])
+  StockItem       StockItem            @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id             String   @id @default(cuid())
+  username       String   @unique
+  password       String
+  fullName       String
+  role           UserRole
+  email          String?
+  phone          String?
+  licenseNumber  String?
+  specialization String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt 
+  departmentId   String?
+
+  // Relations
+  Attendance_Attendance_createdByIdToUser         Attendance[]          @relation("Attendance_createdByIdToUser")
+  Attendance_Attendance_updatedByIdToUser         Attendance[]          @relation("Attendance_updatedByIdToUser")
+  AttendanceDiagnosis                             AttendanceDiagnosis[]
+  Bill_Bill_createdByIdToUser                     Bill[]                @relation("Bill_createdByIdToUser")
+  Bill_Bill_updatedByIdToUser                     Bill[]                @relation("Bill_updatedByIdToUser")
+  InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]      @relation("InsuranceClaim_createdByIdToUser")
+  InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]      @relation("InsuranceClaim_updatedByIdToUser")
+  Invoice                                         Invoice[]
+  LabTest_LabTest_createdByIdToUser               LabTest[]             @relation("LabTest_createdByIdToUser")
+  LabTest_LabTest_performedByIdToUser             LabTest[]             @relation("LabTest_performedByIdToUser")
+  LabTest_LabTest_verifiedByIdToUser              LabTest[]             @relation("LabTest_verifiedByIdToUser")
+  Medication_Medication_administeredByIdToUser    Medication[]          @relation("Medication_administeredByIdToUser")
+  Medication_Medication_dispensedByIdToUser       Medication[]          @relation("Medication_dispensedByIdToUser")
+  Medication_Medication_prescribedByIdToUser      Medication[]          @relation("Medication_prescribedByIdToUser")
+  Payment                                         Payment[]
+  Procedure_Procedure_assistantIdToUser           Procedure[]           @relation("Procedure_assistantIdToUser")
+  Procedure_Procedure_createdByIdToUser           Procedure[]           @relation("Procedure_createdByIdToUser")
+  Procedure_Procedure_performedByIdToUser         Procedure[]           @relation("Procedure_performedByIdToUser")
+  Requisition_Requisition_approvedByIdToUser      Requisition[]         @relation("Requisition_approvedByIdToUser")
+  Requisition_Requisition_fulfilledByIdToUser     Requisition[]         @relation("Requisition_fulfilledByIdToUser")
+  Requisition_Requisition_requestedByIdToUser     Requisition[]         @relation("Requisition_requestedByIdToUser")
+  Scan_Scan_createdByIdToUser                     Scan[]                @relation("Scan_createdByIdToUser")
+  Scan_Scan_performedByIdToUser                   Scan[]                @relation("Scan_performedByIdToUser")
+  Scan_Scan_verifiedByIdToUser                    Scan[]                @relation("Scan_verifiedByIdToUser")
+  ServiceCatalog                                  ServiceCatalog[]
+  ServiceRendered                                 ServiceRendered[]
+  Vitals                                          Vitals[]
+  doctorAppointments                              Appointment[]         @relation("DoctorAppointments")
+  notifications                                   Notification[]
+
+  department       Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  headedDepartment Department? @relation("DepartmentHead")
+}
+
+model Vitals {
+  id            String     @id @default(cuid())
+  attendanceId  String
+  patientId     String
+  bloodPressure String?
+  temperature   Float?
+  pulse         Int?
+  respiration   Int?
+  spo2          Float?
+  weight        Float?
+  height        Float?
+  bmi           Float?
+  notes         String?
+  recordedById  String
+  recordedAt    DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime
+  Attendance    Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  Patient       Patient    @relation(fields: [patientId], references: [id])
+  User          User       @relation(fields: [recordedById], references: [id])
+
+  @@index([attendanceId])
+  @@index([patientId])
+}
+
+model Ward {
+  id                    String           @id @default(cuid())
+  wardName              String
+  wardType              String
+  totalBeds             Int
+  occupiedBeds          Int              @default(0)
+  isNHISCovered         Boolean          @default(true)
+  nhisRequiresAuth      Boolean          @default(false)
+  isPrivateInsExempted  Boolean          @default(false)
+  isPending             Boolean          @default(true)
+  requiresAuthorization Boolean          @default(false)
+  tariffCode            String?
+  vatRate               Float            @default(0)
+  isTaxable             Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  Admission             Admission[]
+  Attendance            Attendance[]
+  Bed                   Bed[]
+  ServiceCatalog        ServiceCatalog[]
+}
+
+// =============== ENUMS (UNCHANGED) ===============
 
 enum AdmissionType {
   elective
   emergency
   transfer
-  detention_observation // ✅ ADDED: For Zoom category admissions
+  detention_observation
 }
 
 enum AdmissionSource {
@@ -974,13 +1031,14 @@ enum SecondaryDiagnosisType {
 }
 
 enum AttendanceType {
-  emergency_acute // Replaces general_consultation + emergencies
-  chronic_followup // Chronic disease management
-  specialist_consultation // All specialist visits (ENT, Eye, Dental, etc.)
-  antenatal // Pregnancy care
-  postnatal // Post-delivery care  
-  delivery // Childbirth admission
-  surgery // Surgical admission
+  emergency_acute
+  antenatal
+  postnatal
+  chronic_followup
+  specialist_consultation
+  delivery
+  surgery
+  general_consultation
 }
 
 enum PaymentMode {
@@ -1020,34 +1078,37 @@ enum BillStatus {
 
 enum ClaimStatus {
   draft
+  not_required
+  pending
   submitted
   approved
-  paid
+  partially_approved
   rejected
+  paid
 }
 
 enum DiagnosisCategory {
-  infectiousAndParasitic
-  neoplasms
-  bloodAndImmune
-  endocrineNutritionalMetabolic
-  mentalAndBehavioral
-  nervousSystem
-  eyeAndAdnexa
-  earAndMastoid
-  circulatory
-  respiratory
-  digestive
-  skinAndSubcutaneous
-  musculoskeletal
-  genitourinary
-  pregnancyChildbirthPuerperium
-  perinatalPeriod
-  congenitalMalformations
-  symptomsSignsAbnormalFindings
-  injuryPoisoningExternalCauses
-  externalMorbidity
-  factorsInfluencingHealthStatus
+  infectiousAndParasitic    // ICD-10 Chapter I: A00-B99
+  neoplasms                 // ICD-10 Chapter II: C00-D48
+  bloodAndImmune           // ICD-10 Chapter III: D50-D89
+  endocrineNutritionalMetabolic // ICD-10 Chapter IV: E00-E90
+  mentalAndBehavioral      // ICD-10 Chapter V: F00-F99
+  nervousSystem            // ICD-10 Chapter VI: G00-G99
+  eyeAndAdnexa             // ICD-10 Chapter VII: H00-H59
+  earAndMastoid            // ICD-10 Chapter VIII: H60-H95
+  circulatory              // ICD-10 Chapter IX: I00-I99
+  respiratory              // ICD-10 Chapter X: J00-J99
+  digestive                // ICD-10 Chapter XI: K00-K93
+  skinAndSubcutaneous      // ICD-10 Chapter XII: L00-L99
+  musculoskeletal          // ICD-10 Chapter XIII: M00-M99
+  genitourinary            // ICD-10 Chapter XIV: N00-N99
+  pregnancyChildbirthPuerperium // ICD-10 Chapter XV: O00-O99
+  perinatalPeriod          // ICD-10 Chapter XVI: P00-P96
+  congenitalMalformations  // ICD-10 Chapter XVII: Q00-Q99
+  symptomsSignsAbnormalFindings // ICD-10 Chapter XVIII: R00-R99
+  injuryPoisoningExternalCauses // ICD-10 Chapter XIX: S00-T98
+  externalMorbidity        // ICD-10 Chapter XX: V01-Y98
+  factorsInfluencingHealthStatus // ICD-10 Chapter XXI: Z00-Z99
 }
 
 enum FacilityType {
@@ -1069,8 +1130,8 @@ enum ServiceType {
   ward
   lab_test
   scan
-  procedure
   medication
+  procedure
   diagnosis
   miscellaneous
 }
@@ -1215,5 +1276,72 @@ enum RequisitionUrgency {
 enum Gender {
   male
   female
+  other
+}
+
+enum BodyPart {
+  head
+  chest
+  neck
+  abdomen
+  pelvis
+  spine
+  extremities
+  breast
+  other
+}
+
+enum DiagnosisVariant {
+  adult
+  child
+  complicated
+  uncomplicated
+}
+
+enum LabCategory {
+  hematology
+  biochemistry
+  microbiology
+  serology
+  immunology
+  toxicology
+  molecular
+  cytology
+  histopathology
+}
+
+enum ProcedureCategory {
+  surgical
+  diagnostic
+  therapeutic
+  obstetric
+  pediatric
+  dental
+  ophthalmic
+}
+
+enum ScanCategory {
+  xray
+  ultrasound
+  ct_scan
+  mri
+  fluoroscopy
+  mammography
+  nuclear
+  pet_scan
+  other
+}
+
+enum SpecimenType {
+  blood
+  urine
+  stool
+  csf
+  sputum
+  fluid
+  semen
+  tissue
+  saliva
+  swab
   other
 }

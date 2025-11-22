@@ -69,7 +69,7 @@ export default function Billing() {
   const { success, error: toastError } = useToast();
 
   const { bills, isLoading, getBills, getBillStatistics, billStatistics } = useBillingStore();
-  const { patients, getPatients } = usePatientStore();
+  const { patients, loadPatients } = usePatientStore();
   const { hasRole, user } = useAuthStore();
 
   // ✅ OPTIMIZED: Sequential data loading with loading states
@@ -81,7 +81,7 @@ export default function Billing() {
         // Load all data in parallel for better performance
         await Promise.all([
           getBills(),
-          getPatients(), 
+          loadPatients(), 
           getBillStatistics()
         ]);
         console.log('✅ Billing data loaded successfully');
@@ -94,7 +94,7 @@ export default function Billing() {
     };
     
     loadData();
-  }, [getBills, getPatients, getBillStatistics, toastError]);
+  }, []);
 
   // ✅ OPTIMIZED: Memoized patient lookup map
   const patientMap = useMemo(() => {

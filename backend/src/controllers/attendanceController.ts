@@ -247,10 +247,10 @@ export const getAttendances = async (req: Request, res: Response) => {
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const [attendances, total] = await Promise.all([
-      prisma.attendance.findMany({
+      prisma.attendance.findMany({ // ✅ FIXED: lowercase 'attendance'
         where,
         include: {
-          patient: {
+          Patient: { // ✅ CORRECT
             select: {
               surname: true,
               otherNames: true,
@@ -260,40 +260,40 @@ export const getAttendances = async (req: Request, res: Response) => {
               gender: true
             }
           },
-          createdBy: {
+          User_Attendance_createdByIdToUser: { // ✅ FIXED
             select: {
               fullName: true,
               username: true
             }
           },
-          admission: {
+          Admission: { // ✅ FIXED: Use singular
             select: {
               admissionNumber: true,
               status: true,
-              admissionType: true // ✅ ADDED
+              admissionType: true
             }
           },
-          bed: {
+          Bed: { // ✅ CORRECT
             select: {
               bedNumber: true
             }
           },
-          ward: {
+          Ward: { // ✅ CORRECT
             select: {
               wardName: true,
               wardType: true
             }
           },
-          bill: {
+          Bill: { // ✅ CORRECT
             select: {
               billNumber: true,
               totalAmount: true,
               status: true
             }
           },
-          diagnoses: {
+          AttendanceDiagnosis: { // ✅ FIXED
             include: {
-              diagnosis: {
+              Diagnosis: {
                 select: {
                   name: true,
                   icdCode: true
@@ -301,9 +301,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          labTests: {
+          LabTest: { // ✅ FIXED: Use singular
             include: {
-              serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
+              ServiceCatalog: { // ✅ FIXED
                 select: {
                   name: true,
                   code: true
@@ -311,9 +311,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          procedures: {
+          Procedure: { // ✅ FIXED: Use singular
             include: {
-              serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
+              ServiceCatalog: { // ✅ FIXED
                 select: {
                   name: true,
                   code: true
@@ -321,15 +321,15 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          medications: {
+          Medication: { // ✅ FIXED: Use singular
             include: {
-              serviceCatalog: { // ✅ UPDATED: stockItem → serviceCatalog for pricing
+              ServiceCatalog: { // ✅ FIXED
                 select: {
                   name: true,
                   code: true
                 }
               },
-              stockItem: { // ✅ KEEP for inventory
+              StockItem: { // ✅ FIXED
                 select: {
                   name: true,
                   drugCode: true,
@@ -338,9 +338,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          servicesRendered: {
+          ServiceRendered: { // ✅ FIXED: Use singular
             include: {
-              serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
+              ServiceCatalog: { // ✅ FIXED
                 select: {
                   name: true,
                   code: true,
@@ -357,7 +357,7 @@ export const getAttendances = async (req: Request, res: Response) => {
         skip,
         take: parseInt(limit as string)
       }),
-      prisma.attendance.count({ where })
+      prisma.attendance.count({ where }) // ✅ FIXED: lowercase
     ]);
 
     const attendancesWithFullName = attendances.map(attendance => ({
@@ -410,13 +410,14 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             dateOfBirth: true
           }
         },
-        createdBy: {
+        // ✅ FIX: Use correct relation names
+        User_Attendance_createdByIdToUser: {
           select: {
             fullName: true,
             username: true
           }
         },
-        updatedBy: {
+        User_Attendance_updatedByIdToUser: {
           select: {
             fullName: true,
             username: true
@@ -436,10 +437,11 @@ export const getAttendanceById = async (req: Request, res: Response) => {
           }
         },
         bill: true,
-        diagnoses: {
+        // ✅ FIX: Use correct relation names
+        AttendanceDiagnosis: {
           include: {
-            diagnosis: true,
-            createdBy: {
+            Diagnosis: true,
+            User: {
               select: {
                 fullName: true,
                 role: true
@@ -447,16 +449,17 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        labTests: {
+        // ✅ FIX: Use correct relation names
+        LabTest: {
           include: {
-            serviceCatalog: true, // ✅ UPDATED: template → serviceCatalog
-            performedBy: {
+            ServiceCatalog: true,
+            User_LabTest_performedByIdToUser: {
               select: {
                 fullName: true,
                 role: true
               }
             },
-            verifiedBy: {
+            User_LabTest_verifiedByIdToUser: {
               select: {
                 fullName: true,
                 role: true
@@ -464,16 +467,17 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        procedures: {
+        // ✅ FIX: Use correct relation names
+        Procedure: {
           include: {
-            serviceCatalog: true, // ✅ UPDATED: template → serviceCatalog
-            performedBy: {
+            ServiceCatalog: true,
+            User_Procedure_performedByIdToUser: {
               select: {
                 fullName: true,
                 role: true
               }
             },
-            assistant: {
+            User_Procedure_assistantIdToUser: {
               select: {
                 fullName: true,
                 role: true
@@ -481,23 +485,24 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        medications: {
+        // ✅ FIX: Use correct relation names
+        Medication: {
           include: {
-            serviceCatalog: true, // ✅ UPDATED for pricing
-            stockItem: true, // ✅ KEEP for inventory
-            prescribedBy: {
+            ServiceCatalog: true,
+            StockItem: true,
+            User_Medication_prescribedByIdToUser: {
               select: {
                 fullName: true,
                 role: true
               }
             },
-            dispensedBy: {
+            User_Medication_dispensedByIdToUser: {
               select: {
                 fullName: true,
                 role: true
               }
             },
-            administeredBy: {
+            User_Medication_administeredByIdToUser: {
               select: {
                 fullName: true,
                 role: true
@@ -505,9 +510,10 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        servicesRendered: {
+        // ✅ FIX: Use correct relation names
+        ServiceRendered: {
           include: {
-            serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
+            ServiceCatalog: {
               select: {
                 name: true,
                 code: true,
@@ -518,9 +524,10 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        vitals: {
+        // ✅ FIX: Use correct relation names
+        Vitals: {
           include: {
-            recordedBy: {
+            User: {
               select: {
                 fullName: true,
                 role: true
@@ -814,17 +821,17 @@ export const createAttendance = [
       const populatedAttendance = await prisma.attendance.findUnique({
         where: { id: attendance.id },
         include: {
-          patient: {
+          Patient: { // ✅ FIXED
             include: {
-              insuranceProvider: true
+              InsuranceProvider: true // ✅ FIXED
             }
           },
-          createdBy: true,
-          admission: true,
-          bill: true,
-          servicesRendered: {
+          User_Attendance_createdByIdToUser: true, // ✅ FIXED
+          Admission: true, // ✅ FIXED: Use singular
+          Bill: true, // ✅ CORRECT
+          ServiceRendered: { // ✅ FIXED: Use singular
             include: {
-              serviceCatalog: true // ✅ FIXED: serviceCatalog
+              ServiceCatalog: true // ✅ FIXED
             }
           }
         }
@@ -1062,8 +1069,6 @@ export const addScanToAttendance = [
   }
 ];
 
-// ... REST OF THE FUNCTIONS (updateAttendance, deleteAttendance, etc.) remain similar but with field name updates ...
-
 // ✅ FIXED: generateNHISClaimFromAttendance with correct field names
 export const generateNHISClaimFromAttendance = async (req: Request, res: Response) => {
   try {
@@ -1074,7 +1079,7 @@ export const generateNHISClaimFromAttendance = async (req: Request, res: Respons
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
-        patient: {
+        Patient: { // ✅ FIXED
           select: {
             surname: true,
             otherNames: true,
@@ -1082,9 +1087,9 @@ export const generateNHISClaimFromAttendance = async (req: Request, res: Respons
             gender: true
           }
         },
-        diagnoses: {
+        AttendanceDiagnosis: { // ✅ FIXED
           include: {
-            diagnosis: {
+            Diagnosis: {
               select: {
                 name: true,
                 icdCode: true,
@@ -1093,9 +1098,9 @@ export const generateNHISClaimFromAttendance = async (req: Request, res: Respons
             }
           }
         },
-        servicesRendered: {
+        ServiceRendered: { // ✅ FIXED: Use singular
           include: {
-            serviceCatalog: { // ✅ FIXED: serviceCatalog
+            ServiceCatalog: { // ✅ FIXED
               select: {
                 name: true,
                 code: true,
@@ -1814,7 +1819,7 @@ export const addVitalsToAttendance = [
         where: { id: req.params.id },
         select: { 
           patientId: true,
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -1853,13 +1858,13 @@ export const addVitalsToAttendance = [
           recordedById: user.id
         },
         include: {
-          recordedBy: {
+          User: { // ✅ FIXED
             select: {
               fullName: true,
               role: true
             }
           },
-          patient: {
+          Patient: { // ✅ FIXED
             select: {
               surname: true,
               otherNames: true,
@@ -2276,31 +2281,31 @@ export const updateAttendance = async (req: Request, res: Response) => {
         updatedAt: new Date()
       },
       include: {
-        patient: true,
-        createdBy: true,
-        updatedBy: true,
-        diagnoses: {
+        Patient: true, // ✅ FIXED
+        User_Attendance_createdByIdToUser: true, // ✅ FIXED
+        User_Attendance_updatedByIdToUser: true, // ✅ FIXED
+        AttendanceDiagnosis: { // ✅ FIXED
           include: {
-            diagnosis: true
+            Diagnosis: true
           }
         },
-        labTests: {
+        LabTest: { // ✅ FIXED: Use singular
           include: {
-            serviceCatalog: true // ✅ UPDATED
+            ServiceCatalog: true // ✅ FIXED
           }
         },
-        procedures: {
+        Procedure: { // ✅ FIXED: Use singular
           include: {
-            serviceCatalog: true // ✅ UPDATED
+            ServiceCatalog: true // ✅ FIXED
           }
         },
-        servicesRendered: {
+        ServiceRendered: { // ✅ FIXED: Use singular
           include: {
-            serviceCatalog: true // ✅ UPDATED
+            ServiceCatalog: true // ✅ FIXED
           }
         },
-        admission: true,
-        bill: true
+        Admission: true, // ✅ FIXED: Use singular
+        Bill: true // ✅ CORRECT
       }
     });
 

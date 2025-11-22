@@ -7,7 +7,6 @@ import {
   deletePatient,
   uploadPatientImage,
   uploadPatientImageBase64,
-  getPatientStats
 } from '../controllers/patientController';
 import {
   protect,
@@ -27,7 +26,6 @@ router.use(protect);
 
 // Patient management routes - accessible by medical staff, records, and admin
 router.get('/', requirePatientManagement, getPatients);
-router.get('/stats', requirePatientManagement, getPatientStats);
 router.get('/:id', requirePatientManagement, getPatientById);
 
 // Validation middleware - UPDATED FOR SURNAME AND OTHER NAMES

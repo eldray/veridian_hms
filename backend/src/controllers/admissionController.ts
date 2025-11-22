@@ -38,7 +38,7 @@ export const getAdmissions = async (req: Request, res: Response) => {
       prisma.admission.findMany({
         where,
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -47,25 +47,26 @@ export const getAdmissions = async (req: Request, res: Response) => {
               paymentMode: true
             }
           },
-          ward: {
+          Ward: {
             select: {
               wardName: true,
               wardType: true
               // ✅ REMOVED: cashDailyRate, insuranceDailyRate (not in schema)
             }
           },
-          bed: {
+          Bed: {
             select: {
               bedNumber: true
             }
           },
-          principalDiagnosis: {
+          Diagnosis: { // ✅ FIXED: Use "Diagnosis" not "principalDiagnosis"
             select: {
               name: true,
-              icdCode: true
+              icdCode: true,
+              category: true
             }
           },
-          attendance: {
+          Attendance: {
             select: {
               attendanceNumber: true,
               dateTime: true
@@ -244,11 +245,11 @@ export const createAdmission = [
                 bedNumber: true
               }
             },
-            principalDiagnosis: {
+            Diagnosis: { // ✅ FIXED: Use "Diagnosis" not "principalDiagnosis"
               select: {
                 name: true,
                 icdCode: true,
-                gdrgCode: true
+                category: true
               }
             },
             attendance: {
@@ -327,7 +328,7 @@ export const getAdmissionById = async (req: Request, res: Response) => {
     const admission = await prisma.admission.findUnique({
       where: { id: req.params.id },
       include: {
-        patient: {
+        Patient: {
           select: {
             id: true,
             surname: true,
@@ -346,7 +347,7 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             }
           }
         },
-        ward: {
+        Ward: {
           select: {
             id: true,
             wardName: true,
@@ -354,33 +355,31 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             // ✅ REMOVED: cashDailyRate, insuranceDailyRate (not in schema)
           }
         },
-        bed: {
+        Bed: {
           select: {
             id: true,
             bedNumber: true,
             isOccupied: true
           }
         },
-        principalDiagnosis: {
+        Diagnosis: { // ✅ FIXED: Use "Diagnosis" not "principalDiagnosis"
           select: {
-            id: true,
             name: true,
             icdCode: true,
-            gdrgCode: true
+            category: true
           }
         },
-        secondaryDiagnoses: {
+        AdmissionSecondaryDiagnosis: {
           include: {
-            diagnosis: {
+            Diagnosis: {
               select: {
-                id: true,
                 name: true,
-                icdCode: true
+                category: true
               }
             }
-          }
+          }  
         },
-        attendance: {
+        Attendance: {
           select: {
             id: true,
             attendanceNumber: true,
@@ -389,7 +388,7 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             nhisCCC: true
           }
         },
-        bills: {
+        Bill: {
           select: {
             id: true,
             billNumber: true,
@@ -447,7 +446,7 @@ export const updateAdmission = [
             updatedAt: new Date()
           },
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -455,13 +454,13 @@ export const updateAdmission = [
                 contact: true
               }
             },
-            ward: {
+            Ward: {
               select: {
                 wardName: true,
                 wardType: true
               }
             },
-            bed: {
+            Bed: {
               select: {
                 bedNumber: true
               }
@@ -539,9 +538,9 @@ export const deleteAdmission = async (req: Request, res: Response) => {
     const admission = await prisma.admission.findUnique({
       where: { id: req.params.id },
       include: {
-        bed: true,
-        ward: true,
-        patient: {
+        Bed: true,
+        Ward: true,
+        Patient: {
           select: {
             surname: true,
             otherNames: true
@@ -650,15 +649,15 @@ export const updateAdmissionWithNHISData = [
           updatedAt: new Date()
         },
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
               folderNumber: true
             }
           },
-          ward: true,
-          bed: true,
+          Ward: true,
+          Bed: true,
           principalDiagnosis: true
         }
       });
@@ -689,21 +688,32 @@ export const updateAdmissionWithNHISData = [
       const updatedAdmission = await prisma.admission.findUnique({
         where: { id: req.params.id },
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
               folderNumber: true
             }
           },
-          ward: true,
-          bed: true,
-          principalDiagnosis: true,
-          secondaryDiagnoses: {
-            include: {
-              diagnosis: true
-            }
-          }
+          Ward: true,
+          Bed: true,
+  Diagnosis: { // ✅ FIXED: Use "Diagnosis" not "principalDiagnosis"
+    select: {
+      name: true,
+      icdCode: true,
+      category: true
+    }
+  },
+  AdmissionSecondaryDiagnosis: {
+    include: {
+      Diagnosis: {
+        select: {
+          name: true,
+          category: true
+        }
+      }
+    }
+  }
         }
       });
 
@@ -760,15 +770,15 @@ export const dischargePatient = [
         const admission = await tx.admission.findUnique({
           where: { id: req.params.id },
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
                 folderNumber: true
               }
             },
-            ward: true,
-            bed: true
+            Ward: true,
+            Bed: true
           }
         });
 
@@ -792,15 +802,15 @@ export const dischargePatient = [
             updatedAt: new Date()
           },
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
                 folderNumber: true
               }
             },
-            ward: true,
-            bed: true,
+            Ward: true,
+            Bed: true,
             principalDiagnosis: true
           }
         });
@@ -912,7 +922,7 @@ export const addDailyNotes = [
           updatedAt: new Date()
         },
         include: {
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -925,7 +935,7 @@ export const addDailyNotes = [
       // ✅ ADDED: Add fullName to response
       const admissionWithFullName = {
         ...updatedAdmission,
-        patient: updatedAdmission.patient ? {
+        Patient: updatedAdmission.patient ? {
           ...updatedAdmission.patient,
           fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
         } : null
@@ -1041,13 +1051,13 @@ export const getAdmissionsByPatientId = async (req: Request, res: Response) => {
       prisma.admission.findMany({
         where: { patientId },
         include: {
-          ward: {
+          Ward: {
             select: {
               wardName: true,
               wardType: true
             }
           },
-          bed: {
+          Bed: {
             select: {
               bedNumber: true
             }

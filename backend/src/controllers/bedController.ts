@@ -8,7 +8,7 @@ export const getBeds = async (req: Request, res: Response) => {
   try {
     const beds = await prisma.bed.findMany({
       include: {
-        ward: {
+        Ward: {
           select: {
             id: true,
             wardName: true,
@@ -48,7 +48,7 @@ export const getBedById = async (req: Request, res: Response) => {
     const bed = await prisma.bed.findUnique({
       where: { id },
       include: {
-        ward: {
+        Ward: {
           select: {
             id: true,
             wardName: true,
@@ -123,7 +123,7 @@ export const createBed = [
           isOccupied: false
         },
         include: {
-          ward: {
+          Ward: {
             select: {
               id: true,
               wardName: true,
@@ -199,7 +199,7 @@ export const updateBed = [
           isOccupied
         },
         include: {
-          ward: {
+          Ward: {
             select: {
               id: true,
               wardName: true,
