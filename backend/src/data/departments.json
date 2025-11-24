@@ -1,0 +1,72 @@
+[
+    {
+      "name": "Administration",
+      "description": "Hospital Administration",
+      "color": "#3B82F6",
+      "icon": "admin",
+      "isActive": true
+    },
+    {
+      "name": "Medical",
+      "description": "Medical Department",
+      "color": "#10B981",
+      "icon": "medical",
+      "isActive": true
+    },
+    {
+      "name": "Surgery",
+      "description": "Surgical Department",
+      "color": "#EF4444",
+      "icon": "surgery",
+      "isActive": true
+    },
+    {
+      "name": "Pediatrics",
+      "description": "Pediatrics Department",
+      "color": "#F59E0B",
+      "icon": "pediatrics",
+      "isActive": true
+    },
+    {
+      "name": "Obstetrics & Gynecology",
+      "description": "OB/GYN Department",
+      "color": "#EC4899",
+      "icon": "obgyn",
+      "isActive": true
+    },
+    {
+      "name": "Laboratory",
+      "description": "Laboratory Services",
+      "color": "#8B5CF6",
+      "icon": "lab",
+      "isActive": true
+    },
+    {
+      "name": "Pharmacy",
+      "description": "Pharmacy Department",
+      "color": "#06B6D4",
+      "icon": "pharmacy",
+      "isActive": true
+    },
+    {
+      "name": "Radiology",
+      "description": "Radiology and Imaging",
+      "color": "#84CC16",
+      "icon": "radiology",
+      "isActive": true
+    },
+    {
+      "name": "Emergency",
+      "description": "Emergency Department",
+      "color": "#DC2626",
+      "icon": "emergency",
+      "isActive": true
+    },
+    {
+      "name": "Accounts",
+      "description": "Finance and Billing",
+      "color": "#6366F1",
+      "icon": "accounts",
+      "isActive": true
+    }
+  ]

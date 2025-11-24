@@ -11,7 +11,6 @@ import { LabTestEntry } from '../types/medical-entries';
 
 // Reusable components
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import { LabStats } from '../components/reusable/LabStats';
 import { LabRequestSection } from '../components/reusable/LabRequestSection';
 import { PendingTestsSection } from '../components/reusable/PendingTestsSection';

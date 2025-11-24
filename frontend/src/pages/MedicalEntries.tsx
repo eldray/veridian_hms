@@ -10,7 +10,6 @@ import { useToast } from '../store/toastStore';
 // Reusable components
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
-import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 
 // Import the medical entry sections
@@ -89,8 +88,6 @@ export default function MedicalEntries() {
   const [activeTab, setActiveTab] = useState<'clinical' | 'medications' | 'labs' | 'procedures' | 'scans'>('clinical');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activatingAttendance, setActivatingAttendance] = useState(false);
-  const [completingAttendance, setCompletingAttendance] = useState(false);
 
   // Current entry forms
   const [currentMed, setCurrentMed] = useState<MedicationEntry>({
@@ -244,71 +241,7 @@ export default function MedicalEntries() {
     success(isEditMode ? 'Attendance updated' : 'New attendance created', isEditMode ? 'Visit updated' : 'Patient checked in');
   };
 
-  const handleActivateAttendance = async () => {
-    if (!selectedAttendanceId || !selectedAttendance) return;
 
-    if (selectedAttendance.status !== 'pending') {
-      toastError('Invalid action', 'Only pending attendances can be activated');
-      return;
-    }
-
-    setActivatingAttendance(true);
-    try {
-      await updateAttendanceStatus(selectedAttendanceId, 'pending');
-      success('Attendance updated', 'Patient visit status updated');
-      await getAttendances();
-    } catch {
-      toastError('Failed', 'Could not update attendance status');
-    } finally {
-      setActivatingAttendance(false);
-    }
-  };
-
-  const handleCompleteAttendance = async () => {
-    if (!selectedAttendanceId || !selectedAttendance) return;
-
-    if (!['pending', 'admitted'].includes(selectedAttendance.status)) {
-      toastError('Invalid action', 'Only pending or admitted visits can be completed');
-      return;
-    }
-
-    setCompletingAttendance(true);
-    try {
-      await updateAttendanceStatus(selectedAttendanceId, 'completed', {
-        medicalNotes: notes,
-        dischargeNotes: notes,
-        completedAt: new Date().toISOString()
-      });
-      success('Visit completed', 'Patient discharged');
-      await getAttendances();
-    } catch {
-      toastError('Failed', 'Could not complete attendance');
-    } finally {
-      setCompletingAttendance(false);
-    }
-  };
-
-  const handleCancelAttendance = async () => {
-    if (!selectedAttendanceId || !selectedAttendance) return;
-
-    if (selectedAttendance.status === 'completed') {
-      toastError('Invalid action', 'Completed visits cannot be cancelled');
-      return;
-    }
-
-    if (!window.confirm('Cancel this visit? This cannot be undone.')) return;
-
-    try {
-      await updateAttendanceStatus(selectedAttendanceId, 'cancelled', {
-        cancellationNotes: 'Cancelled by user',
-        cancelledAt: new Date().toISOString()
-      });
-      success('Cancelled', 'Visit cancelled');
-      await getAttendances();
-    } catch {
-      toastError('Failed', 'Could not cancel attendance');
-    }
-  };
 
   const handleAddMedication = () => {
     if (!selectedAttendance) {
@@ -780,8 +713,8 @@ export default function MedicalEntries() {
 
   const tabs = [
     { id: 'clinical', label: 'Clinical', icon: FileText, count: tabCounts.clinical },
-    { id: 'medications', label: 'Medications', icon: Pill, count: tabCounts.medications },
     { id: 'labs', label: 'Labs', icon: FlaskConical, count: tabCounts.labs },
+    { id: 'medications', label: 'Medications', icon: Pill, count: tabCounts.medications },
     { id: 'procedures', label: 'Procedures', icon: Scissors, count: tabCounts.procedures },
     { id: 'scans', label: 'Scans', icon: Scan, count: tabCounts.scans },
   ];
@@ -819,6 +752,20 @@ export default function MedicalEntries() {
           >
             <Stethoscope className="w-4 h-4" />
             Record Vitals
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/theatre')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          >
+            <Stethoscope className="w-4 h-4" />
+            Theatre
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/nursing')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          >
+            <Stethoscope className="w-4 h-4" />
+            Nursing Notes
           </button>
           <button
             onClick={handleRefresh}
@@ -881,17 +828,6 @@ export default function MedicalEntries() {
         <VitalsDisplay vitals={latestVitals} />
       )}
 
-      {/* Attendance Actions */}
-      {selectedAttendance && (
-        <AttendanceActions
-          attendance={selectedAttendance}
-          onActivate={handleActivateAttendance}
-          onComplete={handleCompleteAttendance}
-          onCancel={handleCancelAttendance}
-          isActivating={activatingAttendance}
-          isCompleting={completingAttendance}
-        />
-      )}
 
       {/* Medical Entries - Only show if attendance is selected and can add entries */}
       {selectedAttendanceId && canAddEntries && (

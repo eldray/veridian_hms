@@ -390,36 +390,28 @@ export const seedCoreData = async (force: boolean = false) => {
     });
     console.log('✅ Hospital configured');
 
-    // =============== 2. DEPARTMENTS ===============
-    const departmentsData = readJSON('departments.json');
-    const defaultDepartments = [
-      { name: 'Administration', description: 'Hospital Administration', color: '#3B82F6', icon: 'admin' },
-      { name: 'Medical', description: 'Medical Department', color: '#10B981', icon: 'medical' },
-      { name: 'Surgery', description: 'Surgical Department', color: '#EF4444', icon: 'surgery' },
-      { name: 'Pediatrics', description: 'Pediatrics Department', color: '#F59E0B', icon: 'pediatrics' },
-      { name: 'Obstetrics & Gynecology', description: 'OB/GYN Department', color: '#EC4899', icon: 'obgyn' },
-      { name: 'Laboratory', description: 'Laboratory Services', color: '#8B5CF6', icon: 'lab' },
-      { name: 'Pharmacy', description: 'Pharmacy Department', color: '#06B6D4', icon: 'pharmacy' },
-      { name: 'Radiology', description: 'Radiology and Imaging', color: '#84CC16', icon: 'radiology' },
-      { name: 'Emergency', description: 'Emergency Department', color: '#DC2626', icon: 'emergency' },
-      { name: 'Accounts', description: 'Finance and Billing', color: '#6366F1', icon: 'accounts' },
-    ];
+ // =============== 2. DEPARTMENTS ===============
+const departmentsData = readJSON('departments.json');
 
-    const depts = Array.isArray(departmentsData) ? departmentsData : defaultDepartments;
-    for (const dept of depts) {
-      await prisma.department.upsert({
-        where: { name: dept.name },
-        create: {
-          name: dept.name,
-          description: dept.description || '',
-          color: dept.color || '#3B82F6',
-          icon: dept.icon || 'default',
-          isActive: dept.isActive ?? true,
-        },
-        update: {},
-      });
-    }
-    console.log(`✅ ${depts.length} departments configured`);
+if (!Array.isArray(departmentsData)) {
+  console.log('❌ No departments data found in departments.json');
+  process.exit(1);
+}
+
+for (const dept of departmentsData) {
+  await prisma.department.upsert({
+    where: { name: dept.name },
+    create: {
+      name: dept.name,
+      description: dept.description || '',
+      color: dept.color || '#3B82F6',
+      icon: dept.icon || 'default',
+      isActive: dept.isActive ?? true,
+    },
+    update: {},
+  });
+}
+console.log(`✅ ${departmentsData.length} departments configured`);
 
     // =============== 3. INSURANCE PROVIDERS ===============
     const providersData = readJSON('insuranceProviders.json');

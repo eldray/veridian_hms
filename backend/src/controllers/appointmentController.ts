@@ -40,7 +40,7 @@ export const getAppointments = async (req: Request, res: Response) => {
       prisma.appointment.findMany({
         where,
         include: {
-          Patient: { // ✅ FIXED: Capitalized
+          patient: { 
             select: {
               id: true,
               surname: true,
@@ -93,7 +93,7 @@ export const getAppointmentById = async (req: Request, res: Response) => {
     const appointment = await prisma.appointment.findUnique({
       where: { id: req.params.id },
       include: {
-        Patient: { // ✅ FIXED: Capitalized
+        patient: { 
           select: {
             id: true,
             surname: true,
@@ -202,7 +202,7 @@ export const createAppointment = [
           createdBy: (req as any).user?.id || 'system'
         },
         include: {
-          Patient: {
+          patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -271,7 +271,7 @@ export const updateAppointment = [
           updatedAt: new Date()
         },
         include: {
-          Patient: {
+          patient: {
             select: {
               surname: true,
               otherNames: true,

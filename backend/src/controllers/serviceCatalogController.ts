@@ -39,11 +39,17 @@ export const getServiceCatalog = async (req: Request, res: Response) => {
         where,
         include: {
           pricing: true,
-          diagnosis: {
+          Diagnosis: {  // ✅ Fixed
             select: {
               name: true,
               icdCode: true,
               gdrgCode: true
+            }
+          },
+          User: {
+            select: {
+              id: true,
+              fullName: true
             }
           }
         },
@@ -78,11 +84,54 @@ export const getServiceCatalogById = async (req: Request, res: Response) => {
       where: { id: req.params.id },
       include: {
         pricing: true,
-        diagnosis: {
+        Diagnosis: {  // ✅ Fixed
           select: {
             name: true,
             icdCode: true,
             gdrgCode: true
+          }
+        },
+        User: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        LabTestTemplate: {
+          select: {
+            name: true,
+            investigationCode: true
+          }
+        },
+        ProcedureTemplate: {
+          select: {
+            name: true,
+            procedureCode: true
+          }
+        },
+        ScanTemplate: {
+          select: {
+            name: true,
+            scanCode: true
+          }
+        },
+        StockItem: {
+          select: {
+            name: true,
+            drugCode: true
+          }
+        },
+        Ward: {
+          select: {
+            wardName: true,
+            wardType: true
+          }
+        },
+        ConsultationType: {
+          select: {
+            name: true,
+            code: true
           }
         }
       }
@@ -152,7 +201,7 @@ export const createServiceCatalogItem = [
           ...serviceData,
           serviceType,
           serviceCategory,
-          diagnosisId,
+          diagnosisId,  // ✅ This field name is correct (lowercase for foreign key)
           isActive: serviceData.isActive !== undefined ? serviceData.isActive : true,
           createdById: (req as any).user?.id,
           pricing: {
@@ -167,7 +216,13 @@ export const createServiceCatalogItem = [
         },
         include: {
           pricing: true,
-          diagnosis: true
+          Diagnosis: true,  // ✅ Fixed
+          User: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          }
         }
       });
 
@@ -257,7 +312,13 @@ export const updateServiceCatalogItem = [
         where: { id: req.params.id },
         include: {
           pricing: true,
-          diagnosis: true
+          Diagnosis: true,  // ✅ Fixed
+          User: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          }
         }
       });
 

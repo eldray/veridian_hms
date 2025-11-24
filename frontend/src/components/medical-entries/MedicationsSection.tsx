@@ -75,7 +75,17 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   };
 
   const getMedicationPrice = (stockItem: StockItem) => {
-    return paymentMode === 'cash' ? stockItem.sellingPrice : stockItem.insurancePrice;
+    // Check if pricing data exists in the new ServicePricing structure
+    if (stockItem.pricing) {
+      return paymentMode === 'cash' 
+        ? stockItem.pricing.cashPrice 
+        : stockItem.pricing.insurancePrice;
+    }
+    
+    // Fallback to old pricing structure if available, or default to 0
+    return paymentMode === 'cash' 
+      ? (stockItem as any).sellingPrice || 0 
+      : (stockItem as any).insurancePrice || 0;
   };
 
   const getStatusColor = (status: string) => {

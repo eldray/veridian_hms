@@ -62,7 +62,19 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   }, []);
 
   const getLabTestPrice = (template: LabTestTemplate) => {
-    return paymentMode === 'cash' ? template.cashPrice : template.insurancePrice;
+    // Pricing now comes from ServiceCatalog -> ServicePricing
+    if (template.ServiceCatalog?.[0]?.pricing) {
+      const pricing = template.ServiceCatalog[0].pricing;
+      return paymentMode === 'cash' 
+        ? pricing.cashPrice 
+        : paymentMode === 'nhis'
+          ? pricing.nhisPrice
+          : pricing.insurancePrice;
+    }
+    
+    // Fallback for development
+    console.warn('No pricing found for lab test:', template.name);
+    return 0;
   };
 
   const getStatusColor = (status: string) => {

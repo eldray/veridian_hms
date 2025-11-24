@@ -59,8 +59,8 @@ export const getDiagnoses = async (req: AuthRequest, res: Response) => {
       prisma.diagnosis.findMany({
         where,
         include: {
-          // ✅ ADDED: Include GDRG tariff information
-          gdrgTariff: {
+          // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
+          GDRGTariff: {
             select: {
               nhiaTariff: true,
               category: true,
@@ -71,10 +71,14 @@ export const getDiagnoses = async (req: AuthRequest, res: Response) => {
           },
           _count: {
             select: {
-              principalAdmissions: true,
-              secondaryAdmissions: true,
-              attendanceDiagnoses: true,
-              serviceCatalogs: true
+              // ✅ CORRECT: Capital A, Capital D
+              Admission: true,
+              // ✅ CORRECT: Capital A, Capital S, Capital D
+              AdmissionSecondaryDiagnosis: true,
+              // ✅ CORRECT: Capital A, Capital D
+              AttendanceDiagnosis: true,
+              // ✅ CORRECT: Capital S, Capital C
+              ServiceCatalog: true
             }
           }
         },
@@ -113,8 +117,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        // ✅ UPDATED: Fixed relation name to match schema
-        gdrgTariff: {
+        // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
+        GDRGTariff: {
           select: {
             id: true,
             gdrgCode: true,
@@ -126,9 +130,11 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
             isActive: true
           }
         },
-        principalAdmissions: {
+        // ✅ CORRECT: Admission (Capital A)
+        Admission: {
           include: {
-            patient: {
+            // ✅ CORRECT: Patient (Capital P)
+            Patient: {
               select: {
                 id: true,
                 folderNumber: true,
@@ -136,7 +142,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                 otherNames: true
               }
             },
-            ward: {
+            // ✅ CORRECT: Ward (Capital W)
+            Ward: {
               select: {
                 id: true,
                 wardName: true
@@ -146,11 +153,14 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        secondaryAdmissions: {
+        // ✅ CORRECT: AdmissionSecondaryDiagnosis (Capital A, Capital S, Capital D)
+        AdmissionSecondaryDiagnosis: {
           include: {
-            admission: {
+            // ✅ CORRECT: Admission (Capital A)
+            Admission: {
               include: {
-                patient: {
+                // ✅ CORRECT: Patient (Capital P)
+                Patient: {
                   select: {
                     id: true,
                     folderNumber: true,
@@ -158,7 +168,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                     otherNames: true
                   }
                 },
-                ward: {
+                // ✅ CORRECT: Ward (Capital W)
+                Ward: {
                   select: {
                     id: true,
                     wardName: true
@@ -170,11 +181,14 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        attendanceDiagnoses: {
+        // ✅ CORRECT: AttendanceDiagnosis (Capital A, Capital D)
+        AttendanceDiagnosis: {
           include: {
-            attendance: {
+            // ✅ CORRECT: Attendance (Capital A)
+            Attendance: {
               include: {
-                patient: {
+                // ✅ CORRECT: Patient (Capital P)
+                Patient: {
                   select: {
                     id: true,
                     folderNumber: true,
@@ -184,7 +198,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            createdBy: {
+            // ✅ CORRECT: User (Capital U)
+            User: {
               select: {
                 id: true,
                 fullName: true,
@@ -195,7 +210,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        serviceCatalogs: {
+        // ✅ CORRECT: ServiceCatalog (Capital S, Capital C)
+        ServiceCatalog: {
           select: {
             id: true,
             name: true,
@@ -306,7 +322,8 @@ export const createDiagnosis = [
           description: description?.trim()
         },
         include: {
-          gdrgTariff: {
+          // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
+          GDRGTariff: {
             select: {
               nhiaTariff: true,
               category: true,
@@ -315,10 +332,10 @@ export const createDiagnosis = [
           },
           _count: {
             select: {
-              principalAdmissions: true,
-              secondaryAdmissions: true,
-              attendanceDiagnoses: true,
-              serviceCatalogs: true
+              Admission: true,
+              AdmissionSecondaryDiagnosis: true,
+              AttendanceDiagnosis: true,
+              ServiceCatalog: true
             }
           }
         }
@@ -429,7 +446,7 @@ export const updateDiagnosis = [
         where: { id },
         data: updateData,
         include: {
-          gdrgTariff: {
+           GDRGTariff: {
             select: {
               nhiaTariff: true,
               category: true,
@@ -438,10 +455,14 @@ export const updateDiagnosis = [
           },
           _count: {
             select: {
-              principalAdmissions: true,
-              secondaryAdmissions: true,
-              attendanceDiagnoses: true,
-              serviceCatalogs: true
+              // ✅ CORRECT: Capital A, Capital D
+              Admission: true,
+              // ✅ CORRECT: Capital A, Capital S, Capital D
+              AdmissionSecondaryDiagnosis: true,
+              // ✅ CORRECT: Capital A, Capital D
+              AttendanceDiagnosis: true,
+              // ✅ CORRECT: Capital S, Capital C
+              ServiceCatalog: true
             }
           }
         }
@@ -461,8 +482,6 @@ export const updateDiagnosis = [
   }
 ];
 
-// ... (deleteDiagnosis, getDiagnosisStats, searchDiagnoses, getDiagnosisCategories remain the same)
-
 export const getDiagnosesByGDRG = async (req: AuthRequest, res: Response) => {
   try {
     const { gdrgCode } = req.params;
@@ -475,8 +494,10 @@ export const getDiagnosesByGDRG = async (req: AuthRequest, res: Response) => {
         include: {
           _count: {
             select: {
-              principalAdmissions: true,
-              attendanceDiagnoses: true
+              // ✅ CORRECT: Capital A, Capital D
+              Admission: true,
+              // ✅ CORRECT: Capital A, Capital D
+              AttendanceDiagnosis: true
             }
           }
         },
@@ -521,7 +542,8 @@ export const getGDRGTariffs = async (req: AuthRequest, res: Response) => {
       include: {
         _count: {
           select: {
-            diagnoses: true
+            // ✅ CORRECT: Diagnosis (Capital D)
+            Diagnosis: true
           }
         }
       },
@@ -546,12 +568,11 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        principalAdmissions: { take: 1 },
-        secondaryAdmissions: { take: 1 },
-        attendanceDiagnoses: { take: 1 },
-        serviceCatalogs: { take: 1 },
-        // ✅ UPDATED: Fixed relation name to match schema
-        gdrgTariff: { take: 1 }
+        Admission: { take: 1 },
+        AdmissionSecondaryDiagnosis: { take: 1 },
+        AttendanceDiagnosis: { take: 1 },
+        ServiceCatalog: { take: 1 },
+        GDRGTariff: { take: 1 }
       }
     });
 
@@ -564,11 +585,11 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
 
     // Check if diagnosis has related records
     const hasRelatedRecords = 
-      diagnosis.principalAdmissions.length > 0 ||
-      diagnosis.secondaryAdmissions.length > 0 ||
-      diagnosis.attendanceDiagnoses.length > 0 ||
-      diagnosis.serviceCatalogs.length > 0 ||
-      (diagnosis.gdrgTariff !== null); // ✅ UPDATED: Check for GDRG tariff relation
+      diagnosis.Admission.length > 0 ||
+      diagnosis.AdmissionSecondaryDiagnosis.length > 0 ||
+      diagnosis.AttendanceDiagnosis.length > 0 ||
+      diagnosis.ServiceCatalog.length > 0 ||
+      (diagnosis.GDRGTariff !== null); // ✅ CORRECT: GDRGTariff
 
     if (hasRelatedRecords) {
       return res.status(400).json({
@@ -619,7 +640,7 @@ export const getDiagnosisStats = async (req: AuthRequest, res: Response) => {
       // ✅ ADDED: Count diagnoses with valid GDRG tariffs
       prisma.diagnosis.count({
         where: {
-          gdrgTariff: {
+          GDRGTariff: { // ✅ CORRECT: GDRGTariff
             isNot: null
           }
         }
@@ -685,7 +706,8 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
       where,
       // ✅ ADDED: Include GDRG tariff info in search results
       include: {
-        gdrgTariff: {
+        // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
+        GDRGTariff: {
           select: {
             nhiaTariff: true,
             category: true,
@@ -740,7 +762,7 @@ export const getDiagnosesWithoutGDRG = async (req: AuthRequest, res: Response) =
     const [diagnoses, total] = await Promise.all([
       prisma.diagnosis.findMany({
         where: {
-          gdrgTariff: null
+          GDRGTariff: null // ✅ CORRECT: GDRGTariff
         },
         select: {
           id: true,

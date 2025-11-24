@@ -149,44 +149,40 @@ const isChronicDiagnosis = (diagnosis: any): boolean => {
   );
 };
 
-// ✅ FIXED: addServiceToAttendanceAndBill helper function with correct field names
 const addServiceToAttendanceAndBill = async (
   attendanceId: string,
-  serviceCatalogId: string, // ✅ FIXED: serviceCatalogId
+  serviceCatalogId: string,
   userId: string,
   quantity = 1
 ) => {
   const attendance = await prisma.attendance.findUnique({
     where: { id: attendanceId },
     include: {
-      servicesRendered: true
+      ServiceRendered: true
     }
   });
 
   if (!attendance) throw new Error('Attendance not found');
 
-  // ✅ ADDED: Check if service already exists to prevent duplicates
-  const existingService = attendance.servicesRendered.find(
-    s => s.serviceCatalogId === serviceCatalogId // ✅ FIXED: serviceCatalogId
+  const existingService = attendance.ServiceRendered.find(
+    s => s.serviceItemId === serviceCatalogId
   );
 
   if (existingService) {
     console.log(`Service ${serviceCatalogId} already exists for attendance ${attendanceId}`);
-    return attendance; // Return without adding duplicate
+    return attendance;
   }
 
-  // Add new service
   await prisma.serviceRendered.create({
     data: {
       attendanceId,
-      serviceCatalogId, // ✅ FIXED: serviceCatalogId
+      serviceItemId: serviceCatalogId,
       quantity,
       date: new Date(),
       performedById: userId
     }
   });
 
-  // Regenerate bill
   await BillingService.generateBillFromAttendance(attendanceId);
 
   return attendance;
@@ -229,10 +225,8 @@ export const getAttendances = async (req: Request, res: Response) => {
     if (patientId) where.patientId = patientId as string;
     if (status) where.status = status as string;
     
-    // ✅ UPDATED: Handle new attendance types
     if (attendanceType) {
       const requestedType = attendanceType as string;
-      
       if (VALID_ATTENDANCE_TYPES.includes(requestedType)) {
         where.attendanceType = requestedType;
       }
@@ -247,10 +241,10 @@ export const getAttendances = async (req: Request, res: Response) => {
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const [attendances, total] = await Promise.all([
-      prisma.attendance.findMany({ // ✅ FIXED: lowercase 'attendance'
+      prisma.attendance.findMany({
         where,
         include: {
-          Patient: { // ✅ CORRECT
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -260,38 +254,38 @@ export const getAttendances = async (req: Request, res: Response) => {
               gender: true
             }
           },
-          User_Attendance_createdByIdToUser: { // ✅ FIXED
+          User_Attendance_createdByIdToUser: {
             select: {
               fullName: true,
               username: true
             }
           },
-          Admission: { // ✅ FIXED: Use singular
+          Admission: {
             select: {
               admissionNumber: true,
               status: true,
               admissionType: true
             }
           },
-          Bed: { // ✅ CORRECT
+          Bed: {
             select: {
               bedNumber: true
             }
           },
-          Ward: { // ✅ CORRECT
+          Ward: {
             select: {
               wardName: true,
               wardType: true
             }
           },
-          Bill: { // ✅ CORRECT
+          Bill: {
             select: {
               billNumber: true,
               totalAmount: true,
               status: true
             }
           },
-          AttendanceDiagnosis: { // ✅ FIXED
+          AttendanceDiagnosis: {
             include: {
               Diagnosis: {
                 select: {
@@ -301,9 +295,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          LabTest: { // ✅ FIXED: Use singular
+          LabTest: {
             include: {
-              ServiceCatalog: { // ✅ FIXED
+              ServiceCatalog: {
                 select: {
                   name: true,
                   code: true
@@ -311,9 +305,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          Procedure: { // ✅ FIXED: Use singular
+          Procedure: {
             include: {
-              ServiceCatalog: { // ✅ FIXED
+              ServiceCatalog: {
                 select: {
                   name: true,
                   code: true
@@ -321,15 +315,15 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          Medication: { // ✅ FIXED: Use singular
+          Medication: {
             include: {
-              ServiceCatalog: { // ✅ FIXED
+              ServiceCatalog: {
                 select: {
                   name: true,
                   code: true
                 }
               },
-              StockItem: { // ✅ FIXED
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true,
@@ -338,9 +332,9 @@ export const getAttendances = async (req: Request, res: Response) => {
               }
             }
           },
-          ServiceRendered: { // ✅ FIXED: Use singular
+          ServiceRendered: {
             include: {
-              ServiceCatalog: { // ✅ FIXED
+              ServiceCatalog: {
                 select: {
                   name: true,
                   code: true,
@@ -357,14 +351,14 @@ export const getAttendances = async (req: Request, res: Response) => {
         skip,
         take: parseInt(limit as string)
       }),
-      prisma.attendance.count({ where }) // ✅ FIXED: lowercase
+      prisma.attendance.count({ where })
     ]);
 
     const attendancesWithFullName = attendances.map(attendance => ({
       ...attendance,
-      patient: attendance.patient ? {
-        ...attendance.patient,
-        fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim()
+      patient: attendance.Patient ? {
+        ...attendance.Patient,
+        fullName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim()
       } : null
     }));
 
@@ -400,7 +394,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
     const attendance = await prisma.attendance.findUnique({
       where: { id },
       include: {
-        patient: {
+        Patient: {
           select: {
             surname: true,
             otherNames: true,
@@ -410,7 +404,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             dateOfBirth: true
           }
         },
-        // ✅ FIX: Use correct relation names
         User_Attendance_createdByIdToUser: {
           select: {
             fullName: true,
@@ -423,21 +416,20 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             username: true
           }
         },
-        admission: true,
-        bed: {
+        Admission: true,
+        Bed: {
           select: {
             bedNumber: true,
             wardId: true
           }
         },
-        ward: {
+        Ward: {
           select: {
             wardName: true,
             wardType: true
           }
         },
-        bill: true,
-        // ✅ FIX: Use correct relation names
+        Bill: true,
         AttendanceDiagnosis: {
           include: {
             Diagnosis: true,
@@ -449,7 +441,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        // ✅ FIX: Use correct relation names
         LabTest: {
           include: {
             ServiceCatalog: true,
@@ -467,7 +458,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        // ✅ FIX: Use correct relation names
         Procedure: {
           include: {
             ServiceCatalog: true,
@@ -485,7 +475,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        // ✅ FIX: Use correct relation names
         Medication: {
           include: {
             ServiceCatalog: true,
@@ -510,7 +499,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        // ✅ FIX: Use correct relation names
         ServiceRendered: {
           include: {
             ServiceCatalog: {
@@ -524,7 +512,6 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        // ✅ FIX: Use correct relation names
         Vitals: {
           include: {
             User: {
@@ -542,12 +529,11 @@ export const getAttendanceById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Attendance not found' });
     }
 
-    // Add fullName to patient
     const attendanceWithFullName = {
       ...attendance,
-      patient: attendance.patient ? {
-        ...attendance.patient,
-        fullName: `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim()
+      patient: attendance.Patient ? {
+        ...attendance.Patient,
+        fullName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim()
       } : null
     };
 
@@ -559,6 +545,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
 };
 
 // ✅ CREATE ATTENDANCE - UPDATED WITH SCHEMA FIXES
+// ✅ COMPLETE FIXED VERSION - Replace your entire createAttendance export
 export const createAttendance = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceType').isIn(VALID_ATTENDANCE_TYPES).withMessage('Valid attendance type is required'),
@@ -597,7 +584,7 @@ export const createAttendance = [
         
         const patient = await prisma.patient.findUnique({
           where: { id: req.body.patientId },
-          include: { insuranceProvider: true }
+          include: { InsuranceProvider: true }
         });
         
         if (!patient?.insuranceProviderId || patient.insuranceProviderId !== value) {
@@ -650,18 +637,18 @@ export const createAttendance = [
         }
       }
 
-      // Get previous attendances for chronic condition carry-forward
+      // ✅ FIXED: Fetch previous attendances with correct relation names
       const previousAttendances = await prisma.attendance.findMany({
         where: { patientId: req.body.patientId },
         include: {
-          diagnoses: {
+          AttendanceDiagnosis: {  // ✅ Capital A, Capital D - exact match from schema
             include: {
-              diagnosis: true
+              Diagnosis: true     // ✅ Capital D - exact match from schema
             }
           },
-          medications: {
+          Medication: {           // ✅ Capital M - exact match from schema
             include: {
-              stockItem: true
+              StockItem: true     // ✅ Capital S, Capital I - exact match from schema
             }
           }
         },
@@ -671,13 +658,15 @@ export const createAttendance = [
         take: 5
       });
 
+      // ✅ FIXED: Access with correct casing
       const lastAttendance = previousAttendances[0];
       const chronicDiagnoses: any[] = [];
       const ongoingMedications: any[] = [];
 
       if (lastAttendance) {
-        for (const d of lastAttendance.diagnoses) {
-          if (d.diagnosis && isChronicDiagnosis(d.diagnosis)) {
+        // ✅ FIXED: Use AttendanceDiagnosis (capital A, capital D)
+        for (const d of lastAttendance.AttendanceDiagnosis) {
+          if (d.Diagnosis && isChronicDiagnosis(d.Diagnosis)) {
             chronicDiagnoses.push({
               diagnosisId: d.diagnosisId,
               notes: `Carried forward from previous visit (${lastAttendance.attendanceNumber})`,
@@ -688,7 +677,8 @@ export const createAttendance = [
           }
         }
 
-        for (const m of lastAttendance.medications) {
+        // ✅ FIXED: Use Medication (capital M)
+        for (const m of lastAttendance.Medication) {
           if (m.status === 'prescribed' || m.status === 'administered') {
             ongoingMedications.push({
               stockItemId: m.stockItemId,
@@ -708,7 +698,7 @@ export const createAttendance = [
         }
       }
 
-      // ✅ Determine categories with new helper functions
+      // Determine categories with helper functions
       const encounterCategory = determineNHISEncounterType(
         req.body.attendanceType,
         req.body.admissionId
@@ -739,7 +729,7 @@ export const createAttendance = [
 
       const attendanceNumber = await generateAttendanceNumber();
 
-      // Create attendance
+      // ✅ FIXED: Create attendance with lowercase relation names for nested writes
       const attendance = await prisma.attendance.create({
         data: {
           attendanceNumber,
@@ -752,24 +742,25 @@ export const createAttendance = [
           complaints: req.body.complaints || 'No complaints recorded',
           visitCategory: mapToNHISVisitCategory(req.body.attendanceType) as any,
           encounterCategory: encounterCategory as any,
-          gdrgCategory, // ✅ ADDED
-          serviceCategory: serviceCategory as any, // ✅ ADDED
+          gdrgCategory,
+          serviceCategory: serviceCategory as any,
           referringFacility: req.body.referringFacility,
           createdById: user.id,
-          diagnoses: chronicDiagnoses.length > 0 ? {
+          // ✅ IMPORTANT: Use lowercase for nested creates (Prisma convention)
+          attendanceDiagnosis: chronicDiagnoses.length > 0 ? {
             create: chronicDiagnoses
           } : undefined,
-          medications: ongoingMedications.length > 0 ? {
+          medication: ongoingMedications.length > 0 ? {
             create: ongoingMedications
           } : undefined
         },
         include: {
-          patient: true,
-          insuranceProvider: true
+          Patient: true,
+          InsuranceProvider: true
         }
       });
 
-      // ✅ FIXED: Add default consultation service with correct field names
+      // ✅ Add default consultation service with correct field names
       const defaultCode = getDefaultServiceCode(req.body.attendanceType);
       if (defaultCode) {
         const service = await prisma.serviceCatalog.findFirst({
@@ -783,7 +774,7 @@ export const createAttendance = [
           await prisma.serviceRendered.create({
             data: {
               attendanceId: attendance.id,
-              serviceCatalogId: service.id, // ✅ FIXED: serviceCatalogId
+              serviceItemId: service.id, // ✅ Correct field name from schema
               quantity: 1,
               date: new Date(),
               performedById: user.id
@@ -795,7 +786,7 @@ export const createAttendance = [
       // Create bill
       const billNumber = `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
       
-      const bill = await prisma.bill.create({
+      await prisma.bill.create({
         data: {
           billNumber,
           patientId: req.body.patientId,
@@ -809,29 +800,29 @@ export const createAttendance = [
         }
       });
 
-      // ✅ Generate initial bill using BillingService
+      // Generate initial bill using BillingService
       await BillingService.generateBillFromAttendance(attendance.id);
 
       // If delivery or surgery, might create admission
       if (['delivery', 'surgery'].includes(req.body.attendanceType)) {
-        // Add logic for automatic admission if needed
         console.log(`⚠️ Consider creating admission for ${req.body.attendanceType} attendance`);
       }
 
+      // ✅ Fetch fully populated attendance
       const populatedAttendance = await prisma.attendance.findUnique({
         where: { id: attendance.id },
         include: {
-          Patient: { // ✅ FIXED
+          Patient: {
             include: {
-              InsuranceProvider: true // ✅ FIXED
+              InsuranceProvider: true
             }
           },
-          User_Attendance_createdByIdToUser: true, // ✅ FIXED
-          Admission: true, // ✅ FIXED: Use singular
-          Bill: true, // ✅ CORRECT
-          ServiceRendered: { // ✅ FIXED: Use singular
+          User_Attendance_createdByIdToUser: true,
+          Admission: true,
+          Bill: true,
+          ServiceRendered: {
             include: {
-              ServiceCatalog: true // ✅ FIXED
+              ServiceCatalog: true
             }
           }
         }
@@ -912,17 +903,17 @@ export const addLabTestToAttendance = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          labTests: {
+          LabTest: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          servicesRendered: {
+          ServiceRendered: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          bill: true
+          Bill: true
         }
       });
       
@@ -980,17 +971,17 @@ export const addProcedureToAttendance = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          procedures: {
+          Procedure: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          servicesRendered: {
+          ServiceRendered: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          bill: true
+          Bill: true
         }
       });
 
@@ -1047,17 +1038,17 @@ export const addScanToAttendance = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          scans: {
+          Scan: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          servicesRendered: {
+          ServiceRendered: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          bill: true
+          Bill: true
         }
       });
 
@@ -1069,147 +1060,6 @@ export const addScanToAttendance = [
   }
 ];
 
-// ✅ FIXED: generateNHISClaimFromAttendance with correct field names
-export const generateNHISClaimFromAttendance = async (req: Request, res: Response) => {
-  try {
-    const { attendanceId } = req.params;
-
-    console.log('🏥 Generating NHIS Claim from Attendance:', attendanceId);
-
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      include: {
-        Patient: { // ✅ FIXED
-          select: {
-            surname: true,
-            otherNames: true,
-            dateOfBirth: true,
-            gender: true
-          }
-        },
-        AttendanceDiagnosis: { // ✅ FIXED
-          include: {
-            Diagnosis: {
-              select: {
-                name: true,
-                icdCode: true,
-                gdrgCode: true
-              }
-            }
-          }
-        },
-        ServiceRendered: { // ✅ FIXED: Use singular
-          include: {
-            ServiceCatalog: { // ✅ FIXED
-              select: {
-                name: true,
-                code: true,
-                nhisServiceCode: true,
-                serviceCategory: true
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!attendance) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Attendance not found' 
-      });
-    }
-
-    // Validate NHIS attendance
-    if (attendance.paymentMode !== 'nhis') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only NHIS attendances can generate NHIS claims'
-      });
-    }
-
-    if (!attendance.nhisCCC) {
-      return res.status(400).json({
-        success: false,
-        message: 'NHIS CCC number is required for claim generation'
-      });
-    }
-
-    // ✅ FIXED: Prepare NHIS services with correct field names
-    const nhisServices = attendance.servicesRendered
-      .filter(service => service.serviceCatalog.nhisServiceCode) // ✅ FIXED: serviceCatalog
-      .map(service => ({
-        description: service.serviceCatalog.name, // ✅ FIXED: serviceCatalog
-        nhisServiceCode: service.serviceCatalog.nhisServiceCode, // ✅ FIXED: serviceCatalog
-        quantity: service.quantity,
-        // ✅ NO PRICES SUBMITTED TO NHIS - they use their own tariff
-      }));
-
-    if (nhisServices.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No NHIS-covered services found for this attendance'
-      });
-    }
-
-    const primaryDiagnosis = attendance.diagnoses.find(d => d.primary) || attendance.diagnoses[0];
-
-    // ✅ FIXED: Compose patient name from schema fields
-    const patientFullName = `${attendance.patient.surname} ${attendance.patient.otherNames}`.trim();
-
-    // Prepare NHIS claim data (no prices)
-    const claimData = {
-      claimType: 'NHIS',
-      encounterType: attendance.encounterCategory,
-      patient: {
-        nhisNumber: attendance.nhisCCC,
-        fullName: patientFullName,
-        dateOfBirth: attendance.patient.dateOfBirth,
-        gender: attendance.patient.gender
-      },
-      clinical: {
-        attendanceDate: attendance.dateTime,
-        gdrgCategory: attendance.gdrgCategory, // ✅ ADDED
-        primaryDiagnosis: primaryDiagnosis ? {
-          description: primaryDiagnosis.diagnosis.name,
-          icdCode: primaryDiagnosis.diagnosis.icdCode,
-          gdrgCode: primaryDiagnosis.diagnosis.gdrgCode
-        } : null
-      },
-      services: nhisServices,
-      metadata: {
-        totalServices: nhisServices.length,
-        servicesWithNHISCodes: nhisServices.length,
-        totalServicesRendered: attendance.servicesRendered.length
-      }
-    };
-
-    console.log('✅ NHIS Claim data prepared successfully (no prices submitted)');
-
-    res.json({
-      success: true,
-      message: 'NHIS claim data generated successfully',
-      data: claimData,
-      note: 'NHIS claims only submit service codes - NHIS determines pricing from their tariff',
-      validation: {
-        hasPrimaryDiagnosis: !!primaryDiagnosis,
-        hasNHISServices: nhisServices.length > 0,
-        hasValidNHISNumber: !!attendance.nhisCCC,
-        meetsClaimRequirements: !!primaryDiagnosis && nhisServices.length > 0 && !!attendance.nhisCCC
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error generating NHIS claim from attendance:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error generating NHIS claim from attendance', 
-      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-    });
-  }
-};
-
-// ... Export other functions (they remain largely the same with field name updates) ...
 // ✅ UPDATE ATTENDANCE STATUS
 export const updateAttendanceStatus = [
   body('status').isIn(['pending','completed', 'cancelled', 'admitted', 'discharged'])
@@ -1243,8 +1093,8 @@ export const updateAttendanceStatus = [
         where: { id: req.params.id },
         data: updateData,
         include: {
-          patient: true,
-          bill: true
+          Patient: true,
+          Bill: true
         }
       });
 
@@ -1311,12 +1161,12 @@ export const addDiagnosisToAttendance = [
       const updated = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          diagnoses: {
+          AttendanceDiagnosis: {
             include: {
-              diagnosis: true
+              Diagnosis: true
             }
           },
-          bill: true
+          Bill: true
         }
       });
       
@@ -1337,9 +1187,9 @@ export const removeDiagnosisFromAttendance = async (req: Request, res: Response)
     const updatedAttendance = await prisma.attendance.findUnique({
       where: { id: req.params.id },
       include: {
-        diagnoses: {
+        AttendanceDiagnosis: {
           include: {
-            diagnosis: true
+            Diagnosis: true
           }
         }
       }
@@ -1432,18 +1282,18 @@ export const addMedicationToAttendance = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          medications: {
+          Medication: {
             include: {
-              serviceCatalog: true, // ✅ UPDATED for pricing
-              stockItem: true // For inventory info
+              ServiceCatalog: true,
+              StockItem: true
             }
           },
-          servicesRendered: {
+          ServiceRendered: {
             include: {
-              serviceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          bill: true
+          Bill: true
         }
       });
       
@@ -1489,7 +1339,7 @@ export const updateMedicationStatus = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          medications: {
+          Medication: {
             include: {
               serviceCatalog: true, // ✅ UPDATED
               stockItem: true
@@ -1573,7 +1423,7 @@ export const updateLabTestStatus = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          labTests: {
+          LabTest: {
             include: {
               serviceCatalog: true, // ✅ UPDATED
               performedBy: true,
@@ -1657,7 +1507,7 @@ export const updateProcedureStatus = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          procedures: {
+          Procedure: {
             include: {
               serviceCatalog: true // ✅ UPDATED
             }
@@ -1740,7 +1590,7 @@ export const updateScanStatus = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          scans: {
+          Scan: {
             include: {
               serviceCatalog: true // ✅ UPDATED
             }
@@ -1893,13 +1743,14 @@ export const getVitalsByAttendance = async (req: Request, res: Response) => {
     const vitals = await prisma.vitals.findMany({
       where: { attendanceId: req.params.id },
       include: {
-        recordedBy: {
+        User: {
           select: {
             fullName: true,
             role: true
           }
-        },
-        patient: {
+        }
+        ,
+        Patient: {
           select: {
             surname: true,
             otherNames: true,
@@ -1980,13 +1831,13 @@ export const updateVitals = [
           updatedAt: new Date()
         },
         include: {
-          recordedBy: {
+          User: {
             select: {
               fullName: true,
               role: true
             }
           },
-          patient: {
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
@@ -2094,7 +1945,7 @@ export const addServiceToAttendance = [
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          servicesRendered: {
+          ServiceRendered: {
             include: {
               serviceCatalog: true
             }
@@ -2222,8 +2073,8 @@ export const deleteAttendance = async (req: Request, res: Response) => {
     const attendance = await prisma.attendance.findUnique({
       where: { id },
       include: {
-        patient: true,
-        bill: true
+        Patient: true,
+        Bill: true
       }
     });
     

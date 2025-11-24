@@ -224,24 +224,6 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  bulkUpdateStock: async (data: any) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiBulkUpdateStock(data);
-      // Refresh stock items after bulk update
-      await get().getStockItems();
-      set({ isLoading: false });
-      return result;
-    } catch (error: any) {
-      console.error('Failed to bulk update stock:', error);
-      set({ 
-        isLoading: false, 
-        error: error.response?.data?.message || 'Failed to bulk update stock' 
-      });
-      throw error;
-    }
-  },
-
   getStockTransactions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -275,13 +257,27 @@ export const useStockStore = create<StockState>((set, get) => ({
       
       const newTransaction = await apiCreateStockTransaction(transactionData);
       const { transactions } = get();
+      
       set({ 
         transactions: [newTransaction, ...transactions],
         isLoading: false 
       });
       
-      // Refresh stock items to update current stock
-      await get().getStockItems();
+      // ✅ FIX: Don't call getStockItems here - let the component handle refresh if needed
+      // Instead, optimistically update the stock items array
+      const { stockItems } = get();
+      const updatedStockItems = stockItems.map(item => {
+        if (item.id === data.stockItemId) {
+          const adjustment = data.transactionType === 'purchase' ? data.quantity : -data.quantity;
+          return {
+            ...item,
+            currentStock: Math.max(0, (item.currentStock || 0) + adjustment)
+          };
+        }
+        return item;
+      });
+      
+      set({ stockItems: updatedStockItems });
       
       return newTransaction;
     } catch (error: any) {
@@ -289,6 +285,24 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ 
         isLoading: false, 
         error: error.response?.data?.message || 'Failed to create stock transaction' 
+      });
+      throw error;
+    }
+  },
+
+  bulkUpdateStock: async (data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiBulkUpdateStock(data);
+      
+      // ✅ FIX: Return success and let component decide when to refresh
+      set({ isLoading: false });
+      return { ...result, shouldRefresh: true }; // Signal that refresh might be needed
+    } catch (error: any) {
+      console.error('Failed to bulk update stock:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to bulk update stock' 
       });
       throw error;
     }

@@ -176,6 +176,10 @@ model Procedure {
   createdById      String
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
+  anesthesiaNotes     String?
+  intraOperativeNotes String?
+  postOperativeNotes  String?
+  bloodLoss          Int?
 
   // Relations
   User_Procedure_assistantIdToUser   User?             @relation("Procedure_assistantIdToUser", fields: [assistantId], references: [id])

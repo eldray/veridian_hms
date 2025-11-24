@@ -1,4 +1,4 @@
-// src/store/insuranceStore.ts - CLEAN SIMPLIFIED VERSION
+// src/store/insuranceStore.ts - UPDATED WITH NHIS & PRIVATE CLAIMS
 import { create } from 'zustand';
 import {
   getInsuranceProviders as apiGetInsuranceProviders,
@@ -9,7 +9,12 @@ import {
   getInsuranceClaims as apiGetInsuranceClaims,
   getInsuranceClaim as apiGetInsuranceClaim,
   
-  // ONLY THE 7 SIMPLIFIED FUNCTIONS WE NEED
+  // ✅ UPDATED: ADD THE NEW SEPARATED CLAIM FUNCTIONS
+  generateNHISClaim as apiGenerateNHISClaim,
+  generatePrivateInsuranceClaim as apiGeneratePrivateInsuranceClaim,
+  updateClaimStatus as apiUpdateClaimStatus,
+  
+  // THE 7 SIMPLIFIED FUNCTIONS WE NEED
   generateClaimDraft as apiGenerateClaimDraft,
   getClaimDraft as apiGetClaimDraft,
   updateClaimDraft as apiUpdateClaimDraft,
@@ -41,7 +46,12 @@ interface InsuranceState {
   getInsuranceClaims: (filters?: any) => Promise<void>;
   getInsuranceClaim: (id: string) => Promise<void>;
 
-  // SIMPLIFIED WORKFLOW (ONLY THESE 7 FUNCTIONS)
+  // ✅ UPDATED: ADD THE NEW SEPARATED CLAIM FUNCTIONS
+  generateNHISClaim: (attendanceId: string) => Promise<any>;
+  generatePrivateInsuranceClaim: (attendanceId: string) => Promise<any>;
+  updateClaimStatus: (claimId: string, status: string, notes?: string) => Promise<InsuranceClaim>;
+
+  // SIMPLIFIED WORKFLOW (ORIGINAL 7 FUNCTIONS)
   generateClaimDraft: (attendanceId: string) => Promise<InsuranceClaim>;
   getClaimDraft: (claimId: string) => Promise<any>;
   updateClaimDraft: (claimId: string, data: any) => Promise<InsuranceClaim>;
@@ -191,7 +201,60 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  // SIMPLIFIED WORKFLOW FUNCTIONS (ONLY THESE 7)
+  // ✅ NEW: SEPARATED CLAIM GENERATION FUNCTIONS
+  generateNHISClaim: async (attendanceId: string) => {
+    set({ isLoading: true });
+    try {
+      const result = await apiGenerateNHISClaim(attendanceId);
+      set({ 
+        currentClaim: result.claim,
+        currentDraft: result.claim, // Also set as draft since it starts as draft
+        isLoading: false 
+      });
+      return result;
+    } catch (error: any) {
+      console.error('Failed to generate NHIS claim:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  generatePrivateInsuranceClaim: async (attendanceId: string) => {
+    set({ isLoading: true });
+    try {
+      const result = await apiGeneratePrivateInsuranceClaim(attendanceId);
+      set({ 
+        currentClaim: result.claim,
+        currentDraft: result.claim, // Also set as draft since it starts as draft
+        isLoading: false 
+      });
+      return result;
+    } catch (error: any) {
+      console.error('Failed to generate private insurance claim:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  updateClaimStatus: async (claimId: string, status: string, notes?: string) => {
+    set({ isLoading: true });
+    try {
+      const updatedClaim = await apiUpdateClaimStatus(claimId, { status, notes });
+      set({
+        claims: get().claims.map(c => c.id === claimId ? updatedClaim : c),
+        currentClaim: get().currentClaim?.id === claimId ? updatedClaim : get().currentClaim,
+        currentDraft: get().currentDraft?.id === claimId ? updatedClaim : get().currentDraft,
+        isLoading: false
+      });
+      return updatedClaim;
+    } catch (error: any) {
+      console.error('Failed to update claim status:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // SIMPLIFIED WORKFLOW FUNCTIONS (ORIGINAL 7)
   generateClaimDraft: async (attendanceId: string) => {
     set({ isLoading: true });
     try {

@@ -1,5 +1,5 @@
 // src/pages/Inventory.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
@@ -22,7 +22,24 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-// ✅ Pagination component moved OUTSIDE the main component
+// Custom hook for debounce
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// Pagination component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -90,22 +107,111 @@ const Pagination = ({
   );
 };
 
+// Loading skeleton component
+const LoadingSkeleton = () => (
+  <div className="bg-[var(--bg-main)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
+          <tr>
+            {['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Unit Price', 'Expiry Date', 'Status'].map(header => (
+              <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-color)]">
+          {[...Array(5)].map((_, index) => (
+            <tr key={index} className="animate-pulse">
+              {[...Array(7)].map((_, cellIndex) => (
+                <td key={cellIndex} className="px-4 py-3">
+                  <div className="h-4 bg-[var(--bg-card)] rounded w-3/4"></div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const itemsPerPage = 15;
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // ✅ FIX: Only get what we need from the store
+  const { 
+    stockItems, 
+    getStockItems, 
+    isLoading 
+  } = useStockStore();
 
-  const { stockItems, getLowStockItems, getExpiringItems, getStockItems, isLoading } = useStockStore();
   const { hasRole } = useAuthStore();
-  const { success, error: toastError } = useToast();
+  const { error: toastError } = useToast();
 
-  // ✅ Optimized data loading with useCallback
+  // ✅ FIX: Calculate low stock and expiring items locally to avoid store issues
+  const { lowStockItems, expiringItems, stats } = useMemo(() => {
+    const lowStock = stockItems.filter(item => 
+      item.currentStock <= item.reorderLevel
+    );
+    
+    const expiring = stockItems.filter(item => {
+      if (!item.expiryDate) return false;
+      try {
+        const expiryDate = new Date(item.expiryDate);
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+        return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
+      } catch {
+        return false;
+      }
+    });
+    
+    const stats = {
+      total: stockItems.length,
+      medications: stockItems.filter(item => item.category === 'medication').length,
+      lowStock: lowStock.length,
+      expiring: expiring.length,
+    };
+
+    return { lowStockItems: lowStock, expiringItems: expiring, stats };
+  }, [stockItems]);
+
+  // ✅ FIX: Simple filtered items calculation
+  const filteredItems = useMemo(() => {
+    if (!debouncedSearchQuery) return stockItems;
+    
+    const searchLower = debouncedSearchQuery.toLowerCase();
+    return stockItems.filter((item: StockItem) => 
+      item.name?.toLowerCase().includes(searchLower) ||
+      item.category?.toLowerCase().includes(searchLower) ||
+      item.description?.toLowerCase().includes(searchLower)
+    );
+  }, [stockItems, debouncedSearchQuery]);
+
+  // ✅ FIX: Simple pagination calculation
+  const currentItems = useMemo(() => {
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return filteredItems.slice(indexOfFirstItem, indexOfLastItem);
+  }, [filteredItems, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const indexOfLastItem = Math.min(currentPage * itemsPerPage, filteredItems.length);
+
+  // ✅ FIX: Simple load function without complex dependencies
   const loadStockItems = useCallback(async () => {
     try {
       setIsRefreshing(true);
       await getStockItems();
-      setCurrentPage(1); // Reset to first page when refreshing
+      setCurrentPage(1);
     } catch (error) {
       console.error('Failed to load stock items:', error);
       toastError('Load failed', 'Could not fetch stock items');
@@ -114,79 +220,21 @@ export default function Inventory() {
     }
   }, [getStockItems, toastError]);
 
-  // ✅ Single useEffect for initial load
+  // ✅ FIX: Simple useEffect - load once on mount
   useEffect(() => {
     loadStockItems();
-  }, [loadStockItems]);
+  }, []); // Empty dependency array - load only once
 
-  // ✅ Memoized filtered items to prevent recalculation on every render
-  const filteredItems = stockItems.filter((item: StockItem) => {
-    if (!searchQuery) return true;
-    
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      item.name?.toLowerCase().includes(searchLower) ||
-      item.category?.toLowerCase().includes(searchLower) ||
-      item.description?.toLowerCase().includes(searchLower)
-    );
-  });
-
-  // ✅ Memoized calculations
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-
-  const lowStockItems = getLowStockItems();
-  const expiringItems = getExpiringItems(30);
   const canManageStock = hasRole(['admin', 'pharmacist']);
 
-  const stats = {
-    total: stockItems.length,
-    medications: stockItems.filter((i: StockItem) => i.category === 'medication').length,
-    lowStock: lowStockItems.length,
-    expiring: expiringItems.length,
-  };
-
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
+  }, [totalPages]);
 
-  // ✅ Optimized search handler
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1); // Reset to first page when searching
-  };
-
-  // ✅ Loading skeleton for better UX
-  const LoadingSkeleton = () => (
-    <div className="bg-[var(--bg-main)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
-            <tr>
-              {['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Unit Price', 'Expiry Date', 'Status'].map(header => (
-                <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {[...Array(5)].map((_, index) => (
-              <tr key={index} className="animate-pulse">
-                {[...Array(7)].map((_, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-3">
-                    <div className="h-4 bg-[var(--bg-card)] rounded w-3/4"></div>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    setCurrentPage(1);
+  }, []);
 
   return (
     <div className="space-y-6 p-6">
@@ -197,7 +245,6 @@ export default function Inventory() {
           <p className="text-[var(--text-secondary)] text-sm">Manage medications, purchases, and requisitions</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Navigation to New Features */}
           <Link
             to="/dashboard/invoices"
             className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"

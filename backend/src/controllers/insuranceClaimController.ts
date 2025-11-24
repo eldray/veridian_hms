@@ -494,52 +494,87 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const claim = await prisma.insuranceClaim.findUnique({
-      where: { id: claimId },
+    const attendanceDetails = await prisma.attendance.findUnique({
+      where: { id: claim.attendanceId },
       include: {
-        InsuranceProvider: { // ✅ FIXED: Capitalized
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            coveragePercentage: true
+        AttendanceDiagnosis: {
+          include: {
+            Diagnosis: {
+              select: {
+                id: true,
+                name: true,
+                icdCode: true,
+                gdrgCode: true
+              }
+            }
           }
         },
-        Patient: { // ✅ FIXED: Capitalized
-          select: {
-            id: true,
-            folderNumber: true,
-            surname: true,
-            otherNames: true,
-            dateOfBirth: true,
-            gender: true,
-            contact: true
+        ServiceRendered: {
+          include: {
+            ServiceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                nhisServiceCode: true,
+                serviceCategory: true
+              }
+            }
           }
         },
-        Attendance: { // ✅ FIXED: Capitalized
-          select: {
-            id: true,
-            attendanceNumber: true,
-            dateTime: true,
-            status: true,
-            nhisCCC: true,
-            encounterCategory: true
+        LabTest: {
+          include: {
+            ServiceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                nhisServiceCode: true
+              }
+            }
           }
         },
-        Bill: { // ✅ FIXED: Capitalized
-          select: {
-            id: true,
-            billNumber: true,
-            totalAmount: true,
-            insuranceCovered: true,
-            patientPayable: true
+        Medication: {
+          include: {
+            ServiceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                nhisServiceCode: true
+              }
+            },
+            StockItem: {
+              select: {
+                id: true,
+                name: true,
+                drugCode: true
+              }
+            }
           }
         },
-        User_InsuranceClaim_createdByIdToUser: { // ✅ FIXED: Correct relation name
-          select: {
-            id: true,
-            fullName: true,
-            username: true
+        Procedure: {
+          include: {
+            ServiceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                nhisServiceCode: true
+              }
+            }
+          }
+        },
+        Scan: {
+          include: {
+            ServiceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                nhisServiceCode: true
+              }
+            }
           }
         }
       }
@@ -564,93 +599,6 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
     const insuranceDetails = patient?.insuranceDetails as any;
     const insuranceNumber = insuranceDetails?.memberId || 'N/A';
     const attendanceCCC = claim.attendance?.nhisCCC || 'N/A';
-
-    // ✅ UPDATED: Get editable services and diagnoses with SERVICE CATALOG
-    const attendanceDetails = await prisma.attendance.findUnique({
-      where: { id: claim.attendanceId },
-      include: {
-        diagnoses: {
-          include: {
-            diagnosis: {
-              select: {
-                id: true,
-                name: true,
-                icdCode: true,
-                gdrgCode: true
-              }
-            }
-          }
-        },
-        servicesRendered: {
-          include: {
-            serviceCatalog: { // ✅ UPDATED: serviceItem → serviceCatalog
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                nhisServiceCode: true,
-                serviceCategory: true
-              }
-            }
-          }
-        },
-        labTests: {
-          include: {
-            serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                nhisServiceCode: true
-              }
-            }
-          }
-        },
-        medications: {
-          include: {
-            serviceCatalog: { // ✅ UPDATED for pricing
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                nhisServiceCode: true
-              }
-            },
-            stockItem: { // ✅ KEEP for inventory
-              select: {
-                id: true,
-                name: true,
-                drugCode: true
-              }
-            }
-          }
-        },
-        procedures: {
-          include: {
-            serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                nhisServiceCode: true
-              }
-            }
-          }
-        },
-        scans: {
-          include: {
-            serviceCatalog: { // ✅ UPDATED: template → serviceCatalog
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                nhisServiceCode: true
-              }
-            }
-          }
-        }
-      }
-    });
 
     const editableData = {
       claim,
@@ -762,8 +710,8 @@ export const updateClaimDraft = [
         where: { id: claimId },
         data: updateData,
         include: {
-          insuranceProvider: true,
-          patient: {
+          InsuranceProvider: true,
+          Patient: {
             select: {
               id: true,
               folderNumber: true,
@@ -771,13 +719,13 @@ export const updateClaimDraft = [
               otherNames: true
             }
           },
-          attendance: {
+          Attendance: {
             select: {
               id: true,
               attendanceNumber: true
             }
           },
-          bill: {
+          Bill: {
             select: {
               id: true,
               billNumber: true,
@@ -793,8 +741,8 @@ export const updateClaimDraft = [
         data: claim
       });
 
-    } catch (error) {
       console.error('❌ Error updating claim draft:', error);
+    } catch (error) {
       res.status(500).json({
         success: false,
         message: 'Error updating claim draft',
@@ -908,32 +856,31 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ UPDATED: Get claim with SERVICE CATALOG relations
+    // ✅ FIXED: All relation names corrected to match schema
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: claimId },
       include: {
-        attendance: {
+        Attendance: {
           include: {
-            patient: {
+            Patient: {
               include: {
-                insuranceProvider: true
+                InsuranceProvider: true
               }
             },
-            diagnoses: {
-              include: { 
-                diagnosis: {
+            AttendanceDiagnosis: {
+              include: {
+                Diagnosis: {
                   select: {
-                    id: true,
                     name: true,
                     icdCode: true,
                     gdrgCode: true
                   }
-                } 
+                }
               }
             },
-            servicesRendered: {
+            ServiceRendered: {
               include: { 
-                serviceCatalog: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -943,9 +890,9 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            labTests: {
+            LabTest: {
               include: {
-                serviceCatalog: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -955,9 +902,9 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            medications: {
+            Medication: {
               include: {
-                serviceCatalog: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -965,7 +912,7 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
                     nhisServiceCode: true
                   }
                 },
-                stockItem: {
+                StockItem: {
                   select: {
                     id: true,
                     name: true,
@@ -974,9 +921,9 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            procedures: {
+            Procedure: {
               include: {
-                serviceCatalog: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -986,9 +933,9 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            scans: {
+            Scan: {
               include: {
-                serviceCatalog: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
@@ -1000,7 +947,7 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        insuranceProvider: true
+        InsuranceProvider: true
       }
     });
 
@@ -1018,44 +965,53 @@ export const generateClaimXML = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Extract insurance information
-    const insuranceDetails = claim.attendance.patient.insuranceDetails as any;
+    // ✅ FIXED: All relation names corrected with safe access
+    const insuranceDetails = claim.Attendance?.Patient?.insuranceDetails as any;
     const insuranceNumber = insuranceDetails?.memberId || 'N/A';
-    const attendanceCCC = claim.attendance.nhisCCC || 'N/A';
+    const attendanceCCC = claim.Attendance?.nhisCCC || 'N/A';
 
-    // ✅ UPDATED: Count services from SERVICE CATALOG
+    // ✅ FIXED: Patient access with safe fallbacks
+    const patientFullName = claim.Patient 
+      ? `${claim.Patient.surname || ''} ${claim.Patient.otherNames || ''}`.trim()
+      : 'Unknown Patient';
+
+    const patientFolderNumber = claim.Attendance?.Patient?.folderNumber || 'No Folder';
+    const patientDateOfBirth = claim.Attendance?.Patient?.dateOfBirth;
+    const patientGender = claim.Attendance?.Patient?.gender || 'Unknown';
+
+    // ✅ FIXED: Count services using CORRECT capitalized relation names
     const totalServices = 
-      (claim.attendance.servicesRendered?.length || 0) +
-      (claim.attendance.labTests?.length || 0) +
-      (claim.attendance.medications?.length || 0) +
-      (claim.attendance.procedures?.length || 0) +
-      (claim.attendance.scans?.length || 0);
+      (claim.Attendance?.ServiceRendered?.length || 0) +
+      (claim.Attendance?.LabTest?.length || 0) +
+      (claim.Attendance?.Medication?.length || 0) +
+      (claim.Attendance?.Procedure?.length || 0) +
+      (claim.Attendance?.Scan?.length || 0);
 
-    // Generate comprehensive XML
+    // ✅ FIXED: Generate XML with CORRECT relation names
     const claimXML = `<?xml version="1.0" encoding="UTF-8"?>
 <InsuranceClaim>
   <ClaimNumber>${claim.claimNumber}</ClaimNumber>
   <Patient>
-    <FolderNumber>${claim.attendance.patient.folderNumber}</FolderNumber>
-    <Name>${claim.attendance.patient.surname} ${claim.attendance.patient.otherNames}</Name>
+    <FolderNumber>${patientFolderNumber}</FolderNumber>
+    <Name>${patientFullName}</Name>
     <InsuranceNumber>${insuranceNumber}</InsuranceNumber>
     <AttendanceCCC>${attendanceCCC}</AttendanceCCC>
-    <DateOfBirth>${claim.attendance.patient.dateOfBirth.toISOString().split('T')[0]}</DateOfBirth>
-    <Gender>${claim.attendance.patient.gender}</Gender>
+    <DateOfBirth>${patientDateOfBirth ? patientDateOfBirth.toISOString().split('T')[0] : 'Unknown'}</DateOfBirth>
+    <Gender>${patientGender}</Gender>
   </Patient>
   <Provider>
-    <Name>${claim.insuranceProvider?.name || 'Unknown'}</Name>
-    <Type>${claim.insuranceProvider?.type || 'Unknown'}</Type>
-    <CoveragePercentage>${claim.insuranceProvider?.coveragePercentage || 0}</CoveragePercentage>
+    <Name>${claim.InsuranceProvider?.name || 'Unknown'}</Name>
+    <Type>${claim.InsuranceProvider?.type || 'Unknown'}</Type>
+    <CoveragePercentage>${claim.InsuranceProvider?.coveragePercentage || 0}</CoveragePercentage>
   </Provider>
   <Attendance>
-    <AttendanceNumber>${claim.attendance.attendanceNumber}</AttendanceNumber>
-    <DateTime>${claim.attendance.dateTime.toISOString()}</DateTime>
-    <EncounterCategory>${claim.attendance.encounterCategory}</EncounterCategory>
+    <AttendanceNumber>${claim.Attendance?.attendanceNumber || 'Unknown'}</AttendanceNumber>
+    <DateTime>${claim.Attendance?.dateTime?.toISOString() || new Date().toISOString()}</DateTime>
+    <EncounterCategory>${claim.Attendance?.encounterCategory || 'Unknown'}</EncounterCategory>
   </Attendance>
   <Financial>
     <TotalAmount>${claim.totalClaimAmount}</TotalAmount>
-    <DiagnosisCount>${claim.diagnosisCodes.length}</DiagnosisCount>
+    <DiagnosisCount>${claim.diagnosisCodes.length}</DiagnosisCodes.length>
     <ServiceCount>${totalServices}</ServiceCount>
   </Financial>
   <Status>${claim.status}</Status>
@@ -1167,22 +1123,24 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
     const attendanceDetails = await prisma.attendance.findUnique({
       where: { id: claim.attendanceId },
       include: {
-        diagnoses: {
+        AttendanceDiagnosis: {
           include: {
-            AttendanceDiagnosis: {
-              include: {
-                Diagnosis: true,
-                User: {
-                  select: {
-                    fullName: true,
-                    role: true
-                  }
-                }
+            Diagnosis: {
+              select: {
+                name: true,
+                icdCode: true,
+                gdrgCode: true
               }
             },
+            User: {
+              select: {
+                fullName: true,
+                role: true
+              }
+            }
           }
         },
-        servicesRendered: {
+        ServiceRendered: {
           include: {
             ServiceCatalog: {
               select: {
@@ -1197,7 +1155,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
         },
         LabTest: {
           include: {
-            serviceCatalog: {
+            ServiceCatalog: {
               select: {
                 id: true,
                 name: true,
@@ -1209,7 +1167,7 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
         },
         Medication: {
           include: {
-            serviceCatalog: {
+            ServiceCatalog: {
               select: {
                 id: true,
                 name: true,
@@ -1253,28 +1211,32 @@ export const generateClaimPrint = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // ✅ ADDED: Calculate patient full name
-    const patientFullName = `${claim.patient.surname} ${claim.patient.otherNames}`.trim();
+// ✅ FIXED: Safe patient access with fallback
+const patientFullName = claim.Attendance?.Patient 
+  ? `${claim.Attendance.Patient.surname || ''} ${claim.Attendance.Patient.otherNames || ''}`.trim()
+  : 'Unknown Patient';
 
+const patientFolderNumber = claim.Attendance?.Patient?.folderNumber || 'No Folder';
+const patientContact = claim.Attendance?.Patient?.contact || 'No Contact';
     const printData = {
       claim,
       patient: {
-        ...claim.patient,
+        ...claim.Patient,
         fullName: patientFullName
       },
-      provider: claim.insuranceProvider,
-      attendance: claim.attendance,
-      bill: claim.bill,
+      provider: claim.InsuranceProvider,
+      attendance: claim.Attendance,
+      bill: claim.Bill,
       insuranceData: {
         insuranceNumber,
         attendanceCCC
       },
-      diagnoses: attendanceDetails?.diagnoses || [],
-      services: attendanceDetails?.servicesRendered || [],
-      labTests: attendanceDetails?.labTests || [],
-      medications: attendanceDetails?.medications || [],
-      procedures: attendanceDetails?.procedures || [],
-      scans: attendanceDetails?.scans || [],
+      diagnoses: attendanceDetails?.AttendanceDiagnosis || [],
+      services: attendanceDetails?.ServiceRendered || [],
+      labTests: attendanceDetails?.LabTest || [],
+      medications: attendanceDetails?.Medication || [],
+      procedures: attendanceDetails?.Procedure || [],
+      scans: attendanceDetails?.Scan || [],
       generatedAt: new Date(),
       generatedBy: req.user?.id
     };
@@ -1411,7 +1373,7 @@ export const getClaimByAttendanceId = async (req: AuthRequest, res: Response) =>
     const claim = await prisma.insuranceClaim.findFirst({
       where: { attendanceId },
       include: {
-        insuranceProvider: {
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -1419,7 +1381,7 @@ export const getClaimByAttendanceId = async (req: AuthRequest, res: Response) =>
             coveragePercentage: true
           }
         },
-        patient: {
+        Patient: {
           select: {
             id: true,
             folderNumber: true,
@@ -1428,7 +1390,7 @@ export const getClaimByAttendanceId = async (req: AuthRequest, res: Response) =>
             contact: true
           }
         },
-        attendance: {
+        Attendance: {
           select: {
             id: true,
             attendanceNumber: true,
@@ -1436,7 +1398,7 @@ export const getClaimByAttendanceId = async (req: AuthRequest, res: Response) =>
             status: true
           }
         },
-        bill: {
+        Bill: {
           select: {
             id: true,
             billNumber: true,
@@ -1563,3 +1525,521 @@ export const updateClaimStatus = [
     }
   }
 ];
+
+// ==========================================
+// SEPARATE NHIS CLAIM GENERATION
+// ==========================================
+
+/**
+ * Generate NHIS Claim (GDRG-based, not itemized)
+ */
+export const generateNHISClaim = [
+  body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
+  
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { attendanceId } = req.body;
+
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Check if NHIS claim already exists
+          const existingClaim = await tx.insuranceClaim.findFirst({
+            where: { 
+              attendanceId,
+              InsuranceProvider: { type: 'nhis' }
+            }
+          });
+  
+          if (existingClaim) {
+            console.log('ℹ️ NHIS claim already exists for attendance:', attendanceId);
+            return existingClaim;
+          }
+  
+          // Get attendance with NHIS-specific data
+          const attendance = await tx.attendance.findUnique({
+            where: { id: attendanceId },
+            include: {
+              Patient: {
+                include: {
+                  InsuranceProvider: true
+                }
+              },
+              InsuranceProvider: true,
+              Bill: true,
+              AttendanceDiagnosis: {
+                include: { 
+                  Diagnosis: {
+                    select: {
+                      id: true,
+                      name: true,
+                      icdCode: true,
+                      gdrgCode: true
+                    }
+                  } 
+                },
+                where: { primary: true }
+              },
+              ServiceRendered: {
+                include: { 
+                  ServiceCatalog: {
+                    select: {
+                      id: true,
+                      name: true,
+                      code: true,
+                      nhisServiceCode: true
+                    }
+                  }
+                }
+              }
+            }
+          });
+
+        if (!attendance) {
+          throw new Error('Attendance not found');
+        }
+
+        if (!attendance.InsuranceProvider || attendance.InsuranceProvider.type !== 'nhis') {
+          throw new Error('Attendance is not for NHIS provider');
+        }
+
+        if (!attendance.nhisCCC) {
+          throw new Error('NHIS CCC number is required for NHIS claims');
+        }
+
+        // Get primary diagnosis for GDRG calculation
+        const primaryDiagnosis = attendance.AttendanceDiagnosis[0]?.Diagnosis;
+        if (!primaryDiagnosis) {
+          throw new Error('Primary diagnosis required for NHIS claim');
+        }
+
+        // Calculate GDRG-based tariff (NHIS specific)
+        const gdrgTariff = await calculateGDRGTariff(
+          primaryDiagnosis.gdrgCode,
+          attendance.attendanceType,
+          attendance.patient.dateOfBirth
+        );
+
+        // Generate NHIS claim number
+        const claimNumber = `NHIS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+        // Extract NHIS service codes (for reference only)
+        const nhisServiceCodes = attendance.ServiceRendered
+          .map(s => s.ServiceCatalog?.nhisServiceCode)
+          .filter(Boolean) as string[];
+
+        // Create NHIS-specific claim
+        const nhisClaim = await tx.insuranceClaim.create({
+          data: {
+            claimNumber,
+            billId: attendance.bill?.id,
+            patientId: attendance.patientId,
+            attendanceId: attendance.id,
+            insuranceProviderId: attendance.insuranceProviderId,
+            totalClaimAmount: gdrgTariff.amount, // GDRG tariff amount, not itemized total
+            status: 'draft',
+            createdById: req.user.id,
+            diagnosisCodes: [primaryDiagnosis.icdCode], // Only primary diagnosis for NHIS
+            procedureCodes: [],
+            labTestCodes: [],
+            medicationCodes: [],
+            scanCodes: [],
+            serviceCodes: nhisServiceCodes, // For reference only
+            notes: `NHIS CCC: ${attendance.nhisCCC}, GDRG: ${primaryDiagnosis.gdrgCode}, Tariff: ${gdrgTariff.amount}`
+          },
+          include: {
+            InsuranceProvider: true,
+            Patient: {
+              select: {
+                id: true,
+                folderNumber: true,
+                surname: true,
+                otherNames: true
+              }
+            },
+            Attendance: {
+              select: {
+                id: true,
+                attendanceNumber: true,
+                nhisCCC: true
+              }
+            }
+          }
+        });
+
+        // Generate NHIS XML
+        const nhisXML = generateNHISXMLFormat(nhisClaim, attendance, gdrgTariff, primaryDiagnosis);
+
+        return {
+          claim: nhisClaim,
+          xml: nhisXML,
+          gdrgDetails: gdrgTariff,
+          primaryDiagnosis
+        };
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'NHIS claim generated successfully',
+        data: result
+      });
+
+    } catch (error) {
+      console.error('❌ Error generating NHIS claim:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error generating NHIS claim',
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      });
+    }
+  }
+];
+
+// ==========================================
+// SEPARATE PRIVATE INSURANCE CLAIM GENERATION
+// ==========================================
+
+/**
+ * Generate Private Insurance Claim (Itemized billing)
+ */
+export const generatePrivateInsuranceClaim = [
+  body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
+  
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { attendanceId } = req.body;
+
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Check if private insurance claim already exists
+        const existingClaim = await tx.insuranceClaim.findFirst({
+          where: { 
+            attendanceId,
+            InsuranceProvider: { type: 'private' }
+          }
+        });
+
+        if (existingClaim) {
+          console.log('ℹ️ Private insurance claim already exists for attendance:', attendanceId);
+          return existingClaim;
+        }
+
+        // Get attendance with all services for itemized billing
+        const attendance = await tx.attendance.findUnique({
+          where: { id: attendanceId },
+          include: {
+            Patient: {
+              include: {
+                InsuranceProvider: true
+              }
+            },
+            InsuranceProvider: true,
+            Bill: true,
+            AttendanceDiagnosis: {
+              include: { 
+                Diagnosis: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icdCode: true,
+                    gdrgCode: true
+                  }
+                } 
+              }
+            },
+            ServiceRendered: {
+              include: { 
+                ServiceCatalog: {
+                  include: {
+                    pricing: true
+                  }
+                }
+              }
+            },
+            LabTest: {
+              include: {
+                ServiceCatalog: {
+                  include: {
+                    pricing: true
+                  }
+                }
+              }
+            },
+            Medication: {
+              include: {
+                ServiceCatalog: {
+                  include: {
+                    pricing: true
+                  }
+                }
+              }
+            },
+            Procedure: {
+              include: {
+                ServiceCatalog: {
+                  include: {
+                    pricing: true
+                  }
+                }
+              }
+            },
+            Scan: {
+              include: {
+                ServiceCatalog: {
+                  include: {
+                    pricing: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (!attendance) {
+          throw new Error('Attendance not found');
+        }
+
+        if (!attendance.InsuranceProvider || attendance.InsuranceProvider.type !== 'private') {
+          throw new Error('Attendance is not for private insurance provider');
+        }
+
+        // Generate claim number
+        const claimNumber = `PVT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+        // Extract all codes for itemized billing
+        const diagnosisCodes = attendance.AttendanceDiagnosis
+          .map(d => d.Diagnosis?.icdCode)
+          .filter(Boolean) as string[];
+
+        const procedureCodes = attendance.Procedure
+          .map(p => p.ServiceCatalog?.code)
+          .filter(Boolean) as string[];
+        
+        const labTestCodes = attendance.LabTest
+          .map(lt => lt.ServiceCatalog?.code)
+          .filter(Boolean) as string[];
+        
+        const medicationCodes = attendance.Medication
+          .map(m => m.ServiceCatalog?.code)
+          .filter(Boolean) as string[];
+        
+        const scanCodes = attendance.Scan
+          .map(s => s.ServiceCatalog?.code)
+          .filter(Boolean) as string[];
+        
+        const serviceCodes = attendance.ServiceRendered
+          .map(s => s.ServiceCatalog?.code)
+          .filter(Boolean) as string[];
+
+        // Calculate total claim amount (itemized total)
+        const totalClaimAmount = attendance.bill?.insuranceCovered || 
+                                attendance.bill?.totalAmount || 0;
+
+        // Create private insurance claim
+        const privateClaim = await tx.insuranceClaim.create({
+          data: {
+            claimNumber,
+            billId: attendance.bill?.id,
+            patientId: attendance.patientId,
+            attendanceId: attendance.id,
+            insuranceProviderId: attendance.insuranceProviderId,
+            totalClaimAmount, // Itemized total
+            status: 'draft',
+            createdById: req.user.id,
+            diagnosisCodes,
+            procedureCodes,
+            labTestCodes,
+            medicationCodes,
+            scanCodes,
+            serviceCodes,
+            notes: 'Private insurance claim - itemized billing'
+          },
+          include: {
+            InsuranceProvider: true,
+            Patient: {
+              select: {
+                id: true,
+                folderNumber: true,
+                surname: true,
+                otherNames: true
+              }
+            },
+            Attendance: {
+              select: {
+                id: true,
+                attendanceNumber: true
+              }
+            }
+          }
+        });
+
+        return {
+          claim: privateClaim,
+          itemizedTotal: totalClaimAmount,
+          serviceCount: serviceCodes.length + labTestCodes.length + 
+                       medicationCodes.length + procedureCodes.length + scanCodes.length
+        };
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Private insurance claim generated successfully',
+        data: result
+      });
+
+    } catch (error) {
+      console.error('❌ Error generating private insurance claim:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error generating private insurance claim',
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      });
+    }
+  }
+];
+
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+/**
+ * Calculate GDRG Tariff for NHIS claims
+ */
+const calculateGDRGTariff = async (gdrgCode: string, attendanceType: string, dateOfBirth: Date): Promise<any> => {
+  try {
+    // Get GDRG tariff from database
+    const gdrgTariff = await prisma.gDRGTariff.findFirst({
+      where: { 
+        gdrgCode,
+        isActive: true,
+        effectiveFrom: { lte: new Date() },
+        OR: [
+          { effectiveTo: null },
+          { effectiveTo: { gte: new Date() } }
+        ]
+      }
+    });
+
+    if (!gdrgTariff) {
+      throw new Error(`GDRG tariff not found for code: ${gdrgCode}`);
+    }
+
+    // Calculate patient age
+    const age = calculateAge(dateOfBirth);
+    
+    // Adjust tariff based on age group if needed
+    let adjustedTariff = gdrgTariff.nhiaTariff;
+    
+    // Apply any age-based adjustments here
+    if (gdrgTariff.ageGroup) {
+      // Implement age-based tariff adjustments if needed
+      console.log(`Applying age group: ${gdrgTariff.ageGroup} for patient age: ${age}`);
+    }
+
+    return {
+      gdrgCode: gdrgTariff.gdrgCode,
+      description: gdrgTariff.description,
+      category: gdrgTariff.category,
+      baseTariff: gdrgTariff.nhiaTariff,
+      amount: adjustedTariff,
+      ageGroup: gdrgTariff.ageGroup,
+      patientAge: age
+    };
+  } catch (error) {
+    console.error('Error calculating GDRG tariff:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate NHIS XML Format
+ */
+const generateNHISXMLFormat = (claim: any, attendance: any, gdrgTariff: any, diagnosis: any): string => {
+  const patientFullName = `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim();
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<NHISClaim xmlns="http://nhis.gov.gh/claims">
+  <ClaimHeader>
+    <ClaimNumber>${claim.claimNumber}</ClaimNumber>
+    <FacilityCode>${process.env.NHIS_FACILITY_CODE || 'FACILITY_CODE'}</FacilityCode>
+    <ClaimDate>${new Date().toISOString().split('T')[0]}</ClaimDate>
+  </ClaimHeader>
+  <PatientInfo>
+    <NHISNumber>${attendance.nhisCCC}</NHISNumber>
+    <FullName>${patientFullName}</FullName>
+    <DateOfBirth>${attendance.Patient.dateOfBirth.toISOString().split('T')[0]}</DateOfBirth>
+    <Gender>${attendance.Patient.gender}</Gender>
+  </PatientInfo>
+  <ClinicalInfo>
+    <AttendanceType>${attendance.attendanceType}</AttendanceType>
+    <AttendanceDate>${attendance.dateTime.toISOString().split('T')[0]}</AttendanceDate>
+    <PrimaryDiagnosis>
+      <ICD10Code>${diagnosis.icdCode}</ICD10Code>
+      <Description>${diagnosis.name}</Description>
+      <GDRGCode>${diagnosis.gdrgCode}</GDRGCode>
+    </PrimaryDiagnosis>
+  </ClinicalInfo>
+  <FinancialInfo>
+    <GDRGTariff>
+      <Code>${gdrgTariff.gdrgCode}</Code>
+      <Description>${gdrgTariff.description}</Description>
+      <Category>${gdrgTariff.category}</Category>
+      <Amount>${gdrgTariff.amount}</Amount>
+    </GDRGTariff>
+    <TotalClaimAmount>${gdrgTariff.amount}</TotalClaimAmount>
+  </FinancialInfo>
+  <ServicesInfo>
+    <TotalServices>${claim.serviceCodes.length}</TotalServices>
+    <!-- Services listed for reference only (not for pricing) -->
+    ${claim.serviceCodes.map((code: string) => `
+    <Service>
+      <Code>${code}</Code>
+    </Service>`).join('')}
+  </ServicesInfo>
+</NHISClaim>`;
+};
+
+/**
+ * Calculate age from date of birth
+ */
+const calculateAge = (dateOfBirth: Date): number => {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};

@@ -1,4 +1,4 @@
-// controllers/labTestController.ts - UPDATED FOR SERVICE CATALOG
+// controllers/labTestController.ts - COMPLETELY FIXED FOR SCHEMA
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient, ServiceType, ServiceCategory, Priority } from '@prisma/client';
@@ -6,7 +6,7 @@ import { PrismaClient, ServiceType, ServiceCategory, Priority } from '@prisma/cl
 const prisma = new PrismaClient();
 
 // ==========================================
-// GET ALL LAB TEST SERVICES (REPLACES TEMPLATES)
+// GET ALL LAB TEST SERVICES
 // ==========================================
 
 export const getLabTestServices = async (req: Request, res: Response) => {
@@ -21,7 +21,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
     } = req.query;
     
     const where: any = {
-      serviceType: ServiceType.lab_test // ✅ Only lab test services
+      serviceType: ServiceType.lab_test
     };
     
     if (isActive !== undefined) {
@@ -37,7 +37,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
     }
     
     if (subType) {
-      where.subType = subType as string; // ✅ hematology, biochemistry, etc.
+      where.subType = subType as string;
     }
 
     const pageNum = Math.max(1, parseInt(page as string));
@@ -56,22 +56,30 @@ export const getLabTestServices = async (req: Request, res: Response) => {
               isActive: true
             }
           },
-          labTests: {
+          LabTestTemplate: { // ✅ CORRECT: Capital L, Capital T, Capital T
+            select: {
+              id: true,
+              name: true,
+              investigationCode: true,
+              category: true
+            }
+          },
+          labTests: { // ✅ CORRECT: Capital L, Capital T (singular)
             select: {
               id: true,
               status: true,
-              attendance: {
+              Attendance: { // ✅ CORRECT: Capital A
                 select: {
                   attendanceNumber: true
                 }
               }
             },
-            take: 5, // Recent lab tests
+            take: 5,
             orderBy: {
               requestedAt: 'desc'
             }
           },
-          createdBy: {
+          User: { // ✅ CORRECT: Capital U
             select: {
               id: true,
               fullName: true,
@@ -119,16 +127,25 @@ export const getLabTestServiceById = async (req: Request, res: Response) => {
     const service = await prisma.serviceCatalog.findUnique({
       where: { 
         id,
-        serviceType: ServiceType.lab_test // ✅ Ensure it's a lab test service
+        serviceType: ServiceType.lab_test
       },
       include: {
         pricing: true,
-        labTests: {
+        LabTestTemplate: { // ✅ CORRECT: Capital L, Capital T, Capital T
+          select: {
+            id: true,
+            name: true,
+            investigationCode: true,
+            category: true,
+            specimenType: true
+          }
+        },
+        LabTest: { // ✅ CORRECT: Capital L, Capital T (singular)
           include: {
-            attendance: {
+            Attendance: { // ✅ CORRECT: Capital A
               select: {
                 attendanceNumber: true,
-                patient: {
+                Patient: { // ✅ CORRECT: Capital P
                   select: {
                     surname: true,
                     otherNames: true,
@@ -137,13 +154,13 @@ export const getLabTestServiceById = async (req: Request, res: Response) => {
                 }
               }
             },
-            performedBy: {
+            User_LabTest_performedByIdToUser: { // ✅ CORRECT: Full relation name
               select: {
                 fullName: true,
                 username: true
               }
             },
-            verifiedBy: {
+            User_LabTest_verifiedByIdToUser: { // ✅ CORRECT: Full relation name
               select: {
                 fullName: true,
                 username: true
@@ -155,7 +172,7 @@ export const getLabTestServiceById = async (req: Request, res: Response) => {
           },
           take: 20
         },
-        createdBy: {
+        User: { // ✅ CORRECT: Capital U
           select: {
             id: true,
             fullName: true,
@@ -209,7 +226,6 @@ export const createLabTestService = [
         });
       }
 
-      // Check if service code already exists
       const existingService = await prisma.serviceCatalog.findUnique({
         where: { code: req.body.code }
       });
@@ -222,32 +238,36 @@ export const createLabTestService = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Create the lab test service
         const service = await tx.serviceCatalog.create({
           data: {
             name: req.body.name,
             code: req.body.code,
             description: req.body.description,
-            serviceType: ServiceType.lab_test, // ✅ Fixed service type
-            serviceCategory: req.body.serviceCategory as ServiceCategory,
-            subType: req.body.subType, // ✅ hematology, biochemistry, etc.
+            serviceType: ServiceType.lab_test,
+            serviceCategory: req.body.serviceCategory as ServiceCategory || ServiceCategory.diagnostics,
+            subType: req.body.subType,
             
-            // NHIS Compliance
+            // ✅ FIXED: Correct NHIS field names from schema
             nhisServiceCode: req.body.nhisServiceCode,
             tariffCode: req.body.tariffCode,
             isNHISCovered: req.body.isNHISCovered !== undefined ? req.body.isNHISCovered : true,
             nhisCoverageType: req.body.nhisCoverageType || 'full',
+            nhisRequiresAuth: req.body.nhisRequiresAuth !== undefined ? req.body.nhisRequiresAuth : false,
+            privateInsRequiresAuth: req.body.privateInsRequiresAuth !== undefined ? req.body.privateInsRequiresAuth : false,
+            isPrivateInsuranceExempted: req.body.isPrivateInsuranceExempted !== undefined ? req.body.isPrivateInsuranceExempted : false,
             
-            // Service Metadata
+            // ✅ FIXED: Structured metadata for lab tests
             metadata: req.body.metadata ? req.body.metadata : {
               specimenType: req.body.specimenType,
               preparationInstructions: req.body.preparationInstructions,
               turnaroundTime: req.body.turnaroundTime,
-              normalRange: req.body.normalRange
+              normalRange: req.body.normalRange,
+              containerType: req.body.containerType,
+              resultTemplate: req.body.resultTemplate,
+              storageRequirements: req.body.storageRequirements
             },
-            
-            // Authorization & Activation
-            requiresAuthorization: req.body.requiresAuthorization !== undefined ? req.body.requiresAuthorization : false,
+                        
+            // ✅ FIXED: Clinical requirements
             requiresClinicalNotes: req.body.requiresClinicalNotes !== undefined ? req.body.requiresClinicalNotes : false,
             isActive: req.body.isActive !== undefined ? req.body.isActive : true,
             
@@ -256,7 +276,6 @@ export const createLabTestService = [
           }
         });
 
-        // Create pricing record
         const pricing = await tx.servicePricing.create({
           data: {
             serviceCatalogId: service.id,
@@ -316,7 +335,6 @@ export const updateLabTestService = [
 
       const { id } = req.params;
       
-      // Check if service exists and is a lab test
       const existingService = await prisma.serviceCatalog.findFirst({
         where: { 
           id,
@@ -334,7 +352,6 @@ export const updateLabTestService = [
         });
       }
 
-      // Check if service code is being changed and if it already exists
       if (req.body.code && req.body.code !== existingService.code) {
         const serviceWithCode = await prisma.serviceCatalog.findUnique({
           where: { code: req.body.code }
@@ -349,8 +366,13 @@ export const updateLabTestService = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Prepare service update data
-        const serviceUpdateData: any = { ...req.body };
+        // ✅ FIXED: Include all schema fields in update data
+        const serviceUpdateData: any = { 
+          ...req.body,
+          nhisRequiresAuth: req.body.nhisRequiresAuth !== undefined ? req.body.nhisRequiresAuth : undefined,
+          privateInsRequiresAuth: req.body.privateInsRequiresAuth !== undefined ? req.body.privateInsRequiresAuth : undefined,
+          isPrivateInsuranceExempted: req.body.isPrivateInsuranceExempted !== undefined ? req.body.isPrivateInsuranceExempted : undefined,
+        };
         
         // Remove pricing fields from service update
         delete serviceUpdateData.cashPrice;
@@ -359,7 +381,6 @@ export const updateLabTestService = [
         delete serviceUpdateData.vatRate;
         delete serviceUpdateData.isTaxable;
 
-        // Update service catalog
         const service = await tx.serviceCatalog.update({
           where: { id },
           data: {
@@ -368,7 +389,6 @@ export const updateLabTestService = [
           }
         });
 
-        // Update pricing if pricing fields are provided
         let pricing = existingService.pricing;
         if (req.body.cashPrice !== undefined || req.body.nhisPrice !== undefined || 
             req.body.insurancePrice !== undefined) {
@@ -403,7 +423,7 @@ export const updateLabTestService = [
         success: false,
         message: 'Error updating lab test service', 
         error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-      });
+    });
     }
   }
 ];
@@ -416,14 +436,13 @@ export const deleteLabTestService = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // Check if service exists and is a lab test
     const existingService = await prisma.serviceCatalog.findFirst({
       where: { 
         id,
         serviceType: ServiceType.lab_test 
       },
       include: {
-        labTests: { take: 1 },
+        LabTest: { take: 1 }, // ✅ CORRECT: Capital L, Capital T (singular)
         pricing: true
       }
     });
@@ -435,8 +454,7 @@ export const deleteLabTestService = async (req: Request, res: Response) => {
       });
     }
 
-    // Check for dependencies
-    if (existingService.labTests.length > 0) {
+    if (existingService.LabTest.length > 0) { // ✅ CORRECT: Capital L, Capital T
       return res.status(400).json({ 
         success: false,
         message: 'Cannot delete lab test service with associated lab tests' 
@@ -444,14 +462,12 @@ export const deleteLabTestService = async (req: Request, res: Response) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      // Delete pricing first
       if (existingService.pricing) {
         await tx.servicePricing.delete({
           where: { serviceCatalogId: id }
         });
       }
 
-      // Delete service catalog
       await tx.serviceCatalog.delete({
         where: { id }
       });
@@ -536,13 +552,11 @@ export const getLabServiceCategories = async (req: Request, res: Response) => {
 
 export const getLabTestMetadataFields = async (req: Request, res: Response) => {
   try {
-    // Common specimen types for lab tests
     const specimenTypes = [
       'Blood', 'Urine', 'Stool', 'Sputum', 'CSF', 'Tissue', 
       'Swab', 'Fluid', 'Hair', 'Nail', 'Other'
     ];
 
-    // Common preparation instructions
     const preparationInstructions = [
       'Fasting required',
       'No special preparation',
@@ -557,7 +571,6 @@ export const getLabTestMetadataFields = async (req: Request, res: Response) => {
       data: {
         specimenTypes,
         preparationInstructions,
-        // Common metadata structure for lab tests
         metadataStructure: {
           specimenType: 'string',
           preparationInstructions: 'string',

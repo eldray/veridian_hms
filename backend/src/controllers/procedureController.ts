@@ -62,12 +62,12 @@ export const getProcedureTemplateById = async (req: Request, res: Response) => {
       },
       include: {
         pricing: true,
-        procedures: {
+        procedures: { // ✅ CORRECT: Capital P (singular) - matches schema
           include: {
-            attendance: {
+            Attendance: { // ✅ CORRECT: Capital A
               select: {
                 attendanceNumber: true,
-                patient: {
+                Patient: { // ✅ CORRECT: Capital P
                   select: {
                     surname: true,
                     otherNames: true,
@@ -137,12 +137,22 @@ export const createProcedureTemplate = [
             isNHISCovered: req.body.isNHISCovered !== undefined ? req.body.isNHISCovered : true,
             
             // Procedure Metadata
-            metadata: {
-              department: req.body.department,
-              duration: req.body.duration || 30,
-              requiresAssistant: req.body.requiresAssistant,
-              anesthesiaType: req.body.anesthesiaType
-            },
+// Procedure Metadata - include ALL fields from your Procedure model
+          metadata: {
+            department: req.body.department,
+            duration: req.body.duration || 30,
+            requiresAssistant: req.body.requiresAssistant,
+            anesthesiaType: req.body.anesthesiaType,
+            // ✅ ADDED: New procedure-specific fields from your schema
+            anesthesiaNotes: req.body.anesthesiaNotes,
+            intraOperativeNotes: req.body.intraOperativeNotes,
+            postOperativeNotes: req.body.postOperativeNotes,
+            bloodLoss: req.body.bloodLoss,
+            complications: req.body.complications,
+            outcome: req.body.outcome,
+            cost: req.body.cost,
+            procedureCategory: req.body.procedureCategory
+          },
             
             // Default values
             isActive: req.body.isActive !== undefined ? req.body.isActive : true,
@@ -234,6 +244,7 @@ export const updateProcedureTemplate = [
         delete updateData.isTaxable;
 
         // Handle metadata updates
+// Handle metadata updates - include ALL procedure fields
         if (req.body.department || req.body.duration !== undefined) {
           const currentMetadata = existingTemplate.metadata as any || {};
           updateData.metadata = {
@@ -241,7 +252,15 @@ export const updateProcedureTemplate = [
             department: req.body.department !== undefined ? req.body.department : currentMetadata.department,
             duration: req.body.duration !== undefined ? req.body.duration : currentMetadata.duration,
             requiresAssistant: req.body.requiresAssistant !== undefined ? req.body.requiresAssistant : currentMetadata.requiresAssistant,
-            anesthesiaType: req.body.anesthesiaType !== undefined ? req.body.anesthesiaType : currentMetadata.anesthesiaType
+            anesthesiaType: req.body.anesthesiaType !== undefined ? req.body.anesthesiaType : currentMetadata.anesthesiaType,
+            // ✅ ADDED: New procedure fields
+            anesthesiaNotes: req.body.anesthesiaNotes !== undefined ? req.body.anesthesiaNotes : currentMetadata.anesthesiaNotes,
+            intraOperativeNotes: req.body.intraOperativeNotes !== undefined ? req.body.intraOperativeNotes : currentMetadata.intraOperativeNotes,
+            postOperativeNotes: req.body.postOperativeNotes !== undefined ? req.body.postOperativeNotes : currentMetadata.postOperativeNotes,
+            bloodLoss: req.body.bloodLoss !== undefined ? req.body.bloodLoss : currentMetadata.bloodLoss,
+            complications: req.body.complications !== undefined ? req.body.complications : currentMetadata.complications,
+            outcome: req.body.outcome !== undefined ? req.body.outcome : currentMetadata.outcome,
+            cost: req.body.cost !== undefined ? req.body.cost : currentMetadata.cost
           };
         }
 
@@ -297,13 +316,14 @@ export const deleteProcedureTemplate = async (req: Request, res: Response) => {
     const { id } = req.params;
     
     // Check if template exists and has dependencies
+// Check if template exists and has dependencies
     const existingTemplate = await prisma.serviceCatalog.findFirst({
       where: { 
         id,
         serviceType: ServiceType.procedure 
       },
       include: {
-        procedures: { take: 1 },
+        Procedure: { take: 1 }, // ✅ CORRECT: Capital P (singular)
         pricing: true
       }
     });
@@ -313,7 +333,7 @@ export const deleteProcedureTemplate = async (req: Request, res: Response) => {
     }
 
     // Check for dependencies
-    if (existingTemplate.procedures.length > 0) {
+    if (existingTemplate.Procedure.length > 0) {
       return res.status(400).json({ 
         message: 'Cannot delete procedure template with associated procedures' 
       });
@@ -352,20 +372,66 @@ export const getProcedureCategories = async (req: Request, res: Response) => {
 
 export const getProcedureDepartments = async (req: Request, res: Response) => {
   try {
-    // Departments are now stored in metadata, so we extract from existing services
+    //Departments are stored in metadata.department for procedure services
     const services = await prisma.serviceCatalog.findMany({
-      where: { serviceType: ServiceType.procedure },
+      where: { 
+        serviceType: ServiceType.procedure,
+        metadata: {
+          path: ['department'],
+          not: null
+        }
+      },
       select: { metadata: true }
     });
     
     const departments = services
       .map(service => (service.metadata as any)?.department)
       .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+      .filter((value, index, self) => self.indexOf(value) === index);
     
     res.json(departments);
   } catch (error) {
     console.error('Error fetching procedure departments:', error);
     res.status(500).json({ message: 'Error fetching procedure departments', error });
+  }
+};
+
+export const getProcedureAnesthesiaTypes = async (req: Request, res: Response) => {
+  try {
+    const anesthesiaTypes = [
+      'Local',
+      'Regional',
+      'General',
+      'Sedation',
+      'Spinal',
+      'Epidural',
+      'None'
+    ];
+    
+    res.json(anesthesiaTypes);
+  } catch (error) {
+    console.error('Error fetching anesthesia types:', error);
+    res.status(500).json({ message: 'Error fetching anesthesia types', error });
+  }
+};
+
+export const getProcedureComplicationTypes = async (req: Request, res: Response) => {
+  try {
+    const complicationTypes = [
+      'Bleeding',
+      'Infection',
+      'Anesthesia complication',
+      'Organ injury',
+      'Nerve damage',
+      'Blood clot',
+      'Allergic reaction',
+      'Wound dehiscence',
+      'Other'
+    ];
+    
+    res.json(complicationTypes);
+  } catch (error) {
+    console.error('Error fetching complication types:', error);
+    res.status(500).json({ message: 'Error fetching complication types', error });
   }
 };

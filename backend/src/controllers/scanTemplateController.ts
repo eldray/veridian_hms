@@ -9,7 +9,7 @@ export const getScanTemplates = async (req: Request, res: Response) => {
   try {
     const { isActive, category, bodyPart, scanType } = req.query;
     const where: any = {
-      serviceType: ServiceType.scan // ✅ Only scan services
+      serviceType: 'scan' // ✅ Use string literal matching your enum
     };
     
     if (isActive !== undefined) {
@@ -17,23 +17,26 @@ export const getScanTemplates = async (req: Request, res: Response) => {
     }
     
     if (category) {
-      where.serviceCategory = category as ServiceCategory;
+      where.serviceCategory = category;
     }
     
-    // ✅ Body part and scan type are now in metadata
-    if (bodyPart || scanType) {
-      where.metadata = {};
-      if (bodyPart) {
-        where.metadata.path = 'bodyPart';
-        where.metadata.equals = bodyPart;
-      }
+    // ✅ Body part and scan type filtering
+    if (bodyPart) {
+      where.subType = bodyPart; // ✅ bodyPart is stored in subType field
+    }
+    
+    if (scanType) {
+      where.OR = [
+        { name: { contains: scanType, mode: 'insensitive' } },
+        { description: { contains: scanType, mode: 'insensitive' } }
+      ];
     }
 
     const templates = await prisma.serviceCatalog.findMany({
       where,
       include: {
         pricing: true,
-        scans: {
+        scans: { 
           select: {
             id: true,
             status: true
@@ -59,16 +62,16 @@ export const getScanTemplateById = async (req: Request, res: Response) => {
     const template = await prisma.serviceCatalog.findUnique({
       where: { 
         id,
-        serviceType: ServiceType.scan // ✅ Ensure it's a scan service
+        serviceType: 'scan'
       },
       include: {
         pricing: true,
-        scans: {
+        scans: { 
           include: {
-            attendance: {
+            Attendance: {
               select: {
                 attendanceNumber: true,
-                patient: {
+                Patient: { // ✅ Capital P
                   select: {
                     surname: true,
                     otherNames: true,
@@ -128,30 +131,32 @@ export const createScanTemplate = [
             name: req.body.name,
             code: req.body.code,
             description: req.body.description,
-            serviceType: ServiceType.scan, // ✅ Fixed service type
-            serviceCategory: req.body.serviceCategory as ServiceCategory,
-            subType: req.body.scanType || null, // ✅ Use scanType as subType
+            serviceType: 'scan', // ✅ String literal
+            serviceCategory: req.body.serviceCategory,
+            subType: req.body.bodyPart || null, // ✅ Store bodyPart in subType
             
             // NHIS Compliance
             nhisServiceCode: req.body.nhisServiceCode,
             tariffCode: req.body.tariffCode,
             isNHISCovered: req.body.isNHISCovered !== undefined ? req.body.isNHISCovered : true,
+            nhisRequiresAuth: req.body.nhisRequiresAuth || false,
             
-            // Scan Metadata
+            // Scan Metadata - store in metadata field
             metadata: {
               bodyPart: req.body.bodyPart,
               preparationInstructions: req.body.preparationInstructions,
               duration: req.body.duration,
-              contrastRequired: req.body.contrastRequired
+              contrastRequired: req.body.contrastRequired || false,
+              scanType: req.body.scanType
             },
             
             // Default values
             isActive: req.body.isActive !== undefined ? req.body.isActive : true,
-            unit: req.body.unit || 'Scan',
+            unit: req.body.unit || 'Each',
             createdById: (req as any).user?.id
           }
         });
-
+      
         // Create pricing record
         await tx.servicePricing.create({
           data: {
@@ -165,7 +170,7 @@ export const createScanTemplate = [
             effectiveDate: new Date()
           }
         });
-
+      
         return template;
       });
 
@@ -233,7 +238,7 @@ export const updateScanTemplate = [
         delete updateData.insurancePrice;
         delete updateData.vatRate;
         delete updateData.isTaxable;
-
+      
         // Handle metadata updates
         if (req.body.bodyPart || req.body.preparationInstructions || req.body.duration !== undefined) {
           const currentMetadata = existingTemplate.metadata as any || {};
@@ -242,15 +247,21 @@ export const updateScanTemplate = [
             bodyPart: req.body.bodyPart !== undefined ? req.body.bodyPart : currentMetadata.bodyPart,
             preparationInstructions: req.body.preparationInstructions !== undefined ? req.body.preparationInstructions : currentMetadata.preparationInstructions,
             duration: req.body.duration !== undefined ? req.body.duration : currentMetadata.duration,
-            contrastRequired: req.body.contrastRequired !== undefined ? req.body.contrastRequired : currentMetadata.contrastRequired
+            contrastRequired: req.body.contrastRequired !== undefined ? req.body.contrastRequired : currentMetadata.contrastRequired,
+            scanType: req.body.scanType !== undefined ? req.body.scanType : currentMetadata.scanType
           };
         }
-
-        // Update scan type as subType
-        if (req.body.scanType !== undefined) {
-          updateData.subType = req.body.scanType;
+      
+        // Update body part as subType
+        if (req.body.bodyPart !== undefined) {
+          updateData.subType = req.body.bodyPart;
         }
-
+      
+        // Update NHIS fields
+        if (req.body.nhisRequiresAuth !== undefined) {
+          updateData.nhisRequiresAuth = req.body.nhisRequiresAuth;
+        }
+      
         // Update service catalog
         const template = await tx.serviceCatalog.update({
           where: { id },
@@ -259,7 +270,7 @@ export const updateScanTemplate = [
             updatedAt: new Date()
           }
         });
-
+      
         // Update pricing if provided
         if (req.body.cashPrice !== undefined || req.body.nhisPrice !== undefined || 
             req.body.insurancePrice !== undefined) {
@@ -276,7 +287,7 @@ export const updateScanTemplate = [
             }
           });
         }
-
+      
         return template;
       });
 
@@ -297,14 +308,14 @@ export const deleteScanTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // Check if template exists and has dependencies
+// Check if template exists and has dependencies
     const existingTemplate = await prisma.serviceCatalog.findFirst({
       where: { 
         id,
-        serviceType: ServiceType.scan 
+        serviceType: 'scan'
       },
       include: {
-        scans: { take: 1 },
+        Scan: { take: 1 }, // ✅ Capital S
         pricing: true
       }
     });
@@ -353,16 +364,19 @@ export const getScanCategories = async (req: Request, res: Response) => {
 
 export const getScanBodyParts = async (req: Request, res: Response) => {
   try {
-    // Body parts are now stored in metadata, so we extract from existing services
+    // Body parts are stored in subType field for scan services
     const services = await prisma.serviceCatalog.findMany({
-      where: { serviceType: ServiceType.scan },
-      select: { metadata: true }
+      where: { 
+        serviceType: 'scan',
+        subType: { not: null }
+      },
+      select: { subType: true },
+      distinct: ['subType']
     });
     
     const bodyParts = services
-      .map(service => (service.metadata as any)?.bodyPart)
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+      .map(service => service.subType)
+      .filter(Boolean);
     
     res.json(bodyParts);
   } catch (error) {
@@ -373,21 +387,26 @@ export const getScanBodyParts = async (req: Request, res: Response) => {
 
 export const getScanTypes = async (req: Request, res: Response) => {
   try {
-    const scanTypes = await prisma.serviceCatalog.findMany({
-      distinct: ['subType'],
-      select: {
-        subType: true
-      },
+    // Scan types are stored in metadata.scanType
+    const services = await prisma.serviceCatalog.findMany({
       where: {
-        serviceType: ServiceType.scan,
-        subType: {
+        serviceType: 'scan',
+        metadata: {
+          path: ['scanType'],
           not: null
         }
+      },
+      select: {
+        metadata: true
       }
     });
     
-    const scanTypeList = scanTypes.map(item => item.subType).filter(Boolean);
-    res.json(scanTypeList);
+    const scanTypes = services
+      .map(service => (service.metadata as any)?.scanType)
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index);
+    
+    res.json(scanTypes);
   } catch (error) {
     console.error('Error fetching scan types:', error);
     res.status(500).json({ message: 'Error fetching scan types', error });

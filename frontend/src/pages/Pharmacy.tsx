@@ -10,7 +10,6 @@ import type { Medication, Attendance, Patient, MedicationEntry } from '../types'
 
 // Reusable components
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { AttendanceActions } from '../components/medical-entries/AttendanceActions';
 import { DispenseStats } from '../components/reusable/DispenseStats';
 import { PrintPrescriptionsSection } from '../components/reusable/PrintPrescriptionsSection';
 

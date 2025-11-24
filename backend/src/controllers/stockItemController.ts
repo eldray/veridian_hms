@@ -34,12 +34,12 @@ export const getStockItemById = async (req: Request, res: Response) => {
     const item = await prisma.stockItem.findUnique({
       where: { id },
       include: {
-        medications: {
+        Medication: { // ✅ Capital M - matches schema
           include: {
-            attendance: {
+            Attendance: { // ✅ Capital A
               select: {
                 attendanceNumber: true,
-                patient: {
+                Patient: { // ✅ Capital P
                   select: {
                     surname: true,
                     otherNames: true
@@ -49,13 +49,13 @@ export const getStockItemById = async (req: Request, res: Response) => {
             }
           }
         },
-        stockTransactions: {
+        StockTransaction: { // ✅ Capital S, Capital T - matches schema
           orderBy: { transactionDate: 'desc' },
           take: 10
         },
-        invoiceItems: {
+        InvoiceItem: { // ✅ Capital I, Capital I - matches schema
           include: {
-            invoice: {
+            Invoice: { // ✅ Capital I
               select: {
                 invoiceNumber: true,
                 supplierName: true
@@ -63,9 +63,9 @@ export const getStockItemById = async (req: Request, res: Response) => {
             }
           }
         },
-        requisitionItems: {
+        RequisitionItem: { // ✅ Capital R, Capital I - matches schema
           include: {
-            requisition: {
+            Requisition: { // ✅ Capital R
               select: {
                 requisitionNumber: true,
                 status: true
@@ -189,10 +189,10 @@ export const deleteStockItem = async (req: Request, res: Response) => {
     const existingItem = await prisma.stockItem.findUnique({
       where: { id },
       include: {
-        medications: { take: 1 },
-        stockTransactions: { take: 1 },
-        invoiceItems: { take: 1 },
-        requisitionItems: { take: 1 }
+        Medication: { take: 1 }, // ✅ Capital M
+        StockTransaction: { take: 1 }, // ✅ Capital S, Capital T
+        InvoiceItem: { take: 1 }, // ✅ Capital I, Capital I
+        RequisitionItem: { take: 1 } // ✅ Capital R, Capital I
       }
     });
     
@@ -201,29 +201,30 @@ export const deleteStockItem = async (req: Request, res: Response) => {
     }
 
     // Check for dependencies
-    if (existingItem.medications.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete stock item with associated medications' 
-      });
-    }
+// Check for dependencies
+if (existingItem.Medication.length > 0) { // ✅ Capital M
+  return res.status(400).json({ 
+    message: 'Cannot delete stock item with associated medications' 
+  });
+}
 
-    if (existingItem.stockTransactions.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete stock item with associated stock transactions' 
-      });
-    }
+if (existingItem.StockTransaction.length > 0) { // ✅ Capital S, Capital T
+  return res.status(400).json({ 
+    message: 'Cannot delete stock item with associated stock transactions' 
+  });
+}
 
-    if (existingItem.invoiceItems.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete stock item with associated invoice items' 
-      });
-    }
+if (existingItem.InvoiceItem.length > 0) { // ✅ Capital I, Capital I
+  return res.status(400).json({ 
+    message: 'Cannot delete stock item with associated invoice items' 
+  });
+}
 
-    if (existingItem.requisitionItems.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete stock item with associated requisition items' 
-      });
-    }
+if (existingItem.RequisitionItem.length > 0) { // ✅ Capital R, Capital I
+  return res.status(400).json({ 
+    message: 'Cannot delete stock item with associated requisition items' 
+  });
+}
 
     await prisma.stockItem.delete({
       where: { id }
@@ -325,7 +326,7 @@ export const updateStockLevel = [
             currentStock: newStock
           }
         });
-
+        
         // Create stock transaction record
         await tx.stockTransaction.create({
           data: {
@@ -370,13 +371,13 @@ export const getStockTransactions = async (req: Request, res: Response) => {
       prisma.stockTransaction.findMany({
         where: { stockItemId: id },
         include: {
-          requisition: {
+          Requisition: { // ✅ Capital R - matches schema
             select: {
               requisitionNumber: true,
               status: true
             }
           },
-          invoice: {
+          Invoice: { // ✅ Capital I - matches schema
             select: {
               invoiceNumber: true,
               supplierName: true

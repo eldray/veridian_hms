@@ -1590,10 +1590,20 @@ export const getClinicalReport = async (req: Request, res: Response) => {
       
       const endDate = dateTo ? new Date(dateTo as string) : new Date();
       
+      // Define your where clause first
+      const where = {
+        // Add your filter conditions here
+        dateTime: {
+          gte: new Date(dateFrom),
+          lte: new Date(dateTo)
+        }
+        // Add other conditions as needed
+      };
+
       const clinicalData = await prisma.attendance.findMany({
         where,
         include: {
-          Patient: { // ✅ FIXED: Capitalized
+          Patient: {
             select: {
               id: true,
               surname: true,
@@ -1602,9 +1612,9 @@ export const getClinicalReport = async (req: Request, res: Response) => {
               dateOfBirth: true
             }
           },
-          AttendanceDiagnosis: { // ✅ FIXED: Correct relation name
+          AttendanceDiagnosis: {
             include: {
-              Diagnosis: { // ✅ FIXED: Capitalized
+              Diagnosis: {
                 select: {
                   name: true,
                   icdCode: true,
@@ -1613,16 +1623,42 @@ export const getClinicalReport = async (req: Request, res: Response) => {
               }
             }
           },
-          ServiceRendered: { // ✅ FIXED: Capitalized
+          ServiceRendered: {
             include: {
-              ServiceCatalog: { // ✅ FIXED: Capitalized
+              ServiceCatalog: {
                 select: {
                   name: true,
                   serviceType: true
                 }
               }
             }
-          }
+          },
+          // ADD THESE NEW RELATIONS THAT EXIST IN YOUR SCHEMA:
+          LabTest: { // ✅ Plural relation name
+            include: {
+              LabTestTemplate: true,
+              ServiceCatalog: true
+            }
+          },
+          Scan: { // ✅ Plural relation name  
+            include: {
+              ScanTemplate: true,
+              ServiceCatalog: true
+            }
+          },
+          Procedure: { // ✅ Plural relation name
+            include: {
+              ProcedureTemplate: true,
+              ServiceCatalog: true
+            }
+          },
+          Medication: { // ✅ Plural relation name
+            include: {
+              StockItem: true,
+              ServiceCatalog: true
+            }
+          },
+          Vitals: true
         },
         orderBy: { dateTime: 'desc' }
       });
@@ -1651,14 +1687,6 @@ export const getClinicalReport = async (req: Request, res: Response) => {
         dateFrom: thirtyDaysAgo,
         dateTo: endDate
       });
-    }
-
-    // Original clinical report logic for other cases
-    const where: any = {};
-    if (dateFrom || dateTo) {
-      where.dateTime = {};
-      if (dateFrom) where.dateTime.gte = new Date(dateFrom as string);
-      if (dateTo) where.dateTime.lte = new Date(dateTo as string);
     }
 
     const clinicalData = await prisma.attendance.findMany({

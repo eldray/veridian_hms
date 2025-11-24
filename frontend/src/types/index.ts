@@ -484,12 +484,13 @@ export interface LabTestTemplate {
   category: LabCategory;
   subCategory?: string;
   description?: string;
-  cashPrice: number;
-  nhisPrice: number;
-  insurancePrice: number;
+  
+  // ✅ CORRECT: No direct pricing fields (moved to ServicePricing)
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
-  isActive: boolean; // Added from backend
+  nhisRequiresAuth: boolean; // ✅ ADDED
+  privateInsRequiresAuth: boolean; // ✅ ADDED
+  isActive: boolean;
   tariffCode?: string;
   vatRate: number;
   isTaxable: boolean;
@@ -497,6 +498,10 @@ export interface LabTestTemplate {
   resultTemplate?: any;
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
+  LabTest?: LabTest[];
+  ServiceCatalog?: ServiceCatalog[]; // ✅ Capitalized
 }
 
 export interface ProcedureTemplate {
@@ -556,9 +561,6 @@ export interface StockItem {
   reorderLevel: number;
   currentStock: number;
   costPrice: number;
-  cashPrice: number;
-  nhisPrice: number;
-  insurancePrice: number;
   isNHISCovered: boolean;
   isPrivateInsExempted: boolean;
   supplier?: string;
@@ -571,6 +573,9 @@ export interface StockItem {
   isMedication: boolean;
   createdAt: string;
   updatedAt: string;
+
+  ServiceCatalog?: ServiceCatalog[];
+  Medication?: Medication[];
 }
 
 // ======================
@@ -605,6 +610,7 @@ export interface Medication {
   attendanceId: string;
   stockItemId?: string;
   serviceCatalogId?: string;
+  ServiceCatalog?: ServiceCatalog; 
   name: string;
   dosage?: string;
   frequency?: string;
@@ -622,7 +628,7 @@ export interface Medication {
   notes?: string;
   createdAt: string;
   updatedAt: string;
-  
+    
   attendance?: Attendance;
   stockItem?: StockItem;
   prescribedBy?: User;
@@ -648,7 +654,10 @@ export interface LabTest {
   priority: Priority; // Added from backend
   createdAt: string;
   updatedAt: string;
-  
+
+  LabTestTemplate?: LabTestTemplate;
+  ServiceCatalog?: ServiceCatalog;
+
   attendance?: Attendance;
   template?: LabTestTemplate;
   createdBy?: User;
@@ -666,10 +675,17 @@ export interface Procedure {
   performedById?: string;
   assistantId?: string;
   serviceCatalogId?: string;
+  ServiceCatalog?: ServiceCatalog; 
   notes?: string;
   complications?: string;
   outcome?: string;
   cost?: number;
+  anesthesiaNotes?: string;
+  intraOperativeNotes?: string;
+  postOperativeNotes?: string;
+  bloodLoss?: number;
+  surgicalTeam?: string[]; // Array of user IDs
+  anesthesiaType?: string;
   duration?: number;
   createdById: string;
   createdAt: string;
@@ -693,6 +709,7 @@ export interface Scan {
   status: ScanStatus;
   requestedAt: string;
   completedAt?: string;
+  ServiceCatalog?: ServiceCatalog; 
   result?: string;
   findings?: string;
   impression?: string;
@@ -820,15 +837,22 @@ export interface ServiceCatalog {
   serviceCategory: ServiceCategory;
   serviceType: ServiceType;
   
+  // ✅ ADDED missing fields from schema
+  subType?: string;
+  metadata?: any;
+  isPending: boolean;
+  
   nhisServiceCode?: string;
   isNHISCovered: boolean;
   tariffCode?: string;
   nhisCoverageType: NHISCoverageType;
+  nhisRequiresAuth: boolean;
+  privateInsRequiresAuth: boolean;
   isPrivateInsuranceExempted: boolean;
+  requiresClinicalNotes: boolean;
   unit: string;
   isActive: boolean;
-  requiresClinicalNotes: boolean;
-  
+
   // Template relationships
   diagnosisId?: string;
   labTestTemplateId?: string;
@@ -842,17 +866,25 @@ export interface ServiceCatalog {
   createdAt: string;
   updatedAt: string;
   
-  // Relations
-  diagnosis?: Diagnosis;
-  labTestTemplate?: LabTestTemplate;
-  procedureTemplate?: ProcedureTemplate;
-  stockItem?: StockItem;
-  ward?: Ward;
-  scanTemplate?: ScanTemplate;
-  consultationType?: ConsultationType;
-  createdBy?: User;
-  servicesRendered: ServiceRendered[];
-  pricing?: ServicePricing; // ✅ Add this new relation
+  // Relations (✅ Capitalized to match schema)
+  User?: User;
+  Diagnosis?: Diagnosis;
+  LabTestTemplate?: LabTestTemplate;
+  ProcedureTemplate?: ProcedureTemplate;
+  ScanTemplate?: ScanTemplate;
+  StockItem?: StockItem;
+  Ward?: Ward;
+  ConsultationType?: ConsultationType;
+  
+  // ✅ CORRECT: Pricing is separate relation
+  pricing?: ServicePricing;
+  ServiceRendered?: ServiceRendered[];
+  
+  // ✅ ADDED: New relations from schema
+  labTests?: LabTest[];
+  scans?: Scan[];
+  procedures?: Procedure[];
+  medications?: Medication[];
 }
 
 export interface ServicePricing {

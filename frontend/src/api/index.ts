@@ -149,8 +149,23 @@ export const updateInsuranceProvider = (id: string, data: any) =>
 export const deleteInsuranceProvider = (id: string) => 
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
+// ======================
+// ✅ NEW: SEPARATED CLAIM GENERATION
+// ======================
 
-// ───── INSURANCE CLAIMS ───── (SIMPLIFIED - ONLY 7 FUNCTIONS)
+export const generateNHISClaim = (attendanceId: string) => 
+  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
+
+export const generatePrivateInsuranceClaim = (attendanceId: string) => 
+  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
+
+export const updateClaimStatus = (claimId: string, data: { status: string; notes?: string }) => 
+  api.patch(`/insurance-claims/${claimId}/status`, data).then(r => r.data);
+
+// ======================
+// EXISTING WORKFLOW FUNCTIONS
+// ======================
+
 export const generateClaimDraft = (attendanceId: string) => 
   api.post('/insurance-claims/drafts', { attendanceId }).then(r => r.data);
 
@@ -172,7 +187,10 @@ export const generateClaimPrint = (claimId: string) =>
 export const getFinalizedClaimsTotal = (filters?: any) => 
   api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
 
-// KEEP ONLY THESE 3 FOR VIEWING (optional)
+// ======================
+// VIEWING FUNCTIONS
+// ======================
+
 export const getInsuranceClaims = (filters?: any) => 
   api.get('/insurance-claims', { params: filters }).then(r => r.data);
 

@@ -1,11 +1,11 @@
-// src/pages/Dashboard.tsx - UPDATED WITH SIMPLIFIED RECENT ACTIVITY
+// src/pages/Dashboard.tsx - COMPLETE UPDATED VERSION
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { usePatientStore } from '../store/patientStore';
+import { useAttendanceStore } from '../store/attendanceStore';
 import { useToast } from '../store/toastStore';
 import {
-  getPatients,
-  getAttendances,
   getBills,
   getAdmissions,
   getInsuranceClaims,
@@ -41,6 +41,8 @@ import type { AttendanceStatus, BillStatus, ClaimStatus, Admission, PaymentMode 
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const { patients, loadPatients } = usePatientStore();
+  const { attendances, getAttendances } = useAttendanceStore();
   const { success, error: toastError } = useToast();
 
   const [stats, setStats] = useState({
@@ -72,40 +74,55 @@ export default function Dashboard() {
     setIsLoading(true);
     setRefreshing(true);
     setErrors([]);
-  
+
     const { start: todayStart, end: todayEnd } = getTodayRange();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+
     try {
       console.log('🔄 Loading dashboard data...');
-      console.log('📅 Date range:', { todayStart, todayEnd });
-  
+
+      // Load patients and attendances using stores (same as Patients.tsx and Attendance.tsx)
+      await Promise.all([
+        loadPatients(),
+        getAttendances()
+      ]);
+
+      const totalPatients = patients.length;
+      
+      // Calculate today's visits from the store data
+      const todayVisits = attendances.filter(att => {
+        const attDate = new Date(att.dateTime || att.createdAt);
+        return attDate >= new Date(todayStart) && attDate <= new Date(todayEnd);
+      }).length;
+
+      // Get recent attendances from store (last 10)
+      const recentAttendancesList = [...attendances]
+        .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime())
+        .slice(0, 10);
+
+      console.log('✅ Store data loaded:', {
+        totalPatients,
+        todayVisits, 
+        totalAttendances: attendances.length,
+        recentAttendances: recentAttendancesList.length
+      });
+
+      // Then load other data in parallel
       const [
-        patientRes,
-        attendanceRes,
         billRes,
         admissionRes,
         claimRes,
         stockRes,
-        recentAttendanceRes,
         dashboardStatsRes,
         appointmentStatsRes,
         financialReportRes,
         clinicalReportRes
       ] = await Promise.allSettled([
-        getPatients(),
-        getAttendances({ dateFrom: todayStart, dateTo: todayEnd }),
         getBills({ status: 'pending,partial' }),
         getAdmissions({ status: 'admitted' }),
         getInsuranceClaims({ status: 'submitted,pending' }),
         getStockItems(),
-        getAttendances({ 
-          limit: 10, 
-          sortBy: 'dateTime', 
-          sortOrder: 'desc',
-          include: 'Patient'
-        }),
         getDashboardStats(),
         getAppointmentStatistics({ dateFrom: todayStart }),
         getFinancialReport({
@@ -119,43 +136,25 @@ export default function Dashboard() {
           dateTo: todayEnd
         })
       ]);
-  
+
       console.log('📊 API Results:', {
-        patients: patientRes.status,
-        attendances: attendanceRes.status,
         bills: billRes.status,
         admissions: admissionRes.status,
         claims: claimRes.status,
         stock: stockRes.status,
-        recentAttendances: recentAttendanceRes.status,
         dashboardStats: dashboardStatsRes.status,
         appointments: appointmentStatsRes.status,
         financial: financialReportRes.status,
         clinical: clinicalReportRes.status
       });
-  
-      // Debug recent attendances specifically
-      if (recentAttendanceRes.status === 'fulfilled') {
-        console.log('🔍 Recent Attendances Data:', recentAttendanceRes.value);
-        if (Array.isArray(recentAttendanceRes.value)) {
-          console.log('👥 First attendance patient data:', recentAttendanceRes.value[0]?.Patient);
-          console.log('📝 All recent attendances:', recentAttendanceRes.value.map((a: any) => ({
-            id: a.id,
-            attendanceNumber: a.attendanceNumber,
-            patientName: a.Patient ? `${a.Patient.surname} ${a.Patient.otherNames}` : 'No Patient',
-            dateTime: a.dateTime
-          })));
-        }
+
+      // Debug recent attendances
+      console.log('🔍 Recent Attendances from store:', recentAttendancesList);
+      if (recentAttendancesList.length > 0) {
+        console.log('👥 First attendance patient data:', recentAttendancesList[0]?.Patient);
       }
-  
-      // Debug dashboard stats
-      if (dashboardStatsRes.status === 'fulfilled') {
-        console.log('📈 Dashboard Stats Data:', dashboardStatsRes.value);
-      }
-  
+
       const newErrors: string[] = [];
-      let totalPatients = 0;
-      let todayVisits = 0;
       let activeAdmissions = 0;
       let pendingBills = 0;
       let pendingClaims = 0;
@@ -163,70 +162,50 @@ export default function Dashboard() {
       let totalRevenue = 0;
       let scheduledAppointments = 0;
       let completedProcedures = 0;
-      let recentAttendancesList: any[] = [];
       let diagnosisTrendsList: any[] = [];
-  
-      // Use dashboard stats if available, otherwise fallback to individual API calls
+
+      // Use dashboard stats if available
       if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
         const dashboardData = dashboardStatsRes.value;
         console.log('✅ Using dashboard stats:', dashboardData);
         
-        totalPatients = dashboardData.totalPatients || 0;
-        todayVisits = dashboardData.todayVisits || 0;
+        // Use store data for patients and visits, dashboard for others
         activeAdmissions = dashboardData.activeAdmissions || 0;
         totalRevenue = dashboardData.totalRevenue || 0;
         completedProcedures = dashboardData.completedProcedures || 0;
       } else {
         console.log('❌ Dashboard stats failed, using fallback');
-        if (dashboardStatsRes.status === 'rejected') {
-          console.error('Dashboard stats error:', dashboardStatsRes.reason);
-        }
-  
-        // Fallback to individual API calls
-        if (patientRes.status === 'fulfilled') {
-          totalPatients = Array.isArray(patientRes.value) ? patientRes.value.length : 0;
-        } else {
-          newErrors.push('Patients');
-          console.error('Patients API failed:', patientRes.reason);
-        }
-  
-        if (attendanceRes.status === 'fulfilled') {
-          todayVisits = Array.isArray(attendanceRes.value) ? attendanceRes.value.length : 0;
-          console.log('📋 Today visits count:', todayVisits);
-        } else {
-          newErrors.push("Today's Visits");
-          console.error('Attendances API failed:', attendanceRes.reason);
-        }
-  
+
+        // Fallback to individual API calls for other stats
         if (admissionRes.status === 'fulfilled') {
           activeAdmissions = Array.isArray(admissionRes.value) ? admissionRes.value.length : 0;
         } else {
           newErrors.push('Admissions');
         }
       }
-  
+
       if (financialReportRes.status === 'fulfilled' && financialReportRes.value) {
         const financialData = financialReportRes.value;
         totalRevenue = financialData.totalRevenue || totalRevenue;
       }
-  
+
       if (clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
         const clinicalData = clinicalReportRes.value;
         diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || [];
       }
-  
+
       if (billRes.status === 'fulfilled') {
         pendingBills = Array.isArray(billRes.value) ? billRes.value.length : 0;
       } else {
         newErrors.push('Bills');
       }
-  
+
       if (claimRes.status === 'fulfilled') {
         pendingClaims = Array.isArray(claimRes.value) ? claimRes.value.length : 0;
       } else {
         newErrors.push('Claims');
       }
-  
+
       if (stockRes.status === 'fulfilled') {
         const stockItems = Array.isArray(stockRes.value) ? stockRes.value : [];
         lowStockItems = stockItems.filter((item: any) => 
@@ -235,40 +214,31 @@ export default function Dashboard() {
       } else {
         newErrors.push('Stock');
       }
-  
+
       if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value) {
         const appointmentData = appointmentStatsRes.value;
         scheduledAppointments = appointmentData.scheduled || appointmentData.today || 0;
       }
-  
-      if (recentAttendanceRes.status === 'fulfilled') {
-        recentAttendancesList = Array.isArray(recentAttendanceRes.value) 
-          ? recentAttendanceRes.value.slice(0, 10)
-          : [];
-        console.log('✅ Recent attendances loaded:', recentAttendancesList.length);
-      } else {
-        console.error('Recent attendances failed:', recentAttendanceRes.reason);
-      }
-  
-      if (diagnosisTrendsList.length === 0 && recentAttendanceRes.status === 'fulfilled') {
-        const allAttendances = Array.isArray(recentAttendanceRes.value) ? recentAttendanceRes.value : [];
+
+      // Generate diagnosis trends from recent attendances if clinical report failed
+      if (diagnosisTrendsList.length === 0) {
         const diagnosisCount: Record<string, number> = {};
         
-        allAttendances.forEach((attendance: any) => {
-          if (attendance.diagnoses && Array.isArray(attendance.diagnoses)) {
-            attendance.diagnoses.forEach((diag: any) => {
-              const diagnosisName = diag.diagnosis?.name || diag.icdCode || 'Unknown Diagnosis';
+        recentAttendancesList.forEach((attendance: any) => {
+          if (attendance.AttendanceDiagnosis && Array.isArray(attendance.AttendanceDiagnosis)) {
+            attendance.AttendanceDiagnosis.forEach((diag: any) => {
+              const diagnosisName = diag.Diagnosis?.name || diag.icdCode || 'Unknown Diagnosis';
               diagnosisCount[diagnosisName] = (diagnosisCount[diagnosisName] || 0) + 1;
             });
           }
         });
-  
+
         diagnosisTrendsList = Object.entries(diagnosisCount)
           .map(([name, count]) => ({ disease: name, patients: count }))
           .sort((a, b) => b.patients - a.patients)
           .slice(0, 5);
       }
-  
+
       console.log('🎯 Final stats:', {
         totalPatients,
         todayVisits,
@@ -281,7 +251,7 @@ export default function Dashboard() {
         completedProcedures,
         recentAttendancesCount: recentAttendancesList.length
       });
-  
+
       setStats({
         totalPatients,
         todayVisits,
@@ -293,7 +263,7 @@ export default function Dashboard() {
         scheduledAppointments,
         completedProcedures
       });
-  
+
       setRecentAttendances(recentAttendancesList);
       setDiagnosisTrends(diagnosisTrendsList);
       setErrors(newErrors);
@@ -371,7 +341,7 @@ export default function Dashboard() {
   };
 
   const getPatientFullName = (attendance: any) => {
-    if (!attendance.Patient) return 'Unknown Patient'; // ✅ FIXED: Capitalized
+    if (!attendance.Patient) return 'Unknown Patient';
     return `${attendance.Patient.surname || ''} ${attendance.Patient.otherNames || ''}`.trim();
   };
 
@@ -642,7 +612,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right Column - Recent Activity (SIMPLIFIED) */}
+        {/* Right Column - Recent Activity (CLEAN STRAIGHT-LINE DESIGN) */}
         <div className="col-span-1">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 h-full">
             <div className="mb-6">
@@ -652,7 +622,7 @@ export default function Dashboard() {
 
             {isLoading ? (
               <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map(i => (
+                {[1, 2, 3].map(i => (
                   <div key={`skeleton-${i}`} className="p-3 bg-gray-100 rounded-lg animate-pulse">
                     <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-300 rounded w-1/2"></div>
@@ -662,44 +632,39 @@ export default function Dashboard() {
             ) : recentAttendances.length === 0 ? (
               <div className="text-center py-8">
                 <Stethoscope className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No visits today</p>
+                <p className="text-gray-500 text-sm">No visits today</p>
+                <p className="text-gray-400 text-xs mt-1">Patient visits will appear here</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {recentAttendances.map((attendance) => {
                   const fullName = getPatientFullName(attendance);
-                  const patient = attendance.Patient || {}; // ✅ FIXED: Capitalized
+                  const patient = attendance.Patient || {};
                   
                   return (
                     <Link 
                       key={attendance.id} 
                       to={`/dashboard/attendance/${attendance.id}`}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group"
+                      className="block p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group"
                     >
-                      <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-200 transition-colors">
-                        <Users className="w-4 h-4 text-cyan-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 truncate">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-semibold text-gray-900 text-sm truncate flex-1">
                           {fullName}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded border">
-                          {patient.folderNumber || 'No Folder'} 
-                          </span>
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded border">
-                            {attendance.attendanceNumber}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <div className="flex items-center gap-1 text-xs text-gray-500 ml-2">
                           {getPaymentModeIcon(attendance.paymentMode)}
                           <span>{getPaymentModeLabel(attendance.paymentMode)}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <div className="flex items-center gap-4">
+                          <span className="font-medium">{patient.folderNumber || 'No Folder'}</span>
+                          <span>{attendance.attendanceNumber}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500">
                           <Clock className="w-3 h-3" />
-                          {formatTime(attendance.dateTime)}
+                          <span>{formatTime(attendance.dateTime)}</span>
                         </div>
                       </div>
                     </Link>

@@ -435,7 +435,11 @@ export default function InsuranceClaims() {
                         </button>
                       </>
                     )}
-                    <button className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition">
+                    <button 
+                      onClick={() => navigate(`/dashboard/insurance-claims/${claim.id}/edit`)}
+                      className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
+                      title={claim.status === 'draft' ? 'Edit Claim' : 'View Claim'}
+                    >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -470,12 +474,11 @@ export default function InsuranceClaims() {
                 {claim.status === 'draft' && (
                   <>
                     <button
-                      onClick={() => handleEditClaim(claim.id)}
-                      disabled={editingClaimId === claim.id}
-                      className="flex-1 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white text-xs flex items-center justify-center gap-1 disabled:opacity-50"
+                      onClick={() => navigate(`/dashboard/insurance-claims/${claim.id}/edit`)}
+                      className="flex-1 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white text-xs flex items-center justify-center gap-1"
                     >
                       <Edit className="w-3 h-3" />
-                      {editingClaimId === claim.id ? 'Loading...' : 'Edit Draft'}
+                      Edit Draft
                     </button>
                     <button
                       onClick={() => handleFinalizeClaim(claim.id)}

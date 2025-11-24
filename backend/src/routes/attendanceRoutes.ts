@@ -85,6 +85,5 @@ router.get('/:id/billing-breakdown', requireAccountsStaff, attendanceController.
 // NHIS CLAIM MANAGEMENT
 // ==========================================
 router.get('/:attendanceId/nhis/validate', requireClinicalStaff, attendanceController.validateNHISClaim);
-router.get('/:attendanceId/nhis/generate-claim-data', requireClinicalStaff, attendanceController.generateNHISClaimFromAttendance);
 
 export default router;

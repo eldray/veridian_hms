@@ -1,4 +1,4 @@
-// src/App.tsx - UPDATED WITH NEW STOCK PAGES
+// src/App.tsx - UPDATED WITH THEATRE & NURSING PAGES
 import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { ToastContainer } from './components/ToastContainer';
@@ -28,41 +28,43 @@ import Login from './pages/Login';
 import Vitals from './pages/Vitals';
 import PatientDetails from './pages/PatientDetails';
 import AttendanceDetails from './pages/AttendanceDetails';
-import UserManagement from './pages/UserManagement';
+import Theatre from './pages/Theatre'; // ✅ NEW
+import Nursing from './pages/Nursing'; // ✅ NEW
 import MedicalServicesManagement from './pages/MedicalServicesManagement';
 import UserProfile from './pages/UserProfile';
 import Settings from './pages/Settings';
 import StockManagement from './pages/StockManagement';
 import InsuranceProviders from './pages/InsuranceProviders';
 import InsuranceClaims from './pages/InsuranceClaims';
+import EditInsuranceClaim from './pages/EditInsuranceClaim';
 import ServiceCatalog from './pages/ServiceCatalog';
 import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
 import Appointments from './pages/Appointments';
 import Departments from './pages/Departments';
 
-// NEW STOCK MANAGEMENT PAGES
+// STOCK MANAGEMENT PAGES
 import InvoiceManagement from './pages/InvoiceManagement';
 import RequisitionManagement from './pages/RequisitionManagement';
 import StockTransactions from './pages/StockTransactions';
 
 import './App.css';
 
-// Role Permissions - UPDATED WITH NEW PERMISSIONS
+// Role Permissions - UPDATED WITH THEATRE & NURSING PERMISSIONS
 const rolePermissions = {
   admin: ['*'],
   doctor: [
     'dashboard', 'patients', 'attendance', 'admissions', 'billing',
     'pharmacy', 'laboratory', 'medical_entries', 'reports', 'profile',
-    'insurance_claims', 'service_catalog', 'vitals', 'appointments'
+    'insurance_claims', 'service_catalog', 'vitals', 'appointments', 'theatre'
   ],
   nurse: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions'
+    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions', 'nursing'
   ],
   midwife: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions'
+    'vitals', 'profile', 'ward_management', 'appointments', 'requisitions', 'nursing'
   ],
   records: ['dashboard', 'patients', 'attendance', 'reports', 'profile'],
   lab_tech: ['dashboard', 'patients', 'attendance', 'lab_results', 'profile'],
@@ -97,11 +99,16 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/billing/:billId/payment': 'billing',
     '/dashboard/insurance-providers': 'insurance_providers',
     '/dashboard/insurance-claims': 'insurance_claims',
+    '/dashboard/insurance-claims/:id/edit': 'insurance_claims',
     '/dashboard/inventory': 'inventory',
     '/dashboard/pharmacy': 'pharmacy',
     '/dashboard/stock': 'stock_management',
     
-    // NEW STOCK MANAGEMENT ROUTES
+    // ✅ NEW THEATRE & NURSING ROUTES
+    '/dashboard/theatre': 'theatre',
+    '/dashboard/nursing': 'nursing',
+    
+    // STOCK MANAGEMENT ROUTES
     '/dashboard/invoices': 'invoices',
     '/dashboard/invoices/create': 'invoices',
     '/dashboard/requisitions': 'requisitions',
@@ -131,7 +138,7 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (routePath.match(/^\/dashboard\/attendance\/[^/]+$/)) return perms?.includes('attendance');
   if (routePath.match(/^\/dashboard\/billing\/[^/]+\/payment$/)) return perms?.includes('billing');
   
-  // NEW: Dynamic stock management routes
+  // Dynamic stock management routes
   if (routePath.match(/^\/dashboard\/invoices\/[^/]+$/)) return perms?.includes('invoices');
   if (routePath.match(/^\/dashboard\/requisitions\/[^/]+$/)) return perms?.includes('requisitions');
 
@@ -226,32 +233,41 @@ function App() {
         <Route path="/medical-entries" element={<Navigate to="/dashboard/medical-entries" replace />} />
         <Route path="/laboratory" element={<Navigate to="/dashboard/laboratory" replace />} />
         <Route path="/pharmacy" element={<Navigate to="/dashboard/pharmacy" replace />} />
-
-        {/* Dashboard Routes - UPDATED WITH NEW STOCK MANAGEMENT ROUTES */}
+        
+        {/* Dashboard Routes - UPDATED WITH THEATRE & NURSING ROUTES */}
         <Route path="/dashboard" element={<DashboardLayoutWrapper />}>
           <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           
-          {/* ✅ FIXED: Patient routes - specific before dynamic */}
+          {/* Patient routes */}
           <Route path="patients/register" element={<ProtectedRoute><PatientRegistration /></ProtectedRoute>} />
           <Route path="patients/:id" element={<ProtectedRoute><PatientDetails /></ProtectedRoute>} />
           <Route path="patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
           
-          {/* ✅ FIXED: Attendance routes - specific before dynamic */}
+          {/* Attendance routes */}
           <Route path="attendance/:id" element={<ProtectedRoute><AttendanceDetails /></ProtectedRoute>} />
           <Route path="attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
           
-          {/* Other routes */}
+          {/* Clinical routes */}
           <Route path="admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
           <Route path="wards" element={<ProtectedRoute><WardManagement /></ProtectedRoute>} />
           <Route path="laboratory" element={<ProtectedRoute><Laboratory /></ProtectedRoute>} />
           <Route path="medical-entries" element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="vitals" element={<ProtectedRoute><Vitals /></ProtectedRoute>} />
+          
+          {/* ✅ NEW THEATRE & NURSING ROUTES */}
+          <Route path="theatre" element={<ProtectedRoute><Theatre /></ProtectedRoute>} />
+          <Route path="nursing" element={<ProtectedRoute><Nursing /></ProtectedRoute>} />
+          
+          {/* Service & Catalog routes */}
           <Route path="service-catalog" element={<ProtectedRoute><ServiceCatalog /></ProtectedRoute>} />
+          <Route path="medicalservices" element={<ProtectedRoute><MedicalServicesManagement /></ProtectedRoute>} />
+          
+          {/* Inventory & Pharmacy routes */}
           <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
           <Route path="pharmacy" element={<ProtectedRoute><Pharmacy /></ProtectedRoute>} />
           <Route path="stock" element={<ProtectedRoute><StockManagement /></ProtectedRoute>} />
           
-          {/* ✅ NEW STOCK MANAGEMENT ROUTES */}
+          {/* Stock Management routes */}
           <Route path="invoices/create" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
           <Route path="invoices/:id" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
           <Route path="invoices" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
@@ -262,23 +278,20 @@ function App() {
           
           <Route path="transactions" element={<ProtectedRoute><StockTransactions /></ProtectedRoute>} />
           
-          {/* ✅ FIXED: Billing routes - specific before dynamic */}
+          {/* Billing & Insurance routes */}
           <Route path="billing/:billId/payment" element={<ProtectedRoute><ProcessPayment /></ProtectedRoute>} />
           <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-          
           <Route path="insurance-providers" element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />
           <Route path="insurance-claims" element={<ProtectedRoute><InsuranceClaims /></ProtectedRoute>} />
+          <Route path="insurance-claims/:id/edit" element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           
-          {/* ✅ FIXED: User routes - specific before dynamic */}
+          {/* User & System routes */}
           <Route path="profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          
-          {/* NEW ROUTES */}
           <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
           <Route path="departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
-          <Route path="medicalservices" element={<ProtectedRoute><MedicalServicesManagement /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

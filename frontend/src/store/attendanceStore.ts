@@ -28,8 +28,6 @@ import {
   getVitalsByAttendance as apiGetVitals,
   updateVitals as apiUpdateVitals,
   deleteVitals as apiDeleteVitals,
-  addProgressNoteToAttendance as apiAddProgressNote,
-  removeProgressNoteFromAttendance as apiRemoveProgressNote,
   calculateAttendanceBill as apiCalculateBill,
   getAttendanceStats as apiGetAttendanceStats,
   addServiceToAttendance as apiAddService,
@@ -49,7 +47,6 @@ interface AttendanceState {
   canModifyActivities: (attendance: Attendance) => boolean;
   canAddMedicalEntries: (attendance: Attendance) => boolean;
   canRecordVitals: (attendance: Attendance) => boolean;
-  canAddProgressNotes: (attendance: Attendance) => boolean;
   canCompleteAttendance: (attendance: Attendance) => boolean;
 
   // === CORE ===
@@ -60,6 +57,7 @@ interface AttendanceState {
   deleteAttendance: (id: string) => Promise<void>;
   updateAttendanceStatus: (id: string, data: any) => Promise<void>;
   completeAttendance: (id: string, data?: any) => Promise<void>;
+  getAttendancesByPatient: (patientId: string) => Promise<void>;
 
   // === CLINICAL ===
   addDiagnosis: (attendanceId: string, data: any) => Promise<void>;
@@ -83,9 +81,6 @@ interface AttendanceState {
   updateVitals: (attendanceId: string, vitalsId: string, data: any) => Promise<void>;
   deleteVitals: (attendanceId: string, vitalsId: string) => Promise<void>;
 
-  addProgressNote: (attendanceId: string, data: any) => Promise<void>;
-  removeProgressNote: (attendanceId: string, noteId: string) => Promise<void>;
-
   // === BILLING & STATS ===
   calculateBill: (attendanceId: string) => Promise<any>;
   getAttendanceStats: (filters?: any) => Promise<void>;
@@ -93,10 +88,6 @@ interface AttendanceState {
   // === SERVICES ===
   addService: (attendanceId: string, data: any) => Promise<void>;
   removeService: (attendanceId: string, serviceId: string) => Promise<void>;
-
-  // === NHIS ===
-  generateNHISClaim: (attendanceId: string) => Promise<any>;
-  submitNHISClaim: (attendanceId: string, data?: any) => Promise<void>;
 
   // === UTILS ===
   clearCurrentAttendance: () => void;

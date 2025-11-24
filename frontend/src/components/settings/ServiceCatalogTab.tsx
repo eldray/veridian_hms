@@ -33,10 +33,10 @@ export default function ServiceCatalogTab() {
     nhisServiceCode: '',
     description: '',
     serviceType: 'consultation',
-    category: 'consultation',
+    serviceCategory: 'opd', // Changed from 'category' to 'serviceCategory'
     cashPrice: 0,
     insurancePrice: 0,
-    costPrice: 0,
+    nhisPrice: 0, // Added nhisPrice
     unit: 'Each',
     requiresAuthorization: false,
     tariffCode: '',
@@ -61,7 +61,7 @@ export default function ServiceCatalogTab() {
                          service.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesServiceType = filterServiceType === 'all' || service.serviceType === filterServiceType;
-    const matchesCategory = filterCategory === 'all' || service.category === filterCategory;
+    const matchesCategory = filterCategory === 'all' || service.serviceCategory === filterCategory;
     return matchesSearch && matchesServiceType && matchesCategory;
   });
 
@@ -71,10 +71,10 @@ export default function ServiceCatalogTab() {
     
     try {
       if (editingItem) {
-        if (!editingItem._id) {
+        if (!editingItem.id) { // Changed from _id to id
           throw new Error('Cannot update service: missing service ID');
         }
-        await updateServiceCatalogItem(editingItem._id, formData);
+        await updateServiceCatalogItem(editingItem.id, formData); // Changed from _id to id
         success('Service Updated', `${formData.name} has been updated successfully`);
       } else {
         await createServiceCatalogItem(formData);
@@ -94,7 +94,7 @@ export default function ServiceCatalogTab() {
   };
 
   const handleEdit = (item: any) => {
-    if (!item || !item._id) {
+    if (!item || !item.id) { // Changed from _id to id
       toastError('Error', 'Cannot edit this service item');
       return;
     }
@@ -106,15 +106,15 @@ export default function ServiceCatalogTab() {
       nhisServiceCode: item.nhisServiceCode || '',
       description: item.description || '',
       serviceType: item.serviceType || 'consultation',
-      category: item.category || 'consultation',
-      cashPrice: item.cashPrice || 0,
-      insurancePrice: item.insurancePrice || 0,
-      costPrice: item.costPrice || 0,
+      serviceCategory: item.serviceCategory || 'opd', // Changed from category to serviceCategory
+      cashPrice: item.pricing?.cashPrice || 0, // Get from pricing relation
+      insurancePrice: item.pricing?.insurancePrice || 0, // Get from pricing relation
+      nhisPrice: item.pricing?.nhisPrice || 0, // Get from pricing relation
       unit: item.unit || 'Each',
-      requiresAuthorization: item.requiresAuthorization || false,
+      requiresAuthorization: item.nhisRequiresAuth || false, // Updated field name
       tariffCode: item.tariffCode || '',
-      vatRate: item.vatRate || 0,
-      isTaxable: item.isTaxable !== undefined ? item.isTaxable : true,
+      vatRate: item.pricing?.vatRate || 0, // Get from pricing relation
+      isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true, // Get from pricing relation
     });
     setShowForm(true);
   };
@@ -143,10 +143,10 @@ export default function ServiceCatalogTab() {
       nhisServiceCode: '',
       description: '', 
       serviceType: 'consultation',
-      category: 'consultation', 
+      serviceCategory: 'opd', // Changed from category to serviceCategory
       cashPrice: 0, 
       insurancePrice: 0, 
-      costPrice: 0,
+      nhisPrice: 0,
       unit: 'Each', 
       requiresAuthorization: false, 
       tariffCode: '', 
@@ -159,6 +159,28 @@ export default function ServiceCatalogTab() {
     setShowForm(false);
     setEditingItem(null);
     resetForm();
+  };
+
+  // ✅ FIXED: Safe price display function
+  const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis') => {
+    // Try to get price from pricing relation first
+    const pricing = service.pricing;
+    if (pricing) {
+      switch (priceType) {
+        case 'cash': return pricing.cashPrice || 0;
+        case 'insurance': return pricing.insurancePrice || 0;
+        case 'nhis': return pricing.nhisPrice || 0;
+        default: return 0;
+      }
+    }
+    
+    // Fallback to direct properties (for backward compatibility)
+    switch (priceType) {
+      case 'cash': return service.cashPrice || 0;
+      case 'insurance': return service.insurancePrice || 0;
+      case 'nhis': return service.nhisPrice || 0;
+      default: return 0;
+    }
   };
 
   const getServiceIcon = (type: string) => {
@@ -216,7 +238,7 @@ export default function ServiceCatalogTab() {
             className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
           >
             <option value="all">All Categories</option>
-            {['consultation', 'diagnostic', 'procedural', 'pharmacy', 'ward', 'laboratory', 'radiology', 'other'].map(c => (
+            {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => ( // Updated categories to match schema
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -258,7 +280,7 @@ export default function ServiceCatalogTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map(service => (
-            <div key={service._id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow">
+            <div key={service.id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow"> {/* Changed from _id to id */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getServiceColor(service.serviceType)}`}>
@@ -273,7 +295,7 @@ export default function ServiceCatalogTab() {
                     </div>
                   </div>
                 </div>
-                {service.requiresAuthorization && <Shield className="w-4 h-4 text-[var(--icon-yellow-text)]" />}
+                {service.nhisRequiresAuthorization && <Shield className="w-4 h-4 text-[var(--icon-yellow-text)]" />} {/* Updated field name */}
               </div>
               <div className="space-y-1.5 text-xs mb-3">
                 <div className="flex justify-between">
@@ -292,34 +314,38 @@ export default function ServiceCatalogTab() {
                     <div className="flex items-center gap-1 text-[var(--text-secondary)] mb-0.5">
                       <DollarSign className="w-3 h-3" /> Cash
                     </div>
-                    <p className="font-medium text-[var(--text-primary)]">GHS {service.cashPrice.toFixed(2)}</p>
+                    {/* ✅ FIXED: Using safe price display function */}
+                    <p className="font-medium text-[var(--text-primary)]">
+                      GHS {getPriceDisplay(service, 'cash').toFixed(2)}
+                    </p>
                   </div>
                   <div>
                     <div className="flex items-center gap-1 text-[var(--text-secondary)] mb-0.5">
                       <Shield className="w-3 h-3" /> Insurance
                     </div>
+                    {/* ✅ FIXED: Using safe price display function */}
                     <p className="font-medium text-[var(--text-primary)]">
-                      GHS {service.insurancePrice.toFixed(2)}
+                      GHS {getPriceDisplay(service, 'insurance').toFixed(2)}
                     </p>
                   </div>
                 </div>
               </div>
               {user?.role === 'admin' && (
-                <div className="flex gap-1 pt-2 border-t border-[var(--border-color)]">
-                  <button 
-                    onClick={() => handleEdit(service)}
-                    className="flex-1 py-1.5 text-[var(--icon-green-text)] hover:text-[var(--icon-green-text)]/80 flex items-center justify-center gap-1 text-xs"
-                  >
-                    <Edit className="w-3 h-3" /> Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(service._id)}
-                    className="flex-1 py-1.5 text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)]/80 flex items-center justify-center gap-1 text-xs"
-                  >
-                    <Trash2 className="w-3 h-3" /> Delete
-                  </button>
-                </div>
-              )}
+  <div className="flex gap-1 pt-2 border-t border-[var(--border-color)]">
+    <button 
+      onClick={() => handleEdit(service)}
+      className="flex-1 py-1.5 text-[var(--icon-green-text)] hover:text-[var(--icon-green-text)]/80 flex items-center justify-center gap-1 text-xs"
+    >
+      <Edit className="w-3 h-3" /> Edit
+    </button>
+    <button 
+      onClick={() => handleDelete(service.id)}
+      className="flex-1 py-1.5 text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)]/80 flex items-center justify-center gap-1 text-xs"
+    >
+      <Trash2 className="w-3 h-3" /> Delete
+    </button>
+  </div>
+)}
             </div>
           ))}
         </div>
@@ -390,11 +416,11 @@ export default function ServiceCatalogTab() {
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Category</label>
                   <select 
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
-                  >
-                    {['consultation', 'diagnostic', 'procedural', 'pharmacy', 'ward', 'laboratory', 'radiology', 'other'].map(c => (
+                     value={formData.serviceCategory}
+  onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
+  className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    >
+                    {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => ( // Updated categories
                       <option key={c} value={c}>
                         {c.toUpperCase()}
                       </option>
@@ -437,13 +463,12 @@ export default function ServiceCatalogTab() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Cost Price *</label>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS Price</label>
                   <input 
                     type="number" 
                     step="0.01" 
-                    required 
-                    value={formData.costPrice} 
-                    onChange={e => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+                    value={formData.nhisPrice} 
+                    onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
                   />
                 </div>
