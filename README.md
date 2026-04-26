@@ -1,1 +1,1 @@
-in the settings page we have tabs, with individual tab components let the tabs reflect those pages hence in the component pages itself, we wont need the header sections, remove the advanced system tabs, is not needed, but add the service catalog there. first design the indivdual tabs files then you  do the main settings page to meet the ui as we have done bedore, use the defined theme clasee, lets have the light mode and dark mode too.
+a hospital management system
