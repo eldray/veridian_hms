@@ -1,23 +1,2 @@
-2. Add Bed Assignment (If Needed) 
-
-assignBed: async (attendanceId: string, data: any) => {
-  set({ isLoading: true, error: null });
-  try {
-    const updatedAttendance = await apiAssignBed(attendanceId, data);
-    const attendances = get().attendances.map(att =>
-      att._id === updatedAttendance._id ? updatedAttendance : att
-    );
-    set({
-      attendances,
-      currentAttendance: updatedAttendance,
-      isLoading: false
-    });
-  } catch (error: any) {
-    console.error('Failed to assign bed:', error);
-    set({
-      isLoading: false,
-      error: error.message || 'Failed to assign bed'
-    });
-    throw error;
-  }
-},
+/   for linux/
+"electron": "ELECTRON_DISABLE_SANDBOX=1 NODE_ENV=development electron main.js --no-sandbox",

@@ -7,7 +7,7 @@
   "description": "Hospital Management System - A HMS app built with React and Electron",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:3000 && npm run electron\"",
-    "electron": "ELECTRON_DISABLE_SANDBOX=1 NODE_ENV=development electron main.js --no-sandbox",
+    "electron": "cross-env ELECTRON_DISABLE_SANDBOX=1 NODE_ENV=development electron main.js --no-sandbox",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -43,6 +43,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^38.2.2",
     "electron-builder": "^24.13.3",
     "electron-updater": "^6.6.2",
