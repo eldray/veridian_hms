@@ -410,7 +410,7 @@ export const getDoctorSchedule = async (req: Request, res: Response) => {
         }
       },
       include: {
-        Patient: { // ✅ FIXED: Capitalized
+        patient: {
           select: {
             surname: true,
             otherNames: true,

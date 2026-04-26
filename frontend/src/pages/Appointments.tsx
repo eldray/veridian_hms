@@ -78,9 +78,9 @@ export default function Appointments() {
   };
 
   const filteredAppointments = (Array.isArray(appointments) ? appointments : [])
-    .filter(apt => apt && apt._id)
+    .filter(apt => apt && apt.id)
     .filter(apt => {
-      const patientName = apt.patient?.fullName || '';
+      const patientName = `${apt.patient?.surname || ''} ${apt.patient?.otherNames || ''}`.trim();
       const doctorName = apt.doctor?.fullName || '';
       const title = apt.title || '';
       
@@ -95,7 +95,7 @@ export default function Appointments() {
     e.preventDefault();
     try {
       if (editingAppointment) {
-        await updateAppointment(editingAppointment._id, formData);
+        await updateAppointment(editingAppointment.id, formData);
         success('Appointment Updated', 'Appointment updated successfully');
       } else {
         await createAppointment(formData);
@@ -361,7 +361,7 @@ export default function Appointments() {
       ) : (
         <div className="space-y-3">
           {filteredAppointments.map((apt) => (
-            <div key={apt._id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-md transition-all duration-300">
+            <div key={apt.id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-md transition-all duration-300">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
@@ -392,7 +392,7 @@ export default function Appointments() {
                         <div className="flex gap-1">
                           {apt.status === 'scheduled' && (
                             <button
-                              onClick={() => handleStatusUpdate(apt._id, 'confirmed')}
+                              onClick={() => handleStatusUpdate(apt.id, 'confirmed')}
                               className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] transition-colors hover:bg-[var(--icon-green-bg)] rounded-lg"
                               title="Confirm"
                             >
@@ -401,7 +401,7 @@ export default function Appointments() {
                           )}
                           {apt.status === 'confirmed' && !apt.checkedIn && (
                             <button
-                              onClick={() => handleCheckIn(apt._id)}
+                              onClick={() => handleCheckIn(apt.id)}
                               className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] transition-colors hover:bg-[var(--icon-purple-bg)] rounded-lg"
                               title="Check In"
                             >
@@ -416,7 +416,7 @@ export default function Appointments() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(apt._id)}
+                            onClick={() => handleDelete(apt.id)}
                             className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] transition-colors hover:bg-[var(--icon-red-bg)] rounded-lg"
                             title="Delete"
                           >
@@ -432,7 +432,7 @@ export default function Appointments() {
                       <User className="w-4 h-4 text-[var(--text-secondary)]" />
                       <div>
                         <p className="text-[var(--text-secondary)] font-medium">Patient</p>
-                        <p className="text-[var(--text-primary)]">{apt.patient?.fullName || 'N/A'}</p>
+                        <p className="text-[var(--text-primary)]">{`${apt.patient?.surname || ''} ${apt.patient?.otherNames || ''}`.trim() || 'N/A'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

@@ -63,7 +63,7 @@ export default function Departments() {
     e.preventDefault();
     try {
       if (editingDepartment) {
-        await updateDepartment(editingDepartment._id, formData);
+        await updateDepartment(editingDepartment.id, formData);
         success('Department Updated', 'Department updated successfully');
       } else {
         await createDepartment(formData);
@@ -202,7 +202,7 @@ export default function Departments() {
             const IconComponent = getDepartmentIcon(dept.icon || 'building');
             return (
               <div 
-                key={dept._id} 
+                key={dept.id} 
                 className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -232,7 +232,7 @@ export default function Departments() {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(dept._id)}
+                        onClick={() => handleDelete(dept.id)}
                         className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] transition-colors hover:bg-[var(--icon-red-bg)] rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />

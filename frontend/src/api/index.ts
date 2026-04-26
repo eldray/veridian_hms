@@ -934,22 +934,22 @@ export const getDepartments = (filters?: any) =>
   api.get('/departments', { params: filters }).then(r => handleResponse<Department>(r.data));
 
 export const getDepartment = (id: string) => 
-  api.get(`/departments/${id}`).then(r => r.data);
+  api.get(`/departments/${id}`).then(r => r.data?.data ?? r.data);
 
 export const createDepartment = (data: any) => 
-  api.post('/departments', data).then(r => r.data);
+  api.post('/departments', data).then(r => r.data?.data ?? r.data);
 
 export const updateDepartment = (id: string, data: any) => 
-  api.put(`/departments/${id}`, data).then(r => r.data);
+  api.put(`/departments/${id}`, data).then(r => r.data?.data ?? r.data);
 
 export const deleteDepartment = (id: string) => 
   api.delete(`/departments/${id}`).then(r => r.data);
 
 export const getDepartmentStats = (id: string) => 
-  api.get(`/departments/${id}/stats`).then(r => r.data);
+  api.get(`/departments/${id}/stats`).then(r => r.data?.data ?? r.data);
 
 export const getDepartmentUsers = (departmentId: string) => 
-  api.get(`/departments/${departmentId}/users`).then(r => r.data);
+  api.get(`/departments/${departmentId}/users`).then(r => r.data?.data?.users ?? []);
 
 export const assignUserToDepartment = (departmentId: string, data: any) => 
   api.post(`/departments/${departmentId}/assign-user`, data).then(r => r.data);
@@ -958,7 +958,7 @@ export const removeUserFromDepartment = (departmentId: string, data: any) =>
   api.post(`/departments/${departmentId}/remove-user`, data).then(r => r.data);
 
 export const assignDepartmentHead = (departmentId: string, userId: string) => 
-  api.patch(`/departments/${departmentId}/head`, { headId: userId }).then(r => r.data);
+  api.put(`/departments/${departmentId}`, { headId: userId }).then(r => r.data?.data ?? r.data);
 
 export const bulkUpdateDepartments = (data: any) => 
   api.post('/departments/bulk-update', data).then(r => r.data);
@@ -974,26 +974,26 @@ export const getAppointment = (id: string) =>
   api.get(`/appointments/${id}`).then(r => r.data);
 
 export const createAppointment = (data: any) => 
-  api.post('/appointments', data).then(r => r.data);
+  api.post('/appointments', data).then(r => r.data?.appointment ?? r.data);
 
 export const updateAppointment = (id: string, data: any) => 
-  api.put(`/appointments/${id}`, data).then(r => r.data);
+  api.put(`/appointments/${id}`, data).then(r => r.data?.appointment ?? r.data);
 
 export const deleteAppointment = (id: string) => 
   api.delete(`/appointments/${id}`).then(r => r.data);
 
 export const updateAppointmentStatus = (id: string, status: string) => 
-  api.patch(`/appointments/${id}/status`, { status }).then(r => r.data);
+  api.put(`/appointments/${id}`, { status }).then(r => r.data);
 
 export const checkInAppointment = (id: string) => 
-  api.patch(`/appointments/${id}/check-in`).then(r => r.data);
+  api.put(`/appointments/${id}`, { status: 'checked_in' }).then(r => r.data);
 
 export const getAppointmentStatistics = (filters?: any) => 
   api.get('/appointments/stats', { params: filters }).then(r => r.data);
 
 export const getDoctorSchedule = (doctorId: string, date?: string) => 
-  api.get(`/appointments/doctor/${doctorId}/schedule`, { 
-    params: { date } 
+  api.get(`/appointments/schedule`, { 
+    params: { doctorId, date } 
   }).then(r => r.data);
 
 export const getAvailableSlots = (doctorId: string, date: string) => 

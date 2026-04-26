@@ -101,9 +101,9 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       const updatedDepartment = await apiUpdateDepartment(id, data);
       set(state => ({
         departments: state.departments.map(dept => 
-          dept._id === id ? updatedDepartment : dept
+          dept.id === id ? updatedDepartment : dept
         ),
-        currentDepartment: state.currentDepartment?._id === id ? updatedDepartment : state.currentDepartment,
+        currentDepartment: state.currentDepartment?.id === id ? updatedDepartment : state.currentDepartment,
         isLoading: false
       }));
     } catch (error: any) {
@@ -120,8 +120,8 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     try {
       await apiDeleteDepartment(id);
       set(state => ({
-        departments: state.departments.filter(dept => dept._id !== id),
-        currentDepartment: state.currentDepartment?._id === id ? null : state.currentDepartment,
+        departments: state.departments.filter(dept => dept.id !== id),
+        currentDepartment: state.currentDepartment?.id === id ? null : state.currentDepartment,
         isLoading: false
       }));
     } catch (error: any) {
@@ -139,9 +139,9 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       const updatedDepartment = await apiAssignDepartmentHead(departmentId, userId);
       set(state => ({
         departments: state.departments.map(dept => 
-          dept._id === departmentId ? updatedDepartment : dept
+          dept.id === departmentId ? updatedDepartment : dept
         ),
-        currentDepartment: state.currentDepartment?._id === departmentId ? updatedDepartment : state.currentDepartment,
+        currentDepartment: state.currentDepartment?.id === departmentId ? updatedDepartment : state.currentDepartment,
         isLoading: false
       }));
     } catch (error: any) {
