@@ -1,12 +1,11 @@
-// controllers/diagnosisController.ts - UPDATED FOR GDRG CORRELATION
+// controllers/diagnosisController.ts - CORRECTED FOR UPDATED SCHEMA
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { PrismaClient, DiagnosisCategory } from '@prisma/client';
+import { PrismaClient, MorbidityGroup } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Utility function for consistent error responses
 const handleError = (res: Response, message: string, error: any, statusCode = 500) => {
   console.error(`❌ ${message}:`, error);
   res.status(statusCode).json({
@@ -16,19 +15,18 @@ const handleError = (res: Response, message: string, error: any, statusCode = 50
   });
 };
 
+// ============================================
+// GET ALL DIAGNOSES
+// ============================================
 export const getDiagnoses = async (req: AuthRequest, res: Response) => {
   try {
-    console.log('🩺 Fetching diagnoses...', {
-      user: req.user?.username,
-      role: req.user?.role
-    });
-
     const {
       page = 1,
       limit = 50,
       search = '',
-      category,
-      gdrgCode
+      morbidityGroup,
+      gdrgCode,
+      isActive
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string));
@@ -38,46 +36,51 @@ export const getDiagnoses = async (req: AuthRequest, res: Response) => {
     const where: any = {};
 
     if (search) {
-      const searchTerm = `%${search}%`;
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
         { icdCode: { contains: search as string, mode: 'insensitive' } },
-        { gdrgCode: { contains: search as string, mode: 'insensitive' } },
+        { gdrgGroupCode: { contains: search as string, mode: 'insensitive' } },
         { description: { contains: search as string, mode: 'insensitive' } }
       ];
     }
 
-    if (category) {
-      where.category = category as DiagnosisCategory;
+    if (morbidityGroup) {
+      where.morbidityGroup = morbidityGroup as MorbidityGroup;
     }
 
     if (gdrgCode) {
-      where.gdrgCode = gdrgCode as string;
+      where.gdrgGroupCode = gdrgCode as string;
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive === 'true';
     }
 
     const [diagnoses, total] = await Promise.all([
       prisma.diagnosis.findMany({
         where,
         include: {
-          // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
-          GDRGTariff: {
-            select: {
-              nhiaTariff: true,
-              category: true,
-              isActive: true,
-              effectiveFrom: true,
-              effectiveTo: true
+          // ✅ CORRECT: Use junction table relation
+          gdrgTariffDiagnoses: {
+            include: {
+              gdrgTariff: {
+                select: {
+                  id: true,
+                  gdrgCode: true,
+                  mdc: true,
+                  description: true,
+                  nhiaTariff: true,
+                  ageSplit: true,
+                  isActive: true
+                }
+              }
             }
           },
           _count: {
             select: {
-              // ✅ CORRECT: Capital A, Capital D
               Admission: true,
-              // ✅ CORRECT: Capital A, Capital S, Capital D
               AdmissionSecondaryDiagnosis: true,
-              // ✅ CORRECT: Capital A, Capital D
               AttendanceDiagnosis: true,
-              // ✅ CORRECT: Capital S, Capital C
               ServiceCatalog: true
             }
           }
@@ -89,18 +92,14 @@ export const getDiagnoses = async (req: AuthRequest, res: Response) => {
       prisma.diagnosis.count({ where })
     ]);
 
-    const totalPages = Math.ceil(total / limitNum);
-
-    console.log(`✅ Found ${diagnoses.length} diagnoses out of ${total}`);
-
     res.json({
       success: true,
       data: diagnoses,
       pagination: {
         currentPage: pageNum,
-        totalPages,
+        totalPages: Math.ceil(total / limitNum),
         totalDiagnoses: total,
-        hasNext: pageNum < totalPages,
+        hasNext: pageNum < Math.ceil(total / limitNum),
         hasPrev: pageNum > 1
       }
     });
@@ -109,31 +108,42 @@ export const getDiagnoses = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ============================================
+// GET DIAGNOSIS BY ID
+// ============================================
 export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    console.log('🩺 Fetching diagnosis by ID:', id);
 
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
-        GDRGTariff: {
-          select: {
-            id: true,
-            gdrgCode: true,
-            description: true,
-            category: true,
-            nhiaTariff: true,
-            effectiveFrom: true,
-            effectiveTo: true,
-            isActive: true
+        // ✅ CORRECT: Use junction table
+        gdrgTariffDiagnoses: {
+          include: {
+            gdrgTariff: {
+              select: {
+                id: true,
+                gdrgCode: true,
+                mdc: true,
+                description: true,
+                nhiaTariff: true,
+                ageSplit: true,
+                minAgeYears: true,
+                maxAgeYears: true,
+                genderApplicability: true,
+                applicableLevels: true,
+                nhisServiceCode: true,
+                isZoomCode: true,
+                effectiveFrom: true,
+                effectiveTo: true,
+                isActive: true
+              }
+            }
           }
         },
-        // ✅ CORRECT: Admission (Capital A)
         Admission: {
           include: {
-            // ✅ CORRECT: Patient (Capital P)
             Patient: {
               select: {
                 id: true,
@@ -142,7 +152,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                 otherNames: true
               }
             },
-            // ✅ CORRECT: Ward (Capital W)
             Ward: {
               select: {
                 id: true,
@@ -153,13 +162,10 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        // ✅ CORRECT: AdmissionSecondaryDiagnosis (Capital A, Capital S, Capital D)
         AdmissionSecondaryDiagnosis: {
           include: {
-            // ✅ CORRECT: Admission (Capital A)
             Admission: {
               include: {
-                // ✅ CORRECT: Patient (Capital P)
                 Patient: {
                   select: {
                     id: true,
@@ -168,7 +174,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                     otherNames: true
                   }
                 },
-                // ✅ CORRECT: Ward (Capital W)
                 Ward: {
                   select: {
                     id: true,
@@ -181,13 +186,10 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        // ✅ CORRECT: AttendanceDiagnosis (Capital A, Capital D)
         AttendanceDiagnosis: {
           include: {
-            // ✅ CORRECT: Attendance (Capital A)
             Attendance: {
               include: {
-                // ✅ CORRECT: Patient (Capital P)
                 Patient: {
                   select: {
                     id: true,
@@ -198,7 +200,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                 }
               }
             },
-            // ✅ CORRECT: User (Capital U)
             User: {
               select: {
                 id: true,
@@ -210,7 +211,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        // ✅ CORRECT: ServiceCatalog (Capital S, Capital C)
         ServiceCatalog: {
           select: {
             id: true,
@@ -231,14 +231,11 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
     });
 
     if (!diagnosis) {
-      console.log('❌ Diagnosis not found:', id);
       return res.status(404).json({
         success: false,
         message: 'Diagnosis not found'
       });
     }
-
-    console.log('✅ Diagnosis fetched successfully:', diagnosis.name);
 
     res.json({
       success: true,
@@ -249,28 +246,19 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ============================================
+// CREATE DIAGNOSIS
+// ============================================
 export const createDiagnosis = [
-  body('name')
-    .notEmpty().withMessage('Diagnosis name is required')
-    .trim()
-    .isLength({ min: 2 }).withMessage('Diagnosis name must be at least 2 characters'),
-  body('icdCode')
-    .notEmpty().withMessage('ICD code is required')
-    .trim()
-    .toUpperCase(),
-  body('gdrgCode')
-    .notEmpty().withMessage('GDRG code is required')
-    .trim()
-    .toUpperCase(),
-  body('category')
-    .isIn(Object.values(DiagnosisCategory))
-    .withMessage('Valid category is required'),
+  body('name').notEmpty().withMessage('Diagnosis name is required').trim(),
+  body('icdCode').notEmpty().withMessage('ICD code is required').trim().toUpperCase(),
+  body('gdrgGroupCode').optional().trim().toUpperCase(),
+  body('morbidityGroup').notEmpty().withMessage('Morbidity group is required'),
 
   async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('🔍 Create diagnosis validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           errors: errors.array(),
@@ -281,17 +269,16 @@ export const createDiagnosis = [
       const {
         name,
         icdCode,
-        gdrgCode,
-        category,
-        description
+        gdrgGroupCode,
+        morbidityGroup,
+        description,
+        requiresAuthorization,
+        isChronic,
+        isNHISCovered,
+        tariffCode
       } = req.body;
 
-      console.log('🩺 Creating new diagnosis...', {
-        user: req.user?.username,
-        data: { name, icdCode, gdrgCode, category }
-      });
-
-      // Check if ICD code already exists (ICD is unique)
+      // Check if ICD code already exists
       const existingByIcd = await prisma.diagnosis.findFirst({
         where: { icdCode: icdCode.trim().toUpperCase() }
       });
@@ -303,85 +290,58 @@ export const createDiagnosis = [
         });
       }
 
-      // ✅ UPDATED: Check if GDRG tariff exists (optional but recommended)
-      const gdrgTariff = await prisma.gDRGTariff.findUnique({
-        where: { gdrgCode: gdrgCode.trim().toUpperCase() }
-      });
-
-      if (!gdrgTariff) {
-        console.log('⚠️ GDRG tariff not found for code:', gdrgCode);
-        // We can proceed, but log a warning
-      }
-
       const diagnosis = await prisma.diagnosis.create({
         data: {
           name: name.trim(),
           icdCode: icdCode.trim().toUpperCase(),
-          gdrgCode: gdrgCode.trim().toUpperCase(),
-          category: category as DiagnosisCategory,
-          description: description?.trim()
+          gdrgGroupCode: gdrgGroupCode ? gdrgGroupCode.trim().toUpperCase() : icdCode.trim().toUpperCase(),
+          morbidityGroup: morbidityGroup as MorbidityGroup,
+          description: description?.trim(),
+          requiresAuthorization: requiresAuthorization || false,
+          isChronic: isChronic || false,
+          isNHISCovered: isNHISCovered !== undefined ? isNHISCovered : true,
+          tariffCode: tariffCode || `DIAG-${icdCode}`,
+          isActive: true
         },
         include: {
-          // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
-          GDRGTariff: {
-            select: {
-              nhiaTariff: true,
-              category: true,
-              isActive: true
-            }
-          },
-          _count: {
-            select: {
-              Admission: true,
-              AdmissionSecondaryDiagnosis: true,
-              AttendanceDiagnosis: true,
-              ServiceCatalog: true
+          gdrgTariffDiagnoses: {
+            include: {
+              gdrgTariff: {
+                select: {
+                  gdrgCode: true,
+                  nhiaTariff: true
+                }
+              }
             }
           }
         }
       });
 
-      console.log('✅ Diagnosis created successfully:', diagnosis.name);
-
       res.status(201).json({
         success: true,
         data: diagnosis,
-        message: 'Diagnosis created successfully',
-        gdrgInfo: gdrgTariff ? 'GDRG tariff found' : 'GDRG tariff not found - please create tariff entry'
+        message: 'Diagnosis created successfully'
       });
-
     } catch (error) {
       handleError(res, 'Error creating diagnosis', error);
     }
   }
 ];
 
+// ============================================
+// UPDATE DIAGNOSIS
+// ============================================
 export const updateDiagnosis = [
-  body('name')
-    .optional()
-    .notEmpty().withMessage('Diagnosis name cannot be empty')
-    .trim()
-    .isLength({ min: 2 }).withMessage('Diagnosis name must be at least 2 characters'),
-  body('icdCode')
-    .optional()
-    .notEmpty().withMessage('ICD code cannot be empty')
-    .trim()
-    .toUpperCase(),
-  body('gdrgCode')
-    .optional()
-    .notEmpty().withMessage('GDRG code cannot be empty')
-    .trim()
-    .toUpperCase(),
-  body('category')
-    .optional()
-    .isIn(Object.values(DiagnosisCategory))
-    .withMessage('Valid category is required'),
+  body('name').optional().trim(),
+  body('icdCode').optional().trim().toUpperCase(),
+  body('gdrgGroupCode').optional().trim().toUpperCase(),
+  body('morbidityGroup').optional(),
+  body('isActive').optional().isBoolean(),
 
   async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('🔍 Update diagnosis validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           errors: errors.array(),
@@ -390,13 +350,8 @@ export const updateDiagnosis = [
       }
 
       const { id } = req.params;
-      const updateData = { ...req.body };
+      const updateData = { ...req.body, updatedAt: new Date() };
 
-      console.log('📝 Updating diagnosis:', id, {
-        updates: Object.keys(updateData)
-      });
-
-      // Check if diagnosis exists
       const existingDiagnosis = await prisma.diagnosis.findUnique({
         where: { id }
       });
@@ -408,7 +363,7 @@ export const updateDiagnosis = [
         });
       }
 
-      // Check for duplicate ICD code if changing (ICD is unique)
+      // Check for duplicate ICD code if changing
       if (updateData.icdCode && updateData.icdCode !== existingDiagnosis.icdCode) {
         const duplicateIcd = await prisma.diagnosis.findFirst({
           where: {
@@ -426,145 +381,46 @@ export const updateDiagnosis = [
         updateData.icdCode = updateData.icdCode.trim().toUpperCase();
       }
 
-      // ✅ UPDATED: Check GDRG tariff when GDRG code changes
-      if (updateData.gdrgCode && updateData.gdrgCode !== existingDiagnosis.gdrgCode) {
-        const gdrgTariff = await prisma.gDRGTariff.findUnique({
-          where: { gdrgCode: updateData.gdrgCode.trim().toUpperCase() }
-        });
-
-        if (!gdrgTariff) {
-          console.log('⚠️ GDRG tariff not found for updated code:', updateData.gdrgCode);
-        }
-        updateData.gdrgCode = updateData.gdrgCode.trim().toUpperCase();
+      // Handle gdrgGroupCode
+      if (updateData.gdrgGroupCode) {
+        updateData.gdrgGroupCode = updateData.gdrgGroupCode.trim().toUpperCase();
       }
-
-      // Handle text field trimming
-      if (updateData.name) updateData.name = updateData.name.trim();
-      if (updateData.description) updateData.description = updateData.description.trim();
 
       const diagnosis = await prisma.diagnosis.update({
         where: { id },
         data: updateData,
         include: {
-           GDRGTariff: {
-            select: {
-              nhiaTariff: true,
-              category: true,
-              isActive: true
-            }
-          },
-          _count: {
-            select: {
-              // ✅ CORRECT: Capital A, Capital D
-              Admission: true,
-              // ✅ CORRECT: Capital A, Capital S, Capital D
-              AdmissionSecondaryDiagnosis: true,
-              // ✅ CORRECT: Capital A, Capital D
-              AttendanceDiagnosis: true,
-              // ✅ CORRECT: Capital S, Capital C
-              ServiceCatalog: true
+          gdrgTariffDiagnoses: {
+            include: {
+              gdrgTariff: {
+                select: {
+                  gdrgCode: true,
+                  nhiaTariff: true
+                }
+              }
             }
           }
         }
       });
-
-      console.log('✅ Diagnosis updated successfully:', diagnosis.name);
 
       res.json({
         success: true,
         data: diagnosis,
         message: 'Diagnosis updated successfully'
       });
-
     } catch (error) {
       handleError(res, 'Error updating diagnosis', error);
     }
   }
 ];
 
-export const getDiagnosesByGDRG = async (req: AuthRequest, res: Response) => {
-  try {
-    const { gdrgCode } = req.params;
-    
-    console.log('🩺 Fetching diagnoses by GDRG code:', gdrgCode);
-
-    const [diagnoses, gdrgTariff] = await Promise.all([
-      prisma.diagnosis.findMany({
-        where: { gdrgCode: gdrgCode.toUpperCase() },
-        include: {
-          _count: {
-            select: {
-              // ✅ CORRECT: Capital A, Capital D
-              Admission: true,
-              // ✅ CORRECT: Capital A, Capital D
-              AttendanceDiagnosis: true
-            }
-          }
-        },
-        orderBy: { name: 'asc' }
-      }),
-      prisma.gDRGTariff.findUnique({
-        where: { gdrgCode: gdrgCode.toUpperCase() }
-      })
-    ]);
-
-    if (diagnoses.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `No diagnoses found for GDRG code: ${gdrgCode}`
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        gdrgCode,
-        gdrgTariff,
-        diagnoses,
-        count: diagnoses.length
-      }
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching diagnoses by GDRG code', error);
-  }
-};
-
-export const getGDRGTariffs = async (req: AuthRequest, res: Response) => {
-  try {
-    const { category, isActive } = req.query;
-    
-    const where: any = {};
-    if (category) where.category = category as string;
-    if (isActive !== undefined) where.isActive = isActive === 'true';
-
-    const tariffs = await prisma.gDRGTariff.findMany({
-      where,
-      include: {
-        _count: {
-          select: {
-            // ✅ CORRECT: Diagnosis (Capital D)
-            Diagnosis: true
-          }
-        }
-      },
-      orderBy: { gdrgCode: 'asc' }
-    });
-
-    res.json({
-      success: true,
-      data: tariffs
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching GDRG tariffs', error);
-  }
-};
-
+// ============================================
+// DELETE DIAGNOSIS
+// ============================================
 export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    console.log('🗑️ Deleting diagnosis:', id);
 
-    // Check if diagnosis exists and has related records
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
@@ -572,7 +428,7 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
         AdmissionSecondaryDiagnosis: { take: 1 },
         AttendanceDiagnosis: { take: 1 },
         ServiceCatalog: { take: 1 },
-        GDRGTariff: { take: 1 }
+        gdrgTariffDiagnoses: { take: 1 }
       }
     });
 
@@ -583,13 +439,13 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if diagnosis has related records
+    // Check for related records
     const hasRelatedRecords = 
       diagnosis.Admission.length > 0 ||
       diagnosis.AdmissionSecondaryDiagnosis.length > 0 ||
       diagnosis.AttendanceDiagnosis.length > 0 ||
       diagnosis.ServiceCatalog.length > 0 ||
-      (diagnosis.GDRGTariff !== null); // ✅ CORRECT: GDRGTariff
+      diagnosis.gdrgTariffDiagnoses.length > 0;
 
     if (hasRelatedRecords) {
       return res.status(400).json({
@@ -602,71 +458,18 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
       where: { id }
     });
 
-    console.log('✅ Diagnosis deleted successfully:', diagnosis.name);
-
     res.json({
       success: true,
       message: 'Diagnosis deleted successfully'
     });
-
   } catch (error) {
     handleError(res, 'Error deleting diagnosis', error);
   }
 };
 
-export const getDiagnosisStats = async (req: AuthRequest, res: Response) => {
-  try {
-    console.log('📊 Getting diagnosis statistics...');
-
-    const [
-      totalDiagnoses,
-      diagnosesByCategory,
-      recentDiagnoses,
-      // ✅ ADDED: GDRG statistics
-      diagnosesWithGDRG
-    ] = await Promise.all([
-      prisma.diagnosis.count(),
-      prisma.diagnosis.groupBy({
-        by: ['category'],
-        _count: true
-      }),
-      prisma.diagnosis.count({
-        where: {
-          createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-          }
-        }
-      }),
-      // ✅ ADDED: Count diagnoses with valid GDRG tariffs
-      prisma.diagnosis.count({
-        where: {
-          GDRGTariff: { // ✅ CORRECT: GDRGTariff
-            isNot: null
-          }
-        }
-      })
-    ]);
-
-    const stats = {
-      total: totalDiagnoses,
-      byCategory: diagnosesByCategory,
-      recentAdditions: recentDiagnoses,
-      diagnosesWithGDRG,
-      gdrgCoverage: totalDiagnoses > 0 ? (diagnosesWithGDRG / totalDiagnoses * 100).toFixed(1) + '%' : '0%',
-      categories: Object.keys(DiagnosisCategory).length
-    };
-
-    console.log('✅ Diagnosis statistics fetched');
-
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching diagnosis stats', error);
-  }
-};
-
+// ============================================
+// SEARCH DIAGNOSES
+// ============================================
 export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
   try {
     const { q, field = 'all' } = req.query;
@@ -678,13 +481,8 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    console.log('🔍 Searching diagnoses:', { q, field });
-
-    const where: any = {
-      OR: []
-    };
-
     const searchTerm = (q as string).trim();
+    const where: any = { OR: [] };
 
     if (field === 'all' || field === 'name') {
       where.OR.push({ name: { contains: searchTerm, mode: 'insensitive' } });
@@ -695,7 +493,11 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
     }
     
     if (field === 'all' || field === 'gdrgCode') {
-      where.OR.push({ gdrgCode: { contains: searchTerm, mode: 'insensitive' } });
+      where.OR.push({ gdrgGroupCode: { contains: searchTerm, mode: 'insensitive' } });
+    }
+
+    if (field === 'all' || field === 'morbidityGroup') {
+      where.OR.push({ morbidityGroup: { equals: searchTerm as any } });
     }
 
     if (where.OR.length === 0) {
@@ -704,30 +506,18 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
 
     const diagnoses = await prisma.diagnosis.findMany({
       where,
-      // ✅ ADDED: Include GDRG tariff info in search results
-      include: {
-        // ✅ CORRECT: GDRGTariff (Capital G, Capital D, Capital R, Capital G, Capital T)
-        GDRGTariff: {
-          select: {
-            nhiaTariff: true,
-            category: true,
-            isActive: true
-          }
-        }
-      },
       select: {
         id: true,
         name: true,
         icdCode: true,
-        gdrgCode: true,
-        category: true,
-        description: true
+        gdrgGroupCode: true,
+        morbidityGroup: true,
+        description: true,
+        isActive: true
       },
       orderBy: { name: 'asc' },
       take: 50
     });
-
-    console.log(`✅ Search completed: Found ${diagnoses.length} diagnoses`);
 
     res.json({
       success: true,
@@ -738,67 +528,121 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getDiagnosisCategories = async (req: AuthRequest, res: Response) => {
+// ============================================
+// GET DIAGNOSIS STATISTICS
+// ============================================
+export const getDiagnosisStats = async (req: AuthRequest, res: Response) => {
   try {
-    const categories = Object.values(DiagnosisCategory);
+    const [
+      totalDiagnoses,
+      activeDiagnoses,
+      diagnosesByMorbidityGroup,
+      recentDiagnoses,
+      diagnosesWithGDRG
+    ] = await Promise.all([
+      prisma.diagnosis.count(),
+      prisma.diagnosis.count({ where: { isActive: true } }),
+      prisma.diagnosis.groupBy({
+        by: ['morbidityGroup'],
+        _count: true
+      }),
+      prisma.diagnosis.count({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          }
+        }
+      }),
+      prisma.diagnosis.count({
+        where: {
+          gdrgTariffDiagnoses: { some: {} }
+        }
+      })
+    ]);
+
+    const stats = {
+      total: totalDiagnoses,
+      active: activeDiagnoses,
+      inactive: totalDiagnoses - activeDiagnoses,
+      byMorbidityGroup: diagnosesByMorbidityGroup,
+      recentAdditions: recentDiagnoses,
+      diagnosesWithGDRG,
+      gdrgCoverage: totalDiagnoses > 0 ? ((diagnosesWithGDRG / totalDiagnoses) * 100).toFixed(1) + '%' : '0%'
+    };
+
     res.json({
       success: true,
-      data: categories
+      data: stats
     });
   } catch (error) {
-    handleError(res, 'Error fetching diagnosis categories', error);
+    handleError(res, 'Error fetching diagnosis stats', error);
   }
 };
 
-// ✅ ADDED: Function to get diagnoses without GDRG tariffs
-export const getDiagnosesWithoutGDRG = async (req: AuthRequest, res: Response) => {
+// ============================================
+// GET MORBIDITY GROUPS
+// ============================================
+export const getMorbidityGroups = async (req: AuthRequest, res: Response) => {
   try {
+    const morbidityGroups = Object.values(MorbidityGroup);
+    res.json({
+      success: true,
+      data: morbidityGroups
+    });
+  } catch (error) {
+    handleError(res, 'Error fetching morbidity groups', error);
+  }
+};
+
+
+// ============================================
+// GET DIAGNOSES BY MORBIDITY GROUP (for GHS reports)
+// ============================================
+export const getDiagnosesByMorbidityGroup = async (req: AuthRequest, res: Response) => {
+  try {
+    const { morbidityGroup } = req.params;
     const { page = 1, limit = 50 } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
     const skip = (pageNum - 1) * limitNum;
 
+    const where: any = { morbidityGroup: morbidityGroup as MorbidityGroup };
+
     const [diagnoses, total] = await Promise.all([
       prisma.diagnosis.findMany({
-        where: {
-          GDRGTariff: null // ✅ CORRECT: GDRGTariff
-        },
+        where,
         select: {
           id: true,
           name: true,
           icdCode: true,
-          gdrgCode: true,
-          category: true,
+          gdrgGroupCode: true,
           description: true,
-          createdAt: true
+          isActive: true
         },
         orderBy: { name: 'asc' },
         skip,
         take: limitNum
       }),
-      prisma.diagnosis.count({
-        where: {
-          gdrgTariff: null
-        }
-      })
+      prisma.diagnosis.count({ where })
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     res.json({
       success: true,
-      data: diagnoses,
+      data: {
+        morbidityGroup,
+        count: total,
+        diagnoses
+      },
       pagination: {
         currentPage: pageNum,
-        totalPages,
+        totalPages: Math.ceil(total / limitNum),
         totalDiagnoses: total,
-        hasNext: pageNum < totalPages,
+        hasNext: pageNum < Math.ceil(total / limitNum),
         hasPrev: pageNum > 1
-      },
-      message: total === 0 ? 'All diagnoses have GDRG tariffs' : `${total} diagnoses missing GDRG tariffs`
+      }
     });
   } catch (error) {
-    handleError(res, 'Error fetching diagnoses without GDRG', error);
+    handleError(res, 'Error fetching diagnoses by morbidity group', error);
   }
 };

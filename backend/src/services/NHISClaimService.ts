@@ -1,33 +1,116 @@
-
-// services/NHISClaimService.ts
+// services/NHISClaimService.ts - COMPLETE CORRECTED VERSION
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 export class NHISClaimService {
+
+  static calculateAgeInDays(dateOfBirth: Date, asOfDate: Date): number {
+    const birthDate = new Date(dateOfBirth);
+    const targetDate = new Date(asOfDate);
+    const diffTime = targetDate.getTime() - birthDate.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  static calculateAgeInYears(dateOfBirth: Date, asOfDate: Date): number {
+    const birthDate = new Date(dateOfBirth);
+    const targetDate = new Date(asOfDate);
+    let age = targetDate.getFullYear() - birthDate.getFullYear();
+    const monthDiff = targetDate.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return Math.max(0, age);
+  }
+
+  static async resolveGDRGByContext(attendance: any, patientAgeInYears: number): Promise<any | null> {
+    const isAdult = patientAgeInYears >= 12;
+    
+    // Antenatal/Postnatal OPD
+    if (attendance.attendanceType === 'antenatal' || attendance.attendanceType === 'postnatal') {
+      return await prisma.gDRGTariff.findFirst({
+        where: { gdrgCode: 'OPDC02A', isActive: true }
+      });
+    }
+    
+    // Delivery
+    if (attendance.attendanceType === 'delivery') {
+      return await prisma.gDRGTariff.findFirst({
+        where: { gdrgCode: 'OBGY34A', isActive: true }
+      });
+    }
+    
+    // Detention/Observation (daycase)
+    if (attendance.encounterCategory === 'daycase') {
+      const gdrgCode = isAdult ? 'ZOOM02A' : 'ZOOM02C';
+      return await prisma.gDRGTariff.findFirst({
+        where: { gdrgCode, isActive: true }
+      });
+    }
+    
+    // Inpatient Admission (IPD)
+    if (attendance.encounterCategory === 'ipd') {
+      const primaryDiagnosis = attendance.AttendanceDiagnosis?.[0]?.Diagnosis;
+      const morbidityGroup = primaryDiagnosis?.morbidityGroup;
+      
+      let gdrgCode = isAdult ? 'MEDI26A' : 'PAED34C';
+      
+      if (morbidityGroup?.includes('malaria')) {
+        gdrgCode = isAdult ? 'MEDI28A' : 'PAED36C';
+      } else if (morbidityGroup === 'hypertension') {
+        gdrgCode = isAdult ? 'MEDI32A' : 'PAED40C';
+      } else if (morbidityGroup === 'pneumonia') {
+        gdrgCode = isAdult ? 'MEDI31A' : 'PAED39C';
+      } else if (morbidityGroup === 'diabetes_mellitus') {
+        gdrgCode = isAdult ? 'MEDI02A' : 'PAED02C';
+      } else if (morbidityGroup === 'asthma') {
+        gdrgCode = isAdult ? 'MEDI22A' : 'PAED30C';
+      }
+      
+      return await prisma.gDRGTariff.findFirst({
+        where: { gdrgCode, isActive: true }
+      });
+    }
+    
+    // Default OPD
+    const gdrgCode = isAdult ? 'OPDC06A' : 'OPDC06C';
+    return await prisma.gDRGTariff.findFirst({
+      where: { gdrgCode, isActive: true }
+    });
+  }
 
   static async generateNHISClaimData(attendanceId: string) {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
-        patient: { select: { fullName: true, dateOfBirth: true, gender: true } },
-        diagnoses: { 
+        Patient: { 
+          select: { 
+            surname: true, 
+            otherNames: true, 
+            dateOfBirth: true, 
+            gender: true,
+            folderNumber: true
+          } 
+        },
+        AttendanceDiagnosis: { 
           include: { 
-            diagnosis: { 
+            Diagnosis: { 
               select: { 
                 name: true, 
                 icdCode: true, 
-                gdrgCode: true 
+                morbidityGroup: true
               } 
             } 
-          } 
+          },
+          where: { primary: true }
         },
-        servicesRendered: { 
+        ServiceRendered: { 
           include: { 
-            serviceItem: { 
+            ServiceCatalog: { 
               select: { 
                 name: true, 
                 code: true,
-                nhisServiceCode: true, // ONLY submit NHIS codes, NOT prices
+                nhisServiceCode: true,
                 serviceCategory: true
               } 
             } 
@@ -38,46 +121,62 @@ export class NHISClaimService {
 
     if (!attendance) throw new Error('Attendance not found');
 
-    const primaryDiagnosis = attendance.diagnoses.find(d => d.primary)?.diagnosis;
+    const primaryDiagnosis = attendance.AttendanceDiagnosis[0]?.Diagnosis;
+    if (!primaryDiagnosis) {
+      throw new Error('Primary diagnosis required for NHIS claim');
+    }
 
-    // NHIS CLAIM: Only submit services with NHIS codes, no prices
-    const nhisServices = attendance.servicesRendered
-      .filter(service => service.serviceItem.nhisServiceCode) // Only services with NHIS codes
+    const patientAgeInYears = this.calculateAgeInYears(
+      attendance.Patient.dateOfBirth,
+      attendance.dateTime
+    );
+
+    const gdrgTariff = await this.resolveGDRGByContext(attendance, patientAgeInYears);
+
+    if (!gdrgTariff) {
+      console.warn(`⚠️ No GDRG tariff found for attendance: ${attendance.attendanceNumber}, age: ${patientAgeInYears}`);
+    }
+
+    const nhisServices = attendance.ServiceRendered
+      .filter(service => service.ServiceCatalog.nhisServiceCode)
       .map(service => ({
-        description: service.serviceItem.name,
-        nhisServiceCode: service.serviceItem.nhisServiceCode, // NHIS tariff code
+        description: service.ServiceCatalog.name,
+        nhisServiceCode: service.ServiceCatalog.nhisServiceCode,
         quantity: service.quantity,
-        // NO PRICES SUBMITTED TO NHIS - they use their own tariff
       }));
 
     return {
       claimType: 'NHIS',
       encounterType: attendance.visitCategory,
       patient: {
-        nhisNumber: attendance.nhisCCC, // NHIS member number
-        fullName: attendance.patient.fullName,
-        dateOfBirth: attendance.patient.dateOfBirth,
-        gender: attendance.patient.gender
+        nhisNumber: attendance.nhisCCC,
+        fullName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim(),
+        dateOfBirth: attendance.Patient.dateOfBirth,
+        gender: attendance.Patient.gender,
+        ageInYears: patientAgeInYears,
+        folderNumber: attendance.Patient.folderNumber
       },
       clinical: {
         attendanceDate: attendance.dateTime,
         primaryDiagnosis: {
-          description: primaryDiagnosis?.name,
-          icdCode: primaryDiagnosis?.icdCode,
-          gdrgCode: primaryDiagnosis?.gdrgCode
-        },
-        secondaryDiagnoses: attendance.diagnoses
-          .filter(d => !d.primary)
-          .map(d => ({
-            description: d.diagnosis.name,
-            icdCode: d.diagnosis.icdCode
-          }))
+          description: primaryDiagnosis.name,
+          icdCode: primaryDiagnosis.icdCode,
+          morbidityGroup: primaryDiagnosis.morbidityGroup
+        }
       },
-      services: nhisServices, // Only services with NHIS codes, no prices
+      gdrgTariff: gdrgTariff ? {
+        code: gdrgTariff.gdrgCode,
+        description: gdrgTariff.description,
+        nhiaTariff: gdrgTariff.nhiaTariff,
+        nhisServiceCode: gdrgTariff.nhisServiceCode
+      } : null,
+      services: nhisServices,
       metadata: {
         totalServices: nhisServices.length,
-        servicesWithNHISCodes: nhisServices.length,
-        totalServicesRendered: attendance.servicesRendered.length
+        tariffFound: !!gdrgTariff,
+        encounterCategory: attendance.encounterCategory,
+        attendanceType: attendance.attendanceType,
+        patientAge: patientAgeInYears
       },
       attendanceId: attendance.id
     };
@@ -87,17 +186,40 @@ export class NHISClaimService {
     const admission = await prisma.admission.findUnique({
       where: { id: admissionId },
       include: {
-        patient: { select: { fullName: true, dateOfBirth: true, gender: true } },
-        principalDiagnosis: { select: { name: true, icdCode: true, gdrgCode: true, category: true } },
-        secondaryDiagnoses: { include: { diagnosis: { select: { name: true, icdCode: true } } } },
-        attendance: {
+        Patient: { 
+          select: { 
+            surname: true, 
+            otherNames: true, 
+            dateOfBirth: true, 
+            gender: true,
+            folderNumber: true
+          } 
+        },
+        Diagnosis: { 
+          select: { 
+            name: true, 
+            icdCode: true, 
+            morbidityGroup: true
+          } 
+        },
+        AdmissionSecondaryDiagnosis: { 
+          include: { 
+            Diagnosis: { 
+              select: { 
+                name: true, 
+                icdCode: true 
+              } 
+            } 
+          } 
+        },
+        Attendance: {
           include: {
-            servicesRendered: { 
+            ServiceRendered: { 
               include: { 
-                serviceItem: { 
+                ServiceCatalog: { 
                   select: { 
                     name: true, 
-                    nhisServiceCode: true // Only NHIS codes for IPD too
+                    nhisServiceCode: true 
                   } 
                 } 
               } 
@@ -109,40 +231,61 @@ export class NHISClaimService {
 
     if (!admission) throw new Error('Admission not found');
 
-    // NHIS IPD: DRG-based payment, not service-based
+    const patientAgeInYears = this.calculateAgeInYears(
+      admission.Patient.dateOfBirth,
+      admission.admissionDate
+    );
+
+    const isAdult = patientAgeInYears >= 12;
+    const morbidityGroup = admission.Diagnosis?.morbidityGroup;
+    
+    let gdrgCode = isAdult ? 'MEDI26A' : 'PAED34C';
+    if (morbidityGroup?.includes('malaria')) {
+      gdrgCode = isAdult ? 'MEDI28A' : 'PAED36C';
+    } else if (morbidityGroup === 'hypertension') {
+      gdrgCode = isAdult ? 'MEDI32A' : 'PAED40C';
+    } else if (morbidityGroup === 'pneumonia') {
+      gdrgCode = isAdult ? 'MEDI31A' : 'PAED39C';
+    }
+
+    const gdrgTariff = await prisma.gDRGTariff.findFirst({
+      where: { gdrgCode, isActive: true }
+    });
+
     return {
       claimType: 'IPD',
       admissionType: admission.admissionType,
       lengthOfStay: admission.lengthOfStay,
       patient: {
-        nhisNumber: admission.attendance?.nhisCCC,
-        fullName: admission.patient.fullName,
-        dateOfBirth: admission.patient.dateOfBirth,
-        gender: admission.patient.gender
+        nhisNumber: admission.Attendance?.nhisCCC,
+        fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+        dateOfBirth: admission.Patient.dateOfBirth,
+        gender: admission.Patient.gender,
+        ageInYears: patientAgeInYears,
+        folderNumber: admission.Patient.folderNumber
       },
       clinical: {
         admissionDate: admission.admissionDate,
         dischargeDate: admission.dischargeDate,
         dischargeStatus: admission.dischargeStatus,
         principalDiagnosis: {
-          description: admission.principalDiagnosis.name,
+          description: admission.Diagnosis.name,
           icdCode: admission.principalIcdCode,
-          gdrgCode: admission.principalDiagnosis.gdrgCode, // DRG code for IPD pricing
-          presentOnAdmission: admission.principalPresentOnAdmission,
-          category: admission.principalDiagnosis.category
+          morbidityGroup: admission.Diagnosis.morbidityGroup,
+          presentOnAdmission: admission.principalPresentOnAdmission
         },
-        secondaryDiagnoses: admission.secondaryDiagnoses.map(d => ({
-          description: d.diagnosis.name,
+        secondaryDiagnoses: admission.AdmissionSecondaryDiagnosis.map(d => ({
+          description: d.Diagnosis.name,
           icdCode: d.icdCode,
           presentOnAdmission: d.presentOnAdmission,
           diagnosisType: d.diagnosisType
         }))
       },
-      // NHIS uses DRG for IPD pricing, not individual services
-      drgInformation: {
-        gdrgCode: admission.principalDiagnosis.gdrgCode,
-        // NHIS will determine payment based on their DRG tariff
-      },
+      gdrgTariff: gdrgTariff ? {
+        code: gdrgTariff.gdrgCode,
+        description: gdrgTariff.description,
+        nhiaTariff: gdrgTariff.nhiaTariff
+      } : null,
       admissionId: admission.id,
       attendanceId: admission.attendanceId
     };
@@ -152,8 +295,9 @@ export class NHISClaimService {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
-        diagnoses: { include: { diagnosis: true } },
-        servicesRendered: { include: { serviceItem: true } }
+        AttendanceDiagnosis: { include: { Diagnosis: true } },
+        ServiceRendered: { include: { ServiceCatalog: true } },
+        Patient: true
       }
     });
 
@@ -164,30 +308,18 @@ export class NHISClaimService {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Validate NHIS number
     if (attendance.paymentMode === 'nhis' && !attendance.nhisCCC) {
       errors.push('NHIS CCC number is required for NHIS claims');
     }
 
-    // Validate primary diagnosis
-    const primaryDiagnosis = attendance.diagnoses.find(d => d.primary);
+    const primaryDiagnosis = attendance.AttendanceDiagnosis.find(d => d.primary);
     if (!primaryDiagnosis) {
       errors.push('Primary diagnosis is required for NHIS claims');
     }
 
-    // Validate services have NHIS codes
-    for (const service of attendance.servicesRendered) {
-      if (!service.serviceItem?.nhisServiceCode) {
-        warnings.push(`Service "${service.serviceItem?.name}" missing NHIS service code`);
-      }
-    }
-
-    // Validate present on admission for inpatient
-    if (attendance.encounterCategory === 'ipd') {
-      for (const diagnosis of attendance.diagnoses) {
-        if (!diagnosis.presentOnAdmission) {
-          warnings.push(`Diagnosis "${diagnosis.diagnosis?.name}" missing Present on Admission indicator`);
-        }
+    for (const service of attendance.ServiceRendered) {
+      if (!service.ServiceCatalog?.nhisServiceCode) {
+        warnings.push(`Service "${service.ServiceCatalog?.name}" missing NHIS service code`);
       }
     }
 
@@ -200,14 +332,25 @@ export class NHISClaimService {
   }
 
   static async generateClaimXML(claimData: any): Promise<string> {
-    // Simplified XML generation - implement full NHIS spec as needed
+    const facilityCode = process.env.NHIS_FACILITY_CODE || 'FAC001';
+    
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Claim>
-  <FacilityCode>${process.env.NHIS_FACILITY_CODE || 'FAC001'}</FacilityCode>
+<NHISClaim>
+  <FacilityCode>${facilityCode}</FacilityCode>
   <ClaimType>${claimData.claimType}</ClaimType>
-  <PatientCCC>${claimData.patient.nhisNumber}</PatientCCC>
-  <TotalAmount>${claimData.drgInformation?.totalPayment || claimData.services?.reduce((sum: number, s: any) => sum + s.totalPrice, 0) || 0}</TotalAmount>
-</Claim>`;
+  <PatientCCC>${claimData.patient?.nhisNumber || ''}</PatientCCC>
+  <PatientAgeInYears>${claimData.patient?.ageInYears || 0}</PatientAgeInYears>
+  <PatientGender>${claimData.patient?.gender || ''}</PatientGender>
+  <PrimaryDiagnosis>
+    <ICD10Code>${claimData.clinical?.primaryDiagnosis?.icdCode || ''}</ICD10Code>
+  </PrimaryDiagnosis>
+  <GDRGTariff>
+    <Code>${claimData.gdrgTariff?.code || ''}</Code>
+    <Amount>${claimData.gdrgTariff?.nhiaTariff || 0}</Amount>
+  </GDRGTariff>
+  <TotalServices>${claimData.services?.length || 0}</TotalServices>
+  <TotalClaimAmount>${claimData.gdrgTariff?.nhiaTariff || 0}</TotalClaimAmount>
+</NHISClaim>`;
 
     return xml;
   }

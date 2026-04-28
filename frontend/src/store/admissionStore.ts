@@ -16,6 +16,11 @@ import {
   getAdmissionStats as apiGetAdmissionStats
 } from '../api';
 
+// ✅ Helper for consistent ID access
+const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
+  return entity?._id || entity?.id;
+};
+
 interface AdmissionState {
   admissions: any[];
   currentAdmission: any | null;
@@ -52,7 +57,7 @@ interface AdmissionState {
 
 const transformAdmission = (admission: any) => ({
   ...admission,
-  id: admission.id || admission.id,
+  id: getEntityId(admission) || admission.id,
   // Ensure dailyNotes is always an array
   dailyNotes: admission.dailyNotes || [],
   // Ensure secondaryDiagnoses is always an array
@@ -146,13 +151,14 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   updateAdmission: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const updatedAdmission = await apiUpdateAdmission(id, data);
       const transformedAdmission = transformAdmission(updatedAdmission.admission || updatedAdmission);
       const admissions = get().admissions.map(admission => 
-        (admission.id === id || admission.id === id) ? transformedAdmission : admission
+        (getEntityId(admission) === id || admission.id === id) ? transformedAdmission : admission
       );
       set({ 
         admissions,
@@ -169,17 +175,18 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   deleteAdmission: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
       await apiDeleteAdmission(id);
       const admissions = get().admissions.filter(admission => 
-        !(admission.id === id || admission.id === id)
+        !(getEntityId(admission) === id || admission.id === id)
       );
       set({ 
         admissions,
         currentAdmission: get().currentAdmission && 
-          (get().currentAdmission.id === id || get().currentAdmission.id === id) ? null : get().currentAdmission,
+          (getEntityId(get().currentAdmission) === id || get().currentAdmission.id === id) ? null : get().currentAdmission,
         isLoading: false 
       });
     } catch (error: any) {
@@ -191,13 +198,14 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   dischargePatient: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiDischargePatient(id, data);
       const transformedAdmission = transformAdmission(result.admission || result);
       const admissions = get().admissions.map(admission => 
-        (admission.id === id || admission.id === id) ? transformedAdmission : admission
+        (getEntityId(admission) === id || admission.id === id) ? transformedAdmission : admission
       );
       set({ 
         admissions,
@@ -214,13 +222,14 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   updateAdmissionWithNHISData: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiUpdateAdmissionWithNHISData(id, data);
       const transformedAdmission = transformAdmission(result.admission || result);
       const admissions = get().admissions.map(admission => 
-        (admission.id === id || admission.id === id) ? transformedAdmission : admission
+        (getEntityId(admission) === id || admission.id === id) ? transformedAdmission : admission
       );
       set({ 
         admissions,
@@ -237,20 +246,19 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   addDailyNote: async (admissionId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiAddDailyNoteToAdmission(admissionId, data);
       const transformedAdmission = transformAdmission(result.admission || result);
       
-      // Update current admission if it's the one being modified
-      if (get().currentAdmission && (get().currentAdmission.id === admissionId || get().currentAdmission.id === admissionId)) {
+      if (get().currentAdmission && (getEntityId(get().currentAdmission) === admissionId || get().currentAdmission.id === admissionId)) {
         set({ currentAdmission: transformedAdmission });
       }
       
-      // Update admissions list
       const admissions = get().admissions.map(admission => 
-        (admission.id === admissionId || admission.id === admissionId) ? transformedAdmission : admission
+        (getEntityId(admission) === admissionId || admission.id === admissionId) ? transformedAdmission : admission
       );
       
       set({ 
@@ -268,20 +276,19 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   updateDailyNote: async (admissionId: string, noteId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiUpdateDailyNote(admissionId, noteId, data);
       const transformedAdmission = transformAdmission(result.admission || result);
       
-      // Update current admission if it's the one being modified
-      if (get().currentAdmission && (get().currentAdmission.id === admissionId || get().currentAdmission.id === admissionId)) {
+      if (get().currentAdmission && (getEntityId(get().currentAdmission) === admissionId || get().currentAdmission.id === admissionId)) {
         set({ currentAdmission: transformedAdmission });
       }
       
-      // Update admissions list
       const admissions = get().admissions.map(admission => 
-        (admission.id === admissionId || admission.id === admissionId) ? transformedAdmission : admission
+        (getEntityId(admission) === admissionId || admission.id === admissionId) ? transformedAdmission : admission
       );
       
       set({ 
@@ -299,20 +306,19 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   deleteDailyNote: async (admissionId: string, noteId: string) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiDeleteDailyNote(admissionId, noteId);
       const transformedAdmission = transformAdmission(result.admission || result);
       
-      // Update current admission if it's the one being modified
-      if (get().currentAdmission && (get().currentAdmission.id === admissionId || get().currentAdmission.id === admissionId)) {
+      if (get().currentAdmission && (getEntityId(get().currentAdmission) === admissionId || get().currentAdmission.id === admissionId)) {
         set({ currentAdmission: transformedAdmission });
       }
       
-      // Update admissions list
       const admissions = get().admissions.map(admission => 
-        (admission.id === admissionId || admission.id === admissionId) ? transformedAdmission : admission
+        (getEntityId(admission) === admissionId || admission.id === admissionId) ? transformedAdmission : admission
       );
       
       set({ 
@@ -330,20 +336,19 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   addSecondaryDiagnosis: async (admissionId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiAddSecondaryDiagnosisToAdmission(admissionId, data);
       const transformedAdmission = transformAdmission(result.admission || result);
       
-      // Update current admission if it's the one being modified
-      if (get().currentAdmission && (get().currentAdmission.id === admissionId || get().currentAdmission.id === admissionId)) {
+      if (get().currentAdmission && (getEntityId(get().currentAdmission) === admissionId || get().currentAdmission.id === admissionId)) {
         set({ currentAdmission: transformedAdmission });
       }
       
-      // Update admissions list
       const admissions = get().admissions.map(admission => 
-        (admission.id === admissionId || admission.id === admissionId) ? transformedAdmission : admission
+        (getEntityId(admission) === admissionId || admission.id === admissionId) ? transformedAdmission : admission
       );
       
       set({ 
@@ -361,20 +366,19 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Proper ID comparison
   removeSecondaryDiagnosis: async (admissionId: string, diagnosisId: string) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiRemoveSecondaryDiagnosisFromAdmission(admissionId, diagnosisId);
       const transformedAdmission = transformAdmission(result.admission || result);
       
-      // Update current admission if it's the one being modified
-      if (get().currentAdmission && (get().currentAdmission.id === admissionId || get().currentAdmission.id === admissionId)) {
+      if (get().currentAdmission && (getEntityId(get().currentAdmission) === admissionId || get().currentAdmission.id === admissionId)) {
         set({ currentAdmission: transformedAdmission });
       }
       
-      // Update admissions list
       const admissions = get().admissions.map(admission => 
-        (admission.id === admissionId || admission.id === admissionId) ? transformedAdmission : admission
+        (getEntityId(admission) === admissionId || admission.id === admissionId) ? transformedAdmission : admission
       );
       
       set({ 

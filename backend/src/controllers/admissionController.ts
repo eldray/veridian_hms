@@ -63,7 +63,6 @@ export const getAdmissions = async (req: Request, res: Response) => {
             select: {
               name: true,
               icdCode: true,
-              category: true
             }
           },
           Attendance: {
@@ -249,7 +248,6 @@ export const createAdmission = [
               select: {
                 name: true,
                 icdCode: true,
-                category: true
               }
             },
             attendance: {
@@ -366,7 +364,6 @@ export const getAdmissionById = async (req: Request, res: Response) => {
           select: {
             name: true,
             icdCode: true,
-            category: true
           }
         },
         AdmissionSecondaryDiagnosis: {
@@ -374,7 +371,6 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             Diagnosis: {
               select: {
                 name: true,
-                category: true
               }
             }
           }  
@@ -701,7 +697,6 @@ export const updateAdmissionWithNHISData = [
     select: {
       name: true,
       icdCode: true,
-      category: true
     }
   },
   AdmissionSecondaryDiagnosis: {
@@ -709,7 +704,6 @@ export const updateAdmissionWithNHISData = [
       Diagnosis: {
         select: {
           name: true,
-          category: true
         }
       }
     }

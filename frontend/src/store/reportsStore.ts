@@ -1,4 +1,4 @@
-// src/store/reportsStore.ts - UPDATED WITH ALL API FUNCTIONS
+// src/store/reportsStore.ts
 import { create } from 'zustand';
 import { 
   getFinancialReport as apiGetFinancialReport,
@@ -7,13 +7,14 @@ import {
   getAttendanceReport as apiGetAttendanceReport,
   getRevenueReport as apiGetRevenueReport,
   exportReport as apiExportReport,
-  // ✅ ADDED MISSING GHS REPORTS
+  // GHS Reports
   getGHSOPDReport as apiGetGHSOPDReport,
   getGHSIPDReport as apiGetGHSIPDReport,
   getGHSANCReport as apiGetGHSANCReport,
-  getGHSCWCReport as apiGetGHSCWCReport,
+  getGHSDeliveryReport as apiGetGHSDeliveryReport,
+  getGHSMalariaReport as apiGetGHSMalariaReport,
+  getGHSIDSRReport as apiGetGHSIDSRReport,
   getGHSFamilyPlanningReport as apiGetGHSFamilyPlanningReport,
-  // ✅ ADDED MISSING CLINICAL REPORTS
   getMorbidityMortalityReport as apiGetMorbidityMortalityReport,
   getDemographicReport as apiGetDemographicReport
 } from '../api';
@@ -23,54 +24,30 @@ import type {
   ClinicalReport, 
   AttendanceReport, 
   RevenueReport,
+  OPDRreport,
+  IPDReport,
+  ANCReport,
+  DeliveryReport,
+  MalariaReport,
+  IDSRReport,
+  FamilyPlanningReport,
+  MorbidityMortalityReport,
+  DemographicReport,
   ReportFilter 
 } from '../types';
 
-// ✅ ADDED GHS REPORT INTERFACES
-interface GHSOPDReport {
-  totalVisits: number;
-  newCases: number;
-  followUpCases: number;
-  maleCount: number;
-  femaleCount: number;
-  ageGroups: any;
-  diagnoses: any[];
-}
-
-interface GHSIPDReport {
-  totalAdmissions: number;
-  discharges: number;
-  deaths: number;
-  averageLengthOfStay: number;
-  bedOccupancyRate: number;
-  wardStatistics: any[];
-}
-
-interface GHSANCReport {
-  totalANCVisits: number;
-  firstVisits: number;
-  followUpVisits: number;
-  highRiskPregnancies: number;
-  deliveries: number;
-  maternalDeaths: number;
-}
-
-interface GHSCWCReport {
-  totalCWCVisits: number;
-  immunizations: any[];
-  growthMonitoring: any[];
-  nutritionalStatus: any[];
-}
-
-interface GHSFamilyPlanningReport {
-  totalClients: number;
-  newAcceptors: number;
-  continuingUsers: number;
-  methodMix: any[];
-  ageDistribution: any[];
-}
-
 interface ReportsState {
+  // GHS Reports
+  opdReport: OPDRreport | null;
+  ipdReport: IPDReport | null;
+  ancReport: ANCReport | null;
+  deliveryReport: DeliveryReport | null;
+  malariaReport: MalariaReport | null;
+  idsrReport: IDSRReport | null;
+  familyPlanningReport: FamilyPlanningReport | null;
+  morbidityMortalityReport: MorbidityMortalityReport | null;
+  demographicReport: DemographicReport | null;
+  
   // Core Reports
   financialReport: FinancialReport | null;
   insuranceClaimsReport: InsuranceClaimsReport | null;
@@ -78,19 +55,19 @@ interface ReportsState {
   attendanceReport: AttendanceReport | null;
   revenueReport: RevenueReport | null;
   
-  // ✅ ADDED GHS REPORTS
-  ghsOPDReport: GHSOPDReport | null;
-  ghsIPDReport: GHSIPDReport | null;
-  ghsANCReport: GHSANCReport | null;
-  ghsCWCReport: GHSCWCReport | null;
-  ghsFamilyPlanningReport: GHSFamilyPlanningReport | null;
-  
-  // ✅ ADDED CLINICAL REPORTS
-  morbidityMortalityReport: any | null;
-  demographicReport: any | null;
-  
   isLoading: boolean;
-  error: string | null; // ✅ ADDED ERROR HANDLING
+  error: string | null;
+  
+  // GHS Report Actions
+  getOPDReport: (filters: ReportFilter) => Promise<void>;
+  getIPDReport: (filters: ReportFilter) => Promise<void>;
+  getANCReport: (filters: ReportFilter) => Promise<void>;
+  getDeliveryReport: (filters: ReportFilter) => Promise<void>;
+  getMalariaReport: (filters: ReportFilter) => Promise<void>;
+  getIDSRReport: (filters: ReportFilter) => Promise<void>;
+  getFamilyPlanningReport: (filters: ReportFilter) => Promise<void>;
+  getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
+  getDemographicReport: (filters: ReportFilter) => Promise<void>;
   
   // Core Report Actions
   getFinancialReport: (filters: ReportFilter) => Promise<void>;
@@ -98,45 +75,176 @@ interface ReportsState {
   getClinicalReport: (filters: ReportFilter) => Promise<void>;
   getAttendanceReport: (filters: ReportFilter) => Promise<void>;
   getRevenueReport: (filters: ReportFilter) => Promise<void>;
+  
   exportReport: (data: any) => Promise<any>;
-  
-  // ✅ ADDED MISSING REPORT ACTIONS
-  // GHS Standard Reports
-  getGHSOPDReport: (filters: ReportFilter) => Promise<void>;
-  getGHSIPDReport: (filters: ReportFilter) => Promise<void>;
-  getGHSANCReport: (filters: ReportFilter) => Promise<void>;
-  getGHSCWCReport: (filters: ReportFilter) => Promise<void>;
-  getGHSFamilyPlanningReport: (filters: ReportFilter) => Promise<void>;
-  
-  // Clinical Reports
-  getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
-  getDemographicReport: (filters: ReportFilter) => Promise<void>;
-  
   clearReports: () => void;
-  clearError: () => void; // ✅ ADDED
+  clearError: () => void;
 }
 
 export const useReportsStore = create<ReportsState>((set, get) => ({
-  // Core Reports
+  // GHS Reports initial state
+  opdReport: null,
+  ipdReport: null,
+  ancReport: null,
+  deliveryReport: null,
+  malariaReport: null,
+  idsrReport: null,
+  familyPlanningReport: null,
+  morbidityMortalityReport: null,
+  demographicReport: null,
+  
+  // Core Reports initial state
   financialReport: null,
   insuranceClaimsReport: null,
   clinicalReport: null,
   attendanceReport: null,
   revenueReport: null,
   
-  // ✅ ADDED GHS REPORTS
-  ghsOPDReport: null,
-  ghsIPDReport: null,
-  ghsANCReport: null,
-  ghsCWCReport: null,
-  ghsFamilyPlanningReport: null,
-  
-  // ✅ ADDED CLINICAL REPORTS
-  morbidityMortalityReport: null,
-  demographicReport: null,
-  
   isLoading: false,
-  error: null, // ✅ ADDED
+  error: null,
+
+  // ============================================
+  // GHS REPORT ACTIONS
+  // ============================================
+  
+  getOPDReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSOPDReport(filters);
+      set({ opdReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch OPD report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch OPD report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getIPDReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSIPDReport(filters);
+      set({ ipdReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch IPD report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch IPD report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getANCReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSANCReport(filters);
+      set({ ancReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch ANC report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch ANC report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getDeliveryReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSDeliveryReport(filters);
+      set({ deliveryReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch Delivery report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch Delivery report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getMalariaReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSMalariaReport(filters);
+      set({ malariaReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch Malaria report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch Malaria report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getIDSRReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSIDSRReport(filters);
+      set({ idsrReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch IDSR report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch IDSR report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getFamilyPlanningReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetGHSFamilyPlanningReport(filters);
+      set({ familyPlanningReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch Family Planning report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch Family Planning report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getMorbidityMortalityReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetMorbidityMortalityReport(filters);
+      set({ morbidityMortalityReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch Morbidity/Mortality report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch Morbidity/Mortality report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getDemographicReport: async (filters: ReportFilter) => {
+    set({ isLoading: true, error: null });
+    try {
+      const report = await apiGetDemographicReport(filters);
+      set({ demographicReport: report, isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to fetch Demographic report:', error);
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch Demographic report',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  // ============================================
+  // CORE REPORT ACTIONS
+  // ============================================
 
   getFinancialReport: async (filters: ReportFilter) => {
     set({ isLoading: true, error: null });
@@ -229,128 +337,22 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     }
   },
 
-  // ✅ ADDED MISSING REPORT ACTIONS
-  // GHS Standard Reports
-  getGHSOPDReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSOPDReport(filters);
-      set({ ghsOPDReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch GHS OPD report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch GHS OPD report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getGHSIPDReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSIPDReport(filters);
-      set({ ghsIPDReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch GHS IPD report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch GHS IPD report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getGHSANCReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSANCReport(filters);
-      set({ ghsANCReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch GHS ANC report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch GHS ANC report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getGHSCWCReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSCWCReport(filters);
-      set({ ghsCWCReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch GHS CWC report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch GHS CWC report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getGHSFamilyPlanningReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSFamilyPlanningReport(filters);
-      set({ ghsFamilyPlanningReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch GHS Family Planning report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch GHS Family Planning report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  // Clinical Reports
-  getMorbidityMortalityReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetMorbidityMortalityReport(filters);
-      set({ morbidityMortalityReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch morbidity mortality report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch morbidity mortality report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getDemographicReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetDemographicReport(filters);
-      set({ demographicReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch demographic report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch demographic report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
   clearReports: () => {
     set({
+      opdReport: null,
+      ipdReport: null,
+      ancReport: null,
+      deliveryReport: null,
+      malariaReport: null,
+      idsrReport: null,
+      familyPlanningReport: null,
+      morbidityMortalityReport: null,
+      demographicReport: null,
       financialReport: null,
       insuranceClaimsReport: null,
       clinicalReport: null,
       attendanceReport: null,
       revenueReport: null,
-      ghsOPDReport: null,
-      ghsIPDReport: null,
-      ghsANCReport: null,
-      ghsCWCReport: null,
-      ghsFamilyPlanningReport: null,
-      morbidityMortalityReport: null,
-      demographicReport: null,
       error: null
     });
   },

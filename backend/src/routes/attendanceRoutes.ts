@@ -57,7 +57,10 @@ router.delete('/:id/procedures/:procedureId', requireDoctor, attendanceControlle
 router.post('/:id/medications', requireDoctor, attendanceController.addMedicationToAttendance);
 router.patch('/:id/medications/:medicationId', requireClinicalStaff, attendanceController.updateMedicationStatus);
 router.delete('/:id/medications/:medicationId', requireDoctor, attendanceController.removeMedicationFromAttendance);
-
+router.post('/:id/medications/:medicationId/dispense', 
+  requirePharmacyStaff, 
+  attendanceController.dispenseMedication
+);
 // ==========================================
 // SCANS
 // ==========================================

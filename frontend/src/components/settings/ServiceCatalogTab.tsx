@@ -1,4 +1,4 @@
-// src/components/settings/ServiceCatalogTab.tsx
+// src/components/settings/ServiceCatalogTab.tsx - UPDATED WITH COMPLETE THEME
 import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
@@ -6,7 +6,7 @@ import { useToast } from '../../store/toastStore';
 import {
   Plus, Search, ClipboardList, Edit, Trash2, RefreshCw,
   DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope,
-  X, Save
+  X, Save, Loader, AlertCircle, TrendingUp, BarChart3
 } from 'lucide-react';
 
 export default function ServiceCatalogTab() {
@@ -26,6 +26,7 @@ export default function ServiceCatalogTab() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -33,10 +34,10 @@ export default function ServiceCatalogTab() {
     nhisServiceCode: '',
     description: '',
     serviceType: 'consultation',
-    serviceCategory: 'opd', // Changed from 'category' to 'serviceCategory'
+    serviceCategory: 'opd',
     cashPrice: 0,
     insurancePrice: 0,
-    nhisPrice: 0, // Added nhisPrice
+    nhisPrice: 0,
     unit: 'Each',
     requiresAuthorization: false,
     tariffCode: '',
@@ -56,6 +57,25 @@ export default function ServiceCatalogTab() {
     }
   };
 
+  // Analytics calculations
+  const getServiceAnalytics = () => {
+    const byType: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    let totalCashValue = 0;
+    let totalInsuranceValue = 0;
+
+    serviceCatalog.forEach(service => {
+      byType[service.serviceType] = (byType[service.serviceType] || 0) + 1;
+      byCategory[service.serviceCategory] = (byCategory[service.serviceCategory] || 0) + 1;
+      totalCashValue += service.pricing?.cashPrice || 0;
+      totalInsuranceValue += service.pricing?.insurancePrice || 0;
+    });
+
+    return { byType, byCategory, totalCashValue, totalInsuranceValue, totalServices: serviceCatalog.length };
+  };
+
+  const analytics = getServiceAnalytics();
+
   const filteredServices = serviceCatalog.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          service.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,10 +91,10 @@ export default function ServiceCatalogTab() {
     
     try {
       if (editingItem) {
-        if (!editingItem.id) { // Changed from _id to id
+        if (!editingItem.id) {
           throw new Error('Cannot update service: missing service ID');
         }
-        await updateServiceCatalogItem(editingItem.id, formData); // Changed from _id to id
+        await updateServiceCatalogItem(editingItem.id, formData);
         success('Service Updated', `${formData.name} has been updated successfully`);
       } else {
         await createServiceCatalogItem(formData);
@@ -94,7 +114,7 @@ export default function ServiceCatalogTab() {
   };
 
   const handleEdit = (item: any) => {
-    if (!item || !item.id) { // Changed from _id to id
+    if (!item || !item.id) {
       toastError('Error', 'Cannot edit this service item');
       return;
     }
@@ -106,15 +126,15 @@ export default function ServiceCatalogTab() {
       nhisServiceCode: item.nhisServiceCode || '',
       description: item.description || '',
       serviceType: item.serviceType || 'consultation',
-      serviceCategory: item.serviceCategory || 'opd', // Changed from category to serviceCategory
-      cashPrice: item.pricing?.cashPrice || 0, // Get from pricing relation
-      insurancePrice: item.pricing?.insurancePrice || 0, // Get from pricing relation
-      nhisPrice: item.pricing?.nhisPrice || 0, // Get from pricing relation
+      serviceCategory: item.serviceCategory || 'opd',
+      cashPrice: item.pricing?.cashPrice || 0,
+      insurancePrice: item.pricing?.insurancePrice || 0,
+      nhisPrice: item.pricing?.nhisPrice || 0,
       unit: item.unit || 'Each',
-      requiresAuthorization: item.nhisRequiresAuth || false, // Updated field name
+      requiresAuthorization: item.nhisRequiresAuth || false,
       tariffCode: item.tariffCode || '',
-      vatRate: item.pricing?.vatRate || 0, // Get from pricing relation
-      isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true, // Get from pricing relation
+      vatRate: item.pricing?.vatRate || 0,
+      isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true,
     });
     setShowForm(true);
   };
@@ -138,20 +158,9 @@ export default function ServiceCatalogTab() {
 
   const resetForm = () => {
     setFormData({
-      name: '', 
-      code: '', 
-      nhisServiceCode: '',
-      description: '', 
-      serviceType: 'consultation',
-      serviceCategory: 'opd', // Changed from category to serviceCategory
-      cashPrice: 0, 
-      insurancePrice: 0, 
-      nhisPrice: 0,
-      unit: 'Each', 
-      requiresAuthorization: false, 
-      tariffCode: '', 
-      vatRate: 0, 
-      isTaxable: true
+      name: '', code: '', nhisServiceCode: '', description: '', serviceType: 'consultation',
+      serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, unit: 'Each',
+      requiresAuthorization: false, tariffCode: '', vatRate: 0, isTaxable: true
     });
   };
 
@@ -161,26 +170,21 @@ export default function ServiceCatalogTab() {
     resetForm();
   };
 
-  // ✅ FIXED: Safe price display function
   const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis') => {
-    // Try to get price from pricing relation first
     const pricing = service.pricing;
     if (pricing) {
       switch (priceType) {
         case 'cash': return pricing.cashPrice || 0;
         case 'insurance': return pricing.insurancePrice || 0;
         case 'nhis': return pricing.nhisPrice || 0;
-        default: return 0;
       }
     }
-    
-    // Fallback to direct properties (for backward compatibility)
     switch (priceType) {
       case 'cash': return service.cashPrice || 0;
       case 'insurance': return service.insurancePrice || 0;
       case 'nhis': return service.nhisPrice || 0;
-      default: return 0;
     }
+    return 0;
   };
 
   const getServiceIcon = (type: string) => {
@@ -209,7 +213,31 @@ export default function ServiceCatalogTab() {
 
   return (
     <div className="space-y-6">
-      {/* Search and Add Service */}
+      {/* Header Stats Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
+          <ClipboardList className="w-5 h-5 text-[var(--icon-cyan-text)] mx-auto mb-1" />
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{analytics.totalServices}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Total Services</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
+          <DollarSign className="w-5 h-5 text-green-500 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-green-600">GHS {analytics.totalCashValue.toFixed(0)}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Total Value (Cash)</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
+          <Shield className="w-5 h-5 text-purple-500 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-purple-600">{Object.keys(analytics.byType).length}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Service Types</p>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
+          <Building className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-blue-600">{Object.keys(analytics.byCategory).length}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Categories</p>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
@@ -219,13 +247,13 @@ export default function ServiceCatalogTab() {
               placeholder="Search services..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+              className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
             />
           </div>
           <select 
             value={filterServiceType} 
             onChange={e => setFilterServiceType(e.target.value)}
-            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
           >
             <option value="all">All Types</option>
             {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
@@ -235,20 +263,26 @@ export default function ServiceCatalogTab() {
           <select 
             value={filterCategory} 
             onChange={e => setFilterCategory(e.target.value)}
-            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
           >
             <option value="all">All Categories</option>
-            {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => ( // Updated categories to match schema
-              <option key={c} value={c}>{c}</option>
+            {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
+              <option key={c} value={c}>{c.toUpperCase()}</option>
             ))}
           </select>
           <button 
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
+          >
+            <TrendingUp className="w-4 h-4 inline mr-2" />
+            Analytics
+          </button>
+          <button 
             onClick={loadData} 
             disabled={isLoading}
-            className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+            className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
           {user?.role === 'admin' && (
             <button
@@ -262,6 +296,40 @@ export default function ServiceCatalogTab() {
         </div>
       </div>
 
+      {/* Analytics Panel */}
+      {showAnalytics && (
+        <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+          <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            Service Analytics
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-medium text-[var(--text-secondary)] mb-2">By Service Type</h4>
+              <div className="space-y-1">
+                {Object.entries(analytics.byType).map(([type, count]) => (
+                  <div key={type} className="flex justify-between text-sm">
+                    <span className="text-[var(--text-primary)]">{type.replace('_', ' ')}</span>
+                    <span className="font-medium text-[var(--text-primary)]">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-[var(--text-secondary)] mb-2">By Category</h4>
+              <div className="space-y-1">
+                {Object.entries(analytics.byCategory).map(([cat, count]) => (
+                  <div key={cat} className="flex justify-between text-sm">
+                    <span className="text-[var(--text-primary)]">{cat.toUpperCase()}</span>
+                    <span className="font-medium text-[var(--text-primary)]">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Services Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -273,14 +341,14 @@ export default function ServiceCatalogTab() {
           ))}
         </div>
       ) : filteredServices.length === 0 ? (
-        <div className="text-center py-8 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <ClipboardList className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-2" />
-          <p className="text-[var(--text-secondary)] text-sm">No services found</p>
+        <div className="text-center py-12 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <ClipboardList className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+          <p className="text-[var(--text-secondary)]">No services found</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map(service => (
-            <div key={service.id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow"> {/* Changed from _id to id */}
+            <div key={service.id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-md transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getServiceColor(service.serviceType)}`}>
@@ -288,14 +356,12 @@ export default function ServiceCatalogTab() {
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--text-primary)]">{service.name}</h3>
-                    <div className="flex gap-1 mt-1">
-                      <span className={`text-xs px-2 py-0.5 rounded ${getServiceColor(service.serviceType)}`}>
-                        {service.serviceType.replace('_', ' ')}
-                      </span>
-                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded ${getServiceColor(service.serviceType)}`}>
+                      {service.serviceType.replace('_', ' ')}
+                    </span>
                   </div>
                 </div>
-                {service.nhisRequiresAuthorization && <Shield className="w-4 h-4 text-[var(--icon-yellow-text)]" />} {/* Updated field name */}
+                {service.nhisRequiresAuth && <Shield className="w-4 h-4 text-[var(--icon-yellow-text)]" />}
               </div>
               <div className="space-y-1.5 text-xs mb-3">
                 <div className="flex justify-between">
@@ -309,43 +375,37 @@ export default function ServiceCatalogTab() {
                   </div>
                 )}
                 {service.description && <p className="text-[var(--text-secondary)] line-clamp-1">{service.description}</p>}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   <div>
                     <div className="flex items-center gap-1 text-[var(--text-secondary)] mb-0.5">
                       <DollarSign className="w-3 h-3" /> Cash
                     </div>
-                    {/* ✅ FIXED: Using safe price display function */}
-                    <p className="font-medium text-[var(--text-primary)]">
-                      GHS {getPriceDisplay(service, 'cash').toFixed(2)}
-                    </p>
+                    <p className="font-medium text-[var(--text-primary)]">GHS {getPriceDisplay(service, 'cash').toFixed(2)}</p>
                   </div>
                   <div>
                     <div className="flex items-center gap-1 text-[var(--text-secondary)] mb-0.5">
                       <Shield className="w-3 h-3" /> Insurance
                     </div>
-                    {/* ✅ FIXED: Using safe price display function */}
-                    <p className="font-medium text-[var(--text-primary)]">
-                      GHS {getPriceDisplay(service, 'insurance').toFixed(2)}
-                    </p>
+                    <p className="font-medium text-[var(--text-primary)]">GHS {getPriceDisplay(service, 'insurance').toFixed(2)}</p>
                   </div>
                 </div>
               </div>
               {user?.role === 'admin' && (
-  <div className="flex gap-1 pt-2 border-t border-[var(--border-color)]">
-    <button 
-      onClick={() => handleEdit(service)}
-      className="flex-1 py-1.5 text-[var(--icon-green-text)] hover:text-[var(--icon-green-text)]/80 flex items-center justify-center gap-1 text-xs"
-    >
-      <Edit className="w-3 h-3" /> Edit
-    </button>
-    <button 
-      onClick={() => handleDelete(service.id)}
-      className="flex-1 py-1.5 text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)]/80 flex items-center justify-center gap-1 text-xs"
-    >
-      <Trash2 className="w-3 h-3" /> Delete
-    </button>
-  </div>
-)}
+                <div className="flex gap-1 pt-2 border-t border-[var(--border-color)]">
+                  <button 
+                    onClick={() => handleEdit(service)}
+                    className="flex-1 py-1.5 text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center gap-1 text-xs transition-colors"
+                  >
+                    <Edit className="w-3 h-3" /> Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(service.id)}
+                    className="flex-1 py-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center gap-1 text-xs transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -353,144 +413,113 @@ export default function ServiceCatalogTab() {
 
       {/* Service Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[var(--border-color)]">
+            <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 {editingItem ? 'Edit Service' : 'Add New Service'}
               </h2>
-              <button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded">
+              <button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Name *</label>
                   <input 
-                    type="text" 
-                    required 
-                    value={formData.name}
+                    type="text" required value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Code *</label>
                   <input 
-                    type="text" 
-                    required 
-                    value={formData.code}
+                    type="text" required value={formData.code}
                     onChange={e => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS Code</label>
                   <input 
-                    type="text" 
-                    value={formData.nhisServiceCode}
+                    type="text" value={formData.nhisServiceCode}
                     onChange={e => setFormData({ ...formData, nhisServiceCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Type *</label>
                   <select 
                     value={formData.serviceType}
                     onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   >
                     {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
-                      <option key={t} value={t}>
-                        {t.replace('_', ' ').toUpperCase()}
-                      </option>
+                      <option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Category</label>
                   <select 
-                     value={formData.serviceCategory}
-  onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
-  className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
-                    >
-                    {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => ( // Updated categories
-                      <option key={c} value={c}>
-                        {c.toUpperCase()}
-                      </option>
+                    value={formData.serviceCategory}
+                    onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
+                  >
+                    {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
+                      <option key={c} value={c}>{c.toUpperCase()}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Unit</label>
                   <input 
-                    type="text" 
-                    value={formData.unit}
+                    type="text" value={formData.unit}
                     onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Cash Price *</label>
                   <input 
-                    type="number" 
-                    step="0.01" 
-                    required 
-                    value={formData.cashPrice} 
+                    type="number" step="0.01" required value={formData.cashPrice}
                     onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Insurance Price *</label>
                   <input 
-                    type="number" 
-                    step="0.01" 
-                    required 
-                    value={formData.insurancePrice} 
+                    type="number" step="0.01" required value={formData.insurancePrice}
                     onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS Price</label>
                   <input 
-                    type="number" 
-                    step="0.01" 
-                    value={formData.nhisPrice} 
+                    type="number" step="0.01" value={formData.nhisPrice}
                     onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Tariff Code</label>
                   <input 
-                    type="text" 
-                    value={formData.tariffCode}
+                    type="text" value={formData.tariffCode}
                     onChange={e => setFormData({ ...formData, tariffCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">VAT Rate %</label>
                   <input 
-                    type="number" 
-                    step="0.01" 
-                    value={formData.vatRate} 
+                    type="number" step="0.01" value={formData.vatRate}
                     onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                    className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
               </div>
@@ -498,36 +527,32 @@ export default function ServiceCatalogTab() {
               <div>
                 <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Description</label>
                 <textarea 
-                  rows={2} 
-                  value={formData.description}
+                  rows={2} value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
+                  className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                 />
               </div>
 
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
                   <input 
-                    type="checkbox" 
-                    checked={formData.requiresAuthorization}
+                    type="checkbox" checked={formData.requiresAuthorization}
                     onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)] w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
                   <span className="text-sm text-[var(--text-primary)]">Requires Authorization</span>
                 </label>
-                
                 <label className="flex items-center gap-2">
                   <input 
-                    type="checkbox" 
-                    checked={formData.isTaxable}
+                    type="checkbox" checked={formData.isTaxable}
                     onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)] w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
                   <span className="text-sm text-[var(--text-primary)]">Taxable</span>
                 </label>
               </div>
 
-              <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
+              <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
                 <button 
                   type="submit"
                   disabled={formLoading}
@@ -537,8 +562,7 @@ export default function ServiceCatalogTab() {
                   {formLoading ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
                 </button>
                 <button 
-                  type="button" 
-                  onClick={handleCancel}
+                  type="button" onClick={handleCancel}
                   disabled={formLoading}
                   className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium"
                 >

@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import routes from './app'; // Fixed import path
+import routes from './app';
 
 // Load environment variables
 dotenv.config();
@@ -62,7 +62,7 @@ const runSeedScript = async () => {
     const { seedDatabase } = await import('./seed/seedData');
     const result = await seedDatabase();
     
-    if (result.seeded) {
+    if (result.testData?.seeded) {
       console.log('✅ New data was seeded successfully');
     } else {
       console.log('ℹ️ Database already has data, no seeding needed');
@@ -82,7 +82,7 @@ const runSeedScript = async () => {
       return { seeded: false, reason: 'already_exists' };
     } else {
       console.error('🚨 Serious seeding error, but continuing server startup...');
-      return { seeded: false, reason: 'error', error: error.message };
+      return { seeded: false, reason: 'error', error: error instanceof Error ? error.message : String(error) };
     }
   }
 };

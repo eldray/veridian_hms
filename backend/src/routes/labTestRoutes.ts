@@ -1,3 +1,4 @@
+// routes/labTestRoutes.ts - CORRECTED VERSION
 import express from 'express';
 import {
   getLabTestServices,
@@ -8,36 +9,41 @@ import {
   bulkUpdateLabTestServices,
   getLabTestSubCategories,
   getLabTestMetadataFields,
+  getLabServiceCategories,  // ✅ ADD THIS IMPORT
 } from '../controllers/labTestController';
 import { protect, requireLabStaff, requireAdmin } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// All routes are protected
 router.use(protect);
 
-// GET /api/lab-test-Servicess - Get all lab test Servicess (with optional filters)
-router.get('/', requireLabStaff, getLabTestServices);
+// ✅ IMPORTANT: Static routes MUST come before dynamic /:id routes
 
-// GET /api/lab-test-Servicess/categories - Get all lab test categories
-router.get('/categories', requireLabStaff, bulkUpdateLabTestServices);
+// GET /api/lab-test-services/categories - Get all lab test categories
+router.get('/categories', requireLabStaff, getLabServiceCategories);
 
-// GET /api/lab-test-Servicess/sub-categories - Get all unique sub-categories
+// GET /api/lab-test-services/sub-categories - Get all unique sub-categories
 router.get('/sub-categories', requireLabStaff, getLabTestSubCategories);
 
-// GET /api/lab-test-Servicess/specimen-types - Get all specimen types
+// GET /api/lab-test-services/specimen-types - Get all specimen types
 router.get('/specimen-types', requireLabStaff, getLabTestMetadataFields);
 
-// GET /api/lab-test-Servicess/:id - Get a specific lab test Services by ID
+// GET /api/lab-test-services - Get all lab test services (with filters)
+router.get('/', requireLabStaff, getLabTestServices);
+
+// GET /api/lab-test-services/:id - Get a specific lab test service by ID (MUST BE LAST)
 router.get('/:id', requireLabStaff, getLabTestServiceById);
 
-// POST /api/lab-test-Servicess - Create a new lab test Services
+// POST /api/lab-test-services - Create a new lab test service
 router.post('/', requireAdmin, createLabTestService);
 
-// PUT /api/lab-test-Servicess/:id - Update a lab test Services
+// PUT /api/lab-test-services/:id - Update a lab test service
 router.put('/:id', requireAdmin, updateLabTestService);
 
-// DELETE /api/lab-test-Servicess/:id - Delete a lab test Services
+// DELETE /api/lab-test-services/:id - Delete a lab test service
 router.delete('/:id', requireAdmin, deleteLabTestService);
+
+// POST /api/lab-test-services/bulk-update - Bulk update lab test services status
+router.post('/bulk-update', requireAdmin, bulkUpdateLabTestServices);
 
 export default router;

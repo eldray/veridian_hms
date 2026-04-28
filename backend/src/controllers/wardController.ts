@@ -197,7 +197,7 @@ export const createWard = [
           location,
           floor,
           occupiedBeds: 0,
-          isPending: true
+          isActive: true
           // ❌ NO PRICING FIELDS - handled by service catalog
         }
       });

@@ -1,4 +1,4 @@
-// controllers/procedureController.ts - UPDATED FOR SERVICE CATALOG (CORE FUNCTIONS ONLY)
+// controllers/procedureController.ts - UPDATED WITH PAGINATION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
@@ -7,9 +7,9 @@ const prisma = new PrismaClient();
 
 export const getProcedureTemplates = async (req: Request, res: Response) => {
   try {
-    const { category, department, isActive } = req.query;
+    const { category, department, isActive, page = 1, limit = 50 } = req.query;
     const where: any = {
-      serviceType: ServiceType.procedure // ✅ Only procedure services
+      serviceType: ServiceType.procedure
     };
     
     if (isActive !== undefined) {
@@ -20,7 +20,6 @@ export const getProcedureTemplates = async (req: Request, res: Response) => {
       where.serviceCategory = category as ServiceCategory;
     }
     
-    // ✅ Department is now in metadata
     if (department) {
       where.metadata = {
         path: ['department'],
@@ -28,23 +27,41 @@ export const getProcedureTemplates = async (req: Request, res: Response) => {
       };
     }
 
-    const templates = await prisma.serviceCatalog.findMany({
-      where,
-      include: {
-        pricing: true,
-        procedures: {
-          select: {
-            id: true,
-            status: true
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [templates, total] = await Promise.all([
+      prisma.serviceCatalog.findMany({
+        where,
+        include: {
+          pricing: true,
+          procedures: {
+            select: {
+              id: true,
+              status: true
+            }
           }
-        }
-      },
-      orderBy: {
-        name: 'asc'
+        },
+        orderBy: {
+          name: 'asc'
+        },
+        skip,
+        take: limitNum
+      }),
+      prisma.serviceCatalog.count({ where })
+    ]);
+    
+    res.json({
+      success: true,
+      data: templates,
+      pagination: {
+        currentPage: pageNum,
+        pageSize: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
       }
     });
-    
-    res.json(templates);
   } catch (error) {
     console.error('Error fetching procedure templates:', error);
     res.status(500).json({ message: 'Error fetching procedure templates', error });
@@ -58,16 +75,16 @@ export const getProcedureTemplateById = async (req: Request, res: Response) => {
     const template = await prisma.serviceCatalog.findUnique({
       where: { 
         id,
-        serviceType: ServiceType.procedure // ✅ Ensure it's a procedure service
+        serviceType: ServiceType.procedure
       },
       include: {
         pricing: true,
-        procedures: { // ✅ CORRECT: Capital P (singular) - matches schema
+        procedures: {
           include: {
-            Attendance: { // ✅ CORRECT: Capital A
+            Attendance: {
               select: {
                 attendanceNumber: true,
-                Patient: { // ✅ CORRECT: Capital P
+                Patient: {
                   select: {
                     surname: true,
                     otherNames: true,
@@ -111,7 +128,6 @@ export const createProcedureTemplate = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      // Check if service code already exists
       const existingTemplate = await prisma.serviceCatalog.findUnique({
         where: { code: req.body.code }
       });
@@ -121,47 +137,37 @@ export const createProcedureTemplate = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Create the procedure service
         const template = await tx.serviceCatalog.create({
           data: {
             name: req.body.name,
             code: req.body.code,
             description: req.body.description,
-            serviceType: ServiceType.procedure, // ✅ Fixed service type
+            serviceType: ServiceType.procedure,
             serviceCategory: req.body.serviceCategory as ServiceCategory,
-            subType: req.body.category || null, // ✅ Use category as subType
-            
-            // NHIS Compliance
+            subType: req.body.category || null,
             nhisServiceCode: req.body.nhisServiceCode,
             tariffCode: req.body.tariffCode,
             isNHISCovered: req.body.isNHISCovered !== undefined ? req.body.isNHISCovered : true,
-            
-            // Procedure Metadata
-// Procedure Metadata - include ALL fields from your Procedure model
-          metadata: {
-            department: req.body.department,
-            duration: req.body.duration || 30,
-            requiresAssistant: req.body.requiresAssistant,
-            anesthesiaType: req.body.anesthesiaType,
-            // ✅ ADDED: New procedure-specific fields from your schema
-            anesthesiaNotes: req.body.anesthesiaNotes,
-            intraOperativeNotes: req.body.intraOperativeNotes,
-            postOperativeNotes: req.body.postOperativeNotes,
-            bloodLoss: req.body.bloodLoss,
-            complications: req.body.complications,
-            outcome: req.body.outcome,
-            cost: req.body.cost,
-            procedureCategory: req.body.procedureCategory
-          },
-            
-            // Default values
+            metadata: {
+              department: req.body.department,
+              duration: req.body.duration || 30,
+              requiresAssistant: req.body.requiresAssistant,
+              anesthesiaType: req.body.anesthesiaType,
+              anesthesiaNotes: req.body.anesthesiaNotes,
+              intraOperativeNotes: req.body.intraOperativeNotes,
+              postOperativeNotes: req.body.postOperativeNotes,
+              bloodLoss: req.body.bloodLoss,
+              complications: req.body.complications,
+              outcome: req.body.outcome,
+              cost: req.body.cost,
+              procedureCategory: req.body.procedureCategory
+            },
             isActive: req.body.isActive !== undefined ? req.body.isActive : true,
             unit: req.body.unit || 'Procedure',
             createdById: (req as any).user?.id
           }
         });
 
-        // Create pricing record
         await tx.servicePricing.create({
           data: {
             serviceCatalogId: template.id,
@@ -208,7 +214,6 @@ export const updateProcedureTemplate = [
 
       const { id } = req.params;
       
-      // Check if template exists
       const existingTemplate = await prisma.serviceCatalog.findFirst({
         where: { 
           id,
@@ -221,7 +226,6 @@ export const updateProcedureTemplate = [
         return res.status(404).json({ message: 'Procedure template not found' });
       }
 
-      // Check if service code is being changed and if it already exists
       if (req.body.code && req.body.code !== existingTemplate.code) {
         const templateWithCode = await prisma.serviceCatalog.findUnique({
           where: { code: req.body.code }
@@ -233,18 +237,14 @@ export const updateProcedureTemplate = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Prepare update data
         const updateData: any = { ...req.body };
         
-        // Remove pricing fields from service update
         delete updateData.cashPrice;
         delete updateData.nhisPrice;
         delete updateData.insurancePrice;
         delete updateData.vatRate;
         delete updateData.isTaxable;
 
-        // Handle metadata updates
-// Handle metadata updates - include ALL procedure fields
         if (req.body.department || req.body.duration !== undefined) {
           const currentMetadata = existingTemplate.metadata as any || {};
           updateData.metadata = {
@@ -253,7 +253,6 @@ export const updateProcedureTemplate = [
             duration: req.body.duration !== undefined ? req.body.duration : currentMetadata.duration,
             requiresAssistant: req.body.requiresAssistant !== undefined ? req.body.requiresAssistant : currentMetadata.requiresAssistant,
             anesthesiaType: req.body.anesthesiaType !== undefined ? req.body.anesthesiaType : currentMetadata.anesthesiaType,
-            // ✅ ADDED: New procedure fields
             anesthesiaNotes: req.body.anesthesiaNotes !== undefined ? req.body.anesthesiaNotes : currentMetadata.anesthesiaNotes,
             intraOperativeNotes: req.body.intraOperativeNotes !== undefined ? req.body.intraOperativeNotes : currentMetadata.intraOperativeNotes,
             postOperativeNotes: req.body.postOperativeNotes !== undefined ? req.body.postOperativeNotes : currentMetadata.postOperativeNotes,
@@ -264,12 +263,10 @@ export const updateProcedureTemplate = [
           };
         }
 
-        // Update category as subType
         if (req.body.category !== undefined) {
           updateData.subType = req.body.category;
         }
 
-        // Update service catalog
         const template = await tx.serviceCatalog.update({
           where: { id },
           data: {
@@ -278,7 +275,6 @@ export const updateProcedureTemplate = [
           }
         });
 
-        // Update pricing if provided
         if (req.body.cashPrice !== undefined || req.body.nhisPrice !== undefined || 
             req.body.insurancePrice !== undefined) {
           
@@ -315,15 +311,13 @@ export const deleteProcedureTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // Check if template exists and has dependencies
-// Check if template exists and has dependencies
     const existingTemplate = await prisma.serviceCatalog.findFirst({
       where: { 
         id,
         serviceType: ServiceType.procedure 
       },
       include: {
-        Procedure: { take: 1 }, // ✅ CORRECT: Capital P (singular)
+        procedures: { take: 1 },
         pricing: true
       }
     });
@@ -332,22 +326,19 @@ export const deleteProcedureTemplate = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Procedure template not found' });
     }
 
-    // Check for dependencies
-    if (existingTemplate.Procedure.length > 0) {
+    if (existingTemplate.procedures.length > 0) {
       return res.status(400).json({ 
         message: 'Cannot delete procedure template with associated procedures' 
       });
     }
 
     await prisma.$transaction(async (tx) => {
-      // Delete pricing first
       if (existingTemplate.pricing) {
         await tx.servicePricing.delete({
           where: { serviceCatalogId: id }
         });
       }
 
-      // Delete service catalog
       await tx.serviceCatalog.delete({
         where: { id }
       });
@@ -372,7 +363,6 @@ export const getProcedureCategories = async (req: Request, res: Response) => {
 
 export const getProcedureDepartments = async (req: Request, res: Response) => {
   try {
-    //Departments are stored in metadata.department for procedure services
     const services = await prisma.serviceCatalog.findMany({
       where: { 
         serviceType: ServiceType.procedure,
@@ -396,42 +386,31 @@ export const getProcedureDepartments = async (req: Request, res: Response) => {
   }
 };
 
-export const getProcedureAnesthesiaTypes = async (req: Request, res: Response) => {
+export const bulkUpdateProcedureTemplates = async (req: Request, res: Response) => {
   try {
-    const anesthesiaTypes = [
-      'Local',
-      'Regional',
-      'General',
-      'Sedation',
-      'Spinal',
-      'Epidural',
-      'None'
-    ];
+    const { ids, isActive } = req.body;
     
-    res.json(anesthesiaTypes);
-  } catch (error) {
-    console.error('Error fetching anesthesia types:', error);
-    res.status(500).json({ message: 'Error fetching anesthesia types', error });
-  }
-};
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({ message: 'ids array is required' });
+    }
 
-export const getProcedureComplicationTypes = async (req: Request, res: Response) => {
-  try {
-    const complicationTypes = [
-      'Bleeding',
-      'Infection',
-      'Anesthesia complication',
-      'Organ injury',
-      'Nerve damage',
-      'Blood clot',
-      'Allergic reaction',
-      'Wound dehiscence',
-      'Other'
-    ];
-    
-    res.json(complicationTypes);
+    const result = await prisma.serviceCatalog.updateMany({
+      where: {
+        id: { in: ids },
+        serviceType: ServiceType.procedure
+      },
+      data: {
+        isActive: isActive !== undefined ? isActive : true,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({ 
+      message: `${result.count} procedure templates updated`,
+      count: result.count
+    });
   } catch (error) {
-    console.error('Error fetching complication types:', error);
-    res.status(500).json({ message: 'Error fetching complication types', error });
+    console.error('Error bulk updating procedure templates:', error);
+    res.status(500).json({ message: 'Error bulk updating procedure templates', error });
   }
 };

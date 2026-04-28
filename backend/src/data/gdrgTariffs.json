@@ -1,3410 +1,3763 @@
-[
+{
+  "gdrgTariffs": [
     {
-      "gdrgCode": "ASURO1A",
-      "description": "Operations of thyroid and parathyroid glands>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 904.75,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR01A",
+      "mdc": "ASUR",
+      "description": "Operations of thyroid & parathyroid glands",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO2A",
-      "description": "Surgery for lung and bronchus lesions >=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1374.46,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR02A",
+      "mdc": "ASUR",
+      "description": "Surgery for lung and bronchus lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2]
     },
     {
-      "gdrgCode": "ASURO3A",
-      "description": "Thoracostomy and chest tube insertion>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 582.93,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR03A",
+      "mdc": "ASUR",
+      "description": "Thoracostomy and chest tube insertion",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO4A",
-      "description": "Operations on the oesophagus and diaphragm>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1304.26,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR04A",
+      "mdc": "ASUR",
+      "description": "Operations on the oesophagus and diaphragm",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO5A",
-      "description": "Excision of Neck Swellings>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 615.50,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR05A",
+      "mdc": "ASUR",
+      "description": "Excision of neck swellings",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO6A",
-      "description": "Laparotomy for solid organ Surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1185.05,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR06A",
+      "mdc": "ASUR",
+      "description": "Laparotomy for solid organ surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO7A",
-      "description": "Laparotomy for Gastric Surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 967.20,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR07A",
+      "mdc": "ASUR",
+      "description": "Laparotomy for gastric surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO8A",
-      "description": "Laparotomy for peritonitis>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 893.39,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR08A",
+      "mdc": "ASUR",
+      "description": "Laparotomy for peritonitis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "ASURO9A",
-      "description": "Endoscopic surgery for bleeding oesophageal varices>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 394.43,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "ASUR09A",
+      "mdc": "ASUR",
+      "description": "Endoscopic surgery for bleeding oesophageal varices",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR10A",
-      "description": "Laparotomy and Small Bowel Resection>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 936.10,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and small bowel resection",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR11A",
-      "description": "Laparotomy and colon resection>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1335.91,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and colon resection",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR12A",
-      "description": "Laparotomy for Colostomy or Ileostomy>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1081.10,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy for colostomy or ileostomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR13A",
-      "description": "Laparotomy and AP Resection>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1463.11,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and AP resection",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR14A",
-      "description": "Percutaneous Ultrasound Guided Drainage of lesions>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 501.88,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Percutaneous ultrasound guided drainage of lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR15A",
-      "description": "Operations on Anus>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 562.88,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Operations on anus",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR16A",
-      "description": "Laparotomy and drainage of liver>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 956.82,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and drainage of liver",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR17A",
-      "description": "Laparotomy for biliary surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1040.09,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy for biliary surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR18A",
-      "description": "Laparotomy and Pancreatic Surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1441.83,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and pancreatic surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR19A",
-      "description": "Internal Hernia Repair >=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 689.69,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Internal hernia repair",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR20A",
-      "description": "External Hernia Repair >=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 527.03,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "External hernia repair",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR21A",
-      "description": "Operations on the urethra >=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 899.77,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Operations on the urethra",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR22A",
-      "description": "Surgery on scrotum & tunica vaginalis >=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 482.54,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Surgery on scrotum and tunica vaginalis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR23A",
-      "description": "Mastectomy>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1050.81,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Mastectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR24A",
-      "description": "Vascular surgery operations>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1328.94,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Vascular surgery operations",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR25A",
-      "description": "Stripping and Ligation of veins>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 631.13,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Stripping and ligation of veins",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR27A",
-      "description": "Emergency circumcision>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 343.03,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Emergency circumcision",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR28A",
-      "description": "Genitourinary surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 923.20,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Genitourinary surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ASUR29A",
+      "mdc": "ASUR",
+      "description": "Craniotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2]
     },
     {
       "gdrgCode": "ASUR30A",
-      "description": "General Surgery Excision Biopsy>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 375.11,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "General surgery excision biopsy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR31A",
-      "description": "Incision, Drainage and Debridement - General Surgery>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 408.95,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Incision, drainage and debridement - general surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR32A",
-      "description": "Closure of colostomy and ileostomy>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 804.55,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Closure of colostomy and ileostomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR33A",
-      "description": "Laparotomy and Porto-caval Shunt>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 1080.28,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Laparotomy and porto-caval shunt",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR34A",
+      "mdc": "ASUR",
       "description": "Conservative management of surgery",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 335.22,
-      "ageGroup": "adult",
-      "isActive": true
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR35A",
-      "description": "Surgery for removal of finger/toe>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 413.90,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Surgery for removal of finger or toe",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR36A",
-      "description": "Surgery for removal of hand or foot>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 670.67,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Surgery for amputation of hand or foot (through or below ankle/wrist joint)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ASUR37A",
-      "description": "Amputation below or through elbow or knee, through proximal joints or for the complete removal of limb>=12 Yrs",
-      "category": "ADULT_SURGERY",
-      "nhiaTariff": 871.17,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO1A",
-      "description": "Forceps Extraction of Tooth >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 59.85,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO1C",
-      "description": "Forceps Extraction of Tooth <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 49.01,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO2A",
-      "description": "Surgical Removal of Tooth >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 112.65,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO3A",
-      "description": "Temporary Filling >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 66.63,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO3C",
-      "description": "Temporary Filling <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 67.34,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO4A",
-      "description": "Amalgam Filling >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 86.71,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO4C",
-      "description": "Amalgam Filling <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 88.72,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO5A",
-      "description": "Composite/Gl Filling >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 91.25,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO5C",
-      "description": "Composite/Gl Filling <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 75.79,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO6A",
-      "description": "Scaling & Polishing >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 56.74,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO6C",
-      "description": "Scaling & Polishing <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 39.06,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO7A",
-      "description": "Gingivectomy >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 116.84,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO7C",
-      "description": "Gingivectomy <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 117.37,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO8A",
-      "description": "Root Canal Therapy - Single Root (RCT) >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 116.11,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO8C",
-      "description": "Root Canal Therapy - Single Root (RCT) <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 112.75,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO9A",
-      "description": "Apicectomy >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 255.12,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENTO9C",
-      "description": "Apicectomy <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 223.47,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT10A",
-      "description": "Incision and Drainage (I & D) of Oro-Facial Abscess >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 61.25,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT10C",
-      "description": "Incision and Drainage (I & D) of Oro-Facial Abscess <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 53.82,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT11A",
-      "description": "Surgical Excision of Intraoral Lesions >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 123.17,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT11C",
-      "description": "Surgical Excision of Intraoral Lesions <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 135.95,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT12A",
-      "description": "Curetage/Sequestrectomy of Facial Bone >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 259.45,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT12C",
-      "description": "Curetage/Sequestrectomy of Facial Bone <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 237.27,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT13A",
-      "description": "Removal of Stone from Salivary Duct >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 278.69,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT13C",
-      "description": "Removal of Stone from Salivary Duct <12 Ys",
-      "category": "DENTAL",
-      "nhiaTariff": 232.09,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT14A",
-      "description": "Sialoadenectomy >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 621.39,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT14C",
-      "description": "Sialoadenectomy <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 580.15,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT15A",
-      "description": "Suturing of Lacerations of Facial Region >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 110.17,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT15C",
-      "description": "Suturing of Lacerations of Facial Region <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 113.88,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT16A",
-      "description": "Dressing of Open Facial Wounds >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 128.18,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT16C",
-      "description": "Dressing of Open Facial Wounds <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 117.87,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT17A",
-      "description": "Frenectomy/Frenotomy >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 91.12,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT17C",
-      "description": "Frenectomy/Frenotomy <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 82.07,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT18A",
-      "description": "Partial Resection of Facial Bones or Soft Tissues >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 549.04,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT18C",
-      "description": "Partial Resection of Facial Bones or Soft Tissues <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 578.90,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT19A",
-      "description": "Total Resection of Facial Bones and Soft Tissues >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 672.86,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT19C",
-      "description": "Total Resection of Facial Bones and Soft Tissues <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 585.82,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT20A",
-      "description": "Closed Reduction of Fractures of Facial Bones (IMF) >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 286.16,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT20C",
-      "description": "Closed Reduction of Fractures of Facial Bones (IMF) <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 247.28,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT21A",
-      "description": "Open Reduction of Facial Fractures >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 561.43,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT21C",
-      "description": "Open Reduction of Facial Fractures <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 478.02,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT22A",
-      "description": "Removal of Dental Wiring >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 127.83,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT22C",
-      "description": "Removal of Dental Wiring <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 102.04,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT23A",
-      "description": "Manual Reduction of TMJ Dislocation >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 41.58,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT23C",
-      "description": "Manual Reduction of TMJ Dislocation <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 39.81,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT24A",
-      "description": "Dental Examination (Medical Management) >=12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 31.50,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "DENT24C",
-      "description": "Dental Examination (Medical Management) <12 Yrs",
-      "category": "DENTAL",
-      "nhiaTariff": 28.91,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH01A",
-      "description": "Excision and biopsy of swellings of ear, nose and throat >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 445.03,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH01C",
-      "description": "Excision and biopsy of swellings of ear, nose and throat <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 395.71,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH02A",
-      "description": "Surgery for external ear lesions >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 505.24,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH02C",
-      "description": "Surgery for external ear lesions <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 402.57,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH05A",
-      "description": "Surgery for internal ear lesions >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 693.53,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH05C",
-      "description": "Surgery for internal ear lesions <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 653.69,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH06A",
-      "description": "Reconstructive Surgery of ear >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 644.64,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH06C",
-      "description": "Reconstructive Surgery of ear <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 628.22,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH07A",
-      "description": "Sinus Surgery >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 727.68,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH07C",
-      "description": "Sinus Surgery <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 665.08,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH08A",
-      "description": "Surgery of tonsils and adenoids >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 500.20,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH08C",
-      "description": "Surgery of tonsils and adenoids <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 519.29,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH09A",
-      "description": "Surgery of Saliway Glands >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 722.64,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH09C",
-      "description": "Surgery of Saliway Glands <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 705.33,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH10A",
-      "description": "Laryngectomy >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 1436.50,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH10C",
-      "description": "Laryngectomy <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 1265.36,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH12A",
-      "description": "Excision and Reconstruction of Oro- and Naso-pharynx >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 939.91,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH12C",
-      "description": "Excision and Reconstruction of Oro- and Naso-pharynx <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 775.95,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH13A",
-      "description": "Examination under anaesthesia and removal of foreign body in Ear, Nose and Throat >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 402.01,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH13C",
-      "description": "Examination under anaesthesia and removal of foreign body in Ear, Nose and Throat <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 399.97,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH14A",
-      "description": "Incision and Drainage of Abscess of ear, nose and throat >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 491.23,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH14C",
-      "description": "Incision and Drainage of Abscess of ear, nose and throat <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 439.77,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH15A",
-      "description": "Manipulation and reduction of fractured nasal bone >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 564.09,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH15C",
-      "description": "Manipulation and reduction of fractured nasal bone <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 486.05,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH16A",
-      "description": "Specific nasal surgery >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 531.14,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH16C",
-      "description": "Specific nasal surgery <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 496.39,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH17A",
-      "description": "Arterial Ligation for Epistaxis >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 531.44,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH17C",
-      "description": "Arterial Ligation for Epistaxis <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 472.02,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH18A",
-      "description": "Surgery for trauma to ear, nose, throat >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 651.37,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH18C",
-      "description": "Surgery for trauma to ear, nose, throat <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 626.94,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH19A",
-      "description": "Excision biopsy of swellings of neck >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 477.07,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH19C",
-      "description": "Excision biopsy of swellings of neck <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 402.81,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH20A",
-      "description": "ENT OPD Procedures >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 31.25,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH20C",
-      "description": "ENT OPD Procedures <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 30.97,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH21A",
-      "description": "Vestibulometry >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 44.39,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH21C",
-      "description": "Vestibulometry <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 41.90,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH22A",
-      "description": "Evoked response audiometry >=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 228.15,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH22C",
-      "description": "Evoked response audiometry <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 222.94,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH23A",
-      "description": "Antral Lavage under Local Anaesthesia>=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 245.98,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH23C",
-      "description": "Antral Lavage under Local Anaesthesia<12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 241.11,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH24A",
-      "description": "Endoscopic ENT Surgery>=12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 613.63,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ENTH24C",
-      "description": "Endoscopic ENT Surgery <12 Yrs",
-      "category": "EAR_NOSE_AND_THROAT",
-      "nhiaTariff": 588.23,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI01A",
-      "description": "Thyroid Diseases>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 407.54,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO2A",
-      "description": "Diabetes-Simple>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 303.85,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO3A",
-      "description": "Diabetes-Complicated>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 598.63,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO4A",
-      "description": "Other Endocrine Diseases>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 355.98,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO5A",
-      "description": "Malnutrition>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 313.32,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO6A",
-      "description": "Anaemia>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 316.66,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO7A",
-      "description": "Heart Disease>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 572.89,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDIO8A",
-      "description": "Poisoning>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 250.37,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED110A",
-      "description": "Non-Traumatic Coma>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 534.93,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED111A",
-      "description": "Paralytic Conditions>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 644.13,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED112A",
-      "description": "Seizure Disorders>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 312.31,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED113A",
-      "description": "Transient Loss of Consciousness>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 365.34,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED114A",
-      "description": "Cerebro Vascular Accident/Stroke>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 410.60,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED115A",
-      "description": "Bone Marrow Hypoplasia>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 576.16,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED116A",
-      "description": "Sickle Cell Disease with Complication/Crisis>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 311.98,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED117A",
-      "description": "Clotting/Bleeding Disorders>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 338.19,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED118A",
-      "description": "Diseases of Skin/Subcutaneous Tissues>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 539.10,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED119A",
-      "description": "Kidney Disease without Renal Failure>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 524.40,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED120A",
-      "description": "Renal Failure without Dialysis>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 677.07,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED121A",
-      "description": "Acute Renal Failure with Dialysis>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 1339.43,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED122A",
-      "description": "Obstructive Airway Disease>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 210.33,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED123A",
-      "description": "Diarrhoea and Vomiting>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 185.27,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED124A",
-      "description": "Liver Diseases>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 419.82,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED125A",
-      "description": "Gastro Intestinal Tract Bleeding>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 352.48,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED126A",
-      "description": "Non-Specific Abdominal Conditions>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 200.54,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED127A",
-      "description": "Shock>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 617.30,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED128A",
-      "description": "Malaria>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 121.82,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED129A",
-      "description": "Black Water Fever>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 373.28,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MED130A",
-      "description": "Systemic Infections>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 516.18,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI314",
-      "description": "Localised Infections>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 269.11,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI32A",
-      "description": "Hypertension>=12Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 312.74,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI33A",
-      "description": "Ischaemic Heart Disease>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 340.32,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI34A",
-      "description": "Pulmonary Embolism>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 380.21,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI35A",
-      "description": "Ulcer of Skin>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 397.83,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI36A",
-      "description": "Alcoholism>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 347.23,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI37A",
-      "description": "Animal Bites>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 109.13,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI38A",
-      "description": "Retroviral Infection/Immuno Suppression>=12 Yrs",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 407.82,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "MEDI41A",
-      "description": "Cerebral Malaria",
-      "category": "ADULT_MEDICINE",
-      "nhiaTariff": 641.69,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGYO1A",
-      "description": "Gynaecological Laparotomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 593.01,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGYO2A",
-      "description": "Diagnostic Laparoscopy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 392.57,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGYO3A",
-      "description": "Operative Laparoscopy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 660.08,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGYO4A",
-      "description": "Culdocentesis/Culdotomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 261.74,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGYO5A",
-      "description": "Cauterization",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 220.65,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY06A",
-      "description": "MVA/EOU",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 262.06,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY07A",
-      "description": "Suction Curettage",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 315.25,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY08A",
-      "description": "Manual Removal of Placenta",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 304.74,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY09A",
-      "description": "Expectant management/Medical Treatment in Obstetrics and Gynaecology",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 211.95,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY10A",
-      "description": "Marsupialization of Batholin's gland",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 354.39,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY11A",
-      "description": "Excision of genital lesions",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 279.25,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY12A",
-      "description": "Incision and drainage in Gynaecology Cases",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 279.71,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY13A",
-      "description": "Pelvic Floor Repair-Simple",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 533.66,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY14A",
-      "description": "Vaginal Hysterectomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 627.51,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY15A",
-      "description": "Repair of Enterocele",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 687.19,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY16A",
-      "description": "Vaginal Pessary Insertion",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 109.54,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY17A",
-      "description": "Colpocleisis",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 537.34,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY18A",
-      "description": "Fistula Repair-Simple",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 692.85,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY19A",
-      "description": "Fistula Repair-Complex",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 953.24,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY20A",
-      "description": "Abdominal Hysterectomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 897.50,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY21A",
-      "description": "Perineal repair-Complex",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 611.14,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY22A",
-      "description": "Pelvic Floor Repair-Complex",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 967.41,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY23A",
-      "description": "Colposcopy and Biopsy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 192.76,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY24A",
-      "description": "PartialVaginectomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 659.51,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY25A",
-      "description": "Polypectomy(Avulsion)",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 525.00,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY26A",
-      "description": "Hysteroscopy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 341.51,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY27A",
-      "description": "CorrectionofMalpositionofUterus",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 652.23,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY28A",
-      "description": "Vulvectomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 913.85,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY29A",
-      "description": "Instrumental delivery",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 299.31,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY30A",
-      "description": "InternalPodalicVersionwithBreechExtraction",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 370.34,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY31A",
-      "description": "DestructiveDelivery",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 328.27,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY32A",
-      "description": "CassareanSection",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 766.19,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY34A",
-      "description": "SpontaneousVaginalDeliverywithorwithoutEpisiotomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 358.91,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY35A",
-      "description": "CervicalCerclagesuture",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 409.20,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY36A",
-      "description": "Myomectomy",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 699.30,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY38A",
-      "description": "PostPartumHaemorrhage",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 344.99,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY39A",
-      "description": "Wertheim'sOperation",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 1228.56,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OBGY40A",
-      "description": "Eclampsia",
-      "category": "OBSTETRICS_GYNAECOLOGY",
-      "nhiaTariff": 393.61,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT01A",
-      "description": "Enucleation >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 613.49,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT01C",
-      "description": "Enucleation <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 512.00,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT02A",
-      "description": "Evisceration >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 622.64,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT02C",
-      "description": "Evisceration <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 559.97,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT03A",
-      "description": "Removal of superficial foreign body >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 46.13,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT03C",
-      "description": "Removal of superficial foreign body <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 45.69,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT04A",
-      "description": "Removal of intraocular foreign body >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 295.87,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT04C",
-      "description": "Removal of intraocular foreign body <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 290.66,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT05A",
-      "description": "Removal of intraorbital foreign body >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 374.18,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT05C",
-      "description": "Removal of intraorbital foreign body <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 352.73,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT06A",
-      "description": "Eyelid surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 217.27,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT06C",
-      "description": "Eyelid surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 252.86,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT07A",
-      "description": "Scleral and Corneal surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 220.87,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT07C",
-      "description": "Scleral and Corneal surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 218.28,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT08A",
-      "description": "Anterior chamber washout >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 243.00,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT08C",
-      "description": "Anterior chamber washout <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 213.25,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT09A",
-      "description": "Glaucoma surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 261.62,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT09C",
-      "description": "Glaucoma surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 247.87,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT10A",
-      "description": "Cataract surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 295.86,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT10C",
-      "description": "Cataract surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 289.50,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT11A",
-      "description": "Strabismus surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 375.19,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT11C",
-      "description": "Strabismus surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 351.78,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT12A",
-      "description": "Incision and curettage of eyelid >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 191.06,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT12C",
-      "description": "Incision and curettage of eyelid <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 186.22,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT13A",
-      "description": "Reconstructive surgery of eyelid >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 217.88,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT13C",
-      "description": "Reconstructive surgery of eyelid <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 224.69,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT14A",
-      "description": "Nasolacrimal drainage system surgery >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 270.03,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT14C",
-      "description": "Nasolacrimal drainage system surgery <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 241.23,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT15A",
-      "description": "Incision and drainage of abscesses >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 253.32,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT15C",
-      "description": "Incision and drainage of abscesses <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 250.52,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT16A",
-      "description": "Examination under anaesthesia >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 57.54,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT16C",
-      "description": "Examination under anaesthesia <12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 56.09,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT17A",
-      "description": "Uveitis Management",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 49.74,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "OPHT18A",
-      "description": "Cataract Surgery with Implants >=12 Yrs",
-      "category": "OPHTHALMOLOGY",
-      "nhiaTariff": 314.37,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO1A",
-      "description": "Bandaging/Cast (POP Application)>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 130.99,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO1C",
-      "description": "Bandaging/Cast (POP Application)<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 122.14,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO2A",
-      "description": "Bone Biopsy>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 462.04,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO2C",
-      "description": "Bone Biopsy<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 491.52,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO3A",
-      "description": "Bone Graft>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 825.92,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO3C",
-      "description": "Bone Graft<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 775.32,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO4A",
-      "description": "Closed Reduction and Splintage of Fractures and Joints >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 497.01,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO4C",
-      "description": "Closed Reduction and Splintage of Fractures and Joints <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 467.76,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO5A",
-      "description": "Debridement and Suturing>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 392.56,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO5C",
-      "description": "Debridement and Suturing<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 403.65,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO7A",
-      "description": "Excision of Soft Tissue Lumps>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 320.20,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO7C",
-      "description": "Excision of Soft Tissue Lumps<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 330.61,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO8A",
-      "description": "External Fixation>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 840.24,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO8C",
-      "description": "External Fixation<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 754.27,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO9A",
-      "description": "Fasciotomy>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 630.47,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTHO9C",
-      "description": "Fasciotomy<12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 619.37,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH10A",
-      "description": "Hemi-Arthroplasty>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 1252.59,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH1OC",
-      "description": "Hemi-Arthroplasty <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 1148.14,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH11A",
-      "description": "Incision and Drainage of Abscesses >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 267.11,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH11C",
-      "description": "Incision and Drainage of Abscesses < 12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 287.29,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH12A",
-      "description": "Internal Fixation of Fractures >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 898.73,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH12C",
-      "description": "Internal Fixation of Fractures <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 754.83,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH14A",
-      "description": "Major Surgery of Joints >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 1071.28,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH14C",
-      "description": "Major Surgery of Joints <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 879.62,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH15A",
-      "description": "Minor Surgery of Joints >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 212.22,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH15C",
-      "description": "Minor Surgery of Joints <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 215.01,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH16A",
-      "description": "Nail Avulsion >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 155.90,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH16C",
-      "description": "Nail Avulsion <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 139.61,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH17A",
-      "description": "Open Reduction and Internal Fixation >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 967.11,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH17C",
-      "description": "Open Reduction and Internal Fixation <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 1002.74,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH18A",
-      "description": "Osteotomy >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 1086.70,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH18C",
-      "description": "Osteotomy <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 956.71,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH19A",
-      "description": "Skin Traction >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 540.79,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH19C",
-      "description": "Skin Traction < 12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 508.22,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH20A",
-      "description": "Surgery for Infected Bone >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 861.89,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH2OC",
-      "description": "Surgery for Infected Bone <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 910.59,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH22A",
-      "description": "Synovectomy>=12Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 711.11,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH22C",
-      "description": "Synovectomy<12Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 723.05,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH23A",
-      "description": "Tendon Surgery >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 714.21,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH23C",
-      "description": "Tendon Surgery <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 689.58,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH24A",
-      "description": "Head injury/spinal injury >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 213.83,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH24C",
-      "description": "Head injury/spinal injury <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 236.44,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH25A",
-      "description": "Surgery for removal of finger/toe >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 379.01,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH25C",
-      "description": "Surgery for removal of finger/toe <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 384.21,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH26A",
-      "description": "Surgery for amputation of hand/foot (through or below ankle/wrist joint)>=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 657.93,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH26C",
-      "description": "Surgery for amputation of hand/foot (through or below ankle/wrist joint)<12Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 695.17,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH27A",
-      "description": "Amputation below or through elbow or knee, through proximal joints or for the complete removal of limb >=12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 843.82,
-      "ageGroup": "adult",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "ORTH27C",
-      "description": "Amputation below or through elbow or knee, through proximal joints or for the complete removal of limb <12 Yrs",
-      "category": "ORTHOPAEDICS",
-      "nhiaTariff": 801.27,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED01C",
-      "description": "Thyroid Diseases <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 311.28,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED02C",
-      "description": "Diabetes - Simple <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 270.16,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED03C",
-      "description": "Diabetes with Complications <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 586.61,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED04C",
-      "description": "Other Endocrine Diseases <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 397.54,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED05C",
-      "description": "Malnutrition <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 433.93,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED06C",
-      "description": "Anaemia <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 358.70,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED07C",
-      "description": "Other Neonatal Diseases",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 280.68,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED08C",
-      "description": "Neonatal Jaundice - Severe",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 406.42,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED09C",
-      "description": "Neonatal Jaundice - Simple",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 359.94,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED10C",
-      "description": "Birth Weight Abnormalities",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 600.92,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED11C",
-      "description": "Birth Trauma",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 293.05,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED12C",
-      "description": "Neonatal Respiratory Disorders without Ventilation",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 412.14,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED13C",
-      "description": "Neonatal Respiratory Disorders with Ventilation",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 782.40,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED14C",
-      "description": "Neonatal Septicaemia",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 454.12,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED15C",
-      "description": "Heart Disease <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 520.26,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED16C",
-      "description": "Poisoning <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 384.98,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED18C",
-      "description": "Non-Traumatic Coma <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 759.57,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED19C",
-      "description": "Paralytic Conditions <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 720.45,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED20C",
-      "description": "Seizure Disorders <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 473.74,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED21C",
-      "description": "Transient Loss of Consciousness <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 230.89,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED22C",
-      "description": "Cerebro Vascular Accident/Stroke <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 382.96,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED23C",
-      "description": "Bone Marrow Hypoplasia <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 542.98,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED24C",
-      "description": "Sickle Cell Disease with Complication/Crisis <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 443.67,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED25C",
-      "description": "Clotting/Bleeding Disorders <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 453.32,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED26C",
-      "description": "Diseases of Skin/Subcutaneous Tissues <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 648.94,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED27C",
-      "description": "Kidney Disease without Renal Failure <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 486.69,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED28C",
-      "description": "Renal Failure without Dialysis <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 482.57,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED29C",
-      "description": "Acute Renal Failure with Dialysis <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 1313.57,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED30C",
-      "description": "Obstructive Airway Disease <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 314.43,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED31C",
-      "description": "Diarrhoea and Vomiting <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 228.85,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED32C",
-      "description": "Liver Diseases <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 357.32,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED33C",
-      "description": "Gastro Intestinal Tract Bleeding <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 359.16,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED34C",
-      "description": "Non-Specific Abdominal Conditions <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 182.52,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED35C",
-      "description": "Shock <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 495.27,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED36C",
-      "description": "Malaria <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 147.72,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED37C",
-      "description": "Black Water Fever <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 541.08,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED38C",
-      "description": "Severe Infections <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 416.66,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED39C",
-      "description": "Localised Infections <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 208.73,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED40C",
-      "description": "Hypertension <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 408.40,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED41C",
-      "description": "Ischaemic Heart Disease <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 499.53,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED42C",
-      "description": "Pulmonary Embolism <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 535.31,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED43C",
-      "description": "Ulcer of Skin <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 487.31,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED44C",
-      "description": "Animal Bites <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 68.08,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED45C",
-      "description": "Retroviral Infection/Immuno Suppression <12 Yrs",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 487.77,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PAED46C",
-      "description": "Cerebral Malaria",
-      "category": "PAEDIATRICS",
-      "nhiaTariff": 728.95,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO1C",
-      "description": "Laparotomy and Resection <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1011.75,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO2C",
-      "description": "Laparotomy and Excision Biopsy <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1071.07,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO3C",
-      "description": "Laparotomy and surgery for upper renal anomalies <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1242.83,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO4C",
-      "description": "Excision Biopsy deep masses <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 928.82,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO5C",
-      "description": "Excision Biopsy Superficial masses <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 381.70,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO6C",
-      "description": "Incision and Drainage GA <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 527.20,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO7C",
-      "description": "Repair of Minor Abdominal Wall Defects<12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 470.28,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO8C",
-      "description": "Repair of Major Abdominal Wall Defects<12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 981.39,
-      "ageGroup": "child",
-      "isActive": true
-    },
-    {
-      "gdrgCode": "PSURO9C",
-      "description": "Exploratory Laparotomy<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1033.22,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ASUR",
+      "description": "Amputation below, above or through elbow or knee or complete removal of limb",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR01C",
+      "mdc": "PSUR",
+      "description": "Laparotomy and resection",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR02C",
+      "mdc": "PSUR",
+      "description": "Laparotomy and excision biopsy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR03C",
+      "mdc": "PSUR",
+      "description": "Laparotomy and surgery for upper renal anomalies",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR04C",
+      "mdc": "PSUR",
+      "description": "Excision biopsy deep masses",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR05C",
+      "mdc": "PSUR",
+      "description": "Excision biopsy superficial masses",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR06C",
+      "mdc": "PSUR",
+      "description": "Incision and drainage (GA)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR07C",
+      "mdc": "PSUR",
+      "description": "Repair of minor abdominal wall defects",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR08C",
+      "mdc": "PSUR",
+      "description": "Repair of major abdominal wall defects",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR09C",
+      "mdc": "PSUR",
+      "description": "Exploratory laparotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR10C",
-      "description": "Gastrostomy<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 911.80,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Gastrostomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR11C",
-      "description": "Laparotomy with Repair<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 950.83,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy with repair",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR12C",
-      "description": "Laparotomy with Appendicectomy<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 828.47,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy with appendicectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR14C",
-      "description": "Thoracotomy and oesophageal surgery<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1186.59,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Thoracotomy and oesophageal surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR15C",
-      "description": "Repair of Lower Urinary Tract Malformation<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 883.37,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Repair of lower urinary tract malformations",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR16C",
-      "description": "Repair of Congenital Genito-Urinary Malformations<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1697.79,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Repair of congenital genitourinary malformations",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR17C",
-      "description": "Surgery for anal conditions<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 597.94,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Surgery for anal conditions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR18C",
-      "description": "Primary Closure and Repair<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 997.01,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Primary closure and repair",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR19C",
-      "description": "Laparotomy for biliary surgery<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1245.25,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy for biliary surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR20C",
-      "description": "Laparotomy with Separation<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 2930.00,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy with separation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR21C",
-      "description": "Surgery of Scrotal contents and testes<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 396.29,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Surgery of scrotal contents and testes",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR23C",
-      "description": "Laparotomy for Haemoperitoneum<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1145.76,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy for haemoperitoneum",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR24C",
-      "description": "Laparotomy with Enterostomy Formation and closure<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1078.72,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy with enterostomy formation and closure",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR25C",
-      "description": "Posterior Sagittal Anorectoplasty (PSARP)<12Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1058.29,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Posterior sagittal anorectoplasty (PSARP)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR26C",
-      "description": "Burns - OPD Wound Dressing <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 463.72,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Burns - OPD wound dressing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR27C",
-      "description": "Burns - Non operative Management - Inpatient <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1642.93,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Burns - non operative management - inpatient",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR28C",
-      "description": "Surgery for Burns <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1541.46,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Surgery for burns",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR29C",
-      "description": "Minor Surgery for Sexual Assault <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 489.69,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Minor surgery for sexual assault",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR30C",
-      "description": "Major Surgery for Sexual Assault <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1017.54,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Major surgery for sexual assault",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR31C",
-      "description": "Laparotomy with anastomosis <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1049.18,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Laparotomy with anastomosis",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PSUR32C",
+      "mdc": "PSUR",
+      "description": "Craniotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2]
     },
     {
       "gdrgCode": "PSUR33C",
-      "description": "Endoscopic surgery for bleeding oesophageal varices <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 537.42,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Endoscopic surgery for bleeding oesophageal varices",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR34C",
-      "description": "Thoracostomy and chest tube insertion <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 460.07,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Thoracostomy and chest tube insertion",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR35C",
-      "description": "Vascular Surgery Operations <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 1377.00,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Vascular surgery operations",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR36C",
+      "mdc": "PSUR",
       "description": "Conservative management of surgery",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 324.45,
-      "ageGroup": "child",
-      "isActive": true
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR37C",
-      "description": "Surgery for removal of finger/toe <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 409.86,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Surgery for removal of finger or toe",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR38C",
-      "description": "Surgery for amputation of hand or foot (through or below ankle or wrist joint) <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 652.98,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Surgery for amputation of hand or foot (through or below ankle/wrist joint)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "PSUR39C",
-      "description": "Amputation below or through elbow or knee, through proximal joints or for the complete removal of limb <12 Yrs",
-      "category": "PAEDIATRIC_SURGERY",
-      "nhiaTariff": 874.91,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "PSUR",
+      "description": "Amputation below or through elbow or knee or complete removal of limb",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR01A",
-      "description": "Reconstructive repair >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 838.94,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI01A",
+      "mdc": "MEDI",
+      "description": "Thyroid diseases",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR01C",
-      "description": "Reconstructive repair <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 800.53,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI02A",
+      "mdc": "MEDI",
+      "description": "Diabetes - simple",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR02A",
-      "description": "Shaving and Skin Grafting >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1330.12,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI03A",
+      "mdc": "MEDI",
+      "description": "Diabetes - complicated",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR02C",
-      "description": "Shaving and Skin Grafting <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1310.12,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI04A",
+      "mdc": "MEDI",
+      "description": "Other endocrine diseases",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR03A",
-      "description": "Excisional Debridement and Dressing >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1133.78,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI05A",
+      "mdc": "MEDI",
+      "description": "Malnutrition",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR03C",
-      "description": "Excisional Debridement and Dressing <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1100.93,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI06A",
+      "mdc": "MEDI",
+      "description": "Anaemia",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR04A",
-      "description": "Excisional Debridement with Suturing >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 634.13,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI07A",
+      "mdc": "MEDI",
+      "description": "Heart disease",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR04C",
-      "description": "Excisional Debridement with Suturing <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 500.94,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI08A",
+      "mdc": "MEDI",
+      "description": "Poisoning",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR05A",
-      "description": "Excisional Debridement with Skin Grafting >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1019.62,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI10A",
+      "mdc": "MEDI",
+      "description": "Non-traumatic coma",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR05C",
-      "description": "Excisional Debridement with Skin Grafting <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 996.95,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI11A",
+      "mdc": "MEDI",
+      "description": "Paralytic conditions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR06A",
-      "description": "Excisional Debridement with Flap Reconstruction >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1173.51,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI12A",
+      "mdc": "MEDI",
+      "description": "Seizure disorders",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR06C",
-      "description": "Excisional Debridement with Flap Reconstruction <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1129.13,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI13A",
+      "mdc": "MEDI",
+      "description": "Transient loss of consciousness",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR07A",
-      "description": "Excision Biopsy >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 332.40,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI14A",
+      "mdc": "MEDI",
+      "description": "Cerebrovascular accident/stroke",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR07C",
-      "description": "Excision Biopsy <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 314.41,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI15A",
+      "mdc": "MEDI",
+      "description": "Bone marrow hypoplasia",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR08A",
-      "description": "Escharotomy >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1037.61,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI16A",
+      "mdc": "MEDI",
+      "description": "Sickle cell disease with complication/crisis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR08C",
-      "description": "Escharotomy <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1001.85,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI17A",
+      "mdc": "MEDI",
+      "description": "Clotting/bleeding disorders",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR09A",
-      "description": "Z-plasty >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 729.56,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI18A",
+      "mdc": "MEDI",
+      "description": "Diseases of skin/subcutaneous tissues",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR09C",
-      "description": "Z-plasty <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 700.91,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI19A",
+      "mdc": "MEDI",
+      "description": "Kidney disease without renal failure",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR10A",
-      "description": "Corrective Osteotomy >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1336.88,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI20A",
+      "mdc": "MEDI",
+      "description": "Renal failure without dialysis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR10C",
-      "description": "Corrective Osteotomy <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1257.35,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI21A",
+      "mdc": "MEDI",
+      "description": "Acute renal failure with dialysis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR11A",
-      "description": "Reconstruction>=12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 741.66,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI22A",
+      "mdc": "MEDI",
+      "description": "Obstructive airway disease",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR11C",
-      "description": "Reconstruction<12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 718.08,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI23A",
+      "mdc": "MEDI",
+      "description": "Diarrhoea and vomiting",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR12A",
-      "description": "Release/Excision and Split Skin Grafting >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 925.36,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI24A",
+      "mdc": "MEDI",
+      "description": "Liver diseases",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR12C",
-      "description": "Release/Excision and Split Skin Grafting <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 860.34,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI25A",
+      "mdc": "MEDI",
+      "description": "Gastrointestinal tract bleeding",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR13A",
-      "description": "Release/Excision and Full thickness skin graft >=12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1065.38,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI26A",
+      "mdc": "MEDI",
+      "description": "Non-specific abdominal conditions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR13C",
-      "description": "Release/Excision and Full thickness skin graft <12 Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1007.38,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI27A",
+      "mdc": "MEDI",
+      "description": "Shock",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR14A",
-      "description": "Debaulking>=12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1354.68,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI28A",
+      "mdc": "MEDI",
+      "description": "Malaria",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR14C",
-      "description": "Debaulking<12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 1298.69,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI29A",
+      "mdc": "MEDI",
+      "description": "Black water fever",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR15A",
-      "description": "Primary Suturing>=12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 655.50,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "MEDI30A",
+      "mdc": "MEDI",
+      "description": "Systemic infections",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "RSUR15C",
-      "description": "Primary Suturing<12Yrs",
-      "category": "RECONSTRUCTIVE_SURGERY",
-      "nhiaTariff": 562.29,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "MEDI31A",
+      "mdc": "MEDI",
+      "description": "Localised infections",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI32A",
+      "mdc": "MEDI",
+      "description": "Hypertension",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI33A",
+      "mdc": "MEDI",
+      "description": "Ischaemic heart disease",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI34A",
+      "mdc": "MEDI",
+      "description": "Pulmonary embolism",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI35A",
+      "mdc": "MEDI",
+      "description": "Ulcer of skin",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI36A",
+      "mdc": "MEDI",
+      "description": "Alcoholism",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI37A",
+      "mdc": "MEDI",
+      "description": "Animal bites",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI38A",
+      "mdc": "MEDI",
+      "description": "Retroviral infection/immunosuppression",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI39A",
+      "mdc": "MEDI",
+      "description": "Chemotherapy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI40A",
+      "mdc": "MEDI",
+      "description": "Radiotherapy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "MEDI41A",
+      "mdc": "MEDI",
+      "description": "Cerebral malaria",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED01C",
+      "mdc": "PAED",
+      "description": "Thyroid diseases",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED02C",
+      "mdc": "PAED",
+      "description": "Diabetes - simple",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED03C",
+      "mdc": "PAED",
+      "description": "Diabetes with complications",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED04C",
+      "mdc": "PAED",
+      "description": "Other endocrine diseases",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED05C",
+      "mdc": "PAED",
+      "description": "Malnutrition",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED06C",
+      "mdc": "PAED",
+      "description": "Anaemia",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED07C",
+      "mdc": "PAED",
+      "description": "Other neonatal diseases",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED08C",
+      "mdc": "PAED",
+      "description": "Neonatal jaundice - severe",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED09C",
+      "mdc": "PAED",
+      "description": "Neonatal jaundice - simple",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED10C",
+      "mdc": "PAED",
+      "description": "Birth weight abnormalities",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED11C",
+      "mdc": "PAED",
+      "description": "Birth trauma",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED12C",
+      "mdc": "PAED",
+      "description": "Neonatal respiratory disorders without ventilation",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED13C",
+      "mdc": "PAED",
+      "description": "Neonatal respiratory disorders with ventilation",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED14C",
+      "mdc": "PAED",
+      "description": "Neonatal septicaemia",
+      "ageSplit": "C",
+      "maxAgeYears": 0,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED15C",
+      "mdc": "PAED",
+      "description": "Heart disease",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED16C",
+      "mdc": "PAED",
+      "description": "Poisoning",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED18C",
+      "mdc": "PAED",
+      "description": "Non-traumatic coma",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED19C",
+      "mdc": "PAED",
+      "description": "Paralytic conditions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED20C",
+      "mdc": "PAED",
+      "description": "Seizure disorders",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED21C",
+      "mdc": "PAED",
+      "description": "Transient loss of consciousness",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED22C",
+      "mdc": "PAED",
+      "description": "Cerebrovascular accident/stroke",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED23C",
+      "mdc": "PAED",
+      "description": "Bone marrow hypoplasia",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED24C",
+      "mdc": "PAED",
+      "description": "Sickle cell disease with complication/crisis",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED25C",
+      "mdc": "PAED",
+      "description": "Clotting/bleeding disorders",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED26C",
+      "mdc": "PAED",
+      "description": "Diseases of skin/subcutaneous tissues",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED27C",
+      "mdc": "PAED",
+      "description": "Kidney disease without renal failure",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED28C",
+      "mdc": "PAED",
+      "description": "Renal failure without dialysis",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED29C",
+      "mdc": "PAED",
+      "description": "Acute renal failure with dialysis",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED30C",
+      "mdc": "PAED",
+      "description": "Obstructive airway disease",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED31C",
+      "mdc": "PAED",
+      "description": "Diarrhoea and vomiting",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED32C",
+      "mdc": "PAED",
+      "description": "Liver diseases",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED33C",
+      "mdc": "PAED",
+      "description": "Gastrointestinal tract bleeding",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED34C",
+      "mdc": "PAED",
+      "description": "Non-specific abdominal conditions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED35C",
+      "mdc": "PAED",
+      "description": "Shock",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED36C",
+      "mdc": "PAED",
+      "description": "Malaria",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED37C",
+      "mdc": "PAED",
+      "description": "Black water fever",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED38C",
+      "mdc": "PAED",
+      "description": "Severe infections",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED39C",
+      "mdc": "PAED",
+      "description": "Localised infections",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED40C",
+      "mdc": "PAED",
+      "description": "Hypertension",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED41C",
+      "mdc": "PAED",
+      "description": "Ischaemic heart disease",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED42C",
+      "mdc": "PAED",
+      "description": "Pulmonary embolism",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED43C",
+      "mdc": "PAED",
+      "description": "Ulcer of skin",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED44C",
+      "mdc": "PAED",
+      "description": "Animal bites",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED45C",
+      "mdc": "PAED",
+      "description": "Retroviral infection/immunosuppression",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED46C",
+      "mdc": "PAED",
+      "description": "Cerebral malaria",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "PAED47C",
+      "mdc": "PAED",
+      "description": "Chemotherapy for childhood cancer",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED48C",
+      "mdc": "PAED",
+      "description": "Radiotherapy for childhood cancer",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED49C",
+      "mdc": "PAED",
+      "description": "Acute lymphoblastic leukaemia (initiation therapy)",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED50C",
+      "mdc": "PAED",
+      "description": "Acute lymphoblastic leukaemia (maintenance therapy)",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED51C",
+      "mdc": "PAED",
+      "description": "Burkitt lymphoma",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED52C",
+      "mdc": "PAED",
+      "description": "Retinoblastoma",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "PAED53C",
+      "mdc": "PAED",
+      "description": "Wilms tumour",
+      "ageSplit": "C",
+      "maxAgeYears": 18,
+      "isChildhoodCancer": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2]
+    },
+    {
+      "gdrgCode": "ENTH01A",
+      "mdc": "ENTH",
+      "description": "Excision and biopsy of swellings of ear, nose and throat",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH01C",
+      "mdc": "ENTH",
+      "description": "Excision and biopsy of swellings of ear, nose and throat",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH02A",
+      "mdc": "ENTH",
+      "description": "Surgery for external ear lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH02C",
+      "mdc": "ENTH",
+      "description": "Surgery for external ear lesions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH05A",
+      "mdc": "ENTH",
+      "description": "Surgery for internal ear lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH05C",
+      "mdc": "ENTH",
+      "description": "Surgery for internal ear lesions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH06A",
+      "mdc": "ENTH",
+      "description": "Reconstructive surgery of ear",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH06C",
+      "mdc": "ENTH",
+      "description": "Reconstructive surgery of ear",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH07A",
+      "mdc": "ENTH",
+      "description": "Sinus surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH07C",
+      "mdc": "ENTH",
+      "description": "Sinus surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH08A",
+      "mdc": "ENTH",
+      "description": "Surgery of tonsils and adenoids",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH08C",
+      "mdc": "ENTH",
+      "description": "Surgery of tonsils and adenoids",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH09A",
+      "mdc": "ENTH",
+      "description": "Surgery of salivary glands",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH09C",
+      "mdc": "ENTH",
+      "description": "Surgery of salivary glands",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH10A",
+      "mdc": "ENTH",
+      "description": "Laryngectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH10C",
+      "mdc": "ENTH",
+      "description": "Laryngectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH12A",
+      "mdc": "ENTH",
+      "description": "Excision and reconstruction of oro- and naso-pharynx",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH12C",
+      "mdc": "ENTH",
+      "description": "Excision and reconstruction of oro- and naso-pharynx",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH13A",
+      "mdc": "ENTH",
+      "description": "Examination under anaesthesia and removal of foreign body in ear, nose and throat",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH13C",
+      "mdc": "ENTH",
+      "description": "Examination under anaesthesia and removal of foreign body in ear, nose and throat",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH14A",
+      "mdc": "ENTH",
+      "description": "Incision and drainage of abscess of ear, nose and throat",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH14C",
+      "mdc": "ENTH",
+      "description": "Incision and drainage of abscess of ear, nose and throat",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH15A",
+      "mdc": "ENTH",
+      "description": "Manipulation and reduction of fractured nasal bone",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH15C",
+      "mdc": "ENTH",
+      "description": "Manipulation and reduction of fractured nasal bone",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH16A",
+      "mdc": "ENTH",
+      "description": "Specific nasal surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH16C",
+      "mdc": "ENTH",
+      "description": "Specific nasal surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH17A",
+      "mdc": "ENTH",
+      "description": "Arterial ligation for epistaxis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH17C",
+      "mdc": "ENTH",
+      "description": "Arterial ligation for epistaxis",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH18A",
+      "mdc": "ENTH",
+      "description": "Surgery for trauma to ear, nose, throat",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH18C",
+      "mdc": "ENTH",
+      "description": "Surgery for trauma to ear, nose, throat",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH19A",
+      "mdc": "ENTH",
+      "description": "Excision biopsy of swellings of neck",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH19C",
+      "mdc": "ENTH",
+      "description": "Excision biopsy of swellings of neck",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH20A",
+      "mdc": "ENTH",
+      "description": "ENT OPD procedures",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH20C",
+      "mdc": "ENTH",
+      "description": "ENT OPD procedures",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH21A",
+      "mdc": "ENTH",
+      "description": "Vestibulometry",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH21C",
+      "mdc": "ENTH",
+      "description": "Vestibulometry",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH22A",
+      "mdc": "ENTH",
+      "description": "Evoked response audiometry",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH22C",
+      "mdc": "ENTH",
+      "description": "Evoked response audiometry",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH23A",
+      "mdc": "ENTH",
+      "description": "Antral lavage under local anaesthesia",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH23C",
+      "mdc": "ENTH",
+      "description": "Antral lavage under local anaesthesia",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH24A",
+      "mdc": "ENTH",
+      "description": "Endoscopic ENT surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ENTH24C",
+      "mdc": "ENTH",
+      "description": "Endoscopic ENT surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY01A",
+      "mdc": "OBGY",
+      "description": "Gynaecological laparotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY02A",
+      "mdc": "OBGY",
+      "description": "Diagnostic laparoscopy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY03A",
+      "mdc": "OBGY",
+      "description": "Operative laparoscopy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY04A",
+      "mdc": "OBGY",
+      "description": "Culodocentesis/culotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY05A",
+      "mdc": "OBGY",
+      "description": "Cauterization",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY06A",
+      "mdc": "OBGY",
+      "description": "MVA/EOU",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY07A",
+      "mdc": "OBGY",
+      "description": "Suction curettage",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY08A",
+      "mdc": "OBGY",
+      "description": "Manual removal of placenta",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 5]
+    },
+    {
+      "gdrgCode": "OBGY09A",
+      "mdc": "OBGY",
+      "description": "Expectant management/medical treatment in obstetrics and gynaecology",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6]
+    },
+    {
+      "gdrgCode": "OBGY10A",
+      "mdc": "OBGY",
+      "description": "Marsupialization of Bartholin's gland",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY11A",
+      "mdc": "OBGY",
+      "description": "Excision of genital lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY12A",
+      "mdc": "OBGY",
+      "description": "Incision and drainage in gynaecology cases",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY13A",
+      "mdc": "OBGY",
+      "description": "Pelvic floor repair - simple",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY14A",
+      "mdc": "OBGY",
+      "description": "Vaginal hysterectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY15A",
+      "mdc": "OBGY",
+      "description": "Repair of enterocele",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY16A",
+      "mdc": "OBGY",
+      "description": "Vaginal pessary insertion",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY17A",
+      "mdc": "OBGY",
+      "description": "Colpocleisis",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY18A",
+      "mdc": "OBGY",
+      "description": "Fistula repair - simple",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY19A",
+      "mdc": "OBGY",
+      "description": "Fistula repair - complex",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY20A",
+      "mdc": "OBGY",
+      "description": "Abdominal hysterectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY21A",
+      "mdc": "OBGY",
+      "description": "Perineal repair - complex",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY22A",
+      "mdc": "OBGY",
+      "description": "Pelvic floor repair - complex",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY23A",
+      "mdc": "OBGY",
+      "description": "Colposcopy and biopsy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY24A",
+      "mdc": "OBGY",
+      "description": "Partial vagectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY25A",
+      "mdc": "OBGY",
+      "description": "Polypectomy (avulsion)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY26A",
+      "mdc": "OBGY",
+      "description": "Hysteroscopy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY27A",
+      "mdc": "OBGY",
+      "description": "Correction of malposition of uterus",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY28A",
+      "mdc": "OBGY",
+      "description": "Vulvectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY29A",
+      "mdc": "OBGY",
+      "description": "Instrumental delivery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "isDelivery": true,
+      "applicableLevels": [1, 2, 3, 4, 5]
+    },
+    {
+      "gdrgCode": "OBGY30A",
+      "mdc": "OBGY",
+      "description": "Internal podalic version with breech extraction",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "isDelivery": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY31A",
+      "mdc": "OBGY",
+      "description": "Destructive delivery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "isDelivery": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY32A",
+      "mdc": "OBGY",
+      "description": "Caesarean section",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "isDelivery": true,
+      "applicableLevels": [1, 2, 3, 4, 5]
+    },
+    {
+      "gdrgCode": "OBGY34A",
+      "mdc": "OBGY",
+      "description": "Spontaneous vaginal delivery with or without episiotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "isDelivery": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 10]
+    },
+    {
+      "gdrgCode": "OBGY35A",
+      "mdc": "OBGY",
+      "description": "Cervical cerclage suture",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY36A",
+      "mdc": "OBGY",
+      "description": "Myomectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY38A",
+      "mdc": "OBGY",
+      "description": "Post-partum haemorrhage",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY39A",
+      "mdc": "OBGY",
+      "description": "Wertheim's operation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "OBGY40A",
+      "mdc": "OBGY",
+      "description": "Eclampsia",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "DENT01A",
+      "mdc": "DENT",
+      "description": "Forceps extraction of tooth",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT01C",
+      "mdc": "DENT",
+      "description": "Forceps extraction of tooth",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT02A",
+      "mdc": "DENT",
+      "description": "Surgical removal of tooth",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT03A",
+      "mdc": "DENT",
+      "description": "Temporary filling",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT03C",
+      "mdc": "DENT",
+      "description": "Temporary filling",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT04A",
+      "mdc": "DENT",
+      "description": "Amalgam filling",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT04C",
+      "mdc": "DENT",
+      "description": "Amalgam filling",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT05A",
+      "mdc": "DENT",
+      "description": "Composite/GI filling",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT05C",
+      "mdc": "DENT",
+      "description": "Composite/GI filling",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT06A",
+      "mdc": "DENT",
+      "description": "Scaling and polishing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT06C",
+      "mdc": "DENT",
+      "description": "Scaling and polishing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT07A",
+      "mdc": "DENT",
+      "description": "Gingivectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT07C",
+      "mdc": "DENT",
+      "description": "Gingivectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT08A",
+      "mdc": "DENT",
+      "description": "Root canal therapy - single root (RCT)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT08C",
+      "mdc": "DENT",
+      "description": "Root canal therapy - single root (RCT)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "allowsAddOn": true,
+      "addOnPercentage": 20,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT09A",
+      "mdc": "DENT",
+      "description": "Apicectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT09C",
+      "mdc": "DENT",
+      "description": "Apicectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT10A",
+      "mdc": "DENT",
+      "description": "Incision and drainage (I&D) of oro-facial abscess",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT10C",
+      "mdc": "DENT",
+      "description": "Incision and drainage (I&D) of oro-facial abscess",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT11A",
+      "mdc": "DENT",
+      "description": "Surgical excision of intraoral lesions",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT11C",
+      "mdc": "DENT",
+      "description": "Surgical excision of intraoral lesions",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT12A",
+      "mdc": "DENT",
+      "description": "Curettage/sequestrectomy of facial bone",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT12C",
+      "mdc": "DENT",
+      "description": "Curettage/sequestrectomy of facial bone",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT13A",
+      "mdc": "DENT",
+      "description": "Removal of stone from salivary duct",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT13C",
+      "mdc": "DENT",
+      "description": "Removal of stone from salivary duct",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT14A",
+      "mdc": "DENT",
+      "description": "Sialoadenectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT14C",
+      "mdc": "DENT",
+      "description": "Sialoadenectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT15A",
+      "mdc": "DENT",
+      "description": "Suturing of lacerations of facial region",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT15C",
+      "mdc": "DENT",
+      "description": "Suturing of lacerations of facial region",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT16A",
+      "mdc": "DENT",
+      "description": "Dressing of open facial wounds",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT16C",
+      "mdc": "DENT",
+      "description": "Dressing of open facial wounds",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT17A",
+      "mdc": "DENT",
+      "description": "Frenectomy/frenotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT17C",
+      "mdc": "DENT",
+      "description": "Frenectomy/frenotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT18A",
+      "mdc": "DENT",
+      "description": "Partial resection of facial bones or soft tissues",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT18C",
+      "mdc": "DENT",
+      "description": "Partial resection of facial bones or soft tissues",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT19A",
+      "mdc": "DENT",
+      "description": "Total resection of facial bones and soft tissues",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT19C",
+      "mdc": "DENT",
+      "description": "Total resection of facial bones and soft tissues",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT20A",
+      "mdc": "DENT",
+      "description": "Closed reduction of fractures of facial bones (IMF)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT20C",
+      "mdc": "DENT",
+      "description": "Closed reduction of fractures of facial bones (IMF)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT21A",
+      "mdc": "DENT",
+      "description": "Open reduction of facial fractures",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT21C",
+      "mdc": "DENT",
+      "description": "Open reduction of facial fractures",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT22A",
+      "mdc": "DENT",
+      "description": "Removal of dental wiring",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT22C",
+      "mdc": "DENT",
+      "description": "Removal of dental wiring",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT23A",
+      "mdc": "DENT",
+      "description": "Manual reduction of TMJ dislocation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT23C",
+      "mdc": "DENT",
+      "description": "Manual reduction of TMJ dislocation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT24A",
+      "mdc": "DENT",
+      "description": "Dental examination (medical management)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "DENT24C",
+      "mdc": "DENT",
+      "description": "Dental examination (medical management)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
+    },
+    {
+      "gdrgCode": "OPHT01A",
+      "mdc": "OPHT",
+      "description": "Enucleation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT01C",
+      "mdc": "OPHT",
+      "description": "Enucleation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT02A",
+      "mdc": "OPHT",
+      "description": "Evisceration",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT02C",
+      "mdc": "OPHT",
+      "description": "Evisceration",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT03A",
+      "mdc": "OPHT",
+      "description": "Removal of superficial foreign body",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT03C",
+      "mdc": "OPHT",
+      "description": "Removal of superficial foreign body",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT04A",
+      "mdc": "OPHT",
+      "description": "Removal of intraocular foreign body",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT04C",
+      "mdc": "OPHT",
+      "description": "Removal of intraocular foreign body",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT05A",
+      "mdc": "OPHT",
+      "description": "Removal of intraorbital foreign body",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT05C",
+      "mdc": "OPHT",
+      "description": "Removal of intraorbital foreign body",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT06A",
+      "mdc": "OPHT",
+      "description": "Eyelid surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT06C",
+      "mdc": "OPHT",
+      "description": "Eyelid surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT07A",
+      "mdc": "OPHT",
+      "description": "Scleral and corneal surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT07C",
+      "mdc": "OPHT",
+      "description": "Scleral and corneal surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT08A",
+      "mdc": "OPHT",
+      "description": "Anterior chamber washout",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT08C",
+      "mdc": "OPHT",
+      "description": "Anterior chamber washout",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT09A",
+      "mdc": "OPHT",
+      "description": "Glaucoma surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT09C",
+      "mdc": "OPHT",
+      "description": "Glaucoma surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT10A",
+      "mdc": "OPHT",
+      "description": "Cataract surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT10C",
+      "mdc": "OPHT",
+      "description": "Cataract surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT11A",
+      "mdc": "OPHT",
+      "description": "Strabismus surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT11C",
+      "mdc": "OPHT",
+      "description": "Strabismus surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT12A",
+      "mdc": "OPHT",
+      "description": "Incision and curettage of eyelid",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT12C",
+      "mdc": "OPHT",
+      "description": "Incision and curettage of eyelid",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT13A",
+      "mdc": "OPHT",
+      "description": "Reconstructive surgery of eyelid",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT13C",
+      "mdc": "OPHT",
+      "description": "Reconstructive surgery of eyelid",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT14A",
+      "mdc": "OPHT",
+      "description": "Nasolacrimal drainage system surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT14C",
+      "mdc": "OPHT",
+      "description": "Nasolacrimal drainage system surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT15A",
+      "mdc": "OPHT",
+      "description": "Incision and drainage of abscesses",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT15C",
+      "mdc": "OPHT",
+      "description": "Incision and drainage of abscesses",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT16A",
+      "mdc": "OPHT",
+      "description": "Examination under anaesthesia",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT16C",
+      "mdc": "OPHT",
+      "description": "Examination under anaesthesia",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT17A",
+      "mdc": "OPHT",
+      "description": "Uveitis management",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPHT18A",
+      "mdc": "OPHT",
+      "description": "Cataract surgery with implants",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "ORTH01A",
+      "mdc": "ORTH",
+      "description": "Bandaging/cast application",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+    },
+    {
+      "gdrgCode": "ORTH01C",
+      "mdc": "ORTH",
+      "description": "Bandaging/cast application",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+    },
+    {
+      "gdrgCode": "ORTH02A",
+      "mdc": "ORTH",
+      "description": "Bone biopsy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH02C",
+      "mdc": "ORTH",
+      "description": "Bone biopsy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH03A",
+      "mdc": "ORTH",
+      "description": "Bone graft",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH03C",
+      "mdc": "ORTH",
+      "description": "Bone graft",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH04A",
+      "mdc": "ORTH",
+      "description": "Closed reduction and splintage of fractures and joints",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 6]
+    },
+    {
+      "gdrgCode": "ORTH04C",
+      "mdc": "ORTH",
+      "description": "Closed reduction and splintage of fractures and joints",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 6]
+    },
+    {
+      "gdrgCode": "ORTH05A",
+      "mdc": "ORTH",
+      "description": "Debridement and suturing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH05C",
+      "mdc": "ORTH",
+      "description": "Debridement and suturing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH07A",
+      "mdc": "ORTH",
+      "description": "Excision of soft tissue lumps",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH07C",
+      "mdc": "ORTH",
+      "description": "Excision of soft tissue lumps",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH08A",
+      "mdc": "ORTH",
+      "description": "External fixation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH08C",
+      "mdc": "ORTH",
+      "description": "External fixation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH09A",
+      "mdc": "ORTH",
+      "description": "Fasciotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH09C",
+      "mdc": "ORTH",
+      "description": "Fasciotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH10A",
+      "mdc": "ORTH",
+      "description": "Hemi-arthroplasty",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH10C",
+      "mdc": "ORTH",
+      "description": "Hemi-arthroplasty",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH11A",
+      "mdc": "ORTH",
+      "description": "Incision and drainage of abscesses",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH11C",
+      "mdc": "ORTH",
+      "description": "Incision and drainage of abscesses",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH12A",
+      "mdc": "ORTH",
+      "description": "Internal fixation of fractures",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH12C",
+      "mdc": "ORTH",
+      "description": "Internal fixation of fractures",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH14A",
+      "mdc": "ORTH",
+      "description": "Major surgery of joints",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH14C",
+      "mdc": "ORTH",
+      "description": "Major surgery of joints",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH15A",
+      "mdc": "ORTH",
+      "description": "Minor surgery of joints",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH15C",
+      "mdc": "ORTH",
+      "description": "Minor surgery of joints",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH16A",
+      "mdc": "ORTH",
+      "description": "Nail avulsion",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH16C",
+      "mdc": "ORTH",
+      "description": "Nail avulsion",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH17A",
+      "mdc": "ORTH",
+      "description": "Open reduction and internal fixation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH17C",
+      "mdc": "ORTH",
+      "description": "Open reduction and internal fixation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH18A",
+      "mdc": "ORTH",
+      "description": "Osteotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH18C",
+      "mdc": "ORTH",
+      "description": "Osteotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH20A",
+      "mdc": "ORTH",
+      "description": "Surgery for infected bone",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH20C",
+      "mdc": "ORTH",
+      "description": "Surgery for infected bone",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH22A",
+      "mdc": "ORTH",
+      "description": "Synovectomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH22C",
+      "mdc": "ORTH",
+      "description": "Synovectomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH23A",
+      "mdc": "ORTH",
+      "description": "Tendon surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH23C",
+      "mdc": "ORTH",
+      "description": "Tendon surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH24A",
+      "mdc": "ORTH",
+      "description": "Conservative management of head and spinal injuries",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH24C",
+      "mdc": "ORTH",
+      "description": "Conservative management of head and spinal injuries",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH25A",
+      "mdc": "ORTH",
+      "description": "Surgery for removal of finger or toe",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH25C",
+      "mdc": "ORTH",
+      "description": "Surgery for removal of finger or toe",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH26A",
+      "mdc": "ORTH",
+      "description": "Surgery for amputation of hand or foot (through or below ankle/wrist joint)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH26C",
+      "mdc": "ORTH",
+      "description": "Surgery for amputation of hand or foot (through or below ankle/wrist joint)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH27A",
+      "mdc": "ORTH",
+      "description": "Amputation below or through elbow or knee or complete removal of limb",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
+    },
+    {
+      "gdrgCode": "ORTH27C",
+      "mdc": "ORTH",
+      "description": "Amputation below or through elbow or knee or complete removal of limb",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM01A",
-      "description": "Endoscopy(Rigid & Flexible)>=12Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 158.64,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Endoscopy (rigid and flexible)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM01C",
-      "description": "Endoscopy(Rigid&Flexible)<12Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 149.37,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Endoscopy (rigid and flexible)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM02A",
-      "description": "Detention for Observation and Treatment -Adult",
-      "category": "ZOOM",
-      "nhiaTariff": 46.32,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Detention for observation and treatment",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM02C",
-      "description": "Detention for Observation and Treatment -Child",
-      "category": "ZOOM",
-      "nhiaTariff": 34.97,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Detention for observation and treatment",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM03A",
-      "description": "Inpatient transfer out/Referral-Adult",
-      "category": "ZOOM",
-      "nhiaTariff": 108.54,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Inpatient transfer out/referral",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM03C",
-      "description": "Inpatient transfer out/Referral-Child",
-      "category": "ZOOM",
-      "nhiaTariff": 101.03,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Inpatient transfer out/referral",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM04A",
-      "description": "Change of Catheter >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 21.05,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Change of catheter",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM04C",
-      "description": "Change of Catheter < 12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 21.05,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Change of catheter",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM05A",
-      "description": "Change of Dressing >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 32.55,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Change of dressing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM05C",
-      "description": "Change of Dressing < 12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 32.55,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Change of dressing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM06A",
-      "description": "Male Circumcision >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 112.10,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Male circumcision",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM06C",
-      "description": "Male Circumcision <12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 112.10,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Male circumcision",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM07A",
-      "description": "Dressing And Minor Suturing >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 81.59,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Dressing and minor suturing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM07C",
-      "description": "Dressing And Minor Suturing <=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 78.97,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Dressing and minor suturing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM08A",
-      "description": "Tubal Ligation",
-      "category": "ZOOM",
-      "nhiaTariff": 110.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Tubal ligation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM09A",
+      "mdc": "ZOOM",
       "description": "Vasectomy",
-      "category": "ZOOM",
-      "nhiaTariff": 110.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "ZOOM10A",
-      "description": "IUD>=12Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 12.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Intra-uterine devices (IUD)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM11A",
-      "description": "Implant >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 12.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Implant",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM12A",
-      "description": "Injectable (Three Months) >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 6.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Injectable (three months)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "ZOOM13A",
-      "description": "Injectable (One Month) >=12 Yrs",
-      "category": "ZOOM",
-      "nhiaTariff": 2.00,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "ZOOM",
+      "description": "Injectable (one month)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isZoomCode": true,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
-      "gdrgCode": "OPDCO2A",
-      "description": "Antenatal/Postnatal",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 37.08,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "OPDC01A",
+      "mdc": "OPDC",
+      "description": "Surgery (general, orthopaedic and reconstructive)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1]
     },
     {
-      "gdrgCode": "OPDCO3A",
-      "description": "Dental Adult (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 25.21,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "OPDC01C",
+      "mdc": "OPDC",
+      "description": "Surgery (orthopaedic and reconstructive)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1]
     },
     {
-      "gdrgCode": "OPDCO3C",
-      "description": "Dental Child (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 25.71,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "OPDC02A",
+      "mdc": "OPDC",
+      "description": "Antenatal/postnatal",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "isAntenatal": true,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
-      "gdrgCode": "OPDCO4A",
-      "description": "ENT Adult (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 30.16,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "OPDC03A",
+      "mdc": "OPDC",
+      "description": "Dental adult (without procedure)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
     },
     {
-      "gdrgCode": "OPDCO4C",
-      "description": "ENT Child (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 28.84,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "OPDC03C",
+      "mdc": "OPDC",
+      "description": "Dental child (without procedure)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 7]
     },
     {
-      "gdrgCode": "OPDCO5A",
-      "description": "Eye Adult (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 28.55,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "OPDC04A",
+      "mdc": "OPDC",
+      "description": "ENT adult (without procedure)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "OPDCO5C",
-      "description": "Eye Child (without procedure)",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 28.02,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "OPDC04C",
+      "mdc": "OPDC",
+      "description": "ENT child (without procedure)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
-      "gdrgCode": "OPDCO6A",
-      "description": "General OPD - Adult",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 28.70,
-      "ageGroup": "adult",
-      "isActive": true
+      "gdrgCode": "OPDC05A",
+      "mdc": "OPDC",
+      "description": "Eye adult (without procedure)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
     },
     {
-      "gdrgCode": "OPDCO6C",
-      "description": "General OPD - Child",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 29.06,
-      "ageGroup": "child",
-      "isActive": true
+      "gdrgCode": "OPDC05C",
+      "mdc": "OPDC",
+      "description": "Eye child (without procedure)",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 8]
+    },
+    {
+      "gdrgCode": "OPDC06A",
+      "mdc": "OPDC",
+      "description": "General OPD",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+    },
+    {
+      "gdrgCode": "OPDC06C",
+      "mdc": "OPDC",
+      "description": "General OPD",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+    },
+    {
+      "gdrgCode": "OPDC07A",
+      "mdc": "OPDC",
+      "description": "Medical (adult)",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1]
+    },
+    {
+      "gdrgCode": "OPDC08A",
+      "mdc": "OPDC",
+      "description": "Gynaecology",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1]
+    },
+    {
+      "gdrgCode": "OPDC09C",
+      "mdc": "OPDC",
+      "description": "Paediatric surgery",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1]
+    },
+    {
+      "gdrgCode": "OPDC10C",
+      "mdc": "OPDC",
+      "description": "Paediatrics",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1]
     },
     {
       "gdrgCode": "OPDC11A",
-      "description": "Unbundled Consultation - Adult",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 23.56,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "OPDC",
+      "description": "Unbundled consultation",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
     },
     {
       "gdrgCode": "OPDC11C",
-      "description": "Unbundled Consultation - Child",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 23.10,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "OPDC",
+      "description": "Unbundled consultation",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+    },
+    {
+      "gdrgCode": "OPDC12A",
+      "mdc": "OPDC",
+      "description": "General surgery",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1]
     },
     {
       "gdrgCode": "OPDC13A",
-      "description": "Physiotherapy-Adult",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 27.96,
-      "ageGroup": "adult",
-      "isActive": true
+      "mdc": "OPDC",
+      "description": "Physiotherapy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     },
     {
       "gdrgCode": "OPDC13C",
-      "description": "Physiotherapy-Child",
-      "category": "OUT_PATIENT",
-      "nhiaTariff": 27.60,
-      "ageGroup": "child",
-      "isActive": true
+      "mdc": "OPDC",
+      "description": "Physiotherapy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3]
     }
   ]
+}

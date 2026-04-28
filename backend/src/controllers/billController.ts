@@ -1,4 +1,4 @@
-// controllers/billController.ts - COMPLETE UPDATED VERSION
+// controllers/billController.ts - COMPLETE FIXED VERSION WITH BILLLINEITEM
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient, BillStatus, PaymentMode } from '@prisma/client';
@@ -86,7 +86,7 @@ export const getBills = async (req: AuthRequest, res: Response) => {
               type: true
             }
           },
-          User_Bill_createdByIdToUser: { // ✅ FIXED: Correct relation name
+          User_Bill_createdByIdToUser: {
             select: {
               id: true,
               fullName: true,
@@ -129,7 +129,7 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        Patient: { // ✅ FIXED: Capitalized
+        Patient: {
           select: {
             id: true,
             surname: true,
@@ -139,7 +139,7 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
             paymentMode: true
           }
         },
-        Attendance: { // ✅ FIXED: Capitalized
+        Attendance: {
           select: {
             id: true,
             attendanceNumber: true,
@@ -148,7 +148,7 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
             dateTime: true
           }
         },
-        Admission: { // ✅ FIXED: Capitalized
+        Admission: {
           select: {
             id: true,
             admissionNumber: true,
@@ -156,7 +156,7 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
             admissionDate: true
           }
         },
-        InsuranceProvider: { // ✅ FIXED: Capitalized
+        InsuranceProvider: {
           select: {
             id: true,
             name: true,
@@ -164,24 +164,24 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
             coveragePercentage: true
           }
         },
-        User_Bill_createdByIdToUser: { // ✅ FIXED: Correct relation name
+        User_Bill_createdByIdToUser: {
           select: {
             id: true,
             fullName: true,
             username: true
           }
         },
-        User_Bill_updatedByIdToUser: { // ✅ FIXED: Correct relation name
+        User_Bill_updatedByIdToUser: {
           select: {
             id: true,
             fullName: true,
             username: true
           }
         },
-        Payment: { // ✅ FIXED: Capitalized
+        Payment: {
           orderBy: { transactionDate: 'desc' }
         },
-        InsuranceClaim: { // ✅ FIXED: Capitalized
+        InsuranceClaim: {
           select: {
             id: true,
             claimNumber: true,
@@ -189,6 +189,19 @@ export const getBillById = async (req: AuthRequest, res: Response) => {
             totalClaimAmount: true,
             submissionDate: true
           }
+        },
+        BillLineItem: {
+          where: { isVoided: false },
+          include: {
+            serviceCatalog: {
+              select: {
+                name: true,
+                code: true,
+                serviceType: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
         }
       }
     });
@@ -236,13 +249,24 @@ export const generateBillFromAttendance = async (req: AuthRequest, res: Response
             attendanceType: true
           }
         },
-        User_Bill_createdByIdToUser: { // ✅ FIXED: Correct relation name
+        User_Bill_createdByIdToUser: {
           select: {
             id: true,
             fullName: true,
             username: true
           }
         },
+        BillLineItem: {
+          where: { isVoided: false },
+          include: {
+            serviceCatalog: {
+              select: {
+                name: true,
+                code: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -293,7 +317,7 @@ export const createBill = [
           tx.patient.findUnique({ where: { id: patientId } }),
           tx.attendance.findUnique({ 
             where: { id: attendanceId },
-            include: { InsuranceProvider: true } // ✅ FIXED: Capitalized
+            include: { InsuranceProvider: true }
           })
         ]);
       
@@ -310,7 +334,7 @@ export const createBill = [
             item.serviceId,
             item.quantity,
             paymentMode as PaymentMode,
-            attendance.InsuranceProvider // ✅ FIXED: Capitalized
+            attendance.InsuranceProvider
           );
       
           totalCashPrice += calculation.cashPrice;
@@ -324,6 +348,7 @@ export const createBill = [
           });
         }
       
+        // ✅ Create bill WITHOUT items field
         const bill = await tx.bill.create({
           data: {
             patientId,
@@ -332,7 +357,6 @@ export const createBill = [
             paymentMode: paymentMode as PaymentMode,
             insuranceProviderId: attendance.insuranceProviderId,
             billNumber: `BIL-${Date.now()}`,
-            items: billItems as any,
             subtotal: totalCashPrice,
             taxAmount: 0,
             totalAmount: totalCashPrice,
@@ -344,7 +368,7 @@ export const createBill = [
             createdById: req.user?.id
           },
           include: {
-            Patient: { // ✅ FIXED: Capitalized
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -352,24 +376,47 @@ export const createBill = [
                 contact: true
               }
             },
-            Attendance: { // ✅ FIXED: Capitalized
+            Attendance: {
               select: {
                 attendanceNumber: true,
                 attendanceType: true
               }
             },
-            User_Bill_createdByIdToUser: { // ✅ FIXED: Correct relation name
+            User_Bill_createdByIdToUser: {
               select: {
                 fullName: true
               }
             }
           }
         });
+
+        // ✅ Create BillLineItem records for each service
+        for (const item of billItems) {
+          const service = await tx.serviceCatalog.findUnique({
+            where: { id: item.serviceId },
+            include: { pricing: true }
+          });
+
+          await tx.billLineItem.create({
+            data: {
+              billId: bill.id,
+              serviceCatalogId: item.serviceId,
+              description: service?.name || `Service ${item.serviceId}`,
+              serviceType: service?.serviceType || 'miscellaneous',
+              quantity: item.quantity,
+              unitPrice: service?.pricing?.cashPrice / item.quantity || 0,
+              pricingBasis: paymentMode as PaymentMode,
+              lineTotal: item.calculation.cashPrice,
+              insuranceCoveredAmount: item.calculation.insuranceCovered,
+              patientPayableAmount: item.calculation.patientPayable,
+              discount: 0
+            }
+          });
+        }
       
         await tx.attendance.update({
           where: { id: attendanceId },
           data: {
-            billId: bill.id,
             totalBill: totalCashPrice,
             outstandingBalance: totalPatientPayable
           }
@@ -447,7 +494,7 @@ export const addPaymentToBill = [
             updatedById: req.user?.id
           },
           include: {
-            Patient: { // ✅ FIXED: Capitalized
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -455,7 +502,7 @@ export const addPaymentToBill = [
                 contact: true
               }
             },
-            Attendance: { // ✅ FIXED: Capitalized
+            Attendance: {
               select: {
                 attendanceNumber: true,
                 attendanceType: true
@@ -509,7 +556,7 @@ export const generateBillReport = async (req: AuthRequest, res: Response) => {
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        Patient: { // ✅ FIXED: Capitalized
+        Patient: {
           select: {
             surname: true,
             otherNames: true,
@@ -518,28 +565,39 @@ export const generateBillReport = async (req: AuthRequest, res: Response) => {
             address: true
           }
         },
-        Attendance: { // ✅ FIXED: Capitalized
+        Attendance: {
           select: {
             attendanceNumber: true,
             attendanceType: true,
             dateTime: true
           }
         },
-        Admission: { // ✅ FIXED: Capitalized
+        Admission: {
           select: {
             admissionNumber: true,
             admissionDate: true
           }
         },
-        InsuranceProvider: { // ✅ FIXED: Capitalized
+        InsuranceProvider: {
           select: {
             name: true,
             coveragePercentage: true
           }
         },
-        User_Bill_createdByIdToUser: { // ✅ FIXED: Correct relation name
+        User_Bill_createdByIdToUser: {
           select: {
             fullName: true
+          }
+        },
+        BillLineItem: {
+          where: { isVoided: false },
+          include: {
+            serviceCatalog: {
+              select: {
+                name: true,
+                code: true
+              }
+            }
           }
         }
       }
@@ -560,21 +618,28 @@ export const generateBillReport = async (req: AuthRequest, res: Response) => {
         paymentMode: bill.paymentMode
       },
       patientInfo: {
-        name: `${bill.Patient.surname} ${bill.Patient.otherNames}`, // ✅ FIXED: Capitalized
-        folderNumber: bill.Patient.folderNumber, // ✅ FIXED: Capitalized
-        contact: bill.Patient.contact, // ✅ FIXED: Capitalized
-        address: bill.Patient.address // ✅ FIXED: Capitalized
+        name: `${bill.Patient.surname} ${bill.Patient.otherNames}`,
+        folderNumber: bill.Patient.folderNumber,
+        contact: bill.Patient.contact,
+        address: bill.Patient.address
       },
       attendanceInfo: {
-        attendanceNumber: bill.Attendance?.attendanceNumber, // ✅ FIXED: Capitalized
-        type: bill.Attendance?.attendanceType, // ✅ FIXED: Capitalized
-        date: bill.Attendance?.dateTime // ✅ FIXED: Capitalized
+        attendanceNumber: bill.Attendance?.attendanceNumber,
+        type: bill.Attendance?.attendanceType,
+        date: bill.Attendance?.dateTime
       },
-      admissionInfo: bill.Admission ? { // ✅ FIXED: Capitalized
-        admissionNumber: bill.Admission.admissionNumber, // ✅ FIXED: Capitalized
-        admissionDate: bill.Admission.admissionDate // ✅ FIXED: Capitalized
+      admissionInfo: bill.Admission ? {
+        admissionNumber: bill.Admission.admissionNumber,
+        admissionDate: bill.Admission.admissionDate
       } : null,
-      items: bill.items,
+      items: bill.BillLineItem.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.lineTotal,
+        insuranceCovered: item.insuranceCoveredAmount,
+        patientPayable: item.patientPayableAmount
+      })),
       financialSummary: {
         subtotal: bill.subtotal,
         tax: bill.taxAmount,
@@ -584,9 +649,9 @@ export const generateBillReport = async (req: AuthRequest, res: Response) => {
         paidAmount: bill.paidAmount,
         balance: bill.balance
       },
-      insuranceInfo: bill.InsuranceProvider ? { // ✅ FIXED: Capitalized
-        provider: bill.InsuranceProvider.name, // ✅ FIXED: Capitalized
-        coveragePercentage: bill.InsuranceProvider.coveragePercentage // ✅ FIXED: Capitalized
+      insuranceInfo: bill.InsuranceProvider ? {
+        provider: bill.InsuranceProvider.name,
+        coveragePercentage: bill.InsuranceProvider.coveragePercentage
       } : null
     };
 
@@ -609,7 +674,7 @@ export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        attendance: {
+        Attendance: {
           select: { id: true }
         }
       }
@@ -622,7 +687,7 @@ export const getBillingBreakdown = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const breakdown = await BillingService.getBillingBreakdown(bill.attendance.id);
+    const breakdown = await BillingService.getBillingBreakdown(bill.Attendance.id);
 
     res.json({
       success: true,
@@ -665,14 +730,14 @@ export const updateBillStatus = [
           updatedById: req.user?.id
         },
         include: {
-          Patient: { // ✅ FIXED: Capitalized
+          Patient: {
             select: {
               surname: true,
               otherNames: true,
               folderNumber: true
             }
           },
-          Attendance: { // ✅ FIXED: Capitalized
+          Attendance: {
             select: {
               attendanceNumber: true
             }
@@ -780,3 +845,118 @@ export const getBillStatistics = async (req: AuthRequest, res: Response) => {
     handleError(res, 'Error fetching bill statistics', error);
   }
 };
+
+export const getBillLineItems = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const lineItems = await prisma.billLineItem.findMany({
+      where: { billId: id, isVoided: false },
+      include: {
+        serviceCatalog: {
+          select: {
+            name: true,
+            code: true,
+            serviceType: true
+          }
+        },
+        voidedBy: {
+          select: { fullName: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const bill = await prisma.bill.findUnique({
+      where: { id },
+      select: {
+        billNumber: true,
+        status: true,
+        totalAmount: true,
+        paidAmount: true,
+        balance: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        bill,
+        lineItems,
+        summary: {
+          totalItems: lineItems.length,
+          subtotal: lineItems.reduce((sum, i) => sum + i.lineTotal, 0),
+          insuranceCovered: lineItems.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0),
+          patientPayable: lineItems.reduce((sum, i) => sum + i.patientPayableAmount, 0)
+        }
+      }
+    });
+  } catch (error) {
+    handleError(res, 'Error fetching bill line items', error);
+  }
+};
+
+// ✅ ADD THIS: Void a bill line item
+export const voidBillLineItem = [
+  body('reason').notEmpty().withMessage('Void reason is required'),
+
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { lineItemId } = req.params;
+      const { reason } = req.body;
+
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      const result = await BillingService.voidBillLineItem(lineItemId, req.user.id, reason);
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: 'Bill line item not found'
+        });
+      }
+
+      // Get updated bill with line items
+      const updatedBill = await prisma.bill.findUnique({
+        where: { id: result.billId },
+        include: {
+          BillLineItem: {
+            where: { isVoided: false }
+          },
+          Patient: {
+            select: {
+              surname: true,
+              otherNames: true,
+              folderNumber: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Bill line item voided successfully',
+        data: {
+          voidedItem: result,
+          updatedBill
+        }
+      });
+    } catch (error) {
+      handleError(res, 'Error voiding bill line item', error);
+    }
+  }
+];

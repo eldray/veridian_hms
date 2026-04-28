@@ -99,7 +99,8 @@ export const getDepartmentById = async (req: Request, res: Response) => {
           include: {
             patient: {
               select: {
-                fullName: true,
+                surname: true,
+                otherNames: true,
                 folderNumber: true,
                 contact: true
               }

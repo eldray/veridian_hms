@@ -27,6 +27,7 @@ const handleResponse = <T>(response: any): T[] => {
   if (response?.consultationTypes && Array.isArray(response.consultationTypes)) return response.consultationTypes as T[];
   if (response?.stockItems && Array.isArray(response.stockItems)) return response.stockItems as T[];
   if (response?.stockTransactions && Array.isArray(response.stockTransactions)) return response.stockTransactions as T[];
+  if (response?.requisitions && Array.isArray(response.requisitions)) return response.requisitions as T[];
   if (response?.labTestTemplates && Array.isArray(response.labTestTemplates)) return response.labTestTemplates as T[];
   if (response?.procedureTemplates && Array.isArray(response.procedureTemplates)) return response.procedureTemplates as T[];
   if (response?.scanTemplates && Array.isArray(response.scanTemplates)) return response.scanTemplates as T[];
@@ -126,9 +127,61 @@ export const updateHospitalNHISSettings = (data: any) =>
   api.put('/hospitals/settings/nhis', data).then(r => r.data);
 
 // ───── GDRG TARIFFS ─────
-export const getGDRGTariffs = async (): Promise<GDRGTariff[]> => {
-  const response = await api.get('/gdrg-tariffs');
-  return handleResponse<GDRGTariff>(response.data);
+// src/api/index.ts - ADD THESE GDRG API FUNCTIONS
+
+// ───── GDRG TARIFFS (Full CRUD) ─────
+// src/api/index.ts - FIX getGDRGTariffs
+
+export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
+  const response = await api.get('/gdrg-tariffs', { params: filters });
+  // Extract the data array from the response
+  const result = response.data;
+  if (result?.success && Array.isArray(result.data)) {
+    return result.data; // Return only the tariffs array
+  }
+  if (Array.isArray(result)) {
+    return result;
+  }
+  if (Array.isArray(result?.data)) {
+    return result.data;
+  }
+  console.warn('Unexpected GDRG tariffs response:', result);
+  return [];
+};
+
+export const getGDRGByCode = async (code: string) => {
+  const response = await api.get(`/gdrg-tariffs/${code}`);
+  return response.data?.data || response.data;
+};
+
+export const createGDRGTariff = async (data: any) => {
+  const response = await api.post('/gdrg-tariffs', data);
+  return response.data?.data || response.data;
+};
+
+export const updateGDRGTariff = async (code: string, data: any) => {
+  const response = await api.put(`/gdrg-tariffs/${code}`, data);
+  return response.data?.data || response.data;
+};
+
+export const deleteGDRGTariff = async (code: string) => {
+  const response = await api.delete(`/gdrg-tariffs/${code}`);
+  return response.data;
+};
+
+export const lookupGDRGByAge = async (params: { gdrgCode: string; patientId?: string; ageInYears?: number }) => {
+  const response = await api.get('/gdrg-tariffs/lookup/age', { params });
+  return response.data?.data || response.data;
+};
+
+export const linkDiagnosisToGDRG = async (gdrgCode: string, diagnosisId: string, isPrimary?: boolean, mappedIcdCode?: string) => {
+  const response = await api.post(`/gdrg-tariffs/${gdrgCode}/diagnosis`, { diagnosisId, isPrimary, mappedIcdCode });
+  return response.data?.data || response.data;
+};
+
+export const unlinkDiagnosisFromGDRG = async (gdrgCode: string, diagnosisId: string) => {
+  const response = await api.delete(`/gdrg-tariffs/${gdrgCode}/diagnosis/${diagnosisId}`);
+  return response.data;
 };
 
 // ───── INSURANCE PROVIDERS ─────
@@ -346,7 +399,7 @@ export const addLabTestToAttendance = (attendanceId: string, data: any) =>
   api.post(`/attendances/${attendanceId}/lab-tests`, data).then(r => r.data);
 
 export const updateLabTestStatus = (attendanceId: string, labTestId: string, data: any) => 
-  api.put(`/attendances/${attendanceId}/lab-tests/${labTestId}`, data).then(r => r.data);
+  api.patch(`/attendances/${attendanceId}/lab-tests/${labTestId}`, data).then(r => r.data);
 
 export const removeLabTestFromAttendance = (attendanceId: string, labTestId: string) => 
   api.delete(`/attendances/${attendanceId}/lab-tests/${labTestId}`).then(r => r.data);
@@ -356,80 +409,89 @@ export const addProcedureToAttendance = (attendanceId: string, data: any) =>
   api.post(`/attendances/${attendanceId}/procedures`, data).then(r => r.data);
 
 export const updateProcedureStatus = (attendanceId: string, procedureId: string, data: any) => 
-  api.put(`/attendances/${attendanceId}/procedures/${procedureId}`, data).then(r => r.data);
+  api.patch(`/attendances/${attendanceId}/procedures/${procedureId}`, data).then(r => r.data);
 
 export const removeProcedureFromAttendance = (attendanceId: string, procedureId: string) => 
   api.delete(`/attendances/${attendanceId}/procedures/${procedureId}`).then(r => r.data);
 
 // Medication Operations
-export const addMedicationToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/medications`, data).then(r => r.data);
+export const addMedicationToAttendance = async (attendanceId: string, data: { 
+  stockItemId: string; 
+  serviceCatalogId: string; 
+  dosage: string; 
+  frequency: string; 
+  duration: string; 
+  route?: string; 
+  instructions?: string 
+}) => {
+  const response = await api.post(`/attendances/${attendanceId}/medications`, data);
+  return response.data;
+};
 
-export const updateMedicationStatus = (attendanceId: string, medicationId: string, data: any) => 
-  api.put(`/attendances/${attendanceId}/medications/${medicationId}`, data).then(r => r.data);
+export const updateMedicationStatus = async (attendanceId: string, medicationId: string, data: any) => {
+  const response = await api.patch(`/attendances/${attendanceId}/medications/${medicationId}`, data);
+  return response.data;
+};
 
-export const removeMedicationFromAttendance = (attendanceId: string, medicationId: string) => 
-  api.delete(`/attendances/${attendanceId}/medications/${medicationId}`).then(r => r.data);
-
+export const removeMedicationFromAttendance = async (attendanceId: string, medicationId: string) => {
+  const response = await api.delete(`/attendances/${attendanceId}/medications/${medicationId}`);
+  return response.data;
+};
 // Scan Operations
-export const addScanToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/scans`, data).then(r => r.data);
+export const addScanToAttendance = async (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => {
+  const response = await api.post(`/attendances/${attendanceId}/scans`, data);
+  return response.data;
+};
 
-export const updateScanStatus = (attendanceId: string, scanId: string, data: any) => 
-  api.put(`/attendances/${attendanceId}/scans/${scanId}`, data).then(r => r.data);
+export const updateScanStatus = async (attendanceId: string, scanId: string, data: any) => {
+  const response = await api.patch(`/attendances/${attendanceId}/scans/${scanId}`, data);
+  return response.data;
+};
 
-export const removeScanFromAttendance = (attendanceId: string, scanId: string) => 
-  api.delete(`/attendances/${attendanceId}/scans/${scanId}`).then(r => r.data);
+export const removeScanFromAttendance = async (attendanceId: string, scanId: string) => {
+  const response = await api.delete(`/attendances/${attendanceId}/scans/${scanId}`);
+  return response.data;
+};
 
 // Service Operations
-export const addServiceToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/services`, data).then(r => r.data);
+export const addServiceToAttendance = async (attendanceId: string, data: any) => {
+  const response = await api.post(`/attendances/${attendanceId}/services`, data);
+  return response.data;
+};
 
-export const removeServiceFromAttendance = (attendanceId: string, serviceId: string) => 
-  api.delete(`/attendances/${attendanceId}/services/${serviceId}`).then(r => r.data);
-
+export const removeServiceFromAttendance = async (attendanceId: string, serviceId: string) => {
+  const response = await api.delete(`/attendances/${attendanceId}/services/${serviceId}`);
+  return response.data;
+};
 // Bed Assignment
 export const assignBedToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/assign-bed`, data).then(r => r.data);
 
-// Vitals Operations
-export const addVitalsToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/vitals`, data).then(r => {
-    console.log('✅ Vitals API Response:', r.data);
-    return r.data;
-  });
 
-export const getVitalsByAttendance = (attendanceId: string) => 
-  api.get(`/attendances/${attendanceId}/vitals`).then(r => {
-    console.log('✅ Get Vitals API Response:', r.data);
-    return Array.isArray(r.data) ? r.data : (r.data.vitals || []);
-  });
+// ============================================
+// VITALS API
+// ============================================
 
-export const updateVitals = (attendanceId: string, vitalsId: string, data: any) => 
-  api.put(`/attendances/${attendanceId}/vitals/${vitalsId}`, data).then(r => {
-    console.log('✅ Update Vitals API Response:', r.data);
-    return r.data;
-  });
+export const addVitalsToAttendance = async (attendanceId: string, data: any) => {
+  const response = await api.post(`/attendances/${attendanceId}/vitals`, data);
+  return response.data;
+};
 
-export const deleteVitals = (attendanceId: string, vitalsId: string) => 
-  api.delete(`/attendances/${attendanceId}/vitals/${vitalsId}`)
-    .then(r => {
-      console.log('✅ Delete Vitals Success:', {
-        attendanceId,
-        vitalsId,
-        response: r.data
-      });
-      return r.data;
-    })
-    .catch(error => {
-      console.error('❌ Delete Vitals Failed:', {
-        attendanceId,
-        vitalsId,
-        error: error.response?.data,
-        status: error.response?.status
-      });
-      throw error;
-    });
+export const getVitalsByAttendance = async (attendanceId: string) => {
+  const response = await api.get(`/attendances/${attendanceId}/vitals`);
+  return response.data;
+};
+
+export const updateVitals = async (attendanceId: string, vitalsId: string, data: any) => {
+  const response = await api.put(`/attendances/${attendanceId}/vitals/${vitalsId}`, data);
+  return response.data;
+};
+
+export const deleteVitals = async (attendanceId: string, vitalsId: string) => {
+  const response = await api.delete(`/attendances/${attendanceId}/vitals/${vitalsId}`);
+  return response.data;
+};
+
 
 // Progress Notes Operations
 export const addProgressNoteToAttendance = (attendanceId: string, data: any) => 
@@ -439,14 +501,22 @@ export const removeProgressNoteFromAttendance = (attendanceId: string, noteId: s
   api.delete(`/attendances/${attendanceId}/progress-notes/${noteId}`).then(r => r.data);
 
 // Billing Operations
-export const calculateAttendanceBill = (attendanceId: string) => 
-  api.post(`/attendances/${attendanceId}/calculate-bill`).then(r => r.data);
 
 export const getBillingBreakdown = (attendanceId: string) => 
   api.get(`/attendances/${attendanceId}/billing-breakdown`).then(r => r.data);
 
-export const getAttendanceStats = (filters?: any) => 
-  api.get('/attendances/stats', { params: filters }).then(r => r.data);
+export const calculateAttendanceBill = async (attendanceId: string) => {
+  const response = await api.post(`/attendances/${attendanceId}/calculate-bill`);
+  return response.data;
+};
+
+export const getAttendanceStats = async (filters?: any) => {
+  const params = new URLSearchParams();
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+  const response = await api.get(`/attendances/stats${params.toString() ? `?${params}` : ''}`);
+  return response.data;
+};
 
 // NHIS Claim Validation
 export const validateNHISClaim = (attendanceId: string) => 
@@ -665,21 +735,36 @@ export const deleteRequisition = (id: string) =>
   api.delete(`/requisitions/${id}`).then(r => r.data);
 
 export const submitRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/submit`).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status: 'submitted' }).then(r => r.data);
 
 export const approveRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/approve`).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status: 'approved' }).then(r => r.data);
 
 export const fulfillRequisition = (id: string, data: any) => 
-  api.post(`/requisitions/${id}/fulfill`, data).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status: 'fulfilled', ...(data || {}) }).then(r => r.data);
 
 export const cancelRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/cancel`).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status: 'cancelled' }).then(r => r.data);
 
 // ───── MEDICAL SERVICES ─────
-export const getDiagnoses = (filters?: any) => 
-  api.get('/diagnoses', { params: filters }).then(r => handleResponse<Diagnosis>(r.data));
+// src/api/index.ts - Verify this returns the correct data
 
+export const getDiagnoses = (filters?: any) => 
+  api.get('/diagnoses', { params: filters }).then(r => {
+    console.log('Diagnoses API response:', r.data);
+    // The response might be { data: [...], pagination: {...} }
+    if (r.data?.success && Array.isArray(r.data.data)) {
+      return r.data.data;
+    }
+    if (Array.isArray(r.data)) {
+      return r.data;
+    }
+    if (r.data?.data && Array.isArray(r.data.data)) {
+      return r.data.data;
+    }
+    return [];
+  });
+  
 export const getDiagnosis = (id: string) => 
   api.get(`/diagnoses/${id}`).then(r => r.data);
 
@@ -697,12 +782,6 @@ export const searchDiagnoses = (query: string) =>
 
 export const getDiagnosisStats = () => 
   api.get('/diagnoses/stats').then(r => r.data);
-
-export const getDiagnosisCategories = () => 
-  api.get('/diagnoses/categories').then(r => r.data);
-
-export const getDiagnosisVariants = () => 
-  api.get('/diagnoses/variants').then(r => r.data);
 
 export const bulkUpdateDiagnoses = (data: any) => 
   api.post('/diagnoses/bulk-update', data).then(r => r.data);
@@ -886,45 +965,94 @@ export const deleteConsultationType = (id: string) =>
   api.delete(`/consultation-types/${id}`).then(r => r.data);
 
 // ───── REPORTS ─────
-export const getFinancialReport = (filters: any) => 
-  api.get('/reports/financial', { params: filters }).then(r => r.data);
 
-export const getInsuranceClaimsReport = (filters: any) => 
-  api.get('/reports/insurance-claims', { params: filters }).then(r => r.data);
+// ============================================
+// GHS REPORT API CALLS
+// ============================================
 
-export const getClinicalReport = (filters: any) => 
-  api.get('/reports/clinical', { params: filters }).then(r => r.data);
+export const getGHSOPDReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/opd', { params: filters });
+  return response.data.data;
+};
 
-export const getAttendanceReport = (filters: any) => 
-  api.get('/reports/attendance', { params: filters }).then(r => r.data);
+export const getGHSIPDReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/ipd', { params: filters });
+  return response.data.data;
+};
 
-export const getRevenueReport = (filters: any) => 
-  api.get('/reports/revenue', { params: filters }).then(r => r.data);
+export const getGHSANCReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/anc', { params: filters });
+  return response.data.data;
+};
 
-export const exportReport = (data: any) => 
-  api.post('/reports/export', data).then(r => r.data);
+export const getGHSDeliveryReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/delivery', { params: filters });
+  return response.data.data;
+};
 
-// GHS Standard Reports
-export const getGHSOPDReport = (filters: any) => 
-  api.get('/reports/ghs/opd', { params: filters }).then(r => r.data);
+export const getGHSMalariaReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/malaria', { params: filters });
+  return response.data.data;
+};
 
-export const getGHSIPDReport = (filters: any) => 
-  api.get('/reports/ghs/ipd', { params: filters }).then(r => r.data);
+export const getGHSIDSRReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/idsr', { params: filters });
+  return response.data.data;
+};
 
-export const getGHSANCReport = (filters: any) => 
-  api.get('/reports/ghs/anc', { params: filters }).then(r => r.data);
+export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/family-planning', { params: filters });
+  return response.data.data;
+};
 
-export const getGHSCWCReport = (filters: any) => 
-  api.get('/reports/ghs/cwc', { params: filters }).then(r => r.data);
+export const getMorbidityMortalityReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/morbidity-mortality', { params: filters });
+  return response.data.data;
+};
 
-export const getGHSFamilyPlanningReport = (filters: any) => 
-  api.get('/reports/ghs/family-planning', { params: filters }).then(r => r.data);
+export const getDemographicReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/demographic', { params: filters });
+  return response.data.data;
+};
 
-export const getMorbidityMortalityReport = (filters: any) => 
-  api.get('/reports/morbidity-mortality', { params: filters }).then(r => r.data);
+// ============================================
+// REGULAR REPORT API CALLS
+// ============================================
 
-export const getDemographicReport = (filters: any) => 
-  api.get('/reports/demographic', { params: filters }).then(r => r.data);
+export const getFinancialReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/financial', { params: filters });
+  return response.data.data;
+};
+
+export const getInsuranceClaimsReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/insurance-claims', { params: filters });
+  return response.data.data;
+};
+
+export const getClinicalReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical', { params: filters });
+  return response.data.data;
+};
+
+export const getAttendanceReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/attendance', { params: filters });
+  return response.data.data;
+};
+
+export const getRevenueReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/revenue', { params: filters });
+  return response.data.data;
+};
+
+export const exportReport = async (data: { 
+  reportType: string; 
+  format: string; 
+  filters: ReportFilter;
+  data: any;
+}) => {
+  const response = await api.post('/reports/export', data);
+  return response.data;
+};
 
 // ======================
 // DEPARTMENT API FUNCTIONS
@@ -1145,6 +1273,50 @@ export const deleteBackup = async (filename) => {
   return response.data;
 };
 
+// ============================================
+// ANTENATAL API FUNCTIONS
+// ============================================
+
+// Get all antenatal bookings
+export const getAntenatalBookings = (filters?: any) => 
+  api.get('/antenatal/bookings', { params: filters }).then(r => r.data);
+
+// Get antenatal booking by patient ID
+export const getAntenatalBooking = (patientId: string) => 
+  api.get(`/antenatal/bookings/${patientId}`).then(r => r.data);
+
+// Create or update antenatal booking
+export const createAntenatalBooking = (data: any) => 
+  api.post('/antenatal/bookings', data).then(r => r.data);
+
+// Close antenatal booking (post-delivery)
+export const closeAntenatalBooking = (patientId: string, data: any) => 
+  api.put(`/antenatal/bookings/${patientId}/close`, data).then(r => r.data);
+
+// Get ANC visits by booking ID
+export const getANCVisits = (bookingId: string) => 
+  api.get(`/antenatal/visits/${bookingId}`).then(r => r.data);
+
+// Get single ANC visit by ID
+export const getANCVisitById = (id: string) => 
+  api.get(`/antenatal/visit/${id}`).then(r => r.data);
+
+// Record new ANC visit
+export const recordANCVisit = (data: any) => 
+  api.post('/antenatal/visits', data).then(r => r.data);
+
+// Update ANC visit
+export const updateANCVisit = (id: string, data: any) => 
+  api.put(`/antenatal/visits/${id}`, data).then(r => r.data);
+
+// Delete ANC visit
+export const deleteANCVisit = (id: string) => 
+  api.delete(`/antenatal/visits/${id}`).then(r => r.data);
+
+// Get ANC statistics
+export const getANCStatistics = (filters?: any) => 
+  api.get('/antenatal/stats', { params: filters }).then(r => r.data);
+
 // ======================
 // UPLOAD SYSTEM (Static file serving)
 // ======================
@@ -1320,8 +1492,6 @@ getFinalizedClaimsTotal,
   deleteDiagnosis,
   searchDiagnoses,
   getDiagnosisStats,
-  getDiagnosisCategories,
-  getDiagnosisVariants,
   bulkUpdateDiagnoses,
   getLabTestTemplates,
   getLabTestTemplate,
@@ -1440,7 +1610,6 @@ getFinalizedClaimsTotal,
   getGHSOPDReport,
   getGHSIPDReport,
   getGHSANCReport,
-  getGHSCWCReport,
   getGHSFamilyPlanningReport,
   getMorbidityMortalityReport,
   getDemographicReport,

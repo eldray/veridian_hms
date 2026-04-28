@@ -1,41 +1,68 @@
-  // src/types/medical-entries.ts - UPDATED TO MATCH BACKEND
-  export interface MedicationEntry {
-    stockItemId?: string;
-    name: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-    quantity: number;
-    route?: string;
-    instructions?: string;
-    status?: 'prescribed' | 'dispensed' | 'administered' | 'cancelled';
-    prescribedBy?: string;
-  }
+// src/types/medical-entries.ts
+// Updated to match backend schema
 
-  export interface LabTestEntry {
-    templateId: string;
-    name?: string;
-    priority: 'routine' | 'urgent' | 'stat';
-    notes?: string;
-    status?: 'requested' | 'in_progress' | 'completed' | 'cancelled';
-  }
+export interface MedicationEntry {
+  stockItemId: string;
+  serviceCatalogId?: string;  // For pricing
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+  route?: string;
+  instructions?: string;
+  status?: 'prescribed' | 'dispensed' | 'administered' | 'cancelled';
+  prescribedBy?: string;
+}
 
-  export interface ProcedureEntry {
-    templateId: string;
-    name?: string;
-    scheduledDate: string;
-    notes?: string;
-    status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-    createdBy?: string;
-  }
+export interface LabTestEntry {
+  templateId: string;
+  serviceCatalogId?: string;  // For pricing
+  priority: 'routine' | 'urgent' | 'stat';
+  notes?: string;
+  status?: 'requested' | 'in_progress' | 'completed' | 'cancelled';
+}
 
-  export interface ScanEntry {
-    templateId?: string;  // ✅ Match backend scan template reference
-    scanType: string;     // ✅ Match backend scanType field
-    description: string;  // ✅ Match backend description field
-    bodyPart?: string;    // ✅ Match backend bodyPart field
-    priority: 'routine' | 'urgent';
-    notes?: string;
-    status?: 'requested' | 'in_progress' | 'completed' | 'cancelled';
-  }
+export interface ProcedureEntry {
+  templateId: string;
+  serviceCatalogId?: string;  // For pricing
+  scheduledDate: string;
+  notes?: string;
+  status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  createdBy?: string;
+  assistantId?: string;
+  anesthesiaNotes?: string;
+  intraOperativeNotes?: string;
+  postOperativeNotes?: string;
+  bloodLoss?: number;
+}
 
+export interface ScanEntry {
+  templateId: string;
+  serviceCatalogId?: string;  // For pricing
+  scanType: string;
+  description: string;
+  bodyPart?: string;
+  priority: 'routine' | 'urgent';
+  notes?: string;
+  status?: 'requested' | 'in_progress' | 'completed' | 'cancelled';
+}
+
+export interface VitalsEntry {
+  bloodPressure?: string;
+  temperature?: number;
+  pulse?: number;
+  respiration?: number;
+  spo2?: number;
+  weight?: number;
+  height?: number;
+  notes?: string;
+}
+
+export interface DiagnosisEntry {
+  diagnosisId: string;
+  notes?: string;
+  primary?: boolean;
+  presentOnAdmission?: 'Y' | 'N' | 'U';
+  diagnosisType?: 'principal' | 'secondary' | 'comorbidity';
+}

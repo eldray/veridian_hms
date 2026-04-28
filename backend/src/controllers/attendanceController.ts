@@ -157,12 +157,12 @@ const addServiceToAttendanceAndBill = async (
 ) => {
   const attendance = await prisma.attendance.findUnique({
     where: { id: attendanceId },
-    include: {
-      ServiceRendered: true
-    }
+    include: { ServiceRendered: true }
   });
 
-  if (!attendance) throw new Error('Attendance not found');
+  if (!attendance) {
+    throw new Error('Attendance not found');
+  }
 
   const existingService = attendance.ServiceRendered.find(
     s => s.serviceItemId === serviceCatalogId
@@ -173,13 +173,16 @@ const addServiceToAttendanceAndBill = async (
     return attendance;
   }
 
+  // ✅ FIXED: Use ONLY scalar fields - NO nested relation
   await prisma.serviceRendered.create({
     data: {
-      attendanceId,
+      attendanceId: attendanceId,
       serviceItemId: serviceCatalogId,
-      quantity,
+      quantity: quantity,
       date: new Date(),
-      performedById: userId
+      performedById: userId,
+      notes: null,
+      // ❌ REMOVE: attendance: { connect: { id: attendanceId } }
     }
   });
 
@@ -187,6 +190,485 @@ const addServiceToAttendanceAndBill = async (
 
   return attendance;
 };
+
+
+// ✅ FIXED: Allow prescription even when stock is 0
+
+export const addMedicationToAttendance = [
+  body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for pricing'),
+  body('dosage').notEmpty().withMessage('Dosage is required'),
+  body('frequency').notEmpty().withMessage('Frequency is required'),
+  body('duration').notEmpty().withMessage('Duration is required'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      // ✅ ADD DEBUG LOGGING
+      console.log('💊 PRESCRIBE MEDICATION - Request received');
+      console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+      console.log('📌 Attendance ID:', req.params.id);
+      console.log('👤 User:', (req as any).user?.id);
+      
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { 
+        stockItemId, 
+        serviceCatalogId, 
+        dosage, 
+        frequency, 
+        duration, 
+        route, 
+        instructions, 
+        notes 
+      } = req.body;
+      
+      const user = (req as any).user;
+      const attendanceId = req.params.id;
+
+      console.log('🔍 Looking up stock item:', stockItemId);
+      const stockItem = await prisma.stockItem.findUnique({
+        where: { id: stockItemId }
+      });
+
+      if (!stockItem) {
+        console.log('❌ Stock item not found:', stockItemId);
+        return res.status(404).json({ message: 'Stock item not found' });
+      }
+      console.log('✅ Stock item found:', stockItem.name);
+
+      console.log('🔍 Looking up service catalog:', serviceCatalogId);
+      const serviceCatalog = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId }
+      });
+
+      if (!serviceCatalog) {
+        console.log('❌ Service catalog not found:', serviceCatalogId);
+        return res.status(404).json({ message: 'Service catalog item not found' });
+      }
+      console.log('✅ Service catalog found:', serviceCatalog.name);
+
+      if (serviceCatalog.serviceType !== 'medication') {
+        console.log('❌ Service type mismatch:', serviceCatalog.serviceType);
+        return res.status(400).json({ message: 'Service is not a medication type' });
+      }
+
+      const outOfStock = stockItem.currentStock === 0;
+      
+      if (outOfStock) {
+        console.warn(`⚠️ Out of stock: ${stockItem.name} has 0 units`);
+      }
+
+      console.log('💊 Creating medication record...');
+      const medication = await prisma.medication.create({
+        data: {
+          attendanceId: attendanceId,
+          stockItemId: stockItemId,
+          serviceCatalogId: serviceCatalogId,
+          name: stockItem.name,
+          dosage: dosage,
+          frequency: frequency,
+          duration: duration,
+          quantity: 0,
+          route: route || 'Oral',
+          instructions: instructions || '',
+          status: 'prescribed',
+          prescribedAt: new Date(),
+          prescribedById: user.id,
+          notes: outOfStock 
+            ? `⚠️ OUT OF STOCK: Item has 0 units available. Cannot dispense until restocked. ${notes || ''}` 
+            : notes || null,
+        }
+      });
+      console.log('✅ Medication created:', medication.id);
+
+      console.log('💊 Adding service to attendance...');
+      await addServiceToAttendanceAndBill(attendanceId, serviceCatalogId, user.id, 1);
+      console.log('✅ Service added');
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        include: {
+          Medication: {
+            include: {
+              ServiceCatalog: true,
+              StockItem: true
+            }
+          },
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Bill: true
+        }
+      });
+      
+      const response: any = updatedAttendance;
+      if (outOfStock) {
+        response.stockWarning = `OUT OF STOCK: ${stockItem.name} has 0 units available. Prescription recorded but cannot be dispensed until restocked.`;
+      }
+      
+      console.log('💊 Prescription completed successfully');
+      res.json(response);
+    } catch (error) {
+      console.error('❌ Error adding medication:', error);
+      res.status(500).json({ message: 'Error adding medication', error: (error as Error).message });
+    }
+  }
+];
+
+// ✅ FIXED: Dispense medication - BLOCK when stock is insufficient
+// attendanceController.ts - FIXED dispenseMedication (Quantity required at dispensing)
+export const dispenseMedication = [
+  body('quantity').isInt({ min: 1 }).withMessage('Valid quantity is required for dispensing'),
+  body('dispensedBy').optional().isString(),
+  body('batchNumber').optional().isString(),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const { attendanceId, medicationId } = req.params;
+      const { quantity, dispensedBy, batchNumber } = req.body;
+      const user = (req as any).user;
+
+      // Get the medication with stock item
+      const medication = await prisma.medication.findUnique({
+        where: { id: medicationId },
+        include: { StockItem: true }
+      });
+
+      if (!medication) {
+        return res.status(404).json({ message: 'Medication not found' });
+      }
+
+      if (medication.status !== 'prescribed') {
+        return res.status(400).json({ message: 'Medication is not in prescribed state' });
+      }
+
+      const stockItem = medication.StockItem;
+      const dispenseQuantity = parseInt(quantity);
+      
+      // ✅ BLOCK dispensing when stock is insufficient
+      if (!stockItem) {
+        return res.status(400).json({ 
+          message: 'Cannot dispense: Stock item not found for this medication',
+          canPrescribe: true,
+          canDispense: false
+        });
+      }
+      
+      if (stockItem.currentStock < dispenseQuantity) {
+        return res.status(400).json({ 
+          message: `Cannot dispense: Insufficient stock. Available: ${stockItem.currentStock}, Required: ${dispenseQuantity}`,
+          stockAvailable: stockItem.currentStock,
+          required: dispenseQuantity,
+          canPrescribe: true,
+          canDispense: false
+        });
+      }
+
+      if (stockItem.currentStock === 0) {
+        return res.status(400).json({ 
+          message: `Cannot dispense: ${stockItem.name} is out of stock. Please restock first.`,
+          stockAvailable: 0,
+          required: dispenseQuantity,
+          canPrescribe: true,
+          canDispense: false
+        });
+      }
+
+      // ✅ Update stock (only when dispensing)
+      const updatedStock = await prisma.stockItem.update({
+        where: { id: stockItem.id },
+        data: {
+          currentStock: stockItem.currentStock - dispenseQuantity
+        }
+      });
+
+      // ✅ Update medication with dispensed quantity
+      const updatedMedication = await prisma.medication.update({
+        where: { id: medicationId },
+        data: {
+          status: 'dispensed',
+          quantity: dispenseQuantity, // ✅ Set quantity at dispensing time
+          dispensedAt: new Date(),
+          dispensedById: dispensedBy || user.id,
+          dispensedBatchNumber: batchNumber || null,
+          dispensedUnitCost: stockItem.costPrice
+        }
+      });
+
+      // ✅ Create stock transaction
+      await prisma.stockTransaction.create({
+        data: {
+          stockItemId: stockItem.id,
+          transactionType: 'sale',
+          quantity: dispenseQuantity,
+          balanceAfter: updatedStock.currentStock,
+          reference: `Dispensed from attendance ${attendanceId}`,
+          performedBy: user.id,
+          notes: `Medication: ${medication.name}, Prescribed by: ${medication.prescribedById}`
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Medication dispensed successfully',
+        data: {
+          medication: updatedMedication,
+          stockRemaining: updatedStock.currentStock
+        }
+      });
+    } catch (error) {
+      console.error('Error dispensing medication:', error);
+      res.status(500).json({ message: 'Error dispensing medication', error: (error as Error).message });
+    }
+  }
+];
+
+export const addScanToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, priority, notes } = req.body;
+      const user = (req as any).user;
+      const attendanceId = req.params.id;
+      
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId }
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'scan') {
+        return res.status(400).json({ message: 'Service is not a scan type' });
+      }
+
+      // Find the scan template
+      const scanTemplate = await prisma.scanTemplate.findFirst({
+        where: { id: service.scanTemplateId || undefined }
+      });
+
+      if (!scanTemplate) {
+        return res.status(404).json({ message: 'Scan template not found for this service' });
+      }
+
+      const scanType = service.metadata?.scanType || scanTemplate.scanType || service.name;
+
+      // ✅ FIXED: Use ONLY scalar fields - NO nested relation
+      await prisma.scan.create({
+        data: {
+          attendanceId: attendanceId,
+          templateId: scanTemplate.id,
+          serviceCatalogId: serviceCatalogId,
+          scanType: scanType,
+          description: service.description || scanTemplate.description || `Scan: ${service.name}`,
+          bodyPart: scanTemplate.bodyPart || service.subType || null,
+          status: 'requested',
+          priority: priority || 'routine',
+          requestedAt: new Date(),
+          createdById: user.id,
+          // ❌ REMOVE: notes: notes || '', - Scan model has NO notes field!
+          imageUrls: [],
+          // ❌ REMOVE: attendance: { connect: { id: attendanceId } }
+        }
+      });
+
+      await addServiceToAttendanceAndBill(attendanceId, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        include: {
+          Scan: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Bill: true
+        }
+      });
+
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding scan:', error);
+      res.status(500).json({ message: 'Error adding scan', error: (error as Error).message });
+    }
+  }
+];
+
+export const addProcedureToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+  body('scheduledDate').optional().isISO8601().withMessage('Scheduled date must be valid'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, scheduledDate, notes, assistantId } = req.body;
+      const user = (req as any).user;
+      const attendanceId = req.params.id;
+      
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId }
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'procedure') {
+        return res.status(400).json({ message: 'Service is not a procedure type' });
+      }
+
+      // Find the procedure template
+      const procedureTemplate = await prisma.procedureTemplate.findFirst({
+        where: { id: service.procedureTemplateId || undefined }
+      });
+
+      if (!procedureTemplate) {
+        return res.status(404).json({ message: 'Procedure template not found for this service' });
+      }
+
+      // ✅ FIXED: Use ONLY scalar fields - NO nested relation
+      await prisma.procedure.create({
+        data: {
+          attendanceId: attendanceId,
+          templateId: procedureTemplate.id,
+          serviceCatalogId: serviceCatalogId,
+          status: 'scheduled',
+          scheduledDate: scheduledDate ? new Date(scheduledDate) : new Date(),
+          notes: notes || '',
+          assistantId: assistantId || null,
+          createdById: user.id,
+          // ❌ REMOVE: attendance: { connect: { id: attendanceId } }
+        }
+      });
+
+      await addServiceToAttendanceAndBill(attendanceId, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        include: {
+          Procedure: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Bill: true
+        }
+      });
+
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding procedure:', error);
+      res.status(500).json({ message: 'Error adding procedure', error: (error as Error).message });
+    }
+  }
+];
+
+
+export const addLabTestToAttendance = [
+  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+  body('priority').optional().isIn(['routine', 'urgent', 'stat']),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { serviceCatalogId, priority, notes } = req.body;
+      const user = (req as any).user;
+      const attendanceId = req.params.id;
+      
+      const service = await prisma.serviceCatalog.findUnique({
+        where: { id: serviceCatalogId }
+      });
+
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+
+      if (service.serviceType !== 'lab_test') {
+        return res.status(400).json({ message: 'Service is not a lab test type' });
+      }
+
+      // Find the lab test template
+      const labTestTemplate = await prisma.labTestTemplate.findFirst({
+        where: { id: service.labTestTemplateId || undefined }
+      });
+
+      if (!labTestTemplate) {
+        return res.status(404).json({ message: 'Lab test template not found for this service' });
+      }
+
+      // ✅ FIXED: Use ONLY scalar fields - NO nested relation
+      await prisma.labTest.create({
+        data: {
+          attendanceId: attendanceId,
+          templateId: labTestTemplate.id,
+          serviceCatalogId: serviceCatalogId,
+          status: 'requested',
+          priority: priority || 'routine',
+          requestedAt: new Date(),
+          createdById: user.id,
+          notes: notes || '',
+          // ❌ REMOVE: attendance: { connect: { id: attendanceId } }
+        }
+      });
+
+      await addServiceToAttendanceAndBill(attendanceId, serviceCatalogId, user.id);
+
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        include: {
+          LabTest: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Bill: true
+        }
+      });
+      
+      res.json(updatedAttendance);
+    } catch (error) {
+      console.error('Error adding lab test:', error);
+      res.status(500).json({ message: 'Error adding lab test', error: (error as Error).message });
+    }
+  }
+];
+
 
 // ✅ NHIS CLAIM VALIDATION
 export const validateNHISClaim = async (req: Request, res: Response) => {
@@ -747,10 +1229,10 @@ export const createAttendance = [
           referringFacility: req.body.referringFacility,
           createdById: user.id,
           // ✅ IMPORTANT: Use lowercase for nested creates (Prisma convention)
-          attendanceDiagnosis: chronicDiagnoses.length > 0 ? {
+          AttendanceDiagnosis: chronicDiagnoses.length > 0 ? {
             create: chronicDiagnoses
           } : undefined,
-          medication: ongoingMedications.length > 0 ? {
+          Medication: ongoingMedications.length > 0 ? {
             create: ongoingMedications
           } : undefined
         },
@@ -792,7 +1274,6 @@ export const createAttendance = [
           patientId: req.body.patientId,
           attendanceId: attendance.id,
           billDate: new Date(),
-          items: [],
           totalAmount: 0,
           status: 'draft',
           paymentMode: req.body.paymentMode,
@@ -844,218 +1325,6 @@ export const createAttendance = [
         message: 'Error creating attendance', 
         error: (error as Error).message 
       });
-    }
-  }
-];
-
-// ✅ UPDATED: LAB TESTS - USING SERVICE CATALOG DIRECTLY
-export const addLabTestToAttendance = [
-  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
-  body('priority').optional().isIn(['routine', 'urgent', 'stat']),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { serviceCatalogId, priority, notes } = req.body; // ✅ UPDATED
-      const user = (req as any).user;
-      
-      // ✅ VALIDATE SERVICE EXISTS AND IS LAB TEST TYPE
-      const service = await prisma.serviceCatalog.findUnique({
-        where: { id: serviceCatalogId } // ✅ UPDATED
-      });
-
-      if (!service) {
-        return res.status(404).json({ message: 'Service not found' });
-      }
-
-      if (service.serviceType !== 'lab_test') {
-        return res.status(400).json({ message: 'Service is not a lab test type' });
-      }
-
-      const attendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id }
-      });
-
-      if (!attendance) {
-        return res.status(404).json({ message: 'Attendance not found' });
-      }
-
-      // ✅ CREATE LAB TEST WITH SERVICE CATALOG LINK
-      await prisma.labTest.create({
-        data: {
-          attendanceId: req.params.id,
-          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
-          status: 'requested',
-          priority: priority || 'routine',
-          requestedAt: new Date(),
-          createdById: user.id,
-          notes
-        }
-      });
-
-      // Auto-add service & bill
-      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          LabTest: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          ServiceRendered: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          Bill: true
-        }
-      });
-      
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding lab test:', error);
-      res.status(500).json({ message: 'Error adding lab test', error });
-    }
-  }
-];
-
-// ✅ UPDATED: PROCEDURES - USING SERVICE CATALOG DIRECTLY
-export const addProcedureToAttendance = [
-  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
-  body('scheduledDate').optional().isISO8601().withMessage('Scheduled date must be valid'),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { serviceCatalogId, scheduledDate, notes, assistantId } = req.body; // ✅ UPDATED
-      const user = (req as any).user;
-      
-      // ✅ VALIDATE SERVICE EXISTS AND IS PROCEDURE TYPE
-      const service = await prisma.serviceCatalog.findUnique({
-        where: { id: serviceCatalogId } // ✅ UPDATED
-      });
-
-      if (!service) {
-        return res.status(404).json({ message: 'Service not found' });
-      }
-
-      if (service.serviceType !== 'procedure') {
-        return res.status(400).json({ message: 'Service is not a procedure type' });
-      }
-
-      await prisma.procedure.create({
-        data: {
-          attendanceId: req.params.id,
-          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
-          status: 'scheduled',
-          scheduledDate: scheduledDate ? new Date(scheduledDate) : new Date(),
-          notes: notes || '',
-          assistantId: assistantId,
-          createdById: user.id
-        }
-      });
-
-      // Auto-add service & bill
-      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          Procedure: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          ServiceRendered: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          Bill: true
-        }
-      });
-
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding procedure:', error);
-      res.status(500).json({ message: 'Error adding procedure', error });
-    }
-  }
-];
-
-// ✅ UPDATED: SCANS - USING SERVICE CATALOG DIRECTLY
-export const addScanToAttendance = [
-  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'), // ✅ UPDATED
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { serviceCatalogId, priority, notes } = req.body; // ✅ UPDATED
-      const user = (req as any).user;
-      
-      // ✅ VALIDATE SERVICE EXISTS AND IS SCAN TYPE
-      const service = await prisma.serviceCatalog.findUnique({
-        where: { id: serviceCatalogId } // ✅ UPDATED
-      });
-
-      if (!service) {
-        return res.status(404).json({ message: 'Service not found' });
-      }
-
-      if (service.serviceType !== 'scan') {
-        return res.status(400).json({ message: 'Service is not a scan type' });
-      }
-
-      await prisma.scan.create({
-        data: {
-          attendanceId: req.params.id,
-          serviceCatalogId: serviceCatalogId, // ✅ UPDATED
-          status: 'requested',
-          priority: priority || 'routine',
-          requestedAt: new Date(),
-          createdById: user.id,
-          notes
-        }
-      });
-
-      // Auto-add service & bill
-      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id);
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          Scan: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          ServiceRendered: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          Bill: true
-        }
-      });
-
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding scan:', error);
-      res.status(500).json({ message: 'Error adding scan', error });
     }
   }
 ];
@@ -1202,108 +1471,6 @@ export const removeDiagnosisFromAttendance = async (req: Request, res: Response)
   }
 };
 
-// ✅ UPDATED: MEDICATIONS - USING SERVICE CATALOG FOR PRICING
-export const addMedicationToAttendance = [
-  body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
-  body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for pricing'), // ✅ ADDED
-  body('name').notEmpty().withMessage('Medication name is required'),
-  body('dosage').notEmpty().withMessage('Dosage is required'),
-  body('frequency').notEmpty().withMessage('Frequency is required'),
-  body('duration').notEmpty().withMessage('Duration is required'),
-  body('quantity').isNumeric().withMessage('Quantity must be a number'),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { 
-        stockItemId, 
-        serviceCatalogId, // ✅ ADDED for pricing
-        name, 
-        dosage, 
-        frequency, 
-        duration, 
-        quantity = 1, 
-        route, 
-        instructions, 
-        notes 
-      } = req.body;
-      
-      const user = (req as any).user;
-
-      // ✅ VALIDATE STOCK ITEM EXISTS
-      const stockItem = await prisma.stockItem.findUnique({
-        where: { id: stockItemId }
-      });
-
-      if (!stockItem) {
-        return res.status(404).json({ message: 'Stock item not found' });
-      }
-
-      // ✅ VALIDATE SERVICE CATALOG EXISTS AND IS MEDICATION TYPE
-      const serviceCatalog = await prisma.serviceCatalog.findUnique({
-        where: { id: serviceCatalogId }
-      });
-
-      if (!serviceCatalog) {
-        return res.status(404).json({ message: 'Service catalog item not found' });
-      }
-
-      if (serviceCatalog.serviceType !== 'medication') {
-        return res.status(400).json({ message: 'Service is not a medication type' });
-      }
-
-      // ✅ CREATE MEDICATION WITH BOTH LINKS
-      await prisma.medication.create({
-        data: {
-          attendanceId: req.params.id,
-          stockItemId, // For inventory tracking
-          serviceCatalogId, // ✅ ADDED for pricing
-          name: stockItem.name || name,
-          dosage,
-          frequency: frequency || 'As directed',
-          duration: duration || 'Until finished',
-          quantity,
-          route: route || 'Oral',
-          instructions: instructions || '',
-          status: 'prescribed',
-          prescribedAt: new Date(),
-          prescribedById: user.id,
-          notes
-        }
-      });
-
-      // ✅ Auto-add service & bill USING SERVICE CATALOG
-      await addServiceToAttendanceAndBill(req.params.id, serviceCatalogId, user.id, quantity);
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
-        include: {
-          Medication: {
-            include: {
-              ServiceCatalog: true,
-              StockItem: true
-            }
-          },
-          ServiceRendered: {
-            include: {
-              ServiceCatalog: true
-            }
-          },
-          Bill: true
-        }
-      });
-      
-      res.json(updatedAttendance);
-    } catch (error) {
-      console.error('Error adding medication:', error);
-      res.status(500).json({ message: 'Error adding medication', error });
-    }
-  }
-];
 
 export const updateMedicationStatus = [
   body('status').isIn(['prescribed', 'dispensed', 'administered', 'cancelled'])
@@ -1394,6 +1561,7 @@ export const removeMedicationFromAttendance = async (req: Request, res: Response
   }
 };
 
+
 // ✅ UPDATE LAB TEST STATUS
 export const updateLabTestStatus = [
   body('status').isIn(['requested', 'completed', 'cancelled']).withMessage('Valid status is required'),
@@ -1442,23 +1610,32 @@ export const updateLabTestStatus = [
   }
 ];
 
+// attendanceController.ts - FIXED removeLabTestFromAttendance
 export const removeLabTestFromAttendance = async (req: Request, res: Response) => {
   try {
+    const { id: attendanceId, labTestId } = req.params;
+
+    // ✅ First check if lab test exists
     const labTest = await prisma.labTest.findUnique({
-      where: { id: req.params.labTestId },
+      where: { id: labTestId },
       select: { serviceCatalogId: true }
     });
 
+    if (!labTest) {
+      return res.status(404).json({ message: 'Lab test not found' });
+    }
+
+    // ✅ Delete the lab test
     await prisma.labTest.delete({
-      where: { id: req.params.labTestId }
+      where: { id: labTestId }
     });
 
-    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
-    if (labTest?.serviceCatalogId) {
+    // ✅ Remove the associated service if exists (using correct field name: serviceItemId)
+    if (labTest.serviceCatalogId) {
       const serviceRendered = await prisma.serviceRendered.findFirst({
         where: {
-          attendanceId: req.params.id,
-          serviceCatalogId: labTest.serviceCatalogId
+          attendanceId: attendanceId,
+          serviceItemId: labTest.serviceCatalogId // ✅ Fixed: serviceItemId
         }
       });
 
@@ -1468,14 +1645,32 @@ export const removeLabTestFromAttendance = async (req: Request, res: Response) =
         });
 
         // Regenerate bill
-        await BillingService.generateBillFromAttendance(req.params.id);
+        await BillingService.generateBillFromAttendance(attendanceId);
       }
     }
 
-    res.json({ message: 'Lab test removed successfully' });
+    // ✅ Return updated attendance
+    const updatedAttendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        LabTest: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        ServiceRendered: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        Bill: true
+      }
+    });
+
+    res.json(updatedAttendance);
   } catch (error) {
     console.error('Error removing lab test:', error);
-    res.status(500).json({ message: 'Error removing lab test', error });
+    res.status(500).json({ message: 'Error removing lab test', error: (error as Error).message });
   }
 };
 
@@ -1524,23 +1719,32 @@ export const updateProcedureStatus = [
   }
 ];
 
+// attendanceController.ts - FIXED removeProcedureFromAttendance
 export const removeProcedureFromAttendance = async (req: Request, res: Response) => {
   try {
+    const { id: attendanceId, procedureId } = req.params;
+
+    // ✅ First check if procedure exists
     const procedure = await prisma.procedure.findUnique({
-      where: { id: req.params.procedureId },
+      where: { id: procedureId },
       select: { serviceCatalogId: true }
     });
 
+    if (!procedure) {
+      return res.status(404).json({ message: 'Procedure not found' });
+    }
+
+    // ✅ Delete the procedure
     await prisma.procedure.delete({
-      where: { id: req.params.procedureId }
+      where: { id: procedureId }
     });
 
-    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
-    if (procedure?.serviceCatalogId) {
+    // ✅ Remove the associated service if exists (using correct field name: serviceItemId)
+    if (procedure.serviceCatalogId) {
       const serviceRendered = await prisma.serviceRendered.findFirst({
         where: {
-          attendanceId: req.params.id,
-          serviceCatalogId: procedure.serviceCatalogId
+          attendanceId: attendanceId,
+          serviceItemId: procedure.serviceCatalogId // ✅ Fixed: serviceItemId, NOT serviceCatalogId
         }
       });
 
@@ -1550,14 +1754,32 @@ export const removeProcedureFromAttendance = async (req: Request, res: Response)
         });
 
         // Regenerate bill
-        await BillingService.generateBillFromAttendance(req.params.id);
+        await BillingService.generateBillFromAttendance(attendanceId);
       }
     }
 
-    res.json({ message: 'Procedure removed successfully' });
+    // ✅ Return updated attendance
+    const updatedAttendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        Procedure: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        ServiceRendered: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        Bill: true
+      }
+    });
+
+    res.json(updatedAttendance);
   } catch (error) {
     console.error('Error removing procedure:', error);
-    res.status(500).json({ message: 'Error removing procedure', error });
+    res.status(500).json({ message: 'Error removing procedure', error: (error as Error).message });
   }
 };
 
@@ -1607,23 +1829,32 @@ export const updateScanStatus = [
   }
 ];
 
+// attendanceController.ts - FIXED removeScanFromAttendance
 export const removeScanFromAttendance = async (req: Request, res: Response) => {
   try {
+    const { id: attendanceId, scanId } = req.params;
+
+    // ✅ First check if scan exists
     const scan = await prisma.scan.findUnique({
-      where: { id: req.params.scanId },
+      where: { id: scanId },
       select: { serviceCatalogId: true }
     });
 
+    if (!scan) {
+      return res.status(404).json({ message: 'Scan not found' });
+    }
+
+    // ✅ Delete the scan
     await prisma.scan.delete({
-      where: { id: req.params.scanId }
+      where: { id: scanId }
     });
 
-    // ✅ ALSO REMOVE THE ASSOCIATED SERVICE IF EXISTS
-    if (scan?.serviceCatalogId) {
+    // ✅ Remove the associated service if exists (using correct field name: serviceItemId)
+    if (scan.serviceCatalogId) {
       const serviceRendered = await prisma.serviceRendered.findFirst({
         where: {
-          attendanceId: req.params.id,
-          serviceCatalogId: scan.serviceCatalogId
+          attendanceId: attendanceId,
+          serviceItemId: scan.serviceCatalogId // ✅ Fixed: serviceItemId
         }
       });
 
@@ -1633,14 +1864,32 @@ export const removeScanFromAttendance = async (req: Request, res: Response) => {
         });
 
         // Regenerate bill
-        await BillingService.generateBillFromAttendance(req.params.id);
+        await BillingService.generateBillFromAttendance(attendanceId);
       }
     }
 
-    res.json({ message: 'Scan removed successfully' });
+    // ✅ Return updated attendance
+    const updatedAttendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        Scan: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        ServiceRendered: {
+          include: {
+            ServiceCatalog: true
+          }
+        },
+        Bill: true
+      }
+    });
+
+    res.json(updatedAttendance);
   } catch (error) {
     console.error('Error removing scan:', error);
-    res.status(500).json({ message: 'Error removing scan', error });
+    res.status(500).json({ message: 'Error removing scan', error: (error as Error).message });
   }
 };
 
@@ -1994,19 +2243,30 @@ export const removeServiceFromAttendance = async (req: Request, res: Response) =
 };
 
 // ✅ UPDATE: Fix the calculateAttendanceBill endpoint
+// attendanceController.ts - FIXED calculateAttendanceBill
 export const calculateAttendanceBill = async (req: Request, res: Response) => {
   try {
-    const billResult = await BillingService.generateBillFromAttendance(req.params.id);
+    const { id } = req.params;
+    
+    const billResult = await BillingService.generateBillFromAttendance(id);
     
     res.json({
+      success: true,
       message: 'Bill calculated successfully',
-      totalBill: billResult.summary.totalCashPrice,
-      bill: billResult.bill,
-      summary: billResult.summary
+      totalBill: billResult.summary?.totalCashPrice || billResult.totalAmount || 0,
+      bill: billResult.bill || billResult,
+      summary: billResult.summary || {
+        totalCashPrice: billResult.totalAmount || 0,
+        totalNHISPrice: 0,
+        totalInsurancePrice: 0
+      }
     });
   } catch (error) {
     console.error('Error calculating bill:', error);
-    res.status(500).json({ message: 'Error calculating bill', error });
+    res.status(500).json({ 
+      message: 'Error calculating bill', 
+      error: (error as Error).message 
+    });
   }
 };
 

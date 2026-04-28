@@ -42,11 +42,14 @@ import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
 import Appointments from './pages/Appointments';
 import Departments from './pages/Departments';
+import Antenatal from './pages/Antenatal';
 
 // STOCK MANAGEMENT PAGES
 import InvoiceManagement from './pages/InvoiceManagement';
 import RequisitionManagement from './pages/RequisitionManagement';
 import StockTransactions from './pages/StockTransactions';
+// src/App.tsx or src/routes/index.tsx - Add this route
+import PatientBillingItems from './pages/PatientBillingItems';
 
 import './App.css';
 
@@ -107,6 +110,7 @@ const hasPermission = (userRole: string, routePath: string) => {
     // ✅ NEW THEATRE & NURSING ROUTES
     '/dashboard/theatre': 'theatre',
     '/dashboard/nursing': 'nursing',
+    '/dashboard/antenatal': 'antenatal',
     
     // STOCK MANAGEMENT ROUTES
     '/dashboard/invoices': 'invoices',
@@ -257,6 +261,7 @@ function App() {
           {/* ✅ NEW THEATRE & NURSING ROUTES */}
           <Route path="theatre" element={<ProtectedRoute><Theatre /></ProtectedRoute>} />
           <Route path="nursing" element={<ProtectedRoute><Nursing /></ProtectedRoute>} />
+          <Route path="antenatal" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
           
           {/* Service & Catalog routes */}
           <Route path="service-catalog" element={<ProtectedRoute><ServiceCatalog /></ProtectedRoute>} />
@@ -279,6 +284,7 @@ function App() {
           <Route path="transactions" element={<ProtectedRoute><StockTransactions /></ProtectedRoute>} />
           
           {/* Billing & Insurance routes */}
+          <Route path="patients/:patientId/billing" element={<ProtectedRoute><PatientBillingItems /></ProtectedRoute>} />
           <Route path="billing/:billId/payment" element={<ProtectedRoute><ProcessPayment /></ProtectedRoute>} />
           <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
           <Route path="insurance-providers" element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />

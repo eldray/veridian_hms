@@ -1,4 +1,5 @@
-import { PrismaClient, ServiceType, ServiceCategory, NHISCoverageType, UserRole, Gender, InsuranceType, Priority, ScanPriority, PaymentMode, AdmissionType, AdmissionSource, PresentOnAdmission, SecondaryDiagnosisType, AttendanceType, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, DiagnosisCategory, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AppointmentStatus, AppointmentType, NotificationType, NotificationPriority, PaymentMethod, StockTransactionType, RequisitionStatus, RequisitionUrgency } from '@prisma/client';
+// src/seed/coreSeed.ts - CORRECTED VERSION
+import { PrismaClient, ServiceType, ServiceCategory, NHISCoverageType, UserRole, Gender, InsuranceType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
@@ -22,24 +23,9 @@ const readJSON = (fileName: string) => {
 // Helper: hash password
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-// ✅ SAFE DATABASE OPERATIONS
-const safeDbOperation = async (operation: () => Promise<any>, tableName: string = 'unknown') => {
-  try {
-    return await operation();
-  } catch (error: any) {
-    if (error.code === 'P2021' || error.message?.includes('undefined') || error.message?.includes('not a function')) {
-      console.log(`ℹ️ Table or method not available, skipping: ${tableName}`);
-      return 0;
-    }
-    console.error(`❌ Error in safeDbOperation for ${tableName}:`, error.message);
-    throw error;
-  }
-};
-
 // ✅ SCHEMA COMPLIANCE: Add missing required fields automatically
 const addSchemaDefaults = (data: any, type: string) => {
   const baseDefaults = {
-    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -62,6 +48,7 @@ const addSchemaDefaults = (data: any, type: string) => {
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
         tariffCode: data.tariffCode || `LAB-${data.investigationCode}`,
+        isActive: true,
       };
 
     case 'scanTemplate':
@@ -84,6 +71,7 @@ const addSchemaDefaults = (data: any, type: string) => {
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
         tariffCode: data.tariffCode || `SCAN-${data.scanCode}`,
+        isActive: true,
       };
 
     case 'procedureTemplate':
@@ -102,10 +90,10 @@ const addSchemaDefaults = (data: any, type: string) => {
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
         tariffCode: data.tariffCode || `PROC-${data.procedureCode}`,
+        isActive: true,
       };
 
     case 'stockItem':
-      // NO pricing fields here - pricing goes through ServiceCatalog -> ServicePricing
       return {
         ...baseDefaults,
         name: data.name?.trim() || 'Unknown Item',
@@ -128,25 +116,39 @@ const addSchemaDefaults = (data: any, type: string) => {
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
         tariffCode: data.tariffCode || `MED-${data.drugCode}`,
+        isActive: true,
       };
 
-      case 'diagnosis':
-        return {
-          // Remove baseDefaults since Diagnosis doesn't have isActive
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          name: data.name || 'Unknown Diagnosis',
-          icdCode: data.icdCode,
-          gdrgCode: data.gdrgCode || data.icdCode,
-          variant: data.variant || null,
-          description: data.description || null,
-          category: data.category || DiagnosisCategory.infectiousAndParasitic,
-          // Remove isPending - Diagnosis model doesn't have this field
-          requiresAuthorization: data.requiresAuthorization ?? false,
-          isChronic: data.isChronic ?? false,
-          isNHISCovered: data.isNHISCovered ?? true,
-          tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
-        };
+// In coreSeed.ts, update the 'diagnosis' case in addSchemaDefaults:
+
+case 'diagnosis':
+  return {
+    ...baseDefaults,
+    name: data.name || 'Unknown Diagnosis',
+    icdCode: data.icdCode,
+    variant: data.variant || null,
+    description: data.description || null,
+    isActive: true,
+    requiresAuthorization: data.requiresAuthorization ?? false,
+    tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
+    isChronic: data.isChronic ?? false,
+    isNHISCovered: data.isNHISCovered ?? true,
+    morbidityGroup: data.morbidityGroup || 'all_other_diseases',
+  };
+      return {
+        ...baseDefaults,
+        name: data.name || 'Unknown Diagnosis',
+        icdCode: data.icdCode,
+        gdrgGroupCode: data.gdrgCode || data.gdrgGroupCode || data.icdCode,
+        variant: data.variant || null,
+        description: data.description || null,
+        category: data.category || DiagnosisCategory.infectiousAndParasitic,
+        requiresAuthorization: data.requiresAuthorization ?? false,
+        isChronic: data.isChronic ?? false,
+        isNHISCovered: data.isNHISCovered ?? true,
+        tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
+        isActive: true,
+      };
 
     case 'serviceCatalog':
       return {
@@ -163,17 +165,26 @@ const addSchemaDefaults = (data: any, type: string) => {
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         isPrivateInsuranceExempted: data.isPrivateInsuranceExempted ?? false,
-        isPending: data.isPending ?? false,
+        // ✅ FIXED: Use isActive instead of isPending
+        isActive: data.isActive ?? true,
         requiresClinicalNotes: data.requiresClinicalNotes ?? false,
         unit: data.unit || 'Each',
         metadata: data.metadata || null,
         tariffCode: data.tariffCode || null,
+        // Optional relations
+        diagnosisId: data.diagnosisId || null,
+        labTestTemplateId: data.labTestTemplateId || null,
+        procedureTemplateId: data.procedureTemplateId || null,
+        stockItemId: data.stockItemId || null,
+        wardId: data.wardId || null,
+        scanTemplateId: data.scanTemplateId || null,
+        consultationTypeId: data.consultationTypeId || null,
+        createdById: data.createdById || null,
       };
 
     case 'ward':
-      // NO pricing fields here - pricing goes through ServiceCatalog -> ServicePricing
+      // ✅ FIXED: Ward model doesn't have isActive - remove it
       return {
-        // Remove isActive from here
         createdAt: new Date(),
         updatedAt: new Date(),
         wardName: data.wardName,
@@ -183,11 +194,16 @@ const addSchemaDefaults = (data: any, type: string) => {
         isNHISCovered: data.isNHISCovered ?? true,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
+        // ✅ FIXED: Use isPending (Ward model has isPending, not isActive)
         isPending: data.isPending ?? false,
         requiresAuthorization: data.requiresAuthorization ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? false,
         tariffCode: data.tariffCode || `WARD-${data.wardName?.replace(/\s+/g, '_').toUpperCase()}`,
+        // Daily rates (for quick access, though pricing is in ServiceCatalog)
+        dailyCashRate: data.dailyCashRate || data.cashPrice || data.cashDailyRate || 0,
+        dailyNHISRate: data.dailyNHISRate || data.nhisPrice || data.nhisDailyRate || 0,
+        dailyInsuranceRate: data.dailyInsuranceRate || data.insurancePrice || data.insuranceDailyRate || 0,
       };
 
     default:
@@ -245,57 +261,6 @@ const hasAnyPatientData = async (): Promise<boolean> => {
   }
 };
 
-// ✅ SAFE CLEANUP FUNCTION
-const safeCleanup = async () => {
-  console.log('🗑️ Cleaning up old core data (preserving patient data)...');
-  
-  const cleanupTables = [
-    'servicePricing',
-    'serviceCatalog', 
-    'gDRGTariff',
-    'insuranceProvider',
-    'department',
-    'stockItem',
-    'diagnosis',
-    'labTestTemplate',
-    'procedureTemplate',
-    'scanTemplate',
-    'consultationType',
-  ];
-
-  for (const table of cleanupTables) {
-    try {
-      const model = (prisma as any)[table];
-      if (model?.deleteMany) {
-        await model.deleteMany({});
-        console.log(`✅ Cleaned up: ${table}`);
-      }
-    } catch (error: any) {
-      if (error.code === 'P2021') {
-        console.log(`ℹ️ Table not available, skipping: ${table}`);
-      } else {
-        console.error(`❌ Error cleaning up ${table}:`, error.message);
-      }
-    }
-  }
-  
-  // Clear wards and beds only if no admissions exist
-  try {
-    const admissionCount = await prisma.admission.count().catch(() => 0);
-    if (admissionCount === 0) {
-      await prisma.bed.deleteMany({}).catch(() => {});
-      await prisma.ward.deleteMany({}).catch(() => {});
-      console.log('✅ Cleaned up wards and beds');
-    } else {
-      console.log('⚠️ Skipping ward/bed cleanup - active admissions exist');
-    }
-  } catch (error: any) {
-    console.log('ℹ️ Could not check admissions, skipping ward/bed cleanup');
-  }
-  
-  console.log('✅ Core data cleanup completed');
-};
-
 // ✅ SAFE SERVICE PRICING CREATION
 const createServicePricing = async (serviceCatalogId: string, pricing: { cashPrice: number; nhisPrice: number; insurancePrice: number }) => {
   try {
@@ -345,7 +310,6 @@ export const seedCoreData = async (force: boolean = false) => {
     }
 
     console.log('🔧 Proceeding with core data seeding...');
-    await safeCleanup();
 
     // =============== 0. CREATE ADMIN USER ===============
     const adminUser = await prisma.user.upsert({
@@ -390,28 +354,28 @@ export const seedCoreData = async (force: boolean = false) => {
     });
     console.log('✅ Hospital configured');
 
- // =============== 2. DEPARTMENTS ===============
-const departmentsData = readJSON('departments.json');
+    // =============== 2. DEPARTMENTS ===============
+    const departmentsData = readJSON('departments.json');
 
-if (!Array.isArray(departmentsData)) {
-  console.log('❌ No departments data found in departments.json');
-  process.exit(1);
-}
-
-for (const dept of departmentsData) {
-  await prisma.department.upsert({
-    where: { name: dept.name },
-    create: {
-      name: dept.name,
-      description: dept.description || '',
-      color: dept.color || '#3B82F6',
-      icon: dept.icon || 'default',
-      isActive: dept.isActive ?? true,
-    },
-    update: {},
-  });
-}
-console.log(`✅ ${departmentsData.length} departments configured`);
+    if (!Array.isArray(departmentsData)) {
+      console.log('❌ No departments data found in departments.json');
+      // Don't exit, just warn
+    } else {
+      for (const dept of departmentsData) {
+        await prisma.department.upsert({
+          where: { name: dept.name },
+          create: {
+            name: dept.name,
+            description: dept.description || '',
+            color: dept.color || '#3B82F6',
+            icon: dept.icon || 'default',
+            isActive: dept.isActive ?? true,
+          },
+          update: {},
+        });
+      }
+      console.log(`✅ ${departmentsData.length} departments configured`);
+    }
 
     // =============== 3. INSURANCE PROVIDERS ===============
     const providersData = readJSON('insuranceProviders.json');
@@ -431,6 +395,7 @@ console.log(`✅ ${departmentsData.length} departments configured`);
             coveragePercentage: p.coveragePercentage ?? 100,
             contactInfo: p.contactInfo || { phone: '+233000000000', email: 'info@provider.com' },
             isActive: p.isActive ?? true,
+            claimSubmissionMethod: 'portal',
           },
           update: {},
         });
@@ -482,14 +447,18 @@ console.log(`✅ ${departmentsData.length} departments configured`);
               description: tariff.description || 'No description',
               category: tariff.category || 'GENERAL',
               nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              ageGroup: tariff.ageGroup || null,
-              effectiveFrom: new Date(gdrgData.effective_date || '2022-10-01'),
+              minAgeDays: tariff.minAgeDays ? parseInt(tariff.minAgeDays) : null,
+              maxAgeDays: tariff.maxAgeDays ? parseInt(tariff.maxAgeDays) : null,
+              genderApplicability: tariff.genderApplicability || null,
+              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(gdrgData.effective_date || '2022-10-01'),
               isActive: tariff.isActive ?? true,
             },
             update: {
               description: tariff.description || 'No description',
               category: tariff.category || 'GENERAL',
               nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
+              minAgeDays: tariff.minAgeDays ? parseInt(tariff.minAgeDays) : null,
+              maxAgeDays: tariff.maxAgeDays ? parseInt(tariff.maxAgeDays) : null,
             },
           });
           stats.successful++;
@@ -677,7 +646,7 @@ console.log(`✅ ${departmentsData.length} departments configured`);
           privateInsRequiresAuth: service.serviceType === ServiceType.procedure,
           requiresClinicalNotes: service.serviceType === ServiceType.consultation,
           metadata: service.metadata,
-          unit: service.serviceType === ServiceType.ward ? 'Day' : 'Each',
+          unit: service.serviceType === 'ward' ? 'Day' : 'Each',
           createdById: adminId,
           consultationTypeId: service.consultationTypeId || null,
           labTestTemplateId: service.labTestTemplateId || null,
@@ -774,10 +743,10 @@ console.log(`✅ ${departmentsData.length} departments configured`);
     
     if (existingWardCount === 0) {
       const defaultWards = [
-        { wardName: 'General Ward A', wardType: 'general', totalBeds: 20, cashPrice: 100, nhisPrice: 50, insurancePrice: 80 },
-        { wardName: 'Maternity Ward', wardType: 'maternity', totalBeds: 12, cashPrice: 120, nhisPrice: 60, insurancePrice: 100 },
-        { wardName: 'ICU', wardType: 'icu', totalBeds: 6, cashPrice: 500, nhisPrice: 300, insurancePrice: 450 },
-        { wardName: 'Pediatric Ward', wardType: 'pediatric', totalBeds: 15, cashPrice: 80, nhisPrice: 40, insurancePrice: 70 },
+        { wardName: 'General Ward A', wardType: 'general', totalBeds: 20, dailyCashRate: 100, dailyNHISRate: 50, dailyInsuranceRate: 80 },
+        { wardName: 'Maternity Ward', wardType: 'maternity', totalBeds: 12, dailyCashRate: 120, dailyNHISRate: 60, dailyInsuranceRate: 100 },
+        { wardName: 'ICU', wardType: 'icu', totalBeds: 6, dailyCashRate: 500, dailyNHISRate: 300, dailyInsuranceRate: 450 },
+        { wardName: 'Pediatric Ward', wardType: 'pediatric', totalBeds: 15, dailyCashRate: 80, dailyNHISRate: 40, dailyInsuranceRate: 70 },
       ];
 
       const wardsToCreate = Array.isArray(wardsData) ? wardsData : defaultWards;
@@ -816,9 +785,9 @@ console.log(`✅ ${departmentsData.length} departments configured`);
           });
 
           await createServicePricing(catalog.id, {
-            cashPrice: ward.cashPrice ?? ward.cashDailyRate ?? 100,
-            nhisPrice: ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
-            insurancePrice: ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
+            cashPrice: ward.dailyCashRate ?? ward.cashPrice ?? ward.cashDailyRate ?? 100,
+            nhisPrice: ward.dailyNHISRate ?? ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
+            insurancePrice: ward.dailyInsuranceRate ?? ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
           });
 
         } catch (error: any) {

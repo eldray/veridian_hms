@@ -1,4 +1,6 @@
-import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, SecondaryDiagnosisType, DiagnosisType, ServiceCategory, Priority, ScanPriority, StockTransactionType, RequisitionStatus, RequisitionUrgency, AppointmentStatus, AppointmentType } from '@prisma/client';
+// src/seed/testSeed.ts - UPDATED VERSION (No gdrgGroupCode or gdrgCode)
+
+import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, SecondaryDiagnosisType, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, MorbidityGroup } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -9,16 +11,19 @@ const SEEDING_ENABLED = process.env.ENABLE_SEEDING !== 'false';
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-const calculateAge = (dob: Date): number => {
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
-  return age;
-};
-
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 const generateAttendanceNumber = () => `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+// Helper to get morbidity group value
+const getMorbidityGroup = (diagName: string): MorbidityGroup => {
+  const name = diagName.toLowerCase();
+  if (name.includes('malaria')) return 'uncomplicated_malaria_suspected';
+  if (name.includes('hypertension')) return 'hypertension';
+  if (name.includes('diabetes')) return 'diabetes_mellitus';
+  if (name.includes('anemia')) return 'anaemia';
+  if (name.includes('pneumonia')) return 'pneumonia';
+  return 'all_other_diseases';
+};
 
 // ✅ Check for real data
 const hasRealData = async (): Promise<boolean> => {
@@ -70,6 +75,15 @@ export const deleteTestData = async (force: boolean = false) => {
       select: { id: true }
     });
     const testPatientIds = testPatients.map(p => p.id);
+
+    // Delete bill line items first (due to foreign keys)
+    const testBills = await prisma.bill.findMany({
+      where: { patientId: { in: testPatientIds } },
+      select: { id: true }
+    });
+    for (const bill of testBills) {
+      await prisma.billLineItem.deleteMany({ where: { billId: bill.id } });
+    }
 
     // Delete attendance-related records
     const testAttendances = await prisma.attendance.findMany({
@@ -187,55 +201,71 @@ export const seedTestData = async (force: boolean = false) => {
     }
 
     // =============== 2. FIND CORE DATA ===============
- // =============== 2. FIND CORE DATA ===============
-const malariaDiag = await prisma.diagnosis.findFirst({ 
-  where: { OR: [{ icdCode: 'B54' }, { name: { contains: 'malaria', mode: 'insensitive' } }] } 
-});
-const anemiaDiag = await prisma.diagnosis.findFirst({
-  where: { OR: [{ icdCode: 'D64.9' }, { name: { contains: 'anemia', mode: 'insensitive' } }] },
-});
-const hypertensionDiag = await prisma.diagnosis.findFirst({
-  where: { OR: [{ icdCode: 'I10' }, { name: { contains: 'hypertension', mode: 'insensitive' } }] },
-});
+    const malariaDiag = await prisma.diagnosis.findFirst({ 
+      where: { OR: [{ icdCode: 'B54' }, { name: { contains: 'malaria', mode: 'insensitive' } }] } 
+    });
+    const anemiaDiag = await prisma.diagnosis.findFirst({
+      where: { OR: [{ icdCode: 'D64.9' }, { name: { contains: 'anemia', mode: 'insensitive' } }] },
+    });
+    const hypertensionDiag = await prisma.diagnosis.findFirst({
+      where: { OR: [{ icdCode: 'I10' }, { name: { contains: 'hypertension', mode: 'insensitive' } }] },
+    });
 
-if (!malariaDiag || !anemiaDiag || !hypertensionDiag) {
-  throw new Error('Required diagnoses not found. Run core seeding first.');
-}
+    if (!malariaDiag || !anemiaDiag || !hypertensionDiag) {
+      console.log('⚠️ Some diagnoses not found, creating fallback diagnoses...');
+      
+      if (!malariaDiag) {
+        await prisma.diagnosis.upsert({
+          where: { icdCode: 'B54' },
+          create: {
+            name: 'Malaria, unspecified',
+            icdCode: 'B54',
+            morbidityGroup: 'uncomplicated_malaria_suspected',
+            isActive: true,
+            requiresAuthorization: false,
+            isChronic: false,
+            isNHISCovered: true,
+          },
+          update: {},
+        });
+      }
+      
+      if (!hypertensionDiag) {
+        await prisma.diagnosis.upsert({
+          where: { icdCode: 'I10' },
+          create: {
+            name: 'Essential hypertension',
+            icdCode: 'I10',
+            morbidityGroup: 'hypertension',
+            isActive: true,
+            requiresAuthorization: false,
+            isChronic: true,
+            isNHISCovered: true,
+          },
+          update: {},
+        });
+      }
+    }
 
-// Find services with templates - FIXED include statements
-const generalConsult = await prisma.serviceCatalog.findFirst({ 
-  where: { OR: [{ code: 'CONS-GEN' }, { serviceType: 'consultation' }] },
-  include: { 
-    ConsultationType: true  // Relation field, not consultationTypeId
-  }
-});
+    // Find services
+    const generalConsult = await prisma.serviceCatalog.findFirst({ 
+      where: { OR: [{ code: 'CONS-GEN' }, { serviceType: 'consultation' }] },
+    });
 
-const malariaLabService = await prisma.serviceCatalog.findFirst({
-  where: { OR: [{ code: { contains: 'LAB-' } }, { serviceType: 'lab_test' }] },
-  include: { 
-    LabTestTemplate: true  // Relation field
-  }
-});
+    const malariaLabService = await prisma.serviceCatalog.findFirst({
+      where: { OR: [{ code: { contains: 'LAB-' } }, { serviceType: 'lab_test' }] },
+    });
 
-const chestScanService = await prisma.serviceCatalog.findFirst({
-  where: { OR: [{ code: { contains: 'SCAN-' } }, { serviceType: 'scan' }] },
-  include: { 
-    ScanTemplate: true  // Relation field
-  }
-});
+    const chestScanService = await prisma.serviceCatalog.findFirst({
+      where: { OR: [{ code: { contains: 'SCAN-' } }, { serviceType: 'scan' }] },
+    });
 
-const nhisProvider = await prisma.insuranceProvider.findFirst({ where: { type: 'nhis' } });
-const medDept = await prisma.department.findFirst({ where: { name: 'Medical' } });
+    const nhisProvider = await prisma.insuranceProvider.findFirst({ where: { type: 'nhis' } });
+    const medDept = await prisma.department.findFirst({ where: { name: 'Medical' } });
 
-if (!generalConsult || !nhisProvider || !medDept) {
-  throw new Error('Core data incomplete. Run core seeding first.');
-}
-
-const withTimestamps = (data: any) => ({
-  ...data,
-  createdAt: data.createdAt || new Date(),
-  updatedAt: new Date(),
-});
+    if (!generalConsult || !nhisProvider || !medDept) {
+      throw new Error('Core data incomplete. Run core seeding first.');
+    }
 
     // =============== 3. TEST PATIENTS ===============
     const patientsData = [
@@ -248,6 +278,8 @@ const withTimestamps = (data: any) => ({
         contact: '+233244123456',
         address: '123 Main St, Accra, Ghana',
         paymentMode: PaymentMode.cash,
+        registeredBy: admin.fullName,
+        registeredAt: new Date(),
       },
       {
         folderNumber: 'PAT-10001', 
@@ -264,27 +296,26 @@ const withTimestamps = (data: any) => ({
           startDate: '2024-01-01',
           endDate: '2024-12-31',
           providerName: 'National Health Insurance Scheme'
-        }
+        },
+        registeredBy: admin.fullName,
+        registeredAt: new Date(),
       }
     ];
 
     const patients: any[] = [];
     for (const p of patientsData) {
-      const age = calculateAge(p.dateOfBirth);
       const patient = await prisma.patient.upsert({
         where: { folderNumber: p.folderNumber },
         create: {
           ...p,
-          age,
-          registeredBy: admin.fullName,
-          registeredAt: new Date(),
-          updatedAt: new Date(), // ADD THIS
+          createdAt: new Date(),
+          updatedAt: new Date(),
           insuranceDetails: p.insuranceDetails || {},
         },
         update: { 
-          ...p, 
-          age,
-          updatedAt: new Date(), // ADD THIS TOO
+          ...p,
+          updatedAt: new Date(),
+          insuranceDetails: p.insuranceDetails || {},
         },
       });
       patients.push(patient);
@@ -310,20 +341,20 @@ const withTimestamps = (data: any) => ({
         outstandingBalance: 0,
         encounterCategory: EncounterCategory.opd,
         visitCategory: VisitCategory.general,
-        gdrgCategory: 'adult_medicine',
         serviceCategory: ServiceCategory.opd,
       },
     });
 
-    // Add diagnosis
+    // Add diagnosis - ✅ NO gdrgCode field
+    const finalMalariaDiag = malariaDiag || await prisma.diagnosis.findFirst({ where: { icdCode: 'B54' } });
     await prisma.attendanceDiagnosis.create({
       data: {
         attendanceId: nhisAttendance.id,
-        diagnosisId: malariaDiag.id,
+        diagnosisId: finalMalariaDiag!.id,
         primary: true,
         date: new Date(),
         createdById: doctor.id,
-        icdCode: malariaDiag.icdCode,
+        icdCode: 'B54',
         presentOnAdmission: PresentOnAdmission.Y,
         diagnosisType: DiagnosisType.principal,
       }
@@ -346,25 +377,42 @@ const withTimestamps = (data: any) => ({
         billNumber: generateBillNumber(), 
         patientId: patients[1].id,
         attendanceId: nhisAttendance.id,
-        items: [{ serviceCode: generalConsult.code, description: generalConsult.name, quantity: 1, unitPrice: 0, totalPrice: 0, category: 'consultation' }],
-        subtotal: 0,
-        totalAmount: 0,
-        insuranceCovered: 0,
+        subtotal: 45.50,
+        totalAmount: 45.50,
+        insuranceCovered: 45.50,
         patientPayable: 0,
         paidAmount: 0,
         balance: 0,
-        status: BillStatus.paid,
+        status: BillStatus.pending,
         paymentMode: PaymentMode.nhis,
         insuranceProviderId: nhisProvider.id,
         billDate: new Date(),
         createdById: admin.id,
         taxAmount: 0,
         discount: 0,
-        claimStatus: ClaimStatus.draft,
+        waiverAmount: 0,
+        claimStatus: ClaimStatus.pending,
       },
     });
 
-    // Create insurance claim
+    // Add BillLineItem
+    await prisma.billLineItem.create({
+      data: {
+        billId: nhisBill.id,
+        serviceCatalogId: generalConsult.id,
+        description: generalConsult.name,
+        serviceType: generalConsult.serviceType,
+        quantity: 1,
+        unitPrice: 45.50,
+        pricingBasis: PaymentMode.nhis,
+        lineTotal: 45.50,
+        insuranceCoveredAmount: 45.50,
+        patientPayableAmount: 0,
+        discount: 0,
+      },
+    });
+
+    // Create insurance claim - ✅ Added gdrgCodes and nhisServiceCodes
     await prisma.insuranceClaim.create({
       data: {
         claimNumber: `CLAIM-${Date.now()}`,
@@ -374,11 +422,13 @@ const withTimestamps = (data: any) => ({
         attendanceId: nhisAttendance.id,
         totalClaimAmount: 45.50,
         status: ClaimStatus.submitted,
-        diagnosisCodes: [malariaDiag.icdCode],
+        diagnosisCodes: ['B54'],
         procedureCodes: [],
         labTestCodes: [],
         serviceCodes: [generalConsult.code],
         scanCodes: [],
+        gdrgCodes: ['OPDC06A'], // ✅ ADDED: Context-based GDRG for OPD
+        nhisServiceCodes: ['OPDC06A'], // ✅ ADDED: NHIS service code
         submissionDate: new Date(),
         preAuthNumber: 'PA-2024-001',
         notes: 'Malaria treatment claim',
@@ -404,30 +454,30 @@ const withTimestamps = (data: any) => ({
         outstandingBalance: 0,
         encounterCategory: EncounterCategory.opd,
         visitCategory: VisitCategory.general,
-        gdrgCategory: 'adult_medicine',
         serviceCategory: ServiceCategory.opd,
       },
     });
 
+    const finalHypertensionDiag = hypertensionDiag || await prisma.diagnosis.findFirst({ where: { icdCode: 'I10' } });
     await prisma.attendanceDiagnosis.create({
       data: {
         attendanceId: cashAttendance.id,
-        diagnosisId: hypertensionDiag.id,
+        diagnosisId: finalHypertensionDiag!.id,
         primary: true,
         date: new Date(),
         createdById: doctor.id,
-        icdCode: hypertensionDiag.icdCode,
+        icdCode: 'I10',
         presentOnAdmission: PresentOnAdmission.Y,
         diagnosisType: DiagnosisType.principal,
       }
     });
 
-    await prisma.bill.create({
+    // Create cash bill
+    const cashBill = await prisma.bill.create({
       data: {
         billNumber: generateBillNumber(),
         patientId: patients[0].id,
         attendanceId: cashAttendance.id,
-        items: [{ serviceCode: 'CONS-GEN', description: 'Chronic Disease Follow-up', quantity: 1, unitPrice: 80, totalPrice: 80, category: 'consultation' }],
         subtotal: 80,
         totalAmount: 80,
         insuranceCovered: 0,
@@ -440,14 +490,31 @@ const withTimestamps = (data: any) => ({
         createdById: admin.id,
         taxAmount: 0,
         discount: 0,
+        waiverAmount: 0,
         claimStatus: ClaimStatus.not_required,
+      },
+    });
+
+    await prisma.billLineItem.create({
+      data: {
+        billId: cashBill.id,
+        serviceCatalogId: generalConsult.id,
+        description: 'Chronic Disease Follow-up',
+        serviceType: 'consultation',
+        quantity: 1,
+        unitPrice: 80,
+        pricingBasis: PaymentMode.cash,
+        lineTotal: 80,
+        insuranceCoveredAmount: 0,
+        patientPayableAmount: 80,
+        discount: 0,
       },
     });
     console.log('✅ Cash attendance and bill seeded');
 
     // =============== 6. VITALS ===============
     await prisma.vitals.create({
-      data: withTimestamps({
+      data: {
         attendanceId: nhisAttendance.id,
         patientId: patients[1].id,
         temperature: 38.2,
@@ -459,12 +526,13 @@ const withTimestamps = (data: any) => ({
         bmi: 23.9,
         bloodPressure: '130/85',
         recordedById: nurse?.id || doctor.id,
-      }),
+        recordedAt: new Date(),
+      },
     });
     console.log('✅ Vitals seeded');
 
-    // =============== 7. LAB TEST (with templateId) ===============
-    if (malariaLabService?.labTestTemplateId) {
+    // =============== 7. LAB TEST ===============
+    if (malariaLabService && malariaLabService.labTestTemplateId) {
       const malariaLab = await prisma.labTest.create({
         data: {
           attendanceId: nhisAttendance.id,
@@ -489,23 +557,19 @@ const withTimestamps = (data: any) => ({
       });
       console.log('✅ Lab test seeded');
     } else {
-      console.log('⚠️ No lab template found, skipping lab test');
+      console.log('⚠️ No lab service found, skipping lab test');
     }
 
-    // =============== 8. SCAN (with templateId, scanType, description) ===============
-    if (chestScanService?.scanTemplateId) {
-      const scanTemplate = await prisma.scanTemplate.findUnique({ 
-        where: { id: chestScanService.scanTemplateId } 
-      });
-
+    // =============== 8. SCAN ===============
+    if (chestScanService && chestScanService.scanTemplateId) {
       const scan = await prisma.scan.create({
         data: {
           attendanceId: nhisAttendance.id,
           templateId: chestScanService.scanTemplateId,
           serviceCatalogId: chestScanService.id,
-          scanType: scanTemplate?.scanType || scanTemplate?.category || 'xray',
-          description: scanTemplate?.description || 'Chest imaging study',
-          bodyPart: scanTemplate?.bodyPart || 'chest',
+          scanType: 'xray',
+          description: 'Chest imaging study',
+          bodyPart: 'chest',
           status: ScanStatus.requested,
           createdById: doctor.id,
           priority: ScanPriority.routine,
@@ -517,6 +581,7 @@ const withTimestamps = (data: any) => ({
         where: { id: scan.id },
         data: {
           status: ScanStatus.completed,
+          result: 'Normal chest X-ray',
           findings: 'Clear lung fields, normal cardiac silhouette',
           impression: 'No active cardiopulmonary disease',
           performedById: sonographer?.id,
@@ -526,7 +591,7 @@ const withTimestamps = (data: any) => ({
       });
       console.log('✅ Scan seeded');
     } else {
-      console.log('⚠️ No scan template found, skipping scan');
+      console.log('⚠️ No scan service found, skipping scan');
     }
 
     // =============== 9. MEDICATIONS ===============
@@ -538,7 +603,6 @@ const withTimestamps = (data: any) => ({
     });
 
     if (paracetamol && artesunate) {
-      // Find service catalog entries for medications
       const paracetamolService = await prisma.serviceCatalog.findFirst({
         where: { stockItemId: paracetamol.id }
       });
@@ -580,7 +644,6 @@ const withTimestamps = (data: any) => ({
         }
       });
 
-      // Dispense
       if (pharmacist) {
         await prisma.medication.update({
           where: { id: malariaMed.id },
@@ -599,6 +662,7 @@ const withTimestamps = (data: any) => ({
     // =============== 10. APPOINTMENT ===============
     await prisma.appointment.create({
       data: {
+        appointmentNumber: `APT-${Date.now()}`,
         patientId: patients[1].id,
         doctorId: doctor.id,
         departmentId: medDept.id,
@@ -637,21 +701,23 @@ const withTimestamps = (data: any) => ({
             admissionType: AdmissionType.elective,
             admissionSource: AdmissionSource.opd,
             lengthOfStay: 1,
-            principalDiagnosisId: hypertensionDiag.id,
-            principalIcdCode: hypertensionDiag.icdCode,
+            principalDiagnosisId: finalHypertensionDiag!.id,
+            principalIcdCode: 'I10',
             principalPresentOnAdmission: PresentOnAdmission.Y,
           },
         });
 
-        await prisma.admissionSecondaryDiagnosis.create({
-          data: {
-            admissionId: admission.id,
-            diagnosisId: anemiaDiag.id,
-            icdCode: anemiaDiag.icdCode,
-            diagnosisType: SecondaryDiagnosisType.comorbidity,
-            presentOnAdmission: PresentOnAdmission.Y,
-          },
-        });
+        if (anemiaDiag) {
+          await prisma.admissionSecondaryDiagnosis.create({
+            data: {
+              admissionId: admission.id,
+              diagnosisId: anemiaDiag.id,
+              icdCode: anemiaDiag.icdCode,
+              diagnosisType: SecondaryDiagnosisType.comorbidity,
+              presentOnAdmission: PresentOnAdmission.Y,
+            },
+          });
+        }
 
         await prisma.bed.update({ 
           where: { id: bed.id }, 
@@ -677,9 +743,7 @@ const withTimestamps = (data: any) => ({
     console.log('✅ Notification seeded');
     console.log('🎉 All test data seeding completed!');
 
-    // Print summary for frontend testing
     console.log('\n📋 TEST DATA SUMMARY:');
-    console.log('👥 Patients:');
     patients.forEach(p => {
       console.log(`   - ${p.surname} ${p.otherNames} (${p.folderNumber}) - ${p.paymentMode}`);
     });
@@ -687,7 +751,6 @@ const withTimestamps = (data: any) => ({
     console.log('   - PAT-10001: Malaria with NHIS coverage');
     console.log('   - PAT-10000: Hypertension with cash payment');
     console.log('👨‍⚕️ Test Users: doctor1/doctor123, nurse1/nurse123, etc.');
-    console.log('📄 Use these credentials to test the frontend');
 
     return {
       success: true,
@@ -702,47 +765,31 @@ const withTimestamps = (data: any) => ({
   }
 };
 
-// ✅ SIMPLIFIED: Main initialization function
+// ✅ Main initialization function
 export const initializeDatabase = async () => {
   console.log('🚀 Initializing database...');
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌱 Seeding enabled: ${SEEDING_ENABLED}`);
 
   try {
-    // In production, never auto-seed unless explicitly enabled
     if (isProduction && process.env.RUN_SEED !== 'true') {
       console.log('🏭 Production: Skipping auto-seeding');
-      return {
-        initialized: true,
-        seeded: false,
-        reason: 'production'
-      };
+      return { initialized: true, seeded: false, reason: 'production' };
     }
 
-    // Check if test data already exists
     const testDataExists = await hasTestData();
     
     if (testDataExists) {
       console.log('✅ Test data already exists. Skipping seeding.');
-      return {
-        initialized: true,
-        seeded: false,
-        reason: 'already_exists'
-      };
+      return { initialized: true, seeded: false, reason: 'already_exists' };
     }
 
-    // Check for real data (safety)
     const realDataExists = await hasRealData();
     if (realDataExists) {
       console.log('🚨 Real data detected in database. Seeding aborted.');
-      return {
-        initialized: true,
-        seeded: false,
-        reason: 'real_data_detected'
-      };
+      return { initialized: true, seeded: false, reason: 'real_data_detected' };
     }
 
-    // If we get here, it's safe to seed
     console.log('🔧 Seeding test data...');
     const result = await seedTestData(false);
     
@@ -752,17 +799,13 @@ export const initializeDatabase = async () => {
       reason: result.success ? 'seeded' : 'seed_failed'
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Database initialization failed:', error);
-    return {
-      initialized: false,
-      seeded: false,
-      error: error.message
-    };
+    return { initialized: false, seeded: false, error: error.message };
   }
 };
 
-// ✅ SIMPLIFIED: Function to check database status
+// ✅ Function to check database status
 export const checkDatabaseStatus = async () => {
   console.log('🔍 Checking database status...');
   
@@ -790,36 +833,17 @@ export const checkDatabaseStatus = async () => {
     return {
       databaseStatus: 'connected',
       environment: process.env.NODE_ENV || 'development',
-      totals: {
-        patients: totalPatients,
-        users: totalUsers,
-        bills: totalBills
-      },
-      testData: {
-        testPatients,
-        testUsers,
-        hasTestData: testDataExists
-      },
-      safety: {
-        hasRealData: realDataExists,
-        safeToDelete: !realDataExists,
-        safeToSeed: !realDataExists
-      },
-      seeding: {
-        enabled: SEEDING_ENABLED,
-        recommended: !realDataExists && !testDataExists
-      }
+      totals: { patients: totalPatients, users: totalUsers, bills: totalBills },
+      testData: { testPatients, testUsers, hasTestData: testDataExists },
+      safety: { hasRealData: realDataExists, safeToDelete: !realDataExists, safeToSeed: !realDataExists },
+      seeding: { enabled: SEEDING_ENABLED, recommended: !realDataExists && !testDataExists }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error checking database status:', error);
-    return {
-      databaseStatus: 'error',
-      error: error.message
-    };
+    return { databaseStatus: 'error', error: error.message };
   }
 };
 
-// Export functions
 export default {
   seedTestData,
   deleteTestData, 

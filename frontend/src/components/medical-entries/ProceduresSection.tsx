@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Procedure, ProcedureTemplate } from '../../types';
 import { ProcedureEntry } from '../../types/medical-entries';
 import { Scissors, Plus, DollarSign, Shield, AlertCircle, Search, X, Calendar } from 'lucide-react';
@@ -34,7 +34,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
       const filtered = procedureTemplates
         .filter(template => template.isActive)
         .filter(template =>
-          template.name.toLowerCase().includes(procedureSearch.toLowerCase()) ||
+          template.name?.toLowerCase().includes(procedureSearch.toLowerCase()) ||
           template.description?.toLowerCase().includes(procedureSearch.toLowerCase()) ||
           template.category?.toLowerCase().includes(procedureSearch.toLowerCase()) ||
           template.procedureCode?.toLowerCase().includes(procedureSearch.toLowerCase())
@@ -45,9 +45,9 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
     }
   }, [procedureSearch, procedureTemplates]);
 
-  // Set default scheduled date to current date and time
+  // ✅ FIXED: Set default scheduled date without infinite loop
   useEffect(() => {
-    if (!currentProcedure.scheduledDate && currentProcedure.templateId) {
+    if (currentProcedure.templateId && !currentProcedure.scheduledDate) {
       const now = new Date();
       const formattedDate = now.toISOString().slice(0, 16);
       onProcedureChange({
@@ -55,10 +55,14 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
         scheduledDate: formattedDate
       });
     }
-  }, [currentProcedure.templateId, currentProcedure.scheduledDate, onProcedureChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProcedure.templateId, currentProcedure.scheduledDate]);
 
+  // ✅ FIXED: Get procedure price with safety checks
   const getProcedurePrice = (template: ProcedureTemplate) => {
-    return paymentMode === 'cash' ? template.cashPrice : template.insurancePrice;
+    if (!template) return 0;
+    const price = paymentMode === 'cash' ? template.cashPrice : template.insurancePrice;
+    return price || 0;
   };
 
   const getStatusColor = (status: string) => {
@@ -160,7 +164,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                     >
                       <div className="font-semibold text-[var(--text-primary)]">{template.name}</div>
                       <div className="text-xs text-[var(--text-secondary)]">
-                        {template.category} • {template.duration}min
+                        {template.category} • {template.duration || 30}min
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs">
                         <span className={`px-1.5 py-0.5 rounded ${
@@ -172,7 +176,8 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                         </span>
                         <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
                           <DollarSign className="w-2.5 h-2.5" />
-                          {getProcedurePrice(template).toFixed(2)}
+                          {/* ✅ FIXED: Safe toFixed */}
+                          {(getProcedurePrice(template) || 0).toFixed(2)}
                         </span>
                       </div>
                     </button>
@@ -196,7 +201,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                 <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
                 <input
                   type="datetime-local"
-                  value={currentProcedure.scheduledDate}
+                  value={currentProcedure.scheduledDate || ''}
                   onChange={(e) => onProcedureChange({ ...currentProcedure, scheduledDate: e.target.value })}
                   className="w-full pl-9 pr-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent transition-all text-sm text-[var(--text-primary)]"
                   disabled={!canAddEntries || !currentProcedure.templateId}
@@ -266,7 +271,8 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Price</label>
               <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                 <DollarSign className="w-2.5 h-2.5" />
-                {getProcedurePrice(selectedTemplate).toFixed(2)}
+                {/* ✅ FIXED: Safe toFixed */}
+                {(getProcedurePrice(selectedTemplate) || 0).toFixed(2)}
               </span>
             </div>
           </div>
@@ -306,7 +312,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                           <div>Category: {template?.category || 'N/A'} • Department: {template?.department || 'N/A'}</div>
                           <div>Scheduled: {formatScheduledDate(procedure.scheduledDate)}</div>
                           <div>Status: <span className={`px-1.5 py-0.5 text-xs font-semibold rounded border ${getStatusColor(procedure.status)}`}>
-                            {procedure.status.replace('_', ' ')}
+                            {procedure.status?.replace('_', ' ') || 'Unknown'}
                           </span></div>
                           {procedure.notes && (
                             <div>Notes: {procedure.notes}</div>
@@ -315,8 +321,8 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                       </div>
                       <button
                         onClick={() => {
-                          const updatedProcedures = procedures.filter(p => p.id !== procedure.id);
-                          // You'll need to pass a setProcedures function to update the parent state
+                          // You'll need to pass a remove function as prop
+                          console.log('Remove procedure:', procedure.id);
                         }}
                         className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4"
                       >

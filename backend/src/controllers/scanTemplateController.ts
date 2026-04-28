@@ -1,15 +1,18 @@
-// controllers/scanController.ts - UPDATED FOR SERVICE CATALOG (CORE FUNCTIONS ONLY)
+// controllers/scanController.ts - UPDATED WITH PAGINATION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// ==========================================
+// GET ALL SCAN TEMPLATES (WITH PAGINATION)
+// ==========================================
 export const getScanTemplates = async (req: Request, res: Response) => {
   try {
-    const { isActive, category, bodyPart, scanType } = req.query;
+    const { isActive, category, bodyPart, scanType, page = 1, limit = 50 } = req.query;
     const where: any = {
-      serviceType: 'scan' // ✅ Use string literal matching your enum
+      serviceType: 'scan'
     };
     
     if (isActive !== undefined) {
@@ -20,9 +23,8 @@ export const getScanTemplates = async (req: Request, res: Response) => {
       where.serviceCategory = category;
     }
     
-    // ✅ Body part and scan type filtering
     if (bodyPart) {
-      where.subType = bodyPart; // ✅ bodyPart is stored in subType field
+      where.subType = bodyPart;
     }
     
     if (scanType) {
@@ -32,29 +34,50 @@ export const getScanTemplates = async (req: Request, res: Response) => {
       ];
     }
 
-    const templates = await prisma.serviceCatalog.findMany({
-      where,
-      include: {
-        pricing: true,
-        scans: { 
-          select: {
-            id: true,
-            status: true
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [templates, total] = await Promise.all([
+      prisma.serviceCatalog.findMany({
+        where,
+        include: {
+          pricing: true,
+          scans: { 
+            select: {
+              id: true,
+              status: true
+            }
           }
-        }
-      },
-      orderBy: {
-        name: 'asc'
+        },
+        orderBy: {
+          name: 'asc'
+        },
+        skip,
+        take: limitNum
+      }),
+      prisma.serviceCatalog.count({ where })
+    ]);
+    
+    res.json({
+      success: true,
+      data: templates,
+      pagination: {
+        currentPage: pageNum,
+        pageSize: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
       }
     });
-    
-    res.json(templates);
   } catch (error) {
     console.error('Error fetching scan templates:', error);
     res.status(500).json({ message: 'Error fetching scan templates', error });
   }
 };
 
+// ==========================================
+// GET SCAN TEMPLATE BY ID
+// ==========================================
 export const getScanTemplateById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -71,7 +94,7 @@ export const getScanTemplateById = async (req: Request, res: Response) => {
             Attendance: {
               select: {
                 attendanceNumber: true,
-                Patient: { // ✅ Capital P
+                Patient: {
                   select: {
                     surname: true,
                     otherNames: true,
@@ -100,6 +123,9 @@ export const getScanTemplateById = async (req: Request, res: Response) => {
   }
 };
 
+// ==========================================
+// CREATE SCAN TEMPLATE
+// ==========================================
 export const createScanTemplate = [
   body('name').notEmpty().withMessage('Scan name is required'),
   body('code').notEmpty().withMessage('Service code is required'),
@@ -115,7 +141,6 @@ export const createScanTemplate = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      // Check if service code already exists
       const existingTemplate = await prisma.serviceCatalog.findUnique({
         where: { code: req.body.code }
       });
@@ -125,23 +150,18 @@ export const createScanTemplate = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Create the scan service
         const template = await tx.serviceCatalog.create({
           data: {
             name: req.body.name,
             code: req.body.code,
             description: req.body.description,
-            serviceType: 'scan', // ✅ String literal
+            serviceType: 'scan',
             serviceCategory: req.body.serviceCategory,
-            subType: req.body.bodyPart || null, // ✅ Store bodyPart in subType
-            
-            // NHIS Compliance
+            subType: req.body.bodyPart || null,
             nhisServiceCode: req.body.nhisServiceCode,
             tariffCode: req.body.tariffCode,
             isNHISCovered: req.body.isNHISCovered !== undefined ? req.body.isNHISCovered : true,
             nhisRequiresAuth: req.body.nhisRequiresAuth || false,
-            
-            // Scan Metadata - store in metadata field
             metadata: {
               bodyPart: req.body.bodyPart,
               preparationInstructions: req.body.preparationInstructions,
@@ -149,15 +169,12 @@ export const createScanTemplate = [
               contrastRequired: req.body.contrastRequired || false,
               scanType: req.body.scanType
             },
-            
-            // Default values
             isActive: req.body.isActive !== undefined ? req.body.isActive : true,
             unit: req.body.unit || 'Each',
             createdById: (req as any).user?.id
           }
         });
       
-        // Create pricing record
         await tx.servicePricing.create({
           data: {
             serviceCatalogId: template.id,
@@ -187,6 +204,9 @@ export const createScanTemplate = [
   }
 ];
 
+// ==========================================
+// UPDATE SCAN TEMPLATE
+// ==========================================
 export const updateScanTemplate = [
   body('name').optional().notEmpty().withMessage('Scan name cannot be empty'),
   body('code').optional().notEmpty().withMessage('Service code cannot be empty'),
@@ -204,11 +224,10 @@ export const updateScanTemplate = [
 
       const { id } = req.params;
       
-      // Check if template exists
       const existingTemplate = await prisma.serviceCatalog.findFirst({
         where: { 
           id,
-          serviceType: ServiceType.scan 
+          serviceType: 'scan'
         },
         include: { pricing: true }
       });
@@ -217,7 +236,6 @@ export const updateScanTemplate = [
         return res.status(404).json({ message: 'Scan template not found' });
       }
 
-      // Check if service code is being changed and if it already exists
       if (req.body.code && req.body.code !== existingTemplate.code) {
         const templateWithCode = await prisma.serviceCatalog.findUnique({
           where: { code: req.body.code }
@@ -229,17 +247,14 @@ export const updateScanTemplate = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Prepare update data
         const updateData: any = { ...req.body };
         
-        // Remove pricing fields from service update
         delete updateData.cashPrice;
         delete updateData.nhisPrice;
         delete updateData.insurancePrice;
         delete updateData.vatRate;
         delete updateData.isTaxable;
       
-        // Handle metadata updates
         if (req.body.bodyPart || req.body.preparationInstructions || req.body.duration !== undefined) {
           const currentMetadata = existingTemplate.metadata as any || {};
           updateData.metadata = {
@@ -252,17 +267,14 @@ export const updateScanTemplate = [
           };
         }
       
-        // Update body part as subType
         if (req.body.bodyPart !== undefined) {
           updateData.subType = req.body.bodyPart;
         }
       
-        // Update NHIS fields
         if (req.body.nhisRequiresAuth !== undefined) {
           updateData.nhisRequiresAuth = req.body.nhisRequiresAuth;
         }
       
-        // Update service catalog
         const template = await tx.serviceCatalog.update({
           where: { id },
           data: {
@@ -271,7 +283,6 @@ export const updateScanTemplate = [
           }
         });
       
-        // Update pricing if provided
         if (req.body.cashPrice !== undefined || req.body.nhisPrice !== undefined || 
             req.body.insurancePrice !== undefined) {
           
@@ -304,18 +315,20 @@ export const updateScanTemplate = [
   }
 ];
 
+// ==========================================
+// DELETE SCAN TEMPLATE
+// ==========================================
 export const deleteScanTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-// Check if template exists and has dependencies
     const existingTemplate = await prisma.serviceCatalog.findFirst({
       where: { 
         id,
         serviceType: 'scan'
       },
       include: {
-        Scan: { take: 1 }, // ✅ Capital S
+        scans: { take: 1 },
         pricing: true
       }
     });
@@ -324,7 +337,6 @@ export const deleteScanTemplate = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Scan template not found' });
     }
 
-    // Check for dependencies
     if (existingTemplate.scans.length > 0) {
       return res.status(400).json({ 
         message: 'Cannot delete scan template with associated scans' 
@@ -332,14 +344,12 @@ export const deleteScanTemplate = async (req: Request, res: Response) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      // Delete pricing first
       if (existingTemplate.pricing) {
         await tx.servicePricing.delete({
           where: { serviceCatalogId: id }
         });
       }
 
-      // Delete service catalog
       await tx.serviceCatalog.delete({
         where: { id }
       });
@@ -352,6 +362,9 @@ export const deleteScanTemplate = async (req: Request, res: Response) => {
   }
 };
 
+// ==========================================
+// GET SCAN CATEGORIES
+// ==========================================
 export const getScanCategories = async (req: Request, res: Response) => {
   try {
     const categories = Object.values(ServiceCategory);
@@ -362,11 +375,13 @@ export const getScanCategories = async (req: Request, res: Response) => {
   }
 };
 
+// ==========================================
+// GET SCAN BODY PARTS
+// ==========================================
 export const getScanBodyParts = async (req: Request, res: Response) => {
   try {
-    // Body parts are stored in subType field for scan services
-    const services = await prisma.serviceCatalog.findMany({
-      where: { 
+    const templates = await prisma.serviceCatalog.findMany({
+      where: {
         serviceType: 'scan',
         subType: { not: null }
       },
@@ -374,21 +389,31 @@ export const getScanBodyParts = async (req: Request, res: Response) => {
       distinct: ['subType']
     });
     
-    const bodyParts = services
-      .map(service => service.subType)
+    const bodyParts = templates
+      .map(t => t.subType)
       .filter(Boolean);
     
-    res.json(bodyParts);
+    if (bodyParts.length === 0) {
+      const defaultBodyParts = [
+        'head', 'chest', 'neck', 'abdomen', 'pelvis', 
+        'spine', 'extremities', 'breast', 'other'
+      ];
+      res.json(defaultBodyParts);
+    } else {
+      res.json(bodyParts);
+    }
   } catch (error) {
     console.error('Error fetching scan body parts:', error);
     res.status(500).json({ message: 'Error fetching scan body parts', error });
   }
 };
 
+// ==========================================
+// GET SCAN TYPES
+// ==========================================
 export const getScanTypes = async (req: Request, res: Response) => {
   try {
-    // Scan types are stored in metadata.scanType
-    const services = await prisma.serviceCatalog.findMany({
+    const templates = await prisma.serviceCatalog.findMany({
       where: {
         serviceType: 'scan',
         metadata: {
@@ -396,19 +421,57 @@ export const getScanTypes = async (req: Request, res: Response) => {
           not: null
         }
       },
-      select: {
-        metadata: true
-      }
+      select: { metadata: true }
     });
     
-    const scanTypes = services
-      .map(service => (service.metadata as any)?.scanType)
+    const scanTypes = templates
+      .map(t => (t.metadata as any)?.scanType)
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
     
-    res.json(scanTypes);
+    if (scanTypes.length === 0) {
+      const defaultScanTypes = [
+        'Ultrasound', 'X-Ray', 'CT Scan', 'MRI', 
+        'Mammography', 'Fluoroscopy', 'Doppler', 'Echocardiography'
+      ];
+      res.json(defaultScanTypes);
+    } else {
+      res.json(scanTypes);
+    }
   } catch (error) {
     console.error('Error fetching scan types:', error);
     res.status(500).json({ message: 'Error fetching scan types', error });
+  }
+};
+
+// ==========================================
+// BULK UPDATE SCAN TEMPLATES
+// ==========================================
+export const bulkUpdateScanTemplates = async (req: Request, res: Response) => {
+  try {
+    const { ids, isActive } = req.body;
+    
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({ message: 'ids array is required' });
+    }
+
+    const result = await prisma.serviceCatalog.updateMany({
+      where: {
+        id: { in: ids },
+        serviceType: 'scan'
+      },
+      data: {
+        isActive: isActive !== undefined ? isActive : true,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({ 
+      message: `${result.count} scan templates updated`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Error bulk updating scan templates:', error);
+    res.status(500).json({ message: 'Error bulk updating scan templates', error });
   }
 };

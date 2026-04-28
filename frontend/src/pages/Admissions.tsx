@@ -31,6 +31,12 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
   return entity?._id || entity?.id;
 };
 
+const getPatientName = (patient: any): string => {
+  if (!patient) return 'Unknown Patient';
+  if (patient.fullName) return patient.fullName;
+  return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+};
+
 // Admission Modal Component
 const AdmissionModal = ({
   isOpen,
@@ -85,7 +91,7 @@ const AdmissionModal = ({
     const patient = a.patient;
     const search = searchTerm.toLowerCase();
     return (
-      patient?.fullName?.toLowerCase().includes(search) ||
+      getPatientName(patient).toLowerCase().includes(search) ||
       a.attendanceNumber?.toLowerCase().includes(search) ||
       patient?.folderNumber?.toLowerCase().includes(search) ||
       patient?.contact?.includes(search)
@@ -103,7 +109,7 @@ const AdmissionModal = ({
   });
 
   const filteredPatients = patients.filter(p =>
-    p.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getPatientName(p).toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.contact?.includes(searchTerm) ||
     p.folderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -111,7 +117,7 @@ const AdmissionModal = ({
   // Reusable card renderer
   const renderAttendanceCard = (attendance: any) => {
     const patient = attendance.patient;
-    const isSelected = selectedAttendance?._id === attendance._id;
+    const isSelected = getEntityId(selectedAttendance) === getEntityId(attendance);
 
     return (
       <div
@@ -126,7 +132,7 @@ const AdmissionModal = ({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              <h4 className="font-semibold text-[var(--text-primary)]">{patient?.fullName || 'Unknown Patient'}</h4>
+              <h4 className="font-semibold text-[var(--text-primary)]">{getPatientName(patient)}</h4>
               <span className="text-xs bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-2 py-1 rounded-full">
                 {attendance.attendanceNumber || 'N/A'}
               </span>
@@ -233,12 +239,12 @@ const AdmissionModal = ({
                       <button
                         key={pid}
                         onClick={() => {
-                          setSearchTerm(p.fullName);
+                          setSearchTerm(getPatientName(p));
                           setShowPatientDropdown(false);
                         }}
                         className="w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors"
                       >
-                        <div className="font-medium text-[var(--text-primary)]">{p.fullName}</div>
+                        <div className="font-medium text-[var(--text-primary)]">{getPatientName(p)}</div>
                         <div className="text-xs text-[var(--text-secondary)] flex items-center gap-2 mt-1">
                           <IdCard className="w-3 h-3" />
                           {p.folderNumber}
@@ -314,7 +320,7 @@ const AdmissionModal = ({
         <div className="p-6 border-t border-[var(--border-color)] bg-[var(--bg-main)] flex justify-between items-center">
           <div className="text-sm text-[var(--text-secondary)]">
             {selectedAttendance ? (
-              <span>Selected: <strong className="text-[var(--text-primary)]">{selectedAttendance.patient?.fullName}</strong></span>
+              <span>Selected: <strong className="text-[var(--text-primary)]">{getPatientName(selectedAttendance.patient)}</strong></span>
             ) : (
               <span>Please select a patient to admit</span>
             )}
@@ -360,7 +366,7 @@ export default function Admissions() {
       await Promise.all([
         getAdmissions(),
         loadPatients(),
-        getAttendances({ status: 'pending', attendanceType: 'general_opd' }),
+        getAttendances({ status: 'pending' }),
       ]);
       success('Data Loaded', 'Admissions data refreshed successfully');
     } catch (err: any) {
@@ -398,7 +404,6 @@ export default function Admissions() {
   const dischargedAdmissions = admissions.filter(a => a.status === 'discharged');
 
   const admitableAttendances = attendancesWithPatients.filter(a =>
-    a.attendanceType === 'outpatient' &&
     a.status === 'pending' &&
     !admissions.some(adm => getEntityId(adm.attendance) === getEntityId(a) || adm.attendanceId === getEntityId(a))
   );
@@ -409,7 +414,7 @@ export default function Admissions() {
         const q = searchQuery.toLowerCase();
         return (
           a.admissionNumber?.toLowerCase().includes(q) ||
-          patient?.fullName?.toLowerCase().includes(q) ||
+          getPatientName(patient).toLowerCase().includes(q) ||
           patient?.folderNumber?.toLowerCase().includes(q) ||
           a.diagnosis?.toLowerCase().includes(q) ||
           a.admittingDoctor?.toLowerCase().includes(q)
@@ -467,11 +472,11 @@ export default function Admissions() {
       // Refresh data
       await Promise.all([
         getAdmissions(),
-        getAttendances({ status: 'pending', attendanceType: 'outpatient' }),
+        getAttendances({ status: 'pending' }),
       ]);
 
       setShowAdmissionModal(false);
-      success('Patient Admitted!', `${patient.fullName} has been successfully admitted.`);
+      success('Patient Admitted!', `${getPatientName(patient)} has been successfully admitted.`);
     } catch (err: any) {
       console.error('❌ Admission error:', err);
       error('Admission Failed', err.response?.data?.message || 'Failed to admit patient. Please try again.');
@@ -480,7 +485,7 @@ export default function Admissions() {
 
   const handleDischargePatient = async (admission: any) => {
     const patient = findAdmissionPatient(admission);
-    if (!window.confirm(`Are you sure you want to discharge ${patient?.fullName || 'this patient'}?`)) {
+    if (!window.confirm(`Are you sure you want to discharge ${getPatientName(patient)}?`)) {
       return;
     }
 
@@ -494,7 +499,7 @@ export default function Admissions() {
 
       await dischargePatient(getEntityId(admission)!, dischargeData);
       await getAdmissions();
-      success('Patient Discharged!', `${patient?.fullName || 'Patient'} has been successfully discharged.`);
+      success('Patient Discharged!', `${getPatientName(patient)} has been successfully discharged.`);
     } catch (err: any) {
       console.error('❌ Discharge error:', err);
       error('Discharge Failed', err.response?.data?.message || 'Failed to discharge patient. Please try again.');
@@ -505,7 +510,7 @@ export default function Admissions() {
     const patient = findAdmissionPatient(admission);
     if (patient) {
       // Navigate to medical entries page
-      console.log('Navigate to medical entries for:', patient.fullName);
+      console.log('Navigate to medical entries for:', getPatientName(patient));
       success('Navigation', 'Would navigate to medical entries page');
     }
   };
@@ -678,7 +683,7 @@ export default function Admissions() {
                     {/* Patient Info */}
                     <div className="flex-1">
                       <div className="flex items-center gap-3 flex-wrap mb-3">
-                        <h3 className="font-bold text-[var(--text-primary)]">{patient?.fullName || 'Unknown Patient'}</h3>
+                        <h3 className="font-bold text-[var(--text-primary)]">{getPatientName(patient)}</h3>
                         <span className="text-xs bg-[var(--bg-main)] text-[var(--text-secondary)] px-2 py-1 rounded-full border">
                           {admission.admissionNumber || 'N/A'}
                         </span>

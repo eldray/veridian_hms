@@ -1,3 +1,4 @@
+// routes/scanRoutes.ts - CORRECTED WITH PROPER ORDER
 import express from 'express';
 import {
   getScanTemplates,
@@ -13,19 +14,17 @@ import { protect, requireRadiologyStaff, requireAdmin } from '../middleware/auth
 
 const router = express.Router();
 
-// All routes are protected
 router.use(protect);
 
-// GET /api/scan-templates - Get all scan templates (with optional filters)
-router.get('/', requireRadiologyStaff, getScanTemplates);
-
-// GET /api/scan-templates/categories - Get all unique scan categories
+// ✅ IMPORTANT: Static routes MUST come before dynamic /:id routes
 router.get('/categories', requireRadiologyStaff, getScanCategories);
-
-// GET /api/scan-templates/scan-types - Get all unique scan types
+router.get('/body-parts', requireRadiologyStaff, getScanBodyParts);
 router.get('/scan-types', requireRadiologyStaff, getScanTypes);
 
-// GET /api/scan-templates/:id - Get a specific scan template by ID
+// GET /api/scan-templates - Get all scan templates
+router.get('/', requireRadiologyStaff, getScanTemplates);
+
+// GET /api/scan-templates/:id - Get a specific scan template (MUST be LAST)
 router.get('/:id', requireRadiologyStaff, getScanTemplateById);
 
 // POST /api/scan-templates - Create a new scan template

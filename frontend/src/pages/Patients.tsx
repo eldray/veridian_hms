@@ -1,4 +1,4 @@
-// src/pages/Patients.tsx - UPDATED WITH DELETE + SCHEMA FIXES
+// src/pages/Patients.tsx - STRETCHED LAYOUT (same as Attendance)
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -6,65 +6,101 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { 
-  Search, Grid, List, RefreshCw, Hospital, FileText, Users, Calendar, 
-  Eye, Edit, ChevronLeft, ChevronRight, Pill, FlaskConical, Scissors, 
-  DollarSign, CreditCard, Shield, Plus, Phone, MapPin, Folder, 
-  Stethoscope, Trash2, User 
+  Search, Grid, List, RefreshCw, Users, Calendar, 
+  Eye, Edit, ChevronLeft, ChevronRight, 
+  Plus, Phone, User, Trash2, Stethoscope,
+  CalendarDays, Clock, Filter, X
 } from 'lucide-react';
+
+type DateFilterType = 'today' | 'yesterday' | 'custom';
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [itemsPerPage, setItemsPerPage] = useState(9);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  
+  // Date filter states
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { patients, loadPatients, searchPatients, isLoading, deletePatient } = usePatientStore();
   const { hasRole } = useAuthStore();
   const { success, error } = useToast();
 
-useEffect(() => {
-  const loadData = async () => {
-    // Prevent multiple simultaneous loads
-    if (isLoading && !refreshing) return;
-    
-    try {
-      setRefreshing(true);
-      console.log('🔄 Loading patients in Patients component...');
-      await loadPatients();
-      console.log('✅ Patients loaded successfully');
-    } catch (err) {
-      console.error('❌ Failed to load patients:', err);
-      error('Load Failed', 'Failed to load patients');
-    } finally {
-      setRefreshing(false);
+  useEffect(() => {
+    const loadData = async () => {
+      if (isLoading && !refreshing) return;
+      
+      try {
+        setRefreshing(true);
+        await loadPatients();
+      } catch (err) {
+        console.error('Failed to load patients:', err);
+        error('Load Failed', 'Failed to load patients');
+      } finally {
+        setRefreshing(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Filter patients by attendance date
+  const filterPatientsByDate = (patientsList: any[]) => {
+    if (dateFilter === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      return patientsList.filter(patient => {
+        const hasTodayAttendance = patient.attendances?.some((att: any) => 
+          new Date(att.dateTime).toISOString().split('T')[0] === today
+        );
+        return hasTodayAttendance;
+      });
     }
+    
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      return patientsList.filter(patient => {
+        const hasYesterdayAttendance = patient.attendances?.some((att: any) => 
+          new Date(att.dateTime).toISOString().split('T')[0] === yesterdayStr
+        );
+        return hasYesterdayAttendance;
+      });
+    }
+    
+    if (dateFilter === 'custom' && customStartDate && customEndDate) {
+      return patientsList.filter(patient => {
+        const hasAttendanceInRange = patient.attendances?.some((att: any) => {
+          const attDate = new Date(att.dateTime).toISOString().split('T')[0];
+          return attDate >= customStartDate && attDate <= customEndDate;
+        });
+        return hasAttendanceInRange;
+      });
+    }
+    
+    return patientsList;
   };
 
-  loadData();
-}, []); // ✅ Load only once on mount
-
-// Add this cleanup to prevent memory leaks
-useEffect(() => {
-  return () => {
-    // Cleanup if needed
-  };
-}, []);
-
-  // ✅ FIX: Get full name from surname + otherNames
   const getPatientFullName = (patient: any) => {
     return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
   };
 
-  const displayedPatients = searchQuery ? searchPatients(searchQuery) : patients;
+  // Apply search first, then date filter
+  const searchedPatients = searchQuery ? searchPatients(searchQuery) : patients;
+  const filteredPatients = filterPatientsByDate(searchedPatients);
 
   // Pagination
-  const totalPages = Math.ceil(displayedPatients.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPatients = displayedPatients.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedPatients = filteredPatients.slice(startIndex, startIndex + itemsPerPage);
 
   const canRegister = hasRole(['admin', 'nurse', 'doctor']);
   const canDelete = hasRole(['admin']);
@@ -78,6 +114,7 @@ useEffect(() => {
     setShowAttendanceModal(false);
     setSelectedPatientId(null);
     success('Check-in complete', 'New visit created');
+    handleRefresh();
   };
 
   const handleAttendanceClose = () => {
@@ -96,6 +133,7 @@ useEffect(() => {
       await deletePatient(patientId);
       setDeleteConfirm(null);
       success('Patient Deleted', 'Patient record has been removed');
+      handleRefresh();
     } catch (err: any) {
       error('Delete Failed', err.message || 'Failed to delete patient');
     }
@@ -105,12 +143,11 @@ useEffect(() => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  // UI Helper Functions
   const getPaymentModeColor = (paymentMode: string) => {
     switch (paymentMode) {
       case 'cash': return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
-      case 'nhis': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-bg)]';
-      case 'private_insurance': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]';
+      case 'nhis': return 'bg-green-50 text-green-700 border-green-200';
+      case 'private_insurance': return 'bg-purple-50 text-purple-700 border-purple-200';
       default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
   };
@@ -125,6 +162,26 @@ useEffect(() => {
   };
 
   const getPatientId = (patient: any) => patient.id;
+
+  const getDateFilterLabel = () => {
+    switch (dateFilter) {
+      case 'today': return "Today's Patients";
+      case 'yesterday': return "Yesterday's Patients";
+      case 'custom': return `${customStartDate} to ${customEndDate}`;
+      default: return 'All Patients';
+    }
+  };
+
+  const getFilterStats = () => {
+    const totalWithAttendances = patients.filter(p => p.attendances?.length > 0).length;
+    return {
+      totalPatients: patients.length,
+      filteredCount: filteredPatients.length,
+      withAttendances: totalWithAttendances
+    };
+  };
+
+  const stats = getFilterStats();
 
   // Loading State
   if (isLoading && !refreshing) {
@@ -142,27 +199,15 @@ useEffect(() => {
             Loading...
           </button>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-[var(--bg-main)] rounded animate-pulse w-32"></div>
-                    <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-24"></div>
-                  </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-[var(--bg-main)] rounded animate-pulse w-48"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-32"></div>
                 </div>
-                <div className="h-6 bg-[var(--bg-main)] rounded-full animate-pulse w-16"></div>
-              </div>
-              <div className="space-y-2 mb-3">
-                <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-full"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-3/4"></div>
-              </div>
-              <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                <div className="flex-1 h-8 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
-                <div className="flex-1 h-8 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
               </div>
             </div>
           ))}
@@ -174,15 +219,15 @@ useEffect(() => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Management</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Manage patient records and medical history</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {displayedPatients.length} patient(s) in total
+            {stats.totalPatients} total patients • {stats.withAttendances} with visits
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {canRegister && (
             <Link
               to="/dashboard/patients/register"
@@ -203,7 +248,84 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Date Filter Bar */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-[var(--text-secondary)]" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">Show patients with visits:</span>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setDateFilter('today');
+                setCurrentPage(1);
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'today'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('yesterday');
+                setCurrentPage(1);
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'yesterday'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Yesterday
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('custom');
+                setShowDatePicker(true);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'custom'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Custom Range
+            </button>
+          </div>
+
+          {/* Custom Date Range Picker */}
+          {showDatePicker && dateFilter === 'custom' && (
+            <div className="flex items-center gap-3 ml-auto">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+              />
+              <span className="text-[var(--text-secondary)]">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+              />
+            </div>
+          )}
+          
+          <div className="text-xs text-[var(--text-secondary)] ml-auto">
+            Showing: {getDateFilterLabel()}
+          </div>
+        </div>
+      </div>
+
+      {/* Search and View Controls */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="flex-1 w-full sm:max-w-sm">
@@ -244,22 +366,22 @@ useEffect(() => {
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
             >
-              <option value={6}>6 per page</option>
-              <option value={9}>9 per page</option>
-              <option value={12}>12 per page</option>
-              <option value={24}>24 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={15}>15 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={25}>25 per page</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Stats Banner */}
-      {displayedPatients.length > 0 && (
+      {filteredPatients.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-sm font-semibold text-blue-800">
-                Showing {paginatedPatients.length} of {displayedPatients.length} patient records
+                Showing {paginatedPatients.length} of {filteredPatients.length} patient records
               </p>
               {searchQuery && (
                 <p className="text-xs text-blue-600 mt-0.5">
@@ -267,60 +389,34 @@ useEffect(() => {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-blue-700">
+            <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
               <span className="bg-blue-100 px-2 py-1 rounded border border-blue-200">
-                Cash: {displayedPatients.filter(p => p.paymentMode === 'cash').length}
+                Cash: {filteredPatients.filter(p => p.paymentMode === 'cash').length}
               </span>
               <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
-                NHIS: {displayedPatients.filter(p => p.paymentMode === 'nhis').length}
+                NHIS: {filteredPatients.filter(p => p.paymentMode === 'nhis').length}
               </span>
               <span className="bg-purple-100 px-2 py-1 rounded border border-purple-200">
-                Private: {displayedPatients.filter(p => p.paymentMode === 'private_insurance').length}
+                Private: {filteredPatients.filter(p => p.paymentMode === 'private_insurance').length}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Quick Stats */}
-      {displayedPatients.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-[var(--bg-card)] rounded-lg p-3 text-center border border-[var(--border-color)]">
-            <p className="text-lg font-bold text-[var(--text-primary)]">{displayedPatients.length}</p>
-            <p className="text-xs text-[var(--text-secondary)] font-medium">Total Patients</p>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-lg p-3 text-center border border-[var(--border-color)]">
-            <p className="text-lg font-bold text-[var(--text-primary)]">
-              {displayedPatients.filter(p => p.paymentMode === 'nhis').length}
-            </p>
-            <p className="text-xs text-[var(--text-secondary)] font-medium">NHIS</p>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-lg p-3 text-center border border-[var(--border-color)]">
-            <p className="text-lg font-bold text-[var(--text-primary)]">
-              {displayedPatients.filter(p => p.paymentMode === 'private_insurance').length}
-            </p>
-            <p className="text-xs text-[var(--text-secondary)] font-medium">Private</p>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-lg p-3 text-center border border-[var(--border-color)]">
-            <p className="text-lg font-bold text-[var(--text-primary)]">
-              {displayedPatients.filter(p => p.paymentMode === 'cash').length}
-            </p>
-            <p className="text-xs text-[var(--text-secondary)] font-medium">Cash</p>
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      {displayedPatients.length === 0 ? (
+      {/* Empty State */}
+      {filteredPatients.length === 0 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <Users className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-            {searchQuery ? 'No Patients Found' : 'No Patient Records'}
+            {searchQuery ? 'No Patients Found' : `No ${getDateFilterLabel()}`}
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
             {searchQuery 
               ? 'No patient records match your search criteria. Try adjusting your search terms.'
-              : 'Get started by registering your first patient.'
+              : dateFilter !== 'custom' 
+                ? `No patients had visits ${dateFilter === 'today' ? 'today' : 'yesterday'}.`
+                : `No patients had visits between ${customStartDate} and ${customEndDate}.`
             }
           </p>
           {searchQuery ? (
@@ -328,19 +424,23 @@ useEffect(() => {
               onClick={() => setSearchQuery('')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all duration-200 font-semibold text-sm border border-[var(--border-color)]"
             >
+              <X className="w-4 h-4" />
               Clear Search
             </button>
-          ) : canRegister ? (
-            <Link
-              to="/dashboard/patients/register"
+          ) : dateFilter !== 'today' && (
+            <button
+              onClick={() => setDateFilter('today')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
             >
-              <Plus className="w-4 h-4" />
-              Register First Patient
-            </Link>
-          ) : null}
+              <CalendarDays className="w-4 h-4" />
+              View Today's Patients
+            </button>
+          )}
         </div>
-      ) : viewMode === 'cards' ? (
+      )}
+
+      {/* Card View */}
+      {filteredPatients.length > 0 && viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
             const patientId = getPatientId(patient);
@@ -358,7 +458,7 @@ useEffect(() => {
                         {fullName}
                       </h3>
                       <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border mt-1">
-                        {patient.folderNumber || patientId}
+                        {patient.folderNumber || patientId.slice(0, 8)}
                       </p>
                     </div>
                   </div>
@@ -383,12 +483,6 @@ useEffect(() => {
                 </div>
 
                 <div className="space-y-2 text-xs mb-3">
-                  <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span className="font-medium">
-                      {patient.age || 'N/A'}y • {patient.gender}
-                    </span>
-                  </div>
                   <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                     <Phone className="w-3.5 h-3.5" />
                     <span className="font-medium">{patient.contact}</span>
@@ -418,12 +512,9 @@ useEffect(() => {
                   </button>
                 </div>
 
-                {/* Delete Confirmation */}
                 {deleteConfirm === patientId && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 text-xs font-medium mb-2">
-                      Delete {fullName}?
-                    </p>
+                    <p className="text-red-700 text-xs font-medium mb-2">Delete {fullName}?</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleDeletePatient(patientId)}
@@ -444,15 +535,18 @@ useEffect(() => {
             );
           })}
         </div>
-      ) : (
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+      )}
+
+      {/* List View (DEFAULT) */}
+      {filteredPatients.length > 0 && viewMode === 'list' && (
+        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Details</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment Mode</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Last Visit</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
               </tr>
             </thead>
@@ -460,12 +554,15 @@ useEffect(() => {
               {paginatedPatients.map((patient) => {
                 const patientId = getPatientId(patient);
                 const fullName = getPatientFullName(patient);
+                const lastVisit = patient.attendances?.[0]?.dateTime 
+                  ? new Date(patient.attendances[0].dateTime).toLocaleDateString()
+                  : 'Never';
                 
                 return (
                   <tr key={patientId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         </div>
                         <div>
@@ -473,27 +570,27 @@ useEffect(() => {
                             {fullName}
                           </p>
                           <p className="text-xs text-[var(--text-secondary)]">
-                            {patient.folderNumber || patientId}
+                            {patient.folderNumber || patientId.slice(0, 8)}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-[var(--text-secondary)] text-sm">
+                      <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                         <Phone className="w-3.5 h-3.5" />
                         {patient.contact}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-[var(--text-secondary)] text-sm">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {patient.age || 'N/A'}y • {patient.gender}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
                         {getPaymentModeLabel(patient.paymentMode)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {lastVisit}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -538,12 +635,12 @@ useEffect(() => {
       )}
 
       {/* Pagination */}
-      {displayedPatients.length > 0 && totalPages > 1 && (
+      {filteredPatients.length > 0 && totalPages > 1 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="text-sm text-[var(--text-secondary)]">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, displayedPatients.length)} of{' '}
-              {displayedPatients.length} patient records
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredPatients.length)} of{' '}
+              {filteredPatients.length} patient records
             </div>
             <div className="flex items-center gap-2">
               <button

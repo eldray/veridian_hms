@@ -333,7 +333,7 @@ export const deleteRequisition = async (req: Request, res: Response) => {
 
 // UPDATE REQUISITION STATUS
 export const updateRequisitionStatus = [
-  body('status').isIn(['draft', 'submitted', 'approved', 'cancelled']).withMessage('Valid status is required'),
+  body('status').isIn(['draft', 'submitted', 'approved', 'fulfilled', 'cancelled']).withMessage('Valid status is required'),
   body('notes').optional().isString(),
 
   async (req: Request, res: Response) => {

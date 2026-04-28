@@ -1,3 +1,4 @@
+// controllers/patientController.ts - CORRECTED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import path from 'path';
@@ -10,8 +11,8 @@ const prisma = new PrismaClient();
 const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
 
-// Helper function to calculate age with months
-function calculateAgeWithMonths(dateOfBirth: string | Date): { years: number, months: number, display: string } {
+// Helper function to calculate age (for display only - NOT stored)
+function calculateAgeDisplay(dateOfBirth: string | Date): { years: number, months: number, display: string } {
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
   
@@ -67,7 +68,6 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build where clause for filtering
     const where: any = {};
 
     if (search) {
@@ -127,10 +127,16 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
     });
 
     // Add fullName field by combining surname + otherNames
-    const patientsWithFullName = patients.map(patient => ({
-      ...patient,
-      fullName: `${patient.surname} ${patient.otherNames}`.trim()
-    }));
+    // Also add computed age for display
+    const patientsWithFullName = patients.map(patient => {
+      const ageDisplay = calculateAgeDisplay(patient.dateOfBirth);
+      return {
+        ...patient,
+        fullName: `${patient.surname} ${patient.otherNames}`.trim(),
+        age: ageDisplay.years,
+        ageDisplay: ageDisplay.display
+      };
+    });
 
     const total = await prisma.patient.count({ where });
     const totalPages = Math.ceil(total / limitNum);
@@ -191,7 +197,6 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
                 isOccupied: true
               }
             },
-            // ✅ CORRECT: Use the relation name from your schema
             Diagnosis: {
               select: {
                 id: true,
@@ -199,7 +204,6 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
                 icdCode: true
               }
             },
-            // If you need secondary diagnoses too:
             AdmissionSecondaryDiagnosis: {
               include: {
                 Diagnosis: {
@@ -215,7 +219,6 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
         },
         Attendance: {
           include: {
-            // ✅ CORRECT: Use the relation names from your schema
             AttendanceDiagnosis: {
               include: {
                 Diagnosis: {
@@ -294,10 +297,14 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Add fullName by combining surname + otherNames
+    const ageDisplay = calculateAgeDisplay(patient.dateOfBirth);
+
+    // Add fullName and computed age
     const patientWithFullName = {
       ...patient,
-      fullName: `${patient.surname} ${patient.otherNames}`.trim()
+      fullName: `${patient.surname} ${patient.otherNames}`.trim(),
+      age: ageDisplay.years,
+      ageDisplay: ageDisplay.display
     };
 
     console.log('✅ Patient fetched successfully:', patient.folderNumber);
@@ -317,7 +324,6 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
 };
 
 export const createPatient = [
-  // Validation rules
   body('surname').notEmpty().withMessage('Surname is required').trim().escape(),
   body('otherNames').notEmpty().withMessage('Other names are required').trim().escape(),
   body('gender').isIn(['male', 'female', 'other']).withMessage('Valid gender is required'),
@@ -368,7 +374,6 @@ export const createPatient = [
           : req.body.additionalInfo;
       }
 
-      // Handle insurance provider ID directly
       const insuranceProviderId = req.body.insuranceProviderId || null;
       let insuranceDetails = req.body.insuranceDetails || {};
 
@@ -381,8 +386,7 @@ export const createPatient = [
           });
         }
 
-        // Validate insurance provider exists
-        const provider = await prisma.InsuranceProvider.findUnique({
+        const provider = await prisma.insuranceProvider.findUnique({
           where: { id: insuranceProviderId }
         });
 
@@ -393,7 +397,6 @@ export const createPatient = [
           });
         }
 
-        // Set basic insurance details if not provided
         if (Object.keys(insuranceDetails).length === 0) {
           insuranceDetails = {
             providerId: insuranceProviderId,
@@ -416,18 +419,14 @@ export const createPatient = [
 
       const folderNumber = `PAT-${nextNumber}`;
 
-      // Calculate age with months
-      const ageData = calculateAgeWithMonths(dateOfBirth);
-
-      // Prepare patient data
+      // ✅ REMOVED: age and ageInMonths - not in schema
+      // Age will be calculated on the frontend from dateOfBirth
       const patientData = {
         folderNumber,
         surname: req.body.surname,
         otherNames: req.body.otherNames,
         gender: req.body.gender as Gender,
         dateOfBirth: dateOfBirth,
-        age: ageData.years,
-        ageInMonths: ageData.months,
         contact: req.body.contact,
         address: req.body.address,
         paymentMode: req.body.paymentMode as PaymentMode,
@@ -438,11 +437,11 @@ export const createPatient = [
         imageUrl: req.body.imageUrl,
         insuranceProviderId,
         registeredBy: req.user?.id || 'system',
+        registeredAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      // Create patient with transaction for data consistency
       const patient = await prisma.$transaction(async (tx) => {
         const newPatient = await tx.patient.create({
           data: patientData,
@@ -461,10 +460,13 @@ export const createPatient = [
         return newPatient;
       });
 
-      // Add fullName by combining surname + otherNames
+      const ageDisplay = calculateAgeDisplay(patient.dateOfBirth);
+
       const patientWithFullName = {
         ...patient,
-        fullName: `${patient.surname} ${patient.otherNames}`.trim()
+        fullName: `${patient.surname} ${patient.otherNames}`.trim(),
+        age: ageDisplay.years,
+        ageDisplay: ageDisplay.display
       };
 
       res.status(201).json({
@@ -485,7 +487,6 @@ export const createPatient = [
 ];
 
 export const updatePatient = [
-  // Validation rules for update
   body('surname').optional().notEmpty().withMessage('Surname cannot be empty').trim().escape(),
   body('otherNames').optional().notEmpty().withMessage('Other names cannot be empty').trim().escape(),
   body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Valid gender is required'),
@@ -519,7 +520,6 @@ export const updatePatient = [
       const { id } = req.params;
       console.log('📝 Updating patient:', id);
 
-      // Check if patient exists
       const existingPatient = await prisma.patient.findUnique({
         where: { id }
       });
@@ -531,41 +531,25 @@ export const updatePatient = [
         });
       }
 
-      // Prepare update data
       const updateData: any = { ...req.body };
 
-      // Remove ageDisplay since it's not in Prisma model
-      if (updateData.ageDisplay !== undefined) {
-        delete updateData.ageDisplay;
-      }
+      // Remove fields that shouldn't be updated directly
+      delete updateData.folderNumber;
+      delete updateData.age;
+      delete updateData.ageInMonths;
+      delete updateData.ageDisplay;
+      delete updateData.fullName;
 
-      // Prevent folder number updates
-      if (updateData.folderNumber) {
-        delete updateData.folderNumber;
-      }
-
-      // Handle date conversion and age calculation
       if (req.body.dateOfBirth) {
         updateData.dateOfBirth = normalizeDateForBackend(req.body.dateOfBirth);
-        const ageData = calculateAgeWithMonths(req.body.dateOfBirth);
-        updateData.age = ageData.years;
-        updateData.ageInMonths = ageData.months;
       }
 
-      // Handle ageInMonths when provided separately
-      if (req.body.ageInMonths !== undefined) {
-        updateData.ageInMonths = req.body.ageInMonths;
-      }
-
-      // Handle insurance provider ID
       if (req.body.insuranceProviderId !== undefined) {
         updateData.insuranceProviderId = req.body.insuranceProviderId;
       }
 
-      // Add updatedAt timestamp
       updateData.updatedAt = new Date();
 
-      // Remove undefined fields
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === undefined) {
           delete updateData[key];
@@ -586,10 +570,13 @@ export const updatePatient = [
         }
       });
 
-      // Add fullName by combining surname + otherNames
+      const ageDisplay = calculateAgeDisplay(patient.dateOfBirth);
+
       const patientWithFullName = {
         ...patient,
-        fullName: `${patient.surname} ${patient.otherNames}`.trim()
+        fullName: `${patient.surname} ${patient.otherNames}`.trim(),
+        age: ageDisplay.years,
+        ageDisplay: ageDisplay.display
       };
 
       console.log('✅ Patient updated successfully:', patient.folderNumber);
@@ -609,18 +596,18 @@ export const updatePatient = [
     }
   }
 ];
+
 export const deletePatient = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     console.log('🗑️ Deleting patient:', id);
 
-    // Check if patient exists
     const existingPatient = await prisma.patient.findUnique({
       where: { id },
       include: {
-        admissions: { take: 1 },
-        attendances: { take: 1 },
-        bills: { take: 1 },
+        Admission: { take: 1 },
+        Attendance: { take: 1 },
+        Bill: { take: 1 },
         appointments: { take: 1 }
       }
     });
@@ -632,10 +619,9 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if patient has related records
-    if (existingPatient.admissions.length > 0 ||
-        existingPatient.attendances.length > 0 ||
-        existingPatient.bills.length > 0 ||
+    if (existingPatient.Admission.length > 0 ||
+        existingPatient.Attendance.length > 0 ||
+        existingPatient.Bill.length > 0 ||
         existingPatient.appointments.length > 0) {
       return res.status(400).json({
         success: false,
@@ -643,7 +629,6 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Delete patient image if exists
     if (existingPatient.imageUrl && existingPatient.imageUrl.startsWith('/uploads/patients/')) {
       const filename = path.basename(existingPatient.imageUrl);
       const filePath = path.join(process.cwd(), 'uploads', 'patients', filename);
@@ -688,13 +673,11 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
     const patientId = req.params.id;
     console.log('📸 Uploading patient image:', patientId);
 
-    // Find the patient first
     const patient = await prisma.patient.findUnique({
       where: { id: patientId }
     });
 
     if (!patient) {
-      // Delete the uploaded file if patient not found
       await unlinkAsync(req.file.path);
       return res.status(404).json({
         success: false,
@@ -702,10 +685,8 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Generate the image URL (relative path)
     const imageUrl = `/uploads/patients/${req.file.filename}`;
 
-    // Update patient with new image URL
     const updatedPatient = await prisma.patient.update({
       where: { id: patientId },
       data: { 
@@ -723,7 +704,6 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // If patient had a previous image, delete it
     if (patient.imageUrl && patient.imageUrl.startsWith('/uploads/patients/')) {
       const oldFilename = path.basename(patient.imageUrl);
       const oldPath = path.join(process.cwd(), 'uploads', 'patients', oldFilename);
@@ -736,10 +716,13 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Add fullName for backward compatibility
+    const ageDisplay = calculateAgeDisplay(updatedPatient.dateOfBirth);
+
     const patientWithFullName = {
       ...updatedPatient,
-      fullName: `${updatedPatient.surname} ${updatedPatient.otherNames}`.trim()
+      fullName: `${updatedPatient.surname} ${updatedPatient.otherNames}`.trim(),
+      age: ageDisplay.years,
+      ageDisplay: ageDisplay.display
     };
 
     console.log('✅ Patient image uploaded successfully:', patientId);
@@ -756,7 +739,6 @@ export const uploadPatientImage = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('❌ Error uploading patient image:', error);
 
-    // Delete the uploaded file if there was an error
     if (req.file) {
       try {
         await unlinkAsync(req.file.path);
@@ -787,7 +769,6 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
 
     console.log('📸 Uploading patient image (base64):', patientId);
 
-    // Find the patient first
     const patient = await prisma.patient.findUnique({
       where: { id: patientId }
     });
@@ -799,7 +780,6 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
       });
     }
 
-    // Extract base64 data and extension
     const matches = image.match(/^data:image\/([A-Za-z-+/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       return res.status(400).json({
@@ -812,7 +792,6 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // Validate file size (5MB max)
     if (buffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({
         success: false,
@@ -820,24 +799,19 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
       });
     }
 
-    // Generate filename
     const timestamp = Date.now();
     const filename = `patient-${patientId}-${timestamp}.${extension}`;
     const filePath = path.join(process.cwd(), 'uploads', 'patients', filename);
 
-    // Ensure uploads directory exists
     const uploadsDir = path.join(process.cwd(), 'uploads', 'patients');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    // Save file
     await writeFileAsync(filePath, buffer);
 
-    // Generate the image URL
     const imageUrl = `/uploads/patients/${filename}`;
 
-    // Update patient with new image URL
     const updatedPatient = await prisma.patient.update({
       where: { id: patientId },
       data: { 
@@ -855,7 +829,6 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
       }
     });
 
-    // If patient had a previous image, delete it
     if (patient.imageUrl && patient.imageUrl.startsWith('/uploads/patients/')) {
       const oldFilename = path.basename(patient.imageUrl);
       const oldPath = path.join(process.cwd(), 'uploads', 'patients', oldFilename);
@@ -868,10 +841,13 @@ export const uploadPatientImageBase64 = async (req: AuthRequest, res: Response) 
       }
     }
 
-    // Add fullName for backward compatibility
+    const ageDisplay = calculateAgeDisplay(updatedPatient.dateOfBirth);
+
     const patientWithFullName = {
       ...updatedPatient,
-      fullName: `${updatedPatient.surname} ${updatedPatient.otherNames}`.trim()
+      fullName: `${updatedPatient.surname} ${updatedPatient.otherNames}`.trim(),
+      age: ageDisplay.years,
+      ageDisplay: ageDisplay.display
     };
 
     console.log('✅ Patient image uploaded successfully (base64):', patientId);

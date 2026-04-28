@@ -1,10 +1,10 @@
 // src/utils/pdfTemplates/visitSummaryPDF.ts
-import type { Attendance, Patient, Hospital } from '../../types';
+import type { Attendance, Patient, HospitalInfo } from '../../types';
 
 export const generateVisitSummaryHTML = (
   attendance: Attendance,
   patient: Patient,
-  hospital: Hospital
+  hospital: HospitalInfo
 ): string => {
   // Format dates
   const formatDate = (dateString: string) => {

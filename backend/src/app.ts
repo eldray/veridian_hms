@@ -17,6 +17,7 @@ import serviceCatalogRoutes from './routes/serviceCatalogRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import stockItemRoutes from './routes/stockItemRoutes';
 import stockTransactionRoutes from './routes/stockTransactionRoutes';
+import requisitionRoutes from './routes/requisitionRoutes';
 import wardRoutes from './routes/wardRoutes';
 import bedRoutes from './routes/bedRoutes';
 import profileRoutes from './routes/profileRoutes';
@@ -26,6 +27,15 @@ import notificationRoutes from './routes/notificationRoutes';
 import backupRoutes from './routes/backupRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import dashboardRoutes from './routes/dashboardRoutes'; 
+
+
+// In your server.ts or app.ts, add these imports
+import referralRoutes from './routes/referralRoutes';
+import antenatalRoutes from './routes/antenatalRoutes';
+import ghsReportRoutes from './routes/ghsReportRoutes';
+import documentRoutes from './routes/documentRoutes';
+import gdrgRoutes from './routes/gdrgRoutes';
+
 
 const router = Router();
 
@@ -48,6 +58,7 @@ router.use('/service-catalog', serviceCatalogRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/stock-items', stockItemRoutes);
 router.use('/stock-transactions', stockTransactionRoutes);
+router.use('/requisitions', requisitionRoutes);
 router.use('/wards', wardRoutes);
 router.use('/beds', bedRoutes);
 router.use('/profile', profileRoutes);
@@ -58,6 +69,14 @@ router.use('/upload', uploadRoutes);
 router.use('/departments', departmentRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/notifications', notificationRoutes);
+
+
+// Then register the routes (after your existing routes)
+router.use('/api/referrals', referralRoutes);
+router.use('/api/antenatal', antenatalRoutes);
+router.use('/api/reports/ghs', ghsReportRoutes);
+router.use('/api/documents', documentRoutes);
+router.use('/api/gdrg', gdrgRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

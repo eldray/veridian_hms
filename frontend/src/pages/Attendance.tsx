@@ -1,4 +1,4 @@
-// src/pages/Attendance.tsx - UPDATED FOR SURNAME + OTHERNAMES & STATUS TYPES
+// src/pages/Attendance.tsx - UPDATED with date filtering and default list view
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -9,20 +9,29 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import { 
   Search, Grid, List, RefreshCw, Hospital, FileText, Users, Calendar, 
   Eye, Edit, ChevronLeft, ChevronRight, Pill, FlaskConical, Scissors, 
-  DollarSign, CreditCard, Shield, Trash2, User 
+  DollarSign, CreditCard, Shield, Trash2, User, Filter, X
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
+
+type DateFilterType = 'today' | 'yesterday' | 'custom';
 
 export default function Attendance() {
   const { success, error } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [itemsPerPage, setItemsPerPage] = useState(6);
+  // ✅ DEFAULT VIEW MODE IS 'list'
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  
+  // ✅ NEW: Date filter states
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { 
     attendances, 
@@ -34,6 +43,37 @@ export default function Attendance() {
   const { hasRole } = useAuthStore();
 
   const isLoading = attendancesLoading || patientsLoading;
+
+  // ✅ Helper: Get date range based on filter
+  const getDateRange = (): { startDate: Date; endDate: Date } | null => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    switch (dateFilter) {
+      case 'today':
+        return { startDate: today, endDate: endOfDay };
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const endOfYesterday = new Date(yesterday);
+        endOfYesterday.setHours(23, 59, 59, 999);
+        yesterday.setHours(0, 0, 0, 0);
+        return { startDate: yesterday, endDate: endOfYesterday };
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          const start = new Date(customStartDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(customEndDate);
+          end.setHours(23, 59, 59, 999);
+          return { startDate: start, endDate: end };
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -51,7 +91,7 @@ export default function Attendance() {
     loadData();
   }, []);
 
-  // ✅ FIX: Get full name from surname + otherNames
+  // ✅ Get full name from surname + otherNames
   const getPatientFullName = (patient: any) => {
     if (!patient) return 'Unknown Patient';
     return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
@@ -64,24 +104,42 @@ export default function Attendance() {
     return pid ? patients.find(p => p.id === pid) : null;
   };
 
+  // ✅ Filter attendances by search AND date range
   const filteredAttendances = useMemo(() => {
     if (!attendances.length) return [];
-    const lower = searchQuery.toLowerCase();
+    
+    const dateRange = getDateRange();
+    
     const filtered = attendances.filter(a => {
-      const p = findPatient(a);
-      const fullName = p ? getPatientFullName(p) : '';
-      return (
-        a.attendanceNumber?.toLowerCase().includes(lower) ||
-        fullName.toLowerCase().includes(lower) ||
-        p?.folderNumber?.toLowerCase().includes(lower) ||
-        a.complaints?.toLowerCase().includes(lower) ||
-        a.attendanceType?.toLowerCase().includes(lower) ||
-        a.paymentMode?.toLowerCase().includes(lower) ||
-        a.nhisCCC?.toLowerCase().includes(lower)
-      );
+      // Date filtering
+      if (dateRange) {
+        const attendanceDate = new Date(a.dateTime || a.createdAt);
+        if (attendanceDate < dateRange.startDate || attendanceDate > dateRange.endDate) {
+          return false;
+        }
+      }
+      
+      // Search filtering
+      if (searchQuery) {
+        const p = findPatient(a);
+        const fullName = p ? getPatientFullName(p) : '';
+        const lower = searchQuery.toLowerCase();
+        return (
+          a.attendanceNumber?.toLowerCase().includes(lower) ||
+          fullName.toLowerCase().includes(lower) ||
+          p?.folderNumber?.toLowerCase().includes(lower) ||
+          a.complaints?.toLowerCase().includes(lower) ||
+          a.attendanceType?.toLowerCase().includes(lower) ||
+          a.paymentMode?.toLowerCase().includes(lower) ||
+          a.nhisCCC?.toLowerCase().includes(lower)
+        );
+      }
+      
+      return true;
     });
+    
     return filtered.sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
-  }, [attendances, patients, searchQuery]);
+  }, [attendances, patients, searchQuery, dateFilter, customStartDate, customEndDate]);
 
   const totalPages = Math.ceil(filteredAttendances.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -97,7 +155,7 @@ export default function Attendance() {
       await deleteAttendance(attendanceId);
       setDeleteConfirm(null);
       success('Attendance Deleted', 'Attendance record has been removed');
-      loadData(); // Refresh the list
+      loadData();
     } catch (err: any) {
       error('Delete Failed', err.message || 'Failed to delete attendance');
     }
@@ -121,6 +179,11 @@ export default function Attendance() {
   };
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+
+  // ✅ Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, dateFilter, customStartDate, customEndDate]);
 
   // UI Helper Functions
   const getStatusColor = (status: AttendanceStatus) => {
@@ -178,8 +241,34 @@ export default function Attendance() {
     }
   };
 
+  const formatDateOnly = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
   const canEdit = hasRole(['admin', 'doctor', 'nurse']);
   const canDelete = hasRole(['admin']);
+
+  // ✅ Get date filter display text
+  const getDateFilterDisplay = () => {
+    switch (dateFilter) {
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
+      case 'custom': 
+        if (customStartDate && customEndDate) {
+          return `${formatDateOnly(customStartDate)} - ${formatDateOnly(customEndDate)}`;
+        }
+        return 'Custom Range';
+      default: return 'Today';
+    }
+  };
 
   // Loading State
   if (isLoading && !refreshing) {
@@ -197,27 +286,16 @@ export default function Attendance() {
             Loading...
           </button>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-[var(--bg-main)] rounded animate-pulse w-32"></div>
-                    <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-24"></div>
-                  </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-[var(--bg-main)] rounded animate-pulse w-48"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-32"></div>
                 </div>
-                <div className="h-6 bg-[var(--bg-main)] rounded-full animate-pulse w-16"></div>
-              </div>
-              <div className="space-y-2 mb-3">
-                <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-full"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-3/4"></div>
-              </div>
-              <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                <div className="flex-1 h-8 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
-                <div className="flex-1 h-8 bg-[var(--bg-main)] rounded-lg animate-pulse"></div>
+                <div className="h-6 bg-[var(--bg-main)] rounded-full animate-pulse w-20"></div>
               </div>
             </div>
           ))}
@@ -228,7 +306,7 @@ export default function Attendance() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header - Matching Dashboard Style */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Management</h1>
@@ -245,6 +323,83 @@ export default function Attendance() {
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh'}
         </button>
+      </div>
+
+      {/* Date Filter Bar */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">Show:</span>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setDateFilter('today');
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'today'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('yesterday');
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'yesterday'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Yesterday
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('custom');
+                setShowDatePicker(true);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'custom'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Custom
+            </button>
+          </div>
+
+          {/* Custom Date Range Picker */}
+          {showDatePicker && dateFilter === 'custom' && (
+            <div className="flex items-center gap-3 ml-auto">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                placeholder="Start Date"
+              />
+              <span className="text-[var(--text-secondary)]">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                placeholder="End Date"
+              />
+            </div>
+          )}
+          
+          <div className="text-xs text-[var(--text-secondary)] ml-auto">
+            Showing: {getDateFilterDisplay()}
+          </div>
+        </div>
       </div>
 
       {/* Controls */}
@@ -288,9 +443,9 @@ export default function Attendance() {
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
             >
-              <option value={6}>6 per page</option>
-              <option value={12}>12 per page</option>
-              <option value={24}>24 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
             </select>
           </div>
         </div>
@@ -299,7 +454,7 @@ export default function Attendance() {
       {/* Stats Banner */}
       {filteredAttendances.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-sm font-semibold text-blue-800">
                 Showing {paginated.length} of {filteredAttendances.length} attendance records
@@ -310,7 +465,7 @@ export default function Attendance() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-blue-700">
+            <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
               <span className="bg-blue-100 px-2 py-1 rounded border border-blue-200">
                 Pending: {filteredAttendances.filter(a => a.status === 'pending').length}
               </span>
@@ -320,12 +475,15 @@ export default function Attendance() {
               <span className="bg-purple-100 px-2 py-1 rounded border border-purple-200">
                 Admitted: {filteredAttendances.filter(a => a.status === 'admitted').length}
               </span>
+              <span className="bg-yellow-100 px-2 py-1 rounded border border-yellow-200">
+                Discharged: {filteredAttendances.filter(a => a.status === 'discharged').length}
+              </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Content */}
+      {/* Content - Default LIST VIEW */}
       {filteredAttendances.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
@@ -335,7 +493,7 @@ export default function Attendance() {
           <p className="text-[var(--text-secondary)] text-sm mb-4">
             {searchQuery 
               ? 'No attendance records match your search criteria. Try adjusting your search terms.'
-              : 'Get started by creating your first attendance record for a patient visit.'
+              : `No attendance records found for ${getDateFilterDisplay().toLowerCase()}.`
             }
           </p>
           {searchQuery ? (
@@ -343,15 +501,21 @@ export default function Attendance() {
               onClick={() => setSearchQuery('')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all duration-200 font-semibold text-sm border border-[var(--border-color)]"
             >
+              <X className="w-4 h-4" />
               Clear Search
             </button>
-          ) : (
-            <div className="text-sm text-[var(--text-secondary)]">
-              Navigate to a patient's profile to create an attendance
-            </div>
+          ) : dateFilter !== 'today' && (
+            <button
+              onClick={() => setDateFilter('today')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+            >
+              <Calendar className="w-4 h-4" />
+              View Today's Attendances
+            </button>
           )}
         </div>
       ) : viewMode === 'cards' ? (
+        // Cards View (Alternative)
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginated.map((attendance) => {
             const patient = findPatient(attendance);
@@ -404,11 +568,6 @@ export default function Attendance() {
                     {getPaymentModeIcon(attendance.paymentMode)}
                     <span className="font-medium text-[var(--text-primary)]">{getPaymentModeLabel(attendance.paymentMode)}</span>
                   </div>
-                  {attendance.complaints && attendance.complaints !== 'No complaints recorded' && (
-                    <p className="text-[var(--text-primary)] text-xs line-clamp-2">
-                      <span className="font-semibold">Complaints:</span> {attendance.complaints}
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-3 mb-3 text-xs text-[var(--text-secondary)]">
@@ -427,7 +586,7 @@ export default function Attendance() {
                   {totalBill > 0 && (
                     <span className="flex items-center gap-1 ml-auto font-medium text-[var(--text-primary)]">
                       <DollarSign className="w-3 h-3" />
-                      ${totalBill.toFixed(2)}
+                      GHS {totalBill.toFixed(2)}
                     </span>
                   )}
                 </div>
@@ -451,7 +610,6 @@ export default function Attendance() {
                   )}
                 </div>
 
-                {/* Delete Confirmation */}
                 {deleteConfirm === attendanceId && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-red-700 text-xs font-medium mb-2">
@@ -478,12 +636,14 @@ export default function Attendance() {
           })}
         </div>
       ) : (
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+        // ✅ DEFAULT LIST VIEW
+        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Type</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
@@ -500,15 +660,15 @@ export default function Attendance() {
                   <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         </div>
-                        <div>
-                          <p className="font-semibold text-[var(--text-primary)] text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[var(--text-primary)] text-sm truncate">
                             {fullName}
                           </p>
                           <p className="text-xs text-[var(--text-secondary)]">
-                            {patient?.folderNumber || 'No Folder'} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
+                            {patient?.folderNumber || 'No Folder'}
                           </p>
                         </div>
                       </div>
@@ -518,19 +678,30 @@ export default function Attendance() {
                         <p className="font-medium text-[var(--text-primary)]">
                           {formatDate(attendance.dateTime || attendance.createdAt)}
                         </p>
-                        <p className="text-[var(--text-secondary)] text-xs">{getAttendanceTypeLabel(attendance.attendanceType)}</p>
+                        <p className="text-[var(--text-secondary)] text-xs">
+                          {attendance.attendanceNumber}
+                        </p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <Hospital className="w-3 h-3 text-[var(--icon-cyan-text)]" />
+                        {getAttendanceTypeLabel(attendance.attendanceType)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 text-xs">
+                        {getPaymentModeIcon(attendance.paymentMode)}
                         <span className="font-medium">{getPaymentModeLabel(attendance.paymentMode)}</span>
                         {totalBill > 0 && (
-                          <span className="text-[var(--icon-green-text)] font-bold">${totalBill.toFixed(2)}</span>
+                          <span className="text-[var(--icon-green-text)] font-bold ml-1">
+                            GHS {totalBill.toFixed(2)}
+                          </span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
                         {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
                       </span>
                     </td>
@@ -574,7 +745,7 @@ export default function Attendance() {
       {/* Pagination */}
       {filteredAttendances.length > 0 && totalPages > 1 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="text-sm text-[var(--text-secondary)]">
               Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAttendances.length)} of{' '}
               {filteredAttendances.length} attendance records

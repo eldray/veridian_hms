@@ -92,10 +92,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       // Today's Revenue - FIXED: Use correct date field
       prisma.bill.aggregate({
         where: {
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday
-          },
+          billDate: { gte: startOfToday, lte: endOfToday }, 
           status: 'paid'
         },
         _sum: {

@@ -1,57 +1,87 @@
-import React, { useState, useEffect, useMemo } from 'react';
+// src/pages/MedicalEntries.tsx - FULL MULTI-PANEL REDESIGN
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
-import { useStockStore } from '../store/stockStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
+import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-
-// Reusable components
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
-import NewAttendanceModal from '../components/NewAttendanceModal';
 
-// Import the medical entry sections
-import ClinicalInformationSection from '../components/medical-entries/ClinicalInformationSection';
-import MedicationsSection from '../components/medical-entries/MedicationsSection';
-import LabTestsSection from '../components/medical-entries/LabTestsSection';
-import ProceduresSection from '../components/medical-entries/ProceduresSection';
-import ScansSection from '../components/medical-entries/ScansSection';
+// Modal Components
+import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
+import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
+import { ProcedureModal } from '../components/medical-entries/modals/ProcedureModal';
+import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
+import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 
-import { AlertCircle, Ban, RefreshCw, Stethoscope, Pill, FileText, FlaskConical, Scissors, Scan } from 'lucide-react';
-import type { Medication, LabTest, Procedure, Scan as ScanType, Diagnosis, Attendance, Patient } from '../types';
-import type { MedicationEntry, LabTestEntry, ProcedureEntry, ScanEntry } from '../types/medical-entries';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Stethoscope,
+  Pill,
+  FlaskConical,
+  Scissors,
+  Scan,
+  FileText,
+  Activity,
+  AlertCircle,
+  Plus,
+  Trash2,
+  User,
+  Calendar,
+  DollarSign,
+  Clock,
+  Heart,
+  Thermometer,
+  Wind,
+  Droplets,
+  Gauge,
+  Weight,
+  Ruler,
+  CheckCircle,
+  XCircle,
+  Printer,
+  Download,
+  Send,
+  History,
+  Eye,
+  Edit,
+} from 'lucide-react';
 
-// Helper: Get consistent ID
-// Use same pattern as working pages
-const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
-  return entity?.id || entity?.id;
+const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
+  return entity?._id || entity?.id;
 };
+
+type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | null;
 
 export default function MedicalEntries() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
-  // Store hooks
   const { patients, loadPatients } = usePatientStore();
   const {
     attendances,
+    currentAttendance,
+    getAttendance,
     getAttendances,
-    addDiagnosisToAttendance,
-    addLabTestToAttendance,
-    addProcedureToAttendance,
-    addScanToAttendance,
-    addMedicationToAttendance,
+    addDiagnosis,
+    addLabTest,
+    addProcedure,
+    addMedication,
+    addScan,
+    removeDiagnosis,
+    removeLabTest,
+    removeProcedure,
+    removeMedication,
+    removeScan,
     updateAttendance,
-    updateAttendanceStatus,
     canAddMedicalEntries,
-    getVitalsByAttendance
+    getVitalsByAttendance,
+    calculateBill,
   } = useAttendanceStore();
 
-  const { stockItems, getStockItems } = useStockStore();
-  
-  // Medical services store imports
   const {
     diagnoses,
     labTestTemplates,
@@ -63,102 +93,46 @@ export default function MedicalEntries() {
     getScanTemplates,
   } = useMedicalServicesStore();
 
+  const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
 
   // State
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const [selectedAttendanceForEdit, setSelectedAttendanceForEdit] = useState<any>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-
-  // Medical entries state
-  const [chiefComplaint, setChiefComplaint] = useState('');
-  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
-  const [notes, setNotes] = useState('');
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [labTests, setLabTests] = useState<LabTest[]>([]);
-  const [procedures, setProcedures] = useState<Procedure[]>([]);
-  const [scans, setScans] = useState<ScanType[]>([]);
-
   const [latestVitals, setLatestVitals] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'clinical' | 'medications' | 'labs' | 'procedures' | 'scans'>('clinical');
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Clinical form state
+  const [presentedComplaints, setPresentedComplaints] = useState('');
+  const [hpc, setHpc] = useState('');
+  const [odq, setOdq] = useState('');
+  const [physicalExam, setPhysicalExam] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
 
-  // Current entry forms
-  const [currentMed, setCurrentMed] = useState<MedicationEntry>({
-    stockItemId: '',
-    name: '',
-    dosage: '',
-    frequency: '',
-    duration: '',
-    quantity: 1,
-    route: 'oral',
-    instructions: '',
-    status: 'prescribed',
-    prescribedBy: user?.id || user?.id || user?.username || ''
-  });
-
-  const [currentLab, setCurrentLab] = useState<LabTestEntry>({
-    templateId: '',
-    name: '',
-    priority: 'routine',
-    notes: '',
-    status: 'requested'
-  });
-
-  const [currentProcedure, setCurrentProcedure] = useState<ProcedureEntry>({
-    templateId: '',
-    name: '',
-    scheduledDate: '',
-    notes: '',
-    status: 'scheduled',
-    createdBy: user?.id || user?.id || user?.username || ''
-  });
-
-  const [currentScan, setCurrentScan] = useState<ScanEntry>({
-    templateId: '',
-    scanType: '',
-    description: '',
-    bodyPart: '',
-    priority: 'routine',
-    notes: '',
-    status: 'requested'
-  });
+  // Modal state
+  const [modalType, setModalType] = useState<ModalType>(null);
 
   // Load data
   const loadData = async () => {
+    setRefreshing(true);
     try {
-      setRefreshing(true);
-      setIsLoading(true);
-  
-      // Load only essential data first
       await Promise.all([
         loadPatients(),
         getAttendances(),
         getStockItems(),
+        getDiagnoses(),
         getLabTestTemplates(),
         getProcedureTemplates(),
-        getScanTemplates()
+        getScanTemplates(),
       ]);
-  
-      // Load diagnoses separately (less critical)
-      try {
-        await getDiagnoses();
-      } catch (err) {
-        console.warn('Diagnoses load failed, continuing without them:', err);
-      }
-  
       success('Data loaded', 'Medical entries ready');
-    } catch {
-      toastError('Load failed', 'Could not load data. Please try again.');
+    } catch (err: any) {
+      toastError('Load failed', err.message);
     } finally {
-      setIsLoading(false);
       setRefreshing(false);
+      setIsLoading(false);
     }
   };
 
@@ -166,36 +140,7 @@ export default function MedicalEntries() {
     loadData();
   }, []);
 
-  // Use same patient matching logic as Vitals page
-  const patientAttendances = useMemo(() => {
-    if (!selectedPatientId || !attendances.length) return [];
-
-    const filtered = attendances.filter(attendance => {
-      const possiblePatientIds = [
-        attendance.patientId,
-        attendance.patient?.id,
-        attendance.patient?.id,
-        attendance.data?.patientId
-      ]
-        .filter(Boolean)
-        .map(id => id?.toString())
-        .filter(id => id && id !== 'undefined');
-
-      return possiblePatientIds.includes(selectedPatientId);
-    });
-
-    return filtered
-      .sort((a, b) => new Date(b.dateTime || b.createdAt || '').getTime() - new Date(a.dateTime || a.createdAt || '').getTime())
-      .map(attendance => ({
-        ...attendance,
-        patient: patients.find(p => getEntityId(p) === selectedPatientId) || attendance.patient
-      }));
-  }, [attendances, selectedPatientId, patients]);
-
-  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId);
-  const selectedAttendance = patientAttendances.find(a => getEntityId(a) === selectedAttendanceId);
-
-  // Load vitals using same function as Vitals page
+  // Load vitals when attendance changes
   useEffect(() => {
     const loadVitals = async () => {
       if (selectedAttendanceId) {
@@ -210,567 +155,180 @@ export default function MedicalEntries() {
     loadVitals();
   }, [selectedAttendanceId, getVitalsByAttendance]);
 
-  const canAddEntries = selectedAttendance ? canAddMedicalEntries(selectedAttendance) : false;
-
-  // Handlers
-  const handleRefresh = () => loadData();
-
-  const handleNewAttendance = () => {
-    setSelectedAttendanceForEdit({ patientId: selectedPatientId });
-    setIsEditMode(false);
-    setShowAttendanceModal(true);
-  };
-
-  const handleEditAttendance = (attendance: Attendance) => {
-    setSelectedAttendanceForEdit(attendance);
-    setIsEditMode(true);
-    setShowAttendanceModal(true);
-  };
-
-  const handleAttendanceSuccess = async (updatedAttendance: any) => {
-    setShowAttendanceModal(false);
-    setSelectedAttendanceForEdit(null);
-    setIsEditMode(false);
-
-    await getAttendances();
-    
-    if (!isEditMode && selectedPatientId && updatedAttendance.patientId === selectedPatientId) {
-      setSelectedAttendanceId(getEntityId(updatedAttendance) || '');
-    }
-
-    success(isEditMode ? 'Attendance updated' : 'New attendance created', isEditMode ? 'Visit updated' : 'Patient checked in');
-  };
-
-
-
-  const handleAddMedication = () => {
-    if (!selectedAttendance) {
-      toastError('Selection required', 'Please select an attendance');
-      return;
-    }
-    if (!canAddEntries) {
-      toastError('Access denied', `Cannot add to ${selectedAttendance.status} visit`);
-      return;
-    }
-    if (!currentMed.stockItemId || !currentMed.dosage) {
-      toastError('Incomplete', 'Select medication and dosage');
-      return;
-    }
-
-    const stockItem = stockItems.find(s => s.id === currentMed.stockItemId || s.id === currentMed.stockItemId);
-    if (!stockItem) {
-      toastError('Not found', 'Medication not in stock');
-      return;
-    }
-    if (stockItem.currentStock < currentMed.quantity) {
-      toastError('Low stock', `Only ${stockItem.currentStock} available`);
-      return;
-    }
-
-    const newMed: Medication = {
-      id: `med-${Date.now()}`,
-      attendanceId: selectedAttendanceId,
-      stockItemId: currentMed.stockItemId,
-      name: stockItem.name,
-      dosage: currentMed.dosage,
-      frequency: currentMed.frequency,
-      duration: currentMed.duration,
-      quantity: currentMed.quantity,
-      route: currentMed.route || 'oral',
-      instructions: currentMed.instructions,
-      status: 'prescribed',
-      prescribedAt: new Date().toISOString(),
-      prescribedBy: user?.id || user?.id || user?.username || '',
-      prescribedById: user?.id || user?.id || user?.username || '',
-      notes: currentMed.instructions,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setMedications(prev => [...prev, newMed]);
-    setCurrentMed({
-      stockItemId: '',
-      name: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      quantity: 1,
-      route: 'oral',
-      instructions: '',
-      status: 'prescribed',
-      prescribedBy: user?.id || user?.id || user?.username || ''
-    });
-    success('Added', 'Medication prescribed');
-  };
-
-  const handleAddLabTest = () => {
-    if (!selectedAttendance || !canAddEntries) {
-      toastError('Access denied', 'Cannot add to this visit');
-      return;
-    }
-    if (!currentLab.templateId) {
-      toastError('Selection required', 'Please select a lab test');
-      return;
-    }
-
-    const template = labTestTemplates.find(t => t.id === currentLab.templateId || t.id === currentLab.templateId);
-    if (!template) {
-      toastError('Not found', 'Test template missing');
-      return;
-    }
-
-    const newTest: LabTest = {
-      id: `lab-${Date.now()}`,
-      attendanceId: selectedAttendanceId,
-      templateId: currentLab.templateId,
-      name: template.name,
-      status: 'requested',
-      priority: currentLab.priority,
-      requestedAt: new Date().toISOString(),
-      notes: currentLab.notes,
-      createdById: user?.id || user?.id || user?.username || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setLabTests(prev => [...prev, newTest]);
-    setCurrentLab({ templateId: '', name: '', priority: 'routine', notes: '', status: 'requested' });
-    success('Added', 'Lab test requested');
-  };
-
-  const handleAddProcedure = () => {
-    if (!selectedAttendance || !canAddEntries) {
-      toastError('Access denied', 'Cannot add to this visit');
-      return;
-    }
-    if (!currentProcedure.templateId || !currentProcedure.scheduledDate) {
-      toastError('Incomplete', 'Select procedure and date');
-      return;
-    }
-
-    const template = procedureTemplates.find(t => t.id === currentProcedure.templateId || t.id === currentProcedure.templateId);
-    if (!template) {
-      toastError('Not found', 'Procedure template missing');
-      return;
-    }
-
-    const newProcedure: Procedure = {
-      id: `proc-${Date.now()}`,
-      attendanceId: selectedAttendanceId,
-      templateId: currentProcedure.templateId,
-      name: template.name,
-      status: 'scheduled',
-      scheduledDate: currentProcedure.scheduledDate,
-      notes: currentProcedure.notes,
-      createdBy: user?.id || user?.id || user?.username || '',
-      createdById: user?.id || user?.id || user?.username || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setProcedures(prev => [...prev, newProcedure]);
-    setCurrentProcedure({
-      templateId: '',
-      name: '',
-      scheduledDate: '',
-      notes: '',
-      status: 'scheduled',
-      createdBy: user?.id || user?.id || user?.username || ''
-    });
-    success('Added', 'Procedure scheduled');
-  };
-
-  const handleAddScan = () => {
-    if (!selectedAttendance || !canAddEntries) {
-      toastError('Access denied', 'Cannot add to this visit');
-      return;
-    }
-    if (!currentScan.scanType || !currentScan.description) {
-      toastError('Incomplete', 'Enter scan type and description');
-      return;
-    }
-
-    // Find scan template for pricing and validation
-    const scanTemplate = scanTemplates.find(t => 
-      currentScan.templateId ? 
-        (t.id === currentScan.templateId || t.id === currentScan.templateId) : 
-        t.name.toLowerCase().includes(currentScan.scanType.toLowerCase())
-    );
-
-    const newScan: ScanType = {
-      id: `scan-${Date.now()}`,
-      attendanceId: selectedAttendanceId,
-      templateId: currentScan.templateId || scanTemplate?.id || scanTemplate?.id || '',
-      scanType: currentScan.scanType,
-      description: currentScan.description,
-      bodyPart: currentScan.bodyPart,
-      status: 'requested',
-      priority: currentScan.priority,
-      requestedAt: new Date().toISOString(),
-      notes: currentScan.notes,
-      imageUrls: [],
-      createdById: user?.id || user?.id || user?.username || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setScans(prev => [...prev, newScan]);
-    setCurrentScan({
-      templateId: '',
-      scanType: '',
-      description: '',
-      bodyPart: '',
-      priority: 'routine',
-      notes: '',
-      status: 'requested'
-    });
-    success('Added', 'Scan requested');
-  };
-
-  const handleSubmitMedicalEntries = async () => {
-    if (!selectedPatient || !selectedAttendance) {
-      toastError('Selection required', 'Please select patient and attendance');
-      return;
-    }
-    if (!canAddEntries) {
-      toastError('Access denied', `Cannot add to ${selectedAttendance.status} visit`);
-      return;
-    }
-    if (!chiefComplaint.trim()) {
-      toastError('Required', 'Chief complaint is required');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      console.log('Submitting medical entries...');
-      
-      // Update attendance with basic info
-      await updateAttendance(selectedAttendanceId, {
-        complaints: chiefComplaint,
-        medicalNotes: notes
+  // Load full attendance when selected
+  useEffect(() => {
+    if (selectedAttendanceId) {
+      getAttendance(selectedAttendanceId).then((att) => {
+        if (att) {
+          setPresentedComplaints(att.complaints || '');
+          setHpc((att as any).historyPresentingComplaint || '');
+          setOdq((att as any).onsetDurationQuality || '');
+          setPhysicalExam((att as any).physicalExamination || '');
+          setTreatmentPlan((att as any).treatmentPlan || '');
+          setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+        }
       });
-      console.log('✅ Updated attendance complaints and notes');
-
-      // Add diagnosis if selected
-      if (diagnosis) {
-        await addDiagnosisToAttendance(selectedAttendanceId, {
-          diagnosisId: diagnosis.id || diagnosis.id,
-          primary: true,
-          notes: notes,
-          date: new Date().toISOString(),
-          createdById: user?.id || user?.id || user?.username || ''
-        });
-        console.log('✅ Added diagnosis');
-      }
-
-      // Add all medical entries with proper backend structure
-      const medicalEntries = [
-        ...labTests.map(test => {
-          console.log('Adding lab test:', test.name);
-          return addLabTestToAttendance(selectedAttendanceId, {
-            templateId: test.templateId,
-            priority: test.priority,
-            notes: test.notes,
-            createdById: user?.id || user?.id || user?.username || ''
-          });
-        }),
-        ...procedures.map(proc => {
-          console.log('Adding procedure:', proc.name);
-          return addProcedureToAttendance(selectedAttendanceId, {
-            templateId: proc.templateId,
-            scheduledDate: proc.scheduledDate,
-            notes: proc.notes,
-            createdById: user?.id || user?.id || user?.username || ''
-          });
-        }),
-        ...scans.map(scan => {
-          console.log('Adding scan:', scan.scanType);
-          return addScanToAttendance(selectedAttendanceId, {
-            templateId: scan.templateId,
-            scanType: scan.scanType,
-            description: scan.description,
-            bodyPart: scan.bodyPart,
-            priority: scan.priority,
-            notes: scan.notes,
-            createdById: user?.id || user?.id || user?.username || ''
-          });
-        }),
-        ...medications.map(med => {
-          console.log('Adding medication:', med.name);
-          return addMedicationToAttendance(selectedAttendanceId, {
-            stockItemId: med.stockItemId,
-            name: med.name,
-            dosage: med.dosage,
-            frequency: med.frequency,
-            duration: med.duration,
-            quantity: med.quantity,
-            route: med.route,
-            instructions: med.instructions,
-            prescribedById: user?.id || user?.id || user?.username || ''
-          });
-        }),
-      ];
-
-      await Promise.all(medicalEntries);
-      console.log('✅ All medical entries added successfully');
-
-      // ✅ CRITICAL: Refresh attendance data to load the saved entries
-      await getAttendances();
-      console.log('✅ Refreshed attendances');
-
-      success('Saved', 'All medical entries saved successfully');
-      
-      // ✅ DON'T reset the form - let the data stay visible
-      // The useEffect will reload it from the refreshed attendance data
-      
-    } catch (error: any) {
-      console.error('❌ Save failed:', error);
-      toastError('Save failed', error.message || 'Could not save entries');
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  }, [selectedAttendanceId, getAttendance]);
 
-  const resetForm = () => {
-    setChiefComplaint('');
-    setDiagnosis(null);
-    setNotes('');
-    setMedications([]);
-    setLabTests([]);
-    setProcedures([]);
-    setScans([]);
-    setActiveTab('clinical');
-  };
+  const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
+  const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 
-  // Handle clear selection
+  // Get all entries from current attendance
+  const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
+  const labTestsList = currentAttendance?.LabTest || [];
+  const proceduresList = currentAttendance?.Procedure || [];
+  const medicationsList = currentAttendance?.Medication || [];
+  const scansList = currentAttendance?.Scan || [];
+
+  // Separate prescribed vs dispensed medications
+  const prescribedMeds = medicationsList.filter(m => m.status === 'prescribed');
+  const dispensedMeds = medicationsList.filter(m => m.status === 'dispensed');
+
+  const hasConsultationFee = diagnosesList.length > 0;
+
   const handleClearSelection = () => {
     setSelectedPatientId('');
     setSelectedAttendanceId('');
-    resetForm();
+    setPresentedComplaints('');
+    setHpc('');
+    setOdq('');
+    setPhysicalExam('');
+    setTreatmentPlan('');
+    setFollowUpDate('');
   };
 
-  // ✅ CRITICAL FIX: Load existing medical entries from selected attendance
-  useEffect(() => {
-    if (selectedAttendance) {
-      console.log('Loading medical entries from attendance:', selectedAttendance);
-      
-      // Load existing data from attendance
-      setChiefComplaint(selectedAttendance.complaints || '');
-      setNotes(selectedAttendance.medicalNotes || '');
-      
-      // ✅ CRITICAL: Load existing diagnoses
-      if (selectedAttendance.diagnoses && selectedAttendance.diagnoses.length > 0) {
-        const primaryDiagnosis = selectedAttendance.diagnoses.find(d => d.primary);
-        if (primaryDiagnosis && primaryDiagnosis.diagnosis) {
-          setDiagnosis(primaryDiagnosis.diagnosis);
-          console.log('Loaded primary diagnosis:', primaryDiagnosis.diagnosis);
-        }
-      } else {
-        setDiagnosis(null);
-      }
-      
-      // ✅ CRITICAL: Load existing medications
-      if (selectedAttendance.medications && selectedAttendance.medications.length > 0) {
-        const meds = selectedAttendance.medications.map(med => ({
-          id: med.id,
-          attendanceId: med.attendanceId,
-          stockItemId: med.stockItemId || '',
-          name: med.name,
-          dosage: med.dosage || '',
-          frequency: med.frequency || '',
-          duration: med.duration || '',
-          quantity: med.quantity || 1,
-          route: med.route || 'oral',
-          instructions: med.instructions || '',
-          status: med.status || 'prescribed',
-          prescribedAt: med.prescribedAt,
-          prescribedBy: med.prescribedById || med.prescribedBy?.id || '',
-          prescribedById: med.prescribedById || med.prescribedBy?.id || '',
-          notes: med.notes || '',
-          createdAt: med.createdAt || new Date().toISOString(),
-          updatedAt: med.updatedAt || new Date().toISOString(),
-          stockItem: med.stockItem
-        }));
-        setMedications(meds);
-        console.log('Loaded medications:', meds.length);
-      } else {
-        setMedications([]);
-      }
-      
-      // ✅ CRITICAL: Load existing lab tests
-      if (selectedAttendance.labTests && selectedAttendance.labTests.length > 0) {
-        const tests = selectedAttendance.labTests.map(test => ({
-          id: test.id,
-          attendanceId: test.attendanceId,
-          templateId: test.templateId,
-          name: test.template?.name || 'Unknown Test',
-          status: test.status || 'requested',
-          priority: test.priority || 'routine',
-          requestedAt: test.requestedAt,
-          completedAt: test.completedAt,
-          notes: test.notes || '',
-          result: test.result,
-          normalRange: test.normalRange,
-          units: test.units,
-          performedById: test.performedById,
-          verifiedById: test.verifiedById,
-          createdById: test.createdById,
-          createdAt: test.createdAt || new Date().toISOString(),
-          updatedAt: test.updatedAt || new Date().toISOString(),
-          template: test.template
-        }));
-        setLabTests(tests);
-        console.log('Loaded lab tests:', tests.length);
-      } else {
-        setLabTests([]);
-      }
-      
-      // ✅ CRITICAL: Load existing procedures
-      if (selectedAttendance.procedures && selectedAttendance.procedures.length > 0) {
-        const procs = selectedAttendance.procedures.map(proc => ({
-          id: proc.id,
-          attendanceId: proc.attendanceId,
-          templateId: proc.templateId,
-          name: proc.template?.name || 'Unknown Procedure',
-          status: proc.status || 'scheduled',
-          scheduledDate: proc.scheduledDate || '',
-          performedAt: proc.performedAt,
-          notes: proc.notes || '',
-          complications: proc.complications,
-          outcome: proc.outcome,
-          cost: proc.cost,
-          duration: proc.duration,
-          performedById: proc.performedById,
-          assistantId: proc.assistantId,
-          createdById: proc.createdById,
-          createdBy: proc.createdBy?.id || proc.createdById || '',
-          createdAt: proc.createdAt || new Date().toISOString(),
-          updatedAt: proc.updatedAt || new Date().toISOString(),
-          template: proc.template
-        }));
-        setProcedures(procs);
-        console.log('Loaded procedures:', procs.length);
-      } else {
-        setProcedures([]);
-      }
-      
-      // ✅ CRITICAL: Load existing scans
-      if (selectedAttendance.scans && selectedAttendance.scans.length > 0) {
-        const scansList = selectedAttendance.scans.map(scan => ({
-          id: scan.id,
-          attendanceId: scan.attendanceId,
-          templateId: scan.templateId || '',
-          scanType: scan.scanType,
-          description: scan.description,
-          bodyPart: scan.bodyPart || '',
-          status: scan.status || 'requested',
-          priority: scan.priority || 'routine',
-          requestedAt: scan.requestedAt,
-          completedAt: scan.completedAt,
-          result: scan.result,
-          findings: scan.findings,
-          impression: scan.impression,
-          imageUrls: scan.imageUrls || [],
-          performedById: scan.performedById,
-          verifiedById: scan.verifiedById,
-          createdById: scan.createdById,
-          notes: scan.notes || '',
-          createdAt: scan.createdAt || new Date().toISOString(),
-          updatedAt: scan.updatedAt || new Date().toISOString(),
-          template: scan.template
-        }));
-        setScans(scansList);
-        console.log('Loaded scans:', scansList.length);
-      } else {
-        setScans([]);
-      }
-      
-    } else {
-      // Reset form if no attendance selected
-      resetForm();
-    }
-  }, [selectedAttendance]);
+  const handleRefresh = () => loadData();
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]';
-      case 'admitted': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-bg)]';
-      case 'completed': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-bg)]';
-      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-bg)]';
-      case 'discharged': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-bg)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
+  const handleSaveClinical = async () => {
+    if (!selectedAttendanceId) return;
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        onsetDurationQuality: odq,
+        physicalExamination: physicalExam,
+        treatmentPlan: treatmentPlan,
+        followUpDate: followUpDate ? new Date(followUpDate) : null,
+      });
+      success('Saved', 'Clinical information saved');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Save failed', err.message);
     }
   };
 
-  const tabCounts = {
-    clinical: chiefComplaint || diagnosis || notes ? 1 : 0,
-    medications: medications.length,
-    labs: labTests.length,
-    procedures: procedures.length,
-    scans: scans.length
+  const handleDeleteItem = async (type: string, id: string) => {
+    if (!selectedAttendanceId) return;
+    try {
+      switch (type) {
+        case 'diagnosis':
+          await removeDiagnosis(selectedAttendanceId, id);
+          success('Deleted', 'Diagnosis removed');
+          break;
+        case 'lab':
+          await removeLabTest(selectedAttendanceId, id);
+          success('Deleted', 'Lab test removed');
+          break;
+        case 'procedure':
+          await removeProcedure(selectedAttendanceId, id);
+          success('Deleted', 'Procedure removed');
+          break;
+        case 'medication':
+          await removeMedication(selectedAttendanceId, id);
+          success('Deleted', 'Medication removed');
+          break;
+        case 'scan':
+          await removeScan(selectedAttendanceId, id);
+          success('Deleted', 'Scan removed');
+          break;
+      }
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Delete failed', err.message);
+    }
   };
 
-  const tabs = [
-    { id: 'clinical', label: 'Clinical', icon: FileText, count: tabCounts.clinical },
-    { id: 'labs', label: 'Labs', icon: FlaskConical, count: tabCounts.labs },
-    { id: 'medications', label: 'Medications', icon: Pill, count: tabCounts.medications },
-    { id: 'procedures', label: 'Procedures', icon: Scissors, count: tabCounts.procedures },
-    { id: 'scans', label: 'Scans', icon: Scan, count: tabCounts.scans },
-  ];
+  const getStatusBadge = (status: string) => {
+    const config: Record<string, { color: string; bg: string }> = {
+      requested: { color: 'text-yellow-800', bg: 'bg-yellow-100' },
+      scheduled: { color: 'text-blue-800', bg: 'bg-blue-100' },
+      prescribed: { color: 'text-purple-800', bg: 'bg-purple-100' },
+      dispensed: { color: 'text-green-800', bg: 'bg-green-100' },
+      completed: { color: 'text-green-800', bg: 'bg-green-100' },
+      cancelled: { color: 'text-red-800', bg: 'bg-red-100' },
+      pending: { color: 'text-yellow-800', bg: 'bg-yellow-100' },
+    };
+    const c = config[status?.toLowerCase()] || { color: 'text-gray-800', bg: 'bg-gray-100' };
+    return <span className={`px-2 py-0.5 text-xs rounded-full ${c.bg} ${c.color}`}>{status}</span>;
+  };
+
+  const getVitalStatusColor = (type: string, value: any) => {
+    if (!value) return 'text-gray-400';
+    switch (type) {
+      case 'bp':
+        const [sys, dia] = String(value).split('/').map(Number);
+        if (sys > 140 || dia > 90) return 'text-red-600';
+        if (sys < 90 || dia < 60) return 'text-yellow-600';
+        return 'text-green-600';
+      case 'temp':
+        if (value > 38) return 'text-red-600';
+        if (value < 35) return 'text-yellow-600';
+        return 'text-green-600';
+      case 'pulse':
+        if (value > 100 || value < 60) return 'text-red-600';
+        return 'text-green-600';
+      case 'spo2':
+        if (value < 95) return 'text-red-600';
+        return 'text-green-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
 
   if (isLoading) {
-    return <LoadingScreen />;
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
+        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
+          <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Medical Entries...</h2>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all duration-200 border border-[var(--border-color)]"
           >
-            <svg className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
-          <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-            <Pill className="w-6 h-6 text-[var(--icon-purple-text)]" />
+          <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+            <FileText className="w-5 h-5 text-[var(--icon-purple-text)]" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Medical Entries</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Diagnose, prescribe, request tests & procedures</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-0.5">Complete clinical documentation</p>
           </div>
         </div>
-        
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/dashboard/vitals')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm"
           >
-            <Stethoscope className="w-4 h-4" />
-            Record Vitals
-          </button>
-          <button
-            onClick={() => navigate('/dashboard/theatre')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <Stethoscope className="w-4 h-4" />
-            Theatre
-          </button>
-          <button
-            onClick={() => navigate('/dashboard/nursing')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <Stethoscope className="w-4 h-4" />
-            Nursing Notes
+            <Printer className="w-4 h-4" />
+            Print
           </button>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -789,218 +347,617 @@ export default function MedicalEntries() {
         onClearSelection={handleClearSelection}
       />
 
-      {/* Patient & Visit Overview */}
-      {selectedPatient && selectedAttendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-6 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-                <Pill className="w-6 h-6 text-[var(--icon-purple-text)]" />
+      {/* Only show content if attendance is selected */}
+      {selectedAttendanceId && currentAttendance ? (
+        <>
+          {/* PATIENT HEADER with badges */}
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+                  <User className="w-6 h-6 text-[var(--icon-cyan-text)]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                    {selectedPatient?.surname} {selectedPatient?.otherNames}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
+                    <span>{selectedPatient?.age || 'N/A'} years • {selectedPatient?.gender}</span>
+                    <span>•</span>
+                    <span>ID: {selectedPatient?.folderNumber}</span>
+                    <span>•</span>
+                    <span>{selectedPatient?.contact}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">{selectedPatient.fullName}</h3>
-                <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)] mt-1">
-                  <span>{selectedPatient.age} years • {selectedPatient.gender}</span>
-                  <span>•</span>
-                  <span>ID: {selectedPatient.folderNumber}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  currentAttendance.paymentMode === 'nhis' 
+                    ? 'bg-green-100 text-green-800 border border-green-200' 
+                    : currentAttendance.paymentMode === 'private_insurance'
+                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                    : 'bg-blue-100 text-blue-800 border border-blue-200'
+                }`}>
+                  {currentAttendance.paymentMode === 'nhis' ? 'NHIS' : 
+                   currentAttendance.paymentMode === 'private_insurance' ? 'PRIVATE INS' : 'CASH'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  currentAttendance.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  currentAttendance.status === 'completed' ? 'bg-green-100 text-green-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {currentAttendance.status?.toUpperCase()}
+                </span>
+                {currentAttendance.outstandingBalance > 0 && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                    Balance: GHS {currentAttendance.outstandingBalance.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* VITALS STRIP - 9 columns */}
+          {latestVitals && (
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-3">
+                <div className="text-center">
+                  <Gauge className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                  <div className={`text-sm font-bold ${getVitalStatusColor('bp', latestVitals.bloodPressure)}`}>
+                    {latestVitals.bloodPressure || '—'}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">BP (mmHg)</div>
+                </div>
+                <div className="text-center">
+                  <Thermometer className="w-4 h-4 text-red-500 mx-auto mb-1" />
+                  <div className={`text-sm font-bold ${getVitalStatusColor('temp', latestVitals.temperature)}`}>
+                    {latestVitals.temperature ? `${latestVitals.temperature}°C` : '—'}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">Temp</div>
+                </div>
+                <div className="text-center">
+                  <Heart className="w-4 h-4 text-red-500 mx-auto mb-1" />
+                  <div className={`text-sm font-bold ${getVitalStatusColor('pulse', latestVitals.pulse)}`}>
+                    {latestVitals.pulse || '—'}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">Pulse (bpm)</div>
+                </div>
+                <div className="text-center">
+                  <Wind className="w-4 h-4 text-teal-500 mx-auto mb-1" />
+                  <div className="text-sm font-bold">{latestVitals.respiration || '—'}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Resp (bpm)</div>
+                </div>
+                <div className="text-center">
+                  <Droplets className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                  <div className={`text-sm font-bold ${getVitalStatusColor('spo2', latestVitals.spo2)}`}>
+                    {latestVitals.spo2 ? `${latestVitals.spo2}%` : '—'}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">SpO2 (%)</div>
+                </div>
+                <div className="text-center">
+                  <Weight className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+                  <div className="text-sm font-bold">{latestVitals.weight ? `${latestVitals.weight}kg` : '—'}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Weight</div>
+                </div>
+                <div className="text-center">
+                  <Ruler className="w-4 h-4 text-cyan-500 mx-auto mb-1" />
+                  <div className="text-sm font-bold">{latestVitals.height ? `${latestVitals.height}cm` : '—'}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Height</div>
+                </div>
+                <div className="text-center">
+                  <Activity className="w-4 h-4 text-purple-500 mx-auto mb-1" />
+                  <div className="text-sm font-bold">{latestVitals.bmi || '—'}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">BMI</div>
+                </div>
+                <div className="text-center">
+                  <Activity className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
+                  <div className="text-sm font-bold">{latestVitals.muac || '—'}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">MUAC (cm)</div>
                 </div>
               </div>
             </div>
-            
-            <div className="text-right">
-              <div className="text-lg font-semibold text-[var(--text-primary)]">
-                {selectedAttendance.attendanceNumber || 'Current Visit'}
-              </div>
-              <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedAttendance.status || '')}`}>
-                  Status: {selectedAttendance.status}
-                </span>
-                <span>Date: {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}</span>
-                <span>Type: {selectedAttendance.attendanceType?.replace(/_/g, ' ') || 'General'}</span>
-              </div>
+          )}
+
+          {/* ROW 1: CLINICAL PRESENTATION - 4 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                Presented Complaints
+              </label>
+              <textarea
+                value={presentedComplaints}
+                onChange={(e) => setPresentedComplaints(e.target.value)}
+                rows={4}
+                placeholder="Patient's main complaint..."
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                disabled={!canAddEntries}
+              />
+            </div>
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                <History className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                H.P.C (History)
+              </label>
+              <textarea
+                value={hpc}
+                onChange={(e) => setHpc(e.target.value)}
+                rows={4}
+                placeholder="History of presenting complaint..."
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                disabled={!canAddEntries}
+              />
+            </div>
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                O.D.Q (Onset/Duration/Quality)
+              </label>
+              <textarea
+                value={odq}
+                onChange={(e) => setOdq(e.target.value)}
+                rows={4}
+                placeholder="Onset, duration, quality of symptoms..."
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                disabled={!canAddEntries}
+              />
+            </div>
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                Physical Examination
+              </label>
+              <textarea
+                value={physicalExam}
+                onChange={(e) => setPhysicalExam(e.target.value)}
+                rows={4}
+                placeholder="Physical examination findings..."
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                disabled={!canAddEntries}
+              />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Vitals Display */}
-      {selectedAttendance && latestVitals && (
-        <VitalsDisplay vitals={latestVitals} />
-      )}
+          {/* Save Clinical Button */}
+          {canAddEntries && (
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveClinical}
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Save Clinical Information
+              </button>
+            </div>
+          )}
 
-
-      {/* Medical Entries - Only show if attendance is selected and can add entries */}
-      {selectedAttendanceId && canAddEntries && (
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)]">
-          {/* Tabs */}
-          <div className="border-b border-[var(--border-color)]">
-            <div className="flex overflow-x-auto">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
+          {/* ROW 2: INVESTIGATIONS & RESULTS - 2 columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* INVESTIGATIONS REQUESTED */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-purple-600" />
+                  Investigations Requested
+                </h3>
+                {canAddEntries && (
                   <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] bg-opacity-20'
-                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                    }`}
+                    onClick={() => setModalType('lab')}
+                    className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white"
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                    {tab.count > 0 && (
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        activeTab === tab.id
-                          ? 'bg-[var(--icon-cyan-text)] text-white'
-                          : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
-                      }`}>
-                        {tab.count}
-                      </span>
-                    )}
+                    <Plus className="w-3 h-3" /> Add
                   </button>
-                );
-              })}
+                )}
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[400px] overflow-y-auto">
+                {labTestsList.length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No lab tests requested</div>
+                )}
+                {labTestsList.map((test: any) => (
+                  <div key={test.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-sm">{test.ServiceCatalog?.name || test.name}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-[var(--text-secondary)]">Priority: {test.priority}</span>
+                          {getStatusBadge(test.status)}
+                        </div>
+                      </div>
+                      {canAddEntries && test.status === 'requested' && (
+                        <button onClick={() => handleDeleteItem('lab', test.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RESULTS OF INVESTIGATIONS */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  Results of Investigations
+                </h3>
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[400px] overflow-y-auto">
+                {labTestsList.filter(t => t.status === 'completed').length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No results available yet</div>
+                )}
+                {labTestsList.filter(t => t.status === 'completed').map((test: any) => (
+                  <div key={test.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium text-sm">{test.ServiceCatalog?.name || test.name}</span>
+                        {test.result && (
+                          <div className="text-sm mt-1">
+                            <span className={test.result?.abnormal ? 'text-red-600 font-medium' : 'text-green-600'}>
+                              Result: {typeof test.result === 'object' ? JSON.stringify(test.result) : test.result}
+                            </span>
+                            {test.normalRange && <span className="text-xs text-[var(--text-secondary)] ml-2">(Normal: {test.normalRange})</span>}
+                          </div>
+                        )}
+                        <div className="text-xs text-[var(--text-secondary)] mt-1">Completed: {new Date(test.completedAt).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="p-6">
-            {activeTab === 'clinical' && (
-              <ClinicalInformationSection
-                chiefComplaint={chiefComplaint}
-                diagnosis={diagnosis}
-                notes={notes}
-                diagnosisTemplates={diagnoses}
-                onComplaintChange={setChiefComplaint}
-                onDiagnosisChange={setDiagnosis}
-                onNotesChange={setNotes}
-                canAddEntries={canAddEntries}
-                currentUser={user}
-              />
-            )}
+          {/* ROW 3: DIAGNOSIS & PROCEDURES - 2 columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* DIAGNOSIS LIST */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  Diagnosis (ICD-10)
+                </h3>
+                {canAddEntries && (
+                  <button
+                    onClick={() => setModalType('diagnosis')}
+                    className="flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded text-xs hover:bg-[var(--icon-cyan-text)] hover:text-white"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                )}
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
+                {diagnosesList.length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No diagnoses added</div>
+                )}
+                {diagnosesList.map((item: any) => (
+                  <div key={item.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{item.Diagnosis?.name}</span>
+                          {item.primary && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>}
+                        </div>
+                        <div className="text-xs text-[var(--text-secondary)] mt-1">ICD-10: {item.Diagnosis?.icdCode}</div>
+                        {item.notes && <div className="text-xs text-[var(--text-secondary)] mt-1">{item.notes}</div>}
+                      </div>
+                      {canAddEntries && (
+                        <button onClick={() => handleDeleteItem('diagnosis', item.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-            {activeTab === 'medications' && (
-              <MedicationsSection
-                medications={medications}
-                currentMed={currentMed}
-                onMedChange={setCurrentMed}
-                onAddMedication={handleAddMedication}
-                stockItems={stockItems}
-                canAddEntries={canAddEntries}
-                currentUser={user}
-              />
-            )}
-
-            {activeTab === 'labs' && (
-              <LabTestsSection
-                labTests={labTests}
-                currentLab={currentLab}
-                onLabChange={setCurrentLab}
-                onAddLabTest={handleAddLabTest}
-                labTestTemplates={labTestTemplates}
-                canAddEntries={canAddEntries}
-                currentUser={user}
-              />
-            )}
-
-            {activeTab === 'procedures' && (
-              <ProceduresSection
-                procedures={procedures}
-                currentProcedure={currentProcedure}
-                onProcedureChange={setCurrentProcedure}
-                onAddProcedure={handleAddProcedure}
-                procedureTemplates={procedureTemplates}
-                canAddEntries={canAddEntries}
-                currentUser={user}
-              />
-            )}
-
-            {activeTab === 'scans' && (
-              <ScansSection
-                scans={scans}
-                currentScan={currentScan}
-                onScanChange={setCurrentScan}
-                onAddScan={handleAddScan}
-                scanTemplates={scanTemplates}
-                canAddEntries={canAddEntries}
-                currentUser={user}
-              />
-            )}
+            {/* PROCEDURES & SCHEDULING */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Scissors className="w-4 h-4 text-orange-600" />
+                  Procedures & Scheduling
+                </h3>
+                {canAddEntries && (
+                  <button
+                    onClick={() => setModalType('procedure')}
+                    className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-700 hover:text-white"
+                  >
+                    <Plus className="w-3 h-3" /> Schedule
+                  </button>
+                )}
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
+                {proceduresList.length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No procedures scheduled</div>
+                )}
+                {proceduresList.map((proc: any) => (
+                  <div key={proc.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="font-medium text-sm">{proc.ServiceCatalog?.name || proc.name}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          {proc.scheduledDate && (
+                            <span className="text-xs text-[var(--text-secondary)]">
+                              Scheduled: {new Date(proc.scheduledDate).toLocaleString()}
+                            </span>
+                          )}
+                          {getStatusBadge(proc.status)}
+                        </div>
+                        {proc.notes && <div className="text-xs text-[var(--text-secondary)] mt-1">{proc.notes}</div>}
+                      </div>
+                      {canAddEntries && proc.status === 'scheduled' && (
+                        <button onClick={() => handleDeleteItem('procedure', proc.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Save Button */}
-          <div className="border-t border-[var(--border-color)] p-6 bg-[var(--bg-main)] rounded-b-xl">
-            <button
-              onClick={handleSubmitMedicalEntries}
-              disabled={isSubmitting || !chiefComplaint.trim()}
-              className="flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <FileText className="w-4 h-4" />
-                  Save All Medical Entries
-                </>
+          {/* ROW 4: MEDICATIONS - 2 columns (Requested vs Issued) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ITEMS REQUESTED (Prescribed) */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Pill className="w-4 h-4 text-green-600" />
+                  Items Requested (Prescribed)
+                </h3>
+                {canAddEntries && (
+                  <button
+                    onClick={() => setModalType('medication')}
+                    className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-700 hover:text-white"
+                  >
+                    <Plus className="w-3 h-3" /> Prescribe
+                  </button>
+                )}
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[350px] overflow-y-auto">
+                {prescribedMeds.length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No medications prescribed</div>
+                )}
+                {prescribedMeds.map((med: any) => (
+                  <div key={med.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{med.name}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">{med.dosage}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">{med.frequency}</span>
+                        </div>
+                        <div className="text-xs text-[var(--text-secondary)] mt-1">
+                          Duration: {med.duration} • Qty: {med.quantity}
+                        </div>
+                        {med.instructions && <div className="text-xs text-[var(--text-secondary)] mt-1">{med.instructions}</div>}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded">
+                            Payer: {med.paymentMode === 'nhis' ? 'A' : med.paymentMode === 'private_insurance' ? 'P' : 'C'}
+                          </span>
+                          {getStatusBadge(med.status)}
+                        </div>
+                      </div>
+                      {canAddEntries && (
+                        <button onClick={() => handleDeleteItem('medication', med.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ITEMS ISSUED (Dispensed) */}
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                  Items Issued (Dispensed)
+                </h3>
+              </div>
+              <div className="divide-y divide-[var(--border-color)] max-h-[350px] overflow-y-auto">
+                {dispensedMeds.length === 0 && (
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No medications dispensed yet</div>
+                )}
+                {dispensedMeds.map((med: any) => (
+                  <div key={med.id} className="p-3 hover:bg-[var(--bg-main)]">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{med.name}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">{med.dosage}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">{med.frequency}</span>
+                        </div>
+                        <div className="text-xs text-[var(--text-secondary)] mt-1">
+                          Qty: {med.quantity} • Rate: GHS {(med.unitCost || 0).toFixed(2)} • Total: GHS {((med.unitCost || 0) * med.quantity).toFixed(2)}
+                        </div>
+                        {med.dispensedAt && (
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">Dispensed: {new Date(med.dispensedAt).toLocaleString()}</div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded">
+                            Payer: {med.paymentMode === 'nhis' ? 'A' : med.paymentMode === 'private_insurance' ? 'P' : 'C'}
+                          </span>
+                          {getStatusBadge(med.status)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ROW 5: PHYSICIAN NOTES & TREATMENT PLAN */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+            <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+              <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                Physician Notes & Treatment Plan
+              </h3>
+            </div>
+            <div className="p-4">
+              <textarea
+                value={treatmentPlan}
+                onChange={(e) => setTreatmentPlan(e.target.value)}
+                rows={4}
+                placeholder="Treatment plan, follow-up instructions, medications to continue, lifestyle modifications..."
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                disabled={!canAddEntries}
+              />
+              {canAddEntries && (
+                <div className="flex justify-end mt-3">
+                  <button
+                    onClick={handleSaveClinical}
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Save Treatment Plan
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* No Attendance Selected Message */}
-      {selectedPatientId && !selectedAttendanceId && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-yellow-text)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--icon-yellow-text)] mb-4">Please select an existing attendance or create a new one to add medical entries.</p>
-          <button
-            onClick={handleNewAttendance}
-            className="bg-[var(--icon-yellow-text)] text-white px-6 py-2 rounded-lg hover:bg-[var(--icon-yellow-text)]/80 transition-colors"
-          >
-            Create New Attendance
-          </button>
+          {/* ROW 6: GENERAL INFO */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+            <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+              <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                General Information
+              </h3>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Follow-up Date</label>
+                  <input
+                    type="datetime-local"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                    disabled={!canAddEntries}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Referred To/From</label>
+                  <input
+                    type="text"
+                    value={currentAttendance?.referringFacility || ''}
+                    readOnly
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Admission Status</label>
+                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                    {currentAttendance?.Admission ? `Admitted (${currentAttendance.Admission.admissionNumber})` : 'Not Admitted'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Created By</label>
+                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                    {currentAttendance?.createdBy?.fullName || 'Unknown'} • {new Date(currentAttendance?.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : selectedPatientId && !selectedAttendanceId ? (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">No Attendance Selected</h3>
+          <p className="text-yellow-700">Please select an existing attendance to view or add medical entries.</p>
         </div>
-      )}
+      ) : null}
 
-      {/* Cannot Add Entries Message */}
-      {selectedAttendance && !canAddEntries && (
-        <div className="bg-[var(--icon-red-bg)] border border-[var(--icon-red-text)] rounded-xl p-6 text-center">
-          <Ban className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-[var(--icon-red-text)] mb-2">Cannot Add Entries</h3>
-          <p className="text-[var(--icon-red-text)]">
-            This attendance is <span className="font-bold">{selectedAttendance.status}</span> and cannot be modified.
-            {selectedAttendance.status === 'completed' && ' Please select an active or pending attendance.'}
-            {selectedAttendance.status === 'cancelled' && ' This attendance has been cancelled.'}
-          </p>
-        </div>
-      )}
+      {/* Modals */}
+      <DiagnosisModal
+        isOpen={modalType === 'diagnosis'}
+        onClose={() => setModalType(null)}
+        onSuccess={() => {
+          setModalType(null);
+          if (selectedAttendanceId) {
+            getAttendance(selectedAttendanceId);
+            calculateBill(selectedAttendanceId);
+          }
+        }}
+        attendanceId={selectedAttendanceId}
+        diagnoses={diagnoses}
+        canAdd={canAddEntries}
+        userId={user?.id}
+      />
 
-      {/* Attendance Modal */}
-      {showAttendanceModal && selectedAttendanceForEdit && (
-        <NewAttendanceModal
-          patientId={selectedAttendanceForEdit.patientId}
-          onSuccess={handleAttendanceSuccess}
-          onClose={() => setShowAttendanceModal(false)}
-          isEditMode={isEditMode}
-          attendanceData={isEditMode ? selectedAttendanceForEdit : undefined}
-        />
-      )}
+      <LabTestModal
+        isOpen={modalType === 'lab'}
+        onClose={() => setModalType(null)}
+        onSuccess={() => {
+          setModalType(null);
+          if (selectedAttendanceId) {
+            getAttendance(selectedAttendanceId);
+            calculateBill(selectedAttendanceId);
+          }
+        }}
+        attendanceId={selectedAttendanceId}
+        labTests={labTestTemplates}
+        canAdd={canAddEntries}
+        userId={user?.id}
+      />
+
+      <ProcedureModal
+        isOpen={modalType === 'procedure'}
+        onClose={() => setModalType(null)}
+        onSuccess={() => {
+          setModalType(null);
+          if (selectedAttendanceId) {
+            getAttendance(selectedAttendanceId);
+            calculateBill(selectedAttendanceId);
+          }
+        }}
+        attendanceId={selectedAttendanceId}
+        procedures={procedureTemplates}
+        canAdd={canAddEntries}
+        userId={user?.id}
+      />
+
+      <MedicationModal
+        isOpen={modalType === 'medication'}
+        onClose={() => setModalType(null)}
+        onSuccess={() => {
+          setModalType(null);
+          if (selectedAttendanceId) {
+            getAttendance(selectedAttendanceId);
+            calculateBill(selectedAttendanceId);
+          }
+        }}
+        attendanceId={selectedAttendanceId}
+        stockItems={stockItems}
+        canAdd={canAddEntries}
+        userId={user?.id}
+      />
+
+      <ScanModal
+        isOpen={modalType === 'scan'}
+        onClose={() => setModalType(null)}
+        onSuccess={() => {
+          setModalType(null);
+          if (selectedAttendanceId) {
+            getAttendance(selectedAttendanceId);
+            calculateBill(selectedAttendanceId);
+          }
+        }}
+        attendanceId={selectedAttendanceId}
+        scans={scanTemplates}
+        canAdd={canAddEntries}
+        userId={user?.id}
+      />
     </div>
   );
 }
-
-// Loading Screen
-const LoadingScreen: React.FC = () => (
-  <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-    <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-      <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-      <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Medical Entries...</h2>
-      <p className="text-[var(--text-secondary)] text-sm mt-1">Fetching patient and attendance data</p>
-    </div>
-  </div>
-);

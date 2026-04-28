@@ -1,4 +1,4 @@
-// src/store/medicalServicesStore.ts - UPDATED WITH ALL API FUNCTIONS
+// src/store/medicalServicesStore.ts - COMPLETE UPDATED VERSION
 import { create } from 'zustand';
 import {
   getDiagnoses as apiGetDiagnoses,
@@ -6,11 +6,8 @@ import {
   createDiagnosis as apiCreateDiagnosis,
   updateDiagnosis as apiUpdateDiagnosis,
   deleteDiagnosis as apiDeleteDiagnosis,
-  // ✅ ADDED MISSING DIAGNOSIS FUNCTIONS
   searchDiagnoses as apiSearchDiagnoses,
   getDiagnosisStats as apiGetDiagnosisStats,
-  getDiagnosisCategories as apiGetDiagnosisCategories,
-  getDiagnosisVariants as apiGetDiagnosisVariants,
   bulkUpdateDiagnoses as apiBulkUpdateDiagnoses,
 
   getLabTestTemplates as apiGetLabTestTemplates,
@@ -18,7 +15,6 @@ import {
   createLabTestTemplate as apiCreateLabTestTemplate,
   updateLabTestTemplate as apiUpdateLabTestTemplate,
   deleteLabTestTemplate as apiDeleteLabTestTemplate,
-  // ✅ ADDED MISSING LAB TEST FUNCTIONS
   getLabTestCategories as apiGetLabTestCategories,
   getLabTestSubCategories as apiGetLabTestSubCategories,
   getSpecimenTypes as apiGetSpecimenTypes,
@@ -29,12 +25,10 @@ import {
   createProcedureTemplate as apiCreateProcedureTemplate,
   updateProcedureTemplate as apiUpdateProcedureTemplate,
   deleteProcedureTemplate as apiDeleteProcedureTemplate,
-  // ✅ ADDED MISSING PROCEDURE FUNCTIONS
   getProcedureCategories as apiGetProcedureCategories,
   getProcedureDepartments as apiGetProcedureDepartments,
   bulkUpdateProcedureTemplates as apiBulkUpdateProcedureTemplates,
 
-  // ✅ FIXED SCAN IMPORTS
   getScanTemplates as apiGetScanTemplates,
   getScanTemplate as apiGetScanTemplate,
   createScanTemplate as apiCreateScanTemplate,
@@ -51,7 +45,6 @@ import {
   updateServiceCatalogItem as apiUpdateServiceCatalogItem,
   deleteServiceCatalogItem as apiDeleteServiceCatalogItem,
   getServiceMetadata as apiGetServiceMetadata,
-  // ✅ ADDED MISSING SERVICE CATALOG FUNCTIONS
   getNHISReadinessReport as apiGetNHISReadinessReport,
   getServiceByNHISCode as apiGetServiceByNHISCode,
   getServicesByCategory as apiGetServicesByCategory,
@@ -60,6 +53,7 @@ import {
 } from '../api';
 import { useGDRGTariffStore } from './gdrgTariffStore';
 import type { Diagnosis, LabTestTemplate, ProcedureTemplate, ServiceCatalog, ScanTemplate, Pagination } from '../types';
+import api from '../api/api';
 
 interface MedicalServicesState {
   // Data collections
@@ -69,19 +63,24 @@ interface MedicalServicesState {
   scanTemplates: ScanTemplate[];
   serviceCatalog: ServiceCatalog[];
 
+  // Total counts (from pagination metadata)
+  diagnosesTotalCount: number;
+  labTestsTotalCount: number;
+  proceduresTotalCount: number;
+  scansTotalCount: number;
+
   // Metadata
   scanCategories: string[];
   scanBodyParts: string[];
-  scanTypes: string[]; // ✅ ADDED
+  scanTypes: string[];
   serviceMetadata: any;
-  diagnosisStats: any; // ✅ ADDED
-  diagnosisCategories: string[]; // ✅ ADDED
+  diagnosisStats: any;
 
   // Current items
   currentDiagnosis: Diagnosis | null;
   currentLabTestTemplate: LabTestTemplate | null;
   currentProcedureTemplate: ProcedureTemplate | null;
-  currentScanTemplate: ScanTemplate | null; // ✅ ADDED
+  currentScanTemplate: ScanTemplate | null;
   currentServiceCatalogItem: ServiceCatalog | null;
 
   // Loading
@@ -109,12 +108,8 @@ interface MedicalServicesState {
   createDiagnosis: (data: any) => Promise<void>;
   updateDiagnosis: (id: string, data: any) => Promise<void>;
   deleteDiagnosis: (id: string) => Promise<void>;
-
-  // ✅ ADDED MISSING DIAGNOSIS FUNCTIONS
   searchDiagnoses: (query: string) => Promise<Diagnosis[]>;
   getDiagnosisStats: () => Promise<void>;
-  getDiagnosisCategories: () => Promise<void>;
-  getDiagnosisVariants: () => Promise<void>;
   bulkUpdateDiagnoses: (data: any) => Promise<void>;
 
   // GDRG-specific methods
@@ -129,8 +124,6 @@ interface MedicalServicesState {
   createLabTestTemplate: (data: any) => Promise<void>;
   updateLabTestTemplate: (id: string, data: any) => Promise<void>;
   deleteLabTestTemplate: (id: string) => Promise<void>;
-
-  // ✅ ADDED MISSING LAB TEST FUNCTIONS
   getLabTestCategories: () => Promise<void>;
   getLabTestSubCategories: () => Promise<void>;
   getSpecimenTypes: () => Promise<void>;
@@ -142,22 +135,20 @@ interface MedicalServicesState {
   createProcedureTemplate: (data: any) => Promise<void>;
   updateProcedureTemplate: (id: string, data: any) => Promise<void>;
   deleteProcedureTemplate: (id: string) => Promise<void>;
-
-  // ✅ ADDED MISSING PROCEDURE FUNCTIONS
   getProcedureCategories: () => Promise<void>;
   getProcedureDepartments: () => Promise<void>;
   bulkUpdateProcedureTemplates: (data: any) => Promise<void>;
 
   // Scan Template actions
   getScanTemplates: (filters?: any) => Promise<void>;
-  getScanTemplate: (id: string) => Promise<void>; // ✅ ADDED
-  createScanTemplate: (data: any) => Promise<void>; // ✅ ADDED
-  updateScanTemplate: (id: string, data: any) => Promise<void>; // ✅ ADDED
-  deleteScanTemplate: (id: string) => Promise<void>; // ✅ ADDED
+  getScanTemplate: (id: string) => Promise<void>;
+  createScanTemplate: (data: any) => Promise<void>;
+  updateScanTemplate: (id: string, data: any) => Promise<void>;
+  deleteScanTemplate: (id: string) => Promise<void>;
   getScanCategories: () => Promise<void>;
   getScanBodyParts: () => Promise<void>;
-  getScanTypes: () => Promise<void>; // ✅ ADDED
-  bulkUpdateScanTemplates: (data: any) => Promise<void>; // ✅ ADDED
+  getScanTypes: () => Promise<void>;
+  bulkUpdateScanTemplates: (data: any) => Promise<void>;
 
   // Service Catalog actions
   getServiceCatalog: (filters?: any) => Promise<void>;
@@ -166,13 +157,14 @@ interface MedicalServicesState {
   updateServiceCatalogItem: (id: string, data: any) => Promise<void>;
   deleteServiceCatalogItem: (id: string) => Promise<void>;
   getServiceMetadata: () => Promise<void>;
-
-  // ✅ ADDED MISSING SERVICE CATALOG FUNCTIONS
   getNHISReadinessReport: () => Promise<any>;
   getServiceByNHISCode: (nhisCode: string) => Promise<ServiceCatalog | null>;
   getServicesByCategory: (category: string) => Promise<ServiceCatalog[]>;
   checkServiceCoverage: (data: any) => Promise<any>;
   calculateServiceCost: (data: any) => Promise<any>;
+  getServiceCatalogByType: (serviceType: string) => Promise<ServiceCatalog[]>;
+  getServiceCategories: () => Promise<string[]>;
+  getServiceTypes: () => Promise<string[]>;
 
   // Helper getters
   getDiagnosisById: (id: string) => Diagnosis | undefined;
@@ -193,16 +185,19 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   procedureTemplates: [],
   scanTemplates: [],
   serviceCatalog: [],
+  diagnosesTotalCount: 0,
+  labTestsTotalCount: 0,
+  proceduresTotalCount: 0,
+  scansTotalCount: 0,
   scanCategories: [],
   scanBodyParts: [],
-  scanTypes: [], // ✅ ADDED
+  scanTypes: [],
   serviceMetadata: null,
-  diagnosisStats: null, // ✅ ADDED
-  diagnosisCategories: [], // ✅ ADDED
+  diagnosisStats: null,
   currentDiagnosis: null,
   currentLabTestTemplate: null,
   currentProcedureTemplate: null,
-  currentScanTemplate: null, // ✅ ADDED
+  currentScanTemplate: null,
   currentServiceCatalogItem: null,
   isLoading: false,
   isLoadingDiagnoses: false,
@@ -222,10 +217,30 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getDiagnoses: async (filters = {}) => {
     set({ isLoadingDiagnoses: true, errors: { ...get().errors, diagnoses: null } });
     try {
-      console.log('Fetching diagnoses...');
-      const diagnoses = await apiGetDiagnoses(filters);
-      console.log('Diagnoses count:', diagnoses?.length || 0);
-      set({ diagnoses, isLoadingDiagnoses: false });
+      const apiFilters = { ...filters, limit: 10000 }; 
+      const response = await apiGetDiagnoses(apiFilters);
+      
+      let diagnosesArray = [];
+      let totalCount = 0;
+      
+      // Handle different response formats
+      if (response.data && Array.isArray(response.data)) {
+        diagnosesArray = response.data;
+        totalCount = response.pagination?.totalDiagnoses || response.pagination?.total || diagnosesArray.length;
+      } else if (Array.isArray(response)) {
+        diagnosesArray = response;
+        totalCount = diagnosesArray.length;
+      } else if (response.success && Array.isArray(response.data)) {
+        diagnosesArray = response.data;
+        totalCount = response.pagination?.totalDiagnoses || response.pagination?.total || diagnosesArray.length;
+      }
+      
+      set({ 
+        diagnoses: diagnosesArray,
+        diagnosesTotalCount: totalCount,
+        isLoadingDiagnoses: false 
+      });
+      console.log('Diagnoses loaded:', diagnosesArray.length, 'Total:', totalCount);
     } catch (error: any) {
       console.error('Failed to fetch diagnoses:', error);
       set({
@@ -248,7 +263,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // UPDATED: Auto-fetch G-DRG tariff
   createDiagnosis: async (data: any) => {
     if (!get().validateGdrgCode(data.gdrgCode)) {
       throw new Error('Invalid GDRG code format');
@@ -265,6 +279,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       const newDiagnosis = await apiCreateDiagnosis(data);
       set({
         diagnoses: [newDiagnosis, ...get().diagnoses],
+        diagnosesTotalCount: get().diagnosesTotalCount + 1,
         currentDiagnosis: newDiagnosis,
         isLoading: false
       });
@@ -275,7 +290,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // UPDATED: Same logic for update
   updateDiagnosis: async (id: string, data: any) => {
     if (data.gdrgCode && !get().validateGdrgCode(data.gdrgCode)) {
       throw new Error('Invalid GDRG code format');
@@ -310,6 +324,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       const diagnoses = get().diagnoses.filter(d => d.id !== id);
       set({
         diagnoses,
+        diagnosesTotalCount: Math.max(0, get().diagnosesTotalCount - 1),
         currentDiagnosis: get().currentDiagnosis?.id === id ? null : get().currentDiagnosis,
         isLoading: false
       });
@@ -320,7 +335,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // ✅ ADDED MISSING DIAGNOSIS FUNCTIONS
   searchDiagnoses: async (query: string) => {
     set({ isLoadingDiagnoses: true });
     try {
@@ -344,29 +358,10 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  getDiagnosisCategories: async () => {
-    try {
-      const categories = await apiGetDiagnosisCategories();
-      set({ diagnosisCategories: categories });
-    } catch (error: any) {
-      throw error;
-    }
-  },
-
-  getDiagnosisVariants: async () => {
-    try {
-      const variants = await apiGetDiagnosisVariants();
-      return variants;
-    } catch (error: any) {
-      throw error;
-    }
-  },
-
   bulkUpdateDiagnoses: async (data: any) => {
     set({ isLoading: true });
     try {
       await apiBulkUpdateDiagnoses(data);
-      // Refresh diagnoses after bulk update
       await get().getDiagnoses();
       set({ isLoading: false });
     } catch (error: any) {
@@ -383,20 +378,19 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   getDiagnosesByGdrgCode: (gdrgCode: string) => {
     return get().diagnoses.filter(d =>
-      d.gdrgCode.toLowerCase() === gdrgCode.toLowerCase()
+      d.gdrgCode?.toLowerCase() === gdrgCode.toLowerCase()
     );
   },
 
   searchDiagnosesByGdrg: (searchTerm: string) => {
     const term = searchTerm.toLowerCase();
     return get().diagnoses.filter(d =>
-      d.gdrgCode.toLowerCase().includes(term) ||
+      d.gdrgCode?.toLowerCase().includes(term) ||
       d.name.toLowerCase().includes(term) ||
       d.icdCode.toLowerCase().includes(term)
     );
   },
 
-  // NEW: Return diagnosis + NHIA tariff
   getDiagnosisWithTariff: (diagnosis: Diagnosis) => {
     const tariff = useGDRGTariffStore.getState().getTariff(diagnosis.gdrgCode);
     return {
@@ -410,8 +404,26 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getLabTestTemplates: async (filters = {}) => {
     set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
     try {
-      const labTestTemplates = await apiGetLabTestTemplates(filters);
-      set({ labTestTemplates, isLoadingLabTests: false });
+      const apiFilters = { ...filters, limit: 10000 }; // ✅ Add this
+      const response = await apiGetLabTestTemplates(apiFilters);
+      
+      let labTestsArray = [];
+      let totalCount = 0;
+      
+      if (response.data && Array.isArray(response.data)) {
+        labTestsArray = response.data;
+        totalCount = response.pagination?.total || labTestsArray.length;
+      } else if (Array.isArray(response)) {
+        labTestsArray = response;
+        totalCount = labTestsArray.length;
+      }
+      
+      set({ 
+        labTestTemplates: labTestsArray,
+        labTestsTotalCount: totalCount,
+        isLoadingLabTests: false 
+      });
+      console.log('Lab tests loaded:', labTestsArray.length, 'Total:', totalCount);
     } catch (error: any) {
       console.error('Failed to fetch lab test templates:', error);
       set({
@@ -440,6 +452,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       const newTemplate = await apiCreateLabTestTemplate(data);
       set({
         labTestTemplates: [newTemplate, ...get().labTestTemplates],
+        labTestsTotalCount: get().labTestsTotalCount + 1,
         currentLabTestTemplate: newTemplate,
         isLoading: false
       });
@@ -472,6 +485,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       await apiDeleteLabTestTemplate(id);
       set({
         labTestTemplates: get().labTestTemplates.filter(t => t.id !== id),
+        labTestsTotalCount: Math.max(0, get().labTestsTotalCount - 1),
         currentLabTestTemplate: get().currentLabTestTemplate?.id === id ? null : get().currentLabTestTemplate,
         isLoading: false
       });
@@ -482,7 +496,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // ✅ ADDED MISSING LAB TEST FUNCTIONS
   getLabTestCategories: async () => {
     try {
       const categories = await apiGetLabTestCategories();
@@ -514,7 +527,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       await apiBulkUpdateLabTestTemplates(data);
-      // Refresh lab test templates after bulk update
       await get().getLabTestTemplates();
       set({ isLoading: false });
     } catch (error: any) {
@@ -527,8 +539,25 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getProcedureTemplates: async (filters = {}) => {
     set({ isLoadingProcedures: true, errors: { ...get().errors, procedures: null } });
     try {
-      const procedureTemplates = await apiGetProcedureTemplates(filters);
-      set({ procedureTemplates, isLoadingProcedures: false });
+      const apiFilters = { ...filters, limit: 10000 }; 
+      const response = await apiGetProcedureTemplates(apiFilters);
+      
+      let proceduresArray = [];
+      let totalCount = 0;
+      
+      if (response.data && Array.isArray(response.data)) {
+        proceduresArray = response.data;
+        totalCount = response.pagination?.total || proceduresArray.length;
+      } else if (Array.isArray(response)) {
+        proceduresArray = response;
+        totalCount = proceduresArray.length;
+      }
+      
+      set({ 
+        procedureTemplates: proceduresArray,
+        proceduresTotalCount: totalCount,
+        isLoadingProcedures: false 
+      });
     } catch (error: any) {
       console.error('Failed to fetch procedure templates:', error);
       set({
@@ -557,6 +586,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       const newTemplate = await apiCreateProcedureTemplate(data);
       set({
         procedureTemplates: [newTemplate, ...get().procedureTemplates],
+        proceduresTotalCount: get().proceduresTotalCount + 1,
         currentProcedureTemplate: newTemplate,
         isLoading: false
       });
@@ -589,6 +619,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       await apiDeleteProcedureTemplate(id);
       set({
         procedureTemplates: get().procedureTemplates.filter(t => t.id !== id),
+        proceduresTotalCount: Math.max(0, get().proceduresTotalCount - 1),
         currentProcedureTemplate: get().currentProcedureTemplate?.id === id ? null : get().currentProcedureTemplate,
         isLoading: false
       });
@@ -599,7 +630,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // ✅ ADDED MISSING PROCEDURE FUNCTIONS
   getProcedureCategories: async () => {
     try {
       const categories = await apiGetProcedureCategories();
@@ -622,7 +652,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       await apiBulkUpdateProcedureTemplates(data);
-      // Refresh procedure templates after bulk update
       await get().getProcedureTemplates();
       set({ isLoading: false });
     } catch (error: any) {
@@ -635,8 +664,24 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getScanTemplates: async (filters = {}) => {
     set({ isLoadingScans: true, errors: { ...get().errors, scans: null } });
     try {
-      const scanTemplates = await apiGetScanTemplates(filters);
-      set({ scanTemplates, isLoadingScans: false });
+      const response = await apiGetScanTemplates(filters);
+      
+      let scansArray = [];
+      let totalCount = 0;
+      
+      if (response.data && Array.isArray(response.data)) {
+        scansArray = response.data;
+        totalCount = response.pagination?.total || scansArray.length;
+      } else if (Array.isArray(response)) {
+        scansArray = response;
+        totalCount = scansArray.length;
+      }
+      
+      set({ 
+        scanTemplates: scansArray,
+        scansTotalCount: totalCount,
+        isLoadingScans: false 
+      });
     } catch (error: any) {
       console.error('Failed to fetch scan templates:', error);
       set({
@@ -647,27 +692,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  getScanCategories: async () => {
-    try {
-      const categories = await apiGetScanCategories();
-      set({ scanCategories: categories });
-    } catch (error: any) {
-      set({ errors: { ...get().errors, scans: error.message } });
-      throw error;
-    }
-  },
-
-  getScanBodyParts: async () => {
-    try {
-      const bodyParts = await apiGetScanBodyParts();
-      set({ scanBodyParts: bodyParts });
-    } catch (error: any) {
-      set({ errors: { ...get().errors, scans: error.message } });
-      throw error;
-    }
-  },
-
-  // ✅ ADDED MISSING SCAN FUNCTIONS
   getScanTemplate: async (id: string) => {
     set({ isLoading: true });
     try {
@@ -685,6 +709,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       const newTemplate = await apiCreateScanTemplate(data);
       set({
         scanTemplates: [newTemplate, ...get().scanTemplates],
+        scansTotalCount: get().scansTotalCount + 1,
         currentScanTemplate: newTemplate,
         isLoading: false
       });
@@ -715,6 +740,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
       await apiDeleteScanTemplate(id);
       set({
         scanTemplates: get().scanTemplates.filter(t => t.id !== id),
+        scansTotalCount: Math.max(0, get().scansTotalCount - 1),
         currentScanTemplate: get().currentScanTemplate?.id === id ? null : get().currentScanTemplate,
         isLoading: false
       });
@@ -724,10 +750,33 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
+  getScanCategories: async () => {
+    try {
+      const categories = await apiGetScanCategories();
+      set({ scanCategories: categories });
+      return categories;
+    } catch (error: any) {
+      set({ errors: { ...get().errors, scans: error.message } });
+      throw error;
+    }
+  },
+
+  getScanBodyParts: async () => {
+    try {
+      const bodyParts = await apiGetScanBodyParts();
+      set({ scanBodyParts: bodyParts });
+      return bodyParts;
+    } catch (error: any) {
+      set({ errors: { ...get().errors, scans: error.message } });
+      throw error;
+    }
+  },
+
   getScanTypes: async () => {
     try {
       const scanTypes = await apiGetScanTypes();
       set({ scanTypes });
+      return scanTypes;
     } catch (error: any) {
       throw error;
     }
@@ -737,7 +786,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       await apiBulkUpdateScanTemplates(data);
-      // Refresh scan templates after bulk update
       await get().getScanTemplates();
       set({ isLoading: false });
     } catch (error: any) {
@@ -750,12 +798,18 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getServiceCatalog: async (filters = {}) => {
     set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
     try {
-      const response = await apiGetServiceCatalog(filters);
+      const apiFilters = { ...filters, limit: 10000 }; // ✅ Add this
+      const response = await apiGetServiceCatalog(apiFilters);
+      const services = response.services || response.data || response;
+      const pagination = response.pagination;
+      
       set({
-        serviceCatalog: response.services || response.data || response,
-        pagination: response.pagination || null,
+        serviceCatalog: services,
+        pagination: pagination || null,
         isLoading: false
       });
+      
+      return { services, pagination };
     } catch (error: any) {
       console.error('Failed to fetch service catalog:', error);
       set({
@@ -769,7 +823,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getServiceCatalogItem: async (id: string) => {
     set({ isLoading: true });
     try {
-      // FIX: Validate ID before calling API
       if (!id || id === 'undefined' || id === 'null') {
         throw new Error('Valid Service ID is required');
       }
@@ -786,17 +839,11 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   createServiceCatalogItem: async (data: any) => {
     set({ isLoading: true });
     try {
-      // FIX: Validate data before creating
       if (!data.name || !data.code) {
         throw new Error('Service name and code are required');
       }
       
       const newItem = await apiCreateServiceCatalogItem(data);
-      
-      // FIX: Ensure the new item has an id
-      if (!newItem.id) {
-        console.warn('Created service item missing id:', newItem);
-      }
       
       set({
         serviceCatalog: [newItem, ...get().serviceCatalog],
@@ -804,7 +851,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         isLoading: false
       });
       
-      return newItem; // Return the created item
+      return newItem;
     } catch (error: any) {
       console.error('Failed to create service catalog item:', error);
       set({ isLoading: false });
@@ -815,34 +862,19 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   updateServiceCatalogItem: async (id: string, data: any) => {
     set({ isLoading: true });
     try {
-      // FIX: Comprehensive validation
       if (!id || id === 'undefined' || id === 'null') {
-        console.error('Update attempted with invalid ID:', { id, data });
         throw new Error('Valid Service ID is required for update');
       }
       
-      if (!data || Object.keys(data).length === 0) {
-        throw new Error('Update data is required');
-      }
-      
-      console.log('Store: Updating service', { id, data }); // Debug log
       const updatedItem = await apiUpdateServiceCatalogItem(id, data);
       
-      // FIX: Ensure updated item has id
-      if (!updatedItem.id) {
-        console.warn('Updated item missing id:', updatedItem);
-        updatedItem.id = id; // Use the provided ID
-      }
-      
       set({
-        serviceCatalog: get().serviceCatalog.map(item => 
-          item.id === id ? updatedItem : item
-        ),
+        serviceCatalog: get().serviceCatalog.map(item => item.id === id ? updatedItem : item),
         currentServiceCatalogItem: updatedItem,
         isLoading: false
       });
       
-      return updatedItem; // Return the updated item
+      return updatedItem;
     } catch (error: any) {
       console.error('Failed to update service catalog item:', error);
       set({ isLoading: false });
@@ -853,24 +885,17 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   deleteServiceCatalogItem: async (id: string) => {
     set({ isLoading: true });
     try {
-      // FIX: Validate ID before deletion
       if (!id || id === 'undefined' || id === 'null') {
-        console.error('Delete attempted with invalid ID:', id);
         throw new Error('Valid Service ID is required for deletion');
       }
       
-      console.log('Store: Deleting service', id); // Debug log
       await apiDeleteServiceCatalogItem(id);
       
       set({
         serviceCatalog: get().serviceCatalog.filter(item => item.id !== id),
-        currentServiceCatalogItem: get().currentServiceCatalogItem?.id === id 
-          ? null 
-          : get().currentServiceCatalogItem,
+        currentServiceCatalogItem: get().currentServiceCatalogItem?.id === id ? null : get().currentServiceCatalogItem,
         isLoading: false
       });
-      
-      console.log('Store: Service deleted successfully'); // Debug log
     } catch (error: any) {
       console.error('Failed to delete service catalog item:', error);
       set({ isLoading: false });
@@ -890,7 +915,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // ✅ ADDED MISSING SERVICE CATALOG FUNCTIONS
   getNHISReadinessReport: async () => {
     set({ isLoading: true });
     try {
@@ -944,6 +968,41 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     } catch (error: any) {
       set({ isLoading: false });
       throw error;
+    }
+  },
+
+  getServiceCatalogByType: async (serviceType: string) => {
+    set({ isLoading: true });
+    try {
+      const response = await api.get(`/service-catalog?serviceType=${serviceType}&isActive=true`);
+      const services = response.data?.data || response.data || [];
+      set({ isLoading: false });
+      return services;
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  getServiceCategories: async () => {
+    try {
+      const response = await api.get('/service-catalog/metadata');
+      const metadata = response.data?.data || response.data;
+      return metadata?.categories || [];
+    } catch (error) {
+      console.error('Error fetching service categories:', error);
+      return [];
+    }
+  },
+
+  getServiceTypes: async () => {
+    try {
+      const response = await api.get('/service-catalog/metadata');
+      const metadata = response.data?.data || response.data;
+      return metadata?.serviceTypes || [];
+    } catch (error) {
+      console.error('Error fetching service types:', error);
+      return [];
     }
   },
 
