@@ -1,10 +1,9 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 // ============================================================
@@ -390,6 +389,10 @@ model Attendance {
   physicalExamination         String?  // Physical exam findings
   treatmentPlan               String?  // Treatment plan / physician notes
   followUpDate                DateTime? // Follow-up appointment date
+
+  antenatalBookings          AntenatalBooking[] @relation("FirstANCAttendance")
+  currentAntenatalBookings   AntenatalBooking[] @relation("CurrentANCAttendance")
+  antenatalVisits             ANCVisit[]
 
   totalBill          Float @default(0)
   paidAmount         Float @default(0)
@@ -1261,69 +1264,148 @@ model ReferralRecord {
 // ============================================================
 
 model AntenatalBooking {
-  id                    String        @id @default(cuid())
-  patientId             String        @unique
-  bookingDate           DateTime
-  gestationalAgeWeeks   Int?
-  estimatedDeliveryDate DateTime?
-  gravida               Int           @default(1)
-  para                  Int           @default(0)
-  lmp                   DateTime?
-  bloodGroup            String?
-  rhesusStatus          String?
-  hivStatus             String?
-  syphilisStatus        String?
-  hepatitisBStatus      String?
-  bookingWeight         Float?
-  bookingBP             String?
-  riskLevel             AntenatalRisk @default(low)
-  riskNotes             String?
-  midwifeId             String?
-  doctorId              String?
-  isActive              Boolean       @default(true)
-  deliveryOutcome       String?
-  deliveryDate          DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-
-  patient  Patient    @relation(fields: [patientId], references: [id])
-  midwife  User?      @relation("ANC_midwife", fields: [midwifeId], references: [id])
-  doctor   User?      @relation("ANC_doctor", fields: [doctorId], references: [id])
-  ANCVisit ANCVisit[]
-
-  @@map("antenatal_bookings")
+  id                       String   @id @default(cuid())
+  patientId                String   @unique
+  pregnancyNumber          Int      @default(1)
+  attendanceId             String   @unique
+  currentAttendanceId      String?  @unique
+  
+  // Pregnancy dates
+  bookingDate              DateTime
+  lmp                      DateTime?
+  edd                      DateTime?
+  gestationalAgeWeeks      Int?
+  
+  // Obstetric history
+  gravida                  Int
+  para                     Int
+  previousCSection         Boolean  @default(false)
+  previousComplications    String?
+  
+  // IPTp Tracking (GHS Form A)
+  iptpDoses                Json
+  iptp1Date                DateTime?
+  iptp2Date                DateTime?
+  iptp3Date                DateTime?
+  iptp4Date                DateTime?
+  iptp5Date                DateTime?
+  
+  // TT Vaccination (GHS Form A)
+  ttDoses                  Json
+  tt1Date                  DateTime?
+  tt2Date                  DateTime?
+  tt3Date                  DateTime?
+  tt4Date                  DateTime?
+  tt5Date                  DateTime?
+  
+  // Malaria in Pregnancy
+  malariaTested            Boolean  @default(false)
+  malariaPositive          Boolean  @default(false)
+  malariaTreatment         String?
+  malariaIPTpGiven         Boolean  @default(false)
+  
+  // Anaemia
+  hbBooking                Float?
+  hb36Weeks                Float?
+  anaemiaDiagnosed         Boolean  @default(false)
+  ironFolateGiven          Boolean  @default(false)
+  
+  // ITN/LLIN
+  itnGiven                 Boolean  @default(false)
+  itnGivenDate             DateTime?
+  
+  // Risk assessment
+  riskLevel                AntenatalRisk
+  riskFactors              Json?
+  
+  // Delivery outcome
+  deliveryRecordId         String?  @unique
+  deliveryOutcome          String?
+  deliveryDate             DateTime?
+  
+  // Status
+  isActive                 Boolean  @default(true)
+  isCompleted              Boolean  @default(false)
+  
+  // Audit
+  createdById              String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  
+  // Relations
+  patient                  Patient              @relation(fields: [patientId], references: [id])
+  attendance               Attendance           @relation("FirstANCAttendance", fields: [attendanceId], references: [id])
+  currentAttendance        Attendance?          @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
+  deliveryRecord           DeliveryRecord?      @relation(fields: [deliveryRecordId], references: [id])
+  visits                   ANCVisit[]
+  createdBy                User                 @relation(fields: [createdById], references: [id])
 }
 
 model ANCVisit {
-  id                  String    @id @default(cuid())
-  bookingId           String
-  attendanceId        String?
-  visitNumber         Int
-  visitDate           DateTime
-  gestationalAgeWeeks Int?
-  weight              Float?
-  bloodPressure       String?
-  fetalHeartRate      Int?
-  presentingPart      String?
-  oedema              Boolean   @default(false)
-  urinalysis          String?
-  fundalHeight        Float?
-  fetalMovement       Boolean?
-  supplementsGiven    String?
-  ttVaccineGiven      Boolean   @default(false)
-  itnGiven            Boolean   @default(false)
-  nextVisitDate       DateTime?
-  notes               String?
-  recordedById        String
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  booking    AntenatalBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  recordedBy User             @relation(fields: [recordedById], references: [id])
-
-  @@index([bookingId])
-  @@index([visitDate])
-  @@map("anc_visits")
+  id                       String   @id @default(cuid())
+  bookingId                String
+  attendanceId             String   @unique
+  visitNumber              Int
+  
+  // Visit data
+  visitDate                DateTime
+  gestationalAgeWeeks      Int?
+  weight                   Float?
+  bloodPressure            String?
+  fundalHeight             Int?
+  fetalHeartRate           Int?
+  fetalMovements           Boolean?
+  presentation             String?
+  
+  // Oedema
+  oedema                   Boolean  @default(false)
+  oedemaGrade              String?
+  
+  // Urinalysis
+  urinalysisProtein        Boolean?
+  urinalysisGlucose        Boolean?
+  urinalysisBlood          Boolean?
+  
+  // IPTp at this visit
+  iptpGiven                Boolean  @default(false)
+  iptpDoseNumber           Int?
+  iptpDrug                 String?
+  
+  // TT at this visit
+  ttGiven                  Boolean  @default(false)
+  ttDoseNumber             Int?
+  
+  // Supplements
+  ironGiven                Boolean  @default(false)
+  folateGiven              Boolean  @default(false)
+  calciumGiven             Boolean  @default(false)
+  
+  // Malaria screening
+  malariaTestDone          Boolean  @default(false)
+  malariaTestResult        String?
+  malariaTreatmentGiven    Boolean  @default(false)
+  
+  // Danger signs
+  dangerSignsPresent       Boolean  @default(false)
+  dangerSignsList          String[]
+  referralMade             Boolean  @default(false)
+  referredTo               String?
+  
+  // Next visit
+  nextVisitDate            DateTime?
+  returnInstructions       String?
+  
+  // Audit
+  recordedById             String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  
+  // Relations
+  booking                  AntenatalBooking @relation(fields: [bookingId], references: [id])
+  attendance               Attendance       @relation(fields: [attendanceId], references: [id])
+  recordedBy               User             @relation(fields: [recordedById], references: [id])
+  
+  @@unique([bookingId, visitNumber])
 }
 
 // ============================================================
@@ -1725,12 +1807,12 @@ model User {
   PatientWaiver_requested                         PatientWaiver[]           @relation("Waiver_requestedBy")
   PatientWaiver_approved                          PatientWaiver[]           @relation("Waiver_approvedBy")
   ReferralRecord                                  ReferralRecord[]
-  AntenatalBooking_midwife                        AntenatalBooking[]        @relation("ANC_midwife")
-  AntenatalBooking_doctor                         AntenatalBooking[]        @relation("ANC_doctor")
   ANCVisit                                        ANCVisit[]
   ghsReportSubmissions                            GHSReportSubmission[]
   idsrAlerts                                      IDSRAlert[]
   deliveryRecords                                 DeliveryRecord[]
+  antenatalBookingsCreated                        AntenatalBooking[]
+
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
@@ -1862,11 +1944,18 @@ model DeliveryRecord {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  patient    Patient    @relation(fields: [patientId], references: [id])
-  attendance Attendance @relation(fields: [attendanceId], references: [id])
-  Admission  Admission? @relation(fields: [admissionId], references: [id])
-  createdBy  User       @relation(fields: [createdById], references: [id])
-
+  // Foreign key for the reverse relation
+  antenatalBookingId String?
+  
+  // Relations
+  patient    Patient          @relation(fields: [patientId], references: [id])
+  attendance Attendance       @relation(fields: [attendanceId], references: [id])
+  Admission  Admission?       @relation(fields: [admissionId], references: [id])
+  createdBy  User             @relation(fields: [createdById], references: [id])
+  
+  // This side has NO fields/references arguments - just @relation()
+  antenatalBooking   AntenatalBooking? @relation()
+  
   Newborn          NewbornRecord[]
   AbortionRecord   AbortionRecord? @relation(fields: [abortionRecordId], references: [id])
   abortionRecordId String?
@@ -2153,6 +2242,7 @@ enum UserRole {
 
 enum LabTestStatus {
   requested
+  in_progress
   completed
   cancelled
 }
@@ -2293,6 +2383,25 @@ enum DiagnosisVariant {
   uncomplicated
 }
 
+enum ProcedureCategory {
+  surgical
+  diagnostic
+  therapeutic
+  obstetric
+  pediatric
+  dental
+  ophthalmic
+  laparoscopic
+  laparotomy
+  orthopedic
+  urology
+  ent
+  dermatology
+  neurology
+  emergency
+  minor
+}
+
 enum LabCategory {
   hematology
   biochemistry
@@ -2303,16 +2412,20 @@ enum LabCategory {
   molecular
   cytology
   histopathology
-}
-
-enum ProcedureCategory {
-  surgical
-  diagnostic
-  therapeutic
-  obstetric
-  pediatric
-  dental
-  ophthalmic
+  pulmonology
+  neurology
+  cardiology
+  radiology
+  pathology
+  ophthalmology
+  pft
+  eeg
+  ecg
+  angiography
+  eye
+  gastroenterology
+  endocrinology
+  urinalysis
 }
 
 enum ScanCategory {

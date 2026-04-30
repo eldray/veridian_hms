@@ -1,4 +1,5 @@
-// routes/index.ts
+// routes/index.ts - CORRECTED VERSION
+
 import { Router } from 'express';
 import authRoutes from './routes/authRoutes';
 import patientRoutes from './routes/patientRoutes';
@@ -27,27 +28,24 @@ import notificationRoutes from './routes/notificationRoutes';
 import backupRoutes from './routes/backupRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import dashboardRoutes from './routes/dashboardRoutes'; 
-
-
-// In your server.ts or app.ts, add these imports
 import referralRoutes from './routes/referralRoutes';
 import antenatalRoutes from './routes/antenatalRoutes';
 import ghsReportRoutes from './routes/ghsReportRoutes';
 import documentRoutes from './routes/documentRoutes';
 import gdrgRoutes from './routes/gdrgRoutes';
-
+import invoiceRoutes from './routes/invoiceRoutes';
 
 const router = Router();
 
-// API routes - Updated to match your file structure
+// API routes
 router.use('/auth', authRoutes);
 router.use('/patients', patientRoutes);
 router.use('/dashboard', dashboardRoutes); 
 router.use('/admissions', admissionRoutes);
 router.use('/attendances', attendanceRoutes);
 router.use('/bills', billRoutes);
-router.use('/diagnoses', diagnosisRoutes); // Fixed: should be 'diagnoses' to match your file
-router.use('/hospitals', hospitalRoutes); // Fixed: should be 'hospitals' to match your file
+router.use('/diagnoses', diagnosisRoutes);
+router.use('/hospitals', hospitalRoutes);
 router.use('/insurance-claims', insuranceClaimRoutes);
 router.use('/insurance-providers', insuranceProviderRoutes);
 router.use('/lab-test-templates', labTestTemplateRoutes);
@@ -59,24 +57,23 @@ router.use('/settings', settingsRoutes);
 router.use('/stock-items', stockItemRoutes);
 router.use('/stock-transactions', stockTransactionRoutes);
 router.use('/requisitions', requisitionRoutes);
+router.use('/invoices', invoiceRoutes); // ✅ ADD THIS - Missing invoice routes!
 router.use('/wards', wardRoutes);
 router.use('/beds', bedRoutes);
 router.use('/profile', profileRoutes);
-router.use('/backup', backupRoutes); // Added missing route
+router.use('/backup', backupRoutes);
 router.use('/upload', uploadRoutes);
-
-// Add to your router
 router.use('/departments', departmentRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/notifications', notificationRoutes);
 
 
-// Then register the routes (after your existing routes)
-router.use('/api/referrals', referralRoutes);
-router.use('/api/antenatal', antenatalRoutes);
-router.use('/api/reports/ghs', ghsReportRoutes);
-router.use('/api/documents', documentRoutes);
-router.use('/api/gdrg', gdrgRoutes);
+// ✅ FIXED: Remove /api prefix - just use the base paths
+router.use('/referrals', referralRoutes);
+router.use('/antenatal', antenatalRoutes);
+router.use('/reports/ghs', ghsReportRoutes);
+router.use('/documents', documentRoutes);
+router.use('/gdrg', gdrgRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

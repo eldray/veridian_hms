@@ -95,9 +95,9 @@ export const getFamilyPlanningReport = async (req: AuthRequest, res: Response) =
         } : {}
       },
       include: {
-        attendance: {
+        Attendance: {
           include: {
-            patient: {
+            Patient: {
               select: {
                 id: true,
                 surname: true,
@@ -109,7 +109,7 @@ export const getFamilyPlanningReport = async (req: AuthRequest, res: Response) =
             }
           }
         },
-        serviceCatalog: true
+        ServiceCatalog: true
       }
     });
 
@@ -124,7 +124,7 @@ export const getFamilyPlanningReport = async (req: AuthRequest, res: Response) =
     const methodMix: Record<string, number> = {};
 
     for (const fp of fpAttendances) {
-      const patient = fp.attendance.patient;
+      const patient = fp.Attendance.Patient;
       const age = calculateAge(patient.dateOfBirth, fp.date);
       
       if (age >= 15 && age <= 19) ageGroups['15-19 years']++;
@@ -132,11 +132,11 @@ export const getFamilyPlanningReport = async (req: AuthRequest, res: Response) =
       else if (age >= 35 && age <= 49) ageGroups['35-49 years']++;
       else if (age >= 50) ageGroups['50+ years']++;
 
-      const method = fp.serviceCatalog.name;
+      const method = fp.ServiceCatalog.name;
       methodMix[method] = (methodMix[method] || 0) + 1;
     }
 
-    const uniqueClients = new Set(fpAttendances.map(f => f.attendance.patientId)).size;
+    const uniqueClients = new Set(fpAttendances.map(f => f.Attendance.patientId)).size;
 
     const reportData = {
       reportType: 'FAMILY PLANNING REPORT',
@@ -430,7 +430,7 @@ export const getClinicalReport = async (req: Request, res: Response) => {
         },
         include: {
           Patient: { select: { id: true, surname: true, otherNames: true, gender: true, dateOfBirth: true } },
-          AttendanceDiagnosis: { include: { Diagnosis: { select: { name: true, icdCode: true, category: true } } } },
+          AttendanceDiagnosis: { include: { Diagnosis: { select: { name: true, icdCode: true } } } },
           ServiceRendered: { include: { ServiceCatalog: { select: { name: true, serviceType: true } } } }
         }
       });
@@ -487,9 +487,9 @@ export const getClinicalReport = async (req: Request, res: Response) => {
         }
         
         acc[key].totalCases += 1;
-        const age = calculateAge(attendance.Patient.dateOfBirth, attendance.dateTime);
+        const age = calculateAge(attendance.patientId.dateOfBirth, attendance.dateTime);
         acc[key].ages.push(age);
-        acc[key].genders.push(attendance.Patient.gender);
+        acc[key].genders.push(attendance.patientId.gender);
       }
       return acc;
     }, {} as any);
@@ -514,6 +514,138 @@ export const getClinicalReport = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error generating clinical report:', error);
     res.status(500).json({ message: 'Error generating clinical report', error: (error as Error).message });
+  }
+};
+
+// controllers/reportController.ts - ADD THIS FUNCTION
+
+// ==================== MORBIDITY & MORTALITY REPORT ====================
+export const getMorbidityMortalityReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date and end date are required'
+      });
+    }
+
+    const start = new Date(startDate as string);
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+
+    // Get all attendances with diagnoses in the date range
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        dateTime: { gte: start, lte: end },
+        status: { not: 'cancelled' }
+      },
+      include: {
+        Patient: {
+          select: {
+            id: true,
+            dateOfBirth: true,
+            gender: true
+          }
+        },
+        AttendanceDiagnosis: {
+          include: {
+            Diagnosis: true
+          }
+        }
+      }
+    });
+
+    // Track disease counts by age group
+    const diseaseMap = new Map<string, {
+      name: string;
+      totalCases: number;
+      male: number;
+      female: number;
+      under5: number;
+      above5: number;
+    }>();
+
+    let totalCases = 0;
+    let totalUnder5 = 0;
+    let totalAbove5 = 0;
+
+    for (const attendance of attendances) {
+      const patient = attendance.Patient;
+      const ageInYears = calculateAge(patient.dateOfBirth, attendance.dateTime);
+      const isUnder5 = ageInYears < 5;
+      const gender = patient.gender;
+
+      if (isUnder5) totalUnder5++;
+      else totalAbove5++;
+      totalCases++;
+
+      for (const diag of attendance.AttendanceDiagnosis) {
+        const diagnosis = diag.Diagnosis;
+        if (!diagnosis) continue;
+
+        const key = diagnosis.icdCode || diagnosis.name;
+        
+        if (!diseaseMap.has(key)) {
+          diseaseMap.set(key, {
+            name: diagnosis.name,
+            totalCases: 0,
+            male: 0,
+            female: 0,
+            under5: 0,
+            above5: 0
+          });
+        }
+
+        const record = diseaseMap.get(key)!;
+        record.totalCases++;
+        if (gender === 'male') record.male++;
+        else record.female++;
+        if (isUnder5) record.under5++;
+        else record.above5++;
+      }
+    }
+
+    // Get top 20 diseases by total cases
+    const topDiseases = Array.from(diseaseMap.values())
+      .sort((a, b) => b.totalCases - a.totalCases)
+      .slice(0, 20)
+      .map((d, index) => ({ rank: index + 1, ...d }));
+
+    // Get facility info
+    const hospital = await prisma.hospital.findFirst();
+
+    const reportData = {
+      reportType: 'MORBIDITY & MORTALITY REPORT',
+      facility: {
+        name: hospital?.name || 'Hospital',
+        district: hospital?.ghsDistrictCode || 'Unknown',
+        ghfCode: hospital?.ghaHFCode || 'Unknown'
+      },
+      period: {
+        startDate: start,
+        endDate: end,
+        generated: new Date().toISOString().split('T')[0]
+      },
+      totals: {
+        totalAttendances: attendances.length,
+        totalCases,
+        under5: totalUnder5,
+        above5: totalAbove5
+      },
+      topDiseases,
+      generatedAt: new Date()
+    };
+
+    res.json({ success: true, data: reportData });
+  } catch (error) {
+    console.error('Error generating morbidity/mortality report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating morbidity/mortality report',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
   }
 };
 
@@ -601,7 +733,7 @@ export const getRevenueReport = async (req: AuthRequest, res: Response) => {
     const bills = await prisma.bill.findMany({
       where,
       include: {
-        attendance: { include: { servicesRendered: { include: { serviceCatalog: true } }, insuranceProvider: true, patient: true } }
+        Attendance: { include: { ServiceRendered: { include: { ServiceCatalog: true } }, insuranceProvider: true, patient: true } }
       }
     });
 

@@ -1,4 +1,4 @@
-// src/seed/coreSeed.ts - CORRECTED VERSION
+// src/seed/coreSeed.ts - COMPLETE PRESERVED VERSION
 import { PrismaClient, ServiceType, ServiceCategory, NHISCoverageType, UserRole, Gender, InsuranceType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -41,6 +41,7 @@ const addSchemaDefaults = (data: any, type: string) => {
         description: data.description || '',
         specimenType: data.specimenType || 'blood',
         resultTemplate: data.resultTemplate || null,
+        normalRangeTemplate: data.normalRangeTemplate || null,
         isNHISCovered: data.isNHISCovered ?? true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
@@ -93,6 +94,20 @@ const addSchemaDefaults = (data: any, type: string) => {
         isActive: true,
       };
 
+    case 'diagnosis':
+      return {
+        ...baseDefaults,
+        name: data.name || 'Unknown Diagnosis',
+        icdCode: data.icdCode,
+        description: data.description || null,
+        isActive: true,
+        requiresAuthorization: data.requiresAuthorization ?? false,
+        tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
+        isChronic: data.isChronic ?? false,
+        isNHISCovered: data.isNHISCovered ?? true,
+        morbidityGroup: data.morbidityGroup || 'all_other_diseases',
+      };
+
     case 'stockItem':
       return {
         ...baseDefaults,
@@ -119,37 +134,6 @@ const addSchemaDefaults = (data: any, type: string) => {
         isActive: true,
       };
 
-// In coreSeed.ts, update the 'diagnosis' case in addSchemaDefaults:
-
-case 'diagnosis':
-  return {
-    ...baseDefaults,
-    name: data.name || 'Unknown Diagnosis',
-    icdCode: data.icdCode,
-    variant: data.variant || null,
-    description: data.description || null,
-    isActive: true,
-    requiresAuthorization: data.requiresAuthorization ?? false,
-    tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
-    isChronic: data.isChronic ?? false,
-    isNHISCovered: data.isNHISCovered ?? true,
-    morbidityGroup: data.morbidityGroup || 'all_other_diseases',
-  };
-      return {
-        ...baseDefaults,
-        name: data.name || 'Unknown Diagnosis',
-        icdCode: data.icdCode,
-        gdrgGroupCode: data.gdrgCode || data.gdrgGroupCode || data.icdCode,
-        variant: data.variant || null,
-        description: data.description || null,
-        category: data.category || DiagnosisCategory.infectiousAndParasitic,
-        requiresAuthorization: data.requiresAuthorization ?? false,
-        isChronic: data.isChronic ?? false,
-        isNHISCovered: data.isNHISCovered ?? true,
-        tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
-        isActive: true,
-      };
-
     case 'serviceCatalog':
       return {
         ...baseDefaults,
@@ -165,13 +149,11 @@ case 'diagnosis':
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         isPrivateInsuranceExempted: data.isPrivateInsuranceExempted ?? false,
-        // ✅ FIXED: Use isActive instead of isPending
         isActive: data.isActive ?? true,
         requiresClinicalNotes: data.requiresClinicalNotes ?? false,
         unit: data.unit || 'Each',
         metadata: data.metadata || null,
         tariffCode: data.tariffCode || null,
-        // Optional relations
         diagnosisId: data.diagnosisId || null,
         labTestTemplateId: data.labTestTemplateId || null,
         procedureTemplateId: data.procedureTemplateId || null,
@@ -180,10 +162,10 @@ case 'diagnosis':
         scanTemplateId: data.scanTemplateId || null,
         consultationTypeId: data.consultationTypeId || null,
         createdById: data.createdById || null,
+        gdrgTariffId: data.gdrgTariffId || null,
       };
 
     case 'ward':
-      // ✅ FIXED: Ward model doesn't have isActive - remove it
       return {
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -194,13 +176,11 @@ case 'diagnosis':
         isNHISCovered: data.isNHISCovered ?? true,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
-        // ✅ FIXED: Use isPending (Ward model has isPending, not isActive)
         isPending: data.isPending ?? false,
         requiresAuthorization: data.requiresAuthorization ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? false,
         tariffCode: data.tariffCode || `WARD-${data.wardName?.replace(/\s+/g, '_').toUpperCase()}`,
-        // Daily rates (for quick access, though pricing is in ServiceCatalog)
         dailyCashRate: data.dailyCashRate || data.cashPrice || data.cashDailyRate || 0,
         dailyNHISRate: data.dailyNHISRate || data.nhisPrice || data.nhisDailyRate || 0,
         dailyInsuranceRate: data.dailyInsuranceRate || data.insurancePrice || data.insuranceDailyRate || 0,
@@ -208,6 +188,33 @@ case 'diagnosis':
 
     default:
       return { ...data, ...baseDefaults };
+  }
+};
+
+// ✅ SAFE SERVICE PRICING CREATION
+const createServicePricing = async (serviceCatalogId: string, pricing: { cashPrice: number; nhisPrice: number; insurancePrice: number }) => {
+  try {
+    await prisma.servicePricing.upsert({
+      where: { serviceCatalogId },
+      create: {
+        serviceCatalogId,
+        cashPrice: pricing.cashPrice ?? 0,
+        nhisPrice: pricing.nhisPrice ?? 0,
+        insurancePrice: pricing.insurancePrice ?? 0,
+        vatRate: 0,
+        isTaxable: false,
+        effectiveDate: new Date(),
+        isActive: true,
+      },
+      update: {
+        cashPrice: pricing.cashPrice ?? 0,
+        nhisPrice: pricing.nhisPrice ?? 0,
+        insurancePrice: pricing.insurancePrice ?? 0,
+        isActive: true,
+      },
+    });
+  } catch (error: any) {
+    console.error(`❌ Error creating service pricing:`, error.message);
   }
 };
 
@@ -250,49 +257,10 @@ const hasCoreData = async (): Promise<boolean> => {
   }
 };
 
-// ✅ Check if there's any patient data
-const hasAnyPatientData = async (): Promise<boolean> => {
-  try {
-    const patientCount = await prisma.patient.count().catch(() => 0);
-    return patientCount > 0;
-  } catch (error) {
-    console.error('❌ Error checking patient data:', error);
-    return false;
-  }
-};
-
-// ✅ SAFE SERVICE PRICING CREATION
-const createServicePricing = async (serviceCatalogId: string, pricing: { cashPrice: number; nhisPrice: number; insurancePrice: number }) => {
-  try {
-    await prisma.servicePricing.upsert({
-      where: { serviceCatalogId },
-      create: {
-        serviceCatalogId,
-        cashPrice: pricing.cashPrice ?? 0,
-        nhisPrice: pricing.nhisPrice ?? 0,
-        insurancePrice: pricing.insurancePrice ?? 0,
-        vatRate: 0,
-        isTaxable: false,
-        effectiveDate: new Date(),
-        isActive: true,
-      },
-      update: {
-        cashPrice: pricing.cashPrice ?? 0,
-        nhisPrice: pricing.nhisPrice ?? 0,
-        insurancePrice: pricing.insurancePrice ?? 0,
-        isActive: true,
-      },
-    });
-  } catch (error: any) {
-    console.error(`❌ Error creating service pricing:`, error.message);
-  }
-};
-
 export const seedCoreData = async (force: boolean = false) => {
   console.log('🏥 Starting core data seeding...');
 
   try {
-    // Safety checks
     if (process.env.NODE_ENV === 'production' && !force) {
       console.log('🚨 PRODUCTION SAFETY: Core data seeding disabled in production');
       return { success: false, message: 'Disabled in production', productionSafety: true };
@@ -302,11 +270,6 @@ export const seedCoreData = async (force: boolean = false) => {
     if (coreDataExists && !force) {
       console.log('✅ Core data already exists. Skipping.');
       return { success: true, message: 'Core data exists', skipped: true };
-    }
-
-    const hasPatients = await hasAnyPatientData();
-    if (hasPatients && !force) {
-      console.log('⚠️ Patient data detected. Use force=true to proceed.');
     }
 
     console.log('🔧 Proceeding with core data seeding...');
@@ -356,117 +319,116 @@ export const seedCoreData = async (force: boolean = false) => {
 
     // =============== 2. DEPARTMENTS ===============
     const departmentsData = readJSON('departments.json');
+    const defaultDepartments = [
+      { name: 'Medical', description: 'Internal Medicine Department', color: '#3B82F6', icon: 'stethoscope' },
+      { name: 'Surgery', description: 'Surgical Department', color: '#EF4444', icon: 'scissors' },
+      { name: 'Pediatrics', description: 'Children\'s Health', color: '#10B981', icon: 'baby' },
+      { name: 'Obstetrics & Gynecology', description: 'Women\'s Health', color: '#EC4899', icon: 'heart' },
+      { name: 'Radiology', description: 'Medical Imaging', color: '#8B5CF6', icon: 'scan' },
+      { name: 'Laboratory', description: 'Diagnostic Laboratory', color: '#F59E0B', icon: 'flask' },
+      { name: 'Pharmacy', description: 'Medication Dispensing', color: '#06B6D4', icon: 'pill' },
+      { name: 'Emergency', description: 'Emergency Medicine', color: '#EF4444', icon: 'alert-triangle' },
+    ];
 
-    if (!Array.isArray(departmentsData)) {
-      console.log('❌ No departments data found in departments.json');
-      // Don't exit, just warn
-    } else {
-      for (const dept of departmentsData) {
-        await prisma.department.upsert({
-          where: { name: dept.name },
-          create: {
-            name: dept.name,
-            description: dept.description || '',
-            color: dept.color || '#3B82F6',
-            icon: dept.icon || 'default',
-            isActive: dept.isActive ?? true,
-          },
-          update: {},
-        });
-      }
-      console.log(`✅ ${departmentsData.length} departments configured`);
+    const departments = Array.isArray(departmentsData) ? departmentsData : defaultDepartments;
+    for (const dept of departments) {
+      await prisma.department.upsert({
+        where: { name: dept.name },
+        create: {
+          name: dept.name,
+          description: dept.description || '',
+          color: dept.color || '#3B82F6',
+          icon: dept.icon || 'default',
+          isActive: true,
+        },
+        update: {},
+      });
     }
+    console.log(`✅ ${departments.length} departments configured`);
 
     // =============== 3. INSURANCE PROVIDERS ===============
     const providersData = readJSON('insuranceProviders.json');
     const defaultProviders = [
       { name: 'National Health Insurance Scheme', type: InsuranceType.nhis, coveragePercentage: 100, contactInfo: { phone: '+233302111111', email: 'info@nhis.gov.gh' } },
       { name: 'Acacia Health Insurance', type: InsuranceType.private, coveragePercentage: 80, contactInfo: { phone: '+233302222222', email: 'info@acacia.com' } },
+      { name: 'Metropolitan Insurance', type: InsuranceType.private, coveragePercentage: 75, contactInfo: { phone: '+233302333333', email: 'info@metro.com' } },
     ];
 
     const providers = Array.isArray(providersData) ? providersData : defaultProviders;
     for (const p of providers) {
-      try {
-        await prisma.insuranceProvider.upsert({
-          where: { name: p.name },
-          create: {
-            name: p.name,
-            type: p.type || InsuranceType.private,
-            coveragePercentage: p.coveragePercentage ?? 100,
-            contactInfo: p.contactInfo || { phone: '+233000000000', email: 'info@provider.com' },
-            isActive: p.isActive ?? true,
-            claimSubmissionMethod: 'portal',
-          },
-          update: {},
-        });
-      } catch (error: any) {
-        console.error(`❌ Error with insurance provider ${p.name}:`, error.message);
-      }
+      await prisma.insuranceProvider.upsert({
+        where: { name: p.name },
+        create: {
+          name: p.name,
+          type: p.type || InsuranceType.private,
+          coveragePercentage: p.coveragePercentage ?? 100,
+          contactInfo: p.contactInfo || { phone: '+233000000000', email: 'info@provider.com' },
+          isActive: true,
+          claimSubmissionMethod: 'portal',
+        },
+        update: {},
+      });
     }
     console.log(`✅ ${providers.length} insurance providers configured`);
 
     // =============== 4. DIAGNOSES ===============
     const diagnosesData = readJSON('diagnoses.json');
     if (diagnosesData && Array.isArray(diagnosesData)) {
-      const stats = { total: diagnosesData.length, successful: 0, errors: 0 };
-      const seenCodes = new Set<string>();
-
+      let successful = 0;
       for (const d of diagnosesData) {
+        if (!d.icdCode || !d.name) continue;
         try {
-          if (!d.icdCode || !d.name) { stats.errors++; continue; }
-          if (seenCodes.has(d.icdCode)) { continue; }
-          seenCodes.add(d.icdCode);
-
           const diagnosisData = addSchemaDefaults(d, 'diagnosis');
-
           await prisma.diagnosis.upsert({
             where: { icdCode: d.icdCode },
             create: diagnosisData,
             update: diagnosisData,
           });
-          stats.successful++;
+          successful++;
         } catch (error: any) {
           console.error(`❌ Diagnosis ${d.icdCode}:`, error.message);
-          stats.errors++;
         }
       }
-      console.log(`✅ Diagnoses: ${stats.successful}/${stats.total} (${stats.errors} errors)`);
+      console.log(`✅ Diagnoses: ${successful}/${diagnosesData.length}`);
     }
 
     // =============== 5. GDRG TARIFFS ===============
     const gdrgData = readJSON('gdrgTariffs.json');
     if (gdrgData?.tariffs && Array.isArray(gdrgData.tariffs)) {
-      const stats = { total: gdrgData.tariffs.length, successful: 0, errors: 0 };
-
+      let successful = 0;
       for (const tariff of gdrgData.tariffs) {
         try {
           await prisma.gDRGTariff.upsert({
             where: { gdrgCode: tariff.gdrgCode },
             create: {
               gdrgCode: tariff.gdrgCode,
+              mdc: tariff.mdc || 'MEDI',
               description: tariff.description || 'No description',
-              category: tariff.category || 'GENERAL',
               nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              minAgeDays: tariff.minAgeDays ? parseInt(tariff.minAgeDays) : null,
-              maxAgeDays: tariff.maxAgeDays ? parseInt(tariff.maxAgeDays) : null,
-              genderApplicability: tariff.genderApplicability || null,
-              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(gdrgData.effective_date || '2022-10-01'),
+              ageSplit: tariff.ageSplit || 'A',
+              minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
+              maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
+              applicableLevels: tariff.applicableLevels || [1, 2, 3],
+              nhisServiceCode: tariff.nhisServiceCode || null,
+              isZoomCode: tariff.isZoomCode || false,
+              allowsAddOn: tariff.allowsAddOn || false,
+              encounterCategory: tariff.encounterCategory || null,
+              attendanceTypes: tariff.attendanceTypes || [],
+              isAntenatal: tariff.isAntenatal || false,
+              isDelivery: tariff.isDelivery || false,
+              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
+              effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
               isActive: tariff.isActive ?? true,
+              notes: tariff.notes || null,
             },
-            update: {
-              description: tariff.description || 'No description',
-              category: tariff.category || 'GENERAL',
-              nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              minAgeDays: tariff.minAgeDays ? parseInt(tariff.minAgeDays) : null,
-              maxAgeDays: tariff.maxAgeDays ? parseInt(tariff.maxAgeDays) : null,
-            },
+            update: {},
           });
-          stats.successful++;
+          successful++;
         } catch (error: any) {
-          stats.errors++;
+          console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
         }
       }
-      console.log(`✅ GDRG Tariffs: ${stats.successful}/${stats.total}`);
+      console.log(`✅ GDRG Tariffs: ${successful}/${gdrgData.tariffs.length}`);
     }
 
     // =============== 6. LAB TEST TEMPLATES ===============
@@ -475,10 +437,9 @@ export const seedCoreData = async (force: boolean = false) => {
     
     if (labTestsData && Array.isArray(labTestsData)) {
       for (const test of labTestsData) {
+        if (!test.investigationCode) continue;
         try {
-          if (!test.investigationCode) continue;
           const labData = addSchemaDefaults(test, 'labTestTemplate');
-          
           const template = await prisma.labTestTemplate.upsert({
             where: { investigationCode: test.investigationCode },
             create: labData,
@@ -498,10 +459,9 @@ export const seedCoreData = async (force: boolean = false) => {
     
     if (scansData && Array.isArray(scansData)) {
       for (const scan of scansData) {
+        if (!scan.scanCode) continue;
         try {
-          if (!scan.scanCode) continue;
           const scanData = addSchemaDefaults(scan, 'scanTemplate');
-          
           const template = await prisma.scanTemplate.upsert({
             where: { scanCode: scan.scanCode },
             create: scanData,
@@ -521,10 +481,9 @@ export const seedCoreData = async (force: boolean = false) => {
     
     if (proceduresData && Array.isArray(proceduresData)) {
       for (const proc of proceduresData) {
+        if (!proc.procedureCode) continue;
         try {
-          if (!proc.procedureCode) continue;
           const procData = addSchemaDefaults(proc, 'procedureTemplate');
-          
           const template = await prisma.procedureTemplate.upsert({
             where: { procedureCode: proc.procedureCode },
             create: procData,
@@ -565,13 +524,17 @@ export const seedCoreData = async (force: boolean = false) => {
     }
     console.log(`✅ ${consultationTypes.length} consultation types configured`);
 
-    // =============== 10. SERVICE CATALOG WITH PRICING ===============
-    console.log('🔄 Creating unified service catalog with pricing...');
+    // =============== 10. LOAD PRICING CONFIGURATION ===============
+    const pricingConfig = readJSON('servicePricing.json') || { labTests: {}, scans: {}, procedures: {}, consultations: {}, medications: {} };
 
+    // =============== 11. SERVICE CATALOG WITH PRICING ===============
+    console.log('🔄 Creating unified service catalog with pricing...');
+    
     const serviceCatalogEntries: any[] = [];
 
     // Add consultation services
     for (const ct of consultationTypes) {
+      const pricing = pricingConfig.consultations?.[ct.code] || { cashPrice: ct.cashPrice, nhisPrice: ct.nhisPrice, insurancePrice: ct.insurancePrice };
       serviceCatalogEntries.push({
         name: ct.name,
         code: ct.code,
@@ -580,13 +543,14 @@ export const seedCoreData = async (force: boolean = false) => {
         subType: ct.code === 'CONS-GEN' ? 'general' : 'specialist',
         nhisServiceCode: ct.code,
         consultationTypeId: consultationTypeMap.get(ct.code)?.id,
-        metadata: { duration: ct.code === 'CONS-GEN' ? 15 : 30 },
-        pricing: { cashPrice: ct.cashPrice, nhisPrice: ct.nhisPrice, insurancePrice: ct.insurancePrice },
+        isActive: true,
+        pricing,
       });
     }
 
     // Add lab test services
     for (const [code, template] of labTemplateMap) {
+      const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
       serviceCatalogEntries.push({
         name: template.name,
         code: `LAB-${code}`,
@@ -595,13 +559,14 @@ export const seedCoreData = async (force: boolean = false) => {
         subType: template.category,
         nhisServiceCode: code,
         labTestTemplateId: template.id,
-        metadata: { specimenType: template.specimenType, category: template.category },
-        pricing: { cashPrice: 50, nhisPrice: 35, insurancePrice: 60 },
+        isActive: true,
+        pricing,
       });
     }
 
     // Add scan services
     for (const [code, template] of scanTemplateMap) {
+      const pricing = pricingConfig.scans?.[code] || { cashPrice: 200, nhisPrice: 150, insurancePrice: 180 };
       serviceCatalogEntries.push({
         name: template.name,
         code: `SCAN-${code}`,
@@ -610,13 +575,14 @@ export const seedCoreData = async (force: boolean = false) => {
         subType: template.category,
         nhisServiceCode: code,
         scanTemplateId: template.id,
-        metadata: { bodyPart: template.bodyPart, duration: template.duration },
-        pricing: { cashPrice: 150, nhisPrice: 100, insurancePrice: 180 },
+        isActive: true,
+        pricing,
       });
     }
 
     // Add procedure services
     for (const [code, template] of procedureTemplateMap) {
+      const pricing = pricingConfig.procedures?.[code] || { cashPrice: 500, nhisPrice: 350, insurancePrice: 450 };
       serviceCatalogEntries.push({
         name: template.name,
         code: `PROC-${code}`,
@@ -625,8 +591,8 @@ export const seedCoreData = async (force: boolean = false) => {
         subType: template.category,
         nhisServiceCode: code,
         procedureTemplateId: template.id,
-        metadata: { duration: template.duration, department: template.department },
-        pricing: { cashPrice: 500, nhisPrice: 350, insurancePrice: 600 },
+        isActive: true,
+        pricing,
       });
     }
 
@@ -645,15 +611,14 @@ export const seedCoreData = async (force: boolean = false) => {
           nhisRequiresAuth: service.serviceType === ServiceType.procedure,
           privateInsRequiresAuth: service.serviceType === ServiceType.procedure,
           requiresClinicalNotes: service.serviceType === ServiceType.consultation,
-          metadata: service.metadata,
+          metadata: service.metadata || null,
           unit: service.serviceType === 'ward' ? 'Day' : 'Each',
           createdById: adminId,
           consultationTypeId: service.consultationTypeId || null,
           labTestTemplateId: service.labTestTemplateId || null,
           scanTemplateId: service.scanTemplateId || null,
           procedureTemplateId: service.procedureTemplateId || null,
-          stockItemId: service.stockItemId || null,
-          wardId: service.wardId || null,
+          isActive: service.isActive ?? true,
         }, 'serviceCatalog');
 
         const catalog = await prisma.serviceCatalog.upsert({
@@ -662,7 +627,6 @@ export const seedCoreData = async (force: boolean = false) => {
           update: catalogData,
         });
 
-        // Create ServicePricing
         if (service.pricing) {
           await createServicePricing(catalog.id, service.pricing);
         }
@@ -672,74 +636,88 @@ export const seedCoreData = async (force: boolean = false) => {
     }
     console.log(`✅ ${serviceCatalogEntries.length} service catalog entries with pricing configured`);
 
-    // =============== 11. STOCK ITEMS ===============
+    // =============== 12. STOCK ITEMS (Medications & Consumables) ===============
+    // ✅ PRESERVED: All original stock files
     const stockFiles = ['medications1.json', 'medications2.json', 'medications3.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
 
     for (const file of stockFiles) {
-      try {
-        const items = readJSON(file);
-        if (!items || !Array.isArray(items)) continue;
-        
-        const isMedication = !file.includes('consumables');
-        
-        for (const item of items) {
-          if (!item.drugCode) continue;
-          
-          try {
-            const stockData = addSchemaDefaults({
-              ...item,
-              isMedication,
-            }, 'stockItem');
-
-            const stockItem = await prisma.stockItem.upsert({
-              where: { drugCode: item.drugCode },
-              create: stockData,
-              update: stockData,
-            });
-
-            // Create ServiceCatalog + ServicePricing for this stock item
-            const serviceCode = `MED-${item.drugCode}`;
-            const serviceCatalogData = addSchemaDefaults({
-              name: item.name?.trim() || 'Unknown Medication',
-              code: serviceCode,
-              serviceType: ServiceType.medication,
-              serviceCategory: ServiceCategory.pharmacy,
-              subType: item.category || 'medication',
-              nhisServiceCode: item.drugCode,
-              stockItemId: stockItem.id,
-              metadata: { strength: item.strength, unitOfMeasure: item.unitOfMeasure },
-              createdById: adminId,
-            }, 'serviceCatalog');
-
-            const catalog = await prisma.serviceCatalog.upsert({
-              where: { code: serviceCode },
-              create: serviceCatalogData,
-              update: serviceCatalogData,
-            });
-
-            // Create pricing from item data
-            await createServicePricing(catalog.id, {
-              cashPrice: item.cashPrice ?? item.sellingPrice ?? item.unitPrice ?? 10,
-              nhisPrice: item.nhisPrice ?? item.insurancePrice ?? item.unitPrice ?? 5,
-              insurancePrice: item.insurancePrice ?? item.unitPrice ?? 8,
-            });
-
-            totalStockProcessed++;
-          } catch (error: any) {
-            console.error(`❌ Stock item ${item.drugCode}:`, error.message);
-          }
-        }
-        console.log(`✅ Processed ${file}`);
-      } catch (error: any) {
-        console.error(`❌ Error processing ${file}:`, error.message);
+      const items = readJSON(file);
+      if (!items || !Array.isArray(items)) {
+        console.warn(`⚠️ No items found in ${file}, skipping...`);
+        continue;
       }
-    }
-    console.log(`✅ ${totalStockProcessed} stock items with service catalog entries configured`);
+      
+      const isMedication = !file.includes('consumables');
+      console.log(`📦 Processing ${file} (${isMedication ? 'Medication' : 'Consumable'}) with ${items.length} items`);
+      
+      for (const item of items) {
+        if (!item.drugCode) {
+          console.warn(`⚠️ Skipping item without drugCode in ${file}`);
+          continue;
+        }
+        
+        try {
+          // ✅ Set default quantities if not provided
+          const stockData = addSchemaDefaults({
+            ...item,
+            isMedication,
+            // Default quantities for stock items
+            currentStock: item.currentStock ?? Math.floor(Math.random() * 500) + 100, // Random 100-600
+            reorderLevel: item.reorderLevel ?? 50,
+            costPrice: item.costPrice ?? item.unitPrice ?? Math.floor(Math.random() * 100) + 10,
+          }, 'stockItem');
 
-    // =============== 12. WARDS & BEDS ===============
+          const stockItem = await prisma.stockItem.upsert({
+            where: { drugCode: item.drugCode },
+            create: stockData,
+            update: stockData,
+          });
+
+          // Create ServiceCatalog entry for this stock item
+          const serviceCode = `MED-${item.drugCode}`;
+          const pricing = pricingConfig.medications?.[item.drugCode] || { 
+            cashPrice: item.cashPrice ?? item.sellingPrice ?? item.unitPrice ?? 50,
+            nhisPrice: item.nhisPrice ?? item.insurancePrice ?? (item.unitPrice ?? 50) * 0.7,
+            insurancePrice: item.insurancePrice ?? item.unitPrice ?? 45,
+          };
+
+          const serviceCatalogData = addSchemaDefaults({
+            name: item.name?.trim() || 'Unknown Medication',
+            code: serviceCode,
+            serviceType: ServiceType.medication,
+            serviceCategory: ServiceCategory.pharmacy,
+            subType: item.category || (isMedication ? 'medication' : 'consumable'),
+            nhisServiceCode: item.drugCode,
+            stockItemId: stockItem.id,
+            metadata: { strength: item.strength || 'N/A', unitOfMeasure: item.unitOfMeasure || 'units' },
+            createdById: adminId,
+            isActive: true,
+          }, 'serviceCatalog');
+
+          const catalog = await prisma.serviceCatalog.upsert({
+            where: { code: serviceCode },
+            create: serviceCatalogData,
+            update: serviceCatalogData,
+          });
+
+          await createServicePricing(catalog.id, pricing);
+          totalStockProcessed++;
+          
+          if (totalStockProcessed % 50 === 0) {
+            console.log(`📊 Processed ${totalStockProcessed} stock items so far...`);
+          }
+        } catch (error: any) {
+          console.error(`❌ Stock item ${item.drugCode}:`, error.message);
+        }
+      }
+      console.log(`✅ Completed ${file} - ${items.length} items processed`);
+    }
+    console.log(`✅ TOTAL: ${totalStockProcessed} stock items with service catalog entries configured`);
+
+    // =============== 13. WARDS & BEDS ===============
     const wardsData = readJSON('wards.json');
-    const existingWardCount = await prisma.ward.count().catch(() => 0);
+    const existingWardCount = await prisma.ward.count();
     
     if (existingWardCount === 0) {
       const defaultWards = [
@@ -747,6 +725,7 @@ export const seedCoreData = async (force: boolean = false) => {
         { wardName: 'Maternity Ward', wardType: 'maternity', totalBeds: 12, dailyCashRate: 120, dailyNHISRate: 60, dailyInsuranceRate: 100 },
         { wardName: 'ICU', wardType: 'icu', totalBeds: 6, dailyCashRate: 500, dailyNHISRate: 300, dailyInsuranceRate: 450 },
         { wardName: 'Pediatric Ward', wardType: 'pediatric', totalBeds: 15, dailyCashRate: 80, dailyNHISRate: 40, dailyInsuranceRate: 70 },
+        { wardName: 'Surgical Ward', wardType: 'surgical', totalBeds: 18, dailyCashRate: 150, dailyNHISRate: 80, dailyInsuranceRate: 130 },
       ];
 
       const wardsToCreate = Array.isArray(wardsData) ? wardsData : defaultWards;
@@ -759,13 +738,19 @@ export const seedCoreData = async (force: boolean = false) => {
           // Create beds
           const beds = Array.from({ length: ward.totalBeds || 10 }, (_, i) => ({
             wardId: createdWard.id,
-            bedNumber: `${ward.wardName.substring(0, 2).toUpperCase()}-${i + 1}`,
+            bedNumber: `${ward.wardName.substring(0, 3).toUpperCase()}-${(i + 1).toString().padStart(2, '0')}`,
             isOccupied: false,
           }));
           await prisma.bed.createMany({ data: beds });
 
           // Create ServiceCatalog + ServicePricing for ward
-          const serviceCode = `WARD-${ward.wardName.replace(/\s+/g, '-').toUpperCase()}`;
+          const serviceCode = `WARD-${ward.wardName.replace(/\s+/g, '_').toUpperCase()}`;
+          const pricing = {
+            cashPrice: ward.dailyCashRate ?? ward.cashPrice ?? ward.cashDailyRate ?? 100,
+            nhisPrice: ward.dailyNHISRate ?? ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
+            insurancePrice: ward.dailyInsuranceRate ?? ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
+          };
+
           const serviceCatalogData = addSchemaDefaults({
             name: `${ward.wardName} - Daily Rate`,
             code: serviceCode,
@@ -776,6 +761,7 @@ export const seedCoreData = async (force: boolean = false) => {
             unit: 'Day',
             metadata: { wardType: ward.wardType, totalBeds: ward.totalBeds },
             createdById: adminId,
+            isActive: true,
           }, 'serviceCatalog');
 
           const catalog = await prisma.serviceCatalog.upsert({
@@ -784,12 +770,8 @@ export const seedCoreData = async (force: boolean = false) => {
             update: serviceCatalogData,
           });
 
-          await createServicePricing(catalog.id, {
-            cashPrice: ward.dailyCashRate ?? ward.cashPrice ?? ward.cashDailyRate ?? 100,
-            nhisPrice: ward.dailyNHISRate ?? ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
-            insurancePrice: ward.dailyInsuranceRate ?? ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
-          });
-
+          await createServicePricing(catalog.id, pricing);
+          console.log(`✅ Created ward: ${ward.wardName} with ${ward.totalBeds} beds`);
         } catch (error: any) {
           console.error(`❌ Error creating ward ${ward.wardName}:`, error.message);
         }
@@ -801,11 +783,7 @@ export const seedCoreData = async (force: boolean = false) => {
 
     console.log('🎉 Core data seeding completed successfully!');
     
-    return {
-      success: true,
-      message: 'Core data seeded successfully',
-      preservedPatientData: hasPatients
-    };
+    return { success: true, message: 'Core data seeded successfully' };
 
   } catch (error: any) {
     console.error('❌ Core data seeding failed:', error);

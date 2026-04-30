@@ -1,34 +1,33 @@
-// routes/ghsReportRoutes.ts
+// routes/reportRoutes.ts
 import express from 'express';
-import { protect, requireAccountsStaff } from '../middleware/authMiddleware';
 import {
-  generateOPDReport,
-  generateIPDReport,
-  generateIDSRReport,
-  generateMalariaReport,
-  generateANCReport,
-  generateDeliveryReport,
-  getReportSubmissions,
-  getReportById,
-  exportReportToCSV
-} from '../controllers/ghsReportController';
+  getFinancialReport,
+  getInsuranceClaimsReport,
+  getClinicalReport,
+  getAttendanceReport,
+  getRevenueReport,
+  exportReport,
+  getFamilyPlanningReport,
+  getDemographicReport,
+  getMorbidityMortalityReport,  // ✅ ADD THIS
+} from '../controllers/reportController';
+import { protect, requireRole } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 router.use(protect);
-router.use(requireAccountsStaff);
 
-// Reports
-router.get('/opd', generateOPDReport);
-router.get('/ipd', generateIPDReport);
-router.get('/idsr', generateIDSRReport);
-router.get('/malaria', generateMalariaReport);
-router.get('/anc', generateANCReport);
-router.get('/delivery', generateDeliveryReport);
+// GHS Reports
+router.get('/family-planning', requireRole(['admin', 'doctor']), getFamilyPlanningReport);
+router.get('/demographic', requireRole(['admin', 'doctor']), getDemographicReport);
+router.get('/morbidity-mortality', requireRole(['admin', 'doctor']), getMorbidityMortalityReport);  // ✅ ADD THIS
 
-// Submissions
-router.get('/submissions', getReportSubmissions);
-router.get('/submissions/:id', getReportById);
-router.get('/submissions/:id/export', exportReportToCSV);
+// Existing routes
+router.get('/financial', requireRole(['admin', 'accounts']), getFinancialReport);
+router.get('/insurance-claims', requireRole(['admin', 'accounts']), getInsuranceClaimsReport);
+router.get('/clinical', requireRole(['admin', 'doctor']), getClinicalReport);
+router.get('/attendance', requireRole(['admin', 'doctor']), getAttendanceReport);
+router.get('/revenue', requireRole(['admin', 'accounts']), getRevenueReport);
+router.post('/export', exportReport);
 
 export default router;

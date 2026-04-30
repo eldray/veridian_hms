@@ -247,24 +247,24 @@ export const generateClaimDraft = [
           return existingClaim;
         }
 
+        // ✅ CORRECTED: Use lowercase relation names
         const attendance = await tx.attendance.findUnique({
           where: { id: attendanceId },
           include: {
-            Patient: {
+            Patient: { 
               include: {
                 InsuranceProvider: true
               }
             },
             InsuranceProvider: true,
             Bill: true,
-            AttendanceDiagnosis: {
+            AttendanceDiagnosis: { 
               include: { 
-                Diagnosis: {
+                Diagnosis: { 
                   select: {
                     id: true,
                     name: true,
                     icdCode: true,
-                    gdrgCode: true
                   }
                 } 
               }
@@ -282,9 +282,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            LabTest: {
+            LabTest: {  // ✅ lowercase 'l', capital 'T'
               include: {
-                ServiceCatalog: {
+                ServiceCatalog: {  // ✅ lowercase 's', capital 'C'
                   select: {
                     id: true,
                     name: true,
@@ -325,9 +325,9 @@ export const generateClaimDraft = [
                 }
               }
             },
-            Scan: {
+            Scan: { 
               include: {
-                ServiceCatalog: {
+                ServiceCatalog: { 
                   select: {
                     id: true,
                     name: true,
@@ -345,16 +345,17 @@ export const generateClaimDraft = [
 
         const claimNumber = `CLM-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-        const diagnosisCodes = attendance.AttendanceDiagnosis
-          .map(d => d.Diagnosis?.icdCode)
+        // ✅ CORRECTED: Use lowercase relation names in mappings
+        const diagnosisCodes = attendance.attendanceDiagnosis
+          .map(d => d.diagnosis?.icdCode)
           .filter(Boolean) as string[];
 
-        const procedureCodes = attendance.Procedure
-          .map(p => p.ServiceCatalog?.nhisServiceCode)
+        const procedureCodes = attendance.procedure
+          .map(p => p.serviceCatalog?.nhisServiceCode)
           .filter(Boolean) as string[];
         
-        const labTestCodes = attendance.LabTest
-          .map(lt => lt.ServiceCatalog?.nhisServiceCode)
+        const labTestCodes = attendance.labTest
+          .map(lt => lt.serviceCatalog?.nhisServiceCode)
           .filter(Boolean) as string[];
         
         const medicationCodes = attendance.Medication
@@ -371,7 +372,9 @@ export const generateClaimDraft = [
           .filter(Boolean) as string[];
 
         const totalClaimAmount = attendance.Bill?.insuranceCovered || attendance.Bill?.totalAmount || 0;
-        const insuranceDetails = attendance.Patient.insuranceDetails as any;
+        
+        // ✅ CORRECTED: Use lowercase 'patient'
+        const insuranceDetails = attendance.Patient?.insuranceDetails as any;
         const insuranceNumber = insuranceDetails?.memberId || 'N/A';
         const attendanceCCC = attendance.nhisCCC || 'N/A';
 
@@ -444,7 +447,7 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: claimId },
       include: {
-        attendance: {
+        Attendance: {
           include: {
             AttendanceDiagnosis: {
               include: { Diagnosis: true }
@@ -476,21 +479,21 @@ export const getClaimDraft = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const insuranceDetails = claim.attendance?.Patient?.insuranceDetails as any;
+    const insuranceDetails = claim.Attendance?.patientId?.insuranceDetails as any;
     const insuranceNumber = insuranceDetails?.memberId || 'N/A';
-    const attendanceCCC = claim.attendance?.nhisCCC || 'N/A';
+    const attendanceCCC = claim.Attendance?.nhisCCC || 'N/A';
 
     res.json({
       success: true,
       data: {
         claim,
         insuranceData: { insuranceNumber, attendanceCCC },
-        diagnoses: claim.attendance?.AttendanceDiagnosis || [],
-        services: claim.attendance?.ServiceRendered || [],
-        labTests: claim.attendance?.LabTest || [],
-        medications: claim.attendance?.Medication || [],
-        procedures: claim.attendance?.Procedure || [],
-        scans: claim.attendance?.Scan || [],
+        diagnoses: claim.Attendance?.AttendanceDiagnosis || [],
+        services: claim.Attendance?.ServiceRendered || [],
+        labTests: claim.Attendance?.LabTest || [],
+        medications: claim.Attendance?.Medication || [],
+        procedures: claim.Attendance?.Procedure || [],
+        scans: claim.Attendance?.Scan || [],
         canEdit: claim.status === 'draft'
       }
     });
@@ -1220,7 +1223,7 @@ export const generatePrivateInsuranceClaim = [
             billId: attendance.Bill?.id,
             patientId: attendance.patientId,
             attendanceId: attendance.id,
-            insuranceProviderId: attendance.insuranceProviderId,
+            InsuranceProviderId: attendance.insuranceProviderId,
             totalClaimAmount,
             status: 'draft',
             createdById: req.user.id,

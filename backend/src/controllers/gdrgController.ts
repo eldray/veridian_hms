@@ -80,7 +80,7 @@ export const getGDRGByCode = async (req: AuthRequest, res: Response) => {
                 name: true,
                 icdCode: true,
                 morbidityGroup: true,
-                gdrgGroupCode: true
+                gdrgTariffDiagnoses: true
               }
             }
           }
@@ -139,7 +139,7 @@ export const lookupGDRGByAge = async (req: AuthRequest, res: Response) => {
     if (patientId) {
       const patient = await prisma.patient.findUnique({
         where: { id: patientId as string },
-        select: { dateOfBirth: true, gender: true, folderNumber: true }
+        select: { dateOfBirth: true, folderNumber: true }
       });
       
       if (patient) {
@@ -149,7 +149,6 @@ export const lookupGDRGByAge = async (req: AuthRequest, res: Response) => {
           id: patientId,
           ageInDays,
           ageInYears: Math.floor(ageInDays / 365.25),
-          gender: patient.gender,
           folderNumber: patient.folderNumber
         };
       }
@@ -170,17 +169,18 @@ export const lookupGDRGByAge = async (req: AuthRequest, res: Response) => {
 
     // Apply age filter if age is known
     if (ageInDays !== undefined) {
+      const ageInYearsNum = Math.floor(ageInDays / 365);
       where.AND = [
         {
           OR: [
             { minAgeYears: null },
-            { minAgeYears: { lte: Math.floor(ageInDays / 365) } }
+            { minAgeYears: { lte: ageInYearsNum } }
           ]
         },
         {
           OR: [
             { maxAgeYears: null },
-            { maxAgeYears: { gte: Math.floor(ageInDays / 365) } }
+            { maxAgeYears: { gte: ageInYearsNum } }
           ]
         }
       ];
@@ -191,21 +191,6 @@ export const lookupGDRGByAge = async (req: AuthRequest, res: Response) => {
       orderBy: { effectiveFrom: 'desc' }
     });
 
-    // Check for gender-specific tariff if patient gender known
-    let genderTariff = null;
-    if (patientInfo?.gender && tariff?.genderApplicability && tariff.genderApplicability !== patientInfo.gender) {
-      const genderWhere = {
-        ...where,
-        genderApplicability: patientInfo.gender as any
-      };
-      genderTariff = await prisma.gDRGTariff.findFirst({
-        where: genderWhere,
-        orderBy: { effectiveFrom: 'desc' }
-      });
-    }
-
-    const matchedTariff = genderTariff || tariff;
-
     // Determine age split (A for Adult >=12, C for Child <12)
     const patientAge = ageInDays ? Math.floor(ageInDays / 365) : null;
     const ageSplit = patientAge !== null && patientAge < 12 ? 'C' : 'A';
@@ -215,9 +200,9 @@ export const lookupGDRGByAge = async (req: AuthRequest, res: Response) => {
       data: {
         gdrgCode: gdrgCode as string,
         patient: patientInfo,
-        tariff: matchedTariff || null,
+        tariff: tariff || null,
         ageSplit,
-        message: matchedTariff ? 'Tariff found' : 'No matching tariff found for this age/gender'
+        message: tariff ? 'Tariff found' : 'No matching tariff found for this age'
       }
     });
   } catch (error) {

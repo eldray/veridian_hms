@@ -1,4 +1,4 @@
-// controllers/requisitionController.ts - SIMPLIFIED
+// controllers/requisitionController.ts - COMPLETE FIXED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
@@ -22,26 +22,28 @@ export const getRequisitions = async (req: Request, res: Response) => {
       prisma.requisition.findMany({
         where,
         include: {
-          requestingDepartment: {
-            select: { name: true }
+          departments: {
+            select: { name: true, id: true }
           },
-          requestedBy: {
+          User_Requisition_requestedByIdToUser: {
+            select: { fullName: true, role: true, id: true }
+          },
+          User_Requisition_approvedByIdToUser: {
             select: { fullName: true, role: true }
           },
-          approvedBy: {
-            select: { fullName: true }
+          User_Requisition_fulfilledByIdToUser: {
+            select: { fullName: true, role: true }
           },
-          fulfilledBy: {
-            select: { fullName: true }
-          },
-          requisitionItems: {
+          RequisitionItem: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
+                  id: true,
                   name: true,
                   drugCode: true,
                   unitOfMeasure: true,
-                  currentStock: true
+                  currentStock: true,
+                  reorderLevel: true
                 }
               }
             }
@@ -80,27 +82,29 @@ export const getRequisitionById = async (req: Request, res: Response) => {
     const requisition = await prisma.requisition.findUnique({
       where: { id },
       include: {
-        requestingDepartment: {
-          select: { name: true }
+        departments: {
+          select: { name: true, id: true }
         },
-        requestedBy: {
+        User_Requisition_requestedByIdToUser: {
+          select: { fullName: true, role: true, username: true }
+        },
+        User_Requisition_approvedByIdToUser: {
           select: { fullName: true, role: true }
         },
-        approvedBy: {
-          select: { fullName: true }
+        User_Requisition_fulfilledByIdToUser: {
+          select: { fullName: true, role: true }
         },
-        fulfilledBy: {
-          select: { fullName: true }
-        },
-        requisitionItems: {
+        RequisitionItem: {
           include: {
-            stockItem: {
+            StockItem: {
               select: {
+                id: true,
                 name: true,
                 drugCode: true,
                 unitOfMeasure: true,
                 currentStock: true,
-                reorderLevel: true
+                reorderLevel: true,
+                costPrice: true
               }
             }
           }
@@ -154,25 +158,25 @@ export const createRequisition = [
         data: {
           requisitionNumber,
           requestingDepartmentId,
-          purpose,
+          purpose: purpose || null,
           urgency,
           requiredDate: requiredDate ? new Date(requiredDate) : null,
-          notes,
+          notes: notes || null,
           requestedById: (req as any).user?.id,
           status: 'draft',
-          requisitionItems: {
+          RequisitionItem: {
             create: requisitionItems.map((item: any) => ({
               stockItemId: item.stockItemId,
               quantityRequested: parseInt(item.quantityRequested),
-              purpose: item.purpose,
-              notes: item.notes
+              purpose: item.purpose || null,
+              notes: item.notes || null
             }))
           }
         },
         include: {
-          requisitionItems: {
+          RequisitionItem: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true,
@@ -180,6 +184,12 @@ export const createRequisition = [
                 }
               }
             }
+          },
+          departments: {
+            select: { name: true }
+          },
+          User_Requisition_requestedByIdToUser: {
+            select: { fullName: true }
           }
         }
       });
@@ -198,139 +208,6 @@ export const createRequisition = [
   }
 ];
 
-// UPDATE REQUISITION
-export const updateRequisition = [
-  body('purpose').optional().isString(),
-  body('urgency').optional().isIn(['routine', 'urgent', 'emergency']).withMessage('Valid urgency is required'),
-  body('requiredDate').optional().isISO8601(),
-  body('requisitionItems').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
-
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { id } = req.params;
-      const { purpose, urgency, requiredDate, notes, requisitionItems } = req.body;
-
-      // Check if requisition exists and is in draft status
-      const existingRequisition = await prisma.requisition.findUnique({
-        where: { id }
-      });
-
-      if (!existingRequisition) {
-        return res.status(404).json({ message: 'Requisition not found' });
-      }
-
-      if (existingRequisition.status !== 'draft') {
-        return res.status(400).json({ 
-          message: 'Only draft requisitions can be updated' 
-        });
-      }
-
-      const updateData: any = {
-        purpose,
-        urgency,
-        notes,
-        updatedAt: new Date()
-      };
-
-      if (requiredDate) {
-        updateData.requiredDate = new Date(requiredDate);
-      }
-
-      // Handle requisition items update if provided
-      if (requisitionItems) {
-        // Delete existing items and create new ones
-        await prisma.requisitionItem.deleteMany({
-          where: { requisitionId: id }
-        });
-
-        updateData.requisitionItems = {
-          create: requisitionItems.map((item: any) => ({
-            stockItemId: item.stockItemId,
-            quantityRequested: parseInt(item.quantityRequested),
-            purpose: item.purpose,
-            notes: item.notes
-          }))
-        };
-      }
-
-      const requisition = await prisma.requisition.update({
-        where: { id },
-        data: updateData,
-        include: {
-          requisitionItems: {
-            include: {
-              stockItem: {
-                select: {
-                  name: true,
-                  drugCode: true,
-                  unitOfMeasure: true
-                }
-              }
-            }
-          }
-        }
-      });
-
-      res.json({
-        message: 'Requisition updated successfully',
-        requisition
-      });
-    } catch (error) {
-      console.error('Error updating requisition:', error);
-      res.status(500).json({ 
-        message: 'Error updating requisition', 
-        error: (error as Error).message 
-      });
-    }
-  }
-];
-
-// DELETE REQUISITION
-export const deleteRequisition = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    // Check if requisition exists and is in draft status
-    const existingRequisition = await prisma.requisition.findUnique({
-      where: { id }
-    });
-
-    if (!existingRequisition) {
-      return res.status(404).json({ message: 'Requisition not found' });
-    }
-
-    if (existingRequisition.status !== 'draft') {
-      return res.status(400).json({ 
-        message: 'Only draft requisitions can be deleted' 
-      });
-    }
-
-    await prisma.requisition.delete({
-      where: { id }
-    });
-
-    res.json({ 
-      message: 'Requisition deleted successfully',
-      deletedRequisition: {
-        id: existingRequisition.id,
-        requisitionNumber: existingRequisition.requisitionNumber,
-        status: existingRequisition.status
-      }
-    });
-  } catch (error) {
-    console.error('Error deleting requisition:', error);
-    res.status(500).json({ 
-      message: 'Error deleting requisition', 
-      error: (error as Error).message 
-    });
-  }
-};
-
 // UPDATE REQUISITION STATUS
 export const updateRequisitionStatus = [
   body('status').isIn(['draft', 'submitted', 'approved', 'fulfilled', 'cancelled']).withMessage('Valid status is required'),
@@ -346,7 +223,6 @@ export const updateRequisitionStatus = [
       const { id } = req.params;
       const { status, notes } = req.body;
 
-      // Check if requisition exists
       const existingRequisition = await prisma.requisition.findUnique({
         where: { id }
       });
@@ -360,14 +236,12 @@ export const updateRequisitionStatus = [
         updatedAt: new Date()
       };
 
-      // Set approvedBy and approvedAt if status is approved
-      if (status === 'approved') {
+      if (status === 'submitted') {
+        // No additional fields needed
+      } else if (status === 'approved') {
         updateData.approvedById = (req as any).user?.id;
         updateData.approvedAt = new Date();
-      }
-
-      // Set fulfilledBy and fulfilledAt if status is fulfilled (though not in our status list)
-      if (status === 'fulfilled') {
+      } else if (status === 'fulfilled') {
         updateData.fulfilledById = (req as any).user?.id;
         updateData.fulfilledAt = new Date();
       }
@@ -380,18 +254,18 @@ export const updateRequisitionStatus = [
         where: { id },
         data: updateData,
         include: {
-          requestingDepartment: {
+          departments: {
             select: { name: true }
           },
-          requestedBy: {
+          User_Requisition_requestedByIdToUser: {
             select: { fullName: true }
           },
-          approvedBy: {
+          User_Requisition_approvedByIdToUser: {
             select: { fullName: true }
           },
-          requisitionItems: {
+          RequisitionItem: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true,
@@ -417,7 +291,48 @@ export const updateRequisitionStatus = [
   }
 ];
 
-// APPROVE REQUISITION ITEMS (Set approved quantities)
+// DELETE REQUISITION
+export const deleteRequisition = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existingRequisition = await prisma.requisition.findUnique({
+      where: { id }
+    });
+
+    if (!existingRequisition) {
+      return res.status(404).json({ message: 'Requisition not found' });
+    }
+
+    if (existingRequisition.status !== 'draft') {
+      return res.status(400).json({ 
+        message: 'Only draft requisitions can be deleted' 
+      });
+    }
+
+    // Delete requisition items first
+    await prisma.requisitionItem.deleteMany({
+      where: { requisitionId: id }
+    });
+
+    // Then delete requisition
+    await prisma.requisition.delete({
+      where: { id }
+    });
+
+    res.json({ 
+      message: 'Requisition deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting requisition:', error);
+    res.status(500).json({ 
+      message: 'Error deleting requisition', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// APPROVE REQUISITION ITEMS
 export const approveRequisitionItems = [
   body('approvedItems').isArray({ min: 1 }).withMessage('At least one approved item is required'),
   body('approvedItems.*.requisitionItemId').notEmpty().withMessage('Requisition item ID is required'),
@@ -434,7 +349,6 @@ export const approveRequisitionItems = [
       const { approvedItems } = req.body;
 
       const result = await prisma.$transaction(async (tx) => {
-        // Check if requisition exists and is submitted
         const requisition = await tx.requisition.findUnique({
           where: { id }
         });
@@ -447,18 +361,16 @@ export const approveRequisitionItems = [
           throw new Error('Only submitted requisitions can be approved');
         }
 
-        // Update each requisition item with approved quantity
         for (const item of approvedItems) {
           await tx.requisitionItem.update({
             where: { id: item.requisitionItemId },
             data: {
               quantityApproved: parseInt(item.quantityApproved),
-              notes: item.notes
+              notes: item.notes || null
             }
           });
         }
 
-        // Update requisition status to approved
         const updatedRequisition = await tx.requisition.update({
           where: { id },
           data: {
@@ -467,9 +379,9 @@ export const approveRequisitionItems = [
             approvedAt: new Date()
           },
           include: {
-            requisitionItems: {
+            RequisitionItem: {
               include: {
-                stockItem: {
+                StockItem: {
                   select: {
                     name: true,
                     drugCode: true,
@@ -492,6 +404,76 @@ export const approveRequisitionItems = [
       console.error('Error approving requisition items:', error);
       res.status(500).json({ 
         message: 'Error approving requisition items', 
+        error: (error as Error).message 
+      });
+    }
+  }
+];
+
+// UPDATE REQUISITION (Basic info only)
+export const updateRequisition = [
+  body('purpose').optional().isString(),
+  body('urgency').optional().isIn(['routine', 'urgent', 'emergency']),
+  body('notes').optional().isString(),
+
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { id } = req.params;
+      const { purpose, urgency, notes } = req.body;
+
+      const existingRequisition = await prisma.requisition.findUnique({
+        where: { id }
+      });
+
+      if (!existingRequisition) {
+        return res.status(404).json({ message: 'Requisition not found' });
+      }
+
+      if (existingRequisition.status !== 'draft') {
+        return res.status(400).json({ 
+          message: 'Only draft requisitions can be updated' 
+        });
+      }
+
+      const requisition = await prisma.requisition.update({
+        where: { id },
+        data: {
+          purpose: purpose !== undefined ? purpose : existingRequisition.purpose,
+          urgency: urgency || existingRequisition.urgency,
+          notes: notes !== undefined ? notes : existingRequisition.notes,
+          updatedAt: new Date()
+        },
+        include: {
+          departments: {
+            select: { name: true }
+          },
+          RequisitionItem: {
+            include: {
+              StockItem: {
+                select: {
+                  name: true,
+                  drugCode: true,
+                  unitOfMeasure: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      res.json({
+        message: 'Requisition updated successfully',
+        requisition
+      });
+    } catch (error) {
+      console.error('Error updating requisition:', error);
+      res.status(500).json({ 
+        message: 'Error updating requisition', 
         error: (error as Error).message 
       });
     }

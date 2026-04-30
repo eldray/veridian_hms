@@ -33,7 +33,7 @@ export const getStockTransactions = async (req: Request, res: Response) => {
       prisma.stockTransaction.findMany({
         where,
         include: {
-          stockItem: {
+          StockItem: {
             select: {
               name: true,
               drugCode: true,
@@ -43,13 +43,13 @@ export const getStockTransactions = async (req: Request, res: Response) => {
             }
           },
           // ✅ ADDED: Include related entities
-          requisition: {
+          Requisition: {
             select: {
               requisitionNumber: true,
               status: true
             }
           },
-          invoice: {
+          Invoice: {
             select: {
               invoiceNumber: true,
               supplierName: true
@@ -86,7 +86,7 @@ export const getStockTransactionById = async (req: Request, res: Response) => {
     const transaction = await prisma.stockTransaction.findUnique({
       where: { id: req.params.id },
       include: {
-        stockItem: {
+        StockItem: {
           select: {
             name: true,
             drugCode: true,
@@ -97,18 +97,18 @@ export const getStockTransactionById = async (req: Request, res: Response) => {
           }
         },
         // ✅ ADDED: Include related entities
-        requisition: {
+        Requisition: {
           select: {
             requisitionNumber: true,
             status: true,
-            requestingDepartment: {
+            departments: {
               select: {
                 name: true
               }
             }
           }
         },
-        invoice: {
+        Invoice: {
           select: {
             invoiceNumber: true,
             supplierName: true,
@@ -230,7 +230,7 @@ export const createStockTransaction = [
             performedBy: (req as any).user?.id || 'system'
           },
           include: {
-            stockItem: {
+            StockItem: {
               select: {
                 name: true,
                 drugCode: true,
@@ -283,7 +283,7 @@ export const updateStockTransaction = [
           updatedAt: new Date()
         },
         include: {
-          stockItem: {
+          StockItem: {
             select: {
               name: true,
               drugCode: true,
@@ -337,7 +337,7 @@ export const getStockMovementReport = async (req: Request, res: Response) => {
     const transactions = await prisma.stockTransaction.findMany({
       where,
       include: {
-        stockItem: {
+        StockItem: {
           select: {
             name: true,
             category: true,
@@ -447,20 +447,20 @@ export const getStockItemTransactionHistory = async (req: Request, res: Response
       prisma.stockTransaction.findMany({
         where: { stockItemId },
         include: {
-          stockItem: {
+          StockItem: {
             select: {
               name: true,
               drugCode: true,
               unitOfMeasure: true
             }
           },
-          requisition: {
+          Requisition: {
             select: {
               requisitionNumber: true,
               status: true
             }
           },
-          invoice: {
+          Invoice: {
             select: {
               invoiceNumber: true,
               supplierName: true
@@ -517,9 +517,9 @@ export const createRequisitionTransaction = [
         const requisition = await tx.requisition.findUnique({
           where: { id: requisitionId },
           include: {
-            requisitionItems: {
+            RequisitionItem: {
               include: {
-                stockItem: true
+                StockItem: true
               }
             }
           }
@@ -536,11 +536,11 @@ export const createRequisitionTransaction = [
         const transactions = [];
 
         // Create transactions for each requisition item
-        for (const item of requisition.requisitionItems) {
+        for (const item of requisition.RequisitionItem) {
           const quantityToFulfill = item.quantityApproved || item.quantityRequested;
           
-          if (item.stockItem.currentStock < quantityToFulfill) {
-            throw new Error(`Insufficient stock for ${item.stockItem.name}. Available: ${item.stockItem.currentStock}, Required: ${quantityToFulfill}`);
+          if (item.StockItem.currentStock < quantityToFulfill) {
+            throw new Error(`Insufficient stock for ${item.StockItem.name}. Available: ${item.StockItem.currentStock}, Required: ${quantityToFulfill}`);
           }
 
           // Create transaction
@@ -549,7 +549,7 @@ export const createRequisitionTransaction = [
               stockItemId: item.stockItemId,
               transactionType: 'requisition',
               quantity: quantityToFulfill,
-              balanceAfter: item.stockItem.currentStock - quantityToFulfill,
+              balanceAfter: item.StockItem.currentStock - quantityToFulfill,
               reference: requisition.requisitionNumber,
               notes: `Requisition fulfillment for ${requisition.requisitionNumber}`,
               requisitionId: requisition.id,

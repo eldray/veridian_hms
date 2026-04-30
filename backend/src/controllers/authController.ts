@@ -4,8 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { AuthRequest, UserRole } from '../middleware/authMiddleware';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 // Valid user roles from Prisma schema
 const VALID_ROLES: UserRole[] = [

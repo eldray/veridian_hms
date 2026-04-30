@@ -18,94 +18,30 @@ const handleError = (res: Response, message: string, error: any, statusCode = 50
 // ============================================
 // GET ALL DIAGNOSES
 // ============================================
-export const getDiagnoses = async (req: AuthRequest, res: Response) => {
-  try {
-    const {
-      page = 1,
-      limit = 50,
-      search = '',
-      morbidityGroup,
-      gdrgCode,
-      isActive
-    } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
-    const skip = (pageNum - 1) * limitNum;
-
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { icdCode: { contains: search as string, mode: 'insensitive' } },
-        { gdrgGroupCode: { contains: search as string, mode: 'insensitive' } },
-        { description: { contains: search as string, mode: 'insensitive' } }
-      ];
+export const getDiagnoses = async (req: Request, res: Response) => {
+  const { page = 1, limit = 10000 } = req.query;  // ← High default limit
+  const take = Math.min(parseInt(limit as string), 10000); // Max 10000
+  const skip = (parseInt(page as string) - 1) * take;
+  
+  const [diagnoses, total] = await Promise.all([
+    prisma.diagnosis.findMany({
+      skip,
+      take,  // ← Use the limit from query
+      orderBy: { name: 'asc' }
+    }),
+    prisma.diagnosis.count()
+  ]);
+  
+  res.json({
+    success: true,
+    data: diagnoses,
+    pagination: {
+      page: parseInt(page as string),
+      limit: take,
+      total,  // ← This should be 190
+      pages: Math.ceil(total / take)
     }
-
-    if (morbidityGroup) {
-      where.morbidityGroup = morbidityGroup as MorbidityGroup;
-    }
-
-    if (gdrgCode) {
-      where.gdrgGroupCode = gdrgCode as string;
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
-    }
-
-    const [diagnoses, total] = await Promise.all([
-      prisma.diagnosis.findMany({
-        where,
-        include: {
-          // ✅ CORRECT: Use junction table relation
-          gdrgTariffDiagnoses: {
-            include: {
-              gdrgTariff: {
-                select: {
-                  id: true,
-                  gdrgCode: true,
-                  mdc: true,
-                  description: true,
-                  nhiaTariff: true,
-                  ageSplit: true,
-                  isActive: true
-                }
-              }
-            }
-          },
-          _count: {
-            select: {
-              Admission: true,
-              AdmissionSecondaryDiagnosis: true,
-              AttendanceDiagnosis: true,
-              ServiceCatalog: true
-            }
-          }
-        },
-        orderBy: { name: 'asc' },
-        skip,
-        take: limitNum
-      }),
-      prisma.diagnosis.count({ where })
-    ]);
-
-    res.json({
-      success: true,
-      data: diagnoses,
-      pagination: {
-        currentPage: pageNum,
-        totalPages: Math.ceil(total / limitNum),
-        totalDiagnoses: total,
-        hasNext: pageNum < Math.ceil(total / limitNum),
-        hasPrev: pageNum > 1
-      }
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching diagnoses', error);
-  }
+  });
 };
 
 // ============================================
@@ -131,7 +67,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
                 ageSplit: true,
                 minAgeYears: true,
                 maxAgeYears: true,
-                genderApplicability: true,
                 applicableLevels: true,
                 nhisServiceCode: true,
                 isZoomCode: true,
@@ -294,7 +229,7 @@ export const createDiagnosis = [
         data: {
           name: name.trim(),
           icdCode: icdCode.trim().toUpperCase(),
-          gdrgGroupCode: gdrgGroupCode ? gdrgGroupCode.trim().toUpperCase() : icdCode.trim().toUpperCase(),
+          gdrgTariffDiagnoses: gdrgGroupCode ? gdrgGroupCode.trim().toUpperCase() : icdCode.trim().toUpperCase(),
           morbidityGroup: morbidityGroup as MorbidityGroup,
           description: description?.trim(),
           requiresAuthorization: requiresAuthorization || false,
@@ -510,7 +445,7 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
         id: true,
         name: true,
         icdCode: true,
-        gdrgGroupCode: true,
+        gdrgTariffDiagnoses: true,
         morbidityGroup: true,
         description: true,
         isActive: true
@@ -616,7 +551,7 @@ export const getDiagnosesByMorbidityGroup = async (req: AuthRequest, res: Respon
           id: true,
           name: true,
           icdCode: true,
-          gdrgGroupCode: true,
+          gdrgTariffDiagnoses: true,
           description: true,
           isActive: true
         },

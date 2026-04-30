@@ -31,9 +31,9 @@ export const getInvoices = async (req: Request, res: Response) => {
       prisma.invoice.findMany({
         where,
         include: {
-          invoiceItems: {
+          InvoiceItem: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true,
@@ -42,9 +42,9 @@ export const getInvoices = async (req: Request, res: Response) => {
               }
             }
           },
-          stockTransactions: {
+          StockTransaction: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true
@@ -52,7 +52,7 @@ export const getInvoices = async (req: Request, res: Response) => {
               }
             }
           },
-          createdBy: {
+          User: {
             select: {
               fullName: true,
               username: true
@@ -92,9 +92,9 @@ export const getInvoiceById = async (req: Request, res: Response) => {
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
-        invoiceItems: {
+        InvoiceItem: {
           include: {
-            stockItem: {
+            StockItem: {
               select: {
                 name: true,
                 drugCode: true,
@@ -105,9 +105,9 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             }
           }
         },
-        stockTransactions: {
+        StockTransaction: {
           include: {
-            stockItem: {
+            StockItem: {
               select: {
                 name: true,
                 drugCode: true
@@ -115,7 +115,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             }
           }
         },
-        createdBy: {
+        User: {
           select: {
             fullName: true,
             username: true
@@ -237,9 +237,9 @@ export const createInvoice = [
         return await tx.invoice.findUnique({
           where: { id: invoice.id },
           include: {
-            invoiceItems: {
+            InvoiceItem: {
               include: {
-                stockItem: {
+                StockItem: {
                   select: {
                     name: true,
                     drugCode: true,
@@ -305,9 +305,9 @@ export const updateInvoice = [
         where: { id },
         data: updateData,
         include: {
-          invoiceItems: {
+          InvoiceItem: {
             include: {
-              stockItem: {
+              StockItem: {
                 select: {
                   name: true,
                   drugCode: true,

@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+// services/WardChargeService.ts - COMPLETE REWRITE
+import { PrismaClient, PaymentMode } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -15,7 +16,11 @@ export class WardChargeService {
         ]
       },
       include: {
-        attendance: true,
+        attendance: {
+          include: {
+            patient: true
+          }
+        },
         ward: true,
         bed: true
       }
@@ -25,39 +30,63 @@ export class WardChargeService {
 
     for (const admission of activeAdmissions) {
       // Check if charge already exists for this date
+      const startOfDay = new Date(targetDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(targetDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
       const existingCharge = await prisma.wardChargeRecord.findFirst({
         where: {
           attendanceId: admission.attendanceId!,
           chargeDate: {
-            gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-            lt: new Date(targetDate.setHours(23, 59, 59, 999))
+            gte: startOfDay,
+            lte: endOfDay
           }
         }
       });
 
       if (existingCharge) continue;
 
-      // Determine daily rate based on payment mode
+      // ✅ FIXED: Get pricing from ServiceCatalog linked to ward
+      const wardService = await prisma.serviceCatalog.findFirst({
+        where: {
+          wardId: admission.wardId,
+          serviceType: 'ward',
+          isActive: true
+        },
+        include: {
+          pricing: true
+        }
+      });
+
+      if (!wardService || !wardService.pricing) {
+        console.warn(`No service catalog pricing for ward ${admission.wardId}`);
+        continue;
+      }
+
+      const pricing = wardService.pricing;
+      const paymentMode = admission.attendance?.paymentMode || 'cash';
+      
       let dailyRate = 0;
       let nhisPrice = 0;
       let cashPrice = 0;
       let insurancePrice = 0;
 
-      switch (admission.attendance?.paymentMode) {
+      switch (paymentMode) {
         case 'nhis':
-          dailyRate = admission.ward.dailyNHISRate;
+          dailyRate = pricing.nhisPrice;
           nhisPrice = dailyRate;
           break;
         case 'private_insurance':
-          dailyRate = admission.ward.dailyInsuranceRate;
+          dailyRate = pricing.insurancePrice;
           insurancePrice = dailyRate;
           break;
         default:
-          dailyRate = admission.ward.dailyCashRate;
+          dailyRate = pricing.cashPrice;
           cashPrice = dailyRate;
       }
 
-      // Create ward charge record
       await prisma.wardChargeRecord.create({
         data: {
           attendanceId: admission.attendanceId!,
@@ -66,7 +95,7 @@ export class WardChargeService {
           bedId: admission.bedId,
           chargeDate: targetDate,
           dailyRate,
-          paymentMode: admission.attendance?.paymentMode || 'cash',
+          paymentMode: paymentMode as PaymentMode,
           nhisPrice,
           cashPrice,
           insurancePrice,
@@ -85,22 +114,16 @@ export class WardChargeService {
       where: {
         attendanceId,
         isBilled: false
-      },
-      include: {
-        attendance: {
-          include: {
-            bill: true
-          }
-        }
       }
     });
 
     for (const charge of unbilledCharges) {
-      // Create service rendered entry for this ward charge
+      // Find the ward service catalog entry
       const wardService = await prisma.serviceCatalog.findFirst({
-        where: { 
+        where: {
+          wardId: charge.wardId,
           serviceType: 'ward',
-          isActive: true 
+          isActive: true
         }
       });
 
@@ -111,8 +134,8 @@ export class WardChargeService {
             serviceItemId: wardService.id,
             quantity: 1,
             date: charge.chargeDate,
-            performedById: charge.attendance?.createdById || 'system',
-            notes: `Daily bed charge - Day ${charge.chargeDate.toISOString().split('T')[0]}`
+            performedById: 'system',
+            notes: `Daily bed charge for ${charge.chargeDate.toISOString().split('T')[0]}`
           }
         });
       }
@@ -124,5 +147,15 @@ export class WardChargeService {
     }
 
     return unbilledCharges.length;
+  }
+
+  static async getPendingWardCharges(admissionId: string) {
+    return await prisma.wardChargeRecord.findMany({
+      where: {
+        admissionId,
+        isBilled: false
+      },
+      orderBy: { chargeDate: 'asc' }
+    });
   }
 }

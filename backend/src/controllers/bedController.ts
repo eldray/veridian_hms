@@ -13,10 +13,10 @@ export const getBeds = async (req: Request, res: Response) => {
             id: true,
             wardName: true,
             wardType: true,
-            isActive: true // ✅ ADDED: Include ward active status
+            isPending: true // ✅ ADDED: Include ward active status
           }
         },
-        currentPatient: {
+        Patient: {
           select: {
             id: true,
             folderNumber: true,
@@ -55,7 +55,7 @@ export const getBedById = async (req: Request, res: Response) => {
             wardType: true
           }
         },
-        currentPatient: {
+        Patient: {
           select: {
             id: true,
             folderNumber: true,
@@ -168,7 +168,7 @@ export const updateBed = [
 
       const existingBed = await prisma.bed.findUnique({
         where: { id },
-        include: { ward: true }
+        include: { Ward: true }
       });
 
       if (!existingBed) {
@@ -226,7 +226,7 @@ export const deleteBed = async (req: Request, res: Response) => {
 
     const bed = await prisma.bed.findUnique({
       where: { id },
-      include: { ward: true }
+      include: { Ward: true }
     });
 
     if (!bed) {

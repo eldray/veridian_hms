@@ -1,8 +1,8 @@
 // controllers/admissionController.ts - UPDATED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { PrismaClient, AdmissionType } from '@prisma/client'; // ✅ ADDED AdmissionType
-const prisma = new PrismaClient();
+import { AdmissionType } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { NotificationService } from '../services/NotificationService';
 
 // ==============================
@@ -84,9 +84,9 @@ export const getAdmissions = async (req: Request, res: Response) => {
     // ✅ ADDED: Add fullName to patient objects
     const admissionsWithFullName = admissions.map(admission => ({
       ...admission,
-      patient: admission.patient ? {
-        ...admission.patient,
-        fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+      patient: admission.Patient ? {
+        ...admission.Patient,
+        fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim()
       } : null
     }));
 
@@ -143,7 +143,7 @@ export const createAdmission = [
         // Validate bed availability
         const bed = await tx.bed.findUnique({
           where: { id: bedId },
-          include: { ward: true }
+          include: { Ward: true }
         });
 
         if (!bed) throw new Error('Bed not found');
@@ -224,7 +224,7 @@ export const createAdmission = [
             createdBy: user.id, // ✅ UPDATED: user.id instead of (req as any).user?.id
           },
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -233,13 +233,13 @@ export const createAdmission = [
                 paymentMode: true
               }
             },
-            ward: {
+            Ward: {
               select: {
                 wardName: true,
                 wardType: true
               }
             },
-            bed: {
+            Bed: {
               select: {
                 bedNumber: true
               }
@@ -250,7 +250,7 @@ export const createAdmission = [
                 icdCode: true,
               }
             },
-            attendance: {
+            Attendance: {
               select: {
                 attendanceNumber: true,
                 dateTime: true
@@ -282,9 +282,9 @@ export const createAdmission = [
       // ✅ MODIFIED: Add fullName to the response
       const resultWithFullName = {
         ...result,
-        patient: result.patient ? {
-          ...result.patient,
-          fullName: `${result.patient.surname} ${result.patient.otherNames}`.trim()
+        patient: result.Patient ? {
+          ...result.Patient,
+          fullName: `${result.Patient.surname} ${result.Patient.otherNames}`.trim()
         } : null
       };
 
@@ -316,8 +316,6 @@ export const createAdmission = [
   }
 ];
 
-// ... other functions remain similar with field name updates ...
-
 // ==============================
 // GET ADMISSION BY ID - UPDATED
 // ==============================
@@ -336,7 +334,7 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             gender: true,
             dateOfBirth: true,
             paymentMode: true,
-            insuranceProvider: {
+            InsuranceProvider: {
               select: {
                 name: true,
                 type: true,
@@ -350,7 +348,6 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             id: true,
             wardName: true,
             wardType: true
-            // ✅ REMOVED: cashDailyRate, insuranceDailyRate (not in schema)
           }
         },
         Bed: {
@@ -360,7 +357,7 @@ export const getAdmissionById = async (req: Request, res: Response) => {
             isOccupied: true
           }
         },
-        Diagnosis: { // ✅ FIXED: Use "Diagnosis" not "principalDiagnosis"
+        Diagnosis: { 
           select: {
             name: true,
             icdCode: true,
@@ -402,9 +399,9 @@ export const getAdmissionById = async (req: Request, res: Response) => {
     // ✅ ADDED: Add fullName to patient
     const admissionWithFullName = {
       ...admission,
-      patient: admission.patient ? {
-        ...admission.patient,
-        fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+      patient: admission.Patient ? {
+        ...admission.Patient,
+        fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim()
       } : null
     };
 
@@ -500,11 +497,13 @@ export const updateAdmission = [
         // ✅ ADDED: Add fullName to response
         const resultWithFullName = {
           ...admission,
-          patient: admission.patient ? {
-            ...admission.patient,
-            fullName: `${admission.patient.surname} ${admission.patient.otherNames}`.trim()
+          patient: admission.Patient ? {
+            ...admission.Patient,
+            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim()
           } : null
         };
+
+        
 
         return resultWithFullName;
       });
@@ -575,8 +574,8 @@ export const deleteAdmission = async (req: Request, res: Response) => {
     });
 
     // ✅ ADDED: Calculate fullName for response
-    const patientFullName = admission.patient ? 
-      `${admission.patient.surname} ${admission.patient.otherNames}`.trim() : 
+    const patientFullName = admission.Patient ? 
+      `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim() : 
       'Unknown Patient';
 
     res.json({ 
@@ -654,7 +653,7 @@ export const updateAdmissionWithNHISData = [
           },
           Ward: true,
           Bed: true,
-          principalDiagnosis: true
+          Diagnosis: true
         }
       });
 
@@ -714,9 +713,9 @@ export const updateAdmissionWithNHISData = [
       // ✅ ADDED: Add fullName to response
       const admissionWithFullName = updatedAdmission ? {
         ...updatedAdmission,
-        patient: updatedAdmission.patient ? {
-          ...updatedAdmission.patient,
-          fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+        patient: updatedAdmission.Patient ? {
+          ...updatedAdmission.Patient,
+          fullName: `${updatedAdmission.Patient.surname} ${updatedAdmission.Patient.otherNames}`.trim()
         } : null
       } : null;
 
@@ -805,7 +804,7 @@ export const dischargePatient = [
             },
             Ward: true,
             Bed: true,
-            principalDiagnosis: true
+           Diagnosis: true
           }
         });
 
@@ -839,9 +838,9 @@ export const dischargePatient = [
         // ✅ ADDED: Add fullName to response
         const resultWithFullName = {
           ...updatedAdmission,
-          patient: updatedAdmission.patient ? {
-            ...updatedAdmission.patient,
-            fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+          patient: updatedAdmission.Patient ? {
+            ...updatedAdmission.Patient,
+            fullName: `${updatedAdmission.Patient.surname} ${updatedAdmission.Patient.otherNames}`.trim()
           } : null
         };
 
@@ -927,13 +926,13 @@ export const addDailyNotes = [
       });
 
       // ✅ ADDED: Add fullName to response
-      const admissionWithFullName = {
+      const admissionWithFullName = updatedAdmission ? {
         ...updatedAdmission,
-        Patient: updatedAdmission.patient ? {
-          ...updatedAdmission.patient,
-          fullName: `${updatedAdmission.patient.surname} ${updatedAdmission.patient.otherNames}`.trim()
+        patient: updatedAdmission.Patient ? {
+          ...updatedAdmission.Patient,
+          fullName: `${updatedAdmission.Patient.surname} ${updatedAdmission.Patient.otherNames}`.trim()
         } : null
-      };
+      } : null;
 
       res.json({
         message: 'Daily notes added successfully',
@@ -1056,7 +1055,7 @@ export const getAdmissionsByPatientId = async (req: Request, res: Response) => {
               bedNumber: true
             }
           },
-          principalDiagnosis: {
+          Diagnosis: {
             select: {
               name: true,
               icdCode: true

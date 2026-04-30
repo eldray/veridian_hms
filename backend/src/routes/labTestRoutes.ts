@@ -17,8 +17,6 @@ const router = express.Router();
 
 router.use(protect);
 
-// ✅ IMPORTANT: Static routes MUST come before dynamic /:id routes
-
 // GET /api/lab-test-services/categories - Get all lab test categories
 router.get('/categories', requireLabStaff, getLabServiceCategories);
 

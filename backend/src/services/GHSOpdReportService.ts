@@ -73,98 +73,132 @@ export class GHSOpdReportService {
     });
   }
 
-  static async generateOPDReport(startDate: Date, endDate: Date): Promise<OPDReport> {
-    // Initialize age group data
-    const ageGroups: Record<OPD_AgeGroup, OPD_AgeGroupData> = {} as any;
-    for (const ageGroup of this.AGE_GROUPS) {
-      ageGroups[ageGroup] = this.createEmptyAgeGroupData();
-    }
+// services/GHSOpdReportService.ts - CORRECTED
 
-    let totals = {
-      totalAttendances: 0,
-      insured: { male: 0, female: 0, total: 0 },
-      nonInsured: { male: 0, female: 0, total: 0 },
-      new: 0,
-      old: 0
-    };
+static async generateOPDReport(startDateParam: string | Date, endDateParam: string | Date): Promise<OPDReport> {
+  
+  // ✅ FIX: Convert string dates to Date objects if needed
+  let startDate: Date;
+  let endDate: Date;
+  
+  if (typeof startDateParam === 'string') {
+    startDate = new Date(startDateParam);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    startDate = startDateParam;
+  }
+  
+  if (typeof endDateParam === 'string') {
+    endDate = new Date(endDateParam);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    endDate = endDateParam;
+  }
+  
+  // ✅ Validate dates
+  if (isNaN(startDate.getTime())) {
+    throw new Error(`Invalid startDate: ${startDateParam}`);
+  }
+  if (isNaN(endDate.getTime())) {
+    throw new Error(`Invalid endDate: ${endDateParam}`);
+  }
+  
+  // Initialize age group data
+  const ageGroups: Record<OPD_AgeGroup, OPD_AgeGroupData> = {} as any;
+  for (const ageGroup of this.AGE_GROUPS) {
+    ageGroups[ageGroup] = this.createEmptyAgeGroupData();
+  }
 
-    // Fetch OPD attendances
-    const attendances = await prisma.attendance.findMany({
-      where: {
-        encounterCategory: 'opd',
-        dateTime: { gte: startDate, lte: endDate },
-        status: { not: 'cancelled' }
-      },
-      include: {
-        Patient: {
-          select: {
-            id: true,
-            dateOfBirth: true,
-            gender: true,
-            paymentMode: true
-          }
+  let totals = {
+    totalAttendances: 0,
+    insured: { male: 0, female: 0, total: 0 },
+    nonInsured: { male: 0, female: 0, total: 0 },
+    new: 0,
+    old: 0
+  };
+
+  // ✅ FIX: Use correct relation name - 'Patient' (capital P) to match schema
+  const attendances = await prisma.attendance.findMany({
+    where: {
+      encounterCategory: 'opd',
+      dateTime: { gte: startDate, lte: endDate },
+      status: { not: 'cancelled' }
+    },
+    include: {
+      Patient: {  // ✅ Capital P - matches schema relation name
+        select: {
+          id: true,
+          dateOfBirth: true,
+          gender: true,
+          paymentMode: true
         }
       }
-    });
-
-    // Process each attendance
-    for (const attendance of attendances) {
-      const patient = attendance.Patient;
-      const ageGroup = this.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
-      const gender = patient.gender.toLowerCase() as 'male' | 'female';
-      const isInsured = patient.paymentMode !== 'cash';
-      
-      // Get visit count to determine new vs old
-      const visitCount = await this.getPatientVisitCount(patient.id, attendance.dateTime);
-      const isNew = visitCount === 0;
-      
-      // Update age group data
-      if (isInsured) {
-        if (gender === 'male') ageGroups[ageGroup].insured.male++;
-        else ageGroups[ageGroup].insured.female++;
-        if (isNew) ageGroups[ageGroup].new++;
-        else ageGroups[ageGroup].old++;
-      } else {
-        if (gender === 'male') ageGroups[ageGroup].nonInsured.male++;
-        else ageGroups[ageGroup].nonInsured.female++;
-        if (isNew) ageGroups[ageGroup].new++;
-        else ageGroups[ageGroup].old++;
-      }
-      
-      // Update totals
-      totals.totalAttendances++;
-      if (isInsured) {
-        if (gender === 'male') totals.insured.male++;
-        else totals.insured.female++;
-        totals.insured.total++;
-      } else {
-        if (gender === 'male') totals.nonInsured.male++;
-        else totals.nonInsured.female++;
-        totals.nonInsured.total++;
-      }
-      if (isNew) totals.new++;
-      else totals.old++;
     }
+  });
 
-    // Get facility info
-    const hospital = await prisma.hospital.findFirst();
-
-    return {
-      period: {
-        startDate,
-        endDate,
-        year: startDate.getFullYear(),
-        month: startDate.getMonth() + 1
-      },
-      facility: {
-        name: hospital?.name || 'Hospital',
-        district: hospital?.ghsDistrictCode || 'Unknown',
-        ghfCode: hospital?.ghaHFCode || 'Unknown'
-      },
-      ageGroups,
-      totals
-    };
+  // Process each attendance
+  for (const attendance of attendances) {
+    // ✅ FIX: Use 'Patient' (capital P) - this is the relation, not 'patientId'
+    const patient = attendance.Patient;
+    
+    // Skip if no patient data
+    if (!patient) continue;
+    
+    const ageGroup = this.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
+    const gender = patient.gender as 'male' | 'female';
+    const isInsured = patient.paymentMode !== 'cash';
+    
+    // Get visit count to determine new vs old
+    const visitCount = await this.getPatientVisitCount(patient.id, attendance.dateTime);
+    const isNew = visitCount === 0;
+    
+    // Update age group data
+    if (isInsured) {
+      if (gender === 'male') ageGroups[ageGroup].insured.male++;
+      else ageGroups[ageGroup].insured.female++;
+      if (isNew) ageGroups[ageGroup].new++;
+      else ageGroups[ageGroup].old++;
+    } else {
+      if (gender === 'male') ageGroups[ageGroup].nonInsured.male++;
+      else ageGroups[ageGroup].nonInsured.female++;
+      if (isNew) ageGroups[ageGroup].new++;
+      else ageGroups[ageGroup].old++;
+    }
+    
+    // Update totals
+    totals.totalAttendances++;
+    if (isInsured) {
+      if (gender === 'male') totals.insured.male++;
+      else totals.insured.female++;
+      totals.insured.total++;
+    } else {
+      if (gender === 'male') totals.nonInsured.male++;
+      else totals.nonInsured.female++;
+      totals.nonInsured.total++;
+    }
+    if (isNew) totals.new++;
+    else totals.old++;
   }
+
+  // Get facility info
+  const hospital = await prisma.hospital.findFirst();
+
+  return {
+    period: {
+      startDate,
+      endDate,
+      year: startDate.getFullYear(),
+      month: startDate.getMonth() + 1
+    },
+    facility: {
+      name: hospital?.name || 'Hospital',
+      district: hospital?.ghsDistrictCode || 'Unknown',
+      ghfCode: hospital?.ghaHFCode || 'Unknown'
+    },
+    ageGroups,
+    totals
+  };
+}
 
   static exportToCSV(report: OPDReport): string {
     const rows: string[] = [];

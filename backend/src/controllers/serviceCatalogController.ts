@@ -37,7 +37,7 @@ export const getServiceCatalog = async (req: AuthRequest, res: Response) => {
     }
 
     const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const limitNum = Math.min(1000, Math.max(1, parseInt(limit as string)));
     const skip = (pageNum - 1) * limitNum;
 
     const [services, total] = await Promise.all([
@@ -427,21 +427,15 @@ export const createServiceCatalogItem = [
 // ==============================================
 // UPDATE SERVICE CATALOG ITEM
 // ==============================================
-export const updateServiceCatalogItem = [
-  body('cashPrice').optional().isNumeric().withMessage('Cash price must be a number'),
+// controllers/serviceCatalogController.ts
 
+export const updateServiceCatalogItem = [
   async (req: AuthRequest, res: Response) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false,
-          errors: errors.array() 
-        });
-      }
-
       const { id } = req.params;
-      const { cashPrice, nhisPrice, insurancePrice, vatRate, isTaxable, ...updateData } = req.body;
+      const updateData = req.body;
+      
+      console.log('🔄 Updating service catalog item:', { id, updateData });
 
       // Check if service exists
       const existingService = await prisma.serviceCatalog.findUnique({
@@ -456,43 +450,69 @@ export const updateServiceCatalogItem = [
         });
       }
 
-      // Check for duplicate code if changing
-      if (updateData.code && updateData.code !== existingService.code) {
-        const duplicateService = await prisma.serviceCatalog.findUnique({
-          where: { code: updateData.code }
-        });
-        if (duplicateService) {
-          return res.status(400).json({
-            success: false,
-            message: `Service code '${updateData.code}' already exists`
-          });
-        }
-      }
+      // ✅ Prepare update data - only include fields that exist in schema
+      const serviceUpdateData: any = {};
+      const pricingUpdateData: any = {};
+
+      // Map frontend fields to backend schema
+      if (updateData.name !== undefined) serviceUpdateData.name = updateData.name;
+      if (updateData.code !== undefined) serviceUpdateData.code = updateData.code;
+      if (updateData.description !== undefined) serviceUpdateData.description = updateData.description;
+      if (updateData.serviceType !== undefined) serviceUpdateData.serviceType = updateData.serviceType;
+      if (updateData.serviceCategory !== undefined) serviceUpdateData.serviceCategory = updateData.serviceCategory;
+      if (updateData.subType !== undefined) serviceUpdateData.subType = updateData.subType;
+      if (updateData.nhisServiceCode !== undefined) serviceUpdateData.nhisServiceCode = updateData.nhisServiceCode;
+      if (updateData.isNHISCovered !== undefined) serviceUpdateData.isNHISCovered = updateData.isNHISCovered;
+      if (updateData.nhisCoverageType !== undefined) serviceUpdateData.nhisCoverageType = updateData.nhisCoverageType;
+      if (updateData.nhisRequiresAuth !== undefined) serviceUpdateData.nhisRequiresAuth = updateData.nhisRequiresAuth;
+      if (updateData.privateInsRequiresAuth !== undefined) serviceUpdateData.privateInsRequiresAuth = updateData.privateInsRequiresAuth;
+      if (updateData.isPrivateInsuranceExempted !== undefined) serviceUpdateData.isPrivateInsuranceExempted = updateData.isPrivateInsuranceExempted;
+      if (updateData.unit !== undefined) serviceUpdateData.unit = updateData.unit;
+      if (updateData.requiresClinicalNotes !== undefined) serviceUpdateData.requiresClinicalNotes = updateData.requiresClinicalNotes;
+      if (updateData.metadata !== undefined) serviceUpdateData.metadata = updateData.metadata;
+      if (updateData.tariffCode !== undefined) serviceUpdateData.tariffCode = updateData.tariffCode;
+      if (updateData.isActive !== undefined) serviceUpdateData.isActive = updateData.isActive;
+      
+      // Handle related IDs (these are foreign keys)
+      if (updateData.diagnosisId !== undefined) serviceUpdateData.diagnosisId = updateData.diagnosisId || null;
+      if (updateData.labTestTemplateId !== undefined) serviceUpdateData.labTestTemplateId = updateData.labTestTemplateId || null;
+      if (updateData.procedureTemplateId !== undefined) serviceUpdateData.procedureTemplateId = updateData.procedureTemplateId || null;
+      if (updateData.stockItemId !== undefined) serviceUpdateData.stockItemId = updateData.stockItemId || null;
+      if (updateData.wardId !== undefined) serviceUpdateData.wardId = updateData.wardId || null;
+      if (updateData.scanTemplateId !== undefined) serviceUpdateData.scanTemplateId = updateData.scanTemplateId || null;
+      if (updateData.consultationTypeId !== undefined) serviceUpdateData.consultationTypeId = updateData.consultationTypeId || null;
+
+      // Handle pricing fields
+      if (updateData.cashPrice !== undefined) pricingUpdateData.cashPrice = updateData.cashPrice;
+      if (updateData.nhisPrice !== undefined) pricingUpdateData.nhisPrice = updateData.nhisPrice;
+      if (updateData.insurancePrice !== undefined) pricingUpdateData.insurancePrice = updateData.insurancePrice;
+      if (updateData.vatRate !== undefined) pricingUpdateData.vatRate = updateData.vatRate;
+      if (updateData.isTaxable !== undefined) pricingUpdateData.isTaxable = updateData.isTaxable;
 
       // Update in transaction
       await prisma.$transaction(async (tx) => {
         // Update service catalog
-        await tx.serviceCatalog.update({
-          where: { id },
-          data: {
-            ...updateData,
-            updatedAt: new Date()
-          }
-        });
+        if (Object.keys(serviceUpdateData).length > 0) {
+          await tx.serviceCatalog.update({
+            where: { id },
+            data: {
+              ...serviceUpdateData,
+              updatedAt: new Date()
+            }
+          });
+        }
 
         // Update pricing if provided
-        if (cashPrice !== undefined || nhisPrice !== undefined || insurancePrice !== undefined || vatRate !== undefined || isTaxable !== undefined) {
-          const currentPricing = existingService.pricing;
-          
-          if (currentPricing) {
+        if (Object.keys(pricingUpdateData).length > 0) {
+          const existingPricing = await tx.servicePricing.findUnique({
+            where: { serviceCatalogId: id }
+          });
+
+          if (existingPricing) {
             await tx.servicePricing.update({
               where: { serviceCatalogId: id },
               data: {
-                cashPrice: cashPrice !== undefined ? parseFloat(cashPrice) : currentPricing.cashPrice,
-                nhisPrice: nhisPrice !== undefined ? parseFloat(nhisPrice) : currentPricing.nhisPrice,
-                insurancePrice: insurancePrice !== undefined ? parseFloat(insurancePrice) : currentPricing.insurancePrice,
-                vatRate: vatRate !== undefined ? parseFloat(vatRate) : currentPricing.vatRate,
-                isTaxable: isTaxable !== undefined ? isTaxable : currentPricing.isTaxable,
+                ...pricingUpdateData,
                 updatedAt: new Date()
               }
             });
@@ -500,11 +520,11 @@ export const updateServiceCatalogItem = [
             await tx.servicePricing.create({
               data: {
                 serviceCatalogId: id,
-                cashPrice: cashPrice !== undefined ? parseFloat(cashPrice) : 0,
-                nhisPrice: nhisPrice !== undefined ? parseFloat(nhisPrice) : 0,
-                insurancePrice: insurancePrice !== undefined ? parseFloat(insurancePrice) : 0,
-                vatRate: vatRate !== undefined ? parseFloat(vatRate) : 0,
-                isTaxable: isTaxable !== undefined ? isTaxable : true,
+                cashPrice: pricingUpdateData.cashPrice || 0,
+                nhisPrice: pricingUpdateData.nhisPrice || 0,
+                insurancePrice: pricingUpdateData.insurancePrice || 0,
+                vatRate: pricingUpdateData.vatRate || 0,
+                isTaxable: pricingUpdateData.isTaxable !== undefined ? pricingUpdateData.isTaxable : true,
                 effectiveDate: new Date(),
                 isActive: true
               }
@@ -513,35 +533,29 @@ export const updateServiceCatalogItem = [
         }
       });
 
+      // Fetch updated service
       const updatedService = await prisma.serviceCatalog.findUnique({
         where: { id },
-        include: {
-          pricing: true
-        }
+        include: { pricing: true }
       });
 
-      console.log(`✅ Service catalog item updated: ${updatedService?.name}`);
+      console.log('✅ Service updated successfully:', updatedService?.name);
 
       res.json({
         success: true,
-        message: 'Service catalog item updated successfully',
+        message: 'Service updated successfully',
         data: updatedService
       });
 
     } catch (error) {
-      console.error('Error updating service catalog item:', error);
+      console.error('❌ Error updating service catalog item:', error);
       
-      if ((error as any).code === 'P2025') {
-        return res.status(404).json({
-          success: false,
-          message: 'Service catalog item not found'
-        });
-      }
-      
-      res.status(500).json({ 
+      // Send detailed error for debugging
+      res.status(500).json({
         success: false,
-        message: 'Error updating service catalog item', 
-        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+        message: 'Error updating service catalog item',
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+        stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
       });
     }
   }

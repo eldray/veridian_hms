@@ -26,12 +26,12 @@ export const getWards = async (req: Request, res: Response) => {
     const wards = await prisma.ward.findMany({
       where,
       include: {
-        beds: {
+        Bed: {
           select: {
             id: true,
             bedNumber: true,
             isOccupied: true,
-            currentPatient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -41,7 +41,7 @@ export const getWards = async (req: Request, res: Response) => {
           },
           orderBy: { bedNumber: 'asc' }
         },
-        serviceCatalogs: {
+        ServiceCatalog: {
           where: { 
             serviceType: 'ward',
             isActive: true // ✅ FIXED: Change isPending to isActive
@@ -50,17 +50,14 @@ export const getWards = async (req: Request, res: Response) => {
             id: true,
             name: true,
             code: true,
-            cashPrice: true,
-            nhisPrice: true,
-            insurancePrice: true,
             isNHISCovered: true,
             nhisServiceCode: true
           }
         },
         _count: {
           select: {
-            beds: true,
-            admissions: {
+            Bed: true,
+            Admission: {
               where: { status: 'admitted' }
             }
           }
@@ -74,7 +71,7 @@ export const getWards = async (req: Request, res: Response) => {
       ...ward,
       availableBeds: ward.totalBeds - ward.occupiedBeds,
       occupancyRate: ward.totalBeds > 0 ? (ward.occupiedBeds / ward.totalBeds) * 100 : 0,
-      hasPricing: ward.serviceCatalogs.length > 0
+      hasPricing: ward.ServiceCatalog.length > 0
     }));
 
     res.json(wardsWithAvailability);
@@ -92,9 +89,9 @@ export const getWardById = async (req: Request, res: Response) => {
     const ward = await prisma.ward.findUnique({
       where: { id: req.params.id },
       include: {
-        beds: {
+        Bed: {
           include: {
-            currentPatient: {
+            Patient: {
               select: {
                 id: true,
                 surname: true,
@@ -107,13 +104,13 @@ export const getWardById = async (req: Request, res: Response) => {
           },
           orderBy: { bedNumber: 'asc' }
         },
-        serviceCatalogs: {
+        ServiceCatalog: {
           where: { 
             serviceType: 'ward',
             isActive: true // ✅ FIXED: Change isPending to isActive
           },
           include: {
-            createdBy: {
+            User: {
               select: {
                 fullName: true,
                 username: true
@@ -123,8 +120,8 @@ export const getWardById = async (req: Request, res: Response) => {
         },
         _count: {
           select: {
-            beds: true,
-            admissions: {
+            Bed: true,
+            Admission: {
               where: { status: 'admitted' }
             }
           }
@@ -140,7 +137,7 @@ export const getWardById = async (req: Request, res: Response) => {
       ...ward,
       availableBeds: ward.totalBeds - ward.occupiedBeds,
       occupancyRate: ward.totalBeds > 0 ? (ward.occupiedBeds / ward.totalBeds) * 100 : 0,
-      currentAdmissions: ward._count.admissions
+      currentAdmissions: ward._count.Admission
     };
 
     res.json(wardWithStats);
@@ -157,7 +154,7 @@ export const createWard = [
   body('wardName').notEmpty().withMessage('Ward name is required'),
   body('wardType').notEmpty().withMessage('Ward type is required'),
   body('totalBeds').isInt({ min: 1 }).withMessage('Total beds must be a positive number'),
-  // ❌ REMOVED: All pricing fields - handled by service catalog
+
 
   async (req: Request, res: Response) => {
     try {
@@ -193,12 +190,8 @@ export const createWard = [
           wardName,
           wardType,
           totalBeds: parseInt(totalBeds),
-          description,
-          location,
-          floor,
           occupiedBeds: 0,
-          isActive: true
-          // ❌ NO PRICING FIELDS - handled by service catalog
+          isPending: true
         }
       });
 
@@ -221,7 +214,7 @@ export const createWard = [
       const createdWard = await prisma.ward.findUnique({
         where: { id: ward.id },
         include: {
-          beds: {
+          Bed: {
             select: {
               id: true,
               bedNumber: true,
@@ -316,21 +309,18 @@ export const getAvailableBeds = async (req: Request, res: Response) => {
     const availableBeds = await prisma.bed.findMany({
       where,
       include: {
-        ward: {
+        Ward: {
           select: {
             id: true,
             wardName: true,
             wardType: true,
-            isActive: true, // ✅ ADDED: Check if ward is active
-            serviceCatalogs: {
+            isPending: true, // ✅ ADDED: Check if ward is active
+            ServiceCatalog: {
               where: { 
                 serviceType: 'ward',
                 isActive: true // ✅ FIXED: Change isPending to isActive
               },
               select: {
-                cashPrice: true,
-                nhisPrice: true,
-                insurancePrice: true,
                 isNHISCovered: true
               }
             }
@@ -338,33 +328,30 @@ export const getAvailableBeds = async (req: Request, res: Response) => {
         }
       },
       orderBy: [
-        { ward: { wardName: 'asc' } },
+        { Ward: { wardName: 'asc' } },
         { bedNumber: 'asc' }
       ]
     });
 
     // Filter by wardType if provided and only active wards
     const filteredBeds = availableBeds.filter(bed => {
-      const matchesType = wardType ? bed.ward.wardType === wardType : true;
-      const isWardActive = bed.ward.isActive; // ✅ Only beds in active wards
+      const matchesType = wardType ? bed.Ward.wardType === wardType : true;
+      const isWardActive = bed.Ward.isPending; // ✅ Only beds in active wards
       return matchesType && isWardActive;
     });
 
     // Get pricing from service catalog
     const bedsWithServicePricing = filteredBeds.map(bed => {
-      const wardPricing = bed.ward.serviceCatalogs[0];
+      const wardPricing = bed.Ward.ServiceCatalog[0];
       
       return {
         bedId: bed.id,
         bedNumber: bed.bedNumber,
-        wardId: bed.ward.id,
-        wardName: bed.ward.wardName,
-        wardType: bed.ward.wardType,
-        isWardActive: bed.ward.isActive, // ✅ ADDED: Ward status
+        wardId: bed.Ward.id,
+        wardName: bed.Ward.wardName,
+        wardType: bed.Ward.wardType,
+        isWardActive: bed.Ward.isPending, // ✅ ADDED: Ward status
         pricing: wardPricing ? {
-          cash: wardPricing.cashPrice,
-          nhis: wardPricing.nhisPrice,
-          insurance: wardPricing.insurancePrice,
           isNHISCovered: wardPricing.isNHISCovered
         } : null,
         hasPricing: !!wardPricing

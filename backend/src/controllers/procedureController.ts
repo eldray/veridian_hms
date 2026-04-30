@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 export const getProcedureTemplates = async (req: Request, res: Response) => {
   try {
-    const { category, department, isActive, page = 1, limit = 50 } = req.query;
+    const { category, department, isActive, page = 1, limit = 10000 } = req.query; // ✅ Changed from 50 to 10000
     const where: any = {
       serviceType: ServiceType.procedure
     };
@@ -28,7 +28,7 @@ export const getProcedureTemplates = async (req: Request, res: Response) => {
     }
 
     const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const limitNum = Math.min(10000, Math.max(1, parseInt(limit as string))); // ✅ Changed max from 100 to 10000
     const skip = (pageNum - 1) * limitNum;
 
     const [templates, total] = await Promise.all([

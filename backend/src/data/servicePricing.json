@@ -1,0 +1,72 @@
+{
+    "consultations": {
+      "CONS-GEN": { "cashPrice": 100, "nhisPrice": 0, "insurancePrice": 120 },
+      "CONS-SPEC": { "cashPrice": 200, "nhisPrice": 50, "insurancePrice": 150 },
+      "CONS-EMERG": { "cashPrice": 150, "nhisPrice": 30, "insurancePrice": 180 }
+    },
+    "labTests": {
+      "INVE51D": { "cashPrice": 80, "nhisPrice": 60, "insurancePrice": 75 },
+      "INVE09D": { "cashPrice": 50, "nhisPrice": 35, "insurancePrice": 45 },
+      "INVE46D": { "cashPrice": 40, "nhisPrice": 30, "insurancePrice": 35 },
+      "INVE47D": { "cashPrice": 40, "nhisPrice": 30, "insurancePrice": 35 },
+      "INVE99D": { "cashPrice": 45, "nhisPrice": 35, "insurancePrice": 40 },
+      "INVE92D": { "cashPrice": 30, "nhisPrice": 25, "insurancePrice": 28 },
+      "INVE38E": { "cashPrice": 60, "nhisPrice": 45, "insurancePrice": 55 },
+      "INVE69D": { "cashPrice": 50, "nhisPrice": 40, "insurancePrice": 45 },
+      "INVE63D": { "cashPrice": 55, "nhisPrice": 40, "insurancePrice": 50 },
+      "INVE98D": { "cashPrice": 35, "nhisPrice": 25, "insurancePrice": 30 },
+      "INVE74D": { "cashPrice": 120, "nhisPrice": 90, "insurancePrice": 110 },
+      "INVE112": { "cashPrice": 100, "nhisPrice": 75, "insurancePrice": 90 },
+      "INVE75D": { "cashPrice": 100, "nhisPrice": 75, "insurancePrice": 90 },
+      "INVE17D": { "cashPrice": 25, "nhisPrice": 20, "insurancePrice": 22 },
+      "INVE16E": { "cashPrice": 30, "nhisPrice": 25, "insurancePrice": 28 },
+      "INVE57D": { "cashPrice": 70, "nhisPrice": 55, "insurancePrice": 65 },
+      "INVE141": { "cashPrice": 60, "nhisPrice": 45, "insurancePrice": 55 },
+      "INVE97D": { "cashPrice": 80, "nhisPrice": 60, "insurancePrice": 75 },
+      "INVE154": { "cashPrice": 65, "nhisPrice": 50, "insurancePrice": 60 },
+      "INVE36E": { "cashPrice": 40, "nhisPrice": 30, "insurancePrice": 35 },
+      "INVE16D": { "cashPrice": 120, "nhisPrice": 90, "insurancePrice": 110 },
+      "INVE34E": { "cashPrice": 100, "nhisPrice": 75, "insurancePrice": 90 },
+      "INVE65D": { "cashPrice": 60, "nhisPrice": 45, "insurancePrice": 55 },
+      "INVE113": { "cashPrice": 80, "nhisPrice": 60, "insurancePrice": 75 },
+      "INVE42D": { "cashPrice": 35, "nhisPrice": 25, "insurancePrice": 30 },
+      "INVE95D": { "cashPrice": 50, "nhisPrice": 40, "insurancePrice": 45 },
+      "INVE29E": { "cashPrice": 100, "nhisPrice": 80, "insurancePrice": 95 }
+    },
+    "scans": {
+      "scan01x": { "cashPrice": 150, "nhisPrice": 100, "insurancePrice": 135 },
+      "scan02u": { "cashPrice": 200, "nhisPrice": 140, "insurancePrice": 180 },
+      "scan03u": { "cashPrice": 200, "nhisPrice": 140, "insurancePrice": 180 },
+      "scan04u": { "cashPrice": 250, "nhisPrice": 175, "insurancePrice": 225 },
+      "scan05u": { "cashPrice": 180, "nhisPrice": 130, "insurancePrice": 160 },
+      "scan06x": { "cashPrice": 120, "nhisPrice": 85, "insurancePrice": 108 },
+      "scan07x": { "cashPrice": 120, "nhisPrice": 85, "insurancePrice": 108 },
+      "scan08x": { "cashPrice": 130, "nhisPrice": 90, "insurancePrice": 115 },
+      "scan09x": { "cashPrice": 130, "nhisPrice": 90, "insurancePrice": 115 },
+      "scan23c": { "cashPrice": 500, "nhisPrice": 350, "insurancePrice": 450 },
+      "scan24c": { "cashPrice": 600, "nhisPrice": 420, "insurancePrice": 540 },
+      "scan25c": { "cashPrice": 550, "nhisPrice": 385, "insurancePrice": 495 },
+      "scan31m": { "cashPrice": 800, "nhisPrice": 560, "insurancePrice": 720 }
+    },
+    "procedures": {
+      "obgy02A": { "cashPrice": 800, "nhisPrice": 600, "insurancePrice": 750 },
+      "obgy03X": { "cashPrice": 2500, "nhisPrice": 2000, "insurancePrice": 2300 },
+      "surg01A": { "cashPrice": 1500, "nhisPrice": 1100, "insurancePrice": 1350 },
+      "surg02A": { "cashPrice": 1800, "nhisPrice": 1300, "insurancePrice": 1600 },
+      "surg03A": { "cashPrice": 250, "nhisPrice": 180, "insurancePrice": 220 },
+      "surg04A": { "cashPrice": 120, "nhisPrice": 80, "insurancePrice": 100 },
+      "surg11X": { "cashPrice": 2000, "nhisPrice": 1500, "insurancePrice": 1800 },
+      "surg12L": { "cashPrice": 2500, "nhisPrice": 1800, "insurancePrice": 2200 },
+      "surg12A": { "cashPrice": 2000, "nhisPrice": 1400, "insurancePrice": 1800 },
+      "dent01A": { "cashPrice": 80, "nhisPrice": 60, "insurancePrice": 75 },
+      "dent02A": { "cashPrice": 60, "nhisPrice": 45, "insurancePrice": 55 },
+      "ophth01X": { "cashPrice": 2000, "nhisPrice": 1500, "insurancePrice": 1800 }
+    },
+    "medications": {
+      "PARA-500": { "cashPrice": 5, "nhisPrice": 3, "insurancePrice": 4.5 },
+      "ARTE-50MG": { "cashPrice": 25, "nhisPrice": 18, "insurancePrice": 22 },
+      "AMOX-500": { "cashPrice": 8, "nhisPrice": 5, "insurancePrice": 7 },
+      "METRO-400": { "cashPrice": 6, "nhisPrice": 4, "insurancePrice": 5.5 },
+      "IBU-400": { "cashPrice": 7, "nhisPrice": 4.5, "insurancePrice": 6 }
+    }
+  }

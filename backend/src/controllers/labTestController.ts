@@ -17,7 +17,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
       isActive,
       isNHISCovered,
       page = 1, 
-      limit = 50 
+      limit = 10000  // ✅ Changed from 50 to 10000
     } = req.query;
     
     const where: any = {
@@ -41,7 +41,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
     }
 
     const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const limitNum = Math.min(10000, Math.max(1, parseInt(limit as string))); // ✅ Changed max from 100 to 10000
     const skip = (pageNum - 1) * limitNum;
 
     const [services, total] = await Promise.all([
@@ -56,7 +56,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
               isActive: true
             }
           },
-          LabTestTemplate: { // ✅ CORRECT: Capital L, Capital T, Capital T
+          LabTestTemplate: {
             select: {
               id: true,
               name: true,
@@ -64,11 +64,11 @@ export const getLabTestServices = async (req: Request, res: Response) => {
               category: true
             }
           },
-          labTests: { // ✅ CORRECT: Capital L, Capital T (singular)
+          labTests: {
             select: {
               id: true,
               status: true,
-              Attendance: { // ✅ CORRECT: Capital A
+              Attendance: {
                 select: {
                   attendanceNumber: true
                 }
@@ -79,7 +79,7 @@ export const getLabTestServices = async (req: Request, res: Response) => {
               requestedAt: 'desc'
             }
           },
-          User: { // ✅ CORRECT: Capital U
+          User: {
             select: {
               id: true,
               fullName: true,
