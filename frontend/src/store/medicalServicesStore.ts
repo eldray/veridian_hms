@@ -976,14 +976,22 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
+
+  // FIXED VERSION:
   getServiceCatalogByType: async (serviceType: string) => {
     set({ isLoading: true });
     try {
-      const response = await api.get(`/service-catalog?serviceType=${serviceType}&isActive=true&limit=10000`);
-      const services = response.data?.data || response.data || [];
+      // Use the imported getServiceCatalog function instead
+      const response = await getServiceCatalog({ 
+        serviceType: serviceType, 
+        isActive: true, 
+        limit: 10000 
+      });
+      const services = response.services || response.data || [];
       set({ isLoading: false });
       return services;
     } catch (error) {
+      console.error('Error fetching services by type:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -991,8 +999,8 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   getServiceCategories: async () => {
     try {
-      const response = await api.get('/service-catalog/metadata');
-      const metadata = response.data?.data || response.data;
+      // Use the imported getServiceMetadata function
+      const metadata = await getServiceMetadata();
       return metadata?.categories || [];
     } catch (error) {
       console.error('Error fetching service categories:', error);
@@ -1002,8 +1010,8 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   getServiceTypes: async () => {
     try {
-      const response = await api.get('/service-catalog/metadata');
-      const metadata = response.data?.data || response.data;
+      // Use the imported getServiceMetadata function
+      const metadata = await getServiceMetadata();
       return metadata?.serviceTypes || [];
     } catch (error) {
       console.error('Error fetching service types:', error);

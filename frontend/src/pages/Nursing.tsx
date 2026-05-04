@@ -322,6 +322,11 @@ const NursingNotesTab = ({ admissionId }: { admissionId: string }) => {
       await addDailyNote(admissionId, { notes: dailyNote });
       success('Daily note saved', 'Nursing assessment recorded');
       setDailyNote('');
+      
+      // ✅ Refresh admissions to get updated dailyNotes
+      const { getAdmissions } = useAdmissionStore.getState();
+      await getAdmissions();
+      
     } catch (err: any) {
       error('Save failed', err.message);
     } finally {
@@ -445,15 +450,6 @@ export default function Nursing() {
   
   useEffect(() => { loadData(); }, []);
   
-  // ✅ Update local medications when attendance changes
-  useEffect(() => {
-    if (selectedAttendance?.Medication && selectedAttendanceId) {
-      setLocalMedications(prev => ({
-        ...prev,
-        [selectedAttendanceId]: selectedAttendance.Medication
-      }));
-    }
-  }, [selectedAttendance?.Medication, selectedAttendanceId]);
 
   // ✅ Fix the handleAdministerMedication function
   const handleAdministerMedication = async (medicationId: string, doseNumber: number) => {
@@ -549,8 +545,8 @@ export default function Nursing() {
     const attendance = attendances.find(a => getEntityId(a) === attendanceId);
     if (attendance) {
       setSelectedAttendanceId(attendanceId);
-      // Initialize local medications from attendance data
-      if (attendance.Medication) {
+      // Only initialize if not already in local state
+      if (attendance.Medication && !localMedications[attendanceId]) {
         setLocalMedications(prev => ({
           ...prev,
           [attendanceId]: attendance.Medication

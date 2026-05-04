@@ -80,93 +80,95 @@ export interface ANCVisitData {
 }
 
 // ============================================
-// ANTENATAL API FUNCTIONS
+// ANTENATAL API FUNCTIONS - UPDATED
 // ============================================
 
-// Bookings
+// 📋 BOOKINGS
+// ============================================
+
+// Get all bookings (paginated)
 export const getAntenatalBookings = async (filters?: { page?: number; limit?: number; isActive?: boolean; patientId?: string }) => {
   const response = await api.get('/antenatal/bookings', { params: filters });
   return response.data;
 };
 
-export const getAntenatalBooking = async (patientId: string, pregnancyNumber?: number) => {
-  const params = pregnancyNumber ? { pregnancyNumber } : {};
-  const response = await api.get(`/antenatal/bookings/${patientId}`, { params });
+// ✅ NEW: Get active booking by PATIENT ID (returns the active or most recent booking)
+export const getActiveBookingByPatient = async (patientId: string) => {
+  const response = await api.get(`/antenatal/bookings/patient/${patientId}`);
   return response.data;
 };
 
+// ✅ NEW: Get booking by BOOKING ID (for when you have the booking ID)
+export const getAntenatalBookingById = async (bookingId: string) => {
+  const response = await api.get(`/antenatal/booking/${bookingId}`);
+  return response.data;
+};
+
+// Create a new booking
 export const createAntenatalBooking = async (data: AntenatalBookingData) => {
   const response = await api.post('/antenatal/booking-from-attendance', data);
   return response.data;
 };
 
-export const closeAntenatalBooking = async (patientId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
-  const response = await api.put(`/antenatal/bookings/${patientId}/close`, data);
+// ✅ UPDATED: Close booking by BOOKING ID (not patientId)
+export const closeAntenatalBooking = async (bookingId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
+  const response = await api.put(`/antenatal/booking/${bookingId}/close`, data);
   return response.data;
 };
 
-// ANC Visits
-export const getANCVisits = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/visits/${bookingId}`);
-  return response.data;
-};
+// 👶 ANC VISITS
+// ============================================
 
+// ✅ UPDATED: Get visits by BOOKING ID (not /visits/:bookingId)
 export const getANCVisitsByBooking = async (bookingId: string) => {
   console.log('📞 Fetching ANC visits for booking:', bookingId);
-  
   const response = await api.get(`/antenatal/visits/by-booking/${bookingId}`);
-  
-  console.log('📦 Raw response:', response);
-  console.log('📦 Response data:', response.data);
-  console.log('📦 Response data.data:', response.data?.data);
-  
-  // Check if the structure matches
-  if (!response.data?.success) {
-    console.error('❌ API returned success=false:', response.data);
-    throw new Error(response.data?.message || 'Failed to fetch ANC visits');
-  }
-  
-  const visits = response.data.data?.visits || [];
-  const booking = response.data.data?.booking;
-  
-  console.log('✅ Visits loaded:', visits.length);
-  console.log('✅ Booking:', booking?.id);
-  
-  return { visits, booking };
+  return response.data;
 };
 
+// Get visits by ATTENDANCE ID
 export const getANCVisitsByAttendance = async (attendanceId: string) => {
   const response = await api.get(`/antenatal/visits/by-attendance/${attendanceId}`);
   return response.data;
 };
 
+// Get single visit by ID
 export const getANCVisitById = async (id: string) => {
   const response = await api.get(`/antenatal/visit/${id}`);
   return response.data;
 };
 
+// Record a new ANC visit
 export const recordANCVisit = async (data: ANCVisitData) => {
   const response = await api.post('/antenatal/visit-from-attendance', data);
   return response.data;
 };
 
+// Update an ANC visit
 export const updateANCVisit = async (id: string, data: Partial<ANCVisitData>) => {
   const response = await api.put(`/antenatal/visit/${id}`, data);
   return response.data;
 };
 
+// Delete an ANC visit
 export const deleteANCVisit = async (id: string) => {
   const response = await api.delete(`/antenatal/visit/${id}`);
   return response.data;
 };
 
-// Antenatal by Attendance
+// 🏥 ANTENATAL BY ATTENDANCE
+// ============================================
+
+// Get antenatal data by attendance ID (returns attendance + booking + visits)
 export const getAntenatalByAttendance = async (attendanceId: string) => {
   const response = await api.get(`/antenatal/attendance/${attendanceId}`);
   return response.data;
 };
 
-// Statistics
+// 📊 STATISTICS
+// ============================================
+
+// Get ANC statistics
 export const getANCStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
   const response = await api.get('/antenatal/stats', { params: filters });
   return response.data;

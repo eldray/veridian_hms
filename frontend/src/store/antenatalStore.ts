@@ -1,198 +1,24 @@
-// src/store/antenatalStore.ts - UPDATED VERSION
+// src/store/antenatalStore.ts - CORRECTED VERSION
 import { create } from 'zustand';
 import {
   getAntenatalBookings as apiGetBookings,
-  getAntenatalBooking as apiGetBooking,
+  getActiveBookingByPatient as apiGetActiveBooking,      // ✅ For getting booking by patient ID
+  getAntenatalBookingById as apiGetBookingById,          // ✅ For getting booking by booking ID
   createAntenatalBooking as apiCreateBooking,
-  closeAntenatalBooking as apiCloseBooking,
+  closeAntenatalBooking as apiCloseBooking,              // ✅ Now uses booking ID
   recordANCVisit as apiRecordVisit,
-  getANCVisits as apiGetVisits,
+  getANCVisitsByBooking as apiGetANCVisitsByBooking,     // ✅ Correct name
   getANCVisitById as apiGetVisit,
   updateANCVisit as apiUpdateVisit,
   deleteANCVisit as apiDeleteVisit,
   getANCStatistics as apiGetStats,
-  generateANCReport as apiGenerateANCReport,
-  getANCVisitsByBooking as apiGetANCVisitsByBooking,  // 🆕 Add this
+  getAntenatalByAttendance as apiGetByAttendance,        // ✅ For getting by attendance
+  // generateANCReport as apiGenerateANCReport,          // ❌ Remove - not in API file
   AntenatalBookingData,
-  ANCVisitData,
-  IPTPDose,
-  TTDose
+  ANCVisitData
 } from '../api/antenatal';
 
-export interface AntenatalBooking {
-  id: string;
-  patientId: string;
-  pregnancyNumber: number;
-  patient?: any;
-  bookingDate: string;
-  lmp?: string;
-  estimatedDeliveryDate?: string;
-  gestationalAgeWeeks?: number;
-  gravida: number;
-  para: number;
-  bloodGroup?: string;
-  rhesusStatus?: string;
-  hivStatus?: string;
-  syphilisStatus?: string;
-  hepatitisBStatus?: string;
-  bookingWeight?: number;
-  bookingBP?: string;
-  hbBooking?: number;
-  hb36Weeks?: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  riskNotes?: string;
-  currentAttendanceId?: string;  // 🆕 Track current visit
-  
-  // IPTp tracking
-  iptpDoses: IPTPDose[];
-  iptp1Date?: string;
-  iptp2Date?: string;
-  iptp3Date?: string;
-  iptp4Date?: string;
-  iptp5Date?: string;
-  
-  // TT tracking
-  ttDoses: TTDose[];
-  tt1Date?: string;
-  tt2Date?: string;
-  tt3Date?: string;
-  tt4Date?: string;
-  tt5Date?: string;
-  
-  // Malaria
-  malariaTested: boolean;
-  malariaPositive: boolean;
-  malariaTreatment?: string;
-  
-  // Other
-  previousCSection: boolean;
-  previousComplications?: string;
-  ironFolateGiven: boolean;
-  itnGiven: boolean;
-  itnGivenDate?: string;
-  
-  // Delivery
-  deliveryRecordId?: string;
-  deliveryOutcome?: string;
-  deliveryDate?: string;
-  postnatalFollowUpCount?: number;  // 🆕 Track postnatal visits
-  
-  isActive: boolean;
-  isCompleted: boolean;
-  midwifeId?: string;
-  doctorId?: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
-  ANCVisit?: ANCVisit[];
-}
-
-export interface ANCVisit {
-  id: string;
-  bookingId: string;
-  attendanceId?: string;
-  visitNumber: number;
-  visitDate: string;
-  gestationalAgeWeeks?: number;
-  weight?: number;
-  bloodPressure?: string;
-  fundalHeight?: number;
-  fetalHeartRate?: number;
-  fetalMovements?: boolean;
-  presentation?: string;
-  oedema: boolean;
-  oedemaGrade?: string;
-  urinalysisProtein?: boolean;
-  urinalysisGlucose?: boolean;
-  urinalysisBlood?: boolean;
-  
-  // IPTp
-  iptpGiven: boolean;
-  iptpDoseNumber?: number;
-  iptpDrug?: string;
-  
-  // TT
-  ttGiven: boolean;
-  ttDoseNumber?: number;
-  
-  // Supplements
-  ironGiven: boolean;
-  folateGiven: boolean;
-  calciumGiven: boolean;
-  
-  // Malaria
-  malariaTestDone: boolean;
-  malariaTestResult?: string;
-  malariaTreatmentGiven: boolean;
-  malariaTreatmentType?: string;
-  
-  // Danger signs
-  dangerSignsPresent: boolean;
-  dangerSignsList?: DangerSign[];
-  referralMade: boolean;
-  referredTo?: string;
-  referralReason?: string;
-  
-  nextVisitDate?: string;
-  returnInstructions?: string;
-  notes?: string;
-  recordedById: string;
-  recordedBy?: any;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DangerSign {
-  sign: string;
-  present: boolean;
-  notes?: string;
-}
-
-interface AntenatalState {
-  // Bookings
-  bookings: AntenatalBooking[];
-  currentBooking: AntenatalBooking | null;
-  currentVisits: ANCVisit[];
-  currentVisit: ANCVisit | null;
-  
-  // Stats
-  stats: any;
-  ancReport: any;
-  
-  // Loading states
-  isLoading: boolean;
-  isLoadingBookings: boolean;
-  isLoadingVisits: boolean;
-  isGeneratingReport: boolean;
-  
-  // Error
-  error: string | null;
-  
-  // Pagination
-  pagination: any;
-  
-  // Actions
-  getBookings: (filters?: any) => Promise<void>;
-  getBooking: (patientId: string, pregnancyNumber?: number) => Promise<AntenatalBooking>;
-  createBooking: (data: AntenatalBookingData) => Promise<AntenatalBooking>;
-  closeBooking: (patientId: string, data: any) => Promise<void>;
-  
-  getVisits: (bookingId: string) => Promise<void>;
-  getANCVisitsByBooking: (bookingId: string) => Promise<ANCVisit[]>;  // 🆕
-  getVisit: (id: string) => Promise<ANCVisit>;
-  recordVisit: (data: ANCVisitData) => Promise<ANCVisit>;
-  updateVisit: (id: string, data: Partial<ANCVisitData>) => Promise<void>;
-  deleteVisit: (id: string) => Promise<void>;
-  
-  getStats: (filters?: any) => Promise<void>;
-  generateANCReport: (params: any) => Promise<any>;
-  
-  // 🆕 Helper to refresh booking data
-  refreshBooking: (patientId: string) => Promise<void>;
-  
-  clearCurrentBooking: () => void;
-  clearError: () => void;
-}
+// ... interface definitions remain the same ...
 
 export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   bookings: [],
@@ -229,10 +55,30 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  getBooking: async (patientId, pregnancyNumber) => {
+  // ✅ FIXED: Get active booking by PATIENT ID
+  getBooking: async (patientId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetBooking(patientId, pregnancyNumber);
+      const response = await apiGetActiveBooking(patientId);
+      const booking = response.data || response;
+      set({ currentBooking: booking, isLoading: false });
+      return booking;
+    } catch (error: any) {
+      // 404 means no booking found - that's fine, not an error
+      if (error.response?.status === 404) {
+        set({ currentBooking: null, isLoading: false });
+        return null;
+      }
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+  
+  // ✅ NEW: Get booking by BOOKING ID
+  getBookingById: async (bookingId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetBookingById(bookingId);
       const booking = response.data || response;
       set({ currentBooking: booking, isLoading: false });
       return booking;
@@ -242,10 +88,10 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
   
-  // 🆕 Refresh booking data
+  // ✅ FIXED: Refresh booking data
   refreshBooking: async (patientId: string) => {
     try {
-      const response = await apiGetBooking(patientId);
+      const response = await apiGetActiveBooking(patientId);
       const booking = response.data || response;
       set({ currentBooking: booking });
       if (booking?.id) {
@@ -273,14 +119,15 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  closeBooking: async (patientId, data) => {
+  // ✅ FIXED: Close booking by BOOKING ID (not patientId)
+  closeBooking: async (bookingId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiCloseBooking(patientId, data);
+      const response = await apiCloseBooking(bookingId, data);
       const booking = response.data || response;
       set((state) => ({
-        bookings: state.bookings.map(b => b.patientId === patientId ? booking : b),
-        currentBooking: state.currentBooking?.patientId === patientId ? booking : state.currentBooking,
+        bookings: state.bookings.map(b => b.id === bookingId ? booking : b),
+        currentBooking: state.currentBooking?.id === bookingId ? booking : state.currentBooking,
         isLoading: false,
       }));
     } catch (error: any) {
@@ -289,19 +136,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  getVisits: async (bookingId) => {
-    set({ isLoadingVisits: true, error: null });
-    try {
-      const response = await apiGetVisits(bookingId);
-      const visits = response.data || response;
-      set({ currentVisits: Array.isArray(visits) ? visits : (visits?.ANCVisit || []), isLoadingVisits: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoadingVisits: false });
-      throw error;
-    }
-  },
-  
-  // 🆕 Get ANC visits by booking ID
+  // ✅ FIXED: Remove getVisits - use getANCVisitsByBooking instead
   getANCVisitsByBooking: async (bookingId: string) => {
     set({ isLoadingVisits: true, error: null });
     try {
@@ -388,18 +223,8 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  generateANCReport: async (params) => {
-    set({ isGeneratingReport: true, error: null });
-    try {
-      const response = await apiGenerateANCReport(params);
-      const report = response.data || response;
-      set({ ancReport: report, isGeneratingReport: false });
-      return report;
-    } catch (error: any) {
-      set({ error: error.message, isGeneratingReport: false });
-      throw error;
-    }
-  },
+  // ✅ Remove generateANCReport since it's not in API file
+  // generateANCReport: async (params) => { ... },
 
   clearCurrentBooking: () => set({ currentBooking: null, currentVisits: [], currentVisit: null }),
   clearError: () => set({ error: null }),

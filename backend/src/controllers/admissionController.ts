@@ -878,82 +878,110 @@ export const dischargePatient = [
 // ==============================
 // ADD DAILY NOTES TO ADMISSION - UPDATED
 // ==============================
-export const addDailyNotes = [
-  body('notes').notEmpty().withMessage('Daily notes are required'),
-  body('date').optional().isISO8601().withMessage('Valid date required'),
-  
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
 
-      const { notes, date } = req.body;
-      const admissionId = req.params.id;
+export const addDailyNotes = async (req: Request, res: Response) => {
+  try {
+    // ✅ Check both possible param names
+    const admissionId = req.params.admissionId || req.params.id;
+    
+    if (!admissionId) {
+      return res.status(400).json({ message: 'Admission ID is required' });
+    }
 
-      const admission = await prisma.admission.findUnique({
-        where: { id: admissionId }
-      });
+    const { notes } = req.body;
+    const user = (req as any).user;
 
-      if (!admission) {
-        return res.status(404).json({ message: 'Admission not found' });
-      }
+    if (!notes || !notes.trim()) {
+      return res.status(400).json({ message: 'Notes are required' });
+    }
 
-      // Get existing daily notes or initialize
-      const existingNotes = admission.dailyNotes as any || {};
-      const noteDate = date || new Date().toISOString().split('T')[0];
-      
-      // Add new note
-      const updatedNotes = {
-        ...existingNotes,
-        [noteDate]: {
-          notes,
-          recordedBy: (req as any).user?.id,
-          recordedAt: new Date()
-        }
-      };
+    // Get the admission with current dailyNotes
+    const admission = await prisma.admission.findUnique({
+      where: { id: admissionId },
+      select: { dailyNotes: true }
+    });
 
-      const updatedAdmission = await prisma.admission.update({
-        where: { id: admissionId },
-        data: {
-          dailyNotes: updatedNotes,
-          updatedAt: new Date()
+    if (!admission) {
+      return res.status(404).json({ message: 'Admission not found' });
+    }
+
+    // Get existing dailyNotes or initialize empty object
+    const existingNotes = (admission.dailyNotes as any) || {};
+    
+    // Create new note entry with current timestamp
+    const now = new Date();
+    const dateKey = now.toISOString().split('T')[0];
+    const timeKey = now.toTimeString().slice(0, 5);
+    
+    // Check if there's already a note for today
+    if (existingNotes[dateKey]) {
+      // Append to existing note for today
+      existingNotes[dateKey] = {
+        notes: existingNotes[dateKey].notes + '\n\n[' + timeKey + '] ' + notes,
+        recordedBy: {
+          id: user?.id,
+          fullName: user?.fullName || user?.username,
+          role: user?.role
         },
-        include: {
-          Patient: {
-            select: {
-              surname: true,
-              otherNames: true,
-              folderNumber: true
-            }
+        recordedAt: now.toISOString()
+      };
+    } else {
+      // Create new note for today
+      existingNotes[dateKey] = {
+        notes: `[${timeKey}] ${notes}`,
+        recordedBy: {
+          id: user?.id,
+          fullName: user?.fullName || user?.username,
+          role: user?.role
+        },
+        recordedAt: now.toISOString()
+      };
+    }
+
+    // Update the admission
+    const updatedAdmission = await prisma.admission.update({
+      where: { id: admissionId },
+      data: { 
+        dailyNotes: existingNotes,
+        updatedAt: new Date()
+      },
+      include: {
+        Patient: {
+          select: { 
+            id: true,
+            surname: true, 
+            otherNames: true, 
+            folderNumber: true 
           }
         }
-      });
+      }
+    });
 
-      // ✅ ADDED: Add fullName to response
-      const admissionWithFullName = updatedAdmission ? {
-        ...updatedAdmission,
-        patient: updatedAdmission.Patient ? {
-          ...updatedAdmission.Patient,
-          fullName: `${updatedAdmission.Patient.surname} ${updatedAdmission.Patient.otherNames}`.trim()
-        } : null
-      } : null;
+    // Transform the response to ensure dailyNotes is always an object
+    const responseData = {
+      ...updatedAdmission,
+      dailyNotes: updatedAdmission.dailyNotes || {},
+      patient: updatedAdmission.Patient ? {
+        ...updatedAdmission.Patient,
+        fullName: `${updatedAdmission.Patient.surname} ${updatedAdmission.Patient.otherNames}`.trim()
+      } : null
+    };
 
-      res.json({
-        message: 'Daily notes added successfully',
-        admission: admissionWithFullName,
-        noteDate: noteDate
-      });
-    } catch (error) {
-      console.error('Error adding daily notes:', error);
-      res.status(500).json({ 
-        message: 'Error adding daily notes', 
-        error: (error as Error).message 
-      });
-    }
+    res.json({
+      success: true,
+      message: 'Daily note added successfully',
+      admission: responseData
+    });
+    
+  } catch (error) {
+    console.error('Error adding daily note:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error adding daily note', 
+      error: (error as Error).message 
+    });
   }
-];
+};
 
 // ==============================
 // GET ADMISSION STATISTICS - MANUAL CALCULATION VERSION

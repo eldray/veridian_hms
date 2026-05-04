@@ -1831,8 +1831,6 @@ export const removeDiagnosisFromAttendance = async (req: Request, res: Response)
   }
 };
 
-
-// attendanceController.ts - CORRECTED with proper relation names
 export const updateMedicationStatus = [
   body('status').isIn(['prescribed', 'dispensed', 'administered', 'cancelled'])
     .withMessage('Valid status is required'),
@@ -1853,7 +1851,9 @@ export const updateMedicationStatus = [
         administeredById,
         quantity,
         dispensedUnitCost,
-        batchNumber
+        batchNumber,
+        doseNumber,
+        administeredDoses  // ✅ New field for multiple doses
       } = req.body;
       
       const user = (req as any).user;
@@ -1925,9 +1925,23 @@ export const updateMedicationStatus = [
       if (status === 'administered') {
         updateData.administeredAt = administeredAt ? new Date(administeredAt) : new Date();
         updateData.administeredById = administeredById || user.id;
+        
+        // ✅ Handle multiple dose tracking
+        if (administeredDoses) {
+          updateData.administeredDoses = administeredDoses;
+        } else if (doseNumber) {
+          // If single dose tracking, build the array
+          const existingDoses = (medication.administeredDoses as any[]) || [];
+          const updatedDoses = [...existingDoses, {
+            doseNumber: doseNumber,
+            administeredAt: updateData.administeredAt,
+            administeredBy: updateData.administeredById || user?.fullName || user?.username
+          }];
+          updateData.administeredDoses = updatedDoses;
+        }
       }
 
-      // ✅ Update medication using the correct field names
+      // ✅ Update medication
       const updatedMedication = await prisma.medication.update({
         where: { id: medicationId },
         data: updateData,
@@ -1941,7 +1955,6 @@ export const updateMedicationStatus = [
               costPrice: true
             }
           },
-          // ✅ CORRECT relation names from schema
           User_Medication_prescribedByIdToUser: {
             select: { fullName: true, id: true }
           },
