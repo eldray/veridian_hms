@@ -1,4 +1,4 @@
-// src/store/documentStore.ts
+// src/store/documentStore.ts - Make sure generateBillStatement is included
 import { create } from 'zustand';
 import { documentApi } from '../api/documentApi';
 import type { GeneratedDocument, DocumentTemplate, DocumentGenerationResponse } from '../types/documents';
@@ -13,6 +13,7 @@ interface DocumentState {
   // Actions
   getDocumentsByEntity: (entityType: string, entityId: string) => Promise<GeneratedDocument[]>;
   generateReceipt: (billId: string) => Promise<DocumentGenerationResponse>;
+  generateBillStatement: (billId: string) => Promise<DocumentGenerationResponse>;  // ✅ ADD THIS
   generateReferralLetter: (referralId: string) => Promise<DocumentGenerationResponse>;
   generateDischargeSummary: (admissionId: string) => Promise<DocumentGenerationResponse>;
   generateLabResult: (labTestId: string) => Promise<DocumentGenerationResponse>;
@@ -48,11 +49,24 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await documentApi.generateReceipt(billId);
-      // Refresh documents after generation
       set({ isLoading: false });
       return response;
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Failed to generate receipt';
+      set({ error: errorMsg, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ✅ ADD THIS
+  generateBillStatement: async (billId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await documentApi.generateBillStatement(billId);
+      set({ isLoading: false });
+      return response;
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to generate bill statement';
       set({ error: errorMsg, isLoading: false });
       throw error;
     }

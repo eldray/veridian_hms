@@ -676,6 +676,74 @@ export interface InsuranceClaim {
   batch?: ClaimSubmissionBatch;
 }
 
+// types/index.ts - ADD THIS
+export interface BillLineItem {
+  id: string;
+  billId: string;
+  serviceCatalogId?: string;
+  description: string;
+  serviceType: string;
+  quantity: number;
+  unitPrice: number;
+  pricingBasis: PaymentMode;
+  vatRate: number;
+  vatAmount: number;
+  lineTotal: number;
+  insuranceCoveredAmount: number;
+  patientPayableAmount: number;
+  discount: number;
+  isVoided: boolean;
+  voidReason?: string;
+  serviceCatalog?: {
+    name: string;
+    code: string;
+    nhisServiceCode?: string;
+  };
+}
+
+export interface Bill {
+  id: string;
+  billNumber: string;
+  patientId: string;
+  attendanceId: string;
+  admissionId?: string;
+  subtotal: number;
+  discount: number;
+  waiverAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  insuranceCovered: number;
+  patientPayable: number;
+  paidAmount: number;
+  balance: number;
+  status: BillStatus;
+  paymentMode: PaymentMode;
+  insuranceProviderId?: string;
+  preAuthNumber?: string;
+  claimNumber?: string;
+  claimStatus: string;
+  billDate: string;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  BillLineItem?: BillLineItem[];  // ← ADD THIS
+  Patient?: {
+    surname: string;
+    otherNames: string;
+    folderNumber: string;
+    contact?: string;
+  };
+  Attendance?: {
+    attendanceNumber: string;
+    attendanceType: string;
+    dateTime: string;
+  };
+  InsuranceProvider?: {
+    name: string;
+    coveragePercentage: number;
+  };
+}
+
 // ======================
 // CLINICAL ENTRIES
 // ======================
@@ -1055,24 +1123,17 @@ export interface StockItem {
   id: string;
   name: string;
   category: string;
-  description?: string;
-  strength: string;
+  description: string | null;
+  strength: string | null;
   unitOfMeasure: string;
-  drugCode: string;
+  drugCode: string | null;
   reorderLevel: number;
   currentStock: number;
   costPrice: number;
-  isNHISCovered: boolean;
-  isPrivateInsExempted: boolean;
-  nhisRequiresAuth: boolean;
-  privateInsRequiresAuth: boolean;
-  supplier?: string;
-  expiryDate?: string;
-  batchNumber?: string;
+  supplier: string | null;
+  batchNumber: string | null;
+  expiryDate: string | null;
   isActive: boolean;
-  tariffCode?: string;
-  vatRate: number;
-  isTaxable: boolean;
   isMedication: boolean;
   createdAt: string;
   updatedAt: string;

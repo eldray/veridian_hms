@@ -21,9 +21,12 @@ import {
   submitRequisition as apiSubmitRequisition,
   approveRequisition as apiApproveRequisition,
   fulfillRequisition as apiFulfillRequisition,
-  deleteRequisition as apiDeleteRequisition
+  deleteRequisition as apiDeleteRequisition,
+  getInvoices as apiGetInvoices,
+  createInvoice as apiCreateInvoice,
+  deleteInvoice as apiDeleteInvoice
 } from '../api';
-import type { StockItem, StockTransaction, Pagination, Requisition } from '../types';
+import type { StockItem, StockTransaction, Pagination, Requisition, Invoice } from '../types';
 
 interface StockState {
   stockItems: StockItem[];
@@ -36,6 +39,7 @@ interface StockState {
   lowStockAlerts: StockItem[];
   stockMovementReport: any;
   requisitions: Requisition[];
+  invoices: Invoice[];
   error: string | null;
   
   // Stock Items
@@ -67,6 +71,11 @@ interface StockState {
   approveRequisition: (id: string) => Promise<any>;
   fulfillRequisition: (id: string, data?: any) => Promise<any>;
   deleteRequisition: (id: string) => Promise<void>;
+
+  // Invoices
+  getInvoices: (filters?: any) => Promise<void>;
+  createInvoice: (data: any) => Promise<any>;
+  deleteInvoice: (id: string) => Promise<void>;
   
   // Utility functions
   getLocalLowStockItems: () => StockItem[];
@@ -76,8 +85,6 @@ interface StockState {
   clearCurrentStockItem: () => void;
   clearCurrentTransaction: () => void;
   clearError: () => void;
-
-  
 }
 
 export const useStockStore = create<StockState>((set, get) => ({
@@ -91,13 +98,13 @@ export const useStockStore = create<StockState>((set, get) => ({
   lowStockAlerts: [],
   stockMovementReport: null,
   requisitions: [],
+  invoices: [],
   error: null,
 
   getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetStockItems(filters);
-      // Handle different response formats
       const stockItems = response.stockItems || response.data || response;
       set({ 
         stockItems: Array.isArray(stockItems) ? stockItems : [],
@@ -132,21 +139,7 @@ export const useStockStore = create<StockState>((set, get) => ({
   createStockItem: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
-      // Ensure data matches backend expectations
-      const stockItemData = {
-        name: data.name,
-        category: data.category,
-        description: data.description,
-        unitOfMeasure: data.unitOfMeasure,
-        reorderLevel: data.reorderLevel,
-        unitPrice: data.unitPrice,
-        sellingPrice: data.sellingPrice,
-        insurancePrice: data.insurancePrice,
-        supplier: data.supplier,
-        // Add any other required fields from your backend
-      };
-      
-      const newStockItem = await apiCreateStockItem(stockItemData);
+      const newStockItem = await apiCreateStockItem(data);
       const { stockItems } = get();
       set({ 
         stockItems: [newStockItem, ...stockItems],
@@ -170,7 +163,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const updatedStockItem = await apiUpdateStockItem(id, data);
       const { stockItems } = get();
       const updatedItems = stockItems.map(item => 
-        (item.id === id || item.id === id) ? updatedStockItem : item
+        item.id === id ? updatedStockItem : item
       );
       set({ 
         stockItems: updatedItems,
@@ -188,24 +181,15 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  // Add to store implementation:
-getMedicationStockItems: () => {
-  return get().stockItems.filter(item => item.isMedication && item.isActive);
-},
-
   deleteStockItem: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
       await apiDeleteStockItem(id);
       const { stockItems, currentStockItem } = get();
-      const updatedItems = stockItems.filter(item => 
-        item.id !== id && item.id !== id
-      );
+      const updatedItems = stockItems.filter(item => item.id !== id);
       set({ 
         stockItems: updatedItems,
-        currentStockItem: (currentStockItem?.id === id || currentStockItem?.id === id) 
-          ? null 
-          : currentStockItem,
+        currentStockItem: currentStockItem?.id === id ? null : currentStockItem,
         isLoading: false 
       });
     } catch (error: any) {
@@ -271,15 +255,7 @@ getMedicationStockItems: () => {
   createStockTransaction: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const transactionData = {
-        stockItemId: data.stockItemId,
-        transactionType: data.transactionType,
-        quantity: data.quantity,
-        reference: data.reference,
-        notes: data.notes
-      };
-      
-      const newTransaction = await apiCreateStockTransaction(transactionData);
+      const newTransaction = await apiCreateStockTransaction(data);
       const { transactions } = get();
       
       set({ 
@@ -287,8 +263,7 @@ getMedicationStockItems: () => {
         isLoading: false 
       });
       
-      // ✅ FIX: Don't call getStockItems here - let the component handle refresh if needed
-      // Instead, optimistically update the stock items array
+      // Update stock items array optimistically
       const { stockItems } = get();
       const updatedStockItems = stockItems.map(item => {
         if (item.id === data.stockItemId) {
@@ -302,7 +277,6 @@ getMedicationStockItems: () => {
       });
       
       set({ stockItems: updatedStockItems });
-      
       return newTransaction;
     } catch (error: any) {
       console.error('Failed to create stock transaction:', error);
@@ -318,10 +292,8 @@ getMedicationStockItems: () => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiBulkUpdateStock(data);
-      
-      // ✅ FIX: Return success and let component decide when to refresh
       set({ isLoading: false });
-      return { ...result, shouldRefresh: true }; // Signal that refresh might be needed
+      return result;
     } catch (error: any) {
       console.error('Failed to bulk update stock:', error);
       set({ 
@@ -353,7 +325,7 @@ getMedicationStockItems: () => {
       const updatedTransaction = await apiUpdateStockTransaction(id, data);
       const { transactions } = get();
       const updatedTransactions = transactions.map(transaction =>
-        (transaction.id === id || transaction.id === id) ? updatedTransaction : transaction
+        transaction.id === id ? updatedTransaction : transaction
       );
       set({ 
         transactions: updatedTransactions,
@@ -419,12 +391,13 @@ getMedicationStockItems: () => {
     }
   },
 
+  // Requisitions
   getRequisitions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetRequisitions(filters);
       const requisitions = Array.isArray(response) ? response : (response?.requisitions || []);
-      set({ requisitions, isLoading: false });
+      set({ requisitions, isLoading: false, pagination: response?.pagination || null });
     } catch (error: any) {
       set({
         isLoading: false,
@@ -454,21 +427,42 @@ getMedicationStockItems: () => {
   },
 
   submitRequisition: async (id: string) => {
-    const result = await apiSubmitRequisition(id);
-    await get().getRequisitions();
-    return result;
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSubmitRequisition(id);
+      await get().getRequisitions();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.response?.data?.message || 'Failed to submit requisition' });
+      throw error;
+    }
   },
 
   approveRequisition: async (id: string) => {
-    const result = await apiApproveRequisition(id);
-    await get().getRequisitions();
-    return result;
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiApproveRequisition(id);
+      await get().getRequisitions();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition' });
+      throw error;
+    }
   },
 
   fulfillRequisition: async (id: string, data = {}) => {
-    const result = await apiFulfillRequisition(id, data);
-    await get().getRequisitions();
-    return result;
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiFulfillRequisition(id, data);
+      await get().getRequisitions();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.response?.data?.message || 'Failed to fulfill requisition' });
+      throw error;
+    }
   },
 
   deleteRequisition: async (id: string) => {
@@ -488,12 +482,74 @@ getMedicationStockItems: () => {
     }
   },
 
-  // Local utility functions
+  // Invoices
+  getInvoices: async (filters = {}) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetInvoices(filters);
+      const invoices = response.invoices || response.data || response;
+      set({ 
+        invoices: Array.isArray(invoices) ? invoices : [],
+        pagination: response.pagination || null,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to fetch invoices:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to fetch invoices' 
+      });
+      throw error;
+    }
+  },
+
+  createInvoice: async (data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiCreateInvoice(data);
+      const newInvoice = result?.invoice || result;
+      const { invoices } = get();
+      set({ 
+        invoices: newInvoice ? [newInvoice, ...invoices] : invoices,
+        isLoading: false 
+      });
+      return newInvoice;
+    } catch (error: any) {
+      console.error('Failed to create invoice:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to create invoice' 
+      });
+      throw error;
+    }
+  },
+
+  deleteInvoice: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeleteInvoice(id);
+      const { invoices } = get();
+      set({ 
+        invoices: invoices.filter(inv => inv.id !== id),
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to delete invoice:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to delete invoice' 
+      });
+      throw error;
+    }
+  },
+
+  getMedicationStockItems: () => {
+    return get().stockItems.filter(item => item.isMedication && item.isActive);
+  },
+
   getLocalLowStockItems: () => {
     const { stockItems } = get();
-    return stockItems.filter(item => 
-      item.currentStock <= item.reorderLevel
-    );
+    return stockItems.filter(item => item.currentStock <= item.reorderLevel);
   },
 
   getExpiringItems: (days = 30) => {
@@ -503,7 +559,6 @@ getMedicationStockItems: () => {
     
     return stockItems.filter(item => {
       if (!item.expiryDate) return false;
-      
       try {
         const expiryDate = new Date(item.expiryDate);
         return expiryDate <= targetDate && expiryDate >= new Date();

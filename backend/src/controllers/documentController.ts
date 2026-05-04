@@ -57,11 +57,16 @@ export const generateReceipt = async (req: AuthRequest, res: Response) => {
 // ==============================================
 // GENERATE REFERRAL LETTER
 // ==============================================
+// In documentController.ts
 export const generateReferralLetter = async (req: AuthRequest, res: Response) => {
   try {
     const { referralId } = req.params;
     
+    console.log('📝 Generating referral letter for referralId:', referralId);
+    console.log('👤 User ID:', req.user?.id);
+    
     if (!req.user?.id) {
+      console.error('❌ No user ID found');
       return res.status(401).json({
         success: false,
         message: 'User authentication required'
@@ -73,10 +78,13 @@ export const generateReferralLetter = async (req: AuthRequest, res: Response) =>
       req.user.id
     );
     
+    console.log('📄 Generation result:', result);
+    
     if (!result.success) {
+      console.error('❌ Generation failed:', result.error);
       return res.status(500).json({
         success: false,
-        message: result.error
+        message: result.error || 'Failed to generate referral letter'
       });
     }
     
@@ -89,11 +97,12 @@ export const generateReferralLetter = async (req: AuthRequest, res: Response) =>
       }
     });
   } catch (error) {
-    console.error('Error generating referral letter:', error);
+    console.error('❌ Error generating referral letter:', error);
     res.status(500).json({
       success: false,
       message: 'Error generating referral letter',
-      error: (error as Error).message
+      error: (error as Error).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
     });
   }
 };
@@ -191,6 +200,8 @@ export const generateLabResult = async (req: AuthRequest, res: Response) => {
 // ==============================================
 export const generatePrescription = async (req: AuthRequest, res: Response) => {
   try {
+    // In generatePrescription function, add:
+    const patientAge = calculateAge(data.patient?.dateOfBirth);
     const { attendanceId } = req.params;
     
     if (!req.user?.id) {
@@ -278,7 +289,7 @@ export const generatePrescription = async (req: AuthRequest, res: Response) => {
 };
 
 // ==============================================
-// DOWNLOAD DOCUMENT
+// DOWNLOAD DOCUMENT - FIXED VERSION
 // ==============================================
 export const downloadDocument = async (req: AuthRequest, res: Response) => {
   try {
@@ -295,9 +306,14 @@ export const downloadDocument = async (req: AuthRequest, res: Response) => {
       });
     }
     
+    // Construct absolute path
+    // document.filePath is like '/uploads/documents/filename.pdf'
+    const fileName = path.basename(document.filePath);
+    const absolutePath = path.join(process.cwd(), 'uploads', 'documents', fileName);
+    
     // Check if file exists
     try {
-      await fs.access(document.filePath);
+      await fs.access(absolutePath);
     } catch {
       return res.status(404).json({
         success: false,
@@ -305,8 +321,7 @@ export const downloadDocument = async (req: AuthRequest, res: Response) => {
       });
     }
     
-    const fileName = path.basename(document.filePath);
-    res.download(document.filePath, fileName);
+    res.download(absolutePath, fileName);
   } catch (error) {
     console.error('Error downloading document:', error);
     res.status(500).json({
@@ -515,29 +530,42 @@ function calculateAge(dateOfBirth: Date): number {
   return age;
 }
 
-// In controllers/documentController.ts - ADD this function:
-
+// Add this to documentController.ts if not already there
 export const generateBillStatement = async (req: AuthRequest, res: Response) => {
   try {
     const { billId } = req.params;
     
     if (!req.user?.id) {
-      return res.status(401).json({ success: false, message: 'User authentication required' });
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
     }
     
     const result = await DocumentGeneratorService.generateBillStatement(billId, req.user.id);
     
     if (!result.success) {
-      return res.status(500).json({ success: false, message: result.error });
+      return res.status(500).json({
+        success: false,
+        message: result.error
+      });
     }
     
     res.json({
       success: true,
       message: 'Bill statement generated successfully',
-      data: { documentId: result.documentId, filePath: result.filePath }
+      data: {
+        documentId: result.documentId,
+        filePath: result.filePath
+      }
     });
   } catch (error) {
     console.error('Error generating bill statement:', error);
-    res.status(500).json({ success: false, message: 'Error generating bill statement' });
+    res.status(500).json({
+      success: false,
+      message: 'Error generating bill statement',
+      error: (error as Error).message
+    });
   }
 };
+

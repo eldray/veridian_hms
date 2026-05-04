@@ -1,17 +1,22 @@
-/* src/styles/theme.css */
+/* src/styles/theme.css
+ *
+ * CSS variables are now managed entirely by themeStore.ts at runtime.
+ * This file only sets safe fallback defaults (the Original scheme / light mode)
+ * so the page doesn't flash unstyled on first load before JS runs.
+ *
+ * To prevent any flash, call initTheme() in main.tsx BEFORE ReactDOM.render().
+ * See themeStore.ts for the initTheme() export.
+ */
 
-/* Light Mode (Default) */
-:root {
-  /* Main background - light gray like the image */
+ :root {
+  /* ── Fallback defaults (Original scheme, light mode) ── */
   --bg-main: #e5e7eb;
   --bg-card: #ffffff;
-  
-  /* Text */
+
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --text-tertiary: #9ca3af;
-  
-  /* Icon circles - light pastel colors */
+
   --icon-cyan-bg: #a5f3fc;
   --icon-cyan-text: #0891b2;
   --icon-orange-bg: #fed7aa;
@@ -24,42 +29,21 @@
   --icon-purple-text: #9333ea;
   --icon-yellow-bg: #fef08a;
   --icon-yellow-text: #ca8a04;
-  
-  /* Borders */
+
   --border-color: #e5e7eb;
-  
-  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Dark Mode */
-.dark {
-  --bg-main: #1f2937;
-  --bg-card: #374151;
-  
-  --text-primary: #f9fafb;
-  --text-secondary: #d1d5db;
-  --text-tertiary: #9ca3af;
-  
-  --icon-cyan-bg: #164e63;
-  --icon-cyan-text: #67e8f9;
-  --icon-orange-bg: #7c2d12;
-  --icon-orange-text: #fdba74;
-  --icon-red-bg: #7f1d1d;
-  --icon-red-text: #fca5a5;
-  --icon-green-bg: #14532d;
-  --icon-green-text: #86efac;
-  --icon-purple-bg: #581c87;
-  --icon-purple-text: #d8b4fe;
-  --icon-yellow-bg: #713f12;
-  --icon-yellow-text: #fde047;
-  
-  --border-color: #4b5563;
-  
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-}
+/*
+ * NOTE: The old .dark { } block has been removed.
+ * themeStore.ts adds/removes the `.dark` class on <html> and
+ * injects all variables directly into :root via style.setProperty(),
+ * so a static .dark override here is no longer needed.
+ *
+ * If you use Tailwind's `dark:` utilities anywhere, they will still
+ * work because themeStore toggles the `dark` class on <html>.
+ */
 
 /* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
@@ -85,4 +69,34 @@
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
+}
+
+
+/* Add to your global.css or tailwind.css */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #anc-report-content, #anc-report-content * {
+    visibility: visible;
+  }
+  
+  #anc-report-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
 }

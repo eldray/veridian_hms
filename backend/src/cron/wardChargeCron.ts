@@ -1,4 +1,4 @@
-// cron/wardChargeCron.ts - Daily Ward Charge Generation
+// cron/wardChargeCron.ts - Daily Ward Charge Generation (FIXED VERSION)
 import { PrismaClient, PaymentMode } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -19,6 +19,12 @@ export class WardChargeService {
       totalAmount: 0
     };
 
+    // ✅ FIXED: Create clean date objects without mutating input
+    const startOfDay = new Date(chargeDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(chargeDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
     // Get all active admissions (not discharged)
     const activeAdmissions = await prisma.admission.findMany({
       where: {
@@ -37,23 +43,33 @@ export class WardChargeService {
       }
     });
 
-    console.log(`🏥 Found ${activeAdmissions.length} active admissions for ward charges on ${chargeDate.toISOString().split('T')[0]}`);
+    console.log(`🏥 Found ${activeAdmissions.length} active admissions for ward charges on ${startOfDay.toISOString().split('T')[0]}`);
 
     for (const admission of activeAdmissions) {
       try {
-        // Check if ward charge already exists for this date
+        // ✅ FIXED: Check using clean date objects
         const existingCharge = await prisma.wardChargeRecord.findFirst({
           where: {
             admissionId: admission.id,
             chargeDate: {
-              gte: new Date(chargeDate.setHours(0, 0, 0, 0)),
-              lt: new Date(chargeDate.setHours(23, 59, 59, 999))
+              gte: startOfDay,
+              lt: endOfDay
             }
           }
         });
 
         if (existingCharge) {
-          console.log(`⚠️ Ward charge already exists for admission ${admission.id} on ${chargeDate.toISOString().split('T')[0]}`);
+          console.log(`⚠️ Ward charge already exists for admission ${admission.id} on ${startOfDay.toISOString().split('T')[0]}`);
+          continue;
+        }
+
+        // ✅ FIXED: Handle missing attendance or bill
+        if (!admission.Attendance) {
+          console.error(`❌ Admission ${admission.id} has no attendance record`);
+          result.errors.push({
+            admissionId: admission.id,
+            error: 'Missing attendance record'
+          });
           continue;
         }
 
@@ -90,7 +106,7 @@ export class WardChargeService {
             admissionId: admission.id,
             wardId: admission.wardId,
             bedId: admission.bedId,
-            chargeDate: chargeDate,
+            chargeDate: startOfDay,
             dailyRate,
             paymentMode: paymentMode as PaymentMode,
             nhisPrice,
@@ -106,6 +122,11 @@ export class WardChargeService {
         // If there's an active bill, add this charge as a bill line item
         if (admission.Attendance?.Bill && admission.Attendance.Bill.status !== 'paid') {
           await this.addWardChargeToBill(wardCharge.id, admission.Attendance.Bill.id);
+        } else if (admission.Attendance && !admission.Attendance.Bill) {
+          // ✅ FIXED: Create bill if missing
+          console.log(`📝 Creating missing bill for admission ${admission.id}`);
+          const newBill = await this.createBillForAdmission(admission);
+          await this.addWardChargeToBill(wardCharge.id, newBill.id);
         }
 
         console.log(`✅ Created ward charge for admission ${admission.id}: GHS ${dailyRate}`);
@@ -121,6 +142,27 @@ export class WardChargeService {
 
     console.log(`📊 Ward charge generation complete: ${result.chargesCreated} charges created, total GHS ${result.totalAmount}`);
     return result;
+  }
+
+  // ✅ FIXED: Add helper to create bill for admission
+  static async createBillForAdmission(admission: any): Promise<any> {
+    return await prisma.bill.create({
+      data: {
+        billNumber: `BILL-${Date.now()}-${admission.id}`,
+        patientId: admission.patientId,
+        attendanceId: admission.attendanceId!,
+        admissionId: admission.id,
+        billDate: new Date(),
+        paymentMode: admission.Attendance?.paymentMode || 'cash',
+        status: 'pending',
+        createdById: 'system',
+        subtotal: 0,
+        totalAmount: 0,
+        patientPayable: 0,
+        paidAmount: 0,
+        balance: 0
+      }
+    });
   }
 
   // Add ward charge to bill as line item

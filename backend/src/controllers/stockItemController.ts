@@ -135,6 +135,7 @@ export const createStockItem = [
   }
 ];
 
+
 export const updateStockItem = [
   body('name').optional().notEmpty().withMessage('Item name cannot be empty'),
   body('reorderLevel').optional().isInt({ min: 0 }).withMessage('Reorder level must be a non-negative number'),
@@ -405,5 +406,53 @@ export const getStockTransactions = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching stock transactions:', error);
     res.status(500).json({ message: 'Error fetching stock transactions', error });
+  }
+};
+
+
+// Add to stockController.ts - Get medications by stock item
+
+export const getMedicationsByStockItem = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const medications = await prisma.medication.findMany({
+      where: { stockItemId: id },
+      include: {
+        Attendance: {
+          include: {
+            Patient: {
+              select: {
+                surname: true,
+                otherNames: true,
+                folderNumber: true
+              }
+            }
+          }
+        },
+        ServiceCatalog: {
+          include: { pricing: true }
+        }
+      },
+      orderBy: { prescribedAt: 'desc' },
+      take: 50
+    });
+    
+    const summary = {
+      totalPrescribed: medications.length,
+      dispensed: medications.filter(m => m.status === 'dispensed').length,
+      administered: medications.filter(m => m.status === 'administered').length,
+      cancelled: medications.filter(m => m.status === 'cancelled').length,
+      pending: medications.filter(m => m.status === 'prescribed').length,
+      totalQuantityDispensed: medications.reduce((sum, m) => sum + (m.quantity || 0), 0)
+    };
+    
+    res.json({
+      medications,
+      summary
+    });
+  } catch (error) {
+    console.error('Error fetching medications by stock item:', error);
+    res.status(500).json({ message: 'Error fetching medications', error });
   }
 };

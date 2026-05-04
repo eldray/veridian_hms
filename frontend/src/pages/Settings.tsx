@@ -6,7 +6,7 @@ import {
   ArrowLeft, Building, Users, Shield, Database, ClipboardList,
   Settings as SettingsIcon, Activity, FlaskConical, Scissors, Scan,
   FileText, Plus, Search, Filter, Edit, Trash2, X, Check, AlertCircle,
-  Package, DollarSign, Tag, Grid, List
+  Package, DollarSign, Tag, Grid, List, Palette 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
@@ -20,7 +20,7 @@ import NHISConfigTab from '../components/settings/NHISConfigTab';
 import BackupRestoreTab from '../components/settings/BackupRestoreTab';
 import CreateEditModal from '../components/CreateEditModal';
 import GDRGManagement from './GDRGManagement';
-
+import ThemePicker from '../components/ThemePicker';
 type MedicalServicesTabType = 'diagnoses' | 'lab-tests' | 'procedures' | 'scans';
 
 export default function Settings() {
@@ -282,6 +282,7 @@ export default function Settings() {
     { id: 'medical' as const, label: 'Medical Services', icon: ClipboardList },
     { id: 'gdrg' as const, label: 'G-DRG Tariffs', icon: Shield }, 
     { id: 'nhis' as const, label: 'NHIS', icon: Shield },
+    { id: 'appearance' as const, label: 'Appearance',       icon: Palette }, 
     { id: 'backup' as const, label: 'Backup', icon: Database },
   ];
 
@@ -372,6 +373,18 @@ export default function Settings() {
 
           {/* NHIS Config Tab */}
           {activeTab === 'nhis' && <NHISConfigTab />}
+
+          {activeTab === 'appearance' && (
+            <div className="max-w-3xl">
+              <div className="mb-6">
+                <h2 className="text-base font-semibold text-[var(--text-primary)]">Appearance</h2>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">
+                  Choose a color scheme and display mode. Your preference is saved to this device.
+                </p>
+              </div>
+              <ThemePicker />
+            </div>
+          )}
 
           {/* Backup Restore Tab */}
           {activeTab === 'backup' && <BackupRestoreTab />}

@@ -10,13 +10,19 @@ import {
   // GHS Reports
   getGHSOPDReport as apiGetGHSOPDReport,
   getGHSIPDReport as apiGetGHSIPDReport,
-  getGHSANCReport as apiGetGHSANCReport,
-  getGHSDeliveryReport as apiGetGHSDeliveryReport,
+  getGHSFormAReport as apiGetGHSFormAReport,    // ✅ NEW - Replaces ANC + Delivery
   getGHSMalariaReport as apiGetGHSMalariaReport,
   getGHSIDSRReport as apiGetGHSIDSRReport,
   getGHSFamilyPlanningReport as apiGetGHSFamilyPlanningReport,
   getMorbidityMortalityReport as apiGetMorbidityMortalityReport,
-  getDemographicReport as apiGetDemographicReport
+  getTopDiagnoses as apiGetTopDiagnoses,
+  getDemographicReport as apiGetDemographicReport,
+
+  getLabReport as apiGetLabReport,
+  getScanReport as apiGetScanReport,
+  getProcedureReport as apiGetProcedureReport,
+  getMedicationReport as apiGetMedicationReport,
+  getVitalsReport as apiGetVitalsReport,
 } from '../api';
 import type { 
   FinancialReport, 
@@ -28,6 +34,7 @@ import type {
   IPDReport,
   ANCReport,
   DeliveryReport,
+  FormAReport,           // ✅ NEW type
   MalariaReport,
   IDSRReport,
   FamilyPlanningReport,
@@ -40,12 +47,14 @@ interface ReportsState {
   // GHS Reports
   opdReport: OPDRreport | null;
   ipdReport: IPDReport | null;
-  ancReport: ANCReport | null;
-  deliveryReport: DeliveryReport | null;
+  ancReport: ANCReport | null;           // ⚠️ DEPRECATED - kept for backward compatibility
+  deliveryReport: DeliveryReport | null; // ⚠️ DEPRECATED - kept for backward compatibility
+  formAReport: FormAReport | null;       // ✅ NEW - Replaces ANC + Delivery
   malariaReport: MalariaReport | null;
   idsrReport: IDSRReport | null;
   familyPlanningReport: FamilyPlanningReport | null;
   morbidityMortalityReport: MorbidityMortalityReport | null;
+  topDiagnoses: any[] | null;            // ✅ NEW - Top 10 diagnoses
   demographicReport: DemographicReport | null;
   
   // Core Reports
@@ -54,6 +63,13 @@ interface ReportsState {
   clinicalReport: ClinicalReport | null;
   attendanceReport: AttendanceReport | null;
   revenueReport: RevenueReport | null;
+
+  // Clinical Reports
+  labReport: any | null;
+  scanReport: any | null;
+  procedureReport: any | null;
+  medicationReport: any | null;
+  vitalsReport: any | null;
   
   isLoading: boolean;
   error: string | null;
@@ -61,12 +77,12 @@ interface ReportsState {
   // GHS Report Actions
   getOPDReport: (filters: ReportFilter) => Promise<void>;
   getIPDReport: (filters: ReportFilter) => Promise<void>;
-  getANCReport: (filters: ReportFilter) => Promise<void>;
-  getDeliveryReport: (filters: ReportFilter) => Promise<void>;
+  getFormAReport: (filters: ReportFilter) => Promise<void>;       // ✅ NEW
   getMalariaReport: (filters: ReportFilter) => Promise<void>;
   getIDSRReport: (filters: ReportFilter) => Promise<void>;
   getFamilyPlanningReport: (filters: ReportFilter) => Promise<void>;
   getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
+  getTopDiagnoses: (filters: ReportFilter, limit?: number) => Promise<void>;  // ✅ NEW
   getDemographicReport: (filters: ReportFilter) => Promise<void>;
   
   // Core Report Actions
@@ -76,6 +92,13 @@ interface ReportsState {
   getAttendanceReport: (filters: ReportFilter) => Promise<void>;
   getRevenueReport: (filters: ReportFilter) => Promise<void>;
   
+  // Clinical Report Actions
+  getLabReport: (filters: ReportFilter) => Promise<void>;
+  getScanReport: (filters: ReportFilter) => Promise<void>;
+  getProcedureReport: (filters: ReportFilter) => Promise<void>;
+  getMedicationReport: (filters: ReportFilter) => Promise<void>;
+  getVitalsReport: (filters: ReportFilter) => Promise<void>;
+
   exportReport: (data: any) => Promise<any>;
   clearReports: () => void;
   clearError: () => void;
@@ -85,12 +108,12 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   // GHS Reports initial state
   opdReport: null,
   ipdReport: null,
-  ancReport: null,
-  deliveryReport: null,
+  formAReport: null,         // ✅ NEW
   malariaReport: null,
   idsrReport: null,
   familyPlanningReport: null,
   morbidityMortalityReport: null,
+  topDiagnoses: null,        // ✅ NEW
   demographicReport: null,
   
   // Core Reports initial state
@@ -100,6 +123,12 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   attendanceReport: null,
   revenueReport: null,
   
+  labReport: null,
+  scanReport: null,
+  procedureReport: null,
+  medicationReport: null,
+  vitalsReport: null,
+
   isLoading: false,
   error: null,
 
@@ -137,30 +166,18 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     }
   },
 
-  getANCReport: async (filters: ReportFilter) => {
+  // ✅ NEW - Form A Report (Combined ANC + Delivery + Postnatal)
+  getFormAReport: async (filters: ReportFilter) => {
     set({ isLoading: true, error: null });
     try {
-      const report = await apiGetGHSANCReport(filters);
-      set({ ancReport: report, isLoading: false });
+      const response = await apiGetGHSFormAReport(filters);
+      // Handle both response formats
+      const reportData = response.data || response;
+      set({ formAReport: reportData, isLoading: false });
     } catch (error: any) {
-      console.error('Failed to fetch ANC report:', error);
+      console.error('Failed to fetch Form A report:', error);
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch ANC report',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
-
-  getDeliveryReport: async (filters: ReportFilter) => {
-    set({ isLoading: true, error: null });
-    try {
-      const report = await apiGetGHSDeliveryReport(filters);
-      set({ deliveryReport: report, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch Delivery report:', error);
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch Delivery report',
+        error: error.response?.data?.message || 'Failed to fetch Form A report',
         isLoading: false 
       });
       throw error;
@@ -215,8 +232,13 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getMorbidityMortalityReport: async (filters: ReportFilter) => {
     set({ isLoading: true, error: null });
     try {
-      const report = await apiGetMorbidityMortalityReport(filters);
-      set({ morbidityMortalityReport: report, isLoading: false });
+      const response = await apiGetMorbidityMortalityReport(filters);
+      // Handle both response formats
+      const reportData = response.data || response;
+      set({ 
+        morbidityMortalityReport: reportData,
+        isLoading: false 
+      });
     } catch (error: any) {
       console.error('Failed to fetch Morbidity/Mortality report:', error);
       set({ 
@@ -226,6 +248,38 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       throw error;
     }
   },
+
+// In reportsStore.ts - Fix getTopDiagnoses
+
+getTopDiagnoses: async (filters: ReportFilter, limit: number = 10) => {
+  set({ isLoading: true, error: null });
+  try {
+    const diagnoses = await apiGetTopDiagnoses(filters, limit);
+    console.log('📊 Top diagnoses received:', diagnoses); // Debug log
+    
+    // Handle different response formats
+    let diagnosesArray = [];
+    if (Array.isArray(diagnoses)) {
+      diagnosesArray = diagnoses;
+    } else if (diagnoses?.data && Array.isArray(diagnoses.data)) {
+      diagnosesArray = diagnoses.data;
+    } else if (diagnoses?.success && Array.isArray(diagnoses.data)) {
+      diagnosesArray = diagnoses.data;
+    } else {
+      diagnosesArray = [];
+    }
+    
+    console.log('📊 Setting topDiagnoses:', diagnosesArray.length);
+    set({ topDiagnoses: diagnosesArray, isLoading: false });
+  } catch (error: any) {
+    console.error('Failed to fetch Top Diagnoses:', error);
+    set({ 
+      error: error.response?.data?.message || 'Failed to fetch Top Diagnoses',
+      isLoading: false 
+    });
+    throw error;
+  }
+},
 
   getDemographicReport: async (filters: ReportFilter) => {
     set({ isLoading: true, error: null });
@@ -337,22 +391,90 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     }
   },
 
+    // Clinical Report Actions
+    getLabReport: async (filters: ReportFilter) => {
+      set({ isLoading: true, error: null });
+      try {
+        const report = await apiGetLabReport(filters);
+        set({ labReport: report, isLoading: false });
+      } catch (error: any) {
+        console.error('Failed to fetch Lab report:', error);
+        set({ error: error.response?.data?.message || 'Failed to fetch Lab report', isLoading: false });
+        throw error;
+      }
+    },
+    
+    getScanReport: async (filters: ReportFilter) => {
+      set({ isLoading: true, error: null });
+      try {
+        const report = await apiGetScanReport(filters);
+        set({ scanReport: report, isLoading: false });
+      } catch (error: any) {
+        console.error('Failed to fetch Scan report:', error);
+        set({ error: error.response?.data?.message || 'Failed to fetch Scan report', isLoading: false });
+        throw error;
+      }
+    },
+    
+    getProcedureReport: async (filters: ReportFilter) => {
+      set({ isLoading: true, error: null });
+      try {
+        const report = await apiGetProcedureReport(filters);
+        set({ procedureReport: report, isLoading: false });
+      } catch (error: any) {
+        console.error('Failed to fetch Procedure report:', error);
+        set({ error: error.response?.data?.message || 'Failed to fetch Procedure report', isLoading: false });
+        throw error;
+      }
+    },
+    
+    getMedicationReport: async (filters: ReportFilter) => {
+      set({ isLoading: true, error: null });
+      try {
+        const report = await apiGetMedicationReport(filters);
+        set({ medicationReport: report, isLoading: false });
+      } catch (error: any) {
+        console.error('Failed to fetch Medication report:', error);
+        set({ error: error.response?.data?.message || 'Failed to fetch Medication report', isLoading: false });
+        throw error;
+      }
+    },
+    
+    getVitalsReport: async (filters: ReportFilter) => {
+      set({ isLoading: true, error: null });
+      try {
+        const report = await apiGetVitalsReport(filters);
+        set({ vitalsReport: report, isLoading: false });
+      } catch (error: any) {
+        console.error('Failed to fetch Vitals report:', error);
+        set({ error: error.response?.data?.message || 'Failed to fetch Vitals report', isLoading: false });
+        throw error;
+      }
+    },
+
   clearReports: () => {
     set({
       opdReport: null,
       ipdReport: null,
       ancReport: null,
       deliveryReport: null,
+      formAReport: null,      // ✅ NEW
       malariaReport: null,
       idsrReport: null,
       familyPlanningReport: null,
       morbidityMortalityReport: null,
+      topDiagnoses: null,     // ✅ NEW
       demographicReport: null,
       financialReport: null,
       insuranceClaimsReport: null,
       clinicalReport: null,
       attendanceReport: null,
       revenueReport: null,
+      labReport: null,
+      scanReport: null,
+      procedureReport: null,
+      medicationReport: null,
+      vitalsReport: null,
       error: null
     });
   },

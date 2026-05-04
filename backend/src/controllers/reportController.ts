@@ -414,6 +414,7 @@ export const getInsuranceClaimsReport = async (req: Request, res: Response) => {
 };
 
 // ==================== CLINICAL REPORT ====================
+// ==================== CLINICAL REPORT ====================
 export const getClinicalReport = async (req: Request, res: Response) => {
   try {
     const { period, dateFrom, dateTo, diagnosisCode } = req.query;
@@ -457,6 +458,7 @@ export const getClinicalReport = async (req: Request, res: Response) => {
       });
     }
 
+    // ✅ FIXED: Removed 'category' field which doesn't exist in schema
     const clinicalData = await prisma.attendance.findMany({
       where: dateFrom || dateTo ? {
         dateTime: {
@@ -466,7 +468,17 @@ export const getClinicalReport = async (req: Request, res: Response) => {
       } : {},
       include: {
         Patient: { select: { dateOfBirth: true, gender: true } },
-        AttendanceDiagnosis: { include: { Diagnosis: { select: { name: true, icdCode: true, category: true } } } }
+        AttendanceDiagnosis: { 
+          include: { 
+            Diagnosis: { 
+              select: { 
+                name: true, 
+                icdCode: true
+                // ❌ REMOVED: 'category' - doesn't exist in schema
+              } 
+            } 
+          } 
+        }
       }
     });
 
@@ -487,9 +499,12 @@ export const getClinicalReport = async (req: Request, res: Response) => {
         }
         
         acc[key].totalCases += 1;
-        const age = calculateAge(attendance.patientId.dateOfBirth, attendance.dateTime);
-        acc[key].ages.push(age);
-        acc[key].genders.push(attendance.patientId.gender);
+        // ✅ FIXED: Access patient data correctly
+        if (attendance.Patient) {
+          const age = calculateAge(attendance.Patient.dateOfBirth, attendance.dateTime);
+          acc[key].ages.push(age);
+          acc[key].genders.push(attendance.Patient.gender);
+        }
       }
       return acc;
     }, {} as any);

@@ -1,11 +1,14 @@
 // services/GHSIpdReportService.ts
-// Based on ipd report.pdf - Exact format with admissions and deaths
+// Based on ipd report.pdf - Complete with all 12 age groups
 
-import { PrismaClient, PaymentMode, Gender, DischargeStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export type IPD_AgeGroup = '0-28d' | '1-11m' | '5-9y' | '10-14y';
+// ✅ COMPLETE AGE GROUPS for GHS IPD report (12 groups matching OPD)
+export type IPD_AgeGroup = 
+  | '0-28d' | '1-11m' | '1-4y' | '5-9y' | '10-14y' 
+  | '15-17y' | '18-19y' | '20-34y' | '35-49y' | '50-59y' | '60-69y' | '70+y';
 
 export interface IPD_AgeGroupData {
   admissions: {
@@ -27,7 +30,7 @@ export interface IPD_MalariaData {
 
 export interface IPDReport {
   period: { startDate: Date; endDate: Date; year: number; month: number };
-  facility: { name: string; district: string; ghfCode: string };
+  facility: { name: string; district: string; region: string; ghfCode: string };
   ageGroups: Record<IPD_AgeGroup, IPD_AgeGroupData>;
   malaria: IPD_MalariaData;
   totals: {
@@ -40,17 +43,27 @@ export interface IPDReport {
 
 export class GHSIpdReportService {
   
-  private static readonly AGE_GROUPS: IPD_AgeGroup[] = ['0-28d', '1-11m', '5-9y', '10-14y'];
+  private static readonly AGE_GROUPS: IPD_AgeGroup[] = [
+    '0-28d', '1-11m', '1-4y', '5-9y', '10-14y', 
+    '15-17y', '18-19y', '20-34y', '35-49y', '50-59y', '60-69y', '70+y'
+  ];
 
-  private static getAgeGroup(dob: Date, referenceDate: Date): IPD_AgeGroup | null {
+  private static getAgeGroup(dob: Date, referenceDate: Date): IPD_AgeGroup {
     const ageInDays = Math.floor((referenceDate.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24));
     const ageInYears = ageInDays / 365.25;
     
     if (ageInDays < 28) return '0-28d';
     if (ageInDays < 365) return '1-11m';
+    if (ageInYears < 5) return '1-4y';
     if (ageInYears < 10) return '5-9y';
     if (ageInYears < 15) return '10-14y';
-    return null; // Age not in IPD reporting range
+    if (ageInYears < 18) return '15-17y';
+    if (ageInYears < 20) return '18-19y';
+    if (ageInYears < 35) return '20-34y';
+    if (ageInYears < 50) return '35-49y';
+    if (ageInYears < 60) return '50-59y';
+    if (ageInYears < 70) return '60-69y';
+    return '70+y';
   }
 
   private static createEmptyAgeGroupData(): IPD_AgeGroupData {
@@ -67,7 +80,11 @@ export class GHSIpdReportService {
   }
 
   static async generateIPDReport(startDate: Date, endDate: Date): Promise<IPDReport> {
-    // Initialize age group data
+    // Set end date to end of day
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(23, 59, 59, 999);
+    
+    // Initialize age group data for ALL groups
     const ageGroups: Record<IPD_AgeGroup, IPD_AgeGroupData> = {} as any;
     for (const ageGroup of this.AGE_GROUPS) {
       ageGroups[ageGroup] = this.createEmptyAgeGroupData();
@@ -87,11 +104,10 @@ export class GHSIpdReportService {
       nonInsured: { admissions: 0, deaths: 0 }
     };
 
-    // Fetch IPD admissions (with discharge)
+    // Fetch all admissions during the period with patient and diagnosis data
     const admissions = await prisma.admission.findMany({
       where: {
-        admissionDate: { gte: startDate, lte: endDate },
-        status: 'discharged'
+        admissionDate: { gte: startDate, lte: endDateTime }
       },
       include: {
         Patient: {
@@ -114,12 +130,16 @@ export class GHSIpdReportService {
       }
     });
 
+    console.log(`📊 Found ${admissions.length} IPD admissions for period: ${startDate.toISOString().split('T')[0]} to ${endDateTime.toISOString().split('T')[0]}`);
+
     // Process each admission
     for (const admission of admissions) {
       const patient = admission.Patient;
+      if (!patient) continue;
+      
       const ageGroup = this.getAgeGroup(patient.dateOfBirth, admission.admissionDate);
       const gender = patient.gender.toLowerCase() as 'male' | 'female';
-      const isInsured = patient.paymentMode !== 'cash';
+      const isInsured = patient.paymentMode !== 'cash' && patient.paymentMode !== null;
       const isDead = admission.dischargeStatus === 'expired';
       
       // Check if this is a malaria case
@@ -128,7 +148,7 @@ export class GHSIpdReportService {
                 diag.Diagnosis?.icdCode?.startsWith('B5')
       );
       
-      const ageInYears = (new Date(admission.admissionDate).getTime() - patient.dateOfBirth.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      const ageInYears = (admission.admissionDate.getTime() - patient.dateOfBirth.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
       const isUnder5 = ageInYears < 5;
       
       if (isMalaria) {
@@ -141,26 +161,23 @@ export class GHSIpdReportService {
         }
       }
       
-      // Update age group data if age is within IPD reporting range
-      if (ageGroup) {
-        // Admissions
+      // Update age group data - Admissions
+      if (isInsured) {
+        if (gender === 'male') ageGroups[ageGroup].admissions.insured.male++;
+        else ageGroups[ageGroup].admissions.insured.female++;
+      } else {
+        if (gender === 'male') ageGroups[ageGroup].admissions.nonInsured.male++;
+        else ageGroups[ageGroup].admissions.nonInsured.female++;
+      }
+      
+      // Update age group data - Deaths
+      if (isDead) {
         if (isInsured) {
-          if (gender === 'male') ageGroups[ageGroup].admissions.insured.male++;
-          else ageGroups[ageGroup].admissions.insured.female++;
+          if (gender === 'male') ageGroups[ageGroup].deaths.insured.male++;
+          else ageGroups[ageGroup].deaths.insured.female++;
         } else {
-          if (gender === 'male') ageGroups[ageGroup].admissions.nonInsured.male++;
-          else ageGroups[ageGroup].admissions.nonInsured.female++;
-        }
-        
-        // Deaths
-        if (isDead) {
-          if (isInsured) {
-            if (gender === 'male') ageGroups[ageGroup].deaths.insured.male++;
-            else ageGroups[ageGroup].deaths.insured.female++;
-          } else {
-            if (gender === 'male') ageGroups[ageGroup].deaths.nonInsured.male++;
-            else ageGroups[ageGroup].deaths.nonInsured.female++;
-          }
+          if (gender === 'male') ageGroups[ageGroup].deaths.nonInsured.male++;
+          else ageGroups[ageGroup].deaths.nonInsured.female++;
         }
       }
       
@@ -179,6 +196,11 @@ export class GHSIpdReportService {
     // Get facility info
     const hospital = await prisma.hospital.findFirst();
 
+    console.log('✅ IPD Report Summary:', {
+      totalAdmissions: totals.totalAdmissions,
+      totalDeaths: totals.totalDeaths
+    });
+
     return {
       period: {
         startDate,
@@ -187,8 +209,9 @@ export class GHSIpdReportService {
         month: startDate.getMonth() + 1
       },
       facility: {
-        name: hospital?.name || 'Hospital',
-        district: hospital?.ghsDistrictCode || 'Unknown',
+        name: hospital?.name || 'Health Facility',
+        district: hospital?.ghsDistrictCode || 'Unknown District',
+        region: 'Unknown Region',
         ghfCode: hospital?.ghaHFCode || 'Unknown'
       },
       ageGroups,
@@ -201,51 +224,75 @@ export class GHSIpdReportService {
     const rows: string[] = [];
     
     // Header
-    rows.push(`IPD Morbidity & Mortality Report,${report.period.startDate.toISOString().split('T')[0]},${report.period.endDate.toISOString().split('T')[0]}`);
-    rows.push(`Facility,${report.facility.name},District,${report.facility.district},GHF Code,${report.facility.ghfCode}`);
+    rows.push(`"IPD Morbidity & Mortality Report"`);
+    rows.push(`"Facility Name","${report.facility.name}"`);
+    rows.push(`"District","${report.facility.district}"`);
+    rows.push(`"GHF Code","${report.facility.ghfCode}"`);
+    rows.push(`"Reporting Period","${report.period.startDate.toISOString().split('T')[0]}","to","${report.period.endDate.toISOString().split('T')[0]}"`);
     rows.push('');
     
     // Admissions table
-    rows.push('ADMISSIONS');
-    rows.push('AGE GROUPS,INSURED - MALE,INSURED - FEMALE,NON-INSURED - MALE,NON-INSURED - FEMALE');
+    rows.push('"ADMISSIONS"');
+    const admissionHeader = ['"Age Group"'];
+    for (const ageGroup of this.AGE_GROUPS) {
+      admissionHeader.push(`"${ageGroup}_Insured_M"`, `"${ageGroup}_Insured_F"`, `"${ageGroup}_NonInsured_M"`, `"${ageGroup}_NonInsured_F"`);
+    }
+    admissionHeader.push('"Total"');
+    rows.push(admissionHeader.join(','));
+    
+    const admissionRow = ['"Total"'];
+    let totalAdmissions = 0;
     for (const ageGroup of this.AGE_GROUPS) {
       const data = report.ageGroups[ageGroup];
-      rows.push([
-        ageGroup,
-        data.admissions.insured.male,
-        data.admissions.insured.female,
-        data.admissions.nonInsured.male,
-        data.admissions.nonInsured.female
-      ].join(','));
+      const insuredM = data.admissions.insured.male;
+      const insuredF = data.admissions.insured.female;
+      const nonInsuredM = data.admissions.nonInsured.male;
+      const nonInsuredF = data.admissions.nonInsured.female;
+      const groupTotal = insuredM + insuredF + nonInsuredM + nonInsuredF;
+      admissionRow.push(insuredM, insuredF, nonInsuredM, nonInsuredF);
+      totalAdmissions += groupTotal;
     }
+    admissionRow.push(totalAdmissions);
+    rows.push(admissionRow.join(','));
+    rows.push('');
     
     // Deaths table
-    rows.push('');
-    rows.push('DEATHS');
-    rows.push('AGE GROUPS,INSURED - MALE,INSURED - FEMALE,NON-INSURED - MALE,NON-INSURED - FEMALE');
+    rows.push('"DEATHS"');
+    const deathHeader = ['"Age Group"'];
+    for (const ageGroup of this.AGE_GROUPS) {
+      deathHeader.push(`"${ageGroup}_Insured_M"`, `"${ageGroup}_Insured_F"`, `"${ageGroup}_NonInsured_M"`, `"${ageGroup}_NonInsured_F"`);
+    }
+    deathHeader.push('"Total"');
+    rows.push(deathHeader.join(','));
+    
+    const deathRow = ['"Total"'];
+    let totalDeaths = 0;
     for (const ageGroup of this.AGE_GROUPS) {
       const data = report.ageGroups[ageGroup];
-      rows.push([
-        ageGroup,
-        data.deaths.insured.male,
-        data.deaths.insured.female,
-        data.deaths.nonInsured.male,
-        data.deaths.nonInsured.female
-      ].join(','));
+      const insuredM = data.deaths.insured.male;
+      const insuredF = data.deaths.insured.female;
+      const nonInsuredM = data.deaths.nonInsured.male;
+      const nonInsuredF = data.deaths.nonInsured.female;
+      const groupTotal = insuredM + insuredF + nonInsuredM + nonInsuredF;
+      deathRow.push(insuredM, insuredF, nonInsuredM, nonInsuredF);
+      totalDeaths += groupTotal;
     }
+    deathRow.push(totalDeaths);
+    rows.push(deathRow.join(','));
+    rows.push('');
     
     // Malaria summary
+    rows.push('"MALARIA IN INPATIENTS"');
+    rows.push(`"Under 5 years Admitted","${report.malaria.under5_admitted}"`);
+    rows.push(`"5+ years Admitted","${report.malaria.above5_admitted}"`);
+    rows.push(`"Under 5 years Deaths","${report.malaria.under5_deaths}"`);
+    rows.push(`"5+ years Deaths","${report.malaria.above5_deaths}"`);
     rows.push('');
-    rows.push('SUMMARY OF INPATIENT MALARIA CASES');
-    rows.push(`Number of Patients below 5 years of Age Admitted with Malaria,${report.malaria.under5_admitted}`);
-    rows.push(`Number of Patients 5 years and above Admitted with Malaria,${report.malaria.above5_admitted}`);
-    rows.push(`Number of Patients below 5 years of Age Dying of Malaria,${report.malaria.under5_deaths}`);
-    rows.push(`Number of Patients 5 years and above Dying of Malaria,${report.malaria.above5_deaths}`);
     
     // Totals
-    rows.push('');
-    rows.push(`TOTAL ADMISSIONS,${report.totals.totalAdmissions}`);
-    rows.push(`TOTAL DEATHS,${report.totals.totalDeaths}`);
+    rows.push('"SUMMARY"');
+    rows.push(`"Total Admissions","${report.totals.totalAdmissions}"`);
+    rows.push(`"Total Deaths","${report.totals.totalDeaths}"`);
     
     return rows.join('\n');
   }

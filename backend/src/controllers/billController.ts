@@ -7,6 +7,72 @@ import { BillingService } from '../services/BillingService';
 
 const prisma = new PrismaClient();
 
+// ✅ ADD THIS: Void a bill line item
+export const voidBillLineItem = [
+  body('reason').notEmpty().withMessage('Void reason is required'),
+
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          success: false,
+          errors: errors.array(),
+          message: 'Validation failed'
+        });
+      }
+
+      const { lineItemId } = req.params;
+      const { reason } = req.body;
+
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      const result = await BillingService.voidBillLineItem(lineItemId, req.user.id, reason);
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: 'Bill line item not found'
+        });
+      }
+
+      // Get updated bill with line items
+      const updatedBill = await prisma.bill.findUnique({
+        where: { id: result.billId },
+        include: {
+          BillLineItem: {
+            where: { isVoided: false }
+          },
+          Patient: {
+            select: {
+              surname: true,
+              otherNames: true,
+              folderNumber: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Bill line item voided successfully',
+        data: {
+          voidedItem: result,
+          updatedBill
+        }
+      });
+    } catch (error) {
+      handleError(res, 'Error voiding bill line item', error);
+    }
+  }
+];
+
+
 // Utility function for consistent error responses
 const handleError = (res: Response, message: string, error: any, statusCode = 500) => {
   console.error(`❌ ${message}:`, error);
@@ -896,67 +962,5 @@ export const getBillLineItems = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// ✅ ADD THIS: Void a bill line item
-export const voidBillLineItem = [
-  body('reason').notEmpty().withMessage('Void reason is required'),
 
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false,
-          errors: errors.array(),
-          message: 'Validation failed'
-        });
-      }
 
-      const { lineItemId } = req.params;
-      const { reason } = req.body;
-
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: 'User authentication required'
-        });
-      }
-
-      const result = await BillingService.voidBillLineItem(lineItemId, req.user.id, reason);
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Bill line item not found'
-        });
-      }
-
-      // Get updated bill with line items
-      const updatedBill = await prisma.bill.findUnique({
-        where: { id: result.billId },
-        include: {
-          BillLineItem: {
-            where: { isVoided: false }
-          },
-          Patient: {
-            select: {
-              surname: true,
-              otherNames: true,
-              folderNumber: true
-            }
-          }
-        }
-      });
-
-      res.json({
-        success: true,
-        message: 'Bill line item voided successfully',
-        data: {
-          voidedItem: result,
-          updatedBill
-        }
-      });
-    } catch (error) {
-      handleError(res, 'Error voiding bill line item', error);
-    }
-  }
-];

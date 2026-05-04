@@ -192,8 +192,8 @@ const addServiceToAttendanceAndBill = async (
 };
 
 
-// ✅ FIXED: Allow prescription even when stock is 0
 
+// ✅ FIXED: Ensure medication is properly added to bill
 export const addMedicationToAttendance = [
   body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
   body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for pricing'),
@@ -203,15 +203,10 @@ export const addMedicationToAttendance = [
   
   async (req: Request, res: Response) => {
     try {
-      // ✅ ADD DEBUG LOGGING
       console.log('💊 PRESCRIBE MEDICATION - Request received');
-      console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
-      console.log('📌 Attendance ID:', req.params.id);
-      console.log('👤 User:', (req as any).user?.id);
       
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({ errors: errors.array() });
       }
 
@@ -229,30 +224,29 @@ export const addMedicationToAttendance = [
       const user = (req as any).user;
       const attendanceId = req.params.id;
 
-      console.log('🔍 Looking up stock item:', stockItemId);
+      // Validate attendance allows service addition
+      await validateAttendanceAllowsServiceAddition(attendanceId);
+
+      // Get stock item
       const stockItem = await prisma.stockItem.findUnique({
         where: { id: stockItemId }
       });
 
       if (!stockItem) {
-        console.log('❌ Stock item not found:', stockItemId);
         return res.status(404).json({ message: 'Stock item not found' });
       }
-      console.log('✅ Stock item found:', stockItem.name);
 
-      console.log('🔍 Looking up service catalog:', serviceCatalogId);
+      // Get service catalog for pricing
       const serviceCatalog = await prisma.serviceCatalog.findUnique({
-        where: { id: serviceCatalogId }
+        where: { id: serviceCatalogId },
+        include: { pricing: true }
       });
 
       if (!serviceCatalog) {
-        console.log('❌ Service catalog not found:', serviceCatalogId);
         return res.status(404).json({ message: 'Service catalog item not found' });
       }
-      console.log('✅ Service catalog found:', serviceCatalog.name);
 
       if (serviceCatalog.serviceType !== 'medication') {
-        console.log('❌ Service type mismatch:', serviceCatalog.serviceType);
         return res.status(400).json({ message: 'Service is not a medication type' });
       }
 
@@ -262,7 +256,7 @@ export const addMedicationToAttendance = [
         console.warn(`⚠️ Out of stock: ${stockItem.name} has 0 units`);
       }
 
-      console.log('💊 Creating medication record...');
+      // ✅ Create medication record
       const medication = await prisma.medication.create({
         data: {
           attendanceId: attendanceId,
@@ -272,7 +266,7 @@ export const addMedicationToAttendance = [
           dosage: dosage,
           frequency: frequency,
           duration: duration,
-          quantity: 0,
+          quantity: 0, // Quantity will be set at dispensing
           route: route || 'Oral',
           instructions: instructions || '',
           status: 'prescribed',
@@ -283,27 +277,39 @@ export const addMedicationToAttendance = [
             : notes || null,
         }
       });
-      console.log('✅ Medication created:', medication.id);
 
-      console.log('💊 Adding service to attendance...');
+      // ✅ CRITICAL: Add service to ServiceRendered for billing
       await addServiceToAttendanceAndBill(attendanceId, serviceCatalogId, user.id, 1);
-      console.log('✅ Service added');
 
+      // ✅ Ensure bill is generated with medication cost
+      await BillingService.generateBillFromAttendance(attendanceId);
+
+      // Fetch updated attendance with all data
       const updatedAttendance = await prisma.attendance.findUnique({
         where: { id: attendanceId },
         include: {
           Medication: {
             include: {
-              ServiceCatalog: true,
+              ServiceCatalog: {
+                include: { pricing: true }
+              },
               StockItem: true
             }
           },
           ServiceRendered: {
             include: {
-              ServiceCatalog: true
+              ServiceCatalog: {
+                include: { pricing: true }
+              }
             }
           },
-          Bill: true
+          Bill: {
+            include: {
+              BillLineItem: {
+                where: { isVoided: false }
+              }
+            }
+          }
         }
       });
       
@@ -312,7 +318,7 @@ export const addMedicationToAttendance = [
         response.stockWarning = `OUT OF STOCK: ${stockItem.name} has 0 units available. Prescription recorded but cannot be dispensed until restocked.`;
       }
       
-      console.log('💊 Prescription completed successfully');
+      console.log('✅ Medication prescribed and added to bill successfully');
       res.json(response);
     } catch (error) {
       console.error('❌ Error adding medication:', error);
@@ -321,8 +327,7 @@ export const addMedicationToAttendance = [
   }
 ];
 
-// ✅ FIXED: Dispense medication - BLOCK when stock is insufficient
-// attendanceController.ts - FIXED dispenseMedication (Quantity required at dispensing)
+// attendanceController.ts - FIXED dispenseMedication
 export const dispenseMedication = [
   body('quantity').isInt({ min: 1 }).withMessage('Valid quantity is required for dispensing'),
   body('dispensedBy').optional().isString(),
@@ -331,20 +336,23 @@ export const dispenseMedication = [
   async (req: Request, res: Response) => {
     try {
       const { attendanceId, medicationId } = req.params;
-      const { quantity, dispensedBy, batchNumber } = req.body;
+      const { quantity, dispensedBy, batchNumber, status } = req.body;
       const user = (req as any).user;
 
       // Get the medication with stock item
       const medication = await prisma.medication.findUnique({
         where: { id: medicationId },
-        include: { StockItem: true }
+        include: { 
+          StockItem: true,
+          prescribedBy: { select: { fullName: true } }
+        }
       });
 
       if (!medication) {
         return res.status(404).json({ message: 'Medication not found' });
       }
 
-      if (medication.status !== 'prescribed') {
+      if (medication.status !== 'prescribed' && status !== 'dispensed') {
         return res.status(400).json({ message: 'Medication is not in prescribed state' });
       }
 
@@ -380,51 +388,75 @@ export const dispenseMedication = [
         });
       }
 
-      // ✅ Update stock (only when dispensing)
-      const updatedStock = await prisma.stockItem.update({
-        where: { id: stockItem.id },
-        data: {
-          currentStock: stockItem.currentStock - dispenseQuantity
-        }
+      // ✅ Start a transaction to ensure all updates happen together
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Update stock (decrease by dispensed quantity)
+        const updatedStock = await tx.stockItem.update({
+          where: { id: stockItem.id },
+          data: {
+            currentStock: stockItem.currentStock - dispenseQuantity
+          }
+        });
+
+        // 2. Update medication with dispensed quantity
+        const updatedMedication = await tx.medication.update({
+          where: { id: medicationId },
+          data: {
+            status: 'dispensed',
+            quantity: dispenseQuantity, // ✅ Store the ACTUAL dispensed quantity
+            dispensedAt: new Date(),
+            dispensedById: dispensedBy || user.id,
+            dispensedBatchNumber: batchNumber || null,
+            dispensedUnitCost: stockItem.costPrice
+          },
+          include: {
+            StockItem: {
+              select: {
+                id: true,
+                name: true,
+                currentStock: true,
+                unitOfMeasure: true
+              }
+            },
+            prescribedBy: {
+              select: { fullName: true, id: true }
+            },
+            dispensedBy: {
+              select: { fullName: true, id: true }
+            }
+          }
+        });
+
+        // 3. Create stock transaction record
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: stockItem.id,
+            transactionType: 'sale',
+            quantity: dispenseQuantity,
+            balanceAfter: updatedStock.currentStock,
+            reference: `Dispensed from attendance ${attendanceId}`,
+            performedBy: user.id,
+            notes: `Medication: ${medication.name}, Prescribed quantity: ${medication.quantity}, Dispensed: ${dispenseQuantity}`
+          }
+        });
+
+        return updatedMedication;
       });
 
-      // ✅ Update medication with dispensed quantity
-      const updatedMedication = await prisma.medication.update({
-        where: { id: medicationId },
-        data: {
-          status: 'dispensed',
-          quantity: dispenseQuantity, // ✅ Set quantity at dispensing time
-          dispensedAt: new Date(),
-          dispensedById: dispensedBy || user.id,
-          dispensedBatchNumber: batchNumber || null,
-          dispensedUnitCost: stockItem.costPrice
-        }
-      });
-
-      // ✅ Create stock transaction
-      await prisma.stockTransaction.create({
-        data: {
-          stockItemId: stockItem.id,
-          transactionType: 'sale',
-          quantity: dispenseQuantity,
-          balanceAfter: updatedStock.currentStock,
-          reference: `Dispensed from attendance ${attendanceId}`,
-          performedBy: user.id,
-          notes: `Medication: ${medication.name}, Prescribed by: ${medication.prescribedById}`
-        }
-      });
-
+      // ✅ Return the updated medication (not the whole attendance)
       res.json({
         success: true,
-        message: 'Medication dispensed successfully',
-        data: {
-          medication: updatedMedication,
-          stockRemaining: updatedStock.currentStock
-        }
+        message: `${dispenseQuantity} unit(s) of ${medication.name} dispensed successfully`,
+        data: result,
+        stockRemaining: result.StockItem?.currentStock
       });
+      
     } catch (error) {
       console.error('Error dispensing medication:', error);
-      res.status(500).json({ message: 'Error dispensing medication', error: (error as Error).message });
+      res.status(500).json({ 
+        message: 'Error dispensing medication', 
+        error: (error as Error).message 
+      });
     }
   }
 ];
@@ -1800,6 +1832,7 @@ export const removeDiagnosisFromAttendance = async (req: Request, res: Response)
 };
 
 
+// attendanceController.ts - CORRECTED with proper relation names
 export const updateMedicationStatus = [
   body('status').isIn(['prescribed', 'dispensed', 'administered', 'cancelled'])
     .withMessage('Valid status is required'),
@@ -1811,14 +1844,82 @@ export const updateMedicationStatus = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { status, dispensedAt, dispensedById, administeredAt, administeredById } = req.body;
+      const { id: attendanceId, medicationId } = req.params;
+      const { 
+        status, 
+        dispensedAt, 
+        dispensedById, 
+        administeredAt, 
+        administeredById,
+        quantity,
+        dispensedUnitCost,
+        batchNumber
+      } = req.body;
+      
       const user = (req as any).user;
       
+      // Get the medication with stock item
+      const medication = await prisma.medication.findUnique({
+        where: { id: medicationId },
+        include: { 
+          StockItem: true
+        }
+      });
+
+      if (!medication) {
+        return res.status(404).json({ message: 'Medication not found' });
+      }
+
       const updateData: any = { status };
       
+      // Handle dispense logic with stock deduction
       if (status === 'dispensed') {
+        const dispenseQuantity = quantity || medication.quantity || 1;
+        
+        if (!medication.StockItem) {
+          return res.status(400).json({ 
+            message: 'Cannot dispense: Stock item not found for this medication',
+            success: false
+          });
+        }
+        
+        if (medication.StockItem.currentStock < dispenseQuantity) {
+          return res.status(400).json({ 
+            message: `Cannot dispense: Insufficient stock. Available: ${medication.StockItem.currentStock}, Required: ${dispenseQuantity}`,
+            stockAvailable: medication.StockItem.currentStock,
+            required: dispenseQuantity,
+            success: false
+          });
+        }
+
+        // Update stock
+        await prisma.stockItem.update({
+          where: { id: medication.StockItem.id },
+          data: {
+            currentStock: {
+              decrement: dispenseQuantity
+            }
+          }
+        });
+
+        // Create stock transaction
+        await prisma.stockTransaction.create({
+          data: {
+            stockItemId: medication.StockItem.id,
+            transactionType: 'sale',
+            quantity: dispenseQuantity,
+            balanceAfter: medication.StockItem.currentStock - dispenseQuantity,
+            reference: `Dispensed from attendance ${attendanceId}`,
+            performedBy: user.id,
+            notes: `Medication: ${medication.name}, Dispensed: ${dispenseQuantity}`
+          }
+        });
+
+        updateData.quantity = dispenseQuantity;
         updateData.dispensedAt = dispensedAt ? new Date(dispensedAt) : new Date();
         updateData.dispensedById = dispensedById || user.id;
+        updateData.dispensedUnitCost = dispensedUnitCost || medication.StockItem.costPrice;
+        if (batchNumber) updateData.dispensedBatchNumber = batchNumber;
       }
       
       if (status === 'administered') {
@@ -1826,28 +1927,68 @@ export const updateMedicationStatus = [
         updateData.administeredById = administeredById || user.id;
       }
 
-      await prisma.medication.update({
-        where: { id: req.params.medicationId },
-        data: updateData
-      });
-
-      const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
+      // ✅ Update medication using the correct field names
+      const updatedMedication = await prisma.medication.update({
+        where: { id: medicationId },
+        data: updateData,
         include: {
-          Medication: {
-            include: {
-              ServiceCatalog: true, // ✅ UPDATED
-              StockItem: true
+          StockItem: {
+            select: {
+              id: true,
+              name: true,
+              currentStock: true,
+              unitOfMeasure: true,
+              costPrice: true
             }
           },
-          Bill: true
+          // ✅ CORRECT relation names from schema
+          User_Medication_prescribedByIdToUser: {
+            select: { fullName: true, id: true }
+          },
+          User_Medication_dispensedByIdToUser: {
+            select: { fullName: true, id: true }
+          },
+          User_Medication_administeredByIdToUser: {
+            select: { fullName: true, id: true }
+          },
+          ServiceCatalog: {
+            select: {
+              id: true,
+              name: true,
+              code: true
+            }
+          }
         }
       });
 
-      res.json(updatedAttendance);
+      // Transform to a cleaner response
+      const responseData = {
+        ...updatedMedication,
+        prescribedBy: updatedMedication.User_Medication_prescribedByIdToUser,
+        dispensedBy: updatedMedication.User_Medication_dispensedByIdToUser,
+        administeredBy: updatedMedication.User_Medication_administeredByIdToUser,
+      };
+      
+      // Remove the nested relation objects
+      delete responseData.User_Medication_prescribedByIdToUser;
+      delete responseData.User_Medication_dispensedByIdToUser;
+      delete responseData.User_Medication_administeredByIdToUser;
+
+      return res.status(200).json({
+        success: true,
+        message: status === 'dispensed' 
+          ? `${updatedMedication.quantity} unit(s) of ${updatedMedication.name} dispensed successfully`
+          : `Medication status updated to ${status}`,
+        data: responseData
+      });
+      
     } catch (error) {
       console.error('Error updating medication:', error);
-      res.status(500).json({ message: 'Error updating medication', error });
+      return res.status(500).json({ 
+        success: false,
+        message: 'Error updating medication', 
+        error: (error as Error).message 
+      });
     }
   }
 ];
@@ -2140,9 +2281,9 @@ export const removeProcedureFromAttendance = async (req: Request, res: Response)
   }
 };
 
-// ✅ UPDATE SCAN STATUS
+// ✅ UPDATE SCAN STATUS - COMPLETE FIX
 export const updateScanStatus = [
-  body('status').isIn(['requested', 'completed', 'cancelled']).withMessage('Valid status is required'),
+  body('status').isIn(['requested', 'in_progress', 'completed', 'cancelled']).withMessage('Valid status is required'),
   
   async (req: Request, res: Response) => {
     try {
@@ -2151,37 +2292,56 @@ export const updateScanStatus = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { status, result, findings, impression, performedById, imageUrls } = req.body;
+      const { id: attendanceId, scanId } = req.params;
+      const { status, result, findings, impression, performedById, imageUrls, completedAt } = req.body;
       
-      const updateData: any = { status };
-      if (result) updateData.result = result;
-      if (findings) updateData.findings = findings;
-      if (impression) updateData.impression = impression;
+      const updateData: any = { 
+        status: status  // ✅ Set status to 'completed'
+      };
+      
+      if (result !== undefined) updateData.result = result;
+      if (findings !== undefined) updateData.findings = findings;
+      if (impression !== undefined) updateData.impression = impression;
       if (performedById) updateData.performedById = performedById;
       if (imageUrls) updateData.imageUrls = imageUrls;
-      if (status === 'completed') updateData.completedAt = new Date();
+      
+      // ✅ Set completedAt when status is completed
+      if (status === 'completed') {
+        updateData.completedAt = completedAt ? new Date(completedAt) : new Date();
+      }
 
-      await prisma.scan.update({
-        where: { id: req.params.scanId },
+      console.log('🔄 Updating scan:', { scanId, updateData }); // Debug log
+
+      // ✅ Update the scan
+      const updatedScan = await prisma.scan.update({
+        where: { id: scanId },
         data: updateData
       });
 
+      console.log('✅ Scan updated:', { id: updatedScan.id, status: updatedScan.status });
+
+      // ✅ Fetch the full updated attendance
       const updatedAttendance = await prisma.attendance.findUnique({
-        where: { id: req.params.id },
+        where: { id: attendanceId },
         include: {
           Scan: {
             include: {
-              ServiceCatalog: true // ✅ UPDATED
+              ServiceCatalog: true
             }
           },
-          Bill: true
+          Bill: true,
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          }
         }
       });
 
       res.json(updatedAttendance);
     } catch (error) {
       console.error('Error updating scan:', error);
-      res.status(500).json({ message: 'Error updating scan', error });
+      res.status(500).json({ message: 'Error updating scan', error: (error as Error).message });
     }
   }
 ];
@@ -2520,6 +2680,7 @@ export const addServiceToAttendance = [
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   async (req: Request, res: Response) => {
     try {
+      await validateAttendanceAllowsServiceAddition(req.params.id);
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
@@ -2766,6 +2927,11 @@ export const updateAttendance = async (req: Request, res: Response) => {
             ServiceCatalog: true // ✅ FIXED
           }
         },
+        Scan: {  // ✅ This must be present
+          include: {
+            ServiceCatalog: true
+          }
+        },
         ServiceRendered: { // ✅ FIXED: Use singular
           include: {
             ServiceCatalog: true // ✅ FIXED
@@ -2782,3 +2948,69 @@ export const updateAttendance = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error updating attendance', error });
   }
 };
+
+
+// ✅ UPLOAD SCAN IMAGES
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Configure multer for scan images
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = './uploads/scans';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `scan-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed'));
+  }
+});
+
+export const uploadScanImages = [
+  upload.array('images', 10),
+  async (req: Request, res: Response) => {
+    try {
+      const { scanId } = req.params;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, message: 'No images uploaded' });
+      }
+
+      const imageUrls = files.map(file => `/uploads/scans/${file.filename}`);
+      
+      // Update the scan with image URLs
+      const scan = await prisma.scan.update({
+        where: { id: scanId },
+        data: {
+          imageUrls: {
+            push: imageUrls
+          }
+        }
+      });
+
+      res.json({ success: true, imageUrls, scan });
+    } catch (error) {
+      console.error('Error uploading scan images:', error);
+      res.status(500).json({ success: false, message: 'Error uploading images' });
+    }
+  }
+];

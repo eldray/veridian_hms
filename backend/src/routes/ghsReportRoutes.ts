@@ -1,13 +1,15 @@
-// routes/ghsReportRoutes.ts
+// routes/ghsReportRoutes.ts - CLEAN VERSION
+
 import express from 'express';
-import { protect, requireAdmin, requireAccountsStaff } from '../middleware/authMiddleware';
+import { protect, requireAccountsStaff } from '../middleware/authMiddleware';
 import {
   generateOPDReport,
   generateIPDReport,
   generateIDSRReport,
   generateMalariaReport,
-  generateANCReport,
-  generateDeliveryReport,
+  generateMorbidityMortalityReport,
+  getTopDiagnoses,
+  generateFormAReport,  // NEW - replaces ANC and Delivery
   getReportSubmissions,
   getReportById,
   exportReportToCSV
@@ -15,7 +17,6 @@ import {
 
 const router = express.Router();
 
-// All report routes require authentication and admin/accounts access
 router.use(protect);
 router.use(requireAccountsStaff);
 
@@ -26,8 +27,9 @@ router.get('/opd', generateOPDReport);
 router.get('/ipd', generateIPDReport);
 router.get('/idsr', generateIDSRReport);
 router.get('/malaria', generateMalariaReport);
-router.get('/anc', generateANCReport);
-router.get('/delivery', generateDeliveryReport);
+router.get('/morbidity-mortality', generateMorbidityMortalityReport);
+router.get('/top-diagnoses', getTopDiagnoses);
+router.get('/form-a', generateFormAReport);  // NEW - Replaces ANC and Delivery
 
 // ==============================================
 // REPORT SUBMISSIONS

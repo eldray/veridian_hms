@@ -21,12 +21,15 @@ import { generateVisitSummaryHTML } from './pdfTemplates/visitSummaryPDF';
 import { generateLabResultsHTML } from './pdfTemplates/labResultsPDF';
 import { generateDischargeSummaryHTML } from './pdfTemplates/dischargeSummaryPDF';
 import { generatePrescriptionHTML } from './pdfTemplates/prescriptionPDF';
+import { generateCombinedPrescriptionHTML } from './pdfTemplates/combinedPrescriptionPDF'; 
+import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
+import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
 
-// Main PDF generator function
+// Add 'referral' to the type
 export const generatePDF = (
-  type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription',
-   any,
-  hospital: Hospital
+  type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription' | 'referral' | 'combinedPrescription'| 'scanReport',
+  data: any,
+  hospital: any
 ): string => {
   switch (type) {
     case 'receipt':
@@ -43,10 +46,18 @@ export const generatePDF = (
       return generateDischargeSummaryHTML(data.admission, data.attendance, data.patient, data.clinicalData, hospital);
     case 'prescription':
       return generatePrescriptionHTML(data.medication, data.patient, data.attendance, hospital);
-    default:
+    case 'referral':
+      return generateReferralLetterHTML(data.referral, data.patient, hospital);
+    case 'combinedPrescription':
+      return generateCombinedPrescriptionHTML(data.medications, data.patient, data.attendance, hospital, data.prescriberName);
+    case 'scanReport':
+      return generateScanReportHTML(data.scans, data.patient, data.attendance, hospital);
+      default:
       throw new Error('Invalid PDF type');
   }
 };
+
+
 
 // Open print window function
 export const openPrintWindow = (htmlContent: string, title = 'Document') => {

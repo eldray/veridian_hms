@@ -52,8 +52,6 @@ export default function WardManagement() {
     wardName: '',
     wardType: 'general',
     totalBeds: 10,
-    cashDailyRate: 0,
-    insuranceDailyRate: 0,
     description: '',
     location: '',
     floor: ''
@@ -171,8 +169,6 @@ export default function WardManagement() {
       wardName: '',
       wardType: 'general',
       totalBeds: 10,
-      cashDailyRate: 0,
-      insuranceDailyRate: 0,
       description: '',
       location: '',
       floor: ''
@@ -372,10 +368,6 @@ export default function WardManagement() {
                     </div>
                     <span className="font-bold text-[var(--icon-red-text)] text-sm">{occupiedBeds}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] text-sm">Daily Rate:</span>
-                    <span className="font-bold text-[var(--text-primary)] text-sm">GHS {ward.cashDailyRate?.toFixed(2)}</span>
-                  </div>
                   {ward.description && (
                     <p className="text-xs text-[var(--text-secondary)]">{ward.description}</p>
                   )}
@@ -503,38 +495,6 @@ export default function WardManagement() {
                   className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                    Cash Rate (GHS) *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={wardFormData.cashDailyRate}
-                    onChange={(e) => setWardFormData({ ...wardFormData, cashDailyRate: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                    Insurance Rate (GHS) *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={wardFormData.insuranceDailyRate}
-                    onChange={(e) => setWardFormData({ ...wardFormData, insuranceDailyRate: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Description

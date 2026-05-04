@@ -9,7 +9,8 @@ import {
   getBillingBreakdown,
   updateBillStatus,
   getBillStatistics,
-  getBillLineItems
+  getBillLineItems,
+  voidBillLineItem
 } from '../controllers/billController';
 import { protect, requireAccountsStaff, requireBillingAccess } from '../middleware/authMiddleware';
 
@@ -49,6 +50,8 @@ router.post('/:id/payments', requireAccountsStaff, addPaymentToBill);
 // PATCH /api/bills/:id/status - Update bill status
 router.patch('/:id/status', requireAccountsStaff, updateBillStatus);
 
+// Add to billRoutes.ts
+router.delete('/line-items/:lineItemId/void', requireAccountsStaff, voidBillLineItem);
 
 router.get('/:id/line-items', protect, requireAccountsStaff, getBillLineItems);
 export default router;

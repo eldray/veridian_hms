@@ -1,4 +1,4 @@
-// src/pages/GDRGManagement.tsx
+// src/pages/GDRGManagement.tsx - WITH PAGINATION
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGDRGTariffStore } from '../store/gdrgTariffStore';
@@ -23,7 +23,11 @@ import {
   Users,
   Link2,
   Unlink,
-  CheckCircle
+  CheckCircle,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { GDRGMDC } from '../types';
 
@@ -67,6 +71,8 @@ const encounterCategoryOptions = [
   { value: 'daycase', label: 'Day Case' },
 ];
 
+const ITEMS_PER_PAGE = 10;
+
 export default function GDRGManagement() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
@@ -74,9 +80,16 @@ export default function GDRGManagement() {
   const { tariffs, fetchTariffs, isLoading } = useGDRGTariffStore();
   const { diagnoses, getDiagnoses, isLoading: loadingDiagnoses } = useMedicalServicesStore();
 
+  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMDC, setFilterMDC] = useState<string>('');
   const [filterActive, setFilterActive] = useState<string>('all');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
+  
+  // Modal states
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -84,6 +97,8 @@ export default function GDRGManagement() {
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
   const [formLoading, setFormLoading] = useState(false);
+  
+  // Form data state
   const [formData, setFormData] = useState({
     gdrgCode: '',
     mdc: 'MEDI' as GDRGMDC,
@@ -111,6 +126,10 @@ export default function GDRGManagement() {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterMDC, filterActive]);
+
+  useEffect(() => {
     if (showDiagnosisModal && diagnoses.length === 0) {
       getDiagnoses();
     }
@@ -120,6 +139,7 @@ export default function GDRGManagement() {
     await fetchTariffs();
   };
 
+  // Filtered tariffs
   const filteredTariffs = tariffs.filter(tariff => {
     const matchesSearch = searchTerm === '' || 
       tariff.gdrgCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -132,31 +152,47 @@ export default function GDRGManagement() {
     return matchesSearch && matchesMDC && matchesActive;
   });
 
-const handleCreate = async () => {
-  setFormLoading(true);
-  try {
-    // You need to add createGDRGTariff to your API and store
-    // For now, use direct fetch with proper error handling
-    const response = await fetch('/api/gdrg-tariffs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    const result = await response.json();
-    if (result.success) {
-      success('GDRG Tariff Created', `${formData.gdrgCode} added successfully`);
-      setShowForm(false);
-      resetForm();
-      await fetchTariffs(); // Refresh the list
-    } else {
-      throw new Error(result.message || 'Creation failed');
+  // Pagination calculations
+  const totalItems = filteredTariffs.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTariffs = filteredTariffs.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
     }
-  } catch (err: any) {
-    toastError('Create Failed', err.message);
-  } finally {
-    setFormLoading(false);
-  }
-};
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handleCreate = async () => {
+    setFormLoading(true);
+    try {
+      const response = await fetch('/api/gdrg-tariffs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
+      if (result.success) {
+        success('GDRG Tariff Created', `${formData.gdrgCode} added successfully`);
+        setShowForm(false);
+        resetForm();
+        await fetchTariffs();
+      } else {
+        throw new Error(result.message || 'Creation failed');
+      }
+    } catch (err: any) {
+      toastError('Create Failed', err.message);
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const handleUpdate = async () => {
     if (!editingItem) return;
@@ -227,45 +263,6 @@ const handleCreate = async () => {
       isActive: item.isActive,
     });
     setShowForm(true);
-  };
-
-  const handleAddDiagnosis = async (diagnosisId: string, isPrimary: boolean = false) => {
-    if (!selectedTariff) return;
-    try {
-      const response = await fetch(`/api/gdrg-tariffs/${selectedTariff.gdrgCode}/diagnosis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagnosisId, isPrimary })
-      });
-      const result = await response.json();
-      if (result.success) {
-        success('Diagnosis Linked', 'Diagnosis linked to GDRG tariff');
-        setShowDiagnosisModal(false);
-        setSelectedDiagnosis(null);
-        await fetchTariffs();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (err: any) {
-      toastError('Link Failed', err.message);
-    }
-  };
-
-  const handleRemoveDiagnosis = async (gdrgCode: string, diagnosisId: string) => {
-    try {
-      const response = await fetch(`/api/gdrg-tariffs/${gdrgCode}/diagnosis/${diagnosisId}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
-      if (result.success) {
-        success('Diagnosis Unlinked', 'Diagnosis removed from GDRG tariff');
-        await fetchTariffs();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (err: any) {
-      toastError('Unlink Failed', err.message);
-    }
   };
 
   const resetForm = () => {
@@ -376,7 +373,7 @@ const handleCreate = async () => {
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-3 border text-center">
           <DollarSign className="w-5 h-5 text-yellow-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold">{tariffs.length}</p>
+          <p className="text-2xl font-bold">{new Set(tariffs.map(t => t.mdc)).size}</p>
           <p className="text-xs text-[var(--text-secondary)]">MDC Categories</p>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-3 border text-center">
@@ -391,7 +388,13 @@ const handleCreate = async () => {
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[200px] relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <input type="text" placeholder="Search by code, description..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm" />
+            <input 
+              type="text" 
+              placeholder="Search by code, description..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm" 
+            />
           </div>
           <select value={filterMDC} onChange={(e) => setFilterMDC(e.target.value)} className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm">
             <option value="">All MDC</option>
@@ -401,6 +404,28 @@ const handleCreate = async () => {
             <option value="all">All Status</option>
             <option value="active">Active Only</option>
             <option value="inactive">Inactive Only</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Results info */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Showing <span className="font-medium text-[var(--text-primary)]">{startIndex + 1}</span> to{' '}
+          <span className="font-medium text-[var(--text-primary)]">{Math.min(endIndex, totalItems)}</span> of{' '}
+          <span className="font-medium text-[var(--text-primary)]">{totalItems}</span> results
+        </p>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-[var(--text-secondary)]">Show:</label>
+          <select
+            value={itemsPerPage}
+            onChange={handleItemsPerPageChange}
+            className="px-2 py-1 bg-[var(--bg-main)] border rounded-lg text-sm"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
           </select>
         </div>
       </div>
@@ -415,17 +440,29 @@ const handleCreate = async () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b">
-                <tr><th className="px-4 py-3 text-left">G-DRG Code</th><th className="px-4 py-3 text-left">MDC</th><th className="px-4 py-3 text-left">Description</th><th className="px-4 py-3 text-right">NHIA Tariff</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Actions</th></tr>
+                <tr>
+                  <th className="px-4 py-3 text-left">G-DRG Code</th>
+                  <th className="px-4 py-3 text-left">MDC</th>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-right">NHIA Tariff</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredTariffs.map(tariff => (
+                {paginatedTariffs.map(tariff => (
                   <tr key={tariff.gdrgCode} className="hover:bg-[var(--bg-main)] transition-colors">
                     <td className="px-4 py-3 font-mono font-bold">{tariff.gdrgCode}</td>
                     <td className="px-4 py-3"><span className="px-2 py-1 bg-gray-100 rounded text-xs">{getMDCLabel(tariff.mdc)}</span></td>
                     <td className="px-4 py-3 max-w-xs truncate">{tariff.description}</td>
                     <td className="px-4 py-3 text-right font-medium">GHS {tariff.nhiaTariff.toFixed(2)}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs ${tariff.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{tariff.isActive ? 'Active' : 'Inactive'}</span></td>
-                    <td className="px-4 py-3"><div className="flex gap-2"><button onClick={() => handleEdit(tariff)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"><Edit className="w-4 h-4" /></button><button onClick={() => setDeleteConfirm(tariff.gdrgCode)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button></div></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(tariff)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteConfirm(tariff.gdrgCode)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -434,7 +471,71 @@ const handleCreate = async () => {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+          </button>
+          
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`min-w-[32px] h-8 px-2 rounded-lg text-sm transition-all ${
+                    currentPage === pageNum
+                      ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] font-medium'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+          
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Create/Edit Modal - unchanged */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border">

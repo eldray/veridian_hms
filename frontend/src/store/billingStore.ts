@@ -36,6 +36,8 @@ interface BillingState {
   getBillingBreakdown: (billId: string) => Promise<any>;
   updateBillStatus: (billId: string, status: string, data?: any) => Promise<void>;
   getBillStatistics: (filters?: any) => Promise<void>;
+  getBillLineItems: (billId: string) => Promise<BillLineItem[]>;
+  voidBillLineItem: (lineItemId: string, reason: string) => Promise<void>;
   
   clearCurrentBill: () => void;
 }
@@ -47,7 +49,64 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   pagination: null,
   billStatistics: null,
 
-// stores/billingStore.ts - FIXED TO MATCH YOUR BACKEND
+
+// Add to the store:
+getBillLineItems: async (billId: string) => {
+  set({ isLoading: true });
+  try {
+    const response = await apiGetBillLineItems(billId);
+    set({ isLoading: false });
+    return response.data || response;
+  } catch (error) {
+    set({ isLoading: false });
+    throw error;
+  }
+},
+
+voidBillLineItem: async (lineItemId: string, reason: string) => {
+  set({ isLoading: true });
+  try {
+    await apiVoidBillLineItem(lineItemId, { reason });
+    set({ isLoading: false });
+  } catch (error) {
+    set({ isLoading: false });
+    throw error;
+  }
+},
+// stores/billingStore.ts - FIXED getBill
+getBill: async (id: string) => {
+  set({ isLoading: true });
+  try {
+    const response = await apiGetBill(id);
+    console.log('📄 Billing Store - Raw Response:', response);
+    
+    // ✅ EXTRACT the bill from response.data
+    let billData = null;
+    if (response && response.success === true && response.data) {
+      billData = response.data;
+    } else if (response && response.id) {
+      billData = response;
+    } else {
+      billData = response;
+    }
+    
+    console.log('📄 Billing Store - Extracted Bill:', {
+      id: billData?.id,
+      billNumber: billData?.billNumber,
+      totalAmount: billData?.totalAmount,
+      status: billData?.status,
+      lineItemsCount: billData?.BillLineItem?.length
+    });
+    
+    set({ currentBill: billData, isLoading: false });
+  } catch (error: any) {
+    console.error('❌ Failed to fetch bill:', error);
+    set({ isLoading: false });
+    throw error;
+  }
+},
+
+// Also fix getBills
 getBills: async (filters = {}) => {
   if (get().isLoading) return;
   
@@ -56,18 +115,22 @@ getBills: async (filters = {}) => {
     const response = await apiGetBills(filters);
     console.log('📊 Billing Store - API Response:', response);
     
-    // ✅ FIXED: Match your exact backend response structure
     let billsArray: Bill[] = [];
     let paginationData = null;
 
-    // Your backend returns: { success: true, data: bills[], pagination: {} }
+    // ✅ Handle { success: true, data: [], pagination: {} } format
     if (response && response.success === true) {
       billsArray = response.data || [];
       paginationData = response.pagination || null;
     } 
-    // If the API wrapper already extracts the data
     else if (Array.isArray(response)) {
       billsArray = response;
+    }
+    else if (response && Array.isArray(response.data)) {
+      billsArray = response.data;
+    }
+    else if (response && response.bills) {
+      billsArray = response.bills;
     }
     else {
       console.warn('Unexpected bills API response structure:', response);
@@ -90,19 +153,6 @@ getBills: async (filters = {}) => {
     throw error;
   }
 },
-
-  getBill: async (id: string) => {
-    set({ isLoading: true });
-    try {
-      const bill = await apiGetBill(id);
-      console.log('📄 Billing Store - Single Bill:', bill);
-      set({ currentBill: bill, isLoading: false });
-    } catch (error: any) {
-      console.error('❌ Failed to fetch bill:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
 
   createBill: async (data: any) => {
     set({ isLoading: true });

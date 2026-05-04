@@ -1,6 +1,6 @@
 // src/api/index.ts - COMPLETE UPDATED VERSION (ALL BACKEND ROUTES COVERED)
 import api from './api';
-import type { 
+import type { ANCVisitData, AntenatalBookingData, DangerSign,  TTDose, IPTPDose,
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
   Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
   StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
@@ -127,13 +127,9 @@ export const updateHospitalNHISSettings = (data: any) =>
   api.put('/hospitals/settings/nhis', data).then(r => r.data);
 
 // ───── GDRG TARIFFS ─────
-// src/api/index.ts - ADD THESE GDRG API FUNCTIONS
-
-// ───── GDRG TARIFFS (Full CRUD) ─────
-// src/api/index.ts - FIX getGDRGTariffs
 
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  const response = await api.get('/gdrg-tariffs', { params: filters });
+  const response = await api.get('/gdrg', { params: filters });
   // Extract the data array from the response
   const result = response.data;
   if (result?.success && Array.isArray(result.data)) {
@@ -150,37 +146,37 @@ export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolea
 };
 
 export const getGDRGByCode = async (code: string) => {
-  const response = await api.get(`/gdrg-tariffs/${code}`);
+  const response = await api.get(`/gdrg/${code}`);
   return response.data?.data || response.data;
 };
 
 export const createGDRGTariff = async (data: any) => {
-  const response = await api.post('/gdrg-tariffs', data);
+  const response = await api.post('/gdrg', data);
   return response.data?.data || response.data;
 };
 
 export const updateGDRGTariff = async (code: string, data: any) => {
-  const response = await api.put(`/gdrg-tariffs/${code}`, data);
+  const response = await api.put(`/gdrg/${code}`, data);
   return response.data?.data || response.data;
 };
 
 export const deleteGDRGTariff = async (code: string) => {
-  const response = await api.delete(`/gdrg-tariffs/${code}`);
+  const response = await api.delete(`/gdrg/${code}`);
   return response.data;
 };
 
 export const lookupGDRGByAge = async (params: { gdrgCode: string; patientId?: string; ageInYears?: number }) => {
-  const response = await api.get('/gdrg-tariffs/lookup/age', { params });
+  const response = await api.get('/gdrg/lookup/age', { params });
   return response.data?.data || response.data;
 };
 
 export const linkDiagnosisToGDRG = async (gdrgCode: string, diagnosisId: string, isPrimary?: boolean, mappedIcdCode?: string) => {
-  const response = await api.post(`/gdrg-tariffs/${gdrgCode}/diagnosis`, { diagnosisId, isPrimary, mappedIcdCode });
+  const response = await api.post(`/gdrg/${gdrgCode}/diagnosis`, { diagnosisId, isPrimary, mappedIcdCode });
   return response.data?.data || response.data;
 };
 
 export const unlinkDiagnosisFromGDRG = async (gdrgCode: string, diagnosisId: string) => {
-  const response = await api.delete(`/gdrg-tariffs/${gdrgCode}/diagnosis/${diagnosisId}`);
+  const response = await api.delete(`/gdrg/${gdrgCode}/diagnosis/${diagnosisId}`);
   return response.data;
 };
 
@@ -428,9 +424,23 @@ export const addMedicationToAttendance = async (attendanceId: string, data: {
   return response.data;
 };
 
-export const updateMedicationStatus = async (attendanceId: string, medicationId: string, data: any) => {
-  const response = await api.patch(`/attendances/${attendanceId}/medications/${medicationId}`, data);
-  return response.data;
+export const updateMedicationStatus = async (
+  attendanceId: string,
+  medicationId: string,
+  data: {
+    status: string;
+    dispensedAt?: string;
+    dispensedById?: string;
+    quantity?: number;
+    dispensedUnitCost?: number;
+    batchNumber?: string;
+  }
+) => {
+  const response = await api.patch(
+    `/attendances/${attendanceId}/medications/${medicationId}`,
+    data
+  );
+  return response; // Return the full response
 };
 
 export const removeMedicationFromAttendance = async (attendanceId: string, medicationId: string) => {
@@ -542,7 +552,8 @@ export const getBills = (filters?: any) =>
       return [];
     }
   });
-export const getBill = (id: string) => 
+
+  export const getBill = (id: string) => 
   api.get(`/bills/${id}`).then(r => r.data);
 
 export const createBill = (data: any) => 
@@ -571,6 +582,24 @@ export const updateBillStatus = (billId: string, data: any) =>
 
 export const getBillStatistics = () => 
   api.get('/bills/statistics').then(r => r.data);
+
+// Bill Line Items
+export const getBillLineItems = (billId: string) => 
+  api.get(`/bills/${billId}/line-items`).then(r => r.data);
+
+export const voidBillLineItem = (lineItemId: string, data: { reason: string }) => 
+  api.delete(`/bills/line-items/${lineItemId}/void`, { data }).then(r => r.data);
+
+// Ward Charges
+export const getWardCharges = (attendanceId: string, params?: any) => 
+  api.get(`/attendances/${attendanceId}/ward-charges`, { params }).then(r => r.data);
+
+export const generateDailyWardCharges = (date?: string) => 
+  api.post('/ward-charges/generate-daily', { date }).then(r => r.data);
+
+// Receipt Generation
+export const generateReceipt = (billId: string) => 
+  api.post(`/documents/receipt/${billId}`).then(r => r.data);
 
 // ───── ADMISSIONS ─────
 export const getAdmissions = (filters?: any) => 
@@ -601,6 +630,9 @@ export const addDailyNotesToAdmission = (admissionId: string, data: any) =>
 
 export const getAdmissionStats = () => 
   api.get('/admissions/stats').then(r => r.data);
+
+export const getAdmissionsByPatientId = (patientId: string) => 
+  api.get(`/admissions/patient/${patientId}`).then(r => r.data);
 
 // Admission Secondary Diagnoses
 export const addSecondaryDiagnosisToAdmission = (admissionId: string, data: any) => 
@@ -680,6 +712,78 @@ export const getStockCategories = () =>
 export const bulkUpdateStock = (data: any) => 
   api.patch('/stock-items/bulk-update', data).then(r => r.data);
 
+
+// ============================================
+// REFERRAL API CALLS
+// ============================================
+
+export const getReferrals = async (params?: { status?: string; page?: number; limit?: number }) => {
+  const response = await api.get('/referrals', { params });
+  return response.data;
+};
+
+export const getReferralById = async (id: string) => {
+  const response = await api.get(`/referrals/${id}`);
+  return response.data;
+};
+
+export const createOutgoingReferral = async (data: {
+  patientId: string;
+  referralReason: string;
+  referredToFacility: string;
+  referredToDoctor?: string;
+  referredToDepartment?: string;
+  urgency?: string;
+  referralNotes?: string;
+  attendanceId?: string;
+}) => {
+  const response = await api.post('/referrals/outgoing', data);
+  return response.data;
+};
+
+export const createIncomingReferral = async (data: {
+  patientId: string;
+  referralReason: string;
+  referredFromFacility: string;
+  referredFromDoctor?: string;
+  urgency?: string;
+  referralNotes?: string;
+}) => {
+  const response = await api.post('/referrals/incoming', data);
+  return response.data;
+};
+
+export const updateReferralStatus = async (id: string, status: string, outcomeNotes?: string) => {
+  const response = await api.put(`/referrals/${id}/status`, { status, outcomeNotes });
+  return response.data;
+};
+
+export const updateReferral = async (id: string, data: any) => {
+  const response = await api.put(`/referrals/${id}`, data);
+  return response.data;
+};
+
+export const deleteReferral = async (id: string) => {
+  const response = await api.delete(`/referrals/${id}`);
+  return response.data;
+};
+
+export const getReferralsByPatient = async (patientId: string, params?: { page?: number; limit?: number }) => {
+  const response = await api.get(`/referrals/patient/${patientId}`, { params });
+  return response.data;
+};
+
+export const generateReferralLetter = async (id: string) => {
+  const response = await api.get(`/referrals/${id}/letter`);
+  return response.data;
+};
+
+export const getReferralStats = async (params?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/referrals/stats', { params });
+  return response.data;
+};
+
+
 // ───── STOCK TRANSACTIONS ─────
 export const getStockTransactions = (filters?: any) => 
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
@@ -747,7 +851,6 @@ export const cancelRequisition = (id: string) =>
   api.patch(`/requisitions/${id}/status`, { status: 'cancelled' }).then(r => r.data);
 
 // ───── MEDICAL SERVICES ─────
-// src/api/index.ts - Verify this returns the correct data
 
 export const getDiagnoses = (filters?: any) => 
   api.get('/diagnoses', { params: filters }).then(r => {
@@ -980,14 +1083,15 @@ export const getGHSIPDReport = async (filters: ReportFilter) => {
   return response.data.data;
 };
 
-export const getGHSANCReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/anc', { params: filters });
-  return response.data.data;
-};
-
 export const getGHSDeliveryReport = async (filters: ReportFilter) => {
   const response = await api.get('/reports/ghs/delivery', { params: filters });
   return response.data.data;
+};
+
+// ✅ NEW: Form A - Combined ANC + Delivery + Postnatal (REPLACES above two)
+export const getGHSFormAReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/form-a', { params: filters });
+  return response.data;
 };
 
 export const getGHSMalariaReport = async (filters: ReportFilter) => {
@@ -1005,8 +1109,38 @@ export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
   return response.data.data;
 };
 
+// Morbidity & Mortality Report
 export const getMorbidityMortalityReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/morbidity-mortality', { params: filters });
+  const response = await api.get('/reports/ghs/morbidity-mortality', { params: filters });
+  return response.data;
+};
+
+// Get only top diagnoses
+export const getTopDiagnoses = async (filters: ReportFilter, limit: number = 10) => {
+  const response = await api.get('/reports/ghs/top-diagnoses', { 
+    params: { ...filters, limit } 
+  });
+  // Return the data array directly
+  return response.data?.data || response.data || [];
+};
+
+// Export any report to CSV
+export const exportGHSReportToCSV = async (submissionId: string) => {
+  const response = await api.get(`/reports/ghs/submissions/${submissionId}/export`, {
+    responseType: 'blob'
+  });
+  return response.data;
+};
+
+// Get all report submissions
+export const getGHSReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
+  const response = await api.get('/reports/ghs/submissions', { params: filters });
+  return response.data.data;
+};
+
+// Get single report submission by ID
+export const getGHSReportSubmissionById = async (id: string) => {
+  const response = await api.get(`/reports/ghs/submissions/${id}`);
   return response.data.data;
 };
 
@@ -1059,34 +1193,34 @@ export const exportReport = async (data: {
 // ======================
 
 export const getDepartments = (filters?: any) => 
-  api.get('/departments', { params: filters }).then(r => handleResponse<Department>(r.data));
+  api.get('/departments', { params: filters }).then(r => r.data?.data || r.data);
 
 export const getDepartment = (id: string) => 
-  api.get(`/departments/${id}`).then(r => r.data?.data ?? r.data);
+  api.get(`/departments/${id}`).then(r => r.data?.data || r.data);
 
 export const createDepartment = (data: any) => 
-  api.post('/departments', data).then(r => r.data?.data ?? r.data);
+  api.post('/departments', data).then(r => r.data?.data || r.data);
 
 export const updateDepartment = (id: string, data: any) => 
-  api.put(`/departments/${id}`, data).then(r => r.data?.data ?? r.data);
+  api.put(`/departments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteDepartment = (id: string) => 
   api.delete(`/departments/${id}`).then(r => r.data);
 
 export const getDepartmentStats = (id: string) => 
-  api.get(`/departments/${id}/stats`).then(r => r.data?.data ?? r.data);
+  api.get(`/departments/${id}/stats`).then(r => r.data?.data || r.data);
 
 export const getDepartmentUsers = (departmentId: string) => 
-  api.get(`/departments/${departmentId}/users`).then(r => r.data?.data?.users ?? []);
+  api.get(`/departments/${departmentId}/users`).then(r => r.data?.data?.users || r.data?.users || r.data);
 
 export const assignUserToDepartment = (departmentId: string, data: any) => 
-  api.post(`/departments/${departmentId}/assign-user`, data).then(r => r.data);
-
-export const removeUserFromDepartment = (departmentId: string, data: any) => 
-  api.post(`/departments/${departmentId}/remove-user`, data).then(r => r.data);
+  api.post(`/departments/${departmentId}/assign-user`, data).then(r => r.data?.data || r.data);
 
 export const assignDepartmentHead = (departmentId: string, userId: string) => 
-  api.put(`/departments/${departmentId}`, { headId: userId }).then(r => r.data?.data ?? r.data);
+  api.put(`/departments/${departmentId}`, { headId: userId }).then(r => r.data?.data || r.data);
+
+export const removeUserFromDepartment = (departmentId: string, data: any) => 
+  api.post(`/departments/${departmentId}/remove-user`, data).then(r => r.data?.data || r.data);
 
 export const bulkUpdateDepartments = (data: any) => 
   api.post('/departments/bulk-update', data).then(r => r.data);
@@ -1273,49 +1407,36 @@ export const deleteBackup = async (filename) => {
   return response.data;
 };
 
+// Add these to your API calls section
+
 // ============================================
-// ANTENATAL API FUNCTIONS
+// CLINICAL REPORTS API CALLS
 // ============================================
 
-// Get all antenatal bookings
-export const getAntenatalBookings = (filters?: any) => 
-  api.get('/antenatal/bookings', { params: filters }).then(r => r.data);
+export const getLabReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/lab', { params: filters });
+  return response.data.data;
+};
 
-// Get antenatal booking by patient ID
-export const getAntenatalBooking = (patientId: string) => 
-  api.get(`/antenatal/bookings/${patientId}`).then(r => r.data);
+export const getScanReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/scans', { params: filters });
+  return response.data.data;
+};
 
-// Create or update antenatal booking
-export const createAntenatalBooking = (data: any) => 
-  api.post('/antenatal/bookings', data).then(r => r.data);
+export const getProcedureReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/procedures', { params: filters });
+  return response.data.data;
+};
 
-// Close antenatal booking (post-delivery)
-export const closeAntenatalBooking = (patientId: string, data: any) => 
-  api.put(`/antenatal/bookings/${patientId}/close`, data).then(r => r.data);
+export const getMedicationReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/medications', { params: filters });
+  return response.data.data;
+};
 
-// Get ANC visits by booking ID
-export const getANCVisits = (bookingId: string) => 
-  api.get(`/antenatal/visits/${bookingId}`).then(r => r.data);
-
-// Get single ANC visit by ID
-export const getANCVisitById = (id: string) => 
-  api.get(`/antenatal/visit/${id}`).then(r => r.data);
-
-// Record new ANC visit
-export const recordANCVisit = (data: any) => 
-  api.post('/antenatal/visits', data).then(r => r.data);
-
-// Update ANC visit
-export const updateANCVisit = (id: string, data: any) => 
-  api.put(`/antenatal/visits/${id}`, data).then(r => r.data);
-
-// Delete ANC visit
-export const deleteANCVisit = (id: string) => 
-  api.delete(`/antenatal/visits/${id}`).then(r => r.data);
-
-// Get ANC statistics
-export const getANCStatistics = (filters?: any) => 
-  api.get('/antenatal/stats', { params: filters }).then(r => r.data);
+export const getVitalsReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/vitals', { params: filters });
+  return response.data.data;
+};
 
 // ======================
 // UPLOAD SYSTEM (Static file serving)
@@ -1600,7 +1721,6 @@ getFinalizedClaimsTotal,
   getDashboardStats,
   getAppointmentCalendar,
   
-  // Reports
   getFinancialReport,
   getInsuranceClaimsReport,
   getClinicalReport,
@@ -1609,10 +1729,11 @@ getFinalizedClaimsTotal,
   exportReport,
   getGHSOPDReport,
   getGHSIPDReport,
-  getGHSANCReport,
   getGHSFamilyPlanningReport,
   getMorbidityMortalityReport,
   getDemographicReport,
+  getGHSFormAReport,  
+  getTopDiagnoses,
   
   // Backup System
   createBackup,

@@ -23,6 +23,36 @@ export class NHISClaimService {
     return Math.max(0, age);
   }
 
+  // In NHISClaimService.ts:
+static async findNHISProvider(): Promise<string | null> {
+  const prisma = new PrismaClient();
+  const nhisProvider = await prisma.insuranceProvider.findFirst({
+    where: { 
+      type: 'nhis',
+      isActive: true 
+    },
+    select: { id: true }
+  });
+  return nhisProvider?.id || null;
+}
+
+static async getBillLineItems(billId: string) {
+  const prisma = new PrismaClient();
+  return await prisma.billLineItem.findMany({
+    where: { billId, isVoided: false },
+    include: {
+      serviceCatalog: {
+        select: {
+          name: true,
+          code: true,
+          nhisServiceCode: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+}
+
   static async resolveGDRGByContext(attendance: any, patientAgeInYears: number): Promise<any | null> {
     const isAdult = patientAgeInYears >= 12;
     

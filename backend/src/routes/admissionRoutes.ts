@@ -9,7 +9,8 @@ import {
   updateAdmissionWithNHISData,
   dischargePatient,
   addDailyNotes, // ✅ ADDED
-  getAdmissionStats // ✅ ADDED
+  getAdmissionStats,
+  getAdmissionsByPatientId
 } from '../controllers/admissionController';
 import { protect } from '../middleware/authMiddleware';
 
@@ -20,6 +21,9 @@ router.use(protect);
 
 // GET /api/admissions - Get all admissions (optional query: ?status=admitted)
 router.get('/', getAdmissions);
+
+// ✅ Add to admissionRoutes.ts
+router.get('/patient/:patientId', getAdmissionsByPatientId);
 
 // GET /api/admissions/stats - Get admission statistics
 router.get('/stats', getAdmissionStats); // ✅ ADDED

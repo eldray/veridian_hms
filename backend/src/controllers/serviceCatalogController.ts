@@ -470,7 +470,6 @@ export const updateServiceCatalogItem = [
       if (updateData.unit !== undefined) serviceUpdateData.unit = updateData.unit;
       if (updateData.requiresClinicalNotes !== undefined) serviceUpdateData.requiresClinicalNotes = updateData.requiresClinicalNotes;
       if (updateData.metadata !== undefined) serviceUpdateData.metadata = updateData.metadata;
-      if (updateData.tariffCode !== undefined) serviceUpdateData.tariffCode = updateData.tariffCode;
       if (updateData.isActive !== undefined) serviceUpdateData.isActive = updateData.isActive;
       
       // Handle related IDs (these are foreign keys)

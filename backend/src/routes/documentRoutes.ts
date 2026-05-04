@@ -13,7 +13,8 @@ import {
   getDocumentTemplates,
   createDocumentTemplate,
   updateDocumentTemplate,
-  deleteDocumentTemplate
+  deleteDocumentTemplate,
+  generateBillStatement
 } from '../controllers/documentController';
 
 const router = express.Router();
@@ -29,6 +30,7 @@ router.post('/referral/:referralId', requireClinicalStaff, generateReferralLette
 router.post('/discharge/:admissionId', requireClinicalStaff, generateDischargeSummary);
 router.post('/lab-result/:labTestId', requireClinicalStaff, generateLabResult);
 router.post('/prescription/:attendanceId', requireClinicalStaff, generatePrescription);
+router.post('/bill-statement/:billId', protect, generateBillStatement);
 
 // ==============================================
 // DOCUMENT RETRIEVAL

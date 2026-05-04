@@ -1,6 +1,7 @@
 // routes/attendanceRoutes.ts - CORRECTED VERSION
 import express from 'express';
 import * as attendanceController from '../controllers/attendanceController';
+import { uploadScanImages } from '../controllers/attendanceController';
 import {
   protect,
   requireAdmin,
@@ -64,6 +65,9 @@ router.post('/:id/medications/:medicationId/dispense',
 // ==========================================
 // SCANS
 // ==========================================
+
+// Add this route (before the :id route)
+router.post('/scans/:scanId/upload-images', protect, uploadScanImages);
 router.post('/:id/scans', requireDoctor, attendanceController.addScanToAttendance);
 router.patch('/:id/scans/:scanId', requireRadiologyStaff, attendanceController.updateScanStatus);
 router.delete('/:id/scans/:scanId', requireDoctor, attendanceController.removeScanFromAttendance);

@@ -1,5 +1,6 @@
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -572,6 +573,9 @@ model Medication {
   dispensedUnitCost    Float?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
+  
+  // ✅ NEW: Track multiple dose administrations
+  administeredDoses    Json?            // Stores [{ doseNumber, administeredAt, administeredBy }]
 
   User_Medication_administeredByIdToUser User?           @relation("Medication_administeredByIdToUser", fields: [administeredById], references: [id])
   Attendance                             Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -2008,16 +2012,17 @@ model AbortionRecord {
 // GHS REPORTING ENUMS
 // ============================================================
 
+// In your schema.prisma file
+
 enum GHSReportType {
   opd_morbidity
+  opd_attendance      // ✅ NEW - For OPD Attendance report
   ipd_morbidity
   idsr
   form_a_morbidity
   form_a_services
+  form_a_complete     // ✅ NEW - For combined ANC + Delivery + Postnatal
   malaria_data
-  anc_return
-  delivery_register
-  abortion_data
   monthly_summary
 }
 
@@ -2255,6 +2260,7 @@ enum ProcedureStatus {
 
 enum ScanStatus {
   requested
+  in_progress
   completed
   cancelled
 }

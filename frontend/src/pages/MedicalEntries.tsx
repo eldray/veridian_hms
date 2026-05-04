@@ -1,6 +1,6 @@
-// src/pages/MedicalEntries.tsx - FULL MULTI-PANEL REDESIGN
+// src/pages/MedicalEntries.tsx - THEMED VERSION WITH AUDIT LOGGING
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
@@ -16,6 +16,9 @@ import { ProcedureModal } from '../components/medical-entries/modals/ProcedureMo
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 
+// Add to existing imports
+import ComplaintInput from '../components/ComplaintInput';
+import ODQInput from '../components/medical-entries/ODQInput';
 import {
   ChevronLeft,
   RefreshCw,
@@ -29,6 +32,7 @@ import {
   AlertCircle,
   Plus,
   Trash2,
+  Hospital,
   User,
   Calendar,
   DollarSign,
@@ -43,40 +47,146 @@ import {
   CheckCircle,
   XCircle,
   Printer,
-  Download,
-  Send,
   History,
   Eye,
   Edit,
+  ClipboardList,
+  Microscope,
+  Image
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
   return entity?._id || entity?.id;
 };
+import { useAdmissionStore } from '../store/admissionStore';
+
+
 
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | null;
+
+// Scan Result Form Component - Themed
+const ScanResultForm: React.FC<{ 
+  scan: any; 
+  onSaveResult: (scanId: string, resultData: any) => Promise<void>; 
+  onClose: () => void;
+  saving: boolean;
+}> = ({ scan, onSaveResult, onClose, saving }) => {
+  const [findings, setFindings] = useState(scan.findings || '');
+  const [impression, setImpression] = useState(scan.impression || '');
+  const [result, setResult] = useState(scan.result || '');
+
+  const handleSubmit = async () => {
+    await onSaveResult(scan.id, {
+      findings,
+      impression,
+      result,
+      status: 'completed',
+      completedAt: new Date().toISOString()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-[var(--border-color)]">
+        <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Enter Scan Results</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        
+        <div className="p-5 space-y-4">
+          <div className="bg-[var(--bg-main)] p-3 rounded-lg border border-[var(--border-color)]">
+            <p className="text-sm font-medium text-[var(--text-primary)]">
+              Scan Type: <span className="font-normal text-[var(--text-secondary)]">{scan.scanType || scan.ServiceCatalog?.name}</span>
+            </p>
+            <p className="text-sm font-medium text-[var(--text-primary)] mt-1">
+              Body Part: <span className="font-normal text-[var(--text-secondary)]">{scan.bodyPart || 'N/A'}</span>
+            </p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
+              Requested by: {scan.requestedBy?.fullName || 'Unknown'} on {new Date(scan.requestedAt).toLocaleDateString()}
+            </p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Findings</label>
+            <textarea
+              value={findings}
+              onChange={(e) => setFindings(e.target.value)}
+              rows={5}
+              className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm text-[var(--text-primary)]"
+              placeholder="Describe radiological findings..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Impression / Conclusion</label>
+            <textarea
+              value={impression}
+              onChange={(e) => setImpression(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm text-[var(--text-primary)]"
+              placeholder="Clinical impression based on findings..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Additional Notes</label>
+            <textarea
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm text-[var(--text-primary)]"
+              placeholder="Any additional comments..."
+            />
+          </div>
+          
+          <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
+            >
+              {saving ? 'Saving...' : 'Save Results'}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function MedicalEntries() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
   const { patients, loadPatients } = usePatientStore();
+  const { attendanceId } = useParams();
+  const { attendanceId: attendanceIdFromParams } = useParams();
+  const [searchParams] = useSearchParams();
+    // Inside component:
+  const { createAdmission, getAdmissions } = useAdmissionStore();
+  const { updateAttendance } = useAttendanceStore();
   const {
     attendances,
     currentAttendance,
     getAttendance,
     getAttendances,
-    addDiagnosis,
-    addLabTest,
-    addProcedure,
-    addMedication,
-    addScan,
     removeDiagnosis,
     removeLabTest,
     removeProcedure,
     removeMedication,
     removeScan,
-    updateAttendance,
+    updateScanStatus,  // ✅ Add this import
     canAddMedicalEntries,
     getVitalsByAttendance,
     calculateBill,
@@ -102,6 +212,8 @@ export default function MedicalEntries() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [latestVitals, setLatestVitals] = useState<any>(null);
+  const [scanResultFor, setScanResultFor] = useState<any>(null);
+  const [savingResult, setSavingResult] = useState(false);
 
   // Clinical form state
   const [presentedComplaints, setPresentedComplaints] = useState('');
@@ -114,7 +226,6 @@ export default function MedicalEntries() {
   // Modal state
   const [modalType, setModalType] = useState<ModalType>(null);
 
-  // Load data
   const loadData = async () => {
     setRefreshing(true);
     try {
@@ -140,7 +251,6 @@ export default function MedicalEntries() {
     loadData();
   }, []);
 
-  // Load vitals when attendance changes
   useEffect(() => {
     const loadVitals = async () => {
       if (selectedAttendanceId) {
@@ -155,7 +265,19 @@ export default function MedicalEntries() {
     loadVitals();
   }, [selectedAttendanceId, getVitalsByAttendance]);
 
-  // Load full attendance when selected
+    // Add useEffect to handle URL parameters on initial load
+    useEffect(() => {
+      if (attendanceId) {
+        // Find the patient associated with this attendance
+        const attendance = attendances.find(a => a.id === attendanceId);
+        if (attendance) {
+          setSelectedPatientId(attendance.patientId);
+          setSelectedAttendanceId(attendanceId);
+          getAttendance(attendanceId);
+        }
+      }
+    }, [attendanceId, attendances]);
+
   useEffect(() => {
     if (selectedAttendanceId) {
       getAttendance(selectedAttendanceId).then((att) => {
@@ -165,7 +287,11 @@ export default function MedicalEntries() {
           setOdq((att as any).onsetDurationQuality || '');
           setPhysicalExam((att as any).physicalExamination || '');
           setTreatmentPlan((att as any).treatmentPlan || '');
-          setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+          setFollowUpDate(
+            (att as any).followUpDate
+              ? new Date((att as any).followUpDate).toISOString().slice(0, 16)
+              : ''
+          );
         }
       });
     }
@@ -173,19 +299,18 @@ export default function MedicalEntries() {
 
   const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  const currentUser = user;
 
-  // Get all entries from current attendance
   const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
   const labTestsList = currentAttendance?.LabTest || [];
   const proceduresList = currentAttendance?.Procedure || [];
   const medicationsList = currentAttendance?.Medication || [];
   const scansList = currentAttendance?.Scan || [];
 
-  // Separate prescribed vs dispensed medications
-  const prescribedMeds = medicationsList.filter(m => m.status === 'prescribed');
-  const dispensedMeds = medicationsList.filter(m => m.status === 'dispensed');
-
-  const hasConsultationFee = diagnosesList.length > 0;
+  const prescribedMeds = medicationsList.filter((m) => m.status === 'prescribed');
+  const dispensedMeds = medicationsList.filter((m) => m.status === 'dispensed');
+  const requestedScans = scansList.filter((s) => s.status === 'requested' || s.status === 'scheduled');
+  const completedScans = scansList.filter((s) => s.status === 'completed');
 
   const handleClearSelection = () => {
     setSelectedPatientId('');
@@ -210,6 +335,8 @@ export default function MedicalEntries() {
         physicalExamination: physicalExam,
         treatmentPlan: treatmentPlan,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
+        updatedById: currentUser?.id,
+        updatedAt: new Date().toISOString()
       });
       success('Saved', 'Clinical information saved');
       await getAttendance(selectedAttendanceId);
@@ -217,7 +344,51 @@ export default function MedicalEntries() {
       toastError('Save failed', err.message);
     }
   };
-
+  const handleDirectAdmit = async () => {
+    if (!selectedAttendanceId || !currentAttendance || !selectedPatient) {
+      toastError('Error', 'Missing required information');
+      return;
+    }
+    
+    if (currentAttendance.status === 'admitted') {
+      toastError('Already Admitted', 'This patient is already admitted');
+      return;
+    }
+    
+    try {
+      // Create admission directly
+      const admissionData = {
+        attendanceId: selectedAttendanceId,
+        patientId: selectedPatientId,
+        admissionNumber: `ADM-${Date.now()}`,
+        admissionDate: new Date().toISOString(),
+        admittingDoctor: user?.fullName || user?.username || 'Unknown Doctor',
+        diagnosis: presentedComplaints || 'To be determined',
+        status: 'admitted',
+        complaints: presentedComplaints,
+        paymentMode: currentAttendance.paymentMode,
+        attendanceNumber: currentAttendance.attendanceNumber,
+      };
+      
+      await createAdmission(admissionData);
+      
+      // Update attendance status
+      await updateAttendance(selectedAttendanceId, {
+        status: 'admitted',
+        attendanceType: 'inpatient'
+      });
+      
+      success('Success', 'Patient admitted successfully');
+      
+      // Refresh the page data
+      await getAttendance(selectedAttendanceId);
+      await getAdmissions();
+      
+    } catch (err: any) {
+      toastError('Admission Failed', err.response?.data?.message || err.message);
+    }
+  };
+  
   const handleDeleteItem = async (type: string, id: string) => {
     if (!selectedAttendanceId) return;
     try {
@@ -250,6 +421,27 @@ export default function MedicalEntries() {
     }
   };
 
+  const handleSaveScanResult = async (scanId: string, resultData: any) => {
+    if (!selectedAttendanceId) return;
+    setSavingResult(true);
+    try {
+      // ✅ Use the dedicated updateScanStatus API instead of updateAttendance
+      await updateScanStatus(selectedAttendanceId, scanId, {
+        ...resultData,
+        performedById: currentUser?.id,
+        performedAt: new Date().toISOString()
+      });
+      
+      success('Results Saved', 'Scan results have been recorded');
+      await getAttendance(selectedAttendanceId);
+      setScanResultFor(null);
+    } catch (err: any) {
+      toastError('Save failed', err.message);
+    } finally {
+      setSavingResult(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const config: Record<string, { color: string; bg: string }> = {
       requested: { color: 'text-yellow-800', bg: 'bg-yellow-100' },
@@ -259,31 +451,34 @@ export default function MedicalEntries() {
       completed: { color: 'text-green-800', bg: 'bg-green-100' },
       cancelled: { color: 'text-red-800', bg: 'bg-red-100' },
       pending: { color: 'text-yellow-800', bg: 'bg-yellow-100' },
+      in_progress: { color: 'text-cyan-800', bg: 'bg-cyan-100' },
     };
     const c = config[status?.toLowerCase()] || { color: 'text-gray-800', bg: 'bg-gray-100' };
-    return <span className={`px-2 py-0.5 text-xs rounded-full ${c.bg} ${c.color}`}>{status}</span>;
+    return (
+      <span className={`px-2 py-0.5 text-xs rounded-full ${c.bg} ${c.color}`}>{status?.replace('_', ' ')}</span>
+    );
   };
 
   const getVitalStatusColor = (type: string, value: any) => {
-    if (!value) return 'text-gray-400';
+    if (!value) return 'text-[var(--text-tertiary)]';
     switch (type) {
       case 'bp':
         const [sys, dia] = String(value).split('/').map(Number);
-        if (sys > 140 || dia > 90) return 'text-red-600';
-        if (sys < 90 || dia < 60) return 'text-yellow-600';
-        return 'text-green-600';
+        if (sys > 140 || dia > 90) return 'text-[var(--icon-red-text)]';
+        if (sys < 90 || dia < 60) return 'text-[var(--icon-yellow-text)]';
+        return 'text-[var(--icon-green-text)]';
       case 'temp':
-        if (value > 38) return 'text-red-600';
-        if (value < 35) return 'text-yellow-600';
-        return 'text-green-600';
+        if (value > 38) return 'text-[var(--icon-red-text)]';
+        if (value < 35) return 'text-[var(--icon-yellow-text)]';
+        return 'text-[var(--icon-green-text)]';
       case 'pulse':
-        if (value > 100 || value < 60) return 'text-red-600';
-        return 'text-green-600';
+        if (value > 100 || value < 60) return 'text-[var(--icon-red-text)]';
+        return 'text-[var(--icon-green-text)]';
       case 'spo2':
-        if (value < 95) return 'text-red-600';
-        return 'text-green-600';
+        if (value < 95) return 'text-[var(--icon-red-text)]';
+        return 'text-[var(--icon-green-text)]';
       default:
-        return 'text-gray-600';
+        return 'text-[var(--text-primary)]';
     }
   };
 
@@ -299,7 +494,7 @@ export default function MedicalEntries() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -320,7 +515,7 @@ export default function MedicalEntries() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
           >
             <Printer className="w-4 h-4" />
             Print
@@ -328,7 +523,7 @@ export default function MedicalEntries() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -347,534 +542,1081 @@ export default function MedicalEntries() {
         onClearSelection={handleClearSelection}
       />
 
-      {/* Only show content if attendance is selected */}
       {selectedAttendanceId && currentAttendance ? (
         <>
-          {/* PATIENT HEADER with badges */}
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-[var(--icon-cyan-text)]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                    {selectedPatient?.surname} {selectedPatient?.otherNames}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
-                    <span>{selectedPatient?.age || 'N/A'} years • {selectedPatient?.gender}</span>
-                    <span>•</span>
-                    <span>ID: {selectedPatient?.folderNumber}</span>
-                    <span>•</span>
-                    <span>{selectedPatient?.contact}</span>
+          {/* PATIENT HEADER */}
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+                    <User className="w-6 h-6 text-[var(--icon-cyan-text)]" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                      {selectedPatient?.surname} {selectedPatient?.otherNames}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
+                      <span>{selectedPatient?.age || 'N/A'} years • {selectedPatient?.gender}</span>
+                      <span>•</span>
+                      <span>ID: {selectedPatient?.folderNumber}</span>
+                      <span>•</span>
+                      <span>{selectedPatient?.contact}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  currentAttendance.paymentMode === 'nhis' 
-                    ? 'bg-green-100 text-green-800 border border-green-200' 
-                    : currentAttendance.paymentMode === 'private_insurance'
-                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                    : 'bg-blue-100 text-blue-800 border border-blue-200'
-                }`}>
-                  {currentAttendance.paymentMode === 'nhis' ? 'NHIS' : 
-                   currentAttendance.paymentMode === 'private_insurance' ? 'PRIVATE INS' : 'CASH'}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  currentAttendance.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  currentAttendance.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {currentAttendance.status?.toUpperCase()}
-                </span>
-                {currentAttendance.outstandingBalance > 0 && (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                    Balance: GHS {currentAttendance.outstandingBalance.toFixed(2)}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      currentAttendance.paymentMode === 'nhis'
+                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        : currentAttendance.paymentMode === 'private_insurance'
+                        ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    }`}
+                  >
+                    {currentAttendance.paymentMode === 'nhis'
+                      ? 'NHIS'
+                      : currentAttendance.paymentMode === 'private_insurance'
+                      ? 'PRIVATE INS'
+                      : 'CASH'}
                   </span>
-                )}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      currentAttendance.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : currentAttendance.status === 'admitted'
+                        ? 'bg-green-100 text-green-800'
+                        : currentAttendance.status === 'completed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {currentAttendance.status?.toUpperCase()}
+                  </span>
+                  {currentAttendance.outstandingBalance > 0 && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                      Balance: GHS {currentAttendance.outstandingBalance.toFixed(2)}
+                    </span>
+                  )}
+                  
+                  {/* ✅ ADMIT BUTTON - Only show if not already admitted or completed */}
+                  {currentAttendance.status !== 'admitted' && currentAttendance.status !== 'completed' && (
+                    <button
+                      onClick={handleDirectAdmit}
+                      className="flex items-center gap-2 px-4 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
+                    >
+                      <Hospital className="w-4 h-4" />
+                      Admit Patient
+                    </button>
+                  )}
+                  
+                  {/* Show badge if already admitted */}
+                  {currentAttendance.status === 'admitted' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                      <Hospital className="w-3 h-3 inline mr-1" />
+                      ADMITTED
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* VITALS STRIP - 9 columns */}
+          {/* VITALS STRIP */}
           {latestVitals && (
             <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-3">
-                <div className="text-center">
-                  <Gauge className="w-4 h-4 text-blue-500 mx-auto mb-1" />
-                  <div className={`text-sm font-bold ${getVitalStatusColor('bp', latestVitals.bloodPressure)}`}>
-                    {latestVitals.bloodPressure || '—'}
+                {[
+                  { icon: <Gauge className="w-4 h-4 text-blue-500" />, value: latestVitals.bloodPressure || '—', label: 'BP (mmHg)', colorType: 'bp' },
+                  { icon: <Thermometer className="w-4 h-4 text-red-500" />, value: latestVitals.temperature ? `${latestVitals.temperature}°C` : '—', label: 'Temp', colorType: 'temp' },
+                  { icon: <Heart className="w-4 h-4 text-red-500" />, value: latestVitals.pulse || '—', label: 'Pulse (bpm)', colorType: 'pulse' },
+                  { icon: <Wind className="w-4 h-4 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp (bpm)', colorType: null },
+                  { icon: <Droplets className="w-4 h-4 text-blue-500" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO2 (%)', colorType: 'spo2' },
+                  { icon: <Weight className="w-4 h-4 text-amber-500" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight', colorType: null },
+                  { icon: <Ruler className="w-4 h-4 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height', colorType: null },
+                  { icon: <Activity className="w-4 h-4 text-purple-500" />, value: latestVitals.bmi || '—', label: 'BMI', colorType: null },
+                  { icon: <Activity className="w-4 h-4 text-indigo-500" />, value: latestVitals.muac || '—', label: 'MUAC (cm)', colorType: null },
+                ].map((vital, i) => (
+                  <div key={i} className="text-center">
+                    <div className="flex justify-center mb-1">{vital.icon}</div>
+                    <div className={`text-sm font-bold ${vital.colorType ? getVitalStatusColor(vital.colorType, vital.value) : 'text-[var(--text-primary)]'}`}>
+                      {vital.value}
+                    </div>
+                    <div className="text-xs text-[var(--text-secondary)]">{vital.label}</div>
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)]">BP (mmHg)</div>
-                </div>
-                <div className="text-center">
-                  <Thermometer className="w-4 h-4 text-red-500 mx-auto mb-1" />
-                  <div className={`text-sm font-bold ${getVitalStatusColor('temp', latestVitals.temperature)}`}>
-                    {latestVitals.temperature ? `${latestVitals.temperature}°C` : '—'}
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)]">Temp</div>
-                </div>
-                <div className="text-center">
-                  <Heart className="w-4 h-4 text-red-500 mx-auto mb-1" />
-                  <div className={`text-sm font-bold ${getVitalStatusColor('pulse', latestVitals.pulse)}`}>
-                    {latestVitals.pulse || '—'}
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)]">Pulse (bpm)</div>
-                </div>
-                <div className="text-center">
-                  <Wind className="w-4 h-4 text-teal-500 mx-auto mb-1" />
-                  <div className="text-sm font-bold">{latestVitals.respiration || '—'}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">Resp (bpm)</div>
-                </div>
-                <div className="text-center">
-                  <Droplets className="w-4 h-4 text-blue-500 mx-auto mb-1" />
-                  <div className={`text-sm font-bold ${getVitalStatusColor('spo2', latestVitals.spo2)}`}>
-                    {latestVitals.spo2 ? `${latestVitals.spo2}%` : '—'}
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)]">SpO2 (%)</div>
-                </div>
-                <div className="text-center">
-                  <Weight className="w-4 h-4 text-amber-500 mx-auto mb-1" />
-                  <div className="text-sm font-bold">{latestVitals.weight ? `${latestVitals.weight}kg` : '—'}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">Weight</div>
-                </div>
-                <div className="text-center">
-                  <Ruler className="w-4 h-4 text-cyan-500 mx-auto mb-1" />
-                  <div className="text-sm font-bold">{latestVitals.height ? `${latestVitals.height}cm` : '—'}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">Height</div>
-                </div>
-                <div className="text-center">
-                  <Activity className="w-4 h-4 text-purple-500 mx-auto mb-1" />
-                  <div className="text-sm font-bold">{latestVitals.bmi || '—'}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">BMI</div>
-                </div>
-                <div className="text-center">
-                  <Activity className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
-                  <div className="text-sm font-bold">{latestVitals.muac || '—'}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">MUAC (cm)</div>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* ROW 1: CLINICAL PRESENTATION - 4 columns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
-                <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Presented Complaints
-              </label>
-              <textarea
-                value={presentedComplaints}
-                onChange={(e) => setPresentedComplaints(e.target.value)}
-                rows={4}
-                placeholder="Patient's main complaint..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-                disabled={!canAddEntries}
-              />
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
-                <History className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                H.P.C (History)
-              </label>
-              <textarea
-                value={hpc}
-                onChange={(e) => setHpc(e.target.value)}
-                rows={4}
-                placeholder="History of presenting complaint..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-                disabled={!canAddEntries}
-              />
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                O.D.Q (Onset/Duration/Quality)
-              </label>
-              <textarea
-                value={odq}
-                onChange={(e) => setOdq(e.target.value)}
-                rows={4}
-                placeholder="Onset, duration, quality of symptoms..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-                disabled={!canAddEntries}
-              />
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <label className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
-                <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Physical Examination
-              </label>
-              <textarea
-                value={physicalExam}
-                onChange={(e) => setPhysicalExam(e.target.value)}
-                rows={4}
-                placeholder="Physical examination findings..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-                disabled={!canAddEntries}
-              />
-            </div>
-          </div>
+          {/* MAIN TWO-COLUMN LAYOUT */}
+          <div className="flex gap-4 items-stretch">
 
-          {/* Save Clinical Button */}
-          {canAddEntries && (
-            <div className="flex justify-end">
-              <button
-                onClick={handleSaveClinical}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Save Clinical Information
-              </button>
-            </div>
-          )}
+            {/* LEFT COLUMN - Main Content */}
+            <div className="flex-1 min-w-0 space-y-4">
 
-          {/* ROW 2: INVESTIGATIONS & RESULTS - 2 columns */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* INVESTIGATIONS REQUESTED */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4 text-purple-600" />
-                  Investigations Requested
-                </h3>
-                {canAddEntries && (
-                  <button
-                    onClick={() => setModalType('lab')}
-                    className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white"
-                  >
-                    <Plus className="w-3 h-3" /> Add
-                  </button>
-                )}
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[400px] overflow-y-auto">
-                {labTestsList.length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No lab tests requested</div>
-                )}
-                {labTestsList.map((test: any) => (
-                  <div key={test.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-sm">{test.ServiceCatalog?.name || test.name}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-[var(--text-secondary)]">Priority: {test.priority}</span>
-                          {getStatusBadge(test.status)}
-                        </div>
-                      </div>
-                      {canAddEntries && test.status === 'requested' && (
-                        <button onClick={() => handleDeleteItem('lab', test.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+              {/* ROW 1: CLINICAL PRESENTATION - Compact Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left Column - Complaints & HPC */}
+                <div className="space-y-3">
+                  {/* Presented Complaints */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
+                    <label className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                      <FileText className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+                      Presented Complaints
+                    </label>
+                    <ComplaintInput
+                      value={presentedComplaints}
+                      onChange={setPresentedComplaints}
+                      placeholder="Search or type complaints..."
+                      disabled={!canAddEntries}
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* RESULTS OF INVESTIGATIONS */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  Results of Investigations
-                </h3>
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[400px] overflow-y-auto">
-                {labTestsList.filter(t => t.status === 'completed').length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No results available yet</div>
-                )}
-                {labTestsList.filter(t => t.status === 'completed').map((test: any) => (
-                  <div key={test.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="font-medium text-sm">{test.ServiceCatalog?.name || test.name}</span>
-                        {test.result && (
-                          <div className="text-sm mt-1">
-                            <span className={test.result?.abnormal ? 'text-red-600 font-medium' : 'text-green-600'}>
-                              Result: {typeof test.result === 'object' ? JSON.stringify(test.result) : test.result}
-                            </span>
-                            {test.normalRange && <span className="text-xs text-[var(--text-secondary)] ml-2">(Normal: {test.normalRange})</span>}
-                          </div>
-                        )}
-                        <div className="text-xs text-[var(--text-secondary)] mt-1">Completed: {new Date(test.completedAt).toLocaleDateString()}</div>
-                      </div>
-                    </div>
+                  {/* H.P.C */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
+                    <label className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                      <History className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+                      History of Presenting Complaint
+                    </label>
+                    <textarea
+                      value={hpc}
+                      onChange={(e) => setHpc(e.target.value)}
+                      rows={2}
+                      placeholder="History of presenting complaint..."
+                      className="w-full px-2 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none text-[var(--text-primary)]"
+                      disabled={!canAddEntries}
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                </div>
 
-          {/* ROW 3: DIAGNOSIS & PROCEDURES - 2 columns */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* DIAGNOSIS LIST */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                  Diagnosis (ICD-10)
-                </h3>
-                {canAddEntries && (
-                  <button
-                    onClick={() => setModalType('diagnosis')}
-                    className="flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded text-xs hover:bg-[var(--icon-cyan-text)] hover:text-white"
-                  >
-                    <Plus className="w-3 h-3" /> Add
-                  </button>
-                )}
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
-                {diagnosesList.length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No diagnoses added</div>
-                )}
-                {diagnosesList.map((item: any) => (
-                  <div key={item.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{item.Diagnosis?.name}</span>
-                          {item.primary && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>}
-                        </div>
-                        <div className="text-xs text-[var(--text-secondary)] mt-1">ICD-10: {item.Diagnosis?.icdCode}</div>
-                        {item.notes && <div className="text-xs text-[var(--text-secondary)] mt-1">{item.notes}</div>}
-                      </div>
-                      {canAddEntries && (
-                        <button onClick={() => handleDeleteItem('diagnosis', item.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                {/* Right Column - Physical Exam & ODQ */}
+                <div className="space-y-3">
+                  {/* Physical Examination */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
+                    <label className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                      <Stethoscope className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+                      Physical Examination
+                    </label>
+                    <textarea
+                      value={physicalExam}
+                      onChange={(e) => setPhysicalExam(e.target.value)}
+                      rows={2}
+                      placeholder="Physical examination findings..."
+                      className="w-full px-2 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none text-[var(--text-primary)]"
+                      disabled={!canAddEntries}
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* PROCEDURES & SCHEDULING */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Scissors className="w-4 h-4 text-orange-600" />
-                  Procedures & Scheduling
-                </h3>
-                {canAddEntries && (
-                  <button
-                    onClick={() => setModalType('procedure')}
-                    className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-700 hover:text-white"
-                  >
-                    <Plus className="w-3 h-3" /> Schedule
-                  </button>
-                )}
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
-                {proceduresList.length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No procedures scheduled</div>
-                )}
-                {proceduresList.map((proc: any) => (
-                  <div key={proc.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="font-medium text-sm">{proc.ServiceCatalog?.name || proc.name}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          {proc.scheduledDate && (
-                            <span className="text-xs text-[var(--text-secondary)]">
-                              Scheduled: {new Date(proc.scheduledDate).toLocaleString()}
-                            </span>
-                          )}
-                          {getStatusBadge(proc.status)}
-                        </div>
-                        {proc.notes && <div className="text-xs text-[var(--text-secondary)] mt-1">{proc.notes}</div>}
-                      </div>
-                      {canAddEntries && proc.status === 'scheduled' && (
-                        <button onClick={() => handleDeleteItem('procedure', proc.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                  {/* O.D.Q - Compact */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
+                    <label className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-2">
+                      <Clock className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+                      O.D.Q (Onset/Duration/Quality)
+                    </label>
+                    <ODQInput
+                      value={odq}
+                      onChange={setOdq}
+                      disabled={!canAddEntries}
+                    />
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* ROW 4: MEDICATIONS - 2 columns (Requested vs Issued) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* ITEMS REQUESTED (Prescribed) */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Pill className="w-4 h-4 text-green-600" />
-                  Items Requested (Prescribed)
-                </h3>
-                {canAddEntries && (
-                  <button
-                    onClick={() => setModalType('medication')}
-                    className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-700 hover:text-white"
-                  >
-                    <Plus className="w-3 h-3" /> Prescribe
-                  </button>
-                )}
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[350px] overflow-y-auto">
-                {prescribedMeds.length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No medications prescribed</div>
-                )}
-                {prescribedMeds.map((med: any) => (
-                  <div key={med.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{med.name}</span>
-                          <span className="text-xs text-[var(--text-secondary)]">{med.dosage}</span>
-                          <span className="text-xs text-[var(--text-secondary)]">{med.frequency}</span>
-                        </div>
-                        <div className="text-xs text-[var(--text-secondary)] mt-1">
-                          Duration: {med.duration} • Qty: {med.quantity}
-                        </div>
-                        {med.instructions && <div className="text-xs text-[var(--text-secondary)] mt-1">{med.instructions}</div>}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded">
-                            Payer: {med.paymentMode === 'nhis' ? 'A' : med.paymentMode === 'private_insurance' ? 'P' : 'C'}
-                          </span>
-                          {getStatusBadge(med.status)}
-                        </div>
-                      </div>
-                      {canAddEntries && (
-                        <button onClick={() => handleDeleteItem('medication', med.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ITEMS ISSUED (Dispensed) */}
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                  Items Issued (Dispensed)
-                </h3>
-              </div>
-              <div className="divide-y divide-[var(--border-color)] max-h-[350px] overflow-y-auto">
-                {dispensedMeds.length === 0 && (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">No medications dispensed yet</div>
-                )}
-                {dispensedMeds.map((med: any) => (
-                  <div key={med.id} className="p-3 hover:bg-[var(--bg-main)]">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{med.name}</span>
-                          <span className="text-xs text-[var(--text-secondary)]">{med.dosage}</span>
-                          <span className="text-xs text-[var(--text-secondary)]">{med.frequency}</span>
-                        </div>
-                        <div className="text-xs text-[var(--text-secondary)] mt-1">
-                          Qty: {med.quantity} • Rate: GHS {(med.unitCost || 0).toFixed(2)} • Total: GHS {((med.unitCost || 0) * med.quantity).toFixed(2)}
-                        </div>
-                        {med.dispensedAt && (
-                          <div className="text-xs text-[var(--text-secondary)] mt-1">Dispensed: {new Date(med.dispensedAt).toLocaleString()}</div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded">
-                            Payer: {med.paymentMode === 'nhis' ? 'A' : med.paymentMode === 'private_insurance' ? 'P' : 'C'}
-                          </span>
-                          {getStatusBadge(med.status)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ROW 5: PHYSICIAN NOTES & TREATMENT PLAN */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-            <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-              <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Physician Notes & Treatment Plan
-              </h3>
-            </div>
-            <div className="p-4">
-              <textarea
-                value={treatmentPlan}
-                onChange={(e) => setTreatmentPlan(e.target.value)}
-                rows={4}
-                placeholder="Treatment plan, follow-up instructions, medications to continue, lifestyle modifications..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-                disabled={!canAddEntries}
-              />
+              {/* Save Button - Compact */}
               {canAddEntries && (
-                <div className="flex justify-end mt-3">
+                <div className="flex justify-end">
                   <button
                     onClick={handleSaveClinical}
-                    className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Save Treatment Plan
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Save Clinical Info
                   </button>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* ROW 6: GENERAL INFO */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-            <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-              <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                General Information
-              </h3>
+              {/* ROW 2: INVESTIGATIONS & RESULTS */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Investigations Requested - Table View */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <FlaskConical className="w-4 h-4 text-purple-600" />
+                    Investigations Requested
+                    {labTestsList.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">
+                        {labTestsList.length}
+                      </span>
+                    )}
+                  </h3>
+                  {canAddEntries && (
+                    <button
+                      onClick={() => setModalType('lab')}
+                      className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Request Test
+                    </button>
+                  )}
+                </div>
+
+                {labTestsList.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No lab tests requested</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test Name</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested By</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
+                          <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {labTestsList.map((test: any) => {
+                          // Determine priority color
+                          const priorityColor = 
+                            test.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                            test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 
+                            'bg-blue-100 text-blue-700';
+                          
+                          return (
+                            <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                              <td className="px-3 py-2">
+                                <div className="font-medium text-[var(--text-primary)] text-sm">
+                                  {test.ServiceCatalog?.name || test.name}
+                                </div>
+                                {test.notes && (
+                                  <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 line-clamp-1">
+                                    {test.notes}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColor}`}>
+                                  {test.priority || 'routine'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                {getStatusBadge(test.status)}
+                              </td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)]">
+                                {test.requestedBy || test.User_LabTest_createdByIdToUser?.fullName || '—'}
+                              </td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                {test.requestedAt ? new Date(test.requestedAt).toLocaleDateString() : 
+                                test.createdAt ? new Date(test.createdAt).toLocaleDateString() : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {canAddEntries && test.status === 'requested' && (
+                                  <button
+                                    onClick={() => handleDeleteItem('lab', test.id)}
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                    title="Cancel Request"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Results of Investigations — rich table view */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Results of Investigations
+                    {labTestsList.filter((t: any) => t.status === 'completed').length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                        {labTestsList.filter((t: any) => t.status === 'completed').length}
+                      </span>
+                    )}
+                  </h3>
+                  {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                    <span className="text-[10px] text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full font-medium">
+                      {labTestsList.filter((t: any) => t.status !== 'completed').length} pending
+                    </span>
+                  )}
+                </div>
+
+                {labTestsList.filter((t: any) => t.status === 'completed').length === 0 ? (
+                  <div className="p-8 text-center">
+                    <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No results available yet</p>
+                    {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        {labTestsList.filter((t: any) => t.status !== 'completed').length} test(s) awaiting results
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Units</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {labTestsList
+                          .filter((t: any) => t.status === 'completed')
+                          .map((test: any) => {
+                            // Support both flat result string and structured result object with sub-tests
+                            const subResults: any[] = Array.isArray(test.result?.parameters)
+                              ? test.result.parameters
+                              : Array.isArray(test.resultParameters)
+                              ? test.resultParameters
+                              : [];
+
+                            if (subResults.length > 0) {
+                              // FBC / panel with multiple rows
+                              return subResults.map((param: any, pi: number) => {
+                                const isAbnormal = param.abnormal || param.flag === 'H' || param.flag === 'L' || param.flag === 'HIGH' || param.flag === 'LOW';
+                                const flagColor = param.flag === 'H' || param.flag === 'HIGH' ? 'text-red-600 bg-red-50' : param.flag === 'L' || param.flag === 'LOW' ? 'text-yellow-700 bg-yellow-50' : 'text-green-700 bg-green-50';
+                                return (
+                                  <tr key={`${test.id}-${pi}`} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                    <td className="px-3 py-2">
+                                      {pi === 0 && (
+                                        <div className="font-semibold text-[var(--text-primary)] text-xs mb-0.5">
+                                          {test.ServiceCatalog?.name || test.name}
+                                        </div>
+                                      )}
+                                      <span className="text-[var(--text-secondary)] pl-2">— {param.name || param.paramName}</span>
+                                    </td>
+                                    <td className={`px-3 py-2 font-bold ${isAbnormal ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
+                                      {param.value ?? '—'}
+                                    </td>
+                                    <td className="px-3 py-2 text-[var(--text-secondary)]">{param.normalRange || param.referenceRange || '—'}</td>
+                                    <td className="px-3 py-2 text-[var(--text-secondary)]">{param.unit || param.units || '—'}</td>
+                                    <td className="px-3 py-2">
+                                      {param.flag ? (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
+                                          {param.flag}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[var(--text-secondary)]">—</span>
+                                      )}
+                                    </td>
+                                    {pi === 0 ? (
+                                      <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                        {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
+                                      </td>
+                                    ) : <td className="px-3 py-2" />}
+                                  </tr>
+                                );
+                              });
+                            }
+
+                            // Single-result test
+                            const rawResult = typeof test.result === 'object' && test.result !== null
+                              ? (test.result.value ?? JSON.stringify(test.result))
+                              : (test.result ?? '—');
+                            const isAbnormal = test.result?.abnormal || test.abnormal;
+                            return (
+                              <tr key={test.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                <td className="px-3 py-2 font-semibold text-[var(--text-primary)]">
+                                  {test.ServiceCatalog?.name || test.name}
+                                </td>
+                                <td className={`px-3 py-2 font-bold ${isAbnormal ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
+                                  {rawResult}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{test.normalRange || test.referenceRange || '—'}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{test.unit || test.units || '—'}</td>
+                                <td className="px-3 py-2">
+                                  {isAbnormal ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 bg-red-50">ABN</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-green-700 bg-green-50">NL</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                  {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+
+                    {/* Comments / notes per test group */}
+                    {labTestsList
+                      .filter((t: any) => t.status === 'completed' && t.comments)
+                      .map((test: any) => (
+                        <div key={`cmt-${test.id}`} className="mx-3 mb-3 mt-1 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                          <span className="text-[10px] font-semibold text-blue-700">{test.ServiceCatalog?.name || test.name} — Comment: </span>
+                          <span className="text-[10px] text-blue-600">{test.comments}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+              </div>
+
+              {/* ROW 3: DIAGNOSIS & PROCEDURES */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Diagnosis - Table View */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    Diagnosis (ICD-10)
+                    {diagnosesList.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-[10px] font-bold">
+                        {diagnosesList.length}
+                      </span>
+                    )}
+                  </h3>
+                  {canAddEntries && (
+                    <button
+                      onClick={() => setModalType('diagnosis')}
+                      className="flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded text-xs hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add
+                    </button>
+                  )}
+                </div>
+                
+                {diagnosesList.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Stethoscope className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No diagnoses added</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[260px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[40%]">Diagnosis</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">ICD-10</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Type</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Added By</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
+                          <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {diagnosesList.map((item: any) => (
+                          <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                            <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
+                              {item.Diagnosis?.name}
+                              {item.notes && (
+                                <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{item.notes}</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{item.Diagnosis?.icdCode || '—'}</td>
+                            <td className="px-3 py-2">
+                              {item.primary ? (
+                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">Primary</span>
+                              ) : (
+                                <span className="text-[var(--text-secondary)] text-[10px]">Secondary</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)]">
+                              {item.createdBy?.fullName || currentUser?.fullName || 'Unknown'}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {canAddEntries && (
+                                <button
+                                  onClick={() => handleDeleteItem('diagnosis', item.id)}
+                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Procedures - Table View */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <Scissors className="w-4 h-4 text-orange-600" />
+                    Procedures & Scheduling
+                    {proceduresList.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold">
+                        {proceduresList.length}
+                      </span>
+                    )}
+                  </h3>
+                  {canAddEntries && (
+                    <button
+                      onClick={() => setModalType('procedure')}
+                      className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-700 hover:text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Schedule
+                    </button>
+                  )}
+                </div>
+                
+                {proceduresList.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Scissors className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No procedures scheduled</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[260px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[30%]">Procedure</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Scheduled Date</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Notes</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Scheduled By</th>
+                          <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {proceduresList.map((proc: any) => (
+                          <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                            <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
+                              {proc.ServiceCatalog?.name || proc.name}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                              {proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}
+                            </td>
+                            <td className="px-3 py-2">
+                              {getStatusBadge(proc.status)}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[150px] truncate">
+                              {proc.notes || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)]">
+                              {proc.requestedBy || currentUser?.fullName || 'Unknown'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {canAddEntries && proc.status === 'scheduled' && (
+                                <button
+                                  onClick={() => handleDeleteItem('procedure', proc.id)}
+                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              </div>
+
+                {/* Medications - Two Tables (Prescribed shows all, Dispensed shows history) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* All Prescribed Medications (including dispensed ones) */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                    <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                        <Pill className="w-4 h-4 text-green-600" />
+                        Prescribed Medications
+                        {medicationsList.length > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                            {medicationsList.length}
+                          </span>
+                        )}
+                      </h3>
+                      {canAddEntries && (
+                        <button
+                          onClick={() => setModalType('medication')}
+                          className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-700 hover:text-white transition-colors"
+                        >
+                          <Plus className="w-3 h-3" /> Prescribe
+                        </button>
+                      )}
+                    </div>
+                    
+                    {medicationsList.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Pill className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                        <p className="text-sm text-[var(--text-secondary)]">No medications prescribed</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Medication</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Dosage</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Frequency</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Duration</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                              <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {/* Show ALL medications - both prescribed and dispensed */}
+                            {medicationsList.map((med: any) => (
+                              <tr key={med.id} className={`hover:bg-[var(--bg-main)] transition-colors ${med.status === 'dispensed' ? 'bg-green-50/30 dark:bg-green-950/10' : ''}`}>
+                                <td className="px-3 py-2 font-medium text-[var(--text-primary)]">{med.name}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{med.dosage || '—'}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{med.frequency || '—'}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{med.duration || '—'}</td>
+                                <td className="px-3 py-2">{getStatusBadge(med.status)}</td>
+                                <td className="px-3 py-2 text-center">
+                                  {canAddEntries && med.status === 'prescribed' && (
+                                    <button
+                                      onClick={() => handleDeleteItem('medication', med.id)}
+                                      className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                      title="Cancel Prescription"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {med.status === 'dispensed' && (
+                                    <span className="text-[10px] text-green-600">✓</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dispensed Medications History - Shows only dispensed items with details */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                    <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
+                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-4 h-4 text-blue-600" />
+                        Dispensed History
+                        {dispensedMeds.length > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
+                            {dispensedMeds.length}
+                          </span>
+                        )}
+                      </h3>
+                    </div>
+                    
+                    {dispensedMeds.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <CheckCircle className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                        <p className="text-sm text-[var(--text-secondary)]">No medications dispensed yet</p>
+                        {medicationsList.filter(m => m.status === 'prescribed').length > 0 && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            {medicationsList.filter(m => m.status === 'prescribed').length} prescription(s) awaiting dispensing
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Medication</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Quantity</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Unit Cost</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Total</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Dispensed Date</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Dispensed By</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {dispensedMeds.map((med: any) => (
+                              <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <td className="px-3 py-2 font-medium text-[var(--text-primary)]">{med.name}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">{med.quantity}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">GHS {((med.unitCost || 0)).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">GHS {((med.unitCost || 0) * med.quantity).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                  {med.dispensedAt ? new Date(med.dispensedAt).toLocaleString() : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]">
+                                  {med.dispensedBy?.fullName || '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Scans - Table View */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Requested Scans */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <Scan className="w-4 h-4 text-indigo-600" />
+                    Scans Requested
+                    {requestedScans.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-bold">
+                        {requestedScans.length}
+                      </span>
+                    )}
+                  </h3>
+                  {canAddEntries && (
+                    <button
+                      onClick={() => setModalType('scan')}
+                      className="flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-700 hover:text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Request Scan
+                    </button>
+                  )}
+                </div>
+                
+                {requestedScans.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Scan className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No scans requested</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Scan Type</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Body Part</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
+                          <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {requestedScans.map((scan: any) => (
+                          <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                            <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
+                              {scan.scanType || scan.ServiceCatalog?.name}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
+                            <td className="px-3 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
+                                scan.priority === 'stat' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {scan.priority || 'routine'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">{getStatusBadge(scan.status)}</td>
+                            <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                              {new Date(scan.requestedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {canAddEntries && (scan.status === 'requested' || scan.status === 'scheduled') && (
+                                <button
+                                  onClick={() => handleDeleteItem('scan', scan.id)}
+                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Scan Results - Table View */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Scan Results
+                    {completedScans.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                        {completedScans.length}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                
+                {completedScans.length === 0 && requestedScans.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Microscope className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No scan results available</p>
+                  </div>
+                ) : (
+                  <>
+
+                    {/* Completed Scans Table */}
+                    {completedScans.length > 0 && (
+                      <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[30%]">Scan Type</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Findings</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Impression</th>
+                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Completed</th>
+                              <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {completedScans.map((scan: any) => (
+                              <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
+                                  {scan.scanType || scan.ServiceCatalog?.name}
+                                  {scan.bodyPart && <div className="text-[10px] text-[var(--text-secondary)]">{scan.bodyPart}</div>}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[200px] truncate">
+                                  {scan.findings || '—'}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[200px] truncate">
+                                  {scan.impression || '—'}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                  {scan.completedAt ? new Date(scan.completedAt).toLocaleDateString() : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {canAddEntries && (
+                                    <button
+                                      onClick={() => setScanResultFor(scan)}
+                                      className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                                      title="Edit Results"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Follow-up Date</label>
-                  <input
-                    type="datetime-local"
-                    value={followUpDate}
-                    onChange={(e) => setFollowUpDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
-                    disabled={!canAddEntries}
-                  />
+
+              {/* GENERAL INFORMATION */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    General Information
+                  </h3>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Referred To/From</label>
-                  <input
-                    type="text"
-                    value={currentAttendance?.referringFacility || ''}
-                    readOnly
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Admission Status</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
-                    {currentAttendance?.Admission ? `Admitted (${currentAttendance.Admission.admissionNumber})` : 'Not Admitted'}
+                <div className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                        Follow-up Date
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={followUpDate}
+                        onChange={(e) => setFollowUpDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
+                        disabled={!canAddEntries}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                        Referred To/From
+                      </label>
+                      <input
+                        type="text"
+                        value={currentAttendance?.referringFacility || ''}
+                        readOnly
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                        Admission Status
+                      </label>
+                      <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
+                        {currentAttendance?.Admission
+                          ? `Admitted (${currentAttendance.Admission.admissionNumber})`
+                          : 'Not Admitted'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                        Last Modified By
+                      </label>
+                      <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
+                        {currentAttendance?.updatedBy?.fullName || currentAttendance?.createdBy?.fullName ||currentUser?.fullName || 'Unknown'} •{' '}
+                        {new Date(currentAttendance?.updatedAt || currentAttendance?.createdAt).toLocaleString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Created By</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
-                    {currentAttendance?.createdBy?.fullName || 'Unknown'} • {new Date(currentAttendance?.createdAt).toLocaleDateString()}
-                  </div>
+              </div>
+            </div>
+
+            {/* RIGHT SIDEBAR: Physician Notes + Treatment Plan */}
+            <div className="w-72 xl:w-80 flex-shrink-0 sticky top-6 self-stretch flex flex-col" style={{ minHeight: 0 }}>
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col h-full">
+
+                {/* Physician Notes */}
+                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex-shrink-0">
+                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                    <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    Physician Notes
+                  </h3>
                 </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[var(--bg-main)]" style={{ minHeight: '120px' }}>
+                  {(currentAttendance as any)?.physicianNotes?.length > 0 ? (
+                    (currentAttendance as any).physicianNotes.map((note: any, i: number) => (
+                      <div key={i} className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
+                            {note.author || note.createdBy?.fullName || 'Doctor'}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-tertiary)]">
+                            {note.createdAt ? new Date(note.createdAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                          {note.content || note.text}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="space-y-3">
+                      {presentedComplaints || hpc || odq || physicalExam ? (
+                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
+                              {currentAttendance?.createdBy?.fullName || 'Physician'}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-tertiary)]">
+                              {new Date(currentAttendance?.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          {presentedComplaints && (
+                            <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed mb-1">
+                              <span className="font-semibold">PC–</span>{presentedComplaints}
+                            </p>
+                          )}
+                          {hpc && (
+                            <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed mb-1">
+                              <span className="font-semibold">HPC–</span>{hpc}
+                            </p>
+                          )}
+                          {odq && (
+                            <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed mb-1">
+                              <span className="font-semibold">ODQ–</span>{odq}
+                            </p>
+                          )}
+                          {physicalExam && (
+                            <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                              <span className="font-semibold">O/E–</span>{physicalExam}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center text-[var(--text-tertiary)] text-xs py-6">
+                          No physician notes recorded
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-2 px-4 py-2 border-t border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                  <div className="flex-1 h-px bg-[var(--border-color)]" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <FileText className="w-3 h-3" />
+                    Treatment Plan
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--border-color)]" />
+                </div>
+
+                {/* Treatment Plan Display */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[var(--bg-main)]" style={{ minHeight: '80px' }}>
+                  {(currentAttendance as any)?.treatmentNotes?.length > 0 ? (
+                    (currentAttendance as any).treatmentNotes.map((note: any, i: number) => (
+                      <div key={i} className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
+                            {note.author || note.createdBy?.fullName || 'Doctor'}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-tertiary)]">
+                            {note.createdAt ? new Date(note.createdAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                          {note.content || note.text}
+                        </p>
+                      </div>
+                    ))
+                  ) : treatmentPlan ? (
+                    <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
+                          {currentAttendance?.createdBy?.fullName || 'Physician'}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-tertiary)]">
+                          {new Date(currentAttendance?.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                        {treatmentPlan}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-[var(--text-tertiary)] text-xs py-4">
+                      No treatment plan recorded
+                    </div>
+                  )}
+                </div>
+
+                {/* Treatment Plan Input */}
+                {canAddEntries && (
+                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                    <textarea
+                      value={treatmentPlan}
+                      onChange={(e) => setTreatmentPlan(e.target.value)}
+                      rows={3}
+                      placeholder="Treatment plan, follow-up instructions..."
+                      className="w-full px-2 py-1.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-xs resize-none text-[var(--text-primary)]"
+                    />
+                    <button
+                      onClick={handleSaveClinical}
+                      className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-xs font-medium"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Save Treatment Plan
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </>
       ) : selectedPatientId && !selectedAttendanceId ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-yellow-800 mb-2">No Attendance Selected</h3>
-          <p className="text-yellow-700">Please select an existing attendance to view or add medical entries.</p>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-600 dark:text-yellow-500 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-400 mb-2">No Attendance Selected</h3>
+          <p className="text-yellow-700 dark:text-yellow-500">Please select an existing attendance to view or add medical entries.</p>
         </div>
       ) : null}
 
@@ -892,9 +1634,9 @@ export default function MedicalEntries() {
         attendanceId={selectedAttendanceId}
         diagnoses={diagnoses}
         canAdd={canAddEntries}
-        userId={user?.id}
+        userId={currentUser?.id}
+        userName={currentUser?.fullName}
       />
-
       <LabTestModal
         isOpen={modalType === 'lab'}
         onClose={() => setModalType(null)}
@@ -908,9 +1650,9 @@ export default function MedicalEntries() {
         attendanceId={selectedAttendanceId}
         labTests={labTestTemplates}
         canAdd={canAddEntries}
-        userId={user?.id}
+        userId={currentUser?.id}
+        userName={currentUser?.fullName}
       />
-
       <ProcedureModal
         isOpen={modalType === 'procedure'}
         onClose={() => setModalType(null)}
@@ -924,9 +1666,9 @@ export default function MedicalEntries() {
         attendanceId={selectedAttendanceId}
         procedures={procedureTemplates}
         canAdd={canAddEntries}
-        userId={user?.id}
+        userId={currentUser?.id}
+        userName={currentUser?.fullName}
       />
-
       <MedicationModal
         isOpen={modalType === 'medication'}
         onClose={() => setModalType(null)}
@@ -940,9 +1682,9 @@ export default function MedicalEntries() {
         attendanceId={selectedAttendanceId}
         stockItems={stockItems}
         canAdd={canAddEntries}
-        userId={user?.id}
+        userId={currentUser?.id}
+        userName={currentUser?.fullName}
       />
-
       <ScanModal
         isOpen={modalType === 'scan'}
         onClose={() => setModalType(null)}
@@ -956,8 +1698,19 @@ export default function MedicalEntries() {
         attendanceId={selectedAttendanceId}
         scans={scanTemplates}
         canAdd={canAddEntries}
-        userId={user?.id}
+        userId={currentUser?.id}
+        userName={currentUser?.fullName}
       />
+
+      {/* Scan Result Form Modal */}
+      {scanResultFor && (
+        <ScanResultForm
+          scan={scanResultFor}
+          onSaveResult={handleSaveScanResult}
+          onClose={() => setScanResultFor(null)}
+          saving={savingResult}
+        />
+      )}
     </div>
   );
 }

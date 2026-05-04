@@ -166,10 +166,7 @@ export const createWard = [
       const {
         wardName,
         wardType,
-        totalBeds,
-        description,
-        location,
-        floor
+        totalBeds
       } = req.body;
 
       // Check for duplicate ward name
@@ -224,7 +221,32 @@ export const createWard = [
           }
         }
       });
+      // After creating the ward, create a service catalog entry for ward pricing
+const serviceCatalog = await prisma.serviceCatalog.create({
+  data: {
+    name: `${wardName} - Daily Rate`,
+    code: `WARD-${wardName.replace(/\s+/g, '_').toUpperCase()}`,
+    serviceType: 'ward',
+    serviceCategory: 'ipd',
+    subType: wardType,
+    wardId: ward.id,
+    unit: 'Day',
+    isActive: true,
+    createdById: user.id
+  }
+});
 
+// Create pricing for the service catalog
+await prisma.servicePricing.create({
+  data: {
+    serviceCatalogId: serviceCatalog.id,
+    cashPrice: 0,  // Will be set by admin
+    nhisPrice: 0,
+    insurancePrice: 0,
+    effectiveDate: new Date(),
+    isActive: true
+  }
+});
       res.status(201).json({
         message: 'Ward created successfully. Please add pricing via Service Catalog.',
         ward: createdWard,
@@ -314,16 +336,7 @@ export const getAvailableBeds = async (req: Request, res: Response) => {
             id: true,
             wardName: true,
             wardType: true,
-            isPending: true, // ✅ ADDED: Check if ward is active
-            ServiceCatalog: {
-              where: { 
-                serviceType: 'ward',
-                isActive: true // ✅ FIXED: Change isPending to isActive
-              },
-              select: {
-                isNHISCovered: true
-              }
-            }
+            isActive: true
           }
         }
       },
@@ -333,43 +346,30 @@ export const getAvailableBeds = async (req: Request, res: Response) => {
       ]
     });
 
-    // Filter by wardType if provided and only active wards
     const filteredBeds = availableBeds.filter(bed => {
       const matchesType = wardType ? bed.Ward.wardType === wardType : true;
-      const isWardActive = bed.Ward.isPending; // ✅ Only beds in active wards
+      const isWardActive = bed.Ward.isActive;
       return matchesType && isWardActive;
     });
 
-    // Get pricing from service catalog
-    const bedsWithServicePricing = filteredBeds.map(bed => {
-      const wardPricing = bed.Ward.ServiceCatalog[0];
-      
-      return {
+    res.json({
+      totalAvailableBeds: filteredBeds.length,
+      availableBeds: filteredBeds.map(bed => ({
         bedId: bed.id,
         bedNumber: bed.bedNumber,
         wardId: bed.Ward.id,
         wardName: bed.Ward.wardName,
         wardType: bed.Ward.wardType,
-        isWardActive: bed.Ward.isPending, // ✅ ADDED: Ward status
-        pricing: wardPricing ? {
-          isNHISCovered: wardPricing.isNHISCovered
-        } : null,
-        hasPricing: !!wardPricing
-      };
-    });
-
-    res.json({
-      totalAvailableBeds: bedsWithServicePricing.length,
-      availableBeds: bedsWithServicePricing,
-      byWard: Array.from(new Set(bedsWithServicePricing.map(bed => bed.wardId))).map(wardId => {
-        const wardBeds = bedsWithServicePricing.filter(bed => bed.wardId === wardId);
+        isWardActive: bed.Ward.isActive
+      })),
+      byWard: Array.from(new Set(filteredBeds.map(bed => bed.wardId))).map(wardId => {
+        const wardBeds = filteredBeds.filter(bed => bed.wardId === wardId);
         const sampleBed = wardBeds[0];
         return {
-          wardId: sampleBed.wardId,
-          wardName: sampleBed.wardName,
-          wardType: sampleBed.wardType,
-          availableBeds: wardBeds.length,
-          hasPricing: sampleBed.hasPricing
+          wardId,
+          wardName: sampleBed.Ward.wardName,
+          wardType: sampleBed.Ward.wardType,
+          availableBeds: wardBeds.length
         };
       })
     });

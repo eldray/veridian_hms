@@ -34,6 +34,8 @@ import ghsReportRoutes from './routes/ghsReportRoutes';
 import documentRoutes from './routes/documentRoutes';
 import gdrgRoutes from './routes/gdrgRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
+import clinicalReportsRoutes from './routes/clinicalReportsRoutes';
+
 
 const router = Router();
 
@@ -66,7 +68,7 @@ router.use('/upload', uploadRoutes);
 router.use('/departments', departmentRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/notifications', notificationRoutes);
-
+router.use('/reports/clinical', clinicalReportsRoutes);
 
 // ✅ FIXED: Remove /api prefix - just use the base paths
 router.use('/referrals', referralRoutes);

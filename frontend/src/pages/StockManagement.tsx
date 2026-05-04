@@ -1,4 +1,4 @@
-// src/pages/StockManagement.tsx - FIXED VERSION
+// src/pages/StockManagement.tsx - FULLY FIXED VERSION
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
@@ -15,7 +15,6 @@ import {
   ClipboardList,
   History,
   TrendingUp,
-  TrendingDown, 
   Calendar,
   Grid,
   List,
@@ -51,7 +50,7 @@ export default function StockManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(9);
   const [viewMode, setViewMode] = useState<'grid' | 'line'>('grid');
 
-  // ✅ ALIGNED WITH BACKEND StockItem INTERFACE
+  // ✅ ALIGNED WITH BACKEND StockItem SCHEMA - NO PRICING FIELDS
   const [formData, setFormData] = useState({
     name: '',
     category: 'medication',
@@ -59,14 +58,7 @@ export default function StockManagement() {
     unitOfMeasure: '',
     reorderLevel: 10,
     costPrice: 0,
-    cashPrice: 0,
-    nhisPrice: 0,
-    insurancePrice: 0,
     supplier: '',
-    isNHISCovered: false,
-    isPrivateInsExempted: false,
-    nhisRequiresAuth: false,
-    privateInsRequiresAuth: false,
   });
 
   // ✅ ALIGNED WITH BACKEND StockTransaction INTERFACE
@@ -118,7 +110,6 @@ export default function StockManagement() {
     e.preventDefault();
     try {
       if (editingItem) {
-        // ✅ Use consistent ID field
         await updateStockItem(editingItem.id, formData);
         success('Updated', 'Stock item updated');
       } else {
@@ -138,9 +129,8 @@ export default function StockManagement() {
     e.preventDefault();
     if (!selectedItem) return;
     try {
-      // ✅ Aligned transaction data
       await createStockTransaction({
-        stockItemId: selectedItem.id, // ✅ Use 'id' not '_id'
+        stockItemId: selectedItem.id,
         ...transactionData
       });
       success('Recorded', 'Transaction completed');
@@ -162,14 +152,7 @@ export default function StockManagement() {
       unitOfMeasure: item.unitOfMeasure,
       reorderLevel: item.reorderLevel,
       costPrice: item.costPrice || 0,
-      cashPrice: item.cashPrice || 0,
-      nhisPrice: item.nhisPrice || 0,
-      insurancePrice: item.insurancePrice || 0,
       supplier: item.supplier || '',
-      isNHISCovered: item.isNHISCovered || false,
-      isPrivateInsExempted: item.isPrivateInsExempted || false,
-      nhisRequiresAuth: item.nhisRequiresAuth || false,
-      privateInsRequiresAuth: item.privateInsRequiresAuth || false,
     });
     setShowForm(true);
   };
@@ -193,14 +176,7 @@ export default function StockManagement() {
       unitOfMeasure: '',
       reorderLevel: 10, 
       costPrice: 0, 
-      cashPrice: 0,
-      nhisPrice: 0,
-      insurancePrice: 0, 
       supplier: '', 
-      isNHISCovered: false,
-      isPrivateInsExempted: false,
-      nhisRequiresAuth: false,
-      privateInsRequiresAuth: false,
     });
   };
 
@@ -240,7 +216,6 @@ export default function StockManagement() {
             Back
           </button>
           
-          {/* ✅ FIXED: Proper JSX for navigation buttons */}
           <div className="flex items-center gap-3">
             <Link
               to="/dashboard/invoices"
@@ -461,20 +436,6 @@ export default function StockManagement() {
                       ${(item.costPrice || 0).toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Cash Price:</span>
-                    <span className="font-medium">
-                      ${(item.cashPrice || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  {item.nhisPrice > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-secondary)]">NHIS Price:</span>
-                      <span className="font-medium text-green-600">
-                        ${item.nhisPrice.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {user?.role === 'admin' && (
@@ -511,10 +472,10 @@ export default function StockManagement() {
           {/* Line/List View */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="grid grid-cols-12 gap-4 p-4 border-b border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)]">
-              <div className="col-span-4">Item</div>
+              <div className="col-span-5">Item</div>
               <div className="col-span-2 text-center">Stock</div>
               <div className="col-span-2 text-center">Reorder Level</div>
-              <div className="col-span-2 text-center">Cost Price</div>
+              <div className="col-span-1 text-center">Cost Price</div>
               <div className="col-span-2 text-center">Actions</div>
             </div>
             <div className="divide-y divide-[var(--border-color)]">
@@ -525,7 +486,7 @@ export default function StockManagement() {
                     isLowStock(item) ? 'bg-[var(--icon-yellow-bg)]' : ''
                   }`}
                 >
-                  <div className="col-span-4">
+                  <div className="col-span-5">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                         isLowStock(item) ? 'bg-[var(--icon-yellow-text)]' : 'bg-[var(--icon-cyan-text)]'
@@ -553,7 +514,7 @@ export default function StockManagement() {
                   <div className="col-span-2 text-center">
                     <span className="text-sm text-[var(--text-primary)]">{item.reorderLevel}</span>
                   </div>
-                  <div className="col-span-2 text-center">
+                  <div className="col-span-1 text-center">
                     <span className="text-sm font-medium">
                       ${(item.costPrice || 0).toFixed(2)}
                     </span>
@@ -649,7 +610,7 @@ export default function StockManagement() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal - Updated without pricing fields */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -678,7 +639,7 @@ export default function StockManagement() {
                 <input 
                   type="text" 
                   required 
-                  placeholder="Unit *" 
+                  placeholder="Unit of Measure *" 
                   value={formData.unitOfMeasure}
                   onChange={e => setFormData({ ...formData, unitOfMeasure: e.target.value })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
@@ -703,80 +664,12 @@ export default function StockManagement() {
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
                 />
                 <input 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  required 
-                  placeholder="Cash Price *"
-                  value={formData.cashPrice} 
-                  onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  placeholder="NHIS Price"
-                  value={formData.nhisPrice} 
-                  onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  placeholder="Insurance Price"
-                  value={formData.insurancePrice} 
-                  onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
-                  className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                />
-                <input 
                   type="text" 
                   placeholder="Supplier" 
                   value={formData.supplier}
                   onChange={e => setFormData({ ...formData, supplier: e.target.value })}
                   className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
                 />
-              </div>
-              
-              {/* Insurance Options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.isNHISCovered}
-                    onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })}
-                    className="rounded border-[var(--border-color)]"
-                  />
-                  <span>NHIS Covered</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.nhisRequiresAuth}
-                    onChange={e => setFormData({ ...formData, nhisRequiresAuth: e.target.checked })}
-                    className="rounded border-[var(--border-color)]"
-                  />
-                  <span>NHIS Requires Authorization</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.isPrivateInsExempted}
-                    onChange={e => setFormData({ ...formData, isPrivateInsExempted: e.target.checked })}
-                    className="rounded border-[var(--border-color)]"
-                  />
-                  <span>Private Insurance Exempted</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.privateInsRequiresAuth}
-                    onChange={e => setFormData({ ...formData, privateInsRequiresAuth: e.target.checked })}
-                    className="rounded border-[var(--border-color)]"
-                  />
-                  <span>Private Insurance Requires Auth</span>
-                </label>
               </div>
               
               <textarea 
@@ -786,6 +679,7 @@ export default function StockManagement() {
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
               />
+              
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button 
                   type="button" 

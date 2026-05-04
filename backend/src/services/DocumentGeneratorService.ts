@@ -1,5 +1,5 @@
-// services/DocumentGeneratorService.ts
-// Complete PDF Document Generation Service for Hospital Management System
+// services/DocumentGeneratorService.ts - COMPLETE VERSION (ALL ORIGINAL CODE PRESERVED)
+
 import fs from 'fs/promises';
 import path from 'path';
 import { PrismaClient, DocumentTemplateType } from '@prisma/client';
@@ -31,6 +31,18 @@ export interface DocumentGenerationResult {
 // ==============================================
 // HELPER FUNCTIONS
 // ==============================================
+
+const calculateAge = (dateOfBirth: Date | string): number => {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const formatCurrency = (amount: number): string => {
   return `GHS ${amount.toFixed(2)}`;
 };
@@ -608,20 +620,35 @@ export class DocumentGeneratorService {
       const uploadDir = path.join(process.cwd(), 'uploads', 'documents');
       await fs.mkdir(uploadDir, { recursive: true });
       
-      const filePath = path.join(uploadDir, fileName);
-      await fs.writeFile(filePath, pdfBuffer);
+      // In DocumentGeneratorService.ts, when saving the document
+      const filePath = `/uploads/documents/${fileName}`;  // Keep as is
+      await fs.writeFile(path.join(process.cwd(), 'uploads', 'documents', fileName), pdfBuffer);
       
-      // Save to database
-      const template = await prisma.documentTemplate.findFirst({
+      // Get or create template
+      let template = await prisma.documentTemplate.findFirst({
         where: { code: documentType, isActive: true }
       });
       
+      if (!template) {
+        template = await prisma.documentTemplate.create({
+          data: {
+            name: `${documentType.replace('_', ' ').toUpperCase()} Template`,
+            code: documentType,
+            templateType: documentType,
+            content: 'Default template content',
+            isActive: true,
+            isDefault: true,
+            createdById: generatedById
+          }
+        });
+      }
+      
       const document = await prisma.generatedDocument.create({
         data: {
-          templateId: template?.id || '',
+          templateId: template.id,
           entityType,
           entityId,
-          filePath,
+          filePath: `/uploads/documents/${fileName}`,
           generatedById,
           generatedAt: new Date()
         }
@@ -632,7 +659,7 @@ export class DocumentGeneratorService {
       return {
         success: true,
         documentId: document.id,
-        filePath
+        filePath: `/uploads/documents/${fileName}`
       };
       
     } catch (error) {
@@ -696,51 +723,68 @@ export class DocumentGeneratorService {
   }
   
   static async generateReferralLetterDocument(referralId: string, generatedById?: string): Promise<DocumentGenerationResult> {
-    const referral = await prisma.referralRecord.findUnique({
-      where: { id: referralId },
-      include: {
-        patient: true,
-        attendance: {
-          include: {
-            AttendanceDiagnosis: {
-              where: { primary: true },
-              include: { Diagnosis: true },
-              take: 1
+    try {
+      console.log('📝 Generating referral letter for:', referralId);
+      
+      const referral = await prisma.referralRecord.findUnique({
+        where: { id: referralId },
+        include: {
+          patient: true,
+          attendance: {
+            include: {
+              AttendanceDiagnosis: {
+                where: { primary: true },
+                include: { Diagnosis: true }
+              }
             }
-          }
-        },
-        createdBy: true
+          },
+          createdBy: true
+        }
+      });
+      
+      if (!referral) {
+        console.error('❌ Referral not found:', referralId);
+        return { success: false, error: 'Referral not found' };
       }
-    });
-    
-    if (!referral) {
-      return { success: false, error: 'Referral not found' };
+      
+      console.log('✅ Referral found:', referral.referralNumber);
+      
+      const primaryDiagnosis = referral.attendance?.AttendanceDiagnosis?.[0]?.Diagnosis;
+      const hospital = await prisma.hospital.findFirst();
+      
+      const letterData = {
+        referralNumber: referral.referralNumber,
+        referralDate: referral.referralDate,
+        referredToFacility: referral.referredToFacility,
+        referredToDoctor: referral.referredToDoctor,
+        referredToDepartment: referral.referredToDepartment,
+        urgency: referral.urgency,
+        referralReason: referral.referralReason,
+        referralNotes: referral.referralNotes,
+        patient: referral.patient,
+        primaryDiagnosis,
+        clinicalNotes: referral.attendance?.medicalNotes || referral.referralNotes,
+        referringDoctor: referral.createdBy?.fullName,
+        hospitalName: hospital?.name || 'Hospital',
+        hospitalAddress: hospital?.address || '',
+        hospitalPhone: hospital?.phone || ''
+      };
+      
+      return this.generateDocument({
+        documentType: 'referral_letter',
+        entityId: referralId,
+        entityType: 'ReferralRecord',
+        data: letterData,
+        generatedById: generatedById || referral.createdById || ''
+      });
+      
+    } catch (error) {
+      console.error('❌ Error generating referral letter:', error);
+      return {
+        success: false,
+        error: (error as Error).message
+      };
     }
-    
-    const primaryDiagnosis = referral.attendance?.AttendanceDiagnosis[0]?.Diagnosis;
-    
-    const letterData = {
-      referralNumber: referral.referralNumber,
-      referralDate: referral.referralDate,
-      referredToFacility: referral.referredToFacility,
-      referredToDoctor: referral.referredToDoctor,
-      referredToDepartment: referral.referredToDepartment,
-      urgency: referral.urgency,
-      referralReason: referral.referralReason,
-      referralNotes: referral.referralNotes,
-      patient: referral.patient,
-      primaryDiagnosis,
-      clinicalNotes: referral.attendance?.medicalNotes,
-      referringDoctor: referral.createdBy?.fullName
-    };
-    
-    return this.generateDocument({
-      documentType: 'referral_letter',
-      entityId: referralId,
-      entityType: 'ReferralRecord',
-      data: letterData,
-      generatedById: generatedById || referral.createdById
-    });
   }
   
   static async generateDischargeSummaryDocument(admissionId: string, generatedById?: string): Promise<DocumentGenerationResult> {
@@ -847,6 +891,63 @@ export class DocumentGeneratorService {
     });
   }
   
+  static async generateBillStatement(billId: string, generatedById?: string): Promise<DocumentGenerationResult> {
+    const bill = await prisma.bill.findUnique({
+      where: { id: billId },
+      include: {
+        Patient: true,
+        Attendance: true,
+        BillLineItem: {
+          where: { isVoided: false },
+          include: { serviceCatalog: true }
+        },
+        Payment: true,
+        InsuranceProvider: true
+      }
+    });
+    
+    if (!bill) {
+      return { success: false, error: 'Bill not found' };
+    }
+    
+    const statementData = {
+      billNumber: bill.billNumber,
+      billDate: bill.billDate,
+      dueDate: bill.dueDate,
+      patient: bill.Patient,
+      attendance: bill.Attendance,
+      items: bill.BillLineItem.map(item => ({
+        description: item.description,
+        serviceType: item.serviceType,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+        insuranceCovered: item.insuranceCoveredAmount,
+        patientPayable: item.patientPayableAmount
+      })),
+      subtotal: bill.subtotal,
+      discount: bill.discount,
+      taxAmount: bill.taxAmount,
+      totalAmount: bill.totalAmount,
+      insuranceCovered: bill.insuranceCovered,
+      patientPayable: bill.patientPayable,
+      paidAmount: bill.paidAmount,
+      balance: bill.balance,
+      paymentMode: bill.paymentMode,
+      status: bill.status,
+      payments: bill.Payment,
+      insuranceProvider: bill.InsuranceProvider
+    };
+    
+    return this.generateDocument({
+      documentType: 'receipt',
+      entityId: billId,
+      entityType: 'Bill',
+      data: statementData,
+      generatedById: generatedById || bill.createdById
+    });
+  }
+
   static async reprintDocument(documentId: string): Promise<DocumentGenerationResult> {
     const existingDoc = await prisma.generatedDocument.findUnique({
       where: { id: documentId },
@@ -857,7 +958,6 @@ export class DocumentGeneratorService {
       return { success: false, error: 'Document not found' };
     }
     
-    // Return the existing file path
     return {
       success: true,
       documentId: existingDoc.id,

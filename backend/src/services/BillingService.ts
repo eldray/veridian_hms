@@ -4,7 +4,7 @@ import { NHISClaimService } from './NHISClaimService';
 
 const prisma = new PrismaClient();
 
-// Helper to map category to valid ServiceType enum
+// At the top of BillingService.ts, ensure this mapping is complete:
 const mapCategoryToServiceType = (category: string): ServiceType => {
   const mapping: Record<string, ServiceType> = {
     'opd': ServiceType.consultation,
@@ -18,6 +18,7 @@ const mapCategoryToServiceType = (category: string): ServiceType => {
     'medication': ServiceType.medication,
     'ward': ServiceType.ward,
     'diagnosis': ServiceType.diagnosis,
+    'miscellaneous': ServiceType.miscellaneous,
     'other': ServiceType.miscellaneous
   };
   return mapping[category] || ServiceType.miscellaneous;
@@ -151,8 +152,70 @@ export class BillingService {
     };
   }
 
+  // Add to BillingService.ts - SYNTAX FIXED
+
+static async verifyMedicationBilling(attendanceId: string): Promise<{
+  medicationsInServiceRendered: any[];
+  medicationsInBill: any[];
+  missingFromBill: any[];
+}> {
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    include: {
+      Medication: {
+        include: { ServiceCatalog: true }
+      },
+      ServiceRendered: {
+        include: { ServiceCatalog: true }
+      },
+      Bill: {
+        include: {
+          BillLineItem: {
+            include: { serviceCatalog: true }
+          }
+        }
+      }
+    }
+  });
+
+  if (!attendance) {
+    throw new Error('Attendance not found');
+  }
+
+  const medicationsInServiceRendered = attendance.ServiceRendered.filter(
+    (sr: any) => sr.ServiceCatalog?.serviceType === 'medication'
+  );
+
+  const medicationsInBill = attendance.Bill?.BillLineItem.filter(
+    (item: any) => item.serviceCatalog?.serviceType === 'medication'
+  ) || [];
+
+  const prescribedMedications = attendance.Medication.filter((m: any) => m.status !== 'cancelled');
+  
+  const missingFromBill = prescribedMedications.filter((med: any) => {
+    return !medicationsInBill.some((billItem: any) => 
+      billItem.serviceCatalogId === med.serviceCatalogId
+    );
+  });
+
+  return {
+    medicationsInServiceRendered,
+    medicationsInBill,
+    missingFromBill
+  };
+}
+
+
+// In BillingService.ts - Update generateBillFromAttendance
   static async generateBillFromAttendance(attendanceId: string) {
+    console.log('=========================================');
+    console.log('💰 BILLING SERVICE - generateBillFromAttendance');
+    console.log('=========================================');
+    console.log('📌 Attendance ID:', attendanceId);
+    
     return await prisma.$transaction(async (tx) => {
+      console.log('🔍 Fetching attendance with services...');
+      
       const attendance = await tx.attendance.findUnique({
         where: { id: attendanceId },
         include: {
@@ -169,15 +232,25 @@ export class BillingService {
       });
 
       if (!attendance) {
+        console.log('❌ Attendance not found');
         throw new Error('Attendance not found');
       }
 
-      if (attendance.paymentMode === 'nhis' && !attendance.nhisCCC) {
-        throw new Error('NHIS CCC number is required for NHIS billing');
-      }
+      console.log('📊 Attendance Data:', {
+        id: attendance.id,
+        patientId: attendance.patientId,
+        paymentMode: attendance.paymentMode,
+        servicesRenderedCount: attendance.ServiceRendered.length
+      });
 
-      if (attendance.paymentMode === 'private_insurance' && !attendance.InsuranceProvider) {
-        throw new Error('Insurance provider is required for private insurance billing');
+      console.log('📋 Services Rendered:');
+      attendance.ServiceRendered.forEach((sr, index) => {
+        console.log(`  ${index + 1}. ${sr.ServiceCatalog?.name} (${sr.ServiceCatalog?.code}) - Qty: ${sr.quantity}`);
+      });
+
+      if (attendance.paymentMode === 'nhis' && !attendance.nhisCCC) {
+        console.log('❌ NHIS CCC missing');
+        throw new Error('NHIS CCC number is required for NHIS billing');
       }
 
       const billItems: BillItem[] = [];
@@ -190,7 +263,14 @@ export class BillingService {
 
       for (const rendered of attendance.ServiceRendered) {
         const service = rendered.ServiceCatalog;
-        if (!service || !service.pricing) continue;
+        if (!service || !service.pricing) {
+          console.log(`⚠️ Skipping service ${rendered.serviceItemId} - no pricing found`);
+          continue;
+        }
+
+        console.log(`\n🔄 Processing service: ${service.name}`);
+        console.log(`   Quantity: ${rendered.quantity}`);
+        console.log(`   Pricing - Cash: ${service.pricing.cashPrice}, NHIS: ${service.pricing.nhisPrice}, Insurance: ${service.pricing.insurancePrice}`);
 
         const calculation = await this.calculateServiceBilling(
           service.id,
@@ -198,6 +278,12 @@ export class BillingService {
           attendance.paymentMode,
           attendance.InsuranceProvider
         );
+
+        console.log(`   Calculation Result:`);
+        console.log(`     - Cash Price: ${calculation.cashPrice}`);
+        console.log(`     - Insurance Covered: ${calculation.insuranceCovered}`);
+        console.log(`     - Patient Payable: ${calculation.patientPayable}`);
+        console.log(`     - Requires Auth: ${calculation.requiresAuthorization}`);
 
         totalCashPrice += calculation.cashPrice;
         totalInsuranceCovered += calculation.insuranceCovered;
@@ -228,6 +314,11 @@ export class BillingService {
         });
       }
 
+      console.log('\n📊 TOTALS:');
+      console.log(`   Total Cash Price: ${totalCashPrice}`);
+      console.log(`   Total Insurance Covered: ${totalInsuranceCovered}`);
+      console.log(`   Total Patient Payable: ${totalPatientPayable}`);
+
       let bill = await tx.bill.findUnique({
         where: { attendanceId }
       });
@@ -248,7 +339,10 @@ export class BillingService {
         status: patientPayable <= 0 ? 'paid' as const : 'pending' as const
       };
 
+      console.log('\n💰 Bill Data to Save:', billData);
+
       if (!bill) {
+        console.log('📝 Creating new bill...');
         bill = await tx.bill.create({
           data: {
             patientId: attendance.patientId,
@@ -260,23 +354,28 @@ export class BillingService {
             ...billData
           }
         });
+        console.log(`✅ Bill created: ${bill.billNumber} (${bill.id})`);
       } else {
+        console.log(`📝 Updating existing bill: ${bill.billNumber}`);
         bill = await tx.bill.update({
           where: { id: bill.id },
           data: billData
         });
+        console.log(`✅ Bill updated`);
       }
 
       // Delete existing line items
-      await tx.billLineItem.deleteMany({
+      const deleted = await tx.billLineItem.deleteMany({
         where: { billId: bill.id }
       });
+      console.log(`🗑️ Deleted ${deleted.count} existing line items`);
 
-      // ✅ FIXED: Create new line items with correct ServiceType enum
+      // Create new line items
+      console.log(`📝 Creating ${billItems.length} new line items...`);
       for (const item of billItems) {
         const serviceType = mapCategoryToServiceType(item.category);
         
-        await tx.billLineItem.create({
+        const lineItem = await tx.billLineItem.create({
           data: {
             billId: bill.id,
             serviceCatalogId: item.serviceCatalogId,
@@ -294,6 +393,7 @@ export class BillingService {
             pricingSnapshotId: null
           }
         });
+        console.log(`   ✅ Created line item: ${lineItem.description} - ${lineItem.lineTotal}`);
       }
 
       await tx.attendance.update({
@@ -303,6 +403,10 @@ export class BillingService {
           outstandingBalance: patientPayable
         }
       });
+
+      console.log('=========================================');
+      console.log('✅ BILL GENERATION COMPLETE');
+      console.log('=========================================');
 
       return {
         bill,

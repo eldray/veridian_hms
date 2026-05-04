@@ -171,12 +171,11 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   error: null,
 
   // Status helpers
-  canAddActivities: (attendance) => attendance?.status === 'pending',
-  canModifyActivities: (attendance) => attendance?.status === 'pending',
-  canAddMedicalEntries: (attendance) => attendance?.status === 'pending',
-  canRecordVitals: (attendance) => attendance?.status === 'pending',
-  canCompleteAttendance: (attendance) => attendance?.status === 'pending',
-
+  canAddActivities: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
+  canModifyActivities: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
+  canAddMedicalEntries: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
+  canRecordVitals: (attendance) => attendance?.status === 'pending'|| attendance?.status === 'admitted',
+  canCompleteAttendance: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
   // ==========================================
   // CORE OPERATIONS
   // ==========================================
@@ -494,15 +493,45 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateMedicationStatus: async (attendanceId, medicationId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
+      // ✅ Use the imported apiUpdateMedicationStatus function instead of api.patch
+      const response = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
+      
+      // The API returns the updated attendance
+      const updatedAttendance = response.data || response;
+      
+      // Update the local state
+      set((state) => {
+        // Update the attendances array
+        const updatedAttendances = state.attendances.map((att) => {
+          if (att.id === attendanceId) {
+            return updatedAttendance;
+          }
+          return att;
+        });
+        
+        // Update currentAttendance if it matches
+        const updatedCurrentAttendance = state.currentAttendance?.id === attendanceId
+          ? updatedAttendance
+          : state.currentAttendance;
+        
+        return {
+          attendances: updatedAttendances,
+          currentAttendance: updatedCurrentAttendance,
+          isLoading: false,
+          error: null
+        };
       });
+      
+      // Find and return the updated medication
+      const updatedMedication = updatedAttendance.Medication?.find((m: any) => m.id === medicationId);
+      return updatedMedication;
+      
     } catch (error: any) {
       console.error('Error updating medication status:', error);
-      set({ error: error.message || 'Failed to update medication status', isLoading: false });
+      set({ 
+        error: error.response?.data?.message || error.message || 'Failed to update medication status', 
+        isLoading: false 
+      });
       throw error;
     }
   },
@@ -554,6 +583,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updated = await apiUpdateScanStatus(attendanceId, scanId, data);
+      console.log('✅ Scan status updated, response:', updated); // Debug log
+      
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,

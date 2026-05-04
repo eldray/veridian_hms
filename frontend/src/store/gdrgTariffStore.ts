@@ -1,5 +1,4 @@
-// src/store/gdrgTariffStore.ts - FIXED
-
+// src/store/gdrgTariffStore.ts
 import { create } from 'zustand';
 import { getGDRGTariffs } from '../api';
 import type { GDRGTariff } from '../types';
@@ -22,8 +21,10 @@ export const useGDRGTariffStore = create<GDRGTariffState>((set, get) => ({
   fetchTariffs: async () => {
     set({ isLoading: true, error: null });
     try {
+      console.log('📡 Fetching G-DRG tariffs from /api/gdrg...');
       const tariffsData = await getGDRGTariffs();
-      // Ensure we have an array
+      console.log('📦 G-DRG tariffs response:', tariffsData);
+      
       const tariffsArray = Array.isArray(tariffsData) ? tariffsData : [];
       
       const tariffMap = tariffsArray.reduce((map, t) => {
@@ -41,7 +42,7 @@ export const useGDRGTariffStore = create<GDRGTariffState>((set, get) => ({
       
       console.log(`✅ Loaded ${tariffsArray.length} G-DRG tariffs`);
     } catch (error) {
-      console.error('Failed to fetch G-DRG tariffs:', error);
+      console.error('❌ Failed to fetch G-DRG tariffs:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to fetch tariffs',
         isLoading: false,

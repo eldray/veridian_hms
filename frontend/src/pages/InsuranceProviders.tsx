@@ -378,7 +378,7 @@ export default function InsuranceProviders() {
           ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" 
           : "space-y-4"
         }>
-          {[1, 2, 3, 4, 5, 6].map(i => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             viewMode === 'grid' ? (
               <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
                 <div className="h-5 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div>

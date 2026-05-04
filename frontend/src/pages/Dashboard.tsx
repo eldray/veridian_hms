@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - COMPLETE UPDATED VERSION
+// src/pages/Dashboard.tsx - UPDATED WITH ROLE-BASED CONDITIONAL FETCHING
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -63,6 +63,11 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Helper to check if user has role
+  const hasRole = (roles: string[]) => {
+    return roles.includes(user?.role || '');
+  };
+
   const getTodayRange = () => {
     const today = new Date();
     const start = new Date(today.setHours(0, 0, 0, 0)).toISOString();
@@ -80,9 +85,9 @@ export default function Dashboard() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     try {
-      console.log('🔄 Loading dashboard data...');
+      console.log('🔄 Loading dashboard data for role:', user?.role);
 
-      // Load patients and attendances using stores (same as Patients.tsx and Attendance.tsx)
+      // Load patients and attendances using stores (accessible by all)
       await Promise.all([
         loadPatients(),
         getAttendances()
@@ -108,104 +113,85 @@ export default function Dashboard() {
         recentAttendances: recentAttendancesList.length
       });
 
-      // Then load other data in parallel
-      const [
-        billRes,
-        admissionRes,
-        claimRes,
-        stockRes,
-        dashboardStatsRes,
-        appointmentStatsRes,
-        financialReportRes,
-        clinicalReportRes
-      ] = await Promise.allSettled([
-        getBills({ status: 'pending,partial' }),
-        getAdmissions({ status: 'admitted' }),
-        getInsuranceClaims({ status: 'submitted,pending' }),
-        getStockItems(),
-        getDashboardStats(),
-        getAppointmentStatistics({ dateFrom: todayStart }),
-        getFinancialReport({
+      // Build API calls based on user role
+      const apiCalls: Promise<any>[] = [];
+      
+      // Always fetch these (accessible by most roles)
+      apiCalls.push(getAdmissions({ status: 'admitted' }));
+      apiCalls.push(getStockItems());
+      apiCalls.push(getDashboardStats());
+      apiCalls.push(getAppointmentStatistics({ dateFrom: todayStart }));
+
+      // Role-specific API calls
+      const isAccountsStaff = hasRole(['admin', 'accounts']);
+      const isClinicalStaff = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
+      const isAdminOnly = hasRole(['admin']);
+      
+      if (isAccountsStaff) {
+        apiCalls.push(getBills({ status: 'pending,partial' }));
+        apiCalls.push(getInsuranceClaims({ status: 'submitted,pending' }));
+        apiCalls.push(getFinancialReport({
           period: 'today',
           dateFrom: todayStart,
           dateTo: todayEnd
-        }),
-        getClinicalReport({
+        }));
+      } else {
+        // Push placeholders for accounts-only data
+        apiCalls.push(Promise.resolve(null));
+        apiCalls.push(Promise.resolve(null));
+        apiCalls.push(Promise.resolve(null));
+      }
+      
+      if (isClinicalStaff) {
+        apiCalls.push(getClinicalReport({
           period: '30days',
           dateFrom: thirtyDaysAgo.toISOString(),
           dateTo: todayEnd
-        })
-      ]);
+        }));
+      } else {
+        apiCalls.push(Promise.resolve(null));
+      }
+
+      // Execute all API calls
+      const [
+        admissionRes,
+        stockRes,
+        dashboardStatsRes,
+        appointmentStatsRes,
+        billRes,
+        claimRes,
+        financialReportRes,
+        clinicalReportRes
+      ] = await Promise.allSettled(apiCalls);
 
       console.log('📊 API Results:', {
-        bills: billRes.status,
         admissions: admissionRes.status,
-        claims: claimRes.status,
         stock: stockRes.status,
         dashboardStats: dashboardStatsRes.status,
         appointments: appointmentStatsRes.status,
-        financial: financialReportRes.status,
-        clinical: clinicalReportRes.status
+        bills: isAccountsStaff ? billRes.status : 'skipped',
+        claims: isAccountsStaff ? claimRes.status : 'skipped',
+        financial: isAccountsStaff ? financialReportRes.status : 'skipped',
+        clinical: isClinicalStaff ? clinicalReportRes.status : 'skipped'
       });
-
-      // Debug recent attendances
-      console.log('🔍 Recent Attendances from store:', recentAttendancesList);
-      if (recentAttendancesList.length > 0) {
-        console.log('👥 First attendance patient data:', recentAttendancesList[0]?.Patient);
-      }
 
       const newErrors: string[] = [];
       let activeAdmissions = 0;
+      let lowStockItems = 0;
+      let scheduledAppointments = 0;
+      let totalRevenue = 0;
       let pendingBills = 0;
       let pendingClaims = 0;
-      let lowStockItems = 0;
-      let totalRevenue = 0;
-      let scheduledAppointments = 0;
-      let completedProcedures = 0;
       let diagnosisTrendsList: any[] = [];
 
-      // Use dashboard stats if available
-      if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
-        const dashboardData = dashboardStatsRes.value;
-        console.log('✅ Using dashboard stats:', dashboardData);
-        
-        // Use store data for patients and visits, dashboard for others
-        activeAdmissions = dashboardData.activeAdmissions || 0;
-        totalRevenue = dashboardData.totalRevenue || 0;
-        completedProcedures = dashboardData.completedProcedures || 0;
+      // Process admissions
+      if (admissionRes.status === 'fulfilled') {
+        activeAdmissions = Array.isArray(admissionRes.value) ? admissionRes.value.length : 0;
       } else {
-        console.log('❌ Dashboard stats failed, using fallback');
-
-        // Fallback to individual API calls for other stats
-        if (admissionRes.status === 'fulfilled') {
-          activeAdmissions = Array.isArray(admissionRes.value) ? admissionRes.value.length : 0;
-        } else {
-          newErrors.push('Admissions');
-        }
+        newErrors.push('Admissions');
       }
 
-      if (financialReportRes.status === 'fulfilled' && financialReportRes.value) {
-        const financialData = financialReportRes.value;
-        totalRevenue = financialData.totalRevenue || totalRevenue;
-      }
-
-      if (clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
-        const clinicalData = clinicalReportRes.value;
-        diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || [];
-      }
-
-      if (billRes.status === 'fulfilled') {
-        pendingBills = Array.isArray(billRes.value) ? billRes.value.length : 0;
-      } else {
-        newErrors.push('Bills');
-      }
-
-      if (claimRes.status === 'fulfilled') {
-        pendingClaims = Array.isArray(claimRes.value) ? claimRes.value.length : 0;
-      } else {
-        newErrors.push('Claims');
-      }
-
+      // Process stock
       if (stockRes.status === 'fulfilled') {
         const stockItems = Array.isArray(stockRes.value) ? stockRes.value : [];
         lowStockItems = stockItems.filter((item: any) => 
@@ -215,13 +201,48 @@ export default function Dashboard() {
         newErrors.push('Stock');
       }
 
+      // Process dashboard stats
+      if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
+        const dashboardData = dashboardStatsRes.value;
+        totalRevenue = dashboardData.totalRevenue || 0;
+      }
+
+      // Process appointments
       if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value) {
         const appointmentData = appointmentStatsRes.value;
         scheduledAppointments = appointmentData.scheduled || appointmentData.today || 0;
+      } else {
+        newErrors.push('Appointments');
+      }
+
+      // Process bills (accounts only)
+      if (isAccountsStaff && billRes.status === 'fulfilled' && billRes.value) {
+        pendingBills = Array.isArray(billRes.value) ? billRes.value.length : 0;
+      } else if (isAccountsStaff) {
+        newErrors.push('Bills');
+      }
+
+      // Process claims (accounts only)
+      if (isAccountsStaff && claimRes.status === 'fulfilled' && claimRes.value) {
+        pendingClaims = Array.isArray(claimRes.value) ? claimRes.value.length : 0;
+      } else if (isAccountsStaff) {
+        newErrors.push('Claims');
+      }
+
+      // Process financial report (accounts only)
+      if (isAccountsStaff && financialReportRes.status === 'fulfilled' && financialReportRes.value) {
+        const financialData = financialReportRes.value;
+        totalRevenue = financialData.totalRevenue || totalRevenue;
+      }
+
+      // Process clinical report (clinical staff only)
+      if (isClinicalStaff && clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
+        const clinicalData = clinicalReportRes.value;
+        diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || [];
       }
 
       // Generate diagnosis trends from recent attendances if clinical report failed
-      if (diagnosisTrendsList.length === 0) {
+      if (diagnosisTrendsList.length === 0 && recentAttendancesList.length > 0) {
         const diagnosisCount: Record<string, number> = {};
         
         recentAttendancesList.forEach((attendance: any) => {
@@ -248,7 +269,6 @@ export default function Dashboard() {
         lowStockItems,
         totalRevenue,
         scheduledAppointments,
-        completedProcedures,
         recentAttendancesCount: recentAttendancesList.length
       });
 
@@ -261,7 +281,7 @@ export default function Dashboard() {
         lowStockItems,
         totalRevenue,
         scheduledAppointments,
-        completedProcedures
+        completedProcedures: 0
       });
 
       setRecentAttendances(recentAttendancesList);
@@ -270,9 +290,11 @@ export default function Dashboard() {
       
       if (newErrors.length === 0) {
         success('Dashboard refreshed', 'All data is up to date.');
-      } else {
+      } else if (newErrors.length > 0 && newErrors.length < 4) {
         toastError('Partial data loaded', `Some data could not be loaded: ${newErrors.join(', ')}`);
       }
+      // If many errors, don't show error toast
+      
     } catch (err) {
       console.error('💥 Dashboard load error:', err);
       toastError('Refresh failed', 'Failed to load dashboard data.');
@@ -357,13 +379,18 @@ export default function Dashboard() {
   };
 
   const quickActions = [
-    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', color: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-600 hover:text-white' },
-    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', color: 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white' },
-    { icon: Bed, label: 'Admission', path: '/dashboard/admissions', color: 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' },
-    { icon: DollarSign, label: 'Billing', path: '/dashboard/billing', color: 'bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white' },
-    { icon: Pill, label: 'Pharmacy', path: '/dashboard/pharmacy', color: 'bg-yellow-100 text-yellow-600 hover:bg-yellow-600 hover:text-white' },
-    { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', color: 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white' },
+    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', color: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'records', 'sonographer'] },
+    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', color: 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
+    { icon: Bed, label: 'Admission', path: '/dashboard/admissions', color: 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife'] },
+    { icon: DollarSign, label: 'Billing', path: '/dashboard/billing', color: 'bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white', roles: ['admin', 'accounts'] },
+    { icon: Pill, label: 'Pharmacy', path: '/dashboard/pharmacy', color: 'bg-yellow-100 text-yellow-600 hover:bg-yellow-600 hover:text-white', roles: ['admin', 'pharmacist', 'doctor'] },
+    { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', color: 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white', roles: ['admin', 'accounts', 'records'] },
   ];
+
+  // Filter quick actions based on user role
+  const filteredQuickActions = quickActions.filter(action => 
+    action.roles.includes(user?.role || '')
+  );
 
   if (!user) {
     return (
@@ -396,16 +423,16 @@ export default function Dashboard() {
       </div>
 
       {/* Error Summary */}
-      {errors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+      {errors.length > 0 && errors.length < 4 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              <p className="text-red-600 font-medium text-sm">Failed to load: {errors.join(', ')}</p>
+              <AlertCircle className="w-4 h-4 text-yellow-600" />
+              <p className="text-yellow-600 font-medium text-sm">Some data could not be loaded: {errors.join(', ')}</p>
             </div>
             <button
               onClick={loadDashboardData}
-              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition"
+              className="px-3 py-1.5 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition"
             >
               Retry
             </button>
@@ -417,9 +444,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-4 gap-6">
         {/* Left Column - Stats and Health Trends */}
         <div className="col-span-3 space-y-6">
-          {/* Enhanced Stats Grid */}
+          {/* Enhanced Stats Grid - Show relevant stats based on role */}
           <div className="grid grid-cols-4 gap-4">
-            {/* Total Patients */}
+            {/* Total Patients - All roles */}
             <Link to="/dashboard/patients" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-600 font-medium">Total Patients</span>
@@ -438,7 +465,7 @@ export default function Dashboard() {
               </div>
             </Link>
 
-            {/* Today's Visits */}
+            {/* Today's Visits - Clinical roles */}
             <Link to="/dashboard/attendance" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-600 font-medium">Today's Visits</span>
@@ -454,7 +481,7 @@ export default function Dashboard() {
               <div className="text-xs text-gray-500 mt-1">Consultations</div>
             </Link>
 
-            {/* Active Admissions */}
+            {/* Active Admissions - Clinical roles */}
             <Link to="/dashboard/admissions" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-600 font-medium">Active Admissions</span>
@@ -470,123 +497,132 @@ export default function Dashboard() {
               <div className="text-xs text-gray-500 mt-1">In patients</div>
             </Link>
 
-            {/* Total Revenue */}
-            <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Today's Revenue</span>
-                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">${stats.totalRevenue.toFixed(2)}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Collected</div>
-            </Link>
-
-            {/* Pending Bills */}
-            <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Pending Bills</span>
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-purple-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.pendingBills}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Unpaid</div>
-            </Link>
-
-            {/* Insurance Claims */}
-            <Link to="/dashboard/insurance-claims" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Pending Claims</span>
-                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-yellow-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.pendingClaims}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Awaiting processing</div>
-            </Link>
-
-            {/* Low Stock Items */}
-            <Link to="/dashboard/stock" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Low Stock</span>
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <Package className="w-5 h-5 text-red-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Need reorder</div>
-            </Link>
-
-            {/* Scheduled Appointments */}
-            <Link to="/dashboard/appointments" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Appointments</span>
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.scheduledAppointments}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Scheduled today</div>
-            </Link>
-          </div>
-
-          {/* Diagnosis Trends */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Diagnosis Trends</h3>
-                <p className="text-sm text-gray-600">Most common diagnoses (Last 30 days)</p>
-              </div>
-              <Heart className="w-5 h-5 text-red-500" />
-            </div>
-            
-            {diagnosisTrends.length === 0 ? (
-              <div className="text-center py-8">
-                <Syringe className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No diagnosis data available</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {diagnosisTrends.map((trend, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <span className="text-blue-600 font-bold text-sm">{idx + 1}</span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 flex-1">{trend.disease}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{trend.patients} patients</div>
-                      {trend.percentage && (
-                        <div className="text-xs text-gray-500">{trend.percentage}% of cases</div>
-                      )}
-                    </div>
+            {/* Pending Bills - Accounts only, otherwise show Appointments */}
+            {hasRole(['admin', 'accounts']) ? (
+              <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-600 font-medium">Pending Bills</span>
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-purple-600" />
                   </div>
-                ))}
-              </div>
+                </div>
+                {isLoading ? (
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">{stats.pendingBills}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">Unpaid</div>
+              </Link>
+            ) : (
+              <Link to="/dashboard/appointments" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-600 font-medium">Scheduled</span>
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-blue-600" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">{stats.scheduledAppointments}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">Appointments</div>
+              </Link>
+            )}
+
+            {/* Pending Claims - Accounts only */}
+            {hasRole(['admin', 'accounts']) && (
+              <Link to="/dashboard/insurance-claims" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-600 font-medium">Pending Claims</span>
+                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-yellow-600" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">{stats.pendingClaims}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">Awaiting processing</div>
+              </Link>
+            )}
+
+            {/* Low Stock Items - Pharmacy roles */}
+            {hasRole(['admin', 'pharmacist']) && (
+              <Link to="/dashboard/stock" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-600 font-medium">Low Stock</span>
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <Package className="w-5 h-5 text-red-600" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">Need reorder</div>
+              </Link>
+            )}
+
+            {/* Today's Revenue - Accounts only */}
+            {hasRole(['admin', 'accounts']) && (
+              <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-600 font-medium">Today's Revenue</span>
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">${stats.totalRevenue.toFixed(2)}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">Collected</div>
+              </Link>
             )}
           </div>
+
+          {/* Diagnosis Trends - Clinical roles only */}
+          {hasRole(['admin', 'doctor', 'nurse', 'midwife']) && (
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Diagnosis Trends</h3>
+                  <p className="text-sm text-gray-600">Most common diagnoses (Last 30 days)</p>
+                </div>
+                <Heart className="w-5 h-5 text-red-500" />
+              </div>
+              
+              {diagnosisTrends.length === 0 ? (
+                <div className="text-center py-8">
+                  <Syringe className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500">No diagnosis data available</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {diagnosisTrends.map((trend, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <span className="text-blue-600 font-bold text-sm">{idx + 1}</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 flex-1">{trend.disease}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-gray-900">{trend.patients} patients</div>
+                        {trend.percentage && (
+                          <div className="text-xs text-gray-500">{trend.percentage}% of cases</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -595,7 +631,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-600">Common tasks and frequent operations</p>
             </div>
             <div className="grid grid-cols-6 gap-4">
-              {quickActions.map((action, index) => {
+              {filteredQuickActions.map((action, index) => {
                 const Icon = action.icon;
                 return (
                   <Link 
@@ -612,7 +648,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right Column - Recent Activity (CLEAN STRAIGHT-LINE DESIGN) */}
+        {/* Right Column - Recent Activity */}
         <div className="col-span-1">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 h-full">
             <div className="mb-6">

@@ -1,4 +1,5 @@
-// src/store/medicalServicesStore.ts - COMPLETE UPDATED VERSION
+// src/store/medicalServicesStore.ts - FIXED VERSION
+
 import { create } from 'zustand';
 import {
   getDiagnoses as apiGetDiagnoses,
@@ -51,7 +52,6 @@ import {
   checkServiceCoverage as apiCheckServiceCoverage,
   calculateServiceCost as apiCalculateServiceCost
 } from '../api';
-import { useGDRGTariffStore } from './gdrgTariffStore';
 import type { Diagnosis, LabTestTemplate, ProcedureTemplate, ServiceCatalog, ScanTemplate, Pagination } from '../types';
 import api from '../api/api';
 
@@ -112,21 +112,15 @@ interface MedicalServicesState {
   getDiagnosisStats: () => Promise<void>;
   bulkUpdateDiagnoses: (data: any) => Promise<void>;
 
-  // GDRG-specific methods
-  validateGdrgCode: (gdrgCode: string) => boolean;
-  getDiagnosesByGdrgCode: (gdrgCode: string) => Diagnosis[];
-  searchDiagnosesByGdrg: (searchTerm: string) => Diagnosis[];
-  getDiagnosisWithTariff: (diagnosis: Diagnosis) => any;
-
   // Lab Test Template actions
   getLabTestTemplates: (filters?: any) => Promise<void>;
   getLabTestTemplate: (id: string) => Promise<void>;
   createLabTestTemplate: (data: any) => Promise<void>;
   updateLabTestTemplate: (id: string, data: any) => Promise<void>;
   deleteLabTestTemplate: (id: string) => Promise<void>;
-  getLabTestCategories: () => Promise<void>;
-  getLabTestSubCategories: () => Promise<void>;
-  getSpecimenTypes: () => Promise<void>;
+  getLabTestCategories: () => Promise<string[]>;
+  getLabTestSubCategories: () => Promise<string[]>;
+  getSpecimenTypes: () => Promise<string[]>;
   bulkUpdateLabTestTemplates: (data: any) => Promise<void>;
 
   // Procedure Template actions
@@ -135,8 +129,8 @@ interface MedicalServicesState {
   createProcedureTemplate: (data: any) => Promise<void>;
   updateProcedureTemplate: (id: string, data: any) => Promise<void>;
   deleteProcedureTemplate: (id: string) => Promise<void>;
-  getProcedureCategories: () => Promise<void>;
-  getProcedureDepartments: () => Promise<void>;
+  getProcedureCategories: () => Promise<string[]>;
+  getProcedureDepartments: () => Promise<string[]>;
   bulkUpdateProcedureTemplates: (data: any) => Promise<void>;
 
   // Scan Template actions
@@ -145,9 +139,9 @@ interface MedicalServicesState {
   createScanTemplate: (data: any) => Promise<void>;
   updateScanTemplate: (id: string, data: any) => Promise<void>;
   deleteScanTemplate: (id: string) => Promise<void>;
-  getScanCategories: () => Promise<void>;
-  getScanBodyParts: () => Promise<void>;
-  getScanTypes: () => Promise<void>;
+  getScanCategories: () => Promise<string[]>;
+  getScanBodyParts: () => Promise<string[]>;
+  getScanTypes: () => Promise<string[]>;
   bulkUpdateScanTemplates: (data: any) => Promise<void>;
 
   // Service Catalog actions
@@ -217,30 +211,31 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getDiagnoses: async (filters = {}) => {
     set({ isLoadingDiagnoses: true, errors: { ...get().errors, diagnoses: null } });
     try {
-      const apiFilters = { ...filters, limit: 10000 }; 
+      // ✅ Use high limit to get all records
+      const apiFilters = { ...filters, limit: 10000, page: 1 }; 
       const response = await apiGetDiagnoses(apiFilters);
       
-      let diagnosesArray = [];
+      let diagnosesArray: Diagnosis[] = [];
       let totalCount = 0;
       
-      // Handle different response formats
       if (response.data && Array.isArray(response.data)) {
         diagnosesArray = response.data;
-        totalCount = response.pagination?.totalDiagnoses || response.pagination?.total || diagnosesArray.length;
+        totalCount = response.pagination?.total || diagnosesArray.length;
       } else if (Array.isArray(response)) {
         diagnosesArray = response;
         totalCount = diagnosesArray.length;
       } else if (response.success && Array.isArray(response.data)) {
         diagnosesArray = response.data;
-        totalCount = response.pagination?.totalDiagnoses || response.pagination?.total || diagnosesArray.length;
+        totalCount = response.pagination?.total || diagnosesArray.length;
       }
+      
+      console.log(`📊 Diagnoses loaded: ${diagnosesArray.length} records (Total in DB: ${totalCount})`);
       
       set({ 
         diagnoses: diagnosesArray,
         diagnosesTotalCount: totalCount,
         isLoadingDiagnoses: false 
       });
-      console.log('Diagnoses loaded:', diagnosesArray.length, 'Total:', totalCount);
     } catch (error: any) {
       console.error('Failed to fetch diagnoses:', error);
       set({
@@ -264,16 +259,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   },
 
   createDiagnosis: async (data: any) => {
-    if (!get().validateGdrgCode(data.gdrgCode)) {
-      throw new Error('Invalid GDRG code format');
-    }
-
-    const tariff = useGDRGTariffStore.getState().getTariff(data.gdrgCode);
-    if (!tariff) {
-      console.log(`Fetching G-DRG tariff for ${data.gdrgCode}...`);
-      await useGDRGTariffStore.getState().fetchTariffs();
-    }
-
     set({ isLoading: true });
     try {
       const newDiagnosis = await apiCreateDiagnosis(data);
@@ -291,17 +276,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   },
 
   updateDiagnosis: async (id: string, data: any) => {
-    if (data.gdrgCode && !get().validateGdrgCode(data.gdrgCode)) {
-      throw new Error('Invalid GDRG code format');
-    }
-
-    if (data.gdrgCode) {
-      const tariff = useGDRGTariffStore.getState().getTariff(data.gdrgCode);
-      if (!tariff) {
-        await useGDRGTariffStore.getState().fetchTariffs();
-      }
-    }
-
     set({ isLoading: true });
     try {
       const updatedDiagnosis = await apiUpdateDiagnosis(id, data);
@@ -370,44 +344,14 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  // GDRG HELPERS
-  validateGdrgCode: (gdrgCode: string) => {
-    const gdrgRegex = /^[A-Za-z0-9]{3,10}$/;
-    return gdrgRegex.test(gdrgCode);
-  },
-
-  getDiagnosesByGdrgCode: (gdrgCode: string) => {
-    return get().diagnoses.filter(d =>
-      d.gdrgCode?.toLowerCase() === gdrgCode.toLowerCase()
-    );
-  },
-
-  searchDiagnosesByGdrg: (searchTerm: string) => {
-    const term = searchTerm.toLowerCase();
-    return get().diagnoses.filter(d =>
-      d.gdrgCode?.toLowerCase().includes(term) ||
-      d.name.toLowerCase().includes(term) ||
-      d.icdCode.toLowerCase().includes(term)
-    );
-  },
-
-  getDiagnosisWithTariff: (diagnosis: Diagnosis) => {
-    const tariff = useGDRGTariffStore.getState().getTariff(diagnosis.gdrgCode);
-    return {
-      ...diagnosis,
-      nhiaTariff: tariff?.nhiaTariff || 0,
-      effectiveFrom: tariff?.effectiveFrom || null
-    };
-  },
-
   // === LAB TEST TEMPLATES ===
   getLabTestTemplates: async (filters = {}) => {
     set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
     try {
-      const apiFilters = { ...filters, limit: 10000 }; // ✅ Add this
+      const apiFilters = { ...filters, limit: 10000, page: 1 };
       const response = await apiGetLabTestTemplates(apiFilters);
       
-      let labTestsArray = [];
+      let labTestsArray: LabTestTemplate[] = [];
       let totalCount = 0;
       
       if (response.data && Array.isArray(response.data)) {
@@ -418,12 +362,13 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         totalCount = labTestsArray.length;
       }
       
+      console.log(`📊 Lab tests loaded: ${labTestsArray.length} records (Total in DB: ${totalCount})`);
+      
       set({ 
         labTestTemplates: labTestsArray,
         labTestsTotalCount: totalCount,
         isLoadingLabTests: false 
       });
-      console.log('Lab tests loaded:', labTestsArray.length, 'Total:', totalCount);
     } catch (error: any) {
       console.error('Failed to fetch lab test templates:', error);
       set({
@@ -539,10 +484,10 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getProcedureTemplates: async (filters = {}) => {
     set({ isLoadingProcedures: true, errors: { ...get().errors, procedures: null } });
     try {
-      const apiFilters = { ...filters, limit: 10000 }; 
+      const apiFilters = { ...filters, limit: 10000, page: 1 };
       const response = await apiGetProcedureTemplates(apiFilters);
       
-      let proceduresArray = [];
+      let proceduresArray: ProcedureTemplate[] = [];
       let totalCount = 0;
       
       if (response.data && Array.isArray(response.data)) {
@@ -552,6 +497,8 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         proceduresArray = response;
         totalCount = proceduresArray.length;
       }
+      
+      console.log(`📊 Procedures loaded: ${proceduresArray.length} records (Total in DB: ${totalCount})`);
       
       set({ 
         procedureTemplates: proceduresArray,
@@ -664,9 +611,10 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getScanTemplates: async (filters = {}) => {
     set({ isLoadingScans: true, errors: { ...get().errors, scans: null } });
     try {
-      const response = await apiGetScanTemplates(filters);
+      const apiFilters = { ...filters, limit: 10000, page: 1 };
+      const response = await apiGetScanTemplates(apiFilters);
       
-      let scansArray = [];
+      let scansArray: ScanTemplate[] = [];
       let totalCount = 0;
       
       if (response.data && Array.isArray(response.data)) {
@@ -676,6 +624,8 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         scansArray = response;
         totalCount = scansArray.length;
       }
+      
+      console.log(`📊 Scans loaded: ${scansArray.length} records (Total in DB: ${totalCount})`);
       
       set({ 
         scanTemplates: scansArray,
@@ -798,20 +748,38 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getServiceCatalog: async (filters = {}) => {
     set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
     try {
-      const apiFilters = { ...filters, limit: 10000 }; // ✅ Add this
-      const response = await apiGetServiceCatalog(apiFilters);
-      const services = response.services || response.data || response;
-      const pagination = response.pagination;
+      const response = await apiGetServiceCatalog({ ...filters, limit: 5000 });
+      
+      console.log('📦 Service Catalog API Response:', response);
+      
+      let services: ServiceCatalog[] = [];
+      let pagination = null;
+      
+      if (response?.success && Array.isArray(response.data)) {
+        services = response.data;
+        pagination = response.pagination;
+      } else if (Array.isArray(response)) {
+        services = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        services = response.data;
+        pagination = response.pagination;
+      } else if (response?.services && Array.isArray(response.services)) {
+        services = response.services;
+      } else {
+        services = [];
+      }
+      
+      console.log(`✅ Loaded ${services.length} services`);
       
       set({
         serviceCatalog: services,
-        pagination: pagination || null,
+        pagination: pagination,
         isLoading: false
       });
       
       return { services, pagination };
     } catch (error: any) {
-      console.error('Failed to fetch service catalog:', error);
+      console.error('❌ Failed to fetch service catalog:', error);
       set({
         errors: { ...get().errors, serviceCatalog: error.message },
         isLoading: false
@@ -820,21 +788,58 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     }
   },
 
-  getServiceCatalogItem: async (id: string) => {
-    set({ isLoading: true });
-    try {
-      if (!id || id === 'undefined' || id === 'null') {
-        throw new Error('Valid Service ID is required');
-      }
-      
-      const item = await apiGetServiceCatalogItem(id);
-      set({ currentServiceCatalogItem: item, isLoading: false });
-    } catch (error: any) {
-      console.error('Failed to fetch service catalog item:', error);
-      set({ isLoading: false });
-      throw error;
+    getServiceCatalogs: async (filters = {}) => {
+      set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
+      try {
+        // ✅ IMPORTANT: Ensure limit is passed correctly
+        const apiFilters = { 
+          ...filters, 
+          limit: filters.limit || 5000,  // Use provided limit or default to 5000
+          page: filters.page || 1
+        };
+        
+        console.log('📡 Fetching service catalog with filters:', apiFilters);
+        
+    const response = await apiGetServiceCatalog(apiFilters);
+    
+    console.log('📦 Service Catalog API Response:', response);
+    
+    let services: ServiceCatalog[] = [];
+    let pagination = null;
+    
+    // Handle different response formats
+    if (response?.success && Array.isArray(response.data)) {
+      services = response.data;
+      pagination = response.pagination;
+    } else if (Array.isArray(response)) {
+      services = response;
+    } else if (response?.data && Array.isArray(response.data)) {
+      services = response.data;
+      pagination = response.pagination;
+    } else if (response?.services && Array.isArray(response.services)) {
+      services = response.services;
+    } else {
+      services = [];
     }
-  },
+    
+    console.log(`✅ Loaded ${services.length} services (Total in DB: ${pagination?.total || services.length})`);
+    
+    set({
+      serviceCatalog: services,
+      pagination: pagination,
+      isLoading: false
+    });
+    
+    return { services, pagination };
+  } catch (error: any) {
+    console.error('❌ Failed to fetch service catalog:', error);
+    set({
+      errors: { ...get().errors, serviceCatalog: error.message },
+      isLoading: false
+    });
+    throw error;
+  }
+},
 
   createServiceCatalogItem: async (data: any) => {
     set({ isLoading: true });
@@ -974,7 +979,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getServiceCatalogByType: async (serviceType: string) => {
     set({ isLoading: true });
     try {
-      const response = await api.get(`/service-catalog?serviceType=${serviceType}&isActive=true`);
+      const response = await api.get(`/service-catalog?serviceType=${serviceType}&isActive=true&limit=10000`);
       const services = response.data?.data || response.data || [];
       set({ isLoading: false });
       return services;

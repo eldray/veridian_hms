@@ -1,10 +1,15 @@
-// src/api/documentApi.ts
+// src/api/documentApi.ts - ADD generateBillStatement
 import api from './api';
+import type { GeneratedDocument, DocumentTemplate, DocumentGenerationResponse } from '../types/documents';
 
 export const documentApi = {
   // Generate documents
   generateReceipt: (billId: string) => 
     api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`).then(r => r.data),
+  
+  // ✅ ADD THIS
+  generateBillStatement: (billId: string) => 
+    api.post<DocumentGenerationResponse>(`/documents/bill-statement/${billId}`).then(r => r.data),
   
   generateReferralLetter: (referralId: string) => 
     api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => r.data),
@@ -22,12 +27,18 @@ export const documentApi = {
   getDocumentsByEntity: (entityType: string, entityId: string) => 
     api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data),
   
+  // src/api/documentApi.ts - verify downloadDocument is correct
   downloadDocument: (documentId: string) => 
-    api.get(`/documents/download/${documentId}`, { responseType: 'blob' }).then(r => r.data),
+    api.get(`/documents/download/${documentId}`, { 
+      responseType: 'blob',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      }
+    }).then(r => r.data),
   
   reprintDocument: (documentId: string) => 
     api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => r.data),
-  
+
   // Template management (admin)
   getTemplates: () => 
     api.get<{ success: boolean; data: DocumentTemplate[] }>(`/documents/templates`).then(r => r.data),

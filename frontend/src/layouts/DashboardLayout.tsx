@@ -4,12 +4,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useHospitalStore } from '../store/hospitalStore';
+import { useThemeStore } from '../store/themeStore';
 import {
   Hospital,
   LayoutDashboard,
   Users,
   FileText,
   DollarSign,
+  Send,
   Package,
   BedDouble,
   BarChart3,
@@ -74,6 +76,7 @@ import {
   Eye as EyeIcon,
   Ear,
   Tooth,
+  Scan,
   FlaskRound as FlaskRoundIcon,
   Microscope as MicroscopeIcon,
   Pill as PillIcon,
@@ -126,10 +129,12 @@ const navigationItems = [
   { name: 'Nursing', path: '/dashboard/nursing', icon: Syringe, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
   { name: 'Antenatal', path: '/dashboard/antenatal', icon: Baby, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
   { name: 'Laboratory', path: '/dashboard/laboratory', icon: Microscope, roles: ['admin', 'doctor', 'nurse', 'lab_tech', 'sonographer'] },
+  { name: 'Scans', path: '/dashboard/scans', icon: Scan, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
   { name: 'Pharmacy', path: '/dashboard/pharmacy', icon: Pill, roles: ['admin', 'pharmacist', 'doctor'] },
   { name: 'Inventory', path: '/dashboard/inventory', icon: Package, roles: ['admin', 'pharmacist', 'doctor'] },
   { name: 'Stock', path: '/dashboard/stock', icon: Warehouse, roles: ['admin', 'pharmacist'] },
   { name: 'Admissions', path: '/dashboard/admissions', icon: BedDouble, roles: ['admin', 'doctor', 'nurse', 'midwife'] },
+  { name: 'Referrals', path: '/dashboard/referrals', icon: Send, roles: ['admin', 'doctor', 'nurse', 'midwife', 'records'] }, // ✅ ADD THIS
   { name: 'Billing', path: '/dashboard/billing', icon: DollarSign, roles: ['admin', 'doctor', 'accounts'] },
   { name: 'Insurance', path: '/dashboard/insurance-claims', icon: Shield, roles: ['admin', 'doctor', 'accounts'] },
   { name: 'Departments', path: '/dashboard/departments', icon: Building, roles: ['admin'] },
@@ -143,13 +148,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    if (saved !== null) {
-      return JSON.parse(saved);
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const { mode, toggleMode } = useThemeStore();
 
   const { hospital, fetchHospital, isLoading: hospitalLoading } = useHospitalStore();
   const location = useLocation();
@@ -175,22 +174,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
     loadHospital();
   }, [fetchHospital]);
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(prev => {
-      const newValue = !prev;
-      localStorage.setItem('darkMode', JSON.stringify(newValue));
-      return newValue;
-    });
-  };
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   const handleLogout = () => {
     logout();
@@ -227,85 +210,90 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
       {/* Top Bar - Slender and cute */}
-      <header className="bg-[var(--bg-card)] border-b border-[var(--border-color)] sticky top-0 z-40 w-full h-12">
-        <div className="flex items-center justify-between px-4 h-full">
-          {/* Left: Menu Icon */}
-          <div className="flex items-center gap-2">
+{/* Top Bar - Enhanced Design */}
+      <header className="bg-[var(--bg-card)] border-b border-[var(--border-color)] sticky top-0 z-40 w-full h-14 shadow-sm">
+        <div className="flex items-center justify-between px-5 h-full">
+          {/* Left: Menu Icon & Logo */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1"
+              className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] p-2 rounded-lg transition-all duration-200"
             >
-              <Menu className="w-4 h-4" />
+              <Menu className="w-5 h-5" />
             </button>
 
-            {/* Logo - Hidden on mobile when sidebar is collapsed */}
-            <div className="hidden lg:flex items-center gap-1.5">
-              <div className="w-6 h-6 bg-gradient-to-br from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-lg flex items-center justify-center">
-                <Heart className="w-3 h-3 text-white" />
+            {/* Logo - Larger and more prominent */}
+            <div className="hidden lg:flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-xl flex items-center justify-center shadow-md">
+                <Heart className="w-4 h-4 text-white" />
               </div>
               {!sidebarCollapsed && (
                 <div>
-                  <h1 className="text-xs font-bold text-[var(--text-primary)] leading-tight">Veridian HMS</h1>
-                  <p className="text-[9px] text-[var(--text-secondary)] leading-tight">Healthcare System</p>
+                  <h1 className="text-sm font-bold text-[var(--text-primary)] leading-tight tracking-wide">
+                    Veridian HMS
+                  </h1>
+                  <p className="text-[10px] text-[var(--text-secondary)] leading-tight">
+                    Healthcare Management System
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Centered Hospital Name */}
+          {/* Centered Hospital Name - Enhanced */}
           <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
             {hospitalLoading ? (
               <div className="animate-pulse">
-                <div className="h-3 w-28 bg-[var(--text-tertiary)] rounded"></div>
-                <div className="h-2 w-20 bg-[var(--text-tertiary)] rounded mt-0.5 mx-auto"></div>
+                <div className="h-4 w-32 bg-[var(--text-tertiary)] rounded-md"></div>
+                <div className="h-2.5 w-24 bg-[var(--text-tertiary)] rounded-md mt-1 mx-auto"></div>
               </div>
             ) : (
               <>
-                <h1 className="text-sm font-bold text-[var(--text-primary)] leading-tight">
+                <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight tracking-wide">
                   {hospital?.name || 'Veridian Hospital'}
                 </h1>
-                <p className="text-[10px] text-[var(--text-secondary)] leading-tight">
-                  {hospital?.nhisFacilityType || 'Medical Center'}
+                <p className="text-[11px] text-[var(--text-secondary)] leading-tight font-medium">
+                  {hospital?.nhisFacilityType || 'Medical Center'} • {hospital?.nhisFacilityCode || 'GHS-ACC-001'}
                 </p>
               </>
             )}
           </div>
 
-          {/* Right: Dark Mode + Notifications + User */}
-          <div className="flex items-center gap-1.5">
+          {/* Right: Actions - Larger icons */}
+          <div className="flex items-center gap-2">
             {/* Dark Mode Toggle */}
             <button
-              onClick={toggleDarkMode}
-              className="p-1.5 rounded-lg transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
-              title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              onClick={toggleMode}
+              className="p-2 rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+              title={mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
             >
-              {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
             {/* Notifications */}
             <div className="relative" ref={notificationDropdownRef}>
               <button 
                 onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
-                className="relative p-1.5 rounded-lg transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                className="relative p-2 rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
               >
-                <Bell className="w-3.5 h-3.5" />
+                <Bell className="w-4 h-4" />
                 {storeUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[8px] rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
                     {storeUnreadCount > 9 ? '9+' : storeUnreadCount}
                   </span>
                 )}
               </button>
 
-              {/* Notifications Dropdown */}
+              {/* Notifications Dropdown - Enhanced */}
               {notificationDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border border-[var(--border-color)] z-50 max-h-96 overflow-hidden bg-[var(--bg-card)]">
                   <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-xs text-[var(--text-primary)]">Notifications</h3>
+                      <h3 className="font-semibold text-sm text-[var(--text-primary)]">Notifications</h3>
                       {storeUnreadCount > 0 && (
                         <button 
                           onClick={markAllAsRead}
-                          className="text-[10px] text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80"
+                          className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
                         >
                           Mark all read
                         </button>
@@ -315,15 +303,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="max-h-64 overflow-y-auto custom-scrollbar">
                     {storeNotifications.length === 0 ? (
                       <div className="p-6 text-center text-[var(--text-secondary)]">
-                        <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-xs">No notifications</p>
+                        <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                        <p className="text-sm">No notifications</p>
                       </div>
                     ) : (
                       storeNotifications.slice(0, 10).map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-3 border-b border-[var(--border-color)] cursor-pointer ${
-                            !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/20' : 'hover:bg-[var(--bg-main)]'
+                          className={`p-3 border-b border-[var(--border-color)] cursor-pointer transition-all ${
+                            !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/10' : 'hover:bg-[var(--bg-main)]'
                           }`}
                           onClick={() => {
                             markAsRead(notification.id);
@@ -333,20 +321,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             setNotificationDropdownOpen(false);
                           }}
                         >
-                          <div className="flex items-start gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${
+                          <div className="flex items-start gap-2.5">
+                            <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
                               notification.isRead 
                                 ? 'bg-[var(--text-tertiary)]' 
                                 : 'bg-[var(--icon-cyan-text)]'
                             }`} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate text-[var(--text-primary)]">
+                              <p className="text-xs font-semibold truncate text-[var(--text-primary)]">
                                 {notification.title}
                               </p>
-                              <p className="text-[10px] mt-0.5 line-clamp-2 text-[var(--text-secondary)]">
+                              <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--text-secondary)]">
                                 {notification.message}
                               </p>
-                              <p className="text-[9px] mt-0.5 text-[var(--text-tertiary)]">
+                              <p className="text-[10px] mt-1 text-[var(--text-tertiary)]">
                                 {new Date(notification.createdAt).toLocaleDateString()}
                               </p>
                             </div>
@@ -358,47 +346,49 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="p-2 border-t border-[var(--border-color)]">
                     <Link
                       to="/dashboard/notifications"
-                      className="block text-center text-[10px] py-1 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80"
+                      className="block text-center text-xs py-1.5 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
                       onClick={() => setNotificationDropdownOpen(false)}
                     >
-                      View all
+                      View all notifications
                     </Link>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* User Dropdown */}
+            {/* User Dropdown - Enhanced with longer name display */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all text-xs border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all text-sm border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] hover:border-[var(--border-color)] min-w-[120px]"
               >
-                <div className="w-5 h-5 bg-gradient-to-r from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-full flex items-center justify-center">
-                  <User className="w-2.5 h-2.5 text-white" />
+                <div className="w-7 h-7 bg-gradient-to-r from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
+                  <User className="w-3.5 h-3.5 text-white" />
                 </div>
-                <div className="text-left hidden md:block">
-                  <p className="text-[10px] font-semibold truncate max-w-20">{user?.fullName?.split(' ')[0] || 'User'}</p>
-                  <p className="text-[9px] capitalize text-[var(--text-secondary)]">{user?.role?.replace('_', ' ') || 'Role'}</p>
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate max-w-[150px]">{user?.fullName || 'User'}</p>
+                  <p className="text-[10px] capitalize text-[var(--text-secondary)] font-medium">
+                    {user?.role?.replace('_', ' ') || 'Role'}
+                  </p>
                 </div>
-                <ChevronDown className={`w-2.5 h-2.5 transition-transform ${
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${
                   userDropdownOpen ? 'rotate-180' : ''
                 } text-[var(--text-secondary)]`} />
               </button>
 
               {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-xl border border-[var(--border-color)] py-1 z-50 bg-[var(--bg-card)]">
-                  <div className="px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 bg-gradient-to-r from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
+                <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-xl border border-[var(--border-color)] py-1 z-50 bg-[var(--bg-card)]">
+                  <div className="px-3 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-gradient-to-r from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-full flex items-center justify-center shadow-sm">
+                        <User className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate text-[var(--text-primary)]">{user?.fullName}</p>
+                        <p className="text-sm font-bold truncate text-[var(--text-primary)]">{user?.fullName}</p>
                         <p className="text-xs text-[var(--text-secondary)] capitalize">{user?.role?.replace('_', ' ')}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded px-2 py-1 truncate">
+                    <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg px-2 py-1.5 truncate">
                       {user?.email}
                     </p>
                   </div>
@@ -406,19 +396,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="py-1">
                     <Link
                       to="/dashboard/profile"
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
                       onClick={() => setUserDropdownOpen(false)}
                     >
-                      <UserIcon className="w-4 h-4" />
+                      <UserIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                       <span>My Profile</span>
                     </Link>
                     {hasRole(['admin']) && (
                       <Link
                         to="/dashboard/settings"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                        className="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
                         onClick={() => setUserDropdownOpen(false)}
                       >
-                        <Settings className="w-4 h-4" />
+                        <Settings className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         <span>System Settings</span>
                       </Link>
                     )}
@@ -427,7 +417,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="border-t border-[var(--border-color)] pt-1">
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]/20"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Sign Out</span>
@@ -531,8 +521,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main Content */}
         <main className={`flex-1 min-h-screen transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        } mt-12`}>
-          <div className="p-4">
+        } mt-0`}>
+          <div className="p-2">
             {children}
           </div>
         </main>
@@ -540,3 +530,4 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   );
 }
+

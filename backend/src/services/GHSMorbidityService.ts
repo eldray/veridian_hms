@@ -1,14 +1,27 @@
 // services/GHSMorbidityService.ts
-// Complete GHS Morbidity Report Service - Based on morbi.pdf
-// Includes all 9 sections with age/sex disaggregation
+// Complete GHS Morbidity Report Service - Full 9 sections with age/sex disaggregation
 
 import { PrismaClient, MorbidityGroup, Gender } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 // ==============================================
-// TYPES
+// TYPES - CORRECT AGE GROUPS FOR GHS MORBIDITY
 // ==============================================
+
+export type GHSAgeGroup = 
+  | '<28d'
+  | '1-11m'
+  | '1-4'
+  | '5-9'
+  | '10-14'
+  | '15-17'
+  | '18-19'
+  | '20-34'
+  | '35-49'
+  | '50-59'
+  | '60-69'
+  | '70+';
 
 export interface AgeSexBreakdown {
   [key: string]: {
@@ -44,7 +57,7 @@ export interface CommunicableImmunizable {
   tuberculosis: AgeSexBreakdown;
 }
 
-// Section 2: Communicable Non-Immunizable (Malaria detailed)
+// Section 2: Communicable Non-Immunizable
 export interface CommunicableNonImmunizable {
   uncomplicated_malaria_suspected: AgeSexBreakdown;
   uncomplicated_malaria_tested: AgeSexBreakdown;
@@ -177,6 +190,18 @@ export interface ReAttendancesReferrals {
   referrals: AgeSexBreakdown;
 }
 
+// Top 10 Diagnoses
+export interface TopDiagnosis {
+  diagnosisId: string;
+  diagnosisName: string;
+  icdCode: string;
+  morbidityGroup: string;
+  totalCases: number;
+  male: number;
+  female: number;
+  byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>;
+}
+
 // Complete Report
 export interface GHSMorbidityReport {
   period: ReportingPeriod;
@@ -190,6 +215,7 @@ export interface GHSMorbidityReport {
   reproductiveTract: ReproductiveTract;
   injuries: Injuries;
   reAttendancesReferrals: ReAttendancesReferrals;
+  topDiagnoses: TopDiagnosis[];
   totals: {
     totalAttendances: number;
     totalNewCases: number;
@@ -205,35 +231,37 @@ export interface GHSMorbidityReport {
 export class GHSMorbidityService {
   
   private static readonly AGE_GROUPS: GHSAgeGroup[] = [
-    'under_28_days',
-    'one_to_eleven_months',
-    'one_to_four_years',
-    'five_to_nine_years',
-    'ten_to_fourteen_years',
-    'fifteen_to_seventeen_years',
-    'eighteen_to_nineteen_years',
-    'twenty_to_thirty_four_years',
-    'thirty_five_to_forty_nine_years',
-    'fifty_to_fifty_nine_years',
-    'sixty_to_sixty_nine_years',
-    'seventy_plus_years'
+    '<28d',
+    '1-11m',
+    '1-4',
+    '5-9',
+    '10-14',
+    '15-17',
+    '18-19',
+    '20-34',
+    '35-49',
+    '50-59',
+    '60-69',
+    '70+'
   ];
 
   private static getAgeGroup(dob: Date, referenceDate: Date): GHSAgeGroup {
     const ageInDays = Math.floor((referenceDate.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24));
+    const ageInMonths = ageInDays / 30.44;
+    const ageInYears = ageInDays / 365.25;
     
-    if (ageInDays < 28) return 'under_28_days';
-    if (ageInDays < 365) return 'one_to_eleven_months';
-    if (ageInDays < 5 * 365) return 'one_to_four_years';
-    if (ageInDays < 10 * 365) return 'five_to_nine_years';
-    if (ageInDays < 15 * 365) return 'ten_to_fourteen_years';
-    if (ageInDays < 18 * 365) return 'fifteen_to_seventeen_years';
-    if (ageInDays < 20 * 365) return 'eighteen_to_nineteen_years';
-    if (ageInDays < 35 * 365) return 'twenty_to_thirty_four_years';
-    if (ageInDays < 50 * 365) return 'thirty_five_to_forty_nine_years';
-    if (ageInDays < 60 * 365) return 'fifty_to_fifty_nine_years';
-    if (ageInDays < 70 * 365) return 'sixty_to_sixty_nine_years';
-    return 'seventy_plus_years';
+    if (ageInDays < 28) return '<28d';
+    if (ageInMonths < 12) return '1-11m';
+    if (ageInYears < 5) return '1-4';
+    if (ageInYears < 10) return '5-9';
+    if (ageInYears < 15) return '10-14';
+    if (ageInYears < 18) return '15-17';
+    if (ageInYears < 20) return '18-19';
+    if (ageInYears < 35) return '20-34';
+    if (ageInYears < 50) return '35-49';
+    if (ageInYears < 60) return '50-59';
+    if (ageInYears < 70) return '60-69';
+    return '70+';
   }
 
   private static createEmptyAgeSexBreakdown(): AgeSexBreakdown {
@@ -322,6 +350,7 @@ export class GHSMorbidityService {
       reproductiveTract: createEmptySection(reproductiveTractKeys),
       injuries: createEmptySection(injuriesKeys),
       reAttendancesReferrals: createEmptySection(reAttendancesReferralsKeys),
+      topDiagnoses: [],
       totals: { totalAttendances: 0, totalNewCases: 0, totalReAttendances: 0, totalReferrals: 0 }
     };
   }
@@ -337,7 +366,7 @@ export class GHSMorbidityService {
     if (sectionData && sectionData[subKey] && sectionData[subKey][ageGroup]) {
       if (gender === 'male') {
         sectionData[subKey][ageGroup].male++;
-      } else {
+      } else if (gender === 'female') {
         sectionData[subKey][ageGroup].female++;
       }
     }
@@ -370,9 +399,9 @@ export class GHSMorbidityService {
     // Get facility info
     const hospital = await prisma.hospital.findFirst();
     report.facility = {
-      name: hospital?.name || 'Hospital',
-      district: hospital?.ghsDistrictCode || 'Unknown',
-      region: hospital?.address?.split(',')?.pop()?.trim() || 'Unknown',
+      name: hospital?.name || 'Health Facility',
+      district: hospital?.ghsDistrictCode || 'Unknown District',
+      region: 'Unknown Region', // Add region field to Hospital model if needed
       ghfCode: hospital?.ghaHFCode || 'Unknown'
     };
 
@@ -383,7 +412,7 @@ export class GHSMorbidityService {
       month: startDate.getMonth() + 1
     };
 
-    // Fetch all attendances with diagnoses
+    // Fetch all attendances with diagnoses and patient info
     const attendances = await prisma.attendance.findMany({
       where: {
         dateTime: { gte: startDate, lte: endDate },
@@ -399,9 +428,21 @@ export class GHSMorbidityService {
       }
     });
 
+    console.log(`📊 Processing ${attendances.length} attendances for morbidity report`);
+
+    // Track top diagnoses
+    const diagnosisCounts: Map<string, {
+      diagnosis: any;
+      male: number;
+      female: number;
+      byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>;
+    }> = new Map();
+
     // Process each attendance
     for (const attendance of attendances) {
       const patient = attendance.Patient;
+      if (!patient) continue;
+      
       const ageGroup = this.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
       const gender = patient.gender;
       
@@ -428,18 +469,41 @@ export class GHSMorbidityService {
         const diagnosis = diag.Diagnosis;
         if (!diagnosis?.morbidityGroup) continue;
 
-        const morbidityGroup = diagnosis.morbidityGroup;
+        const morbidityGroup = diagnosis.morbidityGroup as string;
         
+        // Track for top diagnoses
+        if (!diagnosisCounts.has(diagnosis.id)) {
+          diagnosisCounts.set(diagnosis.id, {
+            diagnosis,
+            male: 0,
+            female: 0,
+            byAgeGroup: {} as Record<GHSAgeGroup, { male: number; female: number }>
+          });
+        }
+        const countData = diagnosisCounts.get(diagnosis.id)!;
+        if (gender === 'male') {
+          countData.male++;
+        } else {
+          countData.female++;
+        }
+        if (!countData.byAgeGroup[ageGroup]) {
+          countData.byAgeGroup[ageGroup] = { male: 0, female: 0 };
+        }
+        if (gender === 'male') {
+          countData.byAgeGroup[ageGroup].male++;
+        } else {
+          countData.byAgeGroup[ageGroup].female++;
+        }
+
         // Map to appropriate section and increment
-        // Section 1: Communicable Immunizable
         const immunizableGroups = ['afp_polio', 'meningitis', 'neonatal_tetanus', 'pertussis_whooping_cough',
           'diphtheria', 'measles', 'yellow_fever', 'tetanus', 'tuberculosis'];
         
-        if (immunizableGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'communicableImmunizable', morbidityGroup as string, ageGroup, gender);
+        if (immunizableGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'communicableImmunizable', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 2: Communicable Non-Immunizable
         const nonImmunizableGroups = ['uncomplicated_malaria_suspected', 'uncomplicated_malaria_tested',
           'uncomplicated_malaria_positive', 'uncomplicated_malaria_not_tested_treated',
           'uncomplicated_malaria_tested_negative_treated', 'malaria_in_pregnancy_suspected',
@@ -451,131 +515,302 @@ export class GHSMorbidityService {
           'hiv_aids_related_conditions', 'mumps', 'intestinal_worms', 'chicken_pox',
           'upper_respiratory_tract_infections', 'pneumonia', 'septicaemia'];
         
-        if (nonImmunizableGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'communicableNonImmunizable', morbidityGroup as string, ageGroup, gender);
+        if (nonImmunizableGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'communicableNonImmunizable', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 3: Non-Communicable
         const ncdGroups = ['malnutrition', 'obesity', 'anaemia', 'other_nutritional_diseases',
           'hypertension', 'cardiac_diseases', 'stroke', 'diabetes_mellitus', 'rheumatism_arthritis',
           'sickle_cell_disease', 'asthma', 'chronic_obstructive_pulmonary_disease',
           'breast_cancer', 'cervical_cancer', 'lymphoma', 'prostate_cancer',
           'hepatocellular_carcinoma', 'all_other_cancers'];
         
-        if (ncdGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'nonCommunicable', morbidityGroup as string, ageGroup, gender);
+        if (ncdGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'nonCommunicable', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 4: Mental Health
         const mentalHealthGroups = ['schizophrenia', 'acute_psychotic_disorder', 'mono_symptoms_delusion',
           'depression', 'substance_abuse', 'epilepsy', 'autism', 'mental_retardation',
           'attention_deficit_hyperactivity_disorder', 'conversion_disorders',
           'post_traumatic_stress_syndrome', 'generalized_anxiety', 'other_anxiety_disorders', 'neurosis'];
         
-        if (mentalHealthGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'mentalHealth', morbidityGroup as string, ageGroup, gender);
+        if (mentalHealthGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'mentalHealth', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 5: Specialized Conditions
         const specializedGroups = ['acute_eye_infection', 'cataract', 'trachoma', 'otitis_media',
           'other_acute_ear_infection', 'dental_caries', 'dental_swellings', 'traumatic_conditions_oral',
           'periodontal_diseases', 'cerebral_palsy', 'liver_diseases', 'acute_urinary_tract_infection',
           'skin_diseases', 'ulcer', 'kidney_related_diseases', 'other_oral_conditions'];
         
-        if (specializedGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'specializedConditions', morbidityGroup as string, ageGroup, gender);
+        if (specializedGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'specializedConditions', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 6: Obstetrics & Gynaecological
         const obgynGroups = ['gynaecological_conditions', 'pregnancy_related_complications', 'anaemia_in_pregnancy'];
         
-        if (obgynGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'obstetricsGynaecology', morbidityGroup as string, ageGroup, gender);
+        if (obgynGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'obstetricsGynaecology', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 7: Reproductive Tract
         const reproductiveGroups = ['gonorrhoea', 'genital_ulcer', 'vaginal_discharge', 'urethral_discharge',
           'other_diseases_male_reproductive_system', 'other_diseases_female_reproductive_system'];
         
-        if (reproductiveGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'reproductiveTract', morbidityGroup as string, ageGroup, gender);
+        if (reproductiveGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'reproductiveTract', morbidityGroup, ageGroup, gender);
+          continue;
         }
         
-        // Section 8: Injuries
         const injuryGroups = ['transport_injuries_road_traffic_accidents', 'home_injuries',
           'occupational_industrial_injuries', 'burns', 'poisoning_occupational', 'dog_bite',
           'human_bites', 'snake_bite', 'sexual_abuse', 'domestic_violence',
           'pyrexia_unknown_origin_non_malaria', 'brought_in_dead', 'other_animal_bites', 'all_other_diseases'];
         
-        if (injuryGroups.includes(morbidityGroup as string)) {
-          this.incrementCount(report, 'injuries', morbidityGroup as string, ageGroup, gender);
+        if (injuryGroups.includes(morbidityGroup)) {
+          this.incrementCount(report, 'injuries', morbidityGroup, ageGroup, gender);
+          continue;
         }
       }
     }
 
+    // Build top 10 diagnoses
+    const sortedDiagnoses = Array.from(diagnosisCounts.entries())
+      .map(([id, data]) => ({
+        diagnosisId: id,
+        diagnosisName: data.diagnosis.name,
+        icdCode: data.diagnosis.icdCode,
+        morbidityGroup: data.diagnosis.morbidityGroup,
+        totalCases: data.male + data.female,
+        male: data.male,
+        female: data.female,
+        byAgeGroup: data.byAgeGroup
+      }))
+      .sort((a, b) => b.totalCases - a.totalCases)
+      .slice(0, 10);
+
+    report.topDiagnoses = sortedDiagnoses;
+
+    console.log('✅ Morbidity Report Summary:', {
+      totalAttendances: report.totals.totalAttendances,
+      totalDiagnoses: diagnosisCounts.size,
+      topDiagnosis: report.topDiagnoses[0]?.diagnosisName,
+      topDiagnosisCount: report.topDiagnoses[0]?.totalCases
+    });
+
     return report;
   }
 
-  static async exportToCSV(report: GHSMorbidityReport): Promise<string> {
+  static async getTopDiagnosesOnly(
+    startDate: Date,
+    endDate: Date,
+    limit: number = 10
+  ): Promise<TopDiagnosis[]> {
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        dateTime: { gte: startDate, lte: endDate },
+        status: { not: 'cancelled' }
+      },
+      include: {
+        Patient: true,
+        AttendanceDiagnosis: {
+          include: {
+            Diagnosis: true
+          }
+        }
+      }
+    });
+
+    const diagnosisCounts: Map<string, {
+      diagnosis: any;
+      male: number;
+      female: number;
+      byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>;
+    }> = new Map();
+
+    for (const attendance of attendances) {
+      const patient = attendance.Patient;
+      if (!patient) continue;
+      
+      const ageGroup = this.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
+      const gender = patient.gender;
+
+      for (const diag of attendance.AttendanceDiagnosis) {
+        const diagnosis = diag.Diagnosis;
+        if (!diagnosis) continue;
+
+        if (!diagnosisCounts.has(diagnosis.id)) {
+          diagnosisCounts.set(diagnosis.id, {
+            diagnosis,
+            male: 0,
+            female: 0,
+            byAgeGroup: {} as Record<GHSAgeGroup, { male: number; female: number }>
+          });
+        }
+        const countData = diagnosisCounts.get(diagnosis.id)!;
+        if (gender === 'male') {
+          countData.male++;
+        } else {
+          countData.female++;
+        }
+        if (!countData.byAgeGroup[ageGroup]) {
+          countData.byAgeGroup[ageGroup] = { male: 0, female: 0 };
+        }
+        if (gender === 'male') {
+          countData.byAgeGroup[ageGroup].male++;
+        } else {
+          countData.byAgeGroup[ageGroup].female++;
+        }
+      }
+    }
+
+    return Array.from(diagnosisCounts.entries())
+      .map(([id, data]) => ({
+        diagnosisId: id,
+        diagnosisName: data.diagnosis.name,
+        icdCode: data.diagnosis.icdCode,
+        morbidityGroup: data.diagnosis.morbidityGroup,
+        totalCases: data.male + data.female,
+        male: data.male,
+        female: data.female,
+        byAgeGroup: data.byAgeGroup
+      }))
+      .sort((a, b) => b.totalCases - a.totalCases)
+      .slice(0, limit);
+  }
+
+  static exportToCSV(report: GHSMorbidityReport): string {
     const rows: string[] = [];
     
     // Header
-    rows.push(`GHS Morbidity Report,${report.period.startDate.toISOString().split('T')[0]},${report.period.endDate.toISOString().split('T')[0]}`);
-    rows.push(`Facility,${report.facility.name},District,${report.facility.district},GHF Code,${report.facility.ghfCode}`);
-    rows.push('');
+    rows.push(`"GHS Morbidity Report"`);
+    rows.push(`"Facility Name","${report.facility.name}"`);
+    rows.push(`"District","${report.facility.district}"`);
+    rows.push(`"GHF Code","${report.facility.ghfCode}"`);
+    rows.push(`"Reporting Period","${report.period.startDate.toISOString().split('T')[0]}","to","${report.period.endDate.toISOString().split('T')[0]}"`);
+    rows.push(``);
     
-    // Helper to generate CSV rows for a section
+    // Helper to add section rows
     const addSectionRows = (title: string, sectionData: any, keys: string[]) => {
       rows.push(`"${title}"`);
-      const headerRow = ['Disease/Condition', ...this.AGE_GROUPS.map(g => `${g}_M`), ...this.AGE_GROUPS.map(g => `${g}_F`)];
+      
+      // Header row with age groups
+      const headerRow = ['"Disease/Condition"'];
+      for (const ageGroup of this.AGE_GROUPS) {
+        headerRow.push(`"${ageGroup}_M"`);
+      }
+      for (const ageGroup of this.AGE_GROUPS) {
+        headerRow.push(`"${ageGroup}_F"`);
+      }
+      headerRow.push('"Total_M"', '"Total_F"', '"Total"');
       rows.push(headerRow.join(','));
       
       for (const key of keys) {
         if (sectionData[key]) {
-          const row = [key.replace(/_/g, ' ')];
+          const row = [`"${key.replace(/_/g, ' ')}"`];
+          let totalMale = 0;
+          let totalFemale = 0;
+          
           for (const ageGroup of this.AGE_GROUPS) {
-            row.push(sectionData[key][ageGroup]?.male || 0);
+            const maleCount = sectionData[key][ageGroup]?.male || 0;
+            const femaleCount = sectionData[key][ageGroup]?.female || 0;
+            row.push(maleCount);
+            row.push(femaleCount);
+            totalMale += maleCount;
+            totalFemale += femaleCount;
           }
-          for (const ageGroup of this.AGE_GROUPS) {
-            row.push(sectionData[key][ageGroup]?.female || 0);
-          }
+          row.push(totalMale, totalFemale, totalMale + totalFemale);
           rows.push(row.join(','));
         }
       }
-      rows.push('');
+      rows.push(``);
     };
     
-    // Add all sections
-    addSectionRows('COMMUNICABLE IMMUNIZABLE', report.communicableImmunizable, [
+    // Add all 9 sections
+    const immunizableKeys = [
       'afp_polio', 'meningitis', 'neonatal_tetanus', 'pertussis_whooping_cough',
       'diphtheria', 'measles', 'yellow_fever', 'tetanus', 'tuberculosis'
-    ]);
+    ];
+    addSectionRows('SECTION 1: COMMUNICABLE IMMUNIZABLE', report.communicableImmunizable, immunizableKeys);
     
-    addSectionRows('COMMUNICABLE NON-IMMUNIZABLE', report.communicableNonImmunizable, [
+    const nonImmunizableKeys = [
       'uncomplicated_malaria_suspected', 'uncomplicated_malaria_tested', 'uncomplicated_malaria_positive',
-      'severe_malaria_lab_confirmed', 'typhoid_fever', 'suspected_cholera', 'diarrhoea_diseases',
-      'pneumonia', 'upper_respiratory_tract_infections'
-    ]);
+      'uncomplicated_malaria_not_tested_treated', 'uncomplicated_malaria_tested_negative_treated',
+      'malaria_in_pregnancy_suspected', 'malaria_in_pregnancy_tested', 'malaria_in_pregnancy_positive',
+      'malaria_in_pregnancy_not_tested_treated', 'malaria_in_pregnancy_tested_negative_treated',
+      'severe_malaria_lab_confirmed', 'severe_malaria_non_lab_confirmed', 'typhoid_fever',
+      'suspected_cholera', 'diarrhoea_diseases', 'viral_hepatitis', 'schistosomiasis_bilharzia',
+      'suspected_guinea_worm', 'onchocerciasis', 'buruli_ulcer', 'leprosy', 'hiv_aids_related_conditions',
+      'mumps', 'intestinal_worms', 'chicken_pox', 'upper_respiratory_tract_infections',
+      'pneumonia', 'septicaemia'
+    ];
+    addSectionRows('SECTION 2: COMMUNICABLE NON-IMMUNIZABLE', report.communicableNonImmunizable, nonImmunizableKeys);
     
-    addSectionRows('NON-COMMUNICABLE DISEASES', report.nonCommunicable, [
-      'malnutrition', 'obesity', 'anaemia', 'hypertension', 'cardiac_diseases',
-      'stroke', 'diabetes_mellitus', 'asthma'
-    ]);
+    const ncdKeys = [
+      'malnutrition', 'obesity', 'anaemia', 'other_nutritional_diseases', 'hypertension',
+      'cardiac_diseases', 'stroke', 'diabetes_mellitus', 'rheumatism_arthritis',
+      'sickle_cell_disease', 'asthma', 'chronic_obstructive_pulmonary_disease',
+      'breast_cancer', 'cervical_cancer', 'lymphoma', 'prostate_cancer',
+      'hepatocellular_carcinoma', 'all_other_cancers'
+    ];
+    addSectionRows('SECTION 3: NON-COMMUNICABLE DISEASES', report.nonCommunicable, ncdKeys);
     
-    addSectionRows('MENTAL HEALTH', report.mentalHealth, [
-      'depression', 'epilepsy', 'schizophrenia', 'substance_abuse'
-    ]);
+    const mentalHealthKeys = [
+      'schizophrenia', 'acute_psychotic_disorder', 'mono_symptoms_delusion', 'depression',
+      'substance_abuse', 'epilepsy', 'autism', 'mental_retardation',
+      'attention_deficit_hyperactivity_disorder', 'conversion_disorders',
+      'post_traumatic_stress_syndrome', 'generalized_anxiety', 'other_anxiety_disorders', 'neurosis'
+    ];
+    addSectionRows('SECTION 4: MENTAL HEALTH', report.mentalHealth, mentalHealthKeys);
     
-    addSectionRows('INJURIES', report.injuries, [
-      'transport_injuries_road_traffic_accidents', 'home_injuries', 'burns', 'snake_bite'
-    ]);
+    const specializedKeys = [
+      'acute_eye_infection', 'cataract', 'trachoma', 'otitis_media', 'other_acute_ear_infection',
+      'dental_caries', 'dental_swellings', 'traumatic_conditions_oral', 'periodontal_diseases',
+      'cerebral_palsy', 'liver_diseases', 'acute_urinary_tract_infection', 'skin_diseases',
+      'ulcer', 'kidney_related_diseases', 'other_oral_conditions'
+    ];
+    addSectionRows('SECTION 5: SPECIALIZED CONDITIONS', report.specializedConditions, specializedKeys);
     
-    // Summary row
-    rows.push('SUMMARY');
-    rows.push(`Total Attendances,${report.totals.totalAttendances}`);
-    rows.push(`Total New Cases,${report.totals.totalNewCases}`);
-    rows.push(`Total Re-Attendances,${report.totals.totalReAttendances}`);
-    rows.push(`Total Referrals,${report.totals.totalReferrals}`);
+    const obgynKeys = ['gynaecological_conditions', 'pregnancy_related_complications', 'anaemia_in_pregnancy'];
+    addSectionRows('SECTION 6: OBSTETRICS & GYNAECOLOGY', report.obstetricsGynaecology, obgynKeys);
+    
+    const reproductiveKeys = [
+      'gonorrhoea', 'genital_ulcer', 'vaginal_discharge', 'urethral_discharge',
+      'other_diseases_male_reproductive_system', 'other_diseases_female_reproductive_system'
+    ];
+    addSectionRows('SECTION 7: REPRODUCTIVE TRACT', report.reproductiveTract, reproductiveKeys);
+    
+    const injuriesKeys = [
+      'transport_injuries_road_traffic_accidents', 'home_injuries', 'occupational_industrial_injuries',
+      'burns', 'poisoning_occupational', 'dog_bite', 'human_bites', 'snake_bite',
+      'sexual_abuse', 'domestic_violence', 'pyrexia_unknown_origin_non_malaria',
+      'brought_in_dead', 'other_animal_bites', 'all_other_diseases'
+    ];
+    addSectionRows('SECTION 8: INJURIES', report.injuries, injuriesKeys);
+    
+    const reAttendKeys = ['re_attendances', 'referrals'];
+    addSectionRows('SECTION 9: RE-ATTENDANCES & REFERRALS', report.reAttendancesReferrals, reAttendKeys);
+    
+    // Add TOP 10 DIAGNOSES section
+    rows.push(`"TOP 10 DIAGNOSES"`);
+    rows.push(`"Rank","Diagnosis Name","ICD Code","Morbidity Group","Total Cases","Male","Female"`);
+    report.topDiagnoses.forEach((diag, idx) => {
+      rows.push(`"${idx + 1}","${diag.diagnosisName}","${diag.icdCode}","${diag.morbidityGroup}","${diag.totalCases}","${diag.male}","${diag.female}"`);
+    });
+    rows.push(``);
+    
+    // Summary
+    rows.push(`"SUMMARY"`);
+    rows.push(`"Total Attendances","${report.totals.totalAttendances}"`);
+    rows.push(`"Total New Cases","${report.totals.totalNewCases}"`);
+    rows.push(`"Total Re-Attendances","${report.totals.totalReAttendances}"`);
+    rows.push(`"Total Referrals","${report.totals.totalReferrals}"`);
+    rows.push(``);
+    rows.push(`"Generated At","${new Date().toISOString()}"`);
     
     return rows.join('\n');
   }

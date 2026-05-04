@@ -5,11 +5,10 @@ import {
   createDepartment as apiCreateDepartment, 
   updateDepartment as apiUpdateDepartment, 
   deleteDepartment as apiDeleteDepartment,
-  assignDepartmentHead as apiAssignDepartmentHead,
-  // ✅ ADDED MISSING FUNCTIONS
   getDepartmentStats as apiGetDepartmentStats,
   getDepartmentUsers as apiGetDepartmentUsers,
   assignUserToDepartment as apiAssignUserToDepartment,
+  assignDepartmentHead as apiAssignDepartmentHead,
   removeUserFromDepartment as apiRemoveUserFromDepartment,
   bulkUpdateDepartments as apiBulkUpdateDepartments
 } from '../api';
@@ -18,8 +17,8 @@ import type { Department, User } from '../types';
 interface DepartmentStore {
   departments: Department[];
   currentDepartment: Department | null;
-  departmentUsers: User[]; // ✅ ADDED
-  departmentStats: any; // ✅ ADDED
+  departmentUsers: User[];
+  departmentStats: any;
   isLoading: boolean;
   error: string | null;
   
@@ -31,12 +30,12 @@ interface DepartmentStore {
   deleteDepartment: (id: string) => Promise<void>;
   assignDepartmentHead: (departmentId: string, userId: string) => Promise<void>;
   
-  // ✅ ADDED MISSING FUNCTIONS
+  // Department Management
   getDepartmentStats: (id: string) => Promise<void>;
   getDepartmentUsers: (departmentId: string) => Promise<void>;
   assignUserToDepartment: (departmentId: string, userData: any) => Promise<void>;
   removeUserFromDepartment: (departmentId: string, userData: any) => Promise<void>;
-  bulkUpdateDepartments: (data: any) => Promise<void>;
+  bulkUpdateDepartments: (data: any) => Promise<any>;
   
   clearError: () => void;
   clearCurrentDepartment: () => void;
@@ -45,15 +44,17 @@ interface DepartmentStore {
 export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   departments: [],
   currentDepartment: null,
-  departmentUsers: [], // ✅ ADDED
-  departmentStats: null, // ✅ ADDED
+  departmentUsers: [],
+  departmentStats: null,
   isLoading: false,
   error: null,
 
   getDepartments: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const departments = await apiGetDepartments(filters);
+      const response = await apiGetDepartments(filters);
+      // Handle both response formats: direct array or { data: [] }
+      const departments = Array.isArray(response) ? response : response?.data || [];
       set({ departments, isLoading: false });
     } catch (error: any) {
       set({ 
@@ -136,10 +137,12 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   assignDepartmentHead: async (departmentId: string, userId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedDepartment = await apiAssignDepartmentHead(departmentId, userId);
+      // ✅ Use the imported API function instead of direct api.put
+      const updatedDepartment = await apiUpdateDepartment(departmentId, { headId: userId });
+      
       set(state => ({
-        departments: state.departments.map(dept => 
-          dept.id === departmentId ? updatedDepartment : dept
+        departments: state.departments.map(d => 
+          d.id === departmentId ? updatedDepartment : d
         ),
         currentDepartment: state.currentDepartment?.id === departmentId ? updatedDepartment : state.currentDepartment,
         isLoading: false
@@ -153,7 +156,6 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     }
   },
 
-  // ✅ ADDED MISSING FUNCTIONS
   getDepartmentStats: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
@@ -171,7 +173,9 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   getDepartmentUsers: async (departmentId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const users = await apiGetDepartmentUsers(departmentId);
+      const response = await apiGetDepartmentUsers(departmentId);
+      // Handle response format
+      const users = Array.isArray(response) ? response : response?.users || [];
       set({ departmentUsers: users, isLoading: false });
     } catch (error: any) {
       set({ 
@@ -189,6 +193,8 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       
       // Refresh department users after assignment
       await get().getDepartmentUsers(departmentId);
+      // Also refresh departments list to update counts
+      await get().getDepartments();
       set({ isLoading: false });
     } catch (error: any) {
       set({ 
@@ -206,6 +212,8 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       
       // Refresh department users after removal
       await get().getDepartmentUsers(departmentId);
+      // Also refresh departments list to update counts
+      await get().getDepartments();
       set({ isLoading: false });
     } catch (error: any) {
       set({ 

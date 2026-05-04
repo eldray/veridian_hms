@@ -1,8 +1,8 @@
 // controllers/admissionController.ts - UPDATED VERSION
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { AdmissionType } from '@prisma/client';
-import prisma from '../lib/prisma.js';
+import { PrismaClient, AdmissionType } from '@prisma/client'; // ✅ ADDED AdmissionType
+const prisma = new PrismaClient();
 import { NotificationService } from '../services/NotificationService';
 
 // ==============================
@@ -750,7 +750,13 @@ export const dischargePatient = [
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
+      // In dischargePatient controller
+        const pendingTasks = await tx.labTest.count({
+          where: { attendanceId: admission.attendanceId, status: { not: 'completed' } }
+        });
+        if (pendingTasks > 0) {
+          throw new Error(`Cannot discharge: ${pendingTasks} pending lab tests`);
+        }
       const { 
         dischargeDate, 
         dischargeTime, 
@@ -950,7 +956,7 @@ export const addDailyNotes = [
 ];
 
 // ==============================
-// GET ADMISSION STATISTICS - UPDATED
+// GET ADMISSION STATISTICS - MANUAL CALCULATION VERSION
 // ==============================
 export const getAdmissionStats = async (req: Request, res: Response) => {
   try {
@@ -963,64 +969,107 @@ export const getAdmissionStats = async (req: Request, res: Response) => {
       if (endDate) where.admissionDate.lte = new Date(endDate as string);
     }
 
-    const [
-      totalAdmissions,
-      currentAdmissions,
-      dischargedAdmissions,
-      averageLengthOfStay,
-      wardBreakdown,
-      admissionTypeBreakdown // ✅ ADDED: Admission type statistics
-    ] = await Promise.all([
-      prisma.admission.count({ where }),
-      prisma.admission.count({ where: { ...where, status: 'admitted' } }),
-      prisma.admission.count({ where: { ...where, status: 'discharged' } }),
-      prisma.admission.aggregate({
-        where: { ...where, status: 'discharged', lengthOfStay: { not: null } },
-        _avg: {
-          lengthOfStay: true
+    // Fetch all admissions matching the filter
+    const admissions = await prisma.admission.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        lengthOfStay: true,
+        admissionType: true,
+        wardId: true,
+        admissionDate: true,
+        dischargeDate: true,
+        Ward: {
+          select: {
+            wardName: true,
+            wardType: true,
+            totalBeds: true,
+            occupiedBeds: true
+          }
         }
-      }),
-      prisma.admission.groupBy({
-        by: ['wardId'],
-        where: { ...where, status: 'admitted' },
-        _count: {
-          id: true
-        }
-      }),
-      // ✅ ADDED: Admission type breakdown
-      prisma.admission.groupBy({
-        by: ['admissionType'],
-        where: { ...where },
-        _count: {
-          id: true
-        }
-      })
-    ]);
+      }
+    });
 
-    // Get ward names for breakdown
-    const wardDetails = await Promise.all(
-      wardBreakdown.map(async (ward) => {
-        const wardInfo = await prisma.ward.findUnique({
-          where: { id: ward.wardId },
-          select: { wardName: true, wardType: true }
-        });
-        return {
-          wardId: ward.wardId,
-          wardName: wardInfo?.wardName || 'Unknown',
-          wardType: wardInfo?.wardType || 'Unknown',
-          admissionCount: ward._count.id
-        };
-      })
+    // Calculate basic counts
+    const totalAdmissions = admissions.length;
+    const currentAdmissions = admissions.filter(a => a.status === 'admitted').length;
+    const dischargedAdmissions = admissions.filter(a => a.status === 'discharged').length;
+
+    // Calculate average length of stay (only for discharged with valid lengthOfStay)
+    const dischargedWithLOS = admissions.filter(a => 
+      a.status === 'discharged' && 
+      a.lengthOfStay !== null && 
+      a.lengthOfStay !== undefined && 
+      a.lengthOfStay > 0
     );
+    
+    const averageLengthOfStay = dischargedWithLOS.length > 0
+      ? dischargedWithLOS.reduce((sum, a) => sum + (a.lengthOfStay || 0), 0) / dischargedWithLOS.length
+      : 0;
 
+    // Calculate ward breakdown for current admissions
+    const wardAdmissions = admissions.filter(a => a.status === 'admitted' && a.wardId);
+    const wardMap = new Map();
+    
+    for (const admission of wardAdmissions) {
+      const wardId = admission.wardId!;
+      if (!wardMap.has(wardId)) {
+        wardMap.set(wardId, {
+          wardId: wardId,
+          wardName: admission.ward?.wardName || 'Unknown',
+          wardType: admission.ward?.wardType || 'Unknown',
+          admissionCount: 0,
+          totalBeds: admission.ward?.totalBeds || 0,
+          occupiedBeds: admission.ward?.occupiedBeds || 0,
+          occupancyRate: 0
+        });
+      }
+      wardMap.get(wardId).admissionCount++;
+    }
+    
+    // Calculate occupancy rate for each ward
+    const wardBreakdown = Array.from(wardMap.values()).map(ward => ({
+      ...ward,
+      occupancyRate: ward.totalBeds > 0 ? Math.round((ward.occupiedBeds / ward.totalBeds) * 100) : 0
+    }));
+
+    // Calculate admission type breakdown
+    const typeMap = new Map();
+    for (const admission of admissions) {
+      if (admission.admissionType) {
+        const type = admission.admissionType;
+        typeMap.set(type, (typeMap.get(type) || 0) + 1);
+      }
+    }
+    
+    const admissionTypeBreakdown = Array.from(typeMap.entries()).map(([admissionType, count]) => ({
+      admissionType,
+      count
+    }));
+
+    // Calculate bed occupancy across all beds
+    const totalBeds = await prisma.bed.count();
+    const occupiedBeds = await prisma.bed.count({ where: { isOccupied: true } });
+    const availableBeds = totalBeds - occupiedBeds;
+    const overallOccupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+    // Return the statistics
     res.json({
       totalAdmissions,
       currentAdmissions,
       dischargedAdmissions,
-      averageLengthOfStay: averageLengthOfStay._avg.lengthOfStay || 0,
-      wardBreakdown: wardDetails,
-      admissionTypeBreakdown // ✅ ADDED: Include admission type stats
+      averageLengthOfStay: Number(averageLengthOfStay.toFixed(1)),
+      wardBreakdown,
+      admissionTypeBreakdown,
+      bedOccupancy: {
+        totalBeds,
+        occupiedBeds,
+        availableBeds,
+        occupancyRate: overallOccupancyRate
+      }
     });
+    
   } catch (error) {
     console.error('Error fetching admission stats:', error);
     res.status(500).json({ 

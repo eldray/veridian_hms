@@ -694,6 +694,9 @@ export const getReferralsByPatient = async (req: AuthRequest, res: Response) => 
 // ==============================================
 // GENERATE REFERRAL LETTER (PDF content)
 // ==============================================
+// ==============================================
+// GENERATE REFERRAL LETTER (PDF content)
+// ==============================================
 export const generateReferralLetter = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -721,16 +724,19 @@ export const generateReferralLetter = async (req: AuthRequest, res: Response) =>
             attendanceType: true,
             complaints: true,
             medicalNotes: true,
-            diagnoses: {
+            // ✅ FIXED: Use AttendanceDiagnosis instead of diagnoses
+            AttendanceDiagnosis: {
               include: {
-                diagnosis: {
+                Diagnosis: {
                   select: {
                     name: true,
                     icdCode: true
                   }
                 }
               },
-              where: { primary: true }
+              where: {
+                primary: true
+              }
             }
           }
         },
@@ -753,8 +759,8 @@ export const generateReferralLetter = async (req: AuthRequest, res: Response) =>
     // Get hospital info
     const hospital = await prisma.hospital.findFirst();
 
-    // Get primary diagnosis
-    const primaryDiagnosis = referral.attendance?.diagnoses?.find(d => d.primary)?.diagnosis;
+    // Get primary diagnosis from AttendanceDiagnosis
+    const primaryDiagnosis = referral.attendance?.AttendanceDiagnosis?.find(d => d.primary)?.Diagnosis;
 
     // Generate letter content
     const letterData = {

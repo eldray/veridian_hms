@@ -1,4 +1,4 @@
-// src/pages/Nursing.tsx - COMPLETE REDESIGN
+// src/pages/Nursing.tsx - COMPLETELY REDESIGNED WITH DOSAGE LOGIC
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -7,602 +7,340 @@ import { useAuthStore } from '../store/authStore';
 import { useAdmissionStore } from '../store/admissionStore';
 import { useStockStore } from '../store/stockStore';
 import { useToast } from '../store/toastStore';
-import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
 import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
-
-import {
-  ChevronLeft,
-  RefreshCw,
-  Pill,
-  ClipboardList,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Stethoscope,
-  User,
-  Calendar,
-  Activity,
-  FileText,
-  Plus,
-  Trash2,
-  Edit,
-  Eye,
-  Printer,
-  Download,
-  Syringe,
-  Heart,
-  Thermometer,
-  Wind,
-  Droplet,
-  Weight,
-  Ruler,
-  TrendingUp,
-  Baby,
-  Shield,
-  AlertTriangle,
-  Ban,
-  X,
-  Search,
-  MoreVertical,
-  Send,
-  Save,
-  BookOpen,
-  Users,
-  Hospital,
-  Bed,
-  Clipboard,
-  NoteText
+import { 
+  ChevronLeft, RefreshCw, Pill, Users, Hospital, Bed, 
+  Search, Plus, Clock, CheckCircle, AlertCircle, Syringe,
+  FileText, Activity, User, Calendar, TrendingUp, Heart,
+  Thermometer, Droplet, Wind, ClipboardList, Send, Save,
+  X, Printer, Download, Eye, Trash2, Edit, Filter, History
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
   return entity?._id || entity?.id;
 };
 
-// Status Badge Component
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const config: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-    pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock className="w-3 h-3" /> },
-    admitted: { bg: 'bg-blue-100', text: 'text-blue-800', icon: <Hospital className="w-3 h-3" /> },
-    discharged: { bg: 'bg-green-100', text: 'text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-    completed: { bg: 'bg-green-100', text: 'text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: <Ban className="w-3 h-3" /> },
-  };
-  const c = config[status?.toLowerCase()] || config.pending;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.icon}
-      {status?.charAt(0).toUpperCase() + status?.slice(1) || 'Pending'}
-    </span>
-  );
-};
-
-// Medication Status Badge
-const MedStatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const config: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-    prescribed: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock className="w-3 h-3" /> },
-    dispensed: { bg: 'bg-blue-100', text: 'text-blue-800', icon: <Package className="w-3 h-3" /> },
-    administered: { bg: 'bg-green-100', text: 'text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: <Ban className="w-3 h-3" /> },
-  };
-  const c = config[status?.toLowerCase()] || config.prescribed;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.icon}
-      {status}
-    </span>
-  );
-};
-
-export default function Nursing() {
-  const navigate = useNavigate();
-  const { success, error: toastError } = useToast();
-  const { user } = useAuthStore();
-
-  // State
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'medications' | 'notes' | 'vitals'>('medications');
+// Helper to determine frequency type and calculate required doses
+const getFrequencyInfo = (frequency: string): { type: string; requiredDoses: number; intervalHours: number } => {
+  const freq = frequency?.toLowerCase() || '';
   
-  // Nursing notes state
-  const [nursingNotes, setNursingNotes] = useState('');
-  const [dailyNote, setDailyNote] = useState('');
-  const [handoverNotes, setHandoverNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [administeringMed, setAdministeringMed] = useState<string | null>(null);
-  
-  // Vitals modal state
-  const [showVitalsModal, setShowVitalsModal] = useState(false);
-  const [editingVitals, setEditingVitals] = useState<any>(null);
-  const [latestVitals, setLatestVitals] = useState<any>(null);
-
-  // Stores
-  const {
-    attendances,
-    currentAttendance,
-    getAttendance,
-    getAttendances,
-    updateMedicationStatus,
-    canAddMedicalEntries,
-    getVitalsByAttendance,
-    addVitals,
-    updateVitals,
-  } = useAttendanceStore();
-
-  const { patients, loadPatients } = usePatientStore();
-  const { admissions, getAdmissions, addDailyNote, getAdmissionStats } = useAdmissionStore();
-  const { stockItems, getStockItems } = useStockStore();
-
-  // Load data
-  const loadData = async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([
-        loadPatients(),
-        getAttendances(),
-        getStockItems(),
-        getAdmissions(),
-      ]);
-      success('Data loaded', 'Nursing station ready');
-    } catch (err: any) {
-      toastError('Load failed', err.message);
-    } finally {
-      setRefreshing(false);
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Filter only inpatient/admitted attendances
-  const inpatientAttendances = useMemo(() => {
-    return attendances.filter(a => a.status === 'admitted');
-  }, [attendances]);
-
-  // Load full attendance when selected
-  useEffect(() => {
-    if (selectedAttendanceId) {
-      getAttendance(selectedAttendanceId);
-    }
-  }, [selectedAttendanceId, getAttendance]);
-
-  // Load vitals when attendance changes
-  useEffect(() => {
-    const loadVitals = async () => {
-      if (selectedAttendanceId) {
-        try {
-          const vitals = await getVitalsByAttendance(selectedAttendanceId);
-          setLatestVitals(vitals?.length ? vitals[vitals.length - 1] : null);
-        } catch {
-          setLatestVitals(null);
-        }
-      }
-    };
-    loadVitals();
-  }, [selectedAttendanceId, getVitalsByAttendance]);
-
-  const selectedPatient = patients.find((p) => getEntityId(p) === selectedPatientId);
-  const selectedAttendance = attendances.find((a) => getEntityId(a) === selectedAttendanceId);
-  
-  // Find active admission for this attendance
-  const activeAdmission = admissions.find(a => 
-    a.attendanceId === selectedAttendanceId && a.status === 'admitted'
-  );
-
-  const canAddEntries = selectedAttendance ? canAddMedicalEntries(selectedAttendance) : false;
-
-  // Get medications from attendance
-  const medications = selectedAttendance?.Medication || [];
-  const dispensedMeds = medications.filter((med: any) => med.status === 'dispensed');
-  const administeredMeds = medications.filter((med: any) => med.status === 'administered');
-  const prescribedMeds = medications.filter((med: any) => med.status === 'prescribed');
-
-  const handleClearSelection = () => {
-    setSelectedPatientId('');
-    setSelectedAttendanceId('');
-    setNursingNotes('');
-    setDailyNote('');
-    setHandoverNotes('');
-  };
-
-  const handleRefresh = () => loadData();
-
-  // Administer medication
-  const handleAdministerMedication = async (medicationId: string) => {
-    if (!selectedAttendanceId || !user) return;
-
-    setAdministeringMed(medicationId);
-    try {
-      await updateMedicationStatus(selectedAttendanceId, medicationId, {
-        status: 'administered',
-        administeredAt: new Date().toISOString(),
-        administeredById: user.id
-      });
-
-      success('Medication administered', 'Medication recorded as given');
-      await getAttendance(selectedAttendanceId);
-    } catch (error: any) {
-      toastError('Administer failed', error.message || 'Could not record medication');
-    } finally {
-      setAdministeringMed(null);
-    }
-  };
-
-  // Submit daily note (for admission)
-  const handleSubmitDailyNote = async () => {
-    if (!activeAdmission?.id || !dailyNote.trim()) {
-      toastError('Notes required', 'Please enter daily nursing notes');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await addDailyNote(activeAdmission.id, { notes: dailyNote });
-      success('Daily note saved', 'Nursing assessment recorded');
-      setDailyNote('');
-    } catch (error: any) {
-      toastError('Save failed', error.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Submit handover notes
-  const handleSubmitHandoverNotes = async () => {
-    if (!handoverNotes.trim()) {
-      toastError('Notes required', 'Please enter handover notes');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // For now, store in medicalNotes or create a handover system
-      // This would need a Handover model or extend Admission
-      success('Handover saved', 'Shift handover notes recorded');
-      setHandoverNotes('');
-    } catch (error: any) {
-      toastError('Save failed', error.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle vitals submission
-  const handleSubmitVitals = async (vitalsData: any) => {
-    if (!selectedAttendanceId) return;
-    
-    try {
-      if (editingVitals) {
-        await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
-        success('Vitals Updated', 'Vitals updated successfully');
-      } else {
-        await addVitals(selectedAttendanceId, {
-          ...vitalsData,
-          recordedAt: new Date().toISOString(),
-          recordedById: user?.id
-        });
-        success('Vitals Recorded', 'Vitals recorded successfully');
-      }
-      
-      const updatedVitals = await getVitalsByAttendance(selectedAttendanceId);
-      setLatestVitals(updatedVitals?.length ? updatedVitals[updatedVitals.length - 1] : null);
-      setShowVitalsModal(false);
-      setEditingVitals(null);
-    } catch (err: any) {
-      toastError('Save Failed', err.message);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-          <div className="w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Nursing Station...</h2>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">Fetching patient and medication data</p>
-        </div>
-      </div>
-    );
+  if (freq.includes('once') || freq === 'od' || freq === 'stat' || freq === 'daily') {
+    return { type: 'Once Daily (OD)', requiredDoses: 1, intervalHours: 24 };
   }
+  if (freq.includes('bd') || freq === 'twice' || freq === '12hrly') {
+    return { type: 'Twice Daily (BD)', requiredDoses: 2, intervalHours: 12 };
+  }
+  if (freq.includes('tds') || freq === 'thrice' || freq === '8hrly') {
+    return { type: 'Three Times Daily (TDS)', requiredDoses: 3, intervalHours: 8 };
+  }
+  if (freq.includes('qid') || freq === 'four' || freq === '6hrly') {
+    return { type: 'Four Times Daily (QID)', requiredDoses: 4, intervalHours: 6 };
+  }
+  // Default to once if unknown
+  return { type: 'Once Daily (OD)', requiredDoses: 1, intervalHours: 24 };
+};
 
+// Status Badge Component
+const StatusBadge = ({ status }: { status: string }) => {
+  const config: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    admitted: 'bg-blue-100 text-blue-800',
+    discharged: 'bg-green-100 text-green-800',
+    completed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-red-100 text-red-800',
+  };
+  const className = config[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
+  return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${className}`}>{status}</span>;
+};
+
+// Medication Card Component with Administration Log
+const MedicationCard = ({ medication, onAdminister, isAdministering, selectedAttendanceId, user }: any) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const frequencyInfo = getFrequencyInfo(medication.frequency);
+  
+  // Get administered doses from the medication object
+  const administeredDoses = medication.administeredDoses || [];
+  const administeredCount = administeredDoses.length;
+  const remainingDoses = frequencyInfo.requiredDoses - administeredCount;
+  const isComplete = remainingDoses <= 0;
+  
+  // Check if next dose is due based on last administration time
+  const isNextDoseDue = () => {
+    if (isComplete) return false;
+    if (administeredCount === 0) return true;
+    
+    const lastDose = administeredDoses[administeredDoses.length - 1];
+    if (!lastDose) return true;
+    
+    const lastTime = new Date(lastDose.administeredAt).getTime();
+    const now = new Date().getTime();
+    const hoursSince = (now - lastTime) / (1000 * 60 * 60);
+    
+    return hoursSince >= frequencyInfo.intervalHours;
+  };
+  
+  const canAdminister = !isComplete && isNextDoseDue();
+  const nextDoseNumber = administeredCount + 1;
+  
+  const getStatusColor = () => {
+    if (isComplete) return 'bg-green-100 text-green-800 border-green-200';
+    if (canAdminister) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-blue-100 text-blue-800 border-blue-200';
+  };
+  
+  const getStatusText = () => {
+    if (isComplete) return 'Completed';
+    if (canAdminister) return `Due for Dose ${nextDoseNumber}/${frequencyInfo.requiredDoses}`;
+    return `Next Dose in ~${Math.ceil(frequencyInfo.intervalHours - ((new Date().getTime() - new Date(administeredDoses[administeredDoses.length - 1]?.administeredAt || 0).getTime()) / (1000 * 60 * 60)))} hours`;
+  };
+  
+  const handleAdminister = () => {
+    if (canAdminister) {
+      onAdminister(medication.id, nextDoseNumber);
+    }
+  };
+  
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all duration-200 border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
-            <Users className="w-5 h-5 text-teal-600" />
+    <div className={`border rounded-lg transition-all ${isExpanded ? 'border-teal-300 shadow-md' : 'border-[var(--border-color)]'}`}>
+      {/* Main Card */}
+      <div className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className="font-medium text-[var(--text-primary)]">{medication.name}</span>
+              <span className="text-xs text-[var(--text-secondary)]">{medication.dosage}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor()}`}>
+                {getStatusText()}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div><span className="text-[var(--text-secondary)]">Route:</span> {medication.route || 'Oral'}</div>
+              <div><span className="text-[var(--text-secondary)]">Frequency:</span> {frequencyInfo.type}</div>
+              <div><span className="text-[var(--text-secondary)]">Duration:</span> {medication.duration}</div>
+              <div><span className="text-[var(--text-secondary)]">Progress:</span> {administeredCount}/{frequencyInfo.requiredDoses} doses given</div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Nursing Station</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5">Medication administration and nursing notes</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+          
           <button
-            onClick={() => setShowVitalsModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
-            disabled={!canAddEntries}
+            onClick={handleAdminister}
+            disabled={!canAdminister || isAdministering}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              canAdminister 
+                ? 'bg-green-600 text-white hover:bg-green-700' 
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
           >
-            <Activity className="w-4 h-4" />
-            Record Vitals
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            {isAdministering ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Syringe className="w-4 h-4" />
+            )}
+            {canAdminister ? `Administer Dose ${nextDoseNumber}` : isComplete ? 'Completed' : 'Wait for Next Dose'}
           </button>
         </div>
       </div>
-
-      {/* Patient & Attendance Selection - Only admitted patients */}
-      <PatientAttendanceSelector
-        patients={patients}
-        attendances={inpatientAttendances}
-        selectedPatientId={selectedPatientId}
-        selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={setSelectedPatientId}
-        onAttendanceSelect={setSelectedAttendanceId}
-        onClearSelection={handleClearSelection}
-      />
-
-      {/* Patient & Visit Header */}
-      {selectedPatient && selectedAttendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-100 to-teal-200 flex items-center justify-center shadow-sm">
-                <User className="w-5 h-5 text-teal-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-[var(--text-primary)] text-base">
-                    {selectedPatient.surname} {selectedPatient.otherNames}
-                  </h3>
-                  <span className="text-xs text-[var(--text-secondary)]">
-                    {selectedPatient.gender === 'male' ? '👨' : '👩'} • {selectedPatient.age || '?'}y
-                  </span>
+      
+      {/* Expanded Administration Log */}
+      {isExpanded && (
+        <div className="border-t border-[var(--border-color)] p-4 bg-[var(--bg-main)]">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+            <History className="w-4 h-4 text-teal-500" />
+            Administration Log
+          </h4>
+          
+          {administeredDoses.length === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)] text-center py-4">No doses administered yet</p>
+          ) : (
+            <div className="space-y-2">
+              {/* Show all administered doses */}
+              {administeredDoses.map((admin: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[var(--text-primary)]">
+                        Dose {admin.doseNumber} of {frequencyInfo.requiredDoses}
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        {new Date(admin.administeredAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    by {admin.administeredBy}
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded">#{selectedPatient.folderNumber}</span>
-                  <span>•</span>
-                  <span>{selectedPatient.contact}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                <span className="text-xs font-mono text-[var(--text-secondary)]">
-                  📋 {selectedAttendance.attendanceNumber || 'New Visit'}
-                </span>
-              </div>
-              <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                  📅 {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}
-                </span>
-              </div>
-              <StatusBadge status={selectedAttendance.status} />
-              {activeAdmission && (
-                <div className="bg-blue-100 px-2.5 py-1 rounded-full border border-blue-200">
-                  <span className="text-xs text-blue-700 flex items-center gap-1">
-                    <Bed className="w-3 h-3" />
-                    Admitted: {activeAdmission.admissionNumber}
-                  </span>
+              ))}
+              
+              {/* Show upcoming doses as placeholders */}
+              {!isComplete && (
+                <div className="mt-3 pt-3 border-t border-dashed border-[var(--border-color)]">
+                  <p className="text-xs text-[var(--text-secondary)] mb-2">Upcoming:</p>
+                  {Array.from({ length: remainingDoses }, (_, i) => {
+                    const doseNum = administeredCount + i + 1;
+                    return (
+                      <div key={`upcoming-${doseNum}`} className="flex items-center gap-3 p-2 opacity-50">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            Dose {doseNum} of {frequencyInfo.requiredDoses} (Pending)
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Quick Stats Row */}
-          <div className="border-t border-[var(--border-color)] px-5 py-2 bg-[var(--bg-main)]">
-            <div className="grid grid-cols-4 gap-4 text-center">
-              <div>
-                <p className="text-xl font-bold text-blue-600">{prescribedMeds.length}</p>
-                <p className="text-xs text-[var(--text-secondary)]">Prescribed</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-yellow-600">{dispensedMeds.length}</p>
-                <p className="text-xs text-[var(--text-secondary)]">Ready</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-green-600">{administeredMeds.length}</p>
-                <p className="text-xs text-[var(--text-secondary)]">Given Today</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-purple-600">{selectedAttendance?.Vitals?.length || 0}</p>
-                <p className="text-xs text-[var(--text-secondary)]">Vitals Records</p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
+    </div>
+  );
+};
 
-      {/* Vitals Display */}
-      {selectedAttendance && latestVitals && (
-        <VitalsDisplay vitals={latestVitals} />
-      )}
-
-      {/* Main Content - Tabs */}
-      {selectedAttendanceId && (
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)]">
-          <div className="border-b border-[var(--border-color)] px-4">
-            <div className="flex gap-6">
-              <button
-                onClick={() => setActiveTab('medications')}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === 'medications'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <Pill className="w-4 h-4 inline mr-1" />
-                Medications ({dispensedMeds.length + administeredMeds.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('notes')}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === 'notes'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <FileText className="w-4 h-4 inline mr-1" />
-                Nursing Notes
-              </button>
-              <button
-                onClick={() => setActiveTab('vitals')}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === 'vitals'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <Activity className="w-4 h-4 inline mr-1" />
-                Vitals History
-              </button>
-            </div>
-          </div>
-
-          <div className="p-5">
-            {/* MEDICATIONS TAB */}
-            {activeTab === 'medications' && (
-              <div className="space-y-6">
-                {/* Ready for Administration */}
-                {dispensedMeds.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-yellow-500" />
-                      Ready for Administration ({dispensedMeds.length})
-                    </h3>
-                    <div className="space-y-3">
-                      {dispensedMeds.map((med: any) => {
-                        const stockItem = stockItems.find(s => s.id === med.stockItemId);
-                        return (
-                          <div key={med.id} className="border border-[var(--border-color)] rounded-lg p-4 hover:bg-[var(--bg-main)] transition-colors">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-[var(--text-primary)]">{med.name}</span>
-                                  <MedStatusBadge status={med.status} />
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
-                                  <div><span className="text-[var(--text-secondary)]">Dosage:</span> <span className="font-medium">{med.dosage}</span></div>
-                                  <div><span className="text-[var(--text-secondary)]">Route:</span> <span className="font-medium">{med.route || 'Oral'}</span></div>
-                                  <div><span className="text-[var(--text-secondary)]">Frequency:</span> <span className="font-medium">{med.frequency}</span></div>
-                                  <div><span className="text-[var(--text-secondary)]">Quantity:</span> <span className="font-medium">{med.quantity}</span></div>
-                                </div>
-                                {med.instructions && (
-                                  <p className="text-sm text-[var(--text-secondary)] mt-2">
-                                    <span className="font-medium">Instructions:</span> {med.instructions}
-                                  </p>
-                                )}
-                                {stockItem && stockItem.currentStock < med.quantity && (
-                                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                                    <AlertTriangle className="w-3 h-3" />
-                                    Low stock: Only {stockItem.currentStock} units available
-                                  </p>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => handleAdministerMedication(med.id)}
-                                disabled={administeringMed === med.id || !canAddEntries}
-                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm font-medium"
-                              >
-                                {administeringMed === med.id ? (
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <Syringe className="w-4 h-4" />
-                                )}
-                                Administer
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+// Handover Notes Component - Full height
+const HandoverNotes = () => {
+  const [handoverNotes, setHandoverNotes] = useState('');
+  const [handoverHistory, setHandoverHistory] = useState<any[]>(() => {
+    const saved = localStorage.getItem('handoverHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { success, error } = useToast();
+  const { user } = useAuthStore();
+  
+  const handleSubmitHandover = async () => {
+    if (!handoverNotes.trim()) {
+      error('Notes required', 'Please enter handover notes');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const newNote = {
+        id: Date.now().toString(),
+        content: handoverNotes,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.fullName || user?.username || 'Unknown',
+        shift: new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Night'
+      };
+      
+      const updatedHistory = [newNote, ...handoverHistory];
+      setHandoverHistory(updatedHistory);
+      localStorage.setItem('handoverHistory', JSON.stringify(updatedHistory));
+      setHandoverNotes('');
+      success('Handover saved', 'Shift handover notes recorded');
+    } catch (err: any) {
+      error('Save failed', err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col h-full">
+      <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex-shrink-0">
+        <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+          <Send className="w-4 h-4 text-orange-500" />
+          Shift Handover Notes
+        </h3>
+        <p className="text-xs text-[var(--text-secondary)] mt-0.5">Important information for next shift</p>
+      </div>
+      
+      <div className="p-4 flex-shrink-0">
+        <textarea
+          value={handoverNotes}
+          onChange={(e) => setHandoverNotes(e.target.value)}
+          rows={3}
+          placeholder={`Handover for ${new Date().toLocaleDateString()} - ${new Date().getHours() < 12 ? 'Morning' : 'Afternoon'} Shift:\n- Pending tasks\n- Patient status updates\n- Special instructions\n- Family communications\n- Upcoming procedures...`}
+          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm resize-none focus:ring-2 focus:ring-orange-500"
+        />
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={handleSubmitHandover}
+            disabled={isSubmitting || !handoverNotes.trim()}
+            className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm disabled:opacity-50"
+          >
+            {isSubmitting ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Save Handover
+          </button>
+        </div>
+      </div>
+      
+      {/* Handover History - Scrollable, extends to bottom */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+        {handoverHistory.length > 0 ? (
+          <div className="space-y-3">
+            <h4 className="text-xs font-medium text-[var(--text-secondary)] sticky top-0 bg-[var(--bg-card)] py-1">Recent Handovers</h4>
+            {handoverHistory.map((note) => (
+              <div key={note.id} className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-orange-600">{note.shift} Shift</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{new Date(note.createdAt).toLocaleString()}</span>
                   </div>
-                )}
-
-                {/* Already Administered Today */}
-                {administeredMeds.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Administered ({administeredMeds.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {administeredMeds.map((med: any) => (
-                        <div key={med.id} className="border border-green-200 bg-green-50 rounded-lg p-3">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                              <span className="font-medium text-[var(--text-primary)]">{med.name}</span>
-                              <div className="text-sm text-[var(--text-secondary)]">{med.dosage} • {med.frequency}</div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MedStatusBadge status={med.status} />
-                              {med.administeredAt && (
-                                <span className="text-xs text-[var(--text-secondary)]">
-                                  at {new Date(med.administeredAt).toLocaleTimeString()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* No Medications */}
-                {dispensedMeds.length === 0 && administeredMeds.length === 0 && (
-                  <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg">
-                    <Pill className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">No Medications Ready</h3>
-                    <p className="text-sm text-[var(--text-secondary)]">
-                      No medications have been dispensed for this patient yet.
-                    </p>
-                  </div>
-                )}
-
-                {/* Cannot Add Note */}
-                {!canAddEntries && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-                    <AlertCircle className="w-4 h-4 text-yellow-600 inline mr-2" />
-                    <span className="text-sm text-yellow-700">
-                      Cannot administer medications to {selectedAttendance?.status} attendance
-                    </span>
-                  </div>
-                )}
+                  <span className="text-xs text-[var(--text-secondary)]">by {note.createdBy}</span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note.content}</p>
               </div>
-            )}
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-[var(--text-secondary)] text-sm py-8">
+            No handover notes recorded
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
-            {/* NURSING NOTES TAB */}
-            {activeTab === 'notes' && (
-              <div className="space-y-6">
-                {/* Daily Nursing Assessment */}
-                <div className="border border-[var(--border-color)] rounded-lg p-4">
-                  <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                    <Clipboard className="w-4 h-4 text-teal-500" />
-                    Daily Nursing Assessment
-                  </h3>
-                  <textarea
-                    value={dailyNote}
-                    onChange={(e) => setDailyNote(e.target.value)}
-                    rows={5}
-                    placeholder="Record daily nursing assessment:
+// Nursing Notes Component
+const NursingNotesTab = ({ admissionId }: { admissionId: string }) => {
+  const [dailyNote, setDailyNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addDailyNote, admissions } = useAdmissionStore();
+  const { success, error } = useToast();
+  const { user } = useAuthStore();
+  
+  const admission = admissions.find(a => a.id === admissionId);
+  const dailyNotes = admission?.dailyNotes ? Object.entries(admission.dailyNotes) : [];
+  
+  const handleSubmitDailyNote = async () => {
+    if (!dailyNote.trim()) {
+      error('Notes required', 'Please enter nursing assessment');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await addDailyNote(admissionId, { notes: dailyNote });
+      success('Daily note saved', 'Nursing assessment recorded');
+      setDailyNote('');
+    } catch (err: any) {
+      error('Save failed', err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+        <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-teal-500" />
+          Daily Nursing Assessment
+        </h3>
+        <textarea
+          value={dailyNote}
+          onChange={(e) => setDailyNote(e.target.value)}
+          rows={5}
+          placeholder="Record daily nursing assessment:
 - Vital signs trends
 - Wound/dressing status
 - IV/Line status
@@ -611,174 +349,490 @@ export default function Nursing() {
 - Patient mobility
 - Mental status
 - Any concerns or observations..."
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm resize-none focus:ring-2 focus:ring-teal-500"
-                    disabled={!canAddEntries}
-                  />
-                  {canAddEntries && activeAdmission && (
-                    <div className="flex justify-end mt-3">
-                      <button
-                        onClick={handleSubmitDailyNote}
-                        disabled={isSubmitting || !dailyNote.trim()}
-                        className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium disabled:opacity-50"
-                      >
-                        {isSubmitting ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Save className="w-4 h-4" />
-                        )}
-                        Save Daily Note
-                      </button>
-                    </div>
-                  )}
-                  {!activeAdmission && (
-                    <p className="text-sm text-yellow-600 mt-2 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      Daily notes require an active admission record.
-                    </p>
-                  )}
+          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm resize-none focus:ring-2 focus:ring-teal-500"
+        />
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={handleSubmitDailyNote}
+            disabled={isSubmitting || !dailyNote.trim()}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium disabled:opacity-50"
+          >
+            {isSubmitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Daily Note
+          </button>
+        </div>
+      </div>
+      
+      {dailyNotes.length > 0 && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+            <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+              <Clock className="w-4 h-4 text-purple-500" />
+              Previous Daily Notes
+            </h3>
+          </div>
+          <div className="divide-y divide-[var(--border-color)] max-h-[400px] overflow-y-auto">
+            {dailyNotes.sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()).map(([date, note]: [string, any]) => (
+              <div key={date} className="p-4 hover:bg-[var(--bg-main)]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">{new Date(date).toLocaleDateString()}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">by {note.recordedBy?.fullName || note.recordedBy || 'Staff'}</span>
                 </div>
-
-                {/* Shift Handover Notes */}
-                <div className="border border-[var(--border-color)] rounded-lg p-4">
-                  <h3 className="font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                    <Send className="w-4 h-4 text-orange-500" />
-                    Shift Handover Notes
-                  </h3>
-                  <textarea
-                    value={handoverNotes}
-                    onChange={(e) => setHandoverNotes(e.target.value)}
-                    rows={4}
-                    placeholder="Important information for next shift:
-- Pending tasks
-- Patient status updates
-- Special instructions
-- Family communications
-- Upcoming procedures
-- Discharge planning..."
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm resize-none focus:ring-2 focus:ring-teal-500"
-                  />
-                  <div className="flex justify-end mt-3">
-                    <button
-                      onClick={handleSubmitHandoverNotes}
-                      disabled={isSubmitting || !handoverNotes.trim()}
-                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium disabled:opacity-50"
-                    >
-                      {isSubmitting ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                      Save Handover
-                    </button>
-                  </div>
-                </div>
-
-                {/* Recent Notes from Admission */}
-                {activeAdmission?.dailyNotes && Object.keys(activeAdmission.dailyNotes).length > 0 && (
-                  <div className="border border-[var(--border-color)] rounded-lg overflow-hidden">
-                    <div className="bg-[var(--bg-main)] px-4 py-2 border-b border-[var(--border-color)]">
-                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                        <History className="w-4 h-4 text-purple-500" />
-                        Previous Daily Notes
-                      </h3>
-                    </div>
-                    <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
-                      {Object.entries(activeAdmission.dailyNotes)
-                        .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
-                        .map(([date, note]: [string, any]) => (
-                          <div key={date} className="p-3 hover:bg-[var(--bg-main)]">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-sm">{new Date(date).toLocaleDateString()}</span>
-                              <span className="text-xs text-[var(--text-secondary)]">
-                                by {note.recordedBy?.fullName || 'Staff'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note.notes}</p>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note.notes}</p>
               </div>
-            )}
-
-            {/* VITALS HISTORY TAB */}
-            {activeTab === 'vitals' && (
-              <div className="space-y-4">
-                <div className="bg-[var(--bg-main)] rounded-lg p-4">
-                  <h3 className="font-semibold text-[var(--text-primary)] mb-3">Vitals History</h3>
-                  {latestVitals ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Date/Time</th>
-                            <th className="px-3 py-2 text-left">BP</th>
-                            <th className="px-3 py-2 text-left">Temp</th>
-                            <th className="px-3 py-2 text-left">Pulse</th>
-                            <th className="px-3 py-2 text-left">Resp</th>
-                            <th className="px-3 py-2 text-left">SpO2</th>
-                            <th className="px-3 py-2 text-left">Weight</th>
-                            <th className="px-3 py-2 text-left">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-color)]">
-                          {previousVitals.map((vital: any) => (
-                            <tr key={vital.id} className="hover:bg-[var(--bg-main)]">
-                              <td className="px-3 py-2 text-sm">{new Date(vital.recordedAt).toLocaleString()}</td>
-                              <td className="px-3 py-2">{vital.bloodPressure || '-'}</td>
-                              <td className="px-3 py-2">{vital.temperature ? `${vital.temperature}°C` : '-'}</td>
-                              <td className="px-3 py-2">{vital.pulse || '-'}</td>
-                              <td className="px-3 py-2">{vital.respiration || '-'}</td>
-                              <td className="px-3 py-2">{vital.spo2 ? `${vital.spo2}%` : '-'}</td>
-                              <td className="px-3 py-2">{vital.weight ? `${vital.weight}kg` : '-'}</td>
-                              <td className="px-3 py-2">
-                                <button
-                                  onClick={() => {
-                                    setEditingVitals(vital);
-                                    setShowVitalsModal(true);
-                                  }}
-                                  className="p-1 text-blue-500 hover:bg-blue-50 rounded"
-                                >
-                                  <Edit className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-center text-[var(--text-secondary)] py-8">No vitals recorded for this visit</p>
-                  )}
-                </div>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
+    </div>
+  );
+};
 
-      {/* No Attendance Message */}
-      {selectedPatientId && !selectedAttendanceId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-yellow-800 mb-1">No Inpatient Attendance Selected</h3>
-          <p className="text-sm text-yellow-700">Please select an admitted patient to manage nursing care</p>
+export default function Nursing() {
+  const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
+  const { user } = useAuthStore();
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'medications' | 'nursingNotes' | 'vitals'>('medications');
+  const [isAdministering, setIsAdministering] = useState<string | null>(null);
+  const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [vitalsList, setVitalsList] = useState<any[]>([]);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
+  // ✅ ONLY ONE declaration - use Record type to store medications per attendance
+  const [localMedications, setLocalMedications] = useState<Record<string, any[]>>({});
+  
+  const { attendances, getAttendances, getAttendance, updateMedicationStatus, getVitalsByAttendance, addVitals } = useAttendanceStore();
+  const { patients, loadPatients } = usePatientStore();
+  const { admissions, getAdmissions } = useAdmissionStore();
+  const { stockItems, getStockItems } = useStockStore();
+  
+  const inpatientAttendances = useMemo(() => attendances.filter(a => a.status === 'admitted'), [attendances]);
+
+  const filteredAttendances = useMemo(() => {
+    if (!searchQuery) return inpatientAttendances;
+    const lower = searchQuery.toLowerCase();
+    return inpatientAttendances.filter(a => {
+      const patient = patients.find(p => getEntityId(p) === a.patientId);
+      const patientName = patient ? `${patient.surname} ${patient.otherNames}`.toLowerCase() : '';
+      return patientName.includes(lower) || a.attendanceNumber?.toLowerCase().includes(lower) || patient?.folderNumber?.toLowerCase().includes(lower);
+    });
+  }, [inpatientAttendances, patients, searchQuery]);
+  
+  const selectedPatient = patients.find(p => getEntityId(p) === attendances.find(a => getEntityId(a) === selectedAttendanceId)?.patientId);
+  const selectedAttendance = attendances.find(a => getEntityId(a) === selectedAttendanceId);
+  const activeAdmission = admissions.find(a => a.attendanceId === selectedAttendanceId && a.status === 'admitted');
+  
+  // ✅ Get medications for current attendance from local state
+  const medications = localMedications[selectedAttendanceId] || [];
+  const dispensedMeds = medications.filter((m: any) => m.status === 'dispensed' || m.status === 'administered');
+  
+  const loadData = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadPatients(), getAttendances(), getStockItems(), getAdmissions()]);
+      success('Data loaded', 'Nursing station ready');
+    } catch (err: any) {
+      toastError('Load failed', err.message);
+    } finally {
+      setRefreshing(false);
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => { loadData(); }, []);
+  
+  // ✅ Update local medications when attendance changes
+  useEffect(() => {
+    if (selectedAttendance?.Medication && selectedAttendanceId) {
+      setLocalMedications(prev => ({
+        ...prev,
+        [selectedAttendanceId]: selectedAttendance.Medication
+      }));
+    }
+  }, [selectedAttendance?.Medication, selectedAttendanceId]);
+
+  // ✅ Fix the handleAdministerMedication function
+  const handleAdministerMedication = async (medicationId: string, doseNumber: number) => {
+    if (!selectedAttendanceId || !user) return;
+    
+    setIsAdministering(medicationId);
+    try {
+      const medication = medications.find((m: any) => m.id === medicationId);
+      if (!medication) return;
+      
+      const frequencyInfo = getFrequencyInfo(medication.frequency);
+      const existingAdmins = medication.administeredDoses || [];
+      const isComplete = existingAdmins.length + 1 >= frequencyInfo.requiredDoses;
+      
+      const updatedDoses = [...existingAdmins, {
+        doseNumber: doseNumber,
+        administeredAt: new Date().toISOString(),
+        administeredBy: user?.fullName || user?.username
+      }];
+      
+      // Update local state immediately - NO API WAIT
+      const updatedMedications = medications.map((m: any) => 
+        m.id === medicationId 
+          ? { 
+              ...m, 
+              administeredDoses: updatedDoses, 
+              status: isComplete ? 'administered' : 'dispensed',
+              administeredAt: new Date().toISOString(),
+              administeredById: user?.id
+            }
+          : m
+      );
+      
+      // Update local state
+      setLocalMedications(prev => ({
+        ...prev,
+        [selectedAttendanceId]: updatedMedications
+      }));
+      
+      // Show success message immediately
+      success('Medication administered', `Dose ${doseNumber} recorded as given`);
+      
+      // Fire and forget - update backend in background without waiting
+      updateMedicationStatus(selectedAttendanceId, medicationId, {
+        status: isComplete ? 'administered' : 'dispensed',
+        administeredAt: new Date().toISOString(),
+        administeredById: user?.id,
+        doseNumber: doseNumber,
+        administeredDoses: updatedDoses
+      }).catch(err => {
+        console.error('Background sync failed:', err);
+        toastError('Sync Error', 'Medication recorded locally but may not have saved to server');
+      });
+      
+    } catch (error: any) {
+      toastError('Administer failed', error.message || 'Could not record medication');
+    } finally {
+      setIsAdministering(null);
+    }
+  };
+
+  useEffect(() => {
+    const loadVitals = async () => {
+      if (selectedAttendanceId) {
+        try {
+          const vitals = await getVitalsByAttendance(selectedAttendanceId);
+          setVitalsList(Array.isArray(vitals) ? vitals : []);
+          setLatestVitals(vitals?.length ? vitals[vitals.length - 1] : null);
+        } catch (err) {
+          setVitalsList([]);
+          setLatestVitals(null);
+        }
+      }
+    };
+    loadVitals();
+  }, [selectedAttendanceId, getVitalsByAttendance]);
+  
+  const handleSubmitVitals = async (vitalsData: any) => {
+    if (!selectedAttendanceId) return;
+    try {
+      await addVitals(selectedAttendanceId, { ...vitalsData, recordedAt: new Date().toISOString(), recordedById: user?.id });
+      success('Vitals Recorded', 'Vitals recorded successfully');
+      const updatedVitals = await getVitalsByAttendance(selectedAttendanceId);
+      setVitalsList(updatedVitals || []);
+      setLatestVitals(updatedVitals?.length ? updatedVitals[updatedVitals.length - 1] : null);
+      setShowVitalsModal(false);
+    } catch (err: any) {
+      toastError('Save Failed', err.message);
+    }
+  };
+  
+  const handleSelectAttendance = (attendanceId: string) => {
+    const attendance = attendances.find(a => getEntityId(a) === attendanceId);
+    if (attendance) {
+      setSelectedAttendanceId(attendanceId);
+      // Initialize local medications from attendance data
+      if (attendance.Medication) {
+        setLocalMedications(prev => ({
+          ...prev,
+          [attendanceId]: attendance.Medication
+        }));
+      }
+    }
+  };
+  
+  const isAntenatal = selectedAttendance?.attendanceType === 'antenatal';
+  
+
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
+        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+          <div className="w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Loading Nursing Station...</h2>
         </div>
-      )}
-
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
+            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
+          </button>
+          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
+            <Users className="w-5 h-5 text-teal-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Nursing Station</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Medication administration and patient care</p>
+          </div>
+        </div>
+        <button onClick={loadData} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm">
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+      
+      {/* Two Column Layout - Left column has full height handover notes */}
+      <div className="flex gap-6" style={{ minHeight: 'calc(100vh - 140px)' }}>
+        {/* LEFT COLUMN - Patient List + Handover Notes (full height) */}
+        <div className="w-80 flex-shrink-0 flex flex-col gap-4">
+          {/* Patient List */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex-shrink-0">
+            <div className="p-4 border-b border-[var(--border-color)]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+                <input
+                  type="text"
+                  placeholder="Search admitted patients..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+            <div className="divide-y divide-[var(--border-color)] max-h-[300px] overflow-y-auto">
+              {filteredAttendances.length === 0 ? (
+                <div className="p-8 text-center text-[var(--text-secondary)]">
+                  <Hospital className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No admitted patients</p>
+                </div>
+              ) : (
+                filteredAttendances.map(attendance => {
+                  const patient = patients.find(p => getEntityId(p) === attendance.patientId);
+                  const isSelected = getEntityId(attendance) === selectedAttendanceId;
+                  const medsCount = attendance.Medication?.filter((m: any) => m.status === 'dispensed').length || 0;
+                  return (
+                    <div
+                      key={attendance.id}
+                      onClick={() => handleSelectAttendance(attendance.id!)}
+                      className={`p-4 cursor-pointer transition-all hover:bg-[var(--bg-main)] ${isSelected ? 'bg-teal-50 border-l-4 border-teal-500' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-[var(--text-primary)] truncate">
+                            {patient ? `${patient.surname} ${patient.otherNames}` : 'Unknown'}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mt-0.5">
+                            <span>{patient?.folderNumber}</span>
+                            <span>•</span>
+                            <Bed className="w-3 h-3" />
+                            <span>{attendance.bed?.bedNumber || '—'}</span>
+                          </div>
+                        </div>
+                        {medsCount > 0 && (
+                          <div className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full">
+                            {medsCount}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
+          {/* Handover Notes - Takes remaining height */}
+          <div className="flex-1 min-h-0">
+            <HandoverNotes />
+          </div>
+        </div>
+        
+        {/* RIGHT COLUMN - Patient Details */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {selectedAttendance && selectedPatient ? (
+            <>
+              {/* Patient Header */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+                      <User className="w-6 h-6 text-teal-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                        {selectedPatient.surname} {selectedPatient.otherNames}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)]">
+                        <span>{selectedPatient.gender} • {selectedPatient.age || '?'} years</span>
+                        <span>ID: {selectedPatient.folderNumber}</span>
+                        <span>Admitted: {new Date(selectedAttendance.dateTime).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={selectedAttendance.status} />
+                    {activeAdmission && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        {activeAdmission.admissionNumber}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setShowVitalsModal(true)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      Record Vitals
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Latest Vitals Summary */}
+              {latestVitals && (
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-teal-500" />
+                    Latest Vitals ({new Date(latestVitals.recordedAt).toLocaleString()})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {latestVitals.bloodPressure && <div><p className="text-xs text-[var(--text-secondary)]">BP</p><p className="font-semibold">{latestVitals.bloodPressure}</p></div>}
+                    {latestVitals.temperature && <div><p className="text-xs text-[var(--text-secondary)]">Temp</p><p className="font-semibold">{latestVitals.temperature}°C</p></div>}
+                    {latestVitals.pulse && <div><p className="text-xs text-[var(--text-secondary)]">Pulse</p><p className="font-semibold">{latestVitals.pulse}</p></div>}
+                    {latestVitals.respiration && <div><p className="text-xs text-[var(--text-secondary)]">Resp</p><p className="font-semibold">{latestVitals.respiration}</p></div>}
+                    {latestVitals.spo2 && <div><p className="text-xs text-[var(--text-secondary)]">SpO2</p><p className="font-semibold">{latestVitals.spo2}%</p></div>}
+                    {isAntenatal && latestVitals.fetalHeartRate && (
+                      <div><p className="text-xs text-[var(--text-secondary)]">FHR</p><p className="font-semibold">{latestVitals.fetalHeartRate}</p></div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Tabs */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="border-b border-[var(--border-color)] px-4">
+                  <div className="flex gap-6">
+                    <button onClick={() => setActiveTab('medications')} className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${activeTab === 'medications' ? 'border-teal-500 text-teal-600' : 'border-transparent text-[var(--text-secondary)]'}`}>
+                      <Pill className="w-4 h-4 inline mr-1" />
+                      Medications ({dispensedMeds.length})
+                    </button>
+                    <button onClick={() => setActiveTab('nursingNotes')} className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${activeTab === 'nursingNotes' ? 'border-teal-500 text-teal-600' : 'border-transparent text-[var(--text-secondary)]'}`}>
+                      <FileText className="w-4 h-4 inline mr-1" />
+                      Nursing Notes
+                    </button>
+                    <button onClick={() => setActiveTab('vitals')} className={`py-3 px-1 text-sm font-medium border-b-2 transition-all ${activeTab === 'vitals' ? 'border-teal-500 text-teal-600' : 'border-transparent text-[var(--text-secondary)]'}`}>
+                      <Activity className="w-4 h-4 inline mr-1" />
+                      Vitals History
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="p-5 max-h-[500px] overflow-y-auto">
+                  {activeTab === 'medications' && (
+                    <div className="space-y-4">
+                      {dispensedMeds.length === 0 ? (
+                        <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg">
+                          <Pill className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+                          <p className="text-[var(--text-secondary)]">No medications ready for administration</p>
+                        </div>
+                      ) : (
+                        dispensedMeds.map((med: any) => (
+                          <MedicationCard
+                            key={med.id}
+                            medication={med}
+                            onAdminister={handleAdministerMedication}
+                            isAdministering={isAdministering === med.id}
+                            selectedAttendanceId={selectedAttendanceId}
+                            user={user}
+                          />
+                        ))
+                      )}
+                    </div>
+                  )}
+                  
+                  {activeTab === 'nursingNotes' && activeAdmission && (
+                    <NursingNotesTab admissionId={activeAdmission.id} />
+                  )}
+                  
+                  {activeTab === 'vitals' && (
+                    <div className="space-y-4">
+                      {vitalsList.length === 0 ? (
+                        <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg">
+                          <Activity className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+                          <p className="text-[var(--text-secondary)]">No vitals recorded for this admission</p>
+                          <button onClick={() => setShowVitalsModal(true)} className="mt-3 text-teal-600 text-sm">Record First Vitals</button>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Date/Time</th>
+                                <th className="px-3 py-2 text-left">BP</th>
+                                <th className="px-3 py-2 text-left">Temp</th>
+                                <th className="px-3 py-2 text-left">Pulse</th>
+                                <th className="px-3 py-2 text-left">Resp</th>
+                                <th className="px-3 py-2 text-left">SpO2</th>
+                                {isAntenatal && <th className="px-3 py-2 text-left">FHR</th>}
+                                <th className="px-3 py-2 text-left">Recorded By</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--border-color)]">
+                              {vitalsList.map((vital: any) => (
+                                <tr key={vital.id} className="hover:bg-[var(--bg-main)]">
+                                  <td className="px-3 py-2">{new Date(vital.recordedAt).toLocaleString()}</td>
+                                  <td className="px-3 py-2">{vital.bloodPressure || '-'}</td>
+                                  <td className="px-3 py-2">{vital.temperature ? `${vital.temperature}°C` : '-'}</td>
+                                  <td className="px-3 py-2">{vital.pulse || '-'}</td>
+                                  <td className="px-3 py-2">{vital.respiration || '-'}</td>
+                                  <td className="px-3 py-2">{vital.spo2 ? `${vital.spo2}%` : '-'}</td>
+                                  {isAntenatal && <td className="px-3 py-2">{vital.fetalHeartRate || '-'}</td>}
+                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{vital.recordedBy?.fullName || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+              <Hospital className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Select a Patient</h3>
+              <p className="text-[var(--text-secondary)] text-sm">Choose an admitted patient from the list to manage their care</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
       {/* Vitals Modal */}
       <VitalsFormModal
         isOpen={showVitalsModal}
-        onClose={() => {
-          setShowVitalsModal(false);
-          setEditingVitals(null);
-        }}
+        onClose={() => setShowVitalsModal(false)}
         onSubmit={handleSubmitVitals}
-        isLoading={isSubmitting}
-        initialData={editingVitals || undefined}
-        isEditing={!!editingVitals}
-        isAntenatal={selectedAttendance?.attendanceType === 'antenatal'}
+        isLoading={false}
+        isAntenatal={isAntenatal}
         attendanceId={selectedAttendanceId}
         attendanceType={selectedAttendance?.attendanceType}
       />

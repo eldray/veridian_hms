@@ -393,43 +393,83 @@ export const seedCoreData = async (force: boolean = false) => {
     }
 
     // =============== 5. GDRG TARIFFS ===============
-    const gdrgData = readJSON('gdrgTariffs.json');
-    if (gdrgData?.tariffs && Array.isArray(gdrgData.tariffs)) {
-      let successful = 0;
-      for (const tariff of gdrgData.tariffs) {
-        try {
-          await prisma.gDRGTariff.upsert({
-            where: { gdrgCode: tariff.gdrgCode },
-            create: {
-              gdrgCode: tariff.gdrgCode,
-              mdc: tariff.mdc || 'MEDI',
-              description: tariff.description || 'No description',
-              nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              ageSplit: tariff.ageSplit || 'A',
-              minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
-              maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
-              applicableLevels: tariff.applicableLevels || [1, 2, 3],
-              nhisServiceCode: tariff.nhisServiceCode || null,
-              isZoomCode: tariff.isZoomCode || false,
-              allowsAddOn: tariff.allowsAddOn || false,
-              encounterCategory: tariff.encounterCategory || null,
-              attendanceTypes: tariff.attendanceTypes || [],
-              isAntenatal: tariff.isAntenatal || false,
-              isDelivery: tariff.isDelivery || false,
-              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
-              effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
-              isActive: tariff.isActive ?? true,
-              notes: tariff.notes || null,
-            },
-            update: {},
-          });
-          successful++;
-        } catch (error: any) {
-          console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
+  const gdrgData = readJSON('gdrgTariffs.json');
+  if (gdrgData?.gdrgTariffs && Array.isArray(gdrgData.gdrgTariffs)) {
+    let successful = 0;
+    let failed = 0;
+    console.log(`📋 Found ${gdrgData.gdrgTariffs.length} GDRG tariffs to seed`);
+    
+    for (const tariff of gdrgData.gdrgTariffs) {
+      try {
+        // Skip if no gdrgCode
+        if (!tariff.gdrgCode) {
+          console.warn(`⚠️ Skipping GDRG tariff: missing gdrgCode`);
+          failed++;
+          continue;
         }
+
+        await prisma.gDRGTariff.upsert({
+          where: { gdrgCode: tariff.gdrgCode },
+          create: {
+            gdrgCode: tariff.gdrgCode,
+            mdc: tariff.mdc || 'MEDI',
+            description: tariff.description || 'No description',
+            nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
+            ageSplit: tariff.ageSplit || 'A',
+            minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
+            maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
+            applicableLevels: tariff.applicableLevels || [1, 2, 3],
+            nhisServiceCode: tariff.nhisServiceCode || null,
+            isZoomCode: tariff.isZoomCode || false,
+            allowsAddOn: tariff.allowsAddOn || false,
+            encounterCategory: tariff.encounterCategory || null,
+            attendanceTypes: tariff.attendanceTypes || [],
+            isAntenatal: tariff.isAntenatal || false,
+            isDelivery: tariff.isDelivery || false,
+            effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
+            effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
+            isActive: tariff.isActive ?? true,
+            notes: tariff.notes || null,
+          },
+          update: {
+            mdc: tariff.mdc || 'MEDI',
+            description: tariff.description || 'No description',
+            nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
+            ageSplit: tariff.ageSplit || 'A',
+            minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
+            maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
+            applicableLevels: tariff.applicableLevels || [1, 2, 3],
+            nhisServiceCode: tariff.nhisServiceCode || null,
+            isZoomCode: tariff.isZoomCode || false,
+            allowsAddOn: tariff.allowsAddOn || false,
+            encounterCategory: tariff.encounterCategory || null,
+            attendanceTypes: tariff.attendanceTypes || [],
+            isAntenatal: tariff.isAntenatal || false,
+            isDelivery: tariff.isDelivery || false,
+            effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
+            effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
+            isActive: tariff.isActive ?? true,
+            notes: tariff.notes || null,
+            updatedAt: new Date()
+          },
+        });
+        successful++;
+        
+        if (successful % 50 === 0) {
+          console.log(`📊 GDRG progress: ${successful}/${gdrgData.gdrgTariffs.length}`);
+        }
+      } catch (error: any) {
+        failed++;
+        console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
       }
-      console.log(`✅ GDRG Tariffs: ${successful}/${gdrgData.tariffs.length}`);
     }
+    console.log(`✅ GDRG Tariffs: ${successful} successful, ${failed} failed (total: ${gdrgData.gdrgTariffs.length})`);
+  } else {
+    console.log(`⚠️ No GDRG tariffs found. File: gdrgTariffs.json`);
+    if (gdrgData) {
+      console.log(`📄 File has keys:`, Object.keys(gdrgData));
+    }
+  }
 
     // =============== 6. LAB TEST TEMPLATES ===============
     const labTestsData = readJSON('labTests.json');

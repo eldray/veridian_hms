@@ -135,16 +135,16 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     try {
       switch (activeTab) {
         case 'diagnoses':
-          await getDiagnoses();
+          await getDiagnoses({ limit: 1000 });
           break;
         case 'lab-tests':
-          await getLabTestTemplates();
+          await getLabTestTemplates({ limit: 1000 });
           break;
         case 'procedures':
-          await getProcedureTemplates();
+          await getProcedureTemplates({ limit: 1000 });
           break;
         case 'scans':
-          await getScanTemplates();
+          await getScanTemplates({ limit: 1000 });
           break;
       }
     } catch (error: any) {
