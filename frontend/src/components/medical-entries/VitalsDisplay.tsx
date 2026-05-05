@@ -10,7 +10,7 @@ export const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
   if (!vitals) return null;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 pt-2">
       <h3 className="text-base font-semibold mb-3 flex items-center gap-2 text-gray-900">
         <Activity className="w-4 h-4 text-blue-600" />
         Recent Vitals

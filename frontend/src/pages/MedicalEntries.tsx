@@ -60,7 +60,19 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 };
 import { useAdmissionStore } from '../store/admissionStore';
 
-
+// ✅ ADD PanelHeader Component HERE
+const PanelHeader: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  action?: React.ReactNode;
+}> = ({ icon, title, action }) => (
+  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between flex-shrink-0">
+    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+      {icon}{title}
+    </h3>
+    {action}
+  </div>
+);
 
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | null;
 
@@ -735,264 +747,301 @@ export default function MedicalEntries() {
                 </div>
               )}
 
-              {/* ROW 2: INVESTIGATIONS & RESULTS */}
+              {/* ROW 2: INVESTIGATIONS - TWO COLUMN LAYOUT */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Investigations Requested - Table View */}
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-                    <FlaskConical className="w-4 h-4 text-purple-600" />
-                    Investigations Requested
-                    {labTestsList.length > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">
-                        {labTestsList.length}
-                      </span>
-                    )}
-                  </h3>
-                  {canAddEntries && (
-                    <button
-                      onClick={() => setModalType('lab')}
-                      className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white transition-colors"
-                    >
-                      <Plus className="w-3 h-3" /> Request Test
-                    </button>
-                  )}
-                </div>
-
-                {labTestsList.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
-                    <p className="text-sm text-[var(--text-secondary)]">No lab tests requested</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test Name</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested By</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
-                          <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-color)]">
-                        {labTestsList.map((test: any) => {
-                          // Determine priority color
-                          const priorityColor = 
-                            test.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                            test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 
-                            'bg-blue-100 text-blue-700';
-                          
-                          return (
-                            <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                              <td className="px-3 py-2">
-                                <div className="font-medium text-[var(--text-primary)] text-sm">
-                                  {test.ServiceCatalog?.name || test.name}
-                                </div>
-                                {test.notes && (
-                                  <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 line-clamp-1">
-                                    {test.notes}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColor}`}>
-                                  {test.priority || 'routine'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2">
-                                {getStatusBadge(test.status)}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-secondary)]">
-                                {test.requestedBy || test.User_LabTest_createdByIdToUser?.fullName || '—'}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                {test.requestedAt ? new Date(test.requestedAt).toLocaleDateString() : 
-                                test.createdAt ? new Date(test.createdAt).toLocaleDateString() : '—'}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                {canAddEntries && test.status === 'requested' && (
-                                  <button
-                                    onClick={() => handleDeleteItem('lab', test.id)}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                                    title="Cancel Request"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Results of Investigations — rich table view */}
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    Results of Investigations
-                    {labTestsList.filter((t: any) => t.status === 'completed').length > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
-                        {labTestsList.filter((t: any) => t.status === 'completed').length}
-                      </span>
-                    )}
-                  </h3>
-                  {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
-                    <span className="text-[10px] text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full font-medium">
-                      {labTestsList.filter((t: any) => t.status !== 'completed').length} pending
-                    </span>
-                  )}
-                </div>
-
-                {labTestsList.filter((t: any) => t.status === 'completed').length === 0 ? (
-                  <div className="p-8 text-center">
-                    <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
-                    <p className="text-sm text-[var(--text-secondary)]">No results available yet</p>
-                    {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
-                      <p className="text-xs text-yellow-600 mt-1">
-                        {labTestsList.filter((t: any) => t.status !== 'completed').length} test(s) awaiting results
-                      </p>
+                
+                {/* LEFT COLUMN: Investigations Requested */}
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                      <FlaskConical className="w-4 h-4 text-purple-600" />
+                      Investigations Requested
+                      {labTestsList.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">
+                          {labTestsList.length}
+                        </span>
+                      )}
+                    </h3>
+                    {canAddEntries && (
+                      <button
+                        onClick={() => setModalType('lab')}
+                        className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white transition-colors"
+                      >
+                        <Plus className="w-3 h-3" /> Request Test
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Units</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
-                          <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-color)]">
-                        {labTestsList
-                          .filter((t: any) => t.status === 'completed')
-                          .map((test: any) => {
-                            // Support both flat result string and structured result object with sub-tests
-                            const subResults: any[] = Array.isArray(test.result?.parameters)
-                              ? test.result.parameters
-                              : Array.isArray(test.resultParameters)
-                              ? test.resultParameters
-                              : [];
 
-                            if (subResults.length > 0) {
-                              // FBC / panel with multiple rows
-                              return subResults.map((param: any, pi: number) => {
-                                const isAbnormal = param.abnormal || param.flag === 'H' || param.flag === 'L' || param.flag === 'HIGH' || param.flag === 'LOW';
-                                const flagColor = param.flag === 'H' || param.flag === 'HIGH' ? 'text-red-600 bg-red-50' : param.flag === 'L' || param.flag === 'LOW' ? 'text-yellow-700 bg-yellow-50' : 'text-green-700 bg-green-50';
-                                return (
-                                  <tr key={`${test.id}-${pi}`} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
-                                    <td className="px-3 py-2">
-                                      {pi === 0 && (
-                                        <div className="font-semibold text-[var(--text-primary)] text-xs mb-0.5">
-                                          {test.ServiceCatalog?.name || test.name}
-                                        </div>
-                                      )}
-                                      <span className="text-[var(--text-secondary)] pl-2">— {param.name || param.paramName}</span>
-                                    </td>
-                                    <td className={`px-3 py-2 font-bold ${isAbnormal ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                                      {param.value ?? '—'}
-                                    </td>
-                                    <td className="px-3 py-2 text-[var(--text-secondary)]">{param.normalRange || param.referenceRange || '—'}</td>
-                                    <td className="px-3 py-2 text-[var(--text-secondary)]">{param.unit || param.units || '—'}</td>
-                                    <td className="px-3 py-2">
-                                      {param.flag ? (
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
-                                          {param.flag}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[var(--text-secondary)]">—</span>
-                                      )}
-                                    </td>
-                                    {pi === 0 ? (
-                                      <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                        {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
-                                      </td>
-                                    ) : <td className="px-3 py-2" />}
-                                  </tr>
-                                );
-                              });
-                            }
-
-                            // Single-result test
-                            const rawResult = typeof test.result === 'object' && test.result !== null
-                              ? (test.result.value ?? JSON.stringify(test.result))
-                              : (test.result ?? '—');
-                            const isAbnormal = test.result?.abnormal || test.abnormal;
+                  {labTestsList.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[var(--text-secondary)]">No lab tests requested</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[40%]">Test Name</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
+                            <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                          {labTestsList.map((test: any) => {
+                            const priorityColor = test.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                              test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700';
+                            
                             return (
-                              <tr key={test.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
-                                <td className="px-3 py-2 font-semibold text-[var(--text-primary)]">
-                                  {test.ServiceCatalog?.name || test.name}
-                                </td>
-                                <td className={`px-3 py-2 font-bold ${isAbnormal ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                                  {rawResult}
-                                </td>
-                                <td className="px-3 py-2 text-[var(--text-secondary)]">{test.normalRange || test.referenceRange || '—'}</td>
-                                <td className="px-3 py-2 text-[var(--text-secondary)]">{test.unit || test.units || '—'}</td>
+                              <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
                                 <td className="px-3 py-2">
-                                  {isAbnormal ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 bg-red-50">ABN</span>
-                                  ) : (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-green-700 bg-green-50">NL</span>
+                                  <div className="font-medium text-[var(--text-primary)] text-sm">
+                                    {test.ServiceCatalog?.name || test.name}
+                                  </div>
+                                  {test.notes && (
+                                    <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 line-clamp-1">
+                                      {test.notes}
+                                    </div>
                                   )}
                                 </td>
+                                <td className="px-3 py-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColor}`}>
+                                    {test.priority || 'routine'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                  {getStatusBadge(test.status)}
+                                </td>
                                 <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                  {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
+                                  {test.requestedAt ? new Date(test.requestedAt).toLocaleDateString() : 
+                                  test.createdAt ? new Date(test.createdAt).toLocaleDateString() : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {canAddEntries && test.status === 'requested' && (
+                                    <button
+                                      onClick={() => handleDeleteItem('lab', test.id)}
+                                      className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                      title="Cancel Request"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             );
                           })}
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
 
-                    {/* Comments / notes per test group */}
-                    {labTestsList
-                      .filter((t: any) => t.status === 'completed' && t.comments)
-                      .map((test: any) => (
-                        <div key={`cmt-${test.id}`} className="mx-3 mb-3 mt-1 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                          <span className="text-[10px] font-semibold text-blue-700">{test.ServiceCatalog?.name || test.name} — Comment: </span>
-                          <span className="text-[10px] text-blue-600">{test.comments}</span>
-                        </div>
-                      ))}
+                {/* RIGHT COLUMN: Results of Investigations */}
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      Results of Investigations
+                      {labTestsList.filter((t: any) => t.status === 'completed').length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                          {labTestsList.filter((t: any) => t.status === 'completed').length}
+                        </span>
+                      )}
+                    </h3>
+                    {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                      <span className="text-[10px] text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full font-medium">
+                        {labTestsList.filter((t: any) => t.status !== 'completed').length} pending
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  {labTestsList.filter((t: any) => t.status === 'completed').length === 0 ? (
+                    <div className="p-8 text-center">
+                      <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[var(--text-secondary)]">No results available yet</p>
+                      {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                        <p className="text-xs text-yellow-600 mt-1">
+                          {labTestsList.filter((t: any) => t.status !== 'completed').length} test(s) awaiting results
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test / Parameter</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                          {labTestsList
+                            .filter((t: any) => t.status === 'completed')
+                            .map((test: any) => {
+                              // Parse parameters for multi-parameter tests (FBC, LFT, RFT, etc.)
+                              let parameters: any[] = [];
+                              let hasParameters = false;
+                              
+                              if (test.result && typeof test.result === 'object') {
+                                if (test.result.parameters && Array.isArray(test.result.parameters)) {
+                                  parameters = test.result.parameters;
+                                  hasParameters = true;
+                                } else if (test.resultParameters && Array.isArray(test.resultParameters)) {
+                                  parameters = test.resultParameters;
+                                  hasParameters = true;
+                                } else if (test.result.values && Array.isArray(test.result.values)) {
+                                  parameters = test.result.values;
+                                  hasParameters = true;
+                                }
+                              }
+                              
+                              if (!hasParameters && test.parameters && Array.isArray(test.parameters)) {
+                                parameters = test.parameters;
+                                hasParameters = true;
+                              }
+                              
+                              if (hasParameters && parameters.length > 0) {
+                                // Multi-parameter test - display each parameter as a row
+                                return parameters.map((param: any, idx: number) => {
+                                  const paramName = param.name || param.parameter || param.paramName || param.test;
+                                  const paramValue = param.value ?? param.result ?? param.val ?? '—';
+                                  const normalRange = param.normalRange || param.referenceRange || param.refRange || '—';
+                                  
+                                  let isAbnormal = false;
+                                  let flag = param.flag || param.abnormalFlag;
+                                  
+                                  if (!flag) {
+                                    if (param.abnormal === true) isAbnormal = true;
+                                    else if (param.flag === 'H' || param.flag === 'HIGH') isAbnormal = true;
+                                    else if (param.flag === 'L' || param.flag === 'LOW') isAbnormal = true;
+                                  }
+                                  
+                                  const displayFlag = flag || (isAbnormal ? (paramValue > (param.highNormal || 0) ? 'H' : 'L') : 'NL');
+                                  const flagColor = displayFlag === 'H' || displayFlag === 'HIGH' 
+                                    ? 'text-red-600 bg-red-50' 
+                                    : displayFlag === 'L' || displayFlag === 'LOW' 
+                                      ? 'text-yellow-700 bg-yellow-50' 
+                                      : 'text-green-700 bg-green-50';
+                                  
+                                  return (
+                                    <tr key={`${test.id}-${idx}`} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                      <td className="px-3 py-2">
+                                        {idx === 0 && (
+                                          <div className="font-semibold text-[var(--text-primary)] text-xs mb-0.5">
+                                            {test.ServiceCatalog?.name || test.name}
+                                          </div>
+                                        )}
+                                        <span className="text-[var(--text-secondary)]">└ {paramName}</span>
+                                      </td>
+                                      <td className={`px-3 py-2 font-mono ${isAbnormal ? 'text-red-600 font-bold' : 'text-[var(--text-primary)]'}`}>
+                                        {paramValue}
+                                      </td>
+                                      <td className="px-3 py-2 text-[var(--text-secondary)]">{normalRange}</td>
+                                      <td className="px-3 py-2">
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
+                                          {displayFlag}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                        {idx === 0 && (test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—')}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              }
+                              
+                              // Single result test
+                              let resultValue = '—';
+                              let isAbnormal = false;
+                              let normalRange = test.normalRange || test.referenceRange || '—';
+                              let flag = '';
+                              
+                              if (test.result) {
+                                if (typeof test.result === 'object') {
+                                  resultValue = test.result.value ?? test.result.result ?? '—';
+                                  isAbnormal = test.result.abnormal === true;
+                                  flag = test.result.flag || (isAbnormal ? 'ABN' : 'NL');
+                                  normalRange = test.result.normalRange || normalRange;
+                                } else {
+                                  resultValue = test.result;
+                                  isAbnormal = test.abnormal === true;
+                                }
+                              }
+                              
+                              const lowerResult = String(resultValue).toLowerCase();
+                              if (lowerResult === 'positive') {
+                                isAbnormal = true;
+                                flag = 'POSITIVE';
+                              } else if (lowerResult === 'negative') {
+                                isAbnormal = false;
+                                flag = 'NEGATIVE';
+                              }
+                              
+                              const flagColor = flag === 'POSITIVE' 
+                                ? 'text-red-600 bg-red-50'
+                                : flag === 'NEGATIVE'
+                                  ? 'text-green-700 bg-green-50'
+                                  : isAbnormal
+                                    ? 'text-red-600 bg-red-50'
+                                    : 'text-green-700 bg-green-50';
+                              
+                              return (
+                                <tr key={test.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                  <td className="px-3 py-2 font-semibold text-[var(--text-primary)]">
+                                    {test.ServiceCatalog?.name || test.name}
+                                  </td>
+                                  <td className={`px-3 py-2 font-mono ${isAbnormal ? 'text-red-600 font-bold' : 'text-[var(--text-primary)]'}`}>
+                                    {resultValue}
+                                  </td>
+                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{normalRange}</td>
+                                  <td className="px-3 py-2">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
+                                      {flag === 'POSITIVE' ? 'POSITIVE' : flag === 'NEGATIVE' ? 'NEGATIVE' : isAbnormal ? 'ABN' : 'NL'}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                    {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+
+                      {/* Comments section */}
+                      {labTestsList
+                        .filter((t: any) => t.status === 'completed' && (t.comments || t.notes))
+                        .map((test: any) => (
+                          <div key={`cmt-${test.id}`} className="mx-3 mb-3 mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              {test.ServiceCatalog?.name || test.name} — Comment: 
+                            </span>
+                            <span className="text-[10px] text-blue-600 ml-1">{test.comments || test.notes}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* ROW 3: DIAGNOSIS & PROCEDURES */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Diagnosis - Table View */}
+              {/* Diagnosis Table - Updated with diagnosis types */}
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-                    <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                    Diagnosis (ICD-10)
-                    {diagnosesList.length > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-[10px] font-bold">
-                        {diagnosesList.length}
-                      </span>
-                    )}
-                  </h3>
-                  {canAddEntries && (
-                    <button
-                      onClick={() => setModalType('diagnosis')}
-                      className="flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded text-xs hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
-                    >
+                <PanelHeader
+                  icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                  title={`Diagnosis (ICD-10)`}
+                  action={canAddEntries && (
+                    <button onClick={() => setModalType('diagnosis')} className="flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded text-xs hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors">
                       <Plus className="w-3 h-3" /> Add
                     </button>
                   )}
-                </div>
-                
+                />
                 {diagnosesList.length === 0 ? (
                   <div className="p-8 text-center">
                     <Stethoscope className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
@@ -1012,40 +1061,40 @@ export default function MedicalEntries() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border-color)]">
-                        {diagnosesList.map((item: any) => (
-                          <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
-                              {item.Diagnosis?.name}
-                              {item.notes && (
-                                <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{item.notes}</div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{item.Diagnosis?.icdCode || '—'}</td>
-                            <td className="px-3 py-2">
-                              {item.primary ? (
-                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">Primary</span>
-                              ) : (
-                                <span className="text-[var(--text-secondary)] text-[10px]">Secondary</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-[var(--text-secondary)]">
-                              {item.createdBy?.fullName || currentUser?.fullName || 'Unknown'}
-                            </td>
-                            <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                              {new Date(item.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              {canAddEntries && (
-                                <button
-                                  onClick={() => handleDeleteItem('diagnosis', item.id)}
-                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {diagnosesList.map((item: any) => {
+                          const diagnosisType = item.diagnosisType || (item.primary ? 'primary' : 'additional');
+                          const typeConfig: Record<string, { label: string; bg: string; text: string; icon: string }> = {
+                            provisional: { label: 'Provisional', bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '🟡' },
+                            primary: { label: 'Primary', bg: 'bg-green-100', text: 'text-green-800', icon: '🟢' },
+                            additional: { label: 'Additional', bg: 'bg-blue-100', text: 'text-blue-800', icon: '🔵' },
+                          };
+                          const config = typeConfig[diagnosisType] || typeConfig.additional;
+                          return (
+                            <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                              <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
+                                {item.Diagnosis?.name}
+                                {item.notes && (<div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{item.notes}</div>)}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{item.Diagnosis?.icdCode || '—'}</td>
+                              <td className="px-3 py-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.text}`}>
+                                  {config.icon} {config.label}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)]">{item.createdBy?.fullName || 'Unknown'}</td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                {new Date(item.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {canAddEntries && (
+                                  <button onClick={() => handleDeleteItem('diagnosis', item.id)} className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -12,6 +12,7 @@ import {
   CreditCard,
   Info,
   Edit,
+  AlertCircle,
   Eye
 } from 'lucide-react';
 import type { PaymentMode, InsuranceDetails, AdditionalInfo, Patient } from '../types';
@@ -332,7 +333,6 @@ export default function PatientRegistration() {
       }
       
       const patientData = {
-        // Don't send folderNumber for new patients - backend will generate it
         ...(isEditMode && { folderNumber: formData.folderNumber }),
         surname: formData.surname,
         otherNames: formData.otherNames,
@@ -340,7 +340,6 @@ export default function PatientRegistration() {
         dateOfBirth: normalizedDateOfBirth,
         age: ageData.years,
         ageInMonths: ageData.months,
-        // ❌ NO ageDisplay here
         contact: formData.contact,
         address: formData.address,
         paymentMode: paymentData.paymentMode,
@@ -478,193 +477,309 @@ export default function PatientRegistration() {
       </div>
     );
   }
+// src/pages/PatientForm.tsx  — return() block only
+// Drop this in place of your existing return() — all logic above stays unchanged.
 
-  return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-lg transition-all text-sm font-medium"
+return (
+  <div className="space-y-4 p-6">
+
+    {/* ── Header ──────────────────────────────────────────────────────── */}
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors"
+          style={{
+            color: 'var(--text-secondary)',
+            borderColor: 'var(--border-color)',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) =>
+            ((e.currentTarget as HTMLButtonElement).style.background =
+              'var(--bg-main)')
+          }
+          onMouseLeave={(e) =>
+            ((e.currentTarget as HTMLButtonElement).style.background =
+              'transparent')
+          }
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back
+        </button>
+
+        <div>
+          <h1
+            className="text-base font-medium"
+            style={{ color: 'var(--text-primary)' }}
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">
-              {isEditMode ? 'Update Patient' : 'Patient Registration'}
-            </h1>
-            {isEditMode && currentPatient && (
-              <p className="text-[var(--text-secondary)] text-sm">Editing: {currentPatient.surname} {currentPatient.otherNames}</p>
-            )}
-            {saveSuccess && !isEditMode && (
-              <p className="text-[var(--text-secondary)] text-sm">Registered: {formData.surname} {formData.otherNames}</p>
-            )}
-          </div>
+            {isEditMode ? 'Update patient' : 'Patient registration'}
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            {isEditMode && currentPatient
+              ? `Editing: ${currentPatient.surname} ${currentPatient.otherNames}`
+              : saveSuccess
+              ? `Registered: ${formData.surname} ${formData.otherNames}`
+              : 'New outpatient record'}
+          </p>
         </div>
-
-        {saveSuccess && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleContinueEditing}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition text-sm font-medium"
-            >
-              <Edit className="w-4 h-4" />
-              Continue Editing
-            </button>
-            <button
-              onClick={handleViewDetails}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-text)] text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
-            >
-              <Eye className="w-4 h-4" />
-              View Patient
-            </button>
-          </div>
-        )}
       </div>
 
       {saveSuccess && (
-        <div className="bg-[var(--icon-green-bg)] border border-[var(--icon-green-text)]/20 rounded-xl p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-green-text)]/20 rounded-full flex items-center justify-center">
-              <Save className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                {isEditMode ? 'Patient Updated!' : 'Patient Registered!'}
-              </h3>
-              <p className="text-[var(--text-secondary)] text-sm mt-0.5">
-                {isEditMode 
-                  ? 'Patient information has been updated successfully.' 
-                  : 'Patient has been registered successfully. You can now add additional information.'}
-              </p>
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleContinueEditing}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors"
+            style={{
+              color: 'var(--text-primary)',
+              borderColor: 'var(--border-color)',
+              background: 'transparent',
+            }}
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Continue editing
+          </button>
+          <button
+            onClick={handleViewDetails}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border-0 text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--icon-green-text)' }}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            View patient
+          </button>
         </div>
       )}
+    </div>
 
-      {/* Form */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 space-y-7">
-        {/* Tabs */}
-        <div className="border-b border-[var(--border-color)]">
-          <nav className="flex flex-wrap gap-2">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2.5 py-3 px-5 rounded-xl font-medium transition-all duration-200 text-sm ${
-                    activeTab === tab.id
-                      ? 'border-b-2 border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                  }`}
-                >
-                  <Icon className="w-4.5 h-4.5" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
+    {/* ── Success banner ───────────────────────────────────────────────── */}
+    {saveSuccess && (
+      <div
+        className="flex items-center gap-3 px-4 py-3.5 rounded-xl border"
+        style={{
+          background: 'var(--icon-green-bg)',
+          borderColor: 'var(--border-color)',
+        }}
+      >
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--icon-green-text)' + '33' }}
+        >
+          <Save className="w-4 h-4" style={{ color: 'var(--icon-green-text)' }} />
         </div>
-
-        {/* Tab Content */}
-        <div className="min-h-[480px]">
-          {activeTab === 'basic' && (
-            <BasicInfoForm
-              formData={formData}
-              additionalInfo={additionalInfo}
-              ageDisplay={ageDisplay}
-              imagePreview={imagePreview}
-              isUploadingImage={isUploadingImage}
-              isEditMode={isEditMode}
-              currentPatient={currentPatient}
-              onFormDataChange={setFormData}
-              onAdditionalInfoChange={setAdditionalInfo}
-              onImageChange={handleImageChange}
-              removeImage={removeImage}
-              calculateAge={calculateAge}
-            />
-          )}
-          {activeTab === 'payment' && (
-            <PaymentModeTab
-              paymentMode={paymentData.paymentMode}
-              insuranceDetails={paymentData.insuranceDetails}
-              onPaymentModeChange={(mode) => setPaymentData({ ...paymentData, paymentMode: mode })}
-              onInsuranceDetailsChange={(details) => setPaymentData({ ...paymentData, insuranceDetails: details })}
-              insuranceProviders={providers}
-              isLoadingProviders={isLoadingProviders}
-              isOptional={true}
-              patientId={savedPatientId || currentPatient?.id || patientId}
-            />
-          )}
-          {activeTab === 'additional' && (
-            <AdditionalInfoTab
-              additionalInfo={additionalInfo}
-              onAdditionalInfoChange={setAdditionalInfo}
-            />
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-5 border-t border-[var(--border-color)]">
-          {activeTab === 'basic' && (
-            <>
-              <button
-                type="submit"
-                onClick={handleBasicInfoSubmit}
-                disabled={isSubmitting || isUploadingImage}
-                className={`flex items-center gap-2.5 px-7 py-3 bg-[var(--icon-cyan-text)] text-white rounded-xl transition-all duration-200 hover:shadow-lg shadow-md font-medium text-base ${
-                  (isSubmitting || isUploadingImage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-700'
-                }`}
-              >
-                <Save className="w-5 h-5" />
-                {isUploadingImage ? 'Uploading...' : isSubmitting ? 'Saving...' : (isEditMode ? 'Update Patient' : 'Register Patient')}
-              </button>
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={isSubmitting || isUploadingImage}
-                className="px-7 py-3 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--bg-main)] transition-all duration-200 font-medium text-base disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </>
-          )}
-          
-          {activeTab === 'payment' && (savedPatientId || isEditMode) && (
-            <button
-              type="button"
-              onClick={handleSavePaymentMode}
-              disabled={isSubmitting}
-              className="flex items-center gap-2.5 px-7 py-3 bg-[var(--icon-green-text)] text-white rounded-xl hover:bg-green-700 transition-all duration-200 font-medium text-base disabled:opacity-50"
-            >
-              <Save className="w-5 h-5" />
-              Save Payment Mode
-            </button>
-          )}
-          
-          {activeTab === 'additional' && (savedPatientId || isEditMode) && (
-            <button
-              type="button"
-              onClick={handleSaveAdditionalInfo}
-              disabled={isSubmitting}
-              className="flex items-center gap-2.5 px-7 py-3 bg-[var(--icon-green-text)] text-white rounded-xl hover:bg-green-700 transition-all duration-200 font-medium text-base disabled:opacity-50"
-            >
-              <Save className="w-5 h-5" />
-              Save Additional Info
-            </button>
-          )}
-          
-          {((activeTab === 'payment' || activeTab === 'additional') && !savedPatientId && !isEditMode) && (
-            <div className="text-amber-600 text-sm bg-amber-50 px-4 py-2 rounded-lg border border-amber-200">
-              Please complete and save basic information first.
-            </div>
-          )}
+        <div>
+          <p
+            className="text-sm font-medium"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {isEditMode ? 'Patient updated!' : 'Patient registered!'}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--icon-green-text)' }}>
+            {isEditMode
+              ? 'Patient information has been updated successfully.'
+              : 'Record saved. Add payment mode or additional info using the tabs above.'}
+          </p>
         </div>
       </div>
+    )}
+
+    {/* ── Form card ───────────────────────────────────────────────────── */}
+    <div
+      className="rounded-xl overflow-hidden border"
+      style={{
+        background: 'var(--bg-card)',
+        borderColor: 'var(--border-color)',
+      }}
+    >
+      {/* Tab bar */}
+      <div
+        className="flex gap-1.5 px-3 py-2.5 border-b"
+        style={{
+          background: 'var(--bg-main)',
+          borderColor: 'var(--border-color)',
+        }}
+      >
+        {tabs.map((tab, idx) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: isActive ? 'var(--bg-card)' : 'transparent',
+                border: isActive
+                  ? '0.5px solid var(--border-color)'
+                  : '0.5px solid transparent',
+                color: isActive
+                  ? 'var(--icon-cyan-text)'
+                  : 'var(--text-secondary)',
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{
+                  background: isActive
+                    ? 'var(--icon-cyan-text)'
+                    : 'var(--text-tertiary)',
+                }}
+              />
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+              <span
+                className="text-xs px-1.5 py-0.5 rounded"
+                style={{
+                  background: isActive
+                    ? 'var(--icon-cyan-bg)'
+                    : 'var(--bg-main)',
+                  color: isActive
+                    ? 'var(--icon-cyan-text)'
+                    : 'var(--text-tertiary)',
+                  fontSize: 10,
+                }}
+              >
+                0{idx + 1}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      <div className="p-5" style={{ minHeight: 320 }}>
+        {activeTab === 'basic' && (
+          <BasicInfoForm
+            formData={formData}
+            additionalInfo={additionalInfo}
+            ageDisplay={ageDisplay}
+            imagePreview={imagePreview}
+            isUploadingImage={isUploadingImage}
+            isEditMode={isEditMode}
+            currentPatient={currentPatient}
+            onFormDataChange={setFormData}
+            onAdditionalInfoChange={setAdditionalInfo}
+            onImageChange={handleImageChange}
+            removeImage={removeImage}
+            calculateAge={calculateAge}
+          />
+        )}
+
+        {activeTab === 'payment' && (
+          <PaymentModeTab
+            paymentMode={paymentData.paymentMode}
+            insuranceDetails={paymentData.insuranceDetails}
+            onPaymentModeChange={(mode) =>
+              setPaymentData({ ...paymentData, paymentMode: mode })
+            }
+            onInsuranceDetailsChange={(details) =>
+              setPaymentData({ ...paymentData, insuranceDetails: details })
+            }
+            insuranceProviders={providers}
+            isLoadingProviders={isLoadingProviders}
+            isOptional={true}
+            patientId={
+              savedPatientId || currentPatient?.id || patientId
+            }
+          />
+        )}
+
+        {activeTab === 'additional' && (
+          <AdditionalInfoTab
+            additionalInfo={additionalInfo}
+            onAdditionalInfoChange={setAdditionalInfo}
+          />
+        )}
+      </div>
+
+      {/* ── Action bar ──────────────────────────────────────────────────── */}
+      <div
+        className="flex items-center gap-3 px-5 py-3.5 border-t"
+        style={{
+          background: 'var(--bg-main)',
+          borderColor: 'var(--border-color)',
+        }}
+      >
+        {/* Basic tab actions */}
+        {activeTab === 'basic' && (
+          <>
+            <button
+              type="submit"
+              onClick={handleBasicInfoSubmit}
+              disabled={isSubmitting || isUploadingImage}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              style={{ background: 'var(--icon-cyan-text)' }}
+            >
+              <Save className="w-4 h-4" />
+              {isUploadingImage
+                ? 'Uploading…'
+                : isSubmitting
+                ? 'Saving…'
+                : isEditMode
+                ? 'Update patient'
+                : 'Register patient'}
+            </button>
+            <button
+              type="button"
+              onClick={handleBack}
+              disabled={isSubmitting || isUploadingImage}
+              className="px-5 py-2.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50"
+              style={{
+                color: 'var(--text-secondary)',
+                borderColor: 'var(--border-color)',
+                background: 'transparent',
+              }}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+
+        {/* Payment tab actions */}
+        {activeTab === 'payment' && (savedPatientId || isEditMode) && (
+          <button
+            type="button"
+            onClick={handleSavePaymentMode}
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+            style={{ background: 'var(--icon-cyan-text)' }}
+          >
+            <Save className="w-4 h-4" />
+            Save payment mode
+          </button>
+        )}
+
+        {/* Additional tab actions */}
+        {activeTab === 'additional' && (savedPatientId || isEditMode) && (
+          <button
+            type="button"
+            onClick={handleSaveAdditionalInfo}
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+            style={{ background: 'var(--icon-green-text)' }}
+          >
+            <Save className="w-4 h-4" />
+            Save additional info
+          </button>
+        )}
+
+        {/* Guard — tabs 2 & 3 before basic info is saved */}
+        {(activeTab === 'payment' || activeTab === 'additional') &&
+          !savedPatientId &&
+          !isEditMode && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs border"
+              style={{
+                background: 'var(--icon-yellow-bg)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--icon-yellow-text)',
+              }}
+            >
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              Complete and save basic information first.
+            </div>
+          )}
+      </div>
     </div>
-  );
+  </div>
+);
 }

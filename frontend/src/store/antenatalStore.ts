@@ -1,24 +1,47 @@
-// src/store/antenatalStore.ts - CORRECTED VERSION
+// src/store/antenatalStore.ts - FIXED VERSION
 import { create } from 'zustand';
 import {
   getAntenatalBookings as apiGetBookings,
-  getActiveBookingByPatient as apiGetActiveBooking,      // ✅ For getting booking by patient ID
-  getAntenatalBookingById as apiGetBookingById,          // ✅ For getting booking by booking ID
+  getActiveBookingByPatient as apiGetActiveBooking,
+  getAntenatalBookingById as apiGetBookingById,
   createAntenatalBooking as apiCreateBooking,
-  closeAntenatalBooking as apiCloseBooking,              // ✅ Now uses booking ID
-  recordANCVisit as apiRecordVisit,
-  getANCVisitsByBooking as apiGetANCVisitsByBooking,     // ✅ Correct name
+  closeAntenatalBooking as apiCloseBooking,
+  getANCVisitsByBooking as apiGetANCVisitsByBooking,
   getANCVisitById as apiGetVisit,
   updateANCVisit as apiUpdateVisit,
   deleteANCVisit as apiDeleteVisit,
   getANCStatistics as apiGetStats,
-  getAntenatalByAttendance as apiGetByAttendance,        // ✅ For getting by attendance
-  // generateANCReport as apiGenerateANCReport,          // ❌ Remove - not in API file
-  AntenatalBookingData,
-  ANCVisitData
 } from '../api/antenatal';
 
-// ... interface definitions remain the same ...
+interface AntenatalState {
+  bookings: any[];
+  currentBooking: any | null;
+  currentVisits: any[];
+  currentVisit: any | null;
+  stats: any;
+  ancReport: any | null;
+  isLoading: boolean;
+  isLoadingBookings: boolean;
+  isLoadingVisits: boolean;
+  isGeneratingReport: boolean;
+  error: string | null;
+  pagination: any | null;
+
+  // Actions
+  getBookings: (filters?: any) => Promise<void>;
+  getBooking: (patientId: string) => Promise<any | null>;
+  getBookingById: (bookingId: string) => Promise<any>;
+  refreshBooking: (patientId: string) => Promise<void>;
+  createBooking: (data: any) => Promise<any>;
+  closeBooking: (bookingId: string, data: any) => Promise<void>;
+  getANCVisitsByBooking: (bookingId: string) => Promise<any[]>;
+  getVisit: (id: string) => Promise<any>;
+  updateVisit: (id: string, data: any) => Promise<void>;
+  deleteVisit: (id: string) => Promise<void>;
+  getStats: (filters?: any) => Promise<void>;
+  clearCurrentBooking: () => void;
+  clearError: () => void;
+}
 
 export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   bookings: [],
@@ -55,7 +78,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  // ✅ FIXED: Get active booking by PATIENT ID
   getBooking: async (patientId: string) => {
     set({ isLoading: true, error: null });
     try {
@@ -74,7 +96,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
   
-  // ✅ NEW: Get booking by BOOKING ID
   getBookingById: async (bookingId: string) => {
     set({ isLoading: true, error: null });
     try {
@@ -88,7 +109,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
   
-  // ✅ FIXED: Refresh booking data
   refreshBooking: async (patientId: string) => {
     try {
       const response = await apiGetActiveBooking(patientId);
@@ -119,7 +139,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  // ✅ FIXED: Close booking by BOOKING ID (not patientId)
   closeBooking: async (bookingId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
@@ -136,7 +155,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  // ✅ FIXED: Remove getVisits - use getANCVisitsByBooking instead
   getANCVisitsByBooking: async (bookingId: string) => {
     set({ isLoadingVisits: true, error: null });
     try {
@@ -163,22 +181,8 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  recordVisit: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await apiRecordVisit(data);
-      const visit = response.data || response;
-      set((state) => ({
-        currentVisits: [...state.currentVisits, visit].sort((a, b) => a.visitNumber - b.visitNumber),
-        currentVisit: visit,
-        isLoading: false,
-      }));
-      return visit;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
+  // Note: recordVisit is removed because ANC visits are auto-created when attendance is created
+  // To add detailed data, use updateVisit on the existing visit
 
   updateVisit: async (id, data) => {
     set({ isLoading: true, error: null });
@@ -222,9 +226,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       throw error;
     }
   },
-
-  // ✅ Remove generateANCReport since it's not in API file
-  // generateANCReport: async (params) => { ... },
 
   clearCurrentBooking: () => set({ currentBooking: null, currentVisits: [], currentVisit: null }),
   clearError: () => set({ error: null }),

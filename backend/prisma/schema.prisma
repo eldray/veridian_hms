@@ -236,6 +236,7 @@ model Patient {
   PatientWaiver        PatientWaiver[]
   deliveryRecords      DeliveryRecord[]
   abortionRecords      AbortionRecord[]
+  postnatalRecords      PostnatalRecord[]
 
   @@index([folderNumber])
   @@index([otherNames])
@@ -432,6 +433,7 @@ model Attendance {
   WardChargeRecord                  WardChargeRecord[]
   deliveryRecords                   DeliveryRecord[]
   abortionRecords                   AbortionRecord[]
+  postnatalRecords                  PostnatalRecord[]
 
   @@index([attendanceType])
   @@index([dateTime])
@@ -860,6 +862,12 @@ model Diagnosis {
   @@index([morbidityGroup])
 }
 
+enum DiagnosisTypeEnum {
+  provisional   // Doctor's working diagnosis (not confirmed)
+  primary       // Main confirmed diagnosis
+  additional    // Secondary / co-morbid conditions
+}
+
 model AttendanceDiagnosis {
   id                 String              @id @default(cuid())
   attendanceId       String
@@ -869,9 +877,11 @@ model AttendanceDiagnosis {
   date               DateTime            @default(now())
   createdById        String
   icdCode            String?
-  // ❌ REMOVE: gdrgCode           String?
+  
+  // ✅ ADD THIS FIELD - Diagnosis type
+  diagnosisType      DiagnosisTypeEnum   @default(provisional)  // provisional, primary, additional
+  
   presentOnAdmission PresentOnAdmission?
-  diagnosisType      DiagnosisType?
   createdAt          DateTime            @default(now())
 
   Attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -881,6 +891,7 @@ model AttendanceDiagnosis {
   @@index([attendanceId])
   @@index([diagnosisId])
 }
+
 
 // ============================================================
 // BILLING
@@ -1342,6 +1353,7 @@ model AntenatalBooking {
   currentAttendance        Attendance?          @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
   deliveryRecord           DeliveryRecord?      @relation(fields: [deliveryRecordId], references: [id])
   visits                   ANCVisit[]
+  postnatalRecords         PostnatalRecord[]
   createdBy                User                 @relation(fields: [createdById], references: [id])
 }
 
@@ -1410,6 +1422,80 @@ model ANCVisit {
   recordedBy               User             @relation(fields: [recordedById], references: [id])
   
   @@unique([bookingId, visitNumber])
+}
+
+model PostnatalRecord {
+  id                    String         @id @default(cuid())
+  patientId             String
+  attendanceId          String         @unique
+  antenatalBookingId    String?
+  deliveryRecordId      String?
+  examinationDate       DateTime       @default(now())
+  dayNumber             Int            @default(1)
+  
+  // Maternal assessment
+  maternalCondition     String?        // good, fair, poor, critical
+  maternalComplications Json           @default("[]")
+  bloodPressure         String?
+  temperature           Float?
+  pulse                 Int?
+  fundalHeight          Int?
+  lochia                String?        // normal, heavy, foul_smelling, scanty
+  perinealCondition     String?        // intact, healing, infected, dehisced
+  caesareanWound        String?        // healing, infected, dehisced
+  
+  // Breastfeeding
+  breastfeedingStatus   String?        // exclusive, mixed, not_breastfeeding
+  breastfeedingDifficulties Json       @default("[]")
+  latching              String?        // good, fair, poor
+  
+  // Baby assessment
+  babyCondition         String?        // good, fair, poor, critical
+  babyWeight            Float?
+  babyTemperature       Float?
+  babyFeeding           String?        // good, fair, poor
+  jaundice              Boolean        @default(false)
+  jaundiceSeverity      String?        // mild, moderate, severe
+  cordCondition         String?        // dry, moist, infected
+  
+  // Immunizations
+  bcgGiven              Boolean        @default(false)
+  opv0Given             Boolean        @default(false)
+  hepB0Given            Boolean        @default(false)
+  
+  // Family Planning
+  familyPlanningDiscussed   Boolean    @default(false)
+  familyPlanningMethodAccepted String?
+  
+  // Danger signs
+  maternalDangerSigns   Json           @default("[]")
+  babyDangerSigns       Json           @default("[]")
+  
+  // Referrals
+  referralMade          Boolean        @default(false)
+  referredTo            String?
+  referralReason        String?
+  
+  // Next visit
+  nextVisitDate         DateTime?
+  nextVisitType         String?        // day_7, day_14, day_28, day_42, other
+  
+  notes                 String?
+  createdById           String
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  // Relations
+  patient               Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attendance            Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  antenatalBooking      AntenatalBooking? @relation(fields: [antenatalBookingId], references: [id])
+  deliveryRecord        DeliveryRecord? @relation(fields: [deliveryRecordId], references: [id])
+  createdBy             User           @relation(fields: [createdById], references: [id])
+
+  @@index([patientId])
+  @@index([attendanceId])
+  @@index([examinationDate])
+  @@map("postnatal_records")
 }
 
 // ============================================================
@@ -1816,6 +1902,7 @@ model User {
   idsrAlerts                                      IDSRAlert[]
   deliveryRecords                                 DeliveryRecord[]
   antenatalBookingsCreated                        AntenatalBooking[]
+  postnatalRecords                                PostnatalRecord[]
 
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
@@ -1963,6 +2050,7 @@ model DeliveryRecord {
   Newborn          NewbornRecord[]
   AbortionRecord   AbortionRecord? @relation(fields: [abortionRecordId], references: [id])
   abortionRecordId String?
+  postnatalRecords      PostnatalRecord[]
 
   @@index([deliveryDate])
   @@index([patientId])

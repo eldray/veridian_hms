@@ -1,6 +1,6 @@
 // src/components/medical-entries/modals/DiagnosisModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X, Search, Stethoscope, AlertCircle, CheckCircle, DollarSign, Shield } from 'lucide-react';
+import { X, Search, Stethoscope, AlertCircle, CheckCircle, DollarSign, Shield, Clock, Star, Plus } from 'lucide-react';
 import { useAttendanceStore } from '../../../store/attendanceStore';
 import { useToast } from '../../../store/toastStore';
 
@@ -12,7 +12,46 @@ interface DiagnosisModalProps {
   diagnoses: any[];
   canAdd: boolean;
   userId?: string;
+  userName?: string;
 }
+
+type DiagnosisType = 'provisional' | 'primary' | 'additional';
+
+const DIAGNOSIS_TYPES = [
+  { 
+    value: 'provisional' as DiagnosisType, 
+    label: 'Provisional', 
+    icon: <Clock className="w-4 h-4" />, 
+    color: 'yellow',
+    bgClass: 'bg-yellow-50 dark:bg-yellow-950/30',
+    borderClass: 'border-yellow-200 dark:border-yellow-800',
+    textClass: 'text-yellow-700 dark:text-yellow-400',
+    description: 'Working diagnosis - not yet confirmed',
+    badgeClass: 'bg-yellow-100 text-yellow-800'
+  },
+  { 
+    value: 'primary' as DiagnosisType, 
+    label: 'Primary', 
+    icon: <Star className="w-4 h-4" />, 
+    color: 'green',
+    bgClass: 'bg-green-50 dark:bg-green-950/30',
+    borderClass: 'border-green-200 dark:border-green-800',
+    textClass: 'text-green-700 dark:text-green-400',
+    description: 'Main confirmed diagnosis',
+    badgeClass: 'bg-green-100 text-green-800'
+  },
+  { 
+    value: 'additional' as DiagnosisType, 
+    label: 'Additional', 
+    icon: <Plus className="w-4 h-4" />, 
+    color: 'blue',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/30',
+    borderClass: 'border-blue-200 dark:border-blue-800',
+    textClass: 'text-blue-700 dark:text-blue-400',
+    description: 'Secondary / co-morbid conditions',
+    badgeClass: 'bg-blue-100 text-blue-800'
+  },
+];
 
 export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
   isOpen,
@@ -25,7 +64,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
   const [notes, setNotes] = useState('');
-  const [isPrimary, setIsPrimary] = useState(true);
+  const [diagnosisType, setDiagnosisType] = useState<DiagnosisType>('provisional');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -48,7 +87,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
     setSelectedDiagnosis(null);
     setSearchTerm('');
     setNotes('');
-    setIsPrimary(true);
+    setDiagnosisType('provisional');
   };
 
   const handleSubmit = async () => {
@@ -67,10 +106,11 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
       await addDiagnosis(attendanceId, {
         diagnosisId: selectedDiagnosis.id,
         notes: notes,
-        primary: isPrimary,
+        primary: diagnosisType === 'primary',           // For backward compatibility
+        diagnosisType: diagnosisType,                    // ✅ New field for type
       });
 
-      success('Diagnosis Added', `${selectedDiagnosis.name} has been added`);
+      success('Diagnosis Added', `${selectedDiagnosis.name} added as ${diagnosisType.toUpperCase()}`);
       clearSelection();
       onSuccess();
     } catch (err: any) {
@@ -78,6 +118,11 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getSelectedTypeStyle = () => {
+    const type = DIAGNOSIS_TYPES.find(t => t.value === diagnosisType);
+    return type || DIAGNOSIS_TYPES[0];
   };
 
   if (!isOpen) return null;
@@ -97,7 +142,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Add Diagnosis</h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Select a diagnosis from the catalog
+                  Select a diagnosis and specify its type
                 </p>
               </div>
             </div>
@@ -111,6 +156,42 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
 
           {/* Form */}
           <div className="p-6 space-y-5">
+            {/* Diagnosis Type Selection */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-[var(--text-primary)]">
+                Diagnosis Type *
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {DIAGNOSIS_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setDiagnosisType(type.value)}
+                    className={`
+                      p-2 rounded-lg border text-center transition-all
+                      ${diagnosisType === type.value 
+                        ? `${type.bgClass} ${type.borderClass} border-2 font-semibold`
+                        : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-gray-400'
+                      }
+                    `}
+                  >
+                    <div className={`flex justify-center mb-1 ${diagnosisType === type.value ? type.textClass : 'text-[var(--text-secondary)]'}`}>
+                      {type.icon}
+                    </div>
+                    <span className={`text-xs font-medium ${diagnosisType === type.value ? type.textClass : 'text-[var(--text-primary)]'}`}>
+                      {type.label}
+                    </span>
+                    <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 hidden sm:block">
+                      {type.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">
+                {getSelectedTypeStyle().description}
+              </p>
+            </div>
+
             {/* Diagnosis Search */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[var(--text-primary)]">
@@ -135,7 +216,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
 
               {/* Dropdown */}
               {showDropdown && searchTerm && filteredDiagnoses.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
+                <div className="absolute z-20 mt-1 w-[calc(100%-3rem)] max-h-60 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
                   {filteredDiagnoses.map((diagnosis) => (
                     <button
                       key={diagnosis.id}
@@ -150,7 +231,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
                           ICD-10: {diagnosis.icdCode}
                         </span>
                         {diagnosis.requiresAuthorization && (
-                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded">
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
                             <Shield className="w-3 h-3" />
                             Auth Required
                           </span>
@@ -162,7 +243,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
               )}
 
               {showDropdown && searchTerm && filteredDiagnoses.length === 0 && (
-                <div className="absolute z-20 mt-1 w-full p-4 text-center border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)]">
+                <div className="absolute z-20 mt-1 w-[calc(100%-3rem)] p-4 text-center border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)]">
                   <AlertCircle className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2" />
                   <p className="text-sm text-[var(--text-secondary)]">No diagnoses found</p>
                   <p className="text-xs text-[var(--text-tertiary)]">Try a different search term</p>
@@ -172,9 +253,14 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
 
             {/* Selected Diagnosis Display */}
             {selectedDiagnosis && (
-              <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 border border-[var(--icon-green-text)]">
+              <div className={`rounded-lg p-3 border-2 ${getSelectedTypeStyle().borderClass} ${getSelectedTypeStyle().bgClass}`}>
                 <div className="flex items-center justify-between">
                   <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSelectedTypeStyle().badgeClass}`}>
+                        {getSelectedTypeStyle().label.toUpperCase()}
+                      </span>
+                    </div>
                     <div className="font-semibold text-[var(--text-primary)] text-sm">
                       {selectedDiagnosis.name}
                     </div>
@@ -187,32 +273,15 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
                       </div>
                     )}
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <button
+                    onClick={clearSelection}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    Change
+                  </button>
                 </div>
               </div>
             )}
-
-            {/* Primary Diagnosis Toggle */}
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-[var(--text-primary)]">
-                Primary Diagnosis
-              </label>
-              <button
-                onClick={() => setIsPrimary(!isPrimary)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isPrimary ? 'bg-[var(--icon-cyan-text)]' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isPrimary ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)] -mt-2">
-              Primary diagnosis is the main reason for this visit
-            </p>
 
             {/* Notes */}
             <div className="space-y-2">
@@ -228,16 +297,17 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
               />
             </div>
 
-            {/* Consultation Fee Note */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <DollarSign className="w-4 h-4 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-800">Consultation Fee Applied</p>
-                  <p className="text-xs text-blue-600">
-                    Adding a diagnosis will automatically apply the GHS 50.00 consultation fee to the patient's bill.
-                  </p>
-                </div>
+            {/* Legend / Info */}
+            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Diagnosis Types Explained:</p>
+              <div className="space-y-1.5">
+                {DIAGNOSIS_TYPES.map((type) => (
+                  <div key={type.value} className="flex items-center gap-2 text-xs">
+                    <span className={`${type.textClass}`}>{type.icon}</span>
+                    <span className="font-medium text-[var(--text-primary)]">{type.label}:</span>
+                    <span className="text-[var(--text-secondary)]">{type.description}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -261,7 +331,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
                   Adding...
                 </div>
               ) : (
-                'Add Diagnosis'
+                `Add ${getSelectedTypeStyle().label} Diagnosis`
               )}
             </button>
           </div>

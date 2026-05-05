@@ -1,6 +1,6 @@
 // AUTO-GENERATED from Prisma schema
 // DO NOT EDIT MANUALLY
-// Generated on: 2026-04-27T15:46:02.401Z
+// Generated on: 2026-05-04T22:50:48.692Z
 export enum GDRGMDC {
   ASUR = 'ASUR',
   DENT = 'DENT',
@@ -128,16 +128,20 @@ export enum MorbidityGroup {
   re_attendances = 're_attendances',
   referrals = 'referrals',
 }
+export enum DiagnosisTypeEnum {
+  provisional = 'provisional',
+  primary = 'primary',
+  additional = 'additional',
+}
 export enum GHSReportType {
   opd_morbidity = 'opd_morbidity',
+  opd_attendance = 'opd_attendance',
   ipd_morbidity = 'ipd_morbidity',
   idsr = 'idsr',
   form_a_morbidity = 'form_a_morbidity',
   form_a_services = 'form_a_services',
+  form_a_complete = 'form_a_complete',
   malaria_data = 'malaria_data',
-  anc_return = 'anc_return',
-  delivery_register = 'delivery_register',
-  abortion_data = 'abortion_data',
   monthly_summary = 'monthly_summary',
 }
 export enum MalariaCommodityType {
@@ -332,6 +336,7 @@ export enum UserRole {
 }
 export enum LabTestStatus {
   requested = 'requested',
+  in_progress = 'in_progress',
   completed = 'completed',
   cancelled = 'cancelled',
 }
@@ -342,6 +347,7 @@ export enum ProcedureStatus {
 }
 export enum ScanStatus {
   requested = 'requested',
+  in_progress = 'in_progress',
   completed = 'completed',
   cancelled = 'cancelled',
 }
@@ -453,6 +459,24 @@ export enum DiagnosisVariant {
   complicated = 'complicated',
   uncomplicated = 'uncomplicated',
 }
+export enum ProcedureCategory {
+  surgical = 'surgical',
+  diagnostic = 'diagnostic',
+  therapeutic = 'therapeutic',
+  obstetric = 'obstetric',
+  pediatric = 'pediatric',
+  dental = 'dental',
+  ophthalmic = 'ophthalmic',
+  laparoscopic = 'laparoscopic',
+  laparotomy = 'laparotomy',
+  orthopedic = 'orthopedic',
+  urology = 'urology',
+  ent = 'ent',
+  dermatology = 'dermatology',
+  neurology = 'neurology',
+  emergency = 'emergency',
+  minor = 'minor',
+}
 export enum LabCategory {
   hematology = 'hematology',
   biochemistry = 'biochemistry',
@@ -463,15 +487,20 @@ export enum LabCategory {
   molecular = 'molecular',
   cytology = 'cytology',
   histopathology = 'histopathology',
-}
-export enum ProcedureCategory {
-  surgical = 'surgical',
-  diagnostic = 'diagnostic',
-  therapeutic = 'therapeutic',
-  obstetric = 'obstetric',
-  pediatric = 'pediatric',
-  dental = 'dental',
-  ophthalmic = 'ophthalmic',
+  pulmonology = 'pulmonology',
+  neurology = 'neurology',
+  cardiology = 'cardiology',
+  radiology = 'radiology',
+  pathology = 'pathology',
+  ophthalmology = 'ophthalmology',
+  pft = 'pft',
+  eeg = 'eeg',
+  ecg = 'ecg',
+  angiography = 'angiography',
+  eye = 'eye',
+  gastroenterology = 'gastroenterology',
+  endocrinology = 'endocrinology',
+  urinalysis = 'urinalysis',
 }
 export enum ScanCategory {
   xray = 'xray',
@@ -748,6 +777,7 @@ export interface Patient {
     PatientWaiver: PatientWaiver[];
     deliveryRecords: DeliveryRecord[];
     abortionRecords: AbortionRecord[];
+    postnatalRecords: PostnatalRecord[];
 }
 
 export interface NHISEligibilityCheck {
@@ -834,6 +864,9 @@ export interface Attendance {
     complaints: string;
     medicalNotes?: string | null;
     gdrgCategory?: string | null;
+    antenatalBookings: AntenatalBooking[];
+    currentAntenatalBookings: AntenatalBooking[];
+    antenatalVisits: ANCVisit[];
     totalBill: number;
     paidAmount: number;
     outstandingBalance: number;
@@ -859,6 +892,7 @@ export interface Attendance {
     WardChargeRecord: WardChargeRecord[];
     deliveryRecords: DeliveryRecord[];
     abortionRecords: AbortionRecord[];
+    postnatalRecords: PostnatalRecord[];
 }
 
 export interface LabTest {
@@ -1279,51 +1313,122 @@ export interface ReferralRecord {
 export interface AntenatalBooking {
     id: string;
     patientId: string;
+    pregnancyNumber: number;
+    attendanceId: string;
+    currentAttendanceId?: string | null;
     bookingDate: string;
+    lmp?: string | null;
+    edd?: string | null;
     gestationalAgeWeeks?: number | null;
-    estimatedDeliveryDate?: string | null;
     gravida: number;
     para: number;
-    lmp?: string | null;
-    bloodGroup?: string | null;
-    rhesusStatus?: string | null;
-    hivStatus?: string | null;
-    syphilisStatus?: string | null;
-    hepatitisBStatus?: string | null;
-    bookingWeight?: number | null;
-    bookingBP?: string | null;
-    riskNotes?: string | null;
-    midwifeId?: string | null;
-    doctorId?: string | null;
-    isActive: boolean;
+    previousCSection: boolean;
+    previousComplications?: string | null;
+    iptpDoses: any;
+    iptp1Date?: string | null;
+    iptp2Date?: string | null;
+    iptp3Date?: string | null;
+    iptp4Date?: string | null;
+    iptp5Date?: string | null;
+    ttDoses: any;
+    tt1Date?: string | null;
+    tt2Date?: string | null;
+    tt3Date?: string | null;
+    tt4Date?: string | null;
+    tt5Date?: string | null;
+    malariaTested: boolean;
+    malariaPositive: boolean;
+    malariaTreatment?: string | null;
+    malariaIPTpGiven: boolean;
+    hbBooking?: number | null;
+    hb36Weeks?: number | null;
+    anaemiaDiagnosed: boolean;
+    ironFolateGiven: boolean;
+    itnGiven: boolean;
+    itnGivenDate?: string | null;
+    riskFactors?: any | null;
+    deliveryRecordId?: string | null;
     deliveryOutcome?: string | null;
     deliveryDate?: string | null;
+    isActive: boolean;
+    isCompleted: boolean;
+    createdById: string;
     createdAt: string;
     updatedAt: string;
-    ANCVisit: ANCVisit[];
+    visits: ANCVisit[];
+    postnatalRecords: PostnatalRecord[];
 }
 
 export interface ANCVisit {
     id: string;
     bookingId: string;
-    attendanceId?: string | null;
+    attendanceId: string;
     visitNumber: number;
     visitDate: string;
     gestationalAgeWeeks?: number | null;
     weight?: number | null;
     bloodPressure?: string | null;
-    fetalHeartRate?: number | null;
-    presentingPart?: string | null;
-    oedema: boolean;
-    urinalysis?: string | null;
     fundalHeight?: number | null;
-    fetalMovement?: boolean | null;
-    supplementsGiven?: string | null;
-    ttVaccineGiven: boolean;
-    itnGiven: boolean;
+    fetalHeartRate?: number | null;
+    fetalMovements?: boolean | null;
+    presentation?: string | null;
+    oedema: boolean;
+    oedemaGrade?: string | null;
+    urinalysisProtein?: boolean | null;
+    urinalysisGlucose?: boolean | null;
+    urinalysisBlood?: boolean | null;
+    iptpGiven: boolean;
+    iptpDoseNumber?: number | null;
+    iptpDrug?: string | null;
+    ttGiven: boolean;
+    ttDoseNumber?: number | null;
+    ironGiven: boolean;
+    folateGiven: boolean;
+    calciumGiven: boolean;
+    malariaTestDone: boolean;
+    malariaTestResult?: string | null;
+    malariaTreatmentGiven: boolean;
+    dangerSignsPresent: boolean;
+    dangerSignsList: String[];
+    referralMade: boolean;
+    referredTo?: string | null;
+    nextVisitDate?: string | null;
+    returnInstructions?: string | null;
+    recordedById: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PostnatalRecord {
+    id: string;
+    patientId: string;
+    attendanceId: string;
+    antenatalBookingId?: string | null;
+    deliveryRecordId?: string | null;
+    examinationDate: string;
+    dayNumber: number;
+    maternalComplications: any;
+    bloodPressure?: string | null;
+    temperature?: number | null;
+    pulse?: number | null;
+    fundalHeight?: number | null;
+    breastfeedingDifficulties: any;
+    babyWeight?: number | null;
+    babyTemperature?: number | null;
+    jaundice: boolean;
+    bcgGiven: boolean;
+    opv0Given: boolean;
+    hepB0Given: boolean;
+    familyPlanningDiscussed: boolean;
+    familyPlanningMethodAccepted?: string | null;
+    maternalDangerSigns: any;
+    babyDangerSigns: any;
+    referralMade: boolean;
+    referredTo?: string | null;
+    referralReason?: string | null;
     nextVisitDate?: string | null;
     notes?: string | null;
-    recordedById: string;
+    createdById: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -1642,12 +1747,12 @@ export interface User {
     PatientWaiver_requested: PatientWaiver[];
     PatientWaiver_approved: PatientWaiver[];
     ReferralRecord: ReferralRecord[];
-    AntenatalBooking_midwife: AntenatalBooking[];
-    AntenatalBooking_doctor: AntenatalBooking[];
     ANCVisit: ANCVisit[];
     ghsReportSubmissions: GHSReportSubmission[];
     idsrAlerts: IDSRAlert[];
     deliveryRecords: DeliveryRecord[];
+    antenatalBookingsCreated: AntenatalBooking[];
+    postnatalRecords: PostnatalRecord[];
     abortionRecords: AbortionRecord[];
 }
 
@@ -1739,8 +1844,10 @@ export interface DeliveryRecord {
     createdById: string;
     createdAt: string;
     updatedAt: string;
+    antenatalBookingId?: string | null;
     Newborn: NewbornRecord[];
     abortionRecordId?: string | null;
+    postnatalRecords: PostnatalRecord[];
 }
 
 export interface NewbornRecord {

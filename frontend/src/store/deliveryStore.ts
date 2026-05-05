@@ -1,6 +1,6 @@
 // src/store/deliveryStore.ts
 import { create } from 'zustand';
-import * as api from '../api/antenatal';
+import api from '../api/antenatal'; 
 
 export interface DeliveryRecord {
   id: string;
@@ -78,36 +78,41 @@ export interface NewbornRecord {
   createdAt: string;
 }
 
-// API functions
+// src/store/deliveryStore.ts - FIXED
+
+// ✅ FIXED: Use plural '/antenatal/deliveries' for list endpoint
 const getDeliveryRecords = async (filters?: { patientId?: string; startDate?: string; endDate?: string }) => {
-  const response = await api.get('/delivery', { params: filters });
+  // Changed from '/antenatal/delivery' to '/antenatal/deliveries'
+  const response = await api.get('/antenatal/deliveries', { params: filters });
   return response.data;
 };
 
+// These are correct (singular for specific operations)
 const getDeliveryRecord = async (id: string) => {
-  const response = await api.get(`/delivery/${id}`);
+  const response = await api.get(`/antenatal/delivery/${id}`);
   return response.data;
 };
 
 const createDeliveryRecord = async (data: Partial<DeliveryRecord>) => {
-  const response = await api.post('/delivery', data);
+  const response = await api.post('/antenatal/delivery', data);
   return response.data;
 };
 
 const updateDeliveryRecord = async (id: string, data: Partial<DeliveryRecord>) => {
-  const response = await api.put(`/delivery/${id}`, data);
+  const response = await api.put(`/antenatal/delivery/${id}`, data);
   return response.data;
 };
 
 const deleteDeliveryRecord = async (id: string) => {
-  const response = await api.delete(`/delivery/${id}`);
+  const response = await api.delete(`/antenatal/delivery/${id}`);
   return response.data;
 };
 
 const getDeliveryStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/delivery/stats', { params: filters });
+  const response = await api.get('/antenatal/delivery/stats', { params: filters });
   return response.data;
 };
+
 
 interface DeliveryState {
   deliveries: DeliveryRecord[];

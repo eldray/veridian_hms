@@ -1,4 +1,4 @@
-// src/pages/Antenatal.tsx - COMPLETE WITH TABLE VIEWS
+// src/pages/Antenatal.tsx - COMPLETE UPDATED VERSION
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
@@ -104,55 +104,46 @@ export default function Antenatal() {
 
   const {
     deliveries,
-    currentDelivery,
     getDeliveries,
-    getDelivery,
     createDelivery,
     updateDelivery,
     deleteDelivery,
-    getStats: getDeliveryStats,
-    isLoading: deliveryLoading,
   } = useDeliveryStore();
 
   const {
     postnatalRecords,
-    currentPostnatal,
     getPostnatalRecords,
-    getPostnatalRecord,
     createPostnatalRecord,
     updatePostnatalRecord,
     deletePostnatalRecord,
-    getPostnatalExamination,
-    recordPostnatalExamination,
-    isLoading: postnatalLoading,
   } = usePostnatalStore();
 
   // ── Local state ──────────────────────────────────────────────────────────
-  const [isLoading, setIsLoading]                 = useState(true);
-  const [refreshing, setRefreshing]               = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
-  const [latestVitals, setLatestVitals]           = useState<any>(null);
-  const [activeTab, setActiveTab]                 = useState<'clinical' | 'anc' | 'delivery' | 'postnatal' | 'vitals'>('clinical');
-  const [modalType, setModalType]                 = useState<ModalType>(null);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'clinical' | 'anc' | 'delivery' | 'postnatal' | 'vitals'>('clinical');
+  const [modalType, setModalType] = useState<ModalType>(null);
   const [showNewAttendance, setShowNewAttendance] = useState(false);
 
   const [showANCVisitModal, setShowANCVisitModal] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState('');
-  const [editingVisit, setEditingVisit]           = useState<any>(null);
+  const [editingVisit, setEditingVisit] = useState<any>(null);
 
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
-  const [editingDelivery, setEditingDelivery]     = useState<any>(null);
+  const [editingDelivery, setEditingDelivery] = useState<any>(null);
 
   const [showPostnatalModal, setShowPostnatalModal] = useState(false);
-  const [editingPostnatal, setEditingPostnatal]     = useState<any>(null);
+  const [editingPostnatal, setEditingPostnatal] = useState<any>(null);
 
-  const [selectedVisit, setSelectedVisit]         = useState<any>(null);
-  const [showVisitDetails, setShowVisitDetails]   = useState(false);
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
+  const [showVisitDetails, setShowVisitDetails] = useState(false);
 
-  const [selectedDelivery, setSelectedDelivery]       = useState<any>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
-  const [selectedPostnatal, setSelectedPostnatal]     = useState<any>(null);
+  const [selectedPostnatal, setSelectedPostnatal] = useState<any>(null);
   const [showPostnatalDetails, setShowPostnatalDetails] = useState(false);
 
   // ── Derived ──────────────────────────────────────────────────────────────
@@ -183,6 +174,11 @@ export default function Antenatal() {
   const requestedScans  = scansList.filter((s: any) => s.status === 'requested' || s.status === 'scheduled');
   const completedScans  = scansList.filter((s: any) => s.status === 'completed');
 
+  // Find the visit for the current attendance (auto-created)
+  const currentAttendanceVisit = useMemo(() => {
+    return currentVisits.find(v => v.attendanceId === selectedAttendanceId);
+  }, [currentVisits, selectedAttendanceId]);
+
   const iptpSummary = useMemo(() => ({
     dose1: currentVisits.filter(v => v.iptpGiven && v.iptpDoseNumber === 1).length,
     dose2: currentVisits.filter(v => v.iptpGiven && v.iptpDoseNumber === 2).length,
@@ -202,8 +198,8 @@ export default function Antenatal() {
   }, [currentVisits]);
 
   const getEDDDisplay = () => {
-    if (!currentBooking?.estimatedDeliveryDate) return 'N/A';
-    const edd = new Date(currentBooking.estimatedDeliveryDate);
+    if (!currentBooking?.edd) return 'N/A';
+    const edd = new Date(currentBooking.edd);
     const daysLeft = Math.ceil((edd.getTime() - Date.now()) / 864e5);
     return `${edd.toLocaleDateString()} (${daysLeft} days left)`;
   };
@@ -266,12 +262,24 @@ export default function Antenatal() {
     } catch (err: any) { toastError('Delete failed', err.message); }
   };
 
-  const handleRecordVisit = () => {
-    if (!currentBooking?.id)    { toastError('Error', 'Please create a pregnancy record first'); return; }
-    if (!selectedAttendanceId)  { toastError('Error', 'Please select an attendance first');       return; }
-    setSelectedBookingId(currentBooking.id);
-    setEditingVisit(null);
-    setShowANCVisitModal(true);
+  // ✅ Edit the auto-created visit for the current attendance
+  const handleEditCurrentVisit = () => {
+    if (!currentBooking?.id) {
+      toastError('Error', 'Please create a pregnancy record first');
+      return;
+    }
+    if (!selectedAttendanceId) {
+      toastError('Error', 'Please select an attendance first');
+      return;
+    }
+    
+    if (currentAttendanceVisit) {
+      setEditingVisit(currentAttendanceVisit);
+      setSelectedBookingId(currentBooking.id);
+      setShowANCVisitModal(true);
+    } else {
+      toastError('No Visit Found', 'This attendance does not have an ANC visit record');
+    }
   };
 
   const handleDeleteVisit = async (id: string) => {
@@ -324,9 +332,7 @@ export default function Antenatal() {
         if (attendance?.attendanceType === 'antenatal') {
           await getBooking(selectedPatientId);
           const booking = await getBooking(selectedPatientId).catch(() => null);
-          if (booking?.isActive && !booking?.isCompleted) {
-            handleRecordVisit();
-          } else {
+          if (!booking?.isActive || booking?.isCompleted) {
             setModalType('anc_booking');
           }
         } else if (attendance?.attendanceType === 'delivery') {
@@ -451,7 +457,7 @@ export default function Antenatal() {
                   <span>ID: {selectedPatient.folderNumber}</span>
                   <span>•</span>
                   <span>{selectedPatient.contact}</span>
-                  {activeTab === 'anc' && currentBooking?.estimatedDeliveryDate && (
+                  {activeTab === 'anc' && currentBooking?.edd && (
                     <span className="text-pink-600 font-medium">EDD: {getEDDDisplay()}</span>
                   )}
                 </div>
@@ -538,10 +544,9 @@ export default function Antenatal() {
                 </div>
               </div>
 
-              {/* ── CLINICAL TAB (TABLE VIEWS) ── */}
+              {/* ── CLINICAL TAB (TABLE VIEWS) ── (Same as MedicalEntries) */}
               {activeTab === 'clinical' && (
                 <div className="p-4 space-y-4">
-
                   {/* Action Bar - Add buttons */}
                   {canAddEntries && (
                     <div className="flex flex-wrap gap-2 pb-3 border-b border-[var(--border-color)]">
@@ -563,7 +568,7 @@ export default function Antenatal() {
                     </div>
                   )}
 
-                  {/* ROW 1: DIAGNOSIS - TABLE VIEW */}
+                  {/* Diagnosis Table */}
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                     <PanelHeader
                       icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
@@ -593,147 +598,36 @@ export default function Antenatal() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border-color)]">
-                            {diagnosesList.map((item: any) => (
-                              <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
-                                  {item.Diagnosis?.name}
-                                  {item.notes && <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{item.notes}</div>}
-                                </td>
-                                <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{item.Diagnosis?.icdCode || '—'}</td>
-                                <td className="px-3 py-2">
-                                  {item.primary ? (
-                                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">Primary</span>
-                                  ) : <span className="text-[var(--text-secondary)] text-[10px]">Secondary</span>}
-                                </td>
-                                <td className="px-3 py-2 text-[var(--text-secondary)]">{item.createdBy?.fullName || 'Unknown'}</td>
-                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                  {new Date(item.createdAt).toLocaleDateString()}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  {canAddEntries && (
-                                    <button onClick={() => handleDeleteItem('diagnosis', item.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ROW 2: INVESTIGATIONS REQUESTED - TABLE VIEW */}
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                    <PanelHeader
-                      icon={<FlaskConical className="w-4 h-4 text-purple-600" />}
-                      title={`Investigations Requested`}
-                      action={canAddEntries && (
-                        <button onClick={() => setModalType('lab')} className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white transition-colors">
-                          <Plus className="w-3 h-3" /> Request Test
-                        </button>
-                      )}
-                    />
-                    {labTestsList.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
-                        <p className="text-sm text-[var(--text-secondary)]">No lab tests requested</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto max-h-[260px] overflow-y-auto">
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test Name</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested By</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
-                              <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {labTestsList.map((test: any) => {
-                              const priorityColor = test.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                                test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700';
+                            {diagnosesList.map((item: any) => {
+                              const diagnosisType = item.diagnosisType || (item.primary ? 'primary' : 'additional');
+                              const typeConfig: Record<string, { label: string; bg: string; text: string; icon: string }> = {
+                                provisional: { label: 'Provisional', bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '🟡' },
+                                primary: { label: 'Primary', bg: 'bg-green-100', text: 'text-green-800', icon: '🟢' },
+                                additional: { label: 'Additional', bg: 'bg-blue-100', text: 'text-blue-800', icon: '🔵' },
+                              };
+                              const config = typeConfig[diagnosisType] || typeConfig.additional;
                               return (
-                                <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
                                   <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
-                                    {test.ServiceCatalog?.name || test.name}
-                                    {test.notes && <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{test.notes}</div>}
+                                    {item.Diagnosis?.name}
+                                    {item.notes && <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{item.notes}</div>}
                                   </td>
+                                  <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{item.Diagnosis?.icdCode || '—'}</td>
                                   <td className="px-3 py-2">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColor}`}>
-                                      {test.priority || 'routine'}
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.text}`}>
+                                      {config.icon} {config.label}
                                     </span>
                                   </td>
-                                  <td className="px-3 py-2">{getStatusBadge(test.status)}</td>
-                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{test.requestedBy || '—'}</td>
+                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{item.createdBy?.fullName || 'Unknown'}</td>
                                   <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                    {test.requestedAt ? new Date(test.requestedAt).toLocaleDateString() : '—'}
+                                    {new Date(item.createdAt).toLocaleDateString()}
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    {canAddEntries && test.status === 'requested' && (
-                                      <button onClick={() => handleDeleteItem('lab', test.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                                    {canAddEntries && (
+                                      <button onClick={() => handleDeleteItem('diagnosis', item.id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     )}
-                                   </td>
-                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RESULTS OF INVESTIGATIONS - RICH TABLE */}
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                    <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
-                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        Results of Investigations
-                        {labTestsList.filter((t: any) => t.status === 'completed').length > 0 && (
-                          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
-                            {labTestsList.filter((t: any) => t.status === 'completed').length}
-                          </span>
-                        )}
-                      </h3>
-                    </div>
-                    {labTestsList.filter((t: any) => t.status === 'completed').length === 0 ? (
-                      <div className="p-6 text-center">
-                        <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
-                        <p className="text-sm text-[var(--text-secondary)]">No results available yet</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[30%]">Test</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
-                              <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {labTestsList.filter((t: any) => t.status === 'completed').map((test: any) => {
-                              const rawResult = typeof test.result === 'object' ? (test.result.value ?? JSON.stringify(test.result)) : (test.result ?? '—');
-                              const isAbnormal = test.result?.abnormal || test.abnormal;
-                              return (
-                                <tr key={test.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
-                                  <td className="px-3 py-2 font-semibold text-[var(--text-primary)]">{test.ServiceCatalog?.name || test.name}</td>
-                                  <td className={`px-3 py-2 font-bold ${isAbnormal ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>{rawResult}</td>
-                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{test.normalRange || '—'}</td>
-                                  <td className="px-3 py-2">
-                                    {isAbnormal ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 bg-red-50">ABN</span> :
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-green-700 bg-green-50">NL</span>}
-                                  </td>
-                                  <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                                    {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
                                   </td>
                                 </tr>
                               );
@@ -744,7 +638,289 @@ export default function Antenatal() {
                     )}
                   </div>
 
-                  {/* ROW 4: PROCEDURES - TABLE VIEW */}
+              {/* ROW 2: INVESTIGATIONS - TWO COLUMN LAYOUT */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                {/* LEFT COLUMN: Investigations Requested */}
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                      <FlaskConical className="w-4 h-4 text-purple-600" />
+                      Investigations Requested
+                      {labTestsList.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">
+                          {labTestsList.length}
+                        </span>
+                      )}
+                    </h3>
+                    {canAddEntries && (
+                      <button
+                        onClick={() => setModalType('lab')}
+                        className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-700 hover:text-white transition-colors"
+                      >
+                        <Plus className="w-3 h-3" /> Request Test
+                      </button>
+                    )}
+                  </div>
+
+                  {labTestsList.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[var(--text-secondary)]">No lab tests requested</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[40%]">Test Name</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
+                            <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                          {labTestsList.map((test: any) => {
+                            const priorityColor = test.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                              test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700';
+                            
+                            return (
+                              <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <td className="px-3 py-2">
+                                  <div className="font-medium text-[var(--text-primary)] text-sm">
+                                    {test.ServiceCatalog?.name || test.name}
+                                  </div>
+                                  {test.notes && (
+                                    <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 line-clamp-1">
+                                      {test.notes}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColor}`}>
+                                    {test.priority || 'routine'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                  {getStatusBadge(test.status)}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                  {test.requestedAt ? new Date(test.requestedAt).toLocaleDateString() : 
+                                  test.createdAt ? new Date(test.createdAt).toLocaleDateString() : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {canAddEntries && test.status === 'requested' && (
+                                    <button
+                                      onClick={() => handleDeleteItem('lab', test.id)}
+                                      className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                      title="Cancel Request"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT COLUMN: Results of Investigations */}
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      Results of Investigations
+                      {labTestsList.filter((t: any) => t.status === 'completed').length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                          {labTestsList.filter((t: any) => t.status === 'completed').length}
+                        </span>
+                      )}
+                    </h3>
+                    {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                      <span className="text-[10px] text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full font-medium">
+                        {labTestsList.filter((t: any) => t.status !== 'completed').length} pending
+                      </span>
+                    )}
+                  </div>
+
+                  {labTestsList.filter((t: any) => t.status === 'completed').length === 0 ? (
+                    <div className="p-8 text-center">
+                      <FlaskConical className="w-8 h-8 text-[var(--text-secondary)] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[var(--text-secondary)]">No results available yet</p>
+                      {labTestsList.filter((t: any) => t.status !== 'completed').length > 0 && (
+                        <p className="text-xs text-yellow-600 mt-1">
+                          {labTestsList.filter((t: any) => t.status !== 'completed').length} test(s) awaiting results
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Test / Parameter</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
+                            <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                          {labTestsList
+                            .filter((t: any) => t.status === 'completed')
+                            .map((test: any) => {
+                              // Parse parameters for multi-parameter tests (FBC, LFT, RFT, etc.)
+                              let parameters: any[] = [];
+                              let hasParameters = false;
+                              
+                              if (test.result && typeof test.result === 'object') {
+                                if (test.result.parameters && Array.isArray(test.result.parameters)) {
+                                  parameters = test.result.parameters;
+                                  hasParameters = true;
+                                } else if (test.resultParameters && Array.isArray(test.resultParameters)) {
+                                  parameters = test.resultParameters;
+                                  hasParameters = true;
+                                } else if (test.result.values && Array.isArray(test.result.values)) {
+                                  parameters = test.result.values;
+                                  hasParameters = true;
+                                }
+                              }
+                              
+                              if (!hasParameters && test.parameters && Array.isArray(test.parameters)) {
+                                parameters = test.parameters;
+                                hasParameters = true;
+                              }
+                              
+                              if (hasParameters && parameters.length > 0) {
+                                // Multi-parameter test - display each parameter as a row
+                                return parameters.map((param: any, idx: number) => {
+                                  const paramName = param.name || param.parameter || param.paramName || param.test;
+                                  const paramValue = param.value ?? param.result ?? param.val ?? '—';
+                                  const normalRange = param.normalRange || param.referenceRange || param.refRange || '—';
+                                  
+                                  let isAbnormal = false;
+                                  let flag = param.flag || param.abnormalFlag;
+                                  
+                                  if (!flag) {
+                                    if (param.abnormal === true) isAbnormal = true;
+                                    else if (param.flag === 'H' || param.flag === 'HIGH') isAbnormal = true;
+                                    else if (param.flag === 'L' || param.flag === 'LOW') isAbnormal = true;
+                                  }
+                                  
+                                  const displayFlag = flag || (isAbnormal ? (paramValue > (param.highNormal || 0) ? 'H' : 'L') : 'NL');
+                                  const flagColor = displayFlag === 'H' || displayFlag === 'HIGH' 
+                                    ? 'text-red-600 bg-red-50' 
+                                    : displayFlag === 'L' || displayFlag === 'LOW' 
+                                      ? 'text-yellow-700 bg-yellow-50' 
+                                      : 'text-green-700 bg-green-50';
+                                  
+                                  return (
+                                    <tr key={`${test.id}-${idx}`} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                      <td className="px-3 py-2">
+                                        {idx === 0 && (
+                                          <div className="font-semibold text-[var(--text-primary)] text-xs mb-0.5">
+                                            {test.ServiceCatalog?.name || test.name}
+                                          </div>
+                                        )}
+                                        <span className="text-[var(--text-secondary)]">└ {paramName}</span>
+                                      </td>
+                                      <td className={`px-3 py-2 font-mono ${isAbnormal ? 'text-red-600 font-bold' : 'text-[var(--text-primary)]'}`}>
+                                        {paramValue}
+                                      </td>
+                                      <td className="px-3 py-2 text-[var(--text-secondary)]">{normalRange}</td>
+                                      <td className="px-3 py-2">
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
+                                          {displayFlag}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                        {idx === 0 && (test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—')}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              }
+                              
+                              // Single result test
+                              let resultValue = '—';
+                              let isAbnormal = false;
+                              let normalRange = test.normalRange || test.referenceRange || '—';
+                              let flag = '';
+                              
+                              if (test.result) {
+                                if (typeof test.result === 'object') {
+                                  resultValue = test.result.value ?? test.result.result ?? '—';
+                                  isAbnormal = test.result.abnormal === true;
+                                  flag = test.result.flag || (isAbnormal ? 'ABN' : 'NL');
+                                  normalRange = test.result.normalRange || normalRange;
+                                } else {
+                                  resultValue = test.result;
+                                  isAbnormal = test.abnormal === true;
+                                }
+                              }
+                              
+                              const lowerResult = String(resultValue).toLowerCase();
+                              if (lowerResult === 'positive') {
+                                isAbnormal = true;
+                                flag = 'POSITIVE';
+                              } else if (lowerResult === 'negative') {
+                                isAbnormal = false;
+                                flag = 'NEGATIVE';
+                              }
+                              
+                              const flagColor = flag === 'POSITIVE' 
+                                ? 'text-red-600 bg-red-50'
+                                : flag === 'NEGATIVE'
+                                  ? 'text-green-700 bg-green-50'
+                                  : isAbnormal
+                                    ? 'text-red-600 bg-red-50'
+                                    : 'text-green-700 bg-green-50';
+                              
+                              return (
+                                <tr key={test.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isAbnormal ? 'bg-red-50/30' : ''}`}>
+                                  <td className="px-3 py-2 font-semibold text-[var(--text-primary)]">
+                                    {test.ServiceCatalog?.name || test.name}
+                                  </td>
+                                  <td className={`px-3 py-2 font-mono ${isAbnormal ? 'text-red-600 font-bold' : 'text-[var(--text-primary)]'}`}>
+                                    {resultValue}
+                                  </td>
+                                  <td className="px-3 py-2 text-[var(--text-secondary)]">{normalRange}</td>
+                                  <td className="px-3 py-2">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagColor}`}>
+                                      {flag === 'POSITIVE' ? 'POSITIVE' : flag === 'NEGATIVE' ? 'NEGATIVE' : isAbnormal ? 'ABN' : 'NL'}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                                    {test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+
+                      {/* Comments section */}
+                      {labTestsList
+                        .filter((t: any) => t.status === 'completed' && (t.comments || t.notes))
+                        .map((test: any) => (
+                          <div key={`cmt-${test.id}`} className="mx-3 mb-3 mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              {test.ServiceCatalog?.name || test.name} — Comment: 
+                            </span>
+                            <span className="text-[10px] text-blue-600 ml-1">{test.comments || test.notes}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+                  {/* Procedures */}
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                     <PanelHeader
                       icon={<Scissors className="w-4 h-4 text-orange-600" />}
@@ -796,7 +972,7 @@ export default function Antenatal() {
                     )}
                   </div>
 
-                  {/* ROW 5: MEDICATIONS - TWO TABLES (Prescribed & Dispensed) */}
+                  {/* Medications */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Prescribed Medications */}
                     <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
@@ -890,7 +1066,7 @@ export default function Antenatal() {
                     </div>
                   </div>
 
-                  {/* ROW 6: SCANS - TWO TABLES (Requested & Results) */}
+                  {/* Scans */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Requested Scans */}
                     <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
@@ -913,7 +1089,7 @@ export default function Antenatal() {
                           <table className="w-full text-xs">
                             <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                               <tr>
-                                <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Scan Type</th>
+                                <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Scan Type</th>
                                 <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Body Part</th>
                                 <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Status</th>
                                 <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
@@ -984,10 +1160,44 @@ export default function Antenatal() {
                       )}
                     </div>
                   </div>
+
+                  {/* General Information */}
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+                    <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
+                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                        General Information
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Follow-up Date</label>
+                          <input type="datetime-local" disabled className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Referred To/From</label>
+                          <input type="text" value={currentAttendance?.referringFacility || ''} readOnly className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Admission Status</label>
+                          <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
+                            {currentAttendance?.Admission ? `Admitted (${currentAttendance.Admission.admissionNumber})` : 'Not Admitted'}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Last Modified By</label>
+                          <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
+                            {currentAttendance?.updatedBy?.fullName || currentAttendance?.createdBy?.fullName || user?.fullName || 'Unknown'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* ── ANC TAB ── (keeping existing) */}
+              {/* ── ANC TAB ── */}
               {activeTab === 'anc' && (
                 <div className="p-4 space-y-4">
                   {/* Pregnancy summary stats */}
@@ -1028,14 +1238,17 @@ export default function Antenatal() {
                     </div>
                   )}
 
-                  {/* Visits table - keeping existing */}
+                  {/* Visits table - with Edit button for current attendance visit */}
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                     <PanelHeader
                       icon={<Baby className="w-4 h-4 text-pink-600" />}
                       title={`ANC Visit History (${currentVisits.length})`}
-                      action={hasActiveBooking && selectedAttendanceId && (
-                        <button onClick={handleRecordVisit} className="flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-700 rounded text-xs hover:bg-pink-700 hover:text-white transition-colors">
-                          <Plus className="w-3 h-3" /> Record Visit
+                      action={hasActiveBooking && selectedAttendanceId && currentAttendanceVisit && (
+                        <button 
+                          onClick={handleEditCurrentVisit}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-700 hover:text-white transition-colors"
+                        >
+                          <Edit className="w-3 h-3" /> Edit This Visit
                         </button>
                       )}
                     />
@@ -1044,8 +1257,8 @@ export default function Antenatal() {
                         <Baby className="w-10 h-10 text-[var(--text-secondary)] opacity-40 mx-auto mb-3" />
                         <p className="text-sm text-[var(--text-secondary)]">No ANC visits recorded yet</p>
                         {hasActiveBooking && (
-                          <button onClick={handleRecordVisit} className="mt-3 px-4 py-2 bg-pink-100 text-pink-700 rounded-lg text-sm hover:bg-pink-700 hover:text-white transition-all">
-                            Record First Visit
+                          <button onClick={() => {}} className="mt-3 px-4 py-2 bg-pink-100 text-pink-700 rounded-lg text-sm hover:bg-pink-700 hover:text-white transition-all">
+                            Visits are auto-created when you create an antenatal attendance
                           </button>
                         )}
                       </div>
@@ -1060,28 +1273,31 @@ export default function Antenatal() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border-color)]">
-                            {currentVisits.map((visit: any) => (
-                              <tr key={visit.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <td className="px-3 py-2 font-medium">{visit.visitNumber}</td>
-                                <td className="px-3 py-2">{new Date(visit.visitDate).toLocaleDateString()}</td>
-                                <td className="px-3 py-2">{visit.gestationalAgeWeeks || '—'}</td>
-                                <td className="px-3 py-2">{visit.weight ? `${visit.weight}kg` : '—'}</td>
-                                <td className="px-3 py-2">{visit.bloodPressure || '—'}</td>
-                                <td className="px-3 py-2">{visit.fetalHeartRate || '—'}</td>
-                                <td className="px-3 py-2">{visit.fundalHeight ? `${visit.fundalHeight}cm` : '—'}</td>
-                                <td className="px-3 py-2">{visit.iptpGiven ? `D${visit.iptpDoseNumber}` : '—'}</td>
-                                <td className="px-3 py-2">{visit.ttGiven ? `D${visit.ttDoseNumber}` : '—'}</td>
-                                <td className="px-3 py-2">{visit.itnGiven ? '✓' : '—'}</td>
-                                <td className="px-3 py-2">{visit.dangerSignsPresent ? <span className="text-red-600 font-semibold">Yes</span> : '—'}</td>
-                                <td className="px-3 py-2">
-                                  <div className="flex gap-1">
-                                    <button onClick={() => { setSelectedVisit(visit); setShowVisitDetails(true); }} className="p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-main)] rounded"><Eye className="w-3 h-3" /></button>
-                                    <button onClick={() => { setEditingVisit(visit); setSelectedBookingId(currentBooking?.id||''); setShowANCVisitModal(true); }} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><Edit className="w-3 h-3" /></button>
-                                    <button onClick={() => handleDeleteVisit(visit.id)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
+                            {currentVisits.map((visit: any) => {
+                              const isCurrentAttendanceVisit = visit.attendanceId === selectedAttendanceId;
+                              return (
+                                <tr key={visit.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isCurrentAttendanceVisit ? 'bg-pink-50/30' : ''}`}>
+                                  <td className="px-3 py-2 font-medium">{visit.visitNumber}{isCurrentAttendanceVisit && <span className="ml-1 text-[10px] text-pink-600">(current)</span>}</td>
+                                  <td className="px-3 py-2">{new Date(visit.visitDate).toLocaleDateString()}</td>
+                                  <td className="px-3 py-2">{visit.gestationalAgeWeeks || '—'}</td>
+                                  <td className="px-3 py-2">{visit.weight ? `${visit.weight}kg` : '—'}</td>
+                                  <td className="px-3 py-2">{visit.bloodPressure || '—'}</td>
+                                  <td className="px-3 py-2">{visit.fetalHeartRate || '—'}</td>
+                                  <td className="px-3 py-2">{visit.fundalHeight ? `${visit.fundalHeight}cm` : '—'}</td>
+                                  <td className="px-3 py-2">{visit.iptpGiven ? `D${visit.iptpDoseNumber}` : '—'}</td>
+                                  <td className="px-3 py-2">{visit.ttGiven ? `D${visit.ttDoseNumber}` : '—'}</td>
+                                  <td className="px-3 py-2">{visit.itnGiven ? '✓' : '—'}</td>
+                                  <td className="px-3 py-2">{visit.dangerSignsPresent ? <span className="text-red-600 font-semibold">Yes</span> : '—'}</td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex gap-1">
+                                      <button onClick={() => { setSelectedVisit(visit); setShowVisitDetails(true); }} className="p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-main)] rounded"><Eye className="w-3 h-3" /></button>
+                                      <button onClick={() => { setEditingVisit(visit); setSelectedBookingId(currentBooking?.id||''); setShowANCVisitModal(true); }} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><Edit className="w-3 h-3" /></button>
+                                      <button onClick={() => handleDeleteVisit(visit.id)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1114,27 +1330,8 @@ export default function Antenatal() {
               {/* ── DELIVERY TAB ── */}
               {activeTab === 'delivery' && (
                 <div className="p-4 space-y-4">
-                  {/* Delivery stats */}
-                  {deliveries.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {[
-                        { icon: <Baby className="w-4 h-4 text-green-500" />, label: 'Total Deliveries', value: deliveries.length, color: 'text-[var(--text-primary)]' },
-                        { icon: <Heart className="w-4 h-4 text-blue-500" />, label: 'Live Births', value: deliveries.filter((d:any)=>d.deliveryOutcome==='live_birth').length, color: 'text-blue-600' },
-                        { icon: <AlertTriangle className="w-4 h-4 text-red-500" />, label: 'C-Section', value: deliveries.filter((d:any)=>d.deliveryType==='caesarean_section').length, color: 'text-red-600' },
-                        { icon: <Users className="w-4 h-4 text-purple-500" />, label: 'Total Babies', value: deliveries.reduce((s:number,d:any)=>s+(d.numberOfBabies||1),0), color: 'text-purple-600' },
-                      ].map((s,i)=>(
-                        <div key={i} className="bg-[var(--bg-main)] rounded-xl p-3 border border-[var(--border-color)] text-center">
-                          <div className="flex justify-center mb-1">{s.icon}</div>
-                          <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                    <PanelHeader
-                      icon={<Hospital className="w-4 h-4 text-green-600" />}
+                    <PanelHeader                      icon={<Hospital className="w-4 h-4 text-green-600" />}
                       title="Delivery Records"
                       action={selectedAttendanceId && (
                         <button onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-700 hover:text-white transition-colors">
@@ -1269,7 +1466,6 @@ export default function Antenatal() {
           {/* ── RIGHT SIDEBAR: Pregnancy Summary / Notes ── */}
           <div className="w-64 xl:w-72 flex-shrink-0 sticky top-6 self-stretch flex flex-col" style={{ minHeight: 0 }}>
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col h-full">
-
               {/* Pregnancy overview — top */}
               <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex-shrink-0">
                 <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
@@ -1556,7 +1752,6 @@ export default function Antenatal() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

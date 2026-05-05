@@ -20,7 +20,7 @@ const VALID_ATTENDANCE_TYPES = [
   'surgery'
 ];
 
-// ✅ ADD THIS VALIDATION FUNCTION AT THE TOP
+// ✅ FIXED: Allow service additions for pending AND admitted attendances
 const validateAttendanceAllowsServiceAddition = async (attendanceId: string): Promise<void> => {
   const attendance = await prisma.attendance.findUnique({
     where: { id: attendanceId },
@@ -31,9 +31,10 @@ const validateAttendanceAllowsServiceAddition = async (attendanceId: string): Pr
     throw new Error('Attendance not found');
   }
 
-  // ✅ ONLY allow service additions when attendance is pending
-  if (attendance.status !== 'pending') {
-    throw new Error(`Cannot add services to ${attendance.status} attendance. Only pending attendances allow service additions.`);
+  // ✅ Allow service additions when attendance is pending OR admitted
+  // Only block when status is 'completed' or 'discharged'
+  if (attendance.status !== 'pending' && attendance.status !== 'admitted') {
+    throw new Error(`Cannot add services to ${attendance.status} attendance. Only pending or admitted attendances allow service additions.`);
   }
 };
 
@@ -1735,9 +1736,10 @@ export const updateAttendanceStatus = [
   }
 ];
 
-// ✅ ADD/REMOVE DIAGNOSIS - UNCHANGED (uses correct diagnosis relations)
+// attendanceController.ts - IMPROVED VERSION
 export const addDiagnosisToAttendance = [
   body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
+  body('diagnosisType').optional().isIn(['provisional', 'primary', 'additional']).withMessage('Valid diagnosis type required'),
   async (req: Request, res: Response) => {
     try {
       const errors = validationResult(req);
@@ -1745,8 +1747,11 @@ export const addDiagnosisToAttendance = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { diagnosisId, notes, primary } = req.body;
+      const { diagnosisId, notes, primary, diagnosisType } = req.body;
       const user = (req as any).user;
+      
+      // Determine the final diagnosis type
+      const finalDiagnosisType = diagnosisType || (primary ? 'primary' : 'provisional');
 
       const diagnosis = await prisma.diagnosis.findUnique({
         where: { id: diagnosisId }
@@ -1764,23 +1769,28 @@ export const addDiagnosisToAttendance = [
         return res.status(404).json({ message: 'Attendance not found' });
       }
 
-      // If primary, unset other primary diagnoses
-      if (primary) {
+      // ✅ If this is a primary diagnosis, convert any existing primary to additional
+      if (finalDiagnosisType === 'primary') {
         await prisma.attendanceDiagnosis.updateMany({
           where: {
             attendanceId: req.params.id,
-            primary: true
+            diagnosisType: 'primary'
           },
-          data: { primary: false }
+          data: { 
+            primary: false, 
+            diagnosisType: 'additional'  // Convert previous primary to additional
+          }
         });
       }
 
-      await prisma.attendanceDiagnosis.create({
+      // ✅ Create diagnosis with type
+      const newDiagnosis = await prisma.attendanceDiagnosis.create({
         data: {
           attendanceId: req.params.id,
           diagnosisId,
           notes: notes || '',
-          primary: !!primary,
+          primary: finalDiagnosisType === 'primary',
+          diagnosisType: finalDiagnosisType,
           date: new Date(),
           createdById: user.id,
           icdCode: diagnosis.icdCode

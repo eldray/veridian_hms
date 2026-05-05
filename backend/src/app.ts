@@ -36,7 +36,6 @@ import gdrgRoutes from './routes/gdrgRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
 import clinicalReportsRoutes from './routes/clinicalReportsRoutes';
 
-
 const router = Router();
 
 // API routes

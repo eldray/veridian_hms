@@ -176,6 +176,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   canAddMedicalEntries: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
   canRecordVitals: (attendance) => attendance?.status === 'pending'|| attendance?.status === 'admitted',
   canCompleteAttendance: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
+  
   // ==========================================
   // CORE OPERATIONS
   // ==========================================

@@ -64,5 +64,5 @@ export interface DiagnosisEntry {
   notes?: string;
   primary?: boolean;
   presentOnAdmission?: 'Y' | 'N' | 'U';
-  diagnosisType?: 'principal' | 'secondary' | 'comorbidity';
+  diagnosisType?: 'provisional' | 'primary' | 'additional';
 }

@@ -1,6 +1,6 @@
 // src/store/postnatalStore.ts
 import { create } from 'zustand';
-import * as api from '../api/antenatal';
+import api from '../api/antenatal';
 
 export interface PostnatalRecord {
   id: string;
@@ -64,41 +64,36 @@ export interface PostnatalRecord {
   updatedAt: string;
 }
 
-// API functions
+// src/store/postnatalStore.ts - FIXED
+
+// ✅ FIXED: Use plural '/antenatal/postnatals' for list endpoint
 const getPostnatalRecords = async (filters?: { patientId?: string; startDate?: string; endDate?: string }) => {
-  const response = await api.get('/postnatal', { params: filters });
+  // Changed from '/antenatal/postnatal' to '/antenatal/postnatals'
+  const response = await api.get('/antenatal/postnatals', { params: filters });
   return response.data;
 };
 
+// These are correct (singular for specific operations)
 const getPostnatalRecord = async (id: string) => {
-  const response = await api.get(`/postnatal/${id}`);
+  const response = await api.get(`/antenatal/postnatal/${id}`);
   return response.data;
 };
 
 const createPostnatalRecord = async (data: Partial<PostnatalRecord>) => {
-  const response = await api.post('/postnatal', data);
+  const response = await api.post('/antenatal/postnatal', data);
   return response.data;
 };
 
 const updatePostnatalRecord = async (id: string, data: Partial<PostnatalRecord>) => {
-  const response = await api.put(`/postnatal/${id}`, data);
+  const response = await api.put(`/antenatal/postnatal/${id}`, data);
   return response.data;
 };
 
 const deletePostnatalRecord = async (id: string) => {
-  const response = await api.delete(`/postnatal/${id}`);
+  const response = await api.delete(`/antenatal/postnatal/${id}`);
   return response.data;
 };
 
-const getPostnatalExamination = async (attendanceId: string) => {
-  const response = await api.get(`/antenatal/postnatal/${attendanceId}`);
-  return response.data;
-};
-
-const recordPostnatalExamination = async (data: { attendanceId: string; maternalCondition?: string; babyCondition?: string; breastfeedingStatus?: string; familyPlanningMethod?: string; immunizationsGiven?: string; nextVisitDate?: string; notes?: string }) => {
-  const response = await api.post('/antenatal/postnatal-examination', data);
-  return response.data;
-};
 
 interface PostnatalState {
   postnatalRecords: PostnatalRecord[];
