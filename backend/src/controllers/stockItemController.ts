@@ -1,3 +1,4 @@
+// controllers/stockItemController.ts - FIXED
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
@@ -15,6 +16,8 @@ export const getStockItems = async (req: Request, res: Response) => {
 
     const items = await prisma.stockItem.findMany({
       where,
+      // ✅ REMOVED: stockBatches doesn't exist as a relation field
+      // The correct relation name is StockBatch (capital S), but it's not needed for list view
       orderBy: {
         name: 'asc'
       }
@@ -34,12 +37,12 @@ export const getStockItemById = async (req: Request, res: Response) => {
     const item = await prisma.stockItem.findUnique({
       where: { id },
       include: {
-        Medication: { // ✅ Capital M - matches schema
+        Medication: {
           include: {
-            Attendance: { // ✅ Capital A
+            Attendance: {
               select: {
                 attendanceNumber: true,
-                Patient: { // ✅ Capital P
+                Patient: {
                   select: {
                     surname: true,
                     otherNames: true
@@ -49,13 +52,13 @@ export const getStockItemById = async (req: Request, res: Response) => {
             }
           }
         },
-        StockTransaction: { // ✅ Capital S, Capital T - matches schema
+        StockTransaction: {
           orderBy: { transactionDate: 'desc' },
           take: 10
         },
-        InvoiceItem: { // ✅ Capital I, Capital I - matches schema
+        InvoiceItem: {
           include: {
-            Invoice: { // ✅ Capital I
+            Invoice: {
               select: {
                 invoiceNumber: true,
                 supplierName: true
@@ -63,15 +66,19 @@ export const getStockItemById = async (req: Request, res: Response) => {
             }
           }
         },
-        RequisitionItem: { // ✅ Capital R, Capital I - matches schema
+        RequisitionItem: {
           include: {
-            Requisition: { // ✅ Capital R
+            Requisition: {
               select: {
                 requisitionNumber: true,
                 status: true
               }
             }
           }
+        },
+        // ✅ CORRECT: Use StockBatch (capital S, capital B) if you need batches
+        StockBatch: {
+          orderBy: { receivedDate: 'desc' }
         }
       }
     });
@@ -87,6 +94,7 @@ export const getStockItemById = async (req: Request, res: Response) => {
   }
 };
 
+// Rest of the controller remains the same...
 export const createStockItem = [
   body('name').notEmpty().withMessage('Item name is required'),
   body('category').notEmpty().withMessage('Category is required'),
@@ -103,9 +111,6 @@ export const createStockItem = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      // ✅ REMOVED: Pricing fields that don't exist in schema (cashPrice, nhisPrice, insurancePrice, vatRate, isTaxable)
-      // ✅ REMOVED: NHIS coverage fields that don't exist (isNHISCovered, isPrivateInsExempted, tariffCode)
-
       const itemData = {
         name: req.body.name,
         description: req.body.description || null,
@@ -114,7 +119,7 @@ export const createStockItem = [
         unitOfMeasure: req.body.unitOfMeasure,
         drugCode: req.body.drugCode || null,
         reorderLevel: parseInt(req.body.reorderLevel),
-        costPrice: parseFloat(req.body.costPrice), // ✅ Only cost price for inventory costing
+        costPrice: parseFloat(req.body.costPrice),
         currentStock: req.body.currentStock ? parseInt(req.body.currentStock) : 0,
         isActive: req.body.isActive !== undefined ? req.body.isActive : true,
         isMedication: req.body.isMedication !== undefined ? req.body.isMedication : true,
@@ -127,6 +132,20 @@ export const createStockItem = [
         data: itemData
       });
       
+      // If batchNumber provided, also create a StockBatch record
+      if (req.body.batchNumber && req.body.expiryDate) {
+        await prisma.stockBatch.create({
+          data: {
+            stockItemId: item.id,
+            batchNumber: req.body.batchNumber,
+            expiryDate: new Date(req.body.expiryDate),
+            quantity: item.currentStock,
+            costPrice: item.costPrice,
+            receivedDate: new Date()
+          }
+        });
+      }
+      
       res.status(201).json(item);
     } catch (error) {
       console.error('Error creating stock item:', error);
@@ -134,7 +153,6 @@ export const createStockItem = [
     }
   }
 ];
-
 
 export const updateStockItem = [
   body('name').optional().notEmpty().withMessage('Item name cannot be empty'),
@@ -151,7 +169,6 @@ export const updateStockItem = [
 
       const { id } = req.params;
       
-      // Check if item exists
       const existingItem = await prisma.stockItem.findUnique({
         where: { id }
       });
@@ -160,14 +177,12 @@ export const updateStockItem = [
         return res.status(404).json({ message: 'Stock item not found' });
       }
 
-      // Prepare update data
       const updateData: any = { ...req.body };
       
-      // ✅ REMOVED: Pricing fields that don't exist in schema
-      // Convert numeric fields if they exist
       if (req.body.reorderLevel !== undefined) updateData.reorderLevel = parseInt(req.body.reorderLevel);
       if (req.body.costPrice !== undefined) updateData.costPrice = parseFloat(req.body.costPrice);
       if (req.body.currentStock !== undefined) updateData.currentStock = parseInt(req.body.currentStock);
+      if (req.body.expiryDate !== undefined) updateData.expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
 
       const item = await prisma.stockItem.update({
         where: { id },
@@ -186,14 +201,13 @@ export const deleteStockItem = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // Check if item exists and has no dependencies
     const existingItem = await prisma.stockItem.findUnique({
       where: { id },
       include: {
-        Medication: { take: 1 }, // ✅ Capital M
-        StockTransaction: { take: 1 }, // ✅ Capital S, Capital T
-        InvoiceItem: { take: 1 }, // ✅ Capital I, Capital I
-        RequisitionItem: { take: 1 } // ✅ Capital R, Capital I
+        Medication: { take: 1 },
+        StockTransaction: { take: 1 },
+        InvoiceItem: { take: 1 },
+        RequisitionItem: { take: 1 }
       }
     });
     
@@ -201,31 +215,29 @@ export const deleteStockItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Stock item not found' });
     }
 
-    // Check for dependencies
-// Check for dependencies
-if (existingItem.Medication.length > 0) { // ✅ Capital M
-  return res.status(400).json({ 
-    message: 'Cannot delete stock item with associated medications' 
-  });
-}
+    if (existingItem.Medication.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete stock item with associated medications' 
+      });
+    }
 
-if (existingItem.StockTransaction.length > 0) { // ✅ Capital S, Capital T
-  return res.status(400).json({ 
-    message: 'Cannot delete stock item with associated stock transactions' 
-  });
-}
+    if (existingItem.StockTransaction.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete stock item with associated stock transactions' 
+      });
+    }
 
-if (existingItem.InvoiceItem.length > 0) { // ✅ Capital I, Capital I
-  return res.status(400).json({ 
-    message: 'Cannot delete stock item with associated invoice items' 
-  });
-}
+    if (existingItem.InvoiceItem.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete stock item with associated invoice items' 
+      });
+    }
 
-if (existingItem.RequisitionItem.length > 0) { // ✅ Capital R, Capital I
-  return res.status(400).json({ 
-    message: 'Cannot delete stock item with associated requisition items' 
-  });
-}
+    if (existingItem.RequisitionItem.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete stock item with associated requisition items' 
+      });
+    }
 
     await prisma.stockItem.delete({
       where: { id }
@@ -281,7 +293,6 @@ export const getStockCategories = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ ADDED: New function to update stock levels (for inventory management)
 export const updateStockLevel = [
   body('quantity').isInt().withMessage('Quantity must be an integer'),
   body('transactionType').isIn(['purchase', 'adjustment', 'requisition', 'sale']).withMessage('Valid transaction type required'),
@@ -299,7 +310,6 @@ export const updateStockLevel = [
       const { quantity, transactionType, reference, notes } = req.body;
 
       const result = await prisma.$transaction(async (tx) => {
-        // Get current stock item
         const stockItem = await tx.stockItem.findUnique({
           where: { id }
         });
@@ -308,7 +318,6 @@ export const updateStockLevel = [
           throw new Error('Stock item not found');
         }
 
-        // Calculate new stock level based on transaction type
         let newStock = stockItem.currentStock;
         if (transactionType === 'purchase' || transactionType === 'adjustment') {
           newStock += quantity;
@@ -320,15 +329,11 @@ export const updateStockLevel = [
           throw new Error('Insufficient stock for this transaction');
         }
 
-        // Update stock item
         const updatedItem = await tx.stockItem.update({
           where: { id },
-          data: {
-            currentStock: newStock
-          }
+          data: { currentStock: newStock }
         });
         
-        // Create stock transaction record
         await tx.stockTransaction.create({
           data: {
             stockItemId: id,
@@ -358,7 +363,6 @@ export const updateStockLevel = [
   }
 ];
 
-// ✅ ADDED: Function to get stock transactions for an item
 export const getStockTransactions = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -372,13 +376,13 @@ export const getStockTransactions = async (req: Request, res: Response) => {
       prisma.stockTransaction.findMany({
         where: { stockItemId: id },
         include: {
-          Requisition: { // ✅ Capital R - matches schema
+          Requisition: {
             select: {
               requisitionNumber: true,
               status: true
             }
           },
-          Invoice: { // ✅ Capital I - matches schema
+          Invoice: {
             select: {
               invoiceNumber: true,
               supplierName: true
@@ -408,9 +412,6 @@ export const getStockTransactions = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching stock transactions', error });
   }
 };
-
-
-// Add to stockController.ts - Get medications by stock item
 
 export const getMedicationsByStockItem = async (req: Request, res: Response) => {
   try {

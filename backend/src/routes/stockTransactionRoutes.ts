@@ -7,7 +7,8 @@ import {
   updateStockTransaction,
   getStockMovementReport,
   getLowStockAlerts,
-  getStockItemTransactionHistory
+  getStockItemTransactionHistory,
+  createRequisitionTransaction
 } from '../controllers/stockTransactionController';
 import { protect, requirePharmacyStaff, requireRole } from '../middleware/authMiddleware';
 
@@ -27,6 +28,9 @@ router.get('/alerts/low-stock', requirePharmacyStaff, getLowStockAlerts);
 
 // GET /api/stock-transactions/stock-item/:stockItemId - Get transaction history for specific stock item
 router.get('/stock-item/:stockItemId', requirePharmacyStaff, getStockItemTransactionHistory);
+
+// POST /api/stock-transactions/requisition - Create transaction from requisition
+router.post('/requisition', requireRole(['admin', 'pharmacist']), createRequisitionTransaction);
 
 // GET /api/stock-transactions/:id - Get stock transaction by ID
 router.get('/:id', requirePharmacyStaff, getStockTransactionById);

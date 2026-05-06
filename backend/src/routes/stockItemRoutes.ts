@@ -1,4 +1,4 @@
-// routes/stockItemRoutes.ts - FIXED
+// routes/stockItemRoutes.ts
 import express from 'express';
 import {
   getStockItems,
@@ -8,7 +8,10 @@ import {
   deleteStockItem,
   getLowStockItems,
   getStockCategories,
-} from '../controllers/stockItemController'; // ✅ FIXED: Added all imports
+  updateStockLevel,
+  getStockTransactions,
+  getMedicationsByStockItem
+} from '../controllers/stockItemController';
 import { protect, requireRole } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -24,6 +27,15 @@ router.get('/alerts/low-stock', getLowStockItems);
 
 // GET /api/stock-items/categories - Get stock categories
 router.get('/categories', getStockCategories);
+
+// GET /api/stock-items/:id/transactions - Get transactions for a stock item
+router.get('/:id/transactions', getStockTransactions);
+
+// GET /api/stock-items/:id/medications - Get medications using this stock item
+router.get('/:id/medications', getMedicationsByStockItem);
+
+// PATCH /api/stock-items/:id/stock-level - Update stock level
+router.patch('/:id/stock-level', requireRole(['admin', 'pharmacist']), updateStockLevel);
 
 // GET /api/stock-items/:id - Get a specific stock item by ID
 router.get('/:id', getStockItemById);

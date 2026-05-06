@@ -1,4 +1,4 @@
-// src/api/reports.ts
+// src/api/reports.ts - COMPLETE VERSION
 import api from './api';
 
 // ============================================
@@ -54,6 +54,78 @@ export const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) 
 };
 
 // ============================================
+// FINANCIAL & CLINICAL REPORTS
+// ============================================
+
+export const getFinancialReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/financial', { params });
+  return response.data;
+};
+
+export const getInsuranceClaimsReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/insurance-claims', { params });
+  return response.data;
+};
+
+export const getClinicalReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/clinical', { params });
+  return response.data;
+};
+
+export const getAttendanceReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/attendance', { params });
+  return response.data;
+};
+
+export const getRevenueReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/revenue', { params });
+  return response.data;
+};
+
+// ============================================
+// FAMILY PLANNING & DEMOGRAPHIC
+// ============================================
+
+export const getFamilyPlanningReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/family-planning', { params });
+  return response.data;
+};
+
+export const getDemographicReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/demographic', { params });
+  return response.data;
+};
+
+// ============================================
+// CLINICAL REPORTS (Lab, Scans, Procedures, Medications, Vitals)
+// ============================================
+
+export const getLabReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/lab', { params });
+  return response.data;
+};
+
+export const getScanReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/scans', { params });
+  return response.data;
+};
+
+export const getProcedureReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/procedures', { params });
+  return response.data;
+};
+
+export const getMedicationReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/medications', { params });
+  return response.data;
+};
+
+export const getVitalsReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/vitals', { params });
+  return response.data;
+};
+
+// ============================================
 // REPORT SUBMISSIONS
 // ============================================
 
@@ -80,6 +152,18 @@ export default {
   getGHSFormAReport,
   getMorbidityMortalityReport,
   getTopDiagnoses,
+  getFinancialReport,
+  getInsuranceClaimsReport,
+  getClinicalReport,
+  getAttendanceReport,
+  getRevenueReport,
+  getFamilyPlanningReport,
+  getDemographicReport,
+  getLabReport,
+  getScanReport,
+  getProcedureReport,
+  getMedicationReport,
+  getVitalsReport,
   getReportSubmissions,
   getReportById,
   exportReportToCSV,

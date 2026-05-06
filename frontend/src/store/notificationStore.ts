@@ -1,3 +1,5 @@
+// src/store/notificationStore.ts - ADD THESE ACTIONS
+
 import { create } from 'zustand';
 import { 
   getNotifications as apiGetNotifications, 
@@ -7,8 +9,13 @@ import {
   deleteNotification as apiDeleteNotification,
   getNotificationStats as apiGetNotificationStats,
   createNotification as apiCreateNotification,
-  // ✅ ADDED MISSING FUNCTION
-  sendBulkNotification as apiSendBulkNotification
+  sendBulkNotification as apiSendBulkNotification,
+  // ✅ ADD THESE NEW IMPORTS
+  sendRoleNotification as apiSendRoleNotification,
+  triggerLowStockCheck as apiTriggerLowStockCheck,
+  triggerAppointmentReminders as apiTriggerAppointmentReminders,
+  cleanupOldNotifications as apiCleanupOldNotifications,
+  getUnreadCount as apiGetUnreadCount,
 } from '../api';
 import type { Notification, NotificationStats, Pagination } from '../types';
 
@@ -19,9 +26,9 @@ interface NotificationStore {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
-  pagination: Pagination | null; // ✅ ADDED
+  pagination: Pagination | null;
   
-  // Actions
+  // Existing actions
   getNotifications: (filters?: any) => Promise<void>;
   getNotification: (id: string) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
@@ -29,8 +36,24 @@ interface NotificationStore {
   deleteNotification: (id: string) => Promise<void>;
   getNotificationStats: () => Promise<void>;
   createNotification: (data: any) => Promise<void>;
-  // ✅ ADDED MISSING FUNCTION
   sendBulkNotification: (data: any) => Promise<void>;
+  
+  // ✅ ADD THESE NEW ACTIONS
+  sendRoleNotification: (data: {
+    roles: string[];
+    title: string;
+    message: string;
+    type: string;
+    priority: string;
+    actionType?: string;
+    actionId?: string;
+    actionUrl?: string;
+    excludeUserId?: string;
+  }) => Promise<void>;
+  triggerLowStockCheck: () => Promise<any>;
+  triggerAppointmentReminders: () => Promise<any>;
+  cleanupOldNotifications: (daysToKeep?: number) => Promise<any>;
+  getUnreadCount: () => Promise<number>;
   
   clearError: () => void;
   clearCurrentNotification: () => void;
@@ -43,21 +66,24 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   unreadCount: 0,
   isLoading: false,
   error: null,
-  pagination: null, // ✅ ADDED
+  pagination: null,
+
 
   getNotifications: async (filters?: any) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetNotifications(filters);
       
-      // ✅ IMPROVED: Handle different response formats
+      // Handle different response formats
       let notifications: Notification[] = [];
-      if (Array.isArray(response)) {
-        notifications = response;
-      } else if (Array.isArray(response.notifications)) {
-        notifications = response.notifications;
-      } else if (Array.isArray(response.data)) {
+      if (response.data && Array.isArray(response.data)) {
         notifications = response.data;
+      } else if (Array.isArray(response)) {
+        notifications = response;
+      } else if (response.notifications && Array.isArray(response.notifications)) {
+        notifications = response.notifications;
+      } else if (response.data?.notifications) {
+        notifications = response.data.notifications;
       }
       
       const unreadCount = notifications.filter((n: Notification) => !n.isRead).length;
@@ -72,7 +98,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         error: error.response?.data?.message || 'Failed to fetch notifications', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED: Re-throw for component handling
+      throw error;
     }
   },
 
@@ -196,6 +222,80 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         isLoading: false 
       });
       throw error;
+    }
+  },
+
+  // ✅ ADD NEW ACTIONS:
+
+  sendRoleNotification: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSendRoleNotification(data);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to send role notification', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  triggerLowStockCheck: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiTriggerLowStockCheck();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to trigger low stock check', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  triggerAppointmentReminders: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiTriggerAppointmentReminders();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to trigger appointment reminders', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  cleanupOldNotifications: async (daysToKeep = 30) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiCleanupOldNotifications(daysToKeep);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to cleanup notifications', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  getUnreadCount: async () => {
+    try {
+      const result = await apiGetUnreadCount();
+      const count = result.data?.unreadCount || result.unreadCount || 0;
+      set({ unreadCount: count });
+      return count;
+    } catch (error: any) {
+      console.error('Failed to get unread count:', error);
+      return 0;
     }
   },
 

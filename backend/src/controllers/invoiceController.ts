@@ -1,11 +1,10 @@
-// controllers/invoiceController.ts - COMPLETED
+// controllers/invoiceController.ts
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// GET ALL INVOICES
 export const getInvoices = async (req: Request, res: Response) => {
   try {
     const { supplierName, startDate, endDate, page = 1, limit = 50 } = req.query;
@@ -84,7 +83,6 @@ export const getInvoices = async (req: Request, res: Response) => {
   }
 };
 
-// GET INVOICE BY ID
 export const getInvoiceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -138,7 +136,6 @@ export const getInvoiceById = async (req: Request, res: Response) => {
   }
 };
 
-// CREATE INVOICE
 export const createInvoice = [
   body('invoiceNumber').notEmpty().withMessage('Invoice number is required'),
   body('supplierName').notEmpty().withMessage('Supplier name is required'),
@@ -165,7 +162,6 @@ export const createInvoice = [
         notes
       } = req.body;
 
-      // Check if invoice number already exists
       const existingInvoice = await prisma.invoice.findUnique({
         where: { invoiceNumber }
       });
@@ -175,7 +171,6 @@ export const createInvoice = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Create invoice
         const invoice = await tx.invoice.create({
           data: {
             invoiceNumber,
@@ -187,7 +182,6 @@ export const createInvoice = [
           }
         });
 
-        // Create invoice items and stock transactions
         for (const item of invoiceItems) {
           const stockItem = await tx.stockItem.findUnique({
             where: { id: item.stockItemId }
@@ -197,7 +191,6 @@ export const createInvoice = [
             throw new Error(`Stock item not found: ${item.stockItemId}`);
           }
 
-          // Create invoice item
           await tx.invoiceItem.create({
             data: {
               invoiceId: invoice.id,
@@ -209,7 +202,6 @@ export const createInvoice = [
             }
           });
 
-          // Create stock transaction for purchase
           const newStockLevel = stockItem.currentStock + parseInt(item.quantity);
 
           await tx.stockTransaction.create({
@@ -224,12 +216,11 @@ export const createInvoice = [
             }
           });
 
-          // Update stock item
           await tx.stockItem.update({
             where: { id: item.stockItemId },
             data: { 
               currentStock: newStockLevel,
-              costPrice: parseFloat(item.unitCost) // Update cost price
+              costPrice: parseFloat(item.unitCost)
             }
           });
         }
@@ -266,7 +257,6 @@ export const createInvoice = [
   }
 ];
 
-// UPDATE INVOICE (Limited - only notes and basic info, not items)
 export const updateInvoice = [
   body('supplierName').optional().notEmpty().withMessage('Supplier name cannot be empty'),
   body('invoiceDate').optional().isISO8601().withMessage('Valid invoice date is required'),
@@ -283,7 +273,6 @@ export const updateInvoice = [
       const { id } = req.params;
       const { supplierName, invoiceDate, totalAmount, notes } = req.body;
 
-      // Check if invoice exists
       const existingInvoice = await prisma.invoice.findUnique({
         where: { id }
       });
@@ -292,7 +281,6 @@ export const updateInvoice = [
         return res.status(404).json({ message: 'Invoice not found' });
       }
 
-      // Prepare update data
       const updateData: any = {};
       if (supplierName) updateData.supplierName = supplierName;
       if (invoiceDate) updateData.invoiceDate = new Date(invoiceDate);
@@ -333,13 +321,11 @@ export const updateInvoice = [
   }
 ];
 
-// DELETE INVOICE (With caution - reverses stock transactions)
 export const deleteInvoice = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     const result = await prisma.$transaction(async (tx) => {
-      // Get invoice with items and stock transactions
       const invoice = await tx.invoice.findUnique({
         where: { id },
         include: {
@@ -356,14 +342,12 @@ export const deleteInvoice = async (req: Request, res: Response) => {
         throw new Error('Invoice not found');
       }
 
-      // Reverse stock transactions and update stock levels
       for (const transaction of invoice.stockTransactions) {
         const stockItem = await tx.stockItem.findUnique({
           where: { id: transaction.stockItemId }
         });
 
         if (stockItem) {
-          // Calculate new stock level after reversal
           const newStockLevel = stockItem.currentStock - transaction.quantity;
           
           await tx.stockItem.update({
@@ -372,18 +356,15 @@ export const deleteInvoice = async (req: Request, res: Response) => {
           });
         }
 
-        // Delete the stock transaction
         await tx.stockTransaction.delete({
           where: { id: transaction.id }
         });
       }
 
-      // Delete invoice items
       await tx.invoiceItem.deleteMany({
         where: { invoiceId: id }
       });
 
-      // Delete invoice
       await tx.invoice.delete({
         where: { id }
       });
@@ -408,7 +389,6 @@ export const deleteInvoice = async (req: Request, res: Response) => {
   }
 };
 
-// GET SUPPLIERS LIST
 export const getSuppliers = async (req: Request, res: Response) => {
   try {
     const suppliers = await prisma.invoice.findMany({
@@ -438,7 +418,6 @@ export const getSuppliers = async (req: Request, res: Response) => {
   }
 };
 
-// GET INVOICE STATISTICS
 export const getInvoiceStats = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
@@ -467,7 +446,7 @@ export const getInvoiceStats = async (req: Request, res: Response) => {
         where: {
           ...where,
           createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
           }
         }
       }),

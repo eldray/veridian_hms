@@ -1,6 +1,3 @@
-// controllers/reportController.ts - CLEANED VERSION
-// KEPT: Family Planning, Demographic, Financial, Insurance Claims, Clinical, Attendance, Revenue reports
-// REMOVED: GHS OPD, IPD, ANC, CWC, Morbidity/Mortality (moved to GHSReportingService)
 
 import { Request, Response } from 'express';
 import { PrismaClient, BillStatus, ClaimStatus, PaymentMode, DischargeStatus, DiagnosisCategory, AttendanceType, EncounterCategory, VisitCategory, Gender } from '@prisma/client';
@@ -826,6 +823,316 @@ export const exportReport = async (req: AuthRequest, res: Response) => {
   }
 };
 
+
+// ==================== LABORATORY REPORT ====================
+export const getLabReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate || endDate) {
+      where.requestedAt = {};
+      if (startDate) where.requestedAt.gte = new Date(startDate as string);
+      if (endDate) where.requestedAt.lte = new Date(endDate as string);
+    }
+
+    const labTests = await prisma.labTest.findMany({
+      where,
+      include: {
+        ServiceCatalog: { select: { name: true, code: true } },
+        Attendance: {
+          include: {
+            Patient: { select: { id: true, gender: true, dateOfBirth: true } }
+          }
+        }
+      }
+    });
+
+    // Calculate summary statistics
+    const summary = {
+      totalTests: labTests.length,
+      byStatus: {
+        requested: labTests.filter(t => t.status === 'requested').length,
+        inProgress: labTests.filter(t => t.status === 'in_progress').length,
+        completed: labTests.filter(t => t.status === 'completed').length,
+        cancelled: labTests.filter(t => t.status === 'cancelled').length,
+      },
+      byPriority: {
+        routine: labTests.filter(t => t.priority === 'routine').length,
+        urgent: labTests.filter(t => t.priority === 'urgent').length,
+        stat: labTests.filter(t => t.priority === 'stat').length,
+      },
+      averageTurnaroundTime: labTests
+        .filter(t => t.completedAt && t.requestedAt)
+        .reduce((sum, t) => sum + (t.completedAt!.getTime() - t.requestedAt.getTime()) / 60000, 0) / Math.max(1, labTests.filter(t => t.completedAt).length)
+    };
+
+    // Get top tests by volume
+    const testCounts: Record<string, number> = {};
+    labTests.forEach(test => {
+      const name = test.ServiceCatalog?.name || test.name || 'Unknown';
+      testCounts[name] = (testCounts[name] || 0) + 1;
+    });
+
+    const topTests = Object.entries(testCounts)
+      .map(([testName, count]) => ({ testName, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const reportData = {
+      reportType: 'LABORATORY REPORT',
+      facility: await getFacilityInfo(),
+      period: { startDate: startDate || 'Beginning', endDate: endDate || 'Now', generated: new Date().toISOString().split('T')[0] },
+      summary,
+      topTests,
+      generatedAt: new Date()
+    };
+
+    res.json({ success: true, data: reportData });
+  } catch (error) {
+    handleError(res, 'Error generating lab report', error);
+  }
+};
+
+// ==================== SCAN/RADIOLOGY REPORT ====================
+export const getScanReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate || endDate) {
+      where.requestedAt = {};
+      if (startDate) where.requestedAt.gte = new Date(startDate as string);
+      if (endDate) where.requestedAt.lte = new Date(endDate as string);
+    }
+
+    const scans = await prisma.scan.findMany({
+      where,
+      include: {
+        ServiceCatalog: { select: { name: true, code: true } }
+      }
+    });
+
+    const summary = {
+      totalScans: scans.length,
+      byStatus: {
+        requested: scans.filter(s => s.status === 'requested').length,
+        inProgress: scans.filter(s => s.status === 'in_progress').length,
+        completed: scans.filter(s => s.status === 'completed').length,
+        cancelled: scans.filter(s => s.status === 'cancelled').length,
+      },
+      byType: {} as Record<string, number>,
+      byBodyPart: {} as Record<string, number>,
+      averageTurnaroundTime: scans
+        .filter(s => s.completedAt && s.requestedAt)
+        .reduce((sum, s) => sum + (s.completedAt!.getTime() - s.requestedAt.getTime()) / 60000, 0) / Math.max(1, scans.filter(s => s.completedAt).length)
+    };
+
+    // Group by scan type
+    scans.forEach(scan => {
+      const type = scan.scanType || 'General';
+      summary.byType[type] = (summary.byType[type] || 0) + 1;
+      
+      const bodyPart = scan.bodyPart || 'General';
+      summary.byBodyPart[bodyPart] = (summary.byBodyPart[bodyPart] || 0) + 1;
+    });
+
+    // Get top scans
+    const scanCounts: Record<string, number> = {};
+    scans.forEach(scan => {
+      const name = scan.ServiceCatalog?.name || scan.scanType || 'Unknown';
+      scanCounts[name] = (scanCounts[name] || 0) + 1;
+    });
+
+    const topScans = Object.entries(scanCounts)
+      .map(([scanName, count]) => ({ scanName, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({ success: true, data: { summary, topScans, generatedAt: new Date() } });
+  } catch (error) {
+    handleError(res, 'Error generating scan report', error);
+  }
+};
+
+// ==================== PROCEDURES REPORT ====================
+export const getProcedureReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate || endDate) {
+      where.scheduledDate = {};
+      if (startDate) where.scheduledDate.gte = new Date(startDate as string);
+      if (endDate) where.scheduledDate.lte = new Date(endDate as string);
+    }
+
+    const procedures = await prisma.procedure.findMany({
+      where,
+      include: {
+        ServiceCatalog: { select: { name: true, code: true } }
+      }
+    });
+
+    const summary = {
+      totalProcedures: procedures.length,
+      byStatus: {
+        scheduled: procedures.filter(p => p.status === 'scheduled').length,
+        completed: procedures.filter(p => p.status === 'completed').length,
+        cancelled: procedures.filter(p => p.status === 'cancelled').length,
+      },
+      byCategory: procedures.reduce((acc, p) => {
+        const category = p.ServiceCatalog?.code?.split('-')[0] || 'General';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      averageDuration: procedures
+        .filter(p => p.duration)
+        .reduce((sum, p) => sum + (p.duration || 0), 0) / Math.max(1, procedures.filter(p => p.duration).length)
+    };
+
+    const procedureCounts: Record<string, number> = {};
+    procedures.forEach(proc => {
+      const name = proc.ServiceCatalog?.name || 'Unknown Procedure';
+      procedureCounts[name] = (procedureCounts[name] || 0) + 1;
+    });
+
+    const topProcedures = Object.entries(procedureCounts)
+      .map(([procedureName, count]) => ({ procedureName, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({ success: true, data: { summary, topProcedures, generatedAt: new Date() } });
+  } catch (error) {
+    handleError(res, 'Error generating procedure report', error);
+  }
+};
+
+// ==================== MEDICATIONS REPORT ====================
+export const getMedicationReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate || endDate) {
+      where.prescribedAt = {};
+      if (startDate) where.prescribedAt.gte = new Date(startDate as string);
+      if (endDate) where.prescribedAt.lte = new Date(endDate as string);
+    }
+
+    const medications = await prisma.medication.findMany({
+      where,
+      include: {
+        StockItem: { select: { name: true, category: true } }
+      }
+    });
+
+    const summary = {
+      totalPrescriptions: medications.length,
+      byStatus: {
+        prescribed: medications.filter(m => m.status === 'prescribed').length,
+        dispensed: medications.filter(m => m.status === 'dispensed').length,
+        administered: medications.filter(m => m.status === 'administered').length,
+        cancelled: medications.filter(m => m.status === 'cancelled').length,
+      },
+      byRoute: medications.reduce((acc, m) => {
+        const route = m.route || 'Other';
+        acc[route] = (acc[route] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      totalQuantityDispensed: medications
+        .filter(m => m.status === 'dispensed')
+        .reduce((sum, m) => sum + (m.quantity || 0), 0)
+    };
+
+    const medCounts: Record<string, { count: number; totalQuantity: number }> = {};
+    medications.forEach(med => {
+      const name = med.name;
+      if (!medCounts[name]) medCounts[name] = { count: 0, totalQuantity: 0 };
+      medCounts[name].count++;
+      medCounts[name].totalQuantity += med.quantity || 1;
+    });
+
+    const topMedications = Object.entries(medCounts)
+      .map(([medicationName, data]) => ({ medicationName, count: data.count, totalQuantity: data.totalQuantity }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({ success: true, data: { summary, topMedications, generatedAt: new Date() } });
+  } catch (error) {
+    handleError(res, 'Error generating medication report', error);
+  }
+};
+
+// ==================== VITALS REPORT ====================
+export const getVitalsReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate || endDate) {
+      where.recordedAt = {};
+      if (startDate) where.recordedAt.gte = new Date(startDate as string);
+      if (endDate) where.recordedAt.lte = new Date(endDate as string);
+    }
+
+    const vitals = await prisma.vitals.findMany({
+      where,
+      include: {
+        Patient: { select: { id: true, gender: true, dateOfBirth: true } }
+      }
+    });
+
+    const summary = {
+      totalVitalsRecords: vitals.length,
+      uniquePatients: new Set(vitals.map(v => v.patientId)).size,
+      abnormalFindings: {
+        hypertension: vitals.filter(v => {
+          const bp = v.bloodPressure?.split('/').map(Number);
+          return bp && (bp[0] > 140 || bp[1] > 90);
+        }).length,
+        hypotension: vitals.filter(v => {
+          const bp = v.bloodPressure?.split('/').map(Number);
+          return bp && (bp[0] < 90 || bp[1] < 60);
+        }).length,
+        fever: vitals.filter(v => v.temperature && v.temperature > 38).length,
+        tachycardia: vitals.filter(v => v.pulse && v.pulse > 100).length,
+        bradycardia: vitals.filter(v => v.pulse && v.pulse < 60).length,
+        hypoxia: vitals.filter(v => v.spo2 && v.spo2 < 94).length,
+        underweight: vitals.filter(v => v.bmi && v.bmi < 18.5).length,
+        overweight: vitals.filter(v => v.bmi && v.bmi >= 25 && v.bmi < 30).length,
+        obese: vitals.filter(v => v.bmi && v.bmi >= 30).length,
+      }
+    };
+
+    // Monthly trends
+    const trends: Record<string, { month: string; avgTemp: number; avgBPSystolic: number; count: number }> = {};
+    vitals.forEach(vital => {
+      const month = vital.recordedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      if (!trends[month]) {
+        trends[month] = { month, avgTemp: 0, avgBPSystolic: 0, count: 0 };
+      }
+      if (vital.temperature) trends[month].avgTemp += vital.temperature;
+      if (vital.bloodPressure) {
+        const systolic = parseInt(vital.bloodPressure.split('/')[0]);
+        if (!isNaN(systolic)) trends[month].avgBPSystolic += systolic;
+      }
+      trends[month].count++;
+    });
+
+    const monthlyTrends = Object.values(trends).map(t => ({
+      month: t.month,
+      avgTemp: t.count > 0 ? Math.round((t.avgTemp / t.count) * 10) / 10 : 0,
+      avgBPSystolic: t.count > 0 ? Math.round(t.avgBPSystolic / t.count) : 0
+    }));
+
+    res.json({ success: true, data: { summary, trends: monthlyTrends, generatedAt: new Date() } });
+  } catch (error) {
+    handleError(res, 'Error generating vitals report', error);
+  }
+};
+
+
 // ==================== HELPER FUNCTIONS (Placeholders) ====================
 async function getNewFPAcceptors(startDate: string, endDate: string): Promise<number> {
   // Implementation would track first-time FP users
@@ -836,3 +1143,4 @@ async function calculateCoupleYearProtection(startDate: string, endDate: string)
   // Implementation would calculate CYP based on contraceptives dispensed
   return 0;
 }
+

@@ -1,4 +1,4 @@
-// src/layouts/DashboardLayout.tsx - UPDATED WITH CONSISTENT ICONS
+// src/layouts/DashboardLayout.tsx - UPDATED WITH NOTIFICATION LOADING
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -117,7 +117,7 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-// Navigation items with consistent icons - matching the Medical Entries page style
+// Navigation items with consistent icons
 const navigationItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts', 'records', 'sonographer'] },
   { name: 'Patients', path: '/dashboard/patients', icon: Users, roles: ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts', 'records', 'sonographer'] },
@@ -134,7 +134,7 @@ const navigationItems = [
   { name: 'Inventory', path: '/dashboard/inventory', icon: Package, roles: ['admin', 'pharmacist', 'doctor'] },
   { name: 'Stock', path: '/dashboard/stock', icon: Warehouse, roles: ['admin', 'pharmacist'] },
   { name: 'Admissions', path: '/dashboard/admissions', icon: BedDouble, roles: ['admin', 'doctor', 'nurse', 'midwife'] },
-  { name: 'Referrals', path: '/dashboard/referrals', icon: Send, roles: ['admin', 'doctor', 'nurse', 'midwife', 'records'] }, // ✅ ADD THIS
+  { name: 'Referrals', path: '/dashboard/referrals', icon: Send, roles: ['admin', 'doctor', 'nurse', 'midwife', 'records'] },
   { name: 'Billing', path: '/dashboard/billing', icon: DollarSign, roles: ['admin', 'doctor', 'accounts'] },
   { name: 'Insurance', path: '/dashboard/insurance-claims', icon: Shield, roles: ['admin', 'doctor', 'accounts'] },
   { name: 'Departments', path: '/dashboard/departments', icon: Building, roles: ['admin'] },
@@ -144,7 +144,7 @@ const navigationItems = [
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Changed to false for better UX
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   
@@ -155,15 +155,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const { user, logout, hasRole } = useAuthStore();
   const { 
-    notifications: storeNotifications, 
-    unreadCount: storeUnreadCount,
-    markAsRead,
-    markAllAsRead 
+    notifications, 
+    unreadCount, 
+    getNotifications, 
+    markAsRead, 
+    markAllAsRead,
+    isLoading: notificationsLoading 
   } = useNotificationStore();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Load hospital data
   useEffect(() => {
     const loadHospital = async () => {
       try {
@@ -174,6 +177,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
     loadHospital();
   }, [fetchHospital]);
+
+  // Load notifications on mount
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        await getNotifications({ limit: 10 });
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    };
+    loadNotifications();
+    
+    // Set up interval to refresh notifications every 30 seconds
+    const interval = setInterval(() => {
+      getNotifications({ limit: 10 }).catch(console.error);
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [getNotifications]);
 
   const handleLogout = () => {
     logout();
@@ -199,6 +221,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64';
 
+  // Format date for notification display
+  const formatNotificationDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    return date.toLocaleDateString();
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg-main)] transition-colors duration-300">
       {/* Mobile backdrop */}
@@ -209,8 +247,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      {/* Top Bar - Slender and cute */}
-{/* Top Bar - Enhanced Design */}
+      {/* Top Bar */}
       <header className="bg-[var(--bg-card)] border-b border-[var(--border-color)] sticky top-0 z-40 w-full h-14 shadow-sm">
         <div className="flex items-center justify-between px-5 h-full">
           {/* Left: Menu Icon & Logo */}
@@ -222,7 +259,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Logo - Larger and more prominent */}
             <div className="hidden lg:flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] rounded-xl flex items-center justify-center shadow-md">
                 <Heart className="w-4 h-4 text-white" />
@@ -240,7 +276,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
 
-          {/* Centered Hospital Name - Enhanced */}
+          {/* Centered Hospital Name */}
           <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
             {hospitalLoading ? (
               <div className="animate-pulse">
@@ -259,7 +295,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           </div>
 
-          {/* Right: Actions - Larger icons */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-2">
             {/* Dark Mode Toggle */}
             <button
@@ -277,22 +313,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="relative p-2 rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
               >
                 <Bell className="w-4 h-4" />
-                {storeUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
-                    {storeUnreadCount > 9 ? '9+' : storeUnreadCount}
+                {(unreadCount > 0 || (notifications?.filter(n => !n.isRead)?.length > 0)) && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold px-1">
+                    {unreadCount || notifications?.filter(n => !n.isRead)?.length || 0}
                   </span>
                 )}
               </button>
 
-              {/* Notifications Dropdown - Enhanced */}
+              {/* Notifications Dropdown */}
               {notificationDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border border-[var(--border-color)] z-50 max-h-96 overflow-hidden bg-[var(--bg-card)]">
                   <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-sm text-[var(--text-primary)]">Notifications</h3>
-                      {storeUnreadCount > 0 && (
+                      {(unreadCount > 0 || (notifications?.filter(n => !n.isRead)?.length > 0)) && (
                         <button 
-                          onClick={markAllAsRead}
+                          onClick={() => markAllAsRead()}
                           className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
                         >
                           Mark all read
@@ -301,26 +337,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                    {storeNotifications.length === 0 ? (
-                      <div className="p-6 text-center text-[var(--text-secondary)]">
-                        <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                        <p className="text-sm">No notifications</p>
+                    {notificationsLoading ? (
+                      <div className="p-6 text-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-[var(--icon-cyan-text)] border-t-transparent mx-auto mb-2"></div>
+                        <p className="text-xs text-[var(--text-secondary)]">Loading...</p>
                       </div>
-                    ) : (
-                      storeNotifications.slice(0, 10).map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-3 border-b border-[var(--border-color)] cursor-pointer transition-all ${
-                            !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/10' : 'hover:bg-[var(--bg-main)]'
-                          }`}
-                          onClick={() => {
-                            markAsRead(notification.id);
-                            if (notification.actionUrl) {
-                              navigate(notification.actionUrl);
-                            }
-                            setNotificationDropdownOpen(false);
-                          }}
-                        >
+                    ) : notifications && notifications.length > 0 ? (
+                      notifications.slice(0, 10).map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-3 border-b border-[var(--border-color)] cursor-pointer transition-all ${
+                              !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/10' : 'hover:bg-[var(--bg-main)]'
+                            }`}
+                            onClick={() => {
+                              // Mark as read first
+                              if (!notification.isRead) {
+                                markAsRead(notification.id);
+                              }
+                              
+                              // Close dropdown
+                              setNotificationDropdownOpen(false);
+                              
+                              // Navigate if actionUrl exists
+                              if (notification.actionUrl) {
+                                // Ensure the URL starts with /dashboard if it's a relative path
+                                let targetUrl = notification.actionUrl;
+                                if (targetUrl.startsWith('/')) {
+                                  // Already absolute path
+                                  navigate(targetUrl);
+                                } else if (targetUrl.startsWith('http')) {
+                                  // External link
+                                  window.open(targetUrl, '_blank');
+                                } else {
+                                  // Relative path - prepend /dashboard/
+                                  navigate(`/dashboard/${targetUrl}`);
+                                }
+                              } else {
+                                // Navigate to notifications page as fallback
+                                navigate('/dashboard/notifications');
+                              }
+                            }}
+                          >
                           <div className="flex items-start gap-2.5">
                             <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
                               notification.isRead 
@@ -328,35 +385,53 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 : 'bg-[var(--icon-cyan-text)]'
                             }`} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold truncate text-[var(--text-primary)]">
+                              <p className="text-xs font-semibold text-[var(--text-primary)]">
                                 {notification.title}
                               </p>
                               <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--text-secondary)]">
                                 {notification.message}
                               </p>
                               <p className="text-[10px] mt-1 text-[var(--text-tertiary)]">
-                                {new Date(notification.createdAt).toLocaleDateString()}
+                                {formatNotificationDate(notification.createdAt)}
                               </p>
                             </div>
+                            {!notification.isRead && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(notification.id);
+                                }}
+                                className="text-[10px] text-[var(--icon-cyan-text)] hover:underline"
+                              >
+                                Mark read
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))
+                    ) : (
+                      <div className="p-6 text-center text-[var(--text-secondary)]">
+                        <Bell className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                        <p className="text-sm">No notifications</p>
+                      </div>
                     )}
                   </div>
-                  <div className="p-2 border-t border-[var(--border-color)]">
-                    <Link
-                      to="/dashboard/notifications"
-                      className="block text-center text-xs py-1.5 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
-                      onClick={() => setNotificationDropdownOpen(false)}
-                    >
-                      View all notifications
-                    </Link>
-                  </div>
+                  {notifications && notifications.length > 0 && (
+                    <div className="p-2 border-t border-[var(--border-color)]">
+                      <Link
+                        to="/dashboard/notifications"
+                        className="block text-center text-xs py-1.5 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
+                        onClick={() => setNotificationDropdownOpen(false)}
+                      >
+                        View all notifications
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* User Dropdown - Enhanced with longer name display */}
+            {/* User Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
@@ -433,7 +508,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`fixed top-12 left-0 bottom-0 z-30 ${sidebarWidth} bg-[var(--bg-main)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out ${
+          className={`fixed top-14 left-0 bottom-0 z-30 ${sidebarWidth} bg-[var(--bg-main)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } lg:translate-x-0 flex flex-col`}
         >
@@ -501,7 +576,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </nav>
 
-          {/* Footer - System info */}
+          {/* Footer */}
           <div className="p-2 border-t border-[var(--border-color)]">
             {!sidebarCollapsed ? (
               <div className="text-center">
@@ -530,4 +605,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   );
 }
-

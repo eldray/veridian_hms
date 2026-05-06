@@ -1,331 +1,1054 @@
-import { useEffect, useState } from 'react';
+// src/pages/Notifications.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  Search,
-  Bell,
-  Trash2,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Filter,
-  CheckCircle,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Calendar,
-  DollarSign,
-  Stethoscope
+  Search, Bell, Trash2, RefreshCw, Eye, CheckCircle,
+  AlertCircle, AlertTriangle, Info, Calendar, DollarSign,
+  Stethoscope, Send, Users, Shield, MessageSquare, X,
+  Filter, Clock, ChevronRight, TrendingUp, Activity,
+  Crown, Syringe, UserCircle,
 } from 'lucide-react';
 
-export default function Notifications() {
-  const { 
-    notifications, 
-    getNotifications, 
-    markAsRead, 
-    markAllAsRead,
-    deleteNotification,
-    isLoading 
-  } = useNotificationStore();
-  const { user } = useAuthStore();
-  const { success, error } = useToast();
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [readFilter, setReadFilter] = useState('all');
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    loadData();
-  }, []);
+type NotificationType =
+  | 'info' | 'success' | 'warning' | 'error'
+  | 'appointment' | 'billing' | 'clinical' | 'system';
+
+type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+interface User {
+  id: string;
+  fullName: string;
+  role: string;
+  email?: string;
+}
+
+// ── Role config ───────────────────────────────────────────────────────────────
+
+const ROLE_CONFIG: Record<
+  string,
+  { icon: React.ReactNode; bg: string; text: string }
+> = {
+  admin:      { icon: <Crown      className="w-3 h-3" />, bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' },
+  doctor:     { icon: <Stethoscope className="w-3 h-3" />, bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]'   },
+  nurse:      { icon: <Activity   className="w-3 h-3" />, bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]'  },
+  midwife:    { icon: <Activity   className="w-3 h-3" />, bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]'  },
+  pharmacist: { icon: <Syringe    className="w-3 h-3" />, bg: 'bg-[var(--icon-orange-bg)]', text: 'text-[var(--icon-orange-text)]' },
+  accounts:   { icon: <DollarSign className="w-3 h-3" />, bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]' },
+  lab_tech:   { icon: <Activity   className="w-3 h-3" />, bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' },
+  sonographer:{ icon: <Activity   className="w-3 h-3" />, bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]'   },
+  records:    { icon: <Users      className="w-3 h-3" />, bg: 'bg-[var(--bg-main)]',         text: 'text-[var(--text-secondary)]'   },
+};
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+const getTypeIcon = (type: string, size = 'w-5 h-5') => {
+  switch (type) {
+    case 'success':     return <CheckCircle  className={size} />;
+    case 'warning':     return <AlertTriangle className={size} />;
+    case 'error':       return <AlertCircle  className={size} />;
+    case 'appointment': return <Calendar     className={size} />;
+    case 'billing':     return <DollarSign   className={size} />;
+    case 'clinical':    return <Stethoscope  className={size} />;
+    default:            return <Info          className={size} />;
+  }
+};
+
+const getTypeStyle = (type: string) => {
+  switch (type) {
+    case 'success':     return { bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)'  };
+    case 'warning':     return { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' };
+    case 'error':       return { bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)'    };
+    case 'appointment': return { bg: 'var(--icon-cyan-bg)',   color: 'var(--icon-cyan-text)'   };
+    case 'billing':     return { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' };
+    case 'clinical':    return { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' };
+    default:            return { bg: 'var(--bg-main)',         color: 'var(--text-secondary)'   };
+  }
+};
+
+const getPriorityStyle = (priority: string) => {
+  switch (priority?.toLowerCase()) {
+    case 'urgent': return { bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)',    label: 'URGENT' };
+    case 'high':   return { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', label: 'HIGH'   };
+    case 'medium': return { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', label: 'MEDIUM' };
+    default:       return { bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)',  label: 'LOW'    };
+  }
+};
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'Unknown date';
+  const date    = new Date(dateString);
+  const diffMs  = Date.now() - date.getTime();
+  const mins    = Math.floor(diffMs / 60000);
+  const hours   = Math.floor(diffMs / 3600000);
+  const days    = Math.floor(diffMs / 86400000);
+  if (mins  < 1)  return 'Just now';
+  if (mins  < 60) return `${mins} min ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days  === 1) return 'Yesterday';
+  if (days  < 7)  return `${days} days ago`;
+  return date.toLocaleDateString();
+};
+
+// ── Shared input / select style ───────────────────────────────────────────────
+const inputCls =
+  'w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg text-sm ' +
+  'bg-[var(--bg-main)] text-[var(--text-primary)] ' +
+  'placeholder:text-[var(--text-tertiary)] ' +
+  'focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all';
+
+// ── AdminMessageModal ─────────────────────────────────────────────────────────
+
+const AdminMessageModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSend: (data: any) => Promise<void>;
+  isSending: boolean;
+  users: User[];
+}> = ({ isOpen, onClose, onSend, isSending, users }) => {
+  const [title, setTitle]                   = useState('');
+  const [message, setMessage]               = useState('');
+  const [type, setType]                     = useState<NotificationType>('info');
+  const [priority, setPriority]             = useState<NotificationPriority>('medium');
+  const [sendTo, setSendTo]                 = useState<'all' | 'roles' | 'users'>('all');
+  const [selectedRoles, setSelectedRoles]   = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers]   = useState<string[]>([]);
+  const [searchTerm, setSearchTerm]         = useState('');
+
+  const allRoles = ['admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'accounts', 'lab_tech', 'sonographer', 'records'];
+
+  const filteredUsers = (users || []).filter(
+    (u) =>
+      u.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.role?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !message.trim()) return;
+    await onSend({ title, message, type, priority, sendTo, selectedRoles, selectedUsers });
+    setTitle(''); setMessage(''); setSelectedRoles([]); setSelectedUsers([]); setSearchTerm('');
+    onClose();
+  };
+
+  const isDisabled =
+    !title.trim() || !message.trim() || isSending ||
+    (sendTo === 'roles' && selectedRoles.length === 0) ||
+    (sendTo === 'users' && selectedUsers.length === 0);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+      }}
+    >
+      <div
+        className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] w-full overflow-hidden"
+        style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-[var(--icon-purple-text)]" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Send Broadcast Message</h2>
+              <p className="text-xs text-[var(--text-secondary)]">Send notifications to users or roles</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-card)] transition-colors"
+          >
+            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Send to toggle */}
+          <div>
+            <p className="text-xs font-medium text-[var(--text-secondary)] mb-2">Send to</p>
+            <div
+              className="flex gap-1 p-1 rounded-lg border border-[var(--border-color)]"
+              style={{ background: 'var(--bg-main)' }}
+            >
+              {(['all', 'roles', 'users'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSendTo(opt)}
+                  className="flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-all"
+                  style={{
+                    background: sendTo === opt ? 'var(--bg-card)' : 'transparent',
+                    color: sendTo === opt ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    border: sendTo === opt ? '0.5px solid var(--border-color)' : 'none',
+                  }}
+                >
+                  {opt === 'all' ? 'All users' : opt === 'roles' ? 'By role' : 'Specific users'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Role selection */}
+          {sendTo === 'roles' && (
+            <div>
+              <p className="text-xs font-medium text-[var(--text-secondary)] mb-2">Select roles</p>
+              <div
+                className="flex flex-wrap gap-1.5 p-2.5 rounded-lg border border-[var(--border-color)] max-h-32 overflow-y-auto"
+                style={{ background: 'var(--bg-main)' }}
+              >
+                {allRoles.map((role) => {
+                  const rc = ROLE_CONFIG[role];
+                  const on = selectedRoles.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() =>
+                        setSelectedRoles((prev) =>
+                          prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+                        )
+                      }
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all"
+                      style={{
+                        background: on ? 'var(--icon-cyan-bg)' : 'var(--bg-card)',
+                        color: on ? 'var(--icon-cyan-text)' : 'var(--text-secondary)',
+                        border: '0.5px solid var(--border-color)',
+                      }}
+                    >
+                      {rc?.icon}
+                      {role.replace('_', ' ')}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedRoles.length > 0 && (
+                <p className="text-xs text-[var(--text-tertiary)] mt-1.5">
+                  Selected: {selectedRoles.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* User selection */}
+          {sendTo === 'users' && (
+            <div>
+              <p className="text-xs font-medium text-[var(--text-secondary)] mb-2">Select users</p>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                <input
+                  type="text"
+                  placeholder="Search users…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={inputCls}
+                  style={{ paddingLeft: '2rem' }}
+                />
+              </div>
+              <div
+                className="max-h-44 overflow-y-auto rounded-lg border border-[var(--border-color)] p-1.5 space-y-0.5"
+                style={{ background: 'var(--bg-main)' }}
+              >
+                {filteredUsers.length === 0 ? (
+                  <p className="text-xs text-[var(--text-tertiary)] text-center py-4">No users found</p>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const rc = ROLE_CONFIG[u.role];
+                    return (
+                      <label
+                        key={u.id}
+                        className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={(e) =>
+                          ((e.currentTarget as HTMLLabelElement).style.background = 'var(--bg-card)')
+                        }
+                        onMouseLeave={(e) =>
+                          ((e.currentTarget as HTMLLabelElement).style.background = 'transparent')
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(u.id)}
+                          onChange={(e) =>
+                            setSelectedUsers((prev) =>
+                              e.target.checked
+                                ? [...prev, u.id]
+                                : prev.filter((id) => id !== u.id)
+                            )
+                          }
+                          className="rounded border-[var(--border-color)]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">
+                            {u.fullName}
+                          </p>
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${rc?.bg} ${rc?.text}`}
+                          >
+                            {rc?.icon}
+                            {u.role.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Title */}
+          <div>
+            <p className="text-xs font-medium text-[var(--text-secondary)] mb-1.5">Title</p>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. System Update Notice"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Type + Priority row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium text-[var(--text-secondary)] mb-1.5">Type</p>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as NotificationType)}
+                className={inputCls}
+              >
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-[var(--text-secondary)] mb-1.5">Priority</p>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as NotificationPriority)}
+                className={inputCls}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div>
+            <p className="text-xs font-medium text-[var(--text-secondary)] mb-1.5">Message</p>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              placeholder="Type your message here…"
+              className={inputCls + ' resize-none'}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isDisabled}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'var(--icon-cyan-text)' }}
+            >
+              {isSending ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Send message
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── NotificationDetailModal ───────────────────────────────────────────────────
+
+const NotificationDetailModal: React.FC<{
+  notification: any;
+  onClose: () => void;
+  onMarkAsRead: () => void;
+}> = ({ notification, onClose, onMarkAsRead }) => {
+  const navigate = useNavigate();
+  
+  if (!notification) return null;
+
+  const typeStyle     = getTypeStyle(notification.type);
+  const priorityStyle = getPriorityStyle(notification.priority || 'low');
+
+  const handleActionClick = () => {
+    if (notification.actionUrl) {
+      let targetUrl = notification.actionUrl;
+      
+      // ✅ FIX: Use React Router navigate
+      if (targetUrl.startsWith('/dashboard')) {
+        navigate(targetUrl);
+      } else if (targetUrl.startsWith('/')) {
+        navigate(`/dashboard${targetUrl}`);
+      } else if (targetUrl.startsWith('http')) {
+        window.open(targetUrl, '_blank');
+      } else {
+        navigate(`/dashboard/${targetUrl}`);
+      }
+    }
+    onClose();
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+      }}
+    >
+      <div
+        className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] w-full"
+        style={{ maxWidth: 440 }}
+      >
+        <div className="p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: typeStyle.bg, color: typeStyle.color }}
+            >
+              {getTypeIcon(notification.type, 'w-6 h-6')}
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
+            >
+              <X className="w-4 h-4 text-[var(--text-secondary)]" />
+            </button>
+          </div>
+
+          <h3 className="text-base font-bold text-[var(--text-primary)] mb-2">
+            {notification.title}
+          </h3>
+
+          <div className="flex items-center gap-2 mb-4">
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: priorityStyle.bg, color: priorityStyle.color }}
+            >
+              {priorityStyle.label}
+            </span>
+            <span className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {new Date(notification.createdAt).toLocaleString()}
+            </span>
+          </div>
+
+          <div
+            className="rounded-xl p-4 mb-5 border border-[var(--border-color)]"
+            style={{ background: 'var(--bg-main)' }}
+          >
+            <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
+              {notification.message}
+            </p>
+          </div>
+
+          {notification.actionUrl && (
+            <button
+              onClick={handleActionClick}
+              className="w-full mb-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+              style={{ background: 'var(--icon-cyan-text)' }}
+            >
+              <Eye className="w-4 h-4" />
+              View details
+            </button>
+          )}
+
+          {!notification.isRead && (
+            <button
+              onClick={onMarkAsRead}
+              className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
+            >
+              Mark as read
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function Notifications() {
+  const navigate = useNavigate()
+  const {
+    notifications, getNotifications, markAsRead, markAllAsRead,
+    deleteNotification, getNotificationStats, stats,
+    sendBulkNotification, sendRoleNotification, isLoading,
+  } = useNotificationStore();
+
+  const { user }            = useAuthStore();
+  const { success, error: toastError } = useToast();
+
+  const [searchTerm, setSearchTerm]                   = useState('');
+  const [typeFilter, setTypeFilter]                   = useState('all');
+  const [priorityFilter, setPriorityFilter]           = useState('all');
+  const [readFilter, setReadFilter]                   = useState('all');
+  const [showFilters, setShowFilters]                 = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen]       = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
+  const [isSending, setIsSending]                     = useState(false);
+  const [viewMode, setViewMode]                       = useState<'list' | 'grid'>('list');
+  const [sortBy, setSortBy]                           = useState<'date' | 'priority'>('date');
+
+  const isAdmin = user?.role === 'admin';
+
+  const mockUsers: User[] = [
+    { id: '1',  fullName: 'System Administrator',      role: 'admin'       },
+    { id: '2',  fullName: 'Dr. John Smith',            role: 'doctor'      },
+    { id: '3',  fullName: 'Dr. Sarah Johnson',         role: 'doctor'      },
+    { id: '4',  fullName: 'Nurse Mary Williams',       role: 'nurse'       },
+    { id: '5',  fullName: 'Pharmacist David Brown',    role: 'pharmacist'  },
+    { id: '6',  fullName: 'Accounts Manager Lisa Davis', role: 'accounts'  },
+    { id: '7',  fullName: 'Lab Tech Mike Wilson',      role: 'lab_tech'    },
+    { id: '8',  fullName: 'Midwife Emily Jones',       role: 'midwife'     },
+    { id: '9',  fullName: 'Records Officer Tom Clark', role: 'records'     },
+    { id: '10', fullName: 'Sonographer Anne Taylor',   role: 'sonographer' },
+  ];
+
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       const filters: any = {};
-      if (typeFilter !== 'all') filters.type = typeFilter;
+      if (typeFilter     !== 'all') filters.type   = typeFilter;
       if (priorityFilter !== 'all') filters.priority = priorityFilter;
-      if (readFilter !== 'all') filters.isRead = readFilter === 'read';
-      
+      if (readFilter     !== 'all') filters.isRead  = readFilter === 'read';
       await getNotifications(filters);
-    } catch (err) {
-      error('Load Failed', 'Failed to load notifications');
-    }
+      await getNotificationStats();
+    } catch { /* silent */ }
   };
 
-  const filteredNotifications = notifications.filter(notif => 
-    notif.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    notif.message.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredNotifications = (() => {
+    const list = (notifications || []).filter((n) => {
+      if (!n) return false;
+      const q = searchTerm.toLowerCase();
+      if (
+        !(n.title || '').toLowerCase().includes(q) &&
+        !(n.message || '').toLowerCase().includes(q)
+      ) return false;
+      if (typeFilter     !== 'all' && n.type     !== typeFilter)     return false;
+      if (priorityFilter !== 'all' && n.priority !== priorityFilter) return false;
+      if (readFilter === 'read'   && !n.isRead)  return false;
+      if (readFilter === 'unread' && n.isRead)   return false;
+      return true;
+    });
+
+    if (sortBy === 'priority') {
+      const order: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+      return list.sort((a, b) => (order[a.priority || 'low'] ?? 3) - (order[b.priority || 'low'] ?? 3));
+    }
+    return list.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  })();
+
+  const unreadCount = (notifications || []).filter((n) => n?.isRead === false).length;
 
   const handleMarkAsRead = async (id: string) => {
-    try {
-      await markAsRead(id);
-      success('Marked as Read', 'Notification marked as read');
-    } catch (err) {
-      error('Update Failed', 'Failed to mark notification as read');
-    }
+    try { await markAsRead(id); success('Marked as read', ''); await loadData(); }
+    catch { toastError('Update failed', 'Failed to mark as read'); }
   };
 
   const handleMarkAllAsRead = async () => {
-    try {
-      await markAllAsRead();
-      success('All Marked as Read', 'All notifications marked as read');
-    } catch (err) {
-      error('Update Failed', 'Failed to mark all notifications as read');
-    }
+    try { await markAllAsRead(); success('All marked as read', ''); await loadData(); }
+    catch { toastError('Update failed', 'Failed to mark all as read'); }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this notification?')) {
-      try {
-        await deleteNotification(id);
-        success('Deleted', 'Notification deleted successfully');
-      } catch (err) {
-        error('Delete Failed', 'Failed to delete notification');
+    if (!window.confirm('Delete this notification?')) return;
+    try { await deleteNotification(id); success('Deleted', ''); await loadData(); }
+    catch { toastError('Delete failed', 'Could not delete notification'); }
+  };
+
+  const handleSendMessage = async (data: any) => {
+    setIsSending(true);
+    try {
+      const allRoles = ['admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'accounts', 'lab_tech', 'sonographer', 'records'];
+      if (data.sendTo === 'all') {
+        await sendRoleNotification({ roles: allRoles, title: data.title, message: data.message, type: data.type, priority: data.priority });
+        success('Sent', 'Message sent to all users');
+      } else if (data.sendTo === 'roles') {
+        await sendRoleNotification({ roles: data.selectedRoles, title: data.title, message: data.message, type: data.type, priority: data.priority });
+        success('Sent', `Message sent to ${data.selectedRoles.join(', ')}`);
+      } else {
+        await sendBulkNotification({ userIds: data.selectedUsers, title: data.title, message: data.message, type: data.type, priority: data.priority });
+        success('Sent', `Message sent to ${data.selectedUsers.length} user(s)`);
       }
-    }
+      await loadData();
+    } catch { toastError('Send failed', 'Could not send message'); }
+    finally { setIsSending(false); }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'success': return CheckCircle;
-      case 'warning': return AlertTriangle;
-      case 'error': return AlertCircle;
-      case 'appointment': return Calendar;
-      case 'billing': return DollarSign;
-      case 'clinical': return Stethoscope;
-      default: return Info;
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'success': return 'text-green-600 bg-green-50 border-green-200';
-      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'error': return 'text-red-600 bg-red-50 border-red-200';
-      case 'appointment': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'billing': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'clinical': return 'text-indigo-600 bg-indigo-50 border-indigo-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} hours ago`;
-    } else if (diffInHours < 48) {
-      return 'Yesterday';
+  const handleNotificationClick = (notif: any) => {
+    if (notif.actionUrl) {
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+      
+      let targetUrl = notif.actionUrl;
+      
+      // Add /dashboard prefix if it's missing and it's not an external link
+      if (!targetUrl.startsWith('/dashboard') && !targetUrl.startsWith('http')) {
+        // If it starts with / but not /dashboard, add /dashboard prefix
+        if (targetUrl.startsWith('/')) {
+          targetUrl = `/dashboard${targetUrl}`;
+        } else {
+          targetUrl = `/dashboard/${targetUrl}`;
+        }
+      }
+      
+      console.log('Navigating to:', targetUrl);
+      navigate(targetUrl);
     } else {
-      return date.toLocaleDateString();
+      setSelectedNotification(notif);
+      if (!notif.isRead) handleMarkAsRead(notif.id);
     }
   };
+
+  // ── Stat card data ──────────────────────────────────────────────────────────
+  const statCards = [
+    { icon: Bell,         value: stats?.total || 0,       label: 'Total',       bg: 'var(--icon-cyan-bg)',    color: 'var(--icon-cyan-text)'    },
+    { icon: Clock,        value: stats?.unread || 0,      label: 'Unread',      bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)'  },
+    { icon: CheckCircle,  value: (stats?.total || 0) - (stats?.unread || 0), label: 'Read', bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
+    {
+      icon: AlertCircle,
+      value: `${stats?.total ? Math.round(((stats?.unread || 0) / stats.total) * 100) : 0}%`,
+      label: 'Unread rate',
+      bg:    'var(--icon-red-bg)',
+      color: 'var(--icon-red-text)',
+    },
+  ];
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4 p-4 bg-gray-50 min-h-screen">
+    <div className="space-y-5 p-6">
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-xl p-6 text-white shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              <Bell className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Notification Center</h1>
-              <p className="text-blue-100 text-sm">Manage and review system notifications</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-bold text-[var(--text-primary)]">Notifications</h1>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+            Stay updated with system alerts and reminders
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && (
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--icon-purple-text)' }}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Broadcast
+            </button>
+          )}
+          {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
-              disabled={notifications.filter(n => !n.isRead).length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all duration-200 border border-white/20 font-medium text-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              Mark All Read
+              Mark all read
+              <span
+                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-medium"
+                style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+              >
+                {unreadCount}
+              </span>
             </button>
-          </div>
+          )}
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-[var(--border-color)] text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search notifications..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
-            />
-          </div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="info">Info</option>
-            <option value="success">Success</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-            <option value="appointment">Appointment</option>
-            <option value="billing">Billing</option>
-            <option value="clinical">Clinical</option>
-          </select>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
-          >
-            <option value="all">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <div className="flex gap-2">
-            <select
-              value={readFilter}
-              onChange={(e) => setReadFilter(e.target.value)}
-              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm"
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {statCards.map((s, i) => (
+            <div
+              key={i}
+              className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] shadow-sm"
             >
-              <option value="all">All</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-            </select>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: s.bg }}
+                >
+                  <s.icon className="w-5 h-5" style={{ color: s.color }} />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-[var(--text-primary)]">{s.value}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{s.label}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search + Filters */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] shadow-sm">
+        <div className="p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Search input */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                placeholder="Search notifications…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={inputCls}
+                style={{ paddingLeft: '2.25rem' }}
+              />
+            </div>
+
+            {/* View toggle */}
+            <div
+              className="flex gap-1 p-1 rounded-lg border border-[var(--border-color)]"
+              style={{ background: 'var(--bg-main)' }}
+            >
+              {(['list', 'grid'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setViewMode(m)}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all"
+                  style={{
+                    background: viewMode === m ? 'var(--bg-card)' : 'transparent',
+                    color: viewMode === m ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            {/* Filter toggle */}
             <button
-              onClick={loadData}
-              disabled={isLoading}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 flex items-center gap-2 font-medium text-sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border"
+              style={{
+                background:   showFilters ? 'var(--icon-cyan-bg)' : 'var(--bg-main)',
+                color:        showFilters ? 'var(--icon-cyan-text)' : 'var(--text-secondary)',
+                borderColor:  'var(--border-color)',
+              }}
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <Filter className="w-4 h-4" />
+              Filters
             </button>
           </div>
+
+          {/* Expanded filters */}
+          {showFilters && (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--border-color)]"
+            >
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={inputCls}>
+                <option value="all">All types</option>
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+                <option value="appointment">Appointment</option>
+                <option value="billing">Billing</option>
+                <option value="clinical">Clinical</option>
+              </select>
+              <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className={inputCls}>
+                <option value="all">All priorities</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select value={readFilter} onChange={(e) => setReadFilter(e.target.value)} className={inputCls}>
+                <option value="all">All</option>
+                <option value="unread">Unread</option>
+                <option value="read">Read</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Notifications List */}
+      {/* Sort row */}
+      <div className="flex justify-end items-center gap-2 text-xs">
+        <span className="text-[var(--text-tertiary)]">Sort by:</span>
+        {(['date', 'priority'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSortBy(s)}
+            className="px-2.5 py-1.5 rounded-lg capitalize transition-all"
+            style={{
+              background: sortBy === s ? 'var(--icon-cyan-bg)' : 'transparent',
+              color:      sortBy === s ? 'var(--icon-cyan-text)' : 'var(--text-secondary)',
+            }}
+          >
+            {s === 'date' ? 'Latest' : 'Priority'}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-[var(--bg-main)] rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-[var(--bg-main)] rounded w-1/3" />
+                  <div className="h-3 bg-[var(--bg-main)] rounded w-2/3" />
+                </div>
+              </div>
             </div>
           ))}
         </div>
       ) : filteredNotifications.length === 0 ? (
-        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 text-center">
-          <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 mb-2">
+        <div className="bg-[var(--bg-card)] rounded-xl p-12 text-center border border-[var(--border-color)]">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--bg-main)' }}
+          >
+            <Bell className="w-8 h-8 text-[var(--text-tertiary)]" />
+          </div>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">
             {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
-              ? 'No notifications found' 
-              : 'No notifications yet'}
+              ? 'No matching notifications'
+              : 'All caught up!'}
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'You have no new notifications at this time'}
           </p>
-          <p className="text-gray-400 text-sm">Notifications will appear here when available</p>
         </div>
-      ) : (
+      ) : viewMode === 'list' ? (
+
+        /* ── LIST VIEW ── */
         <div className="space-y-3">
           {filteredNotifications.map((notif) => {
-            const IconComponent = getTypeIcon(notif.type);
+            const ts        = getTypeStyle(notif.type || 'info');
+            const ps        = getPriorityStyle(notif.priority || 'low');
+            const isUnread  = !notif.isRead;
+
             return (
-              <div 
-                key={notif._id} 
-                className={`bg-white rounded-xl p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
-                  notif.isRead 
-                    ? 'border-gray-200' 
-                    : 'border-blue-300 bg-blue-50/50'
-                }`}
+              <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                className="bg-[var(--bg-card)] rounded-xl border transition-all cursor-pointer hover:shadow-sm"
+                style={{
+                  borderColor:    isUnread ? ps.color : 'var(--border-color)',
+                  borderLeftWidth: isUnread ? 3 : 1,
+                }}
               >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
-                    getTypeColor(notif.type).split(' ')[0]
-                  }`}>
-                    <IconComponent className={`w-5 h-5 ${
-                      getTypeColor(notif.type).split(' ')[0]
-                    }`} />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className={`font-bold text-lg ${
-                          notif.isRead ? 'text-gray-900' : 'text-gray-900'
-                        }`}>
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Type icon */}
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: ts.bg, color: ts.color }}
+                    >
+                      {getTypeIcon(notif.type || 'info')}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3
+                          className="text-sm font-semibold"
+                          style={{ color: isUnread ? 'var(--icon-cyan-text)' : 'var(--text-primary)' }}
+                        >
                           {notif.title}
                         </h3>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(notif.priority)}`}>
-                          {notif.priority.toUpperCase()}
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ background: ps.bg, color: ps.color }}
+                        >
+                          {ps.label}
                         </span>
-                        {!notif.isRead && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        {isUnread && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                            style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+                          >
                             NEW
                           </span>
                         )}
+                        <span className="text-xs text-[var(--text-tertiary)] flex items-center gap-1 ml-auto">
+                          <Clock className="w-3 h-3" />
+                          {formatDate(notif.createdAt)}
+                        </span>
                       </div>
-                      
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>{formatDate(notif.createdAt)}</span>
-                        {notif.isRead && notif.readAt && (
-                          <span className="flex items-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            Read
-                          </span>
-                        )}
+
+                      <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-1">
+                        {notif.message}
+                      </p>
+
+                      {notif.actionUrl && (
+                        <div className="flex items-center gap-1 text-xs text-[var(--icon-cyan-text)]">
+                          <span>Click to view details</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {isUnread && (
+                        <button
+                          onClick={() => handleMarkAsRead(notif.id)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={(e) =>
+                            ((e.currentTarget as HTMLButtonElement).style.color = 'var(--icon-green-text)')
+                          }
+                          onMouseLeave={(e) =>
+                            ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)')
+                          }
+                          title="Mark as read"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(notif.id)}
+                        className="p-1.5 rounded-lg transition-colors"
+                        style={{ color: 'var(--text-tertiary)' }}
+                        onMouseEnter={(e) =>
+                          ((e.currentTarget as HTMLButtonElement).style.color = 'var(--icon-red-text)')
+                        }
+                        onMouseLeave={(e) =>
+                          ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)')
+                        }
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      ) : (
+
+        /* ── GRID VIEW ── */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredNotifications.map((notif) => {
+            const ts       = getTypeStyle(notif.type || 'info');
+            const ps       = getPriorityStyle(notif.priority || 'low');
+            const isUnread = !notif.isRead;
+
+            return (
+              <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                className="bg-[var(--bg-card)] rounded-xl border overflow-hidden transition-all cursor-pointer hover:shadow-sm"
+                style={{
+                  borderColor:     isUnread ? 'var(--icon-cyan-text)' : 'var(--border-color)',
+                  borderLeftWidth: isUnread ? 3 : 1,
+                }}
+              >
+                <div className="p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: ts.bg, color: ts.color }}
+                    >
+                      {getTypeIcon(notif.type || 'info', 'w-4 h-4')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className="text-xs font-semibold truncate mb-0.5"
+                        style={{ color: isUnread ? 'var(--icon-cyan-text)' : 'var(--text-primary)' }}
+                      >
+                        {notif.title}
+                      </h3>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ background: ps.bg, color: ps.color }}
+                        >
+                          {ps.label}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />
+                          {formatDate(notif.createdAt)}
+                        </span>
                       </div>
                     </div>
-                    
-                    <p className="text-gray-600 mb-3">{notif.message}</p>
-                    
-                    {notif.actionUrl && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-500">Action:</span>
-                        <a 
-                          href={notif.actionUrl}
-                          className="text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View Details
-                        </a>
-                      </div>
-                    )}
                   </div>
-                  
-                  <div className="flex gap-1 flex-shrink-0">
-                    {!notif.isRead && (
+
+                  <p className="text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
+                    {notif.message}
+                  </p>
+
+                  <div
+                    className="flex items-center justify-end gap-1 pt-2 border-t border-[var(--border-color)]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isUnread && (
                       <button
-                        onClick={() => handleMarkAsRead(notif._id)}
-                        className="p-1.5 text-gray-600 hover:text-green-600 transition-colors hover:bg-green-50 rounded-lg"
-                        title="Mark as Read"
+                        onClick={() => handleMarkAsRead(notif.id)}
+                        className="p-1.5 rounded-lg transition-colors"
+                        style={{ color: 'var(--text-tertiary)' }}
+                        title="Mark as read"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                     )}
                     <button
-                      onClick={() => handleDelete(notif._id)}
-                      className="p-1.5 text-gray-600 hover:text-red-600 transition-colors hover:bg-red-50 rounded-lg"
+                      onClick={() => handleDelete(notif.id)}
+                      className="p-1.5 rounded-lg transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
                       title="Delete"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -335,28 +1058,52 @@ export default function Notifications() {
         </div>
       )}
 
-      {/* Stats Summary */}
+      {/* Footer stats */}
       {filteredNotifications.length > 0 && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Total:</span>
-              <span className="font-bold text-gray-900">{filteredNotifications.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Unread:</span>
-              <span className="font-bold text-blue-600">
-                {filteredNotifications.filter(n => !n.isRead).length}
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex gap-4">
+              <span className="text-[var(--text-secondary)]">
+                Total: <strong className="text-[var(--text-primary)]">{filteredNotifications.length}</strong>
+              </span>
+              <span className="text-[var(--text-secondary)]">
+                Unread:{' '}
+                <strong style={{ color: 'var(--icon-cyan-text)' }}>
+                  {filteredNotifications.filter((n) => !n.isRead).length}
+                </strong>
+              </span>
+              <span className="text-[var(--text-secondary)]">
+                Urgent:{' '}
+                <strong style={{ color: 'var(--icon-red-text)' }}>
+                  {filteredNotifications.filter((n) => n.priority === 'urgent').length}
+                </strong>
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Urgent:</span>
-              <span className="font-bold text-red-600">
-                {filteredNotifications.filter(n => n.priority === 'urgent').length}
-              </span>
-            </div>
+            <span className="text-[var(--text-tertiary)]">
+              Showing {filteredNotifications.length} of {(notifications || []).length}
+            </span>
           </div>
         </div>
+      )}
+
+      {/* Modals */}
+      <AdminMessageModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        onSend={handleSendMessage}
+        isSending={isSending}
+        users={mockUsers}
+      />
+
+      {selectedNotification && (
+        <NotificationDetailModal
+          notification={selectedNotification}
+          onClose={() => setSelectedNotification(null)}
+          onMarkAsRead={() => {
+            handleMarkAsRead(selectedNotification.id);
+            setSelectedNotification(null);
+          }}
+        />
       )}
     </div>
   );

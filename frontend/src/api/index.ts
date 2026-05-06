@@ -709,9 +709,96 @@ export const getLowStockItems = () =>
 export const getStockCategories = () => 
   api.get('/stock-items/categories').then(r => r.data);
 
-export const bulkUpdateStock = (data: any) => 
-  api.patch('/stock-items/bulk-update', data).then(r => r.data);
+// ✅ UPDATED: Use the stock-level endpoint instead
+export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => 
+  api.patch(`/stock-items/${id}/stock-level`, data).then(r => r.data);
 
+// ✅ ADDED: Get stock item transaction history
+export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) => 
+  api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
+
+// Remove bulkUpdateStock if you don't have the endpoint - use individual updateStockLevel instead
+// export const bulkUpdateStock = (data: any) => 
+//   api.patch('/stock-items/bulk-update', data).then(r => r.data);
+
+// ───── STOCK TRANSACTIONS ─────
+export const getStockTransactions = (filters?: any) => 
+  api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
+
+export const getStockTransaction = (id: string) => 
+  api.get(`/stock-transactions/${id}`).then(r => r.data);
+
+export const createStockTransaction = (data: any) => 
+  api.post('/stock-transactions', data).then(r => r.data);
+
+// ✅ FIXED: Update stock transaction (only notes/reference allowed)
+export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) => 
+  api.put(`/stock-transactions/${id}`, data).then(r => r.data);
+
+export const getStockMovementReport = (filters?: any) => 
+  api.get('/stock-transactions/reports/movement', { params: filters }).then(r => r.data);
+
+// ✅ FIXED: Use correct endpoint
+export const getLowStockAlerts = () => 
+  api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
+// OR if you prefer using the stock-items endpoint:
+// export const getLowStockAlerts = () => getLowStockItems();
+
+// Remove this if using the stock-items endpoint:
+// export const getStockItemTransactionHistory = (stockItemId: string) => 
+//   api.get(`/stock-transactions/stock-item/${stockItemId}`).then(r => r.data);
+
+// ───── INVOICES ─────
+export const getInvoices = (filters?: any) => 
+  api.get('/invoices', { params: filters }).then(r => handleResponse<Invoice>(r.data));
+
+export const getInvoice = (id: string) => 
+  api.get(`/invoices/${id}`).then(r => r.data);
+
+export const createInvoice = (data: any) => 
+  api.post('/invoices', data).then(r => r.data);
+
+export const updateInvoice = (id: string, data: any) => 
+  api.put(`/invoices/${id}`, data).then(r => r.data);
+
+export const deleteInvoice = (id: string) => 
+  api.delete(`/invoices/${id}`).then(r => r.data);
+
+// ───── REQUISITIONS ─────
+export const getRequisitions = (filters?: any) => 
+  api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
+
+export const getRequisition = (id: string) => 
+  api.get(`/requisitions/${id}`).then(r => r.data);
+
+export const createRequisition = (data: any) => 
+  api.post('/requisitions', data).then(r => r.data);
+
+export const updateRequisition = (id: string, data: any) => 
+  api.put(`/requisitions/${id}`, data).then(r => r.data);
+
+export const deleteRequisition = (id: string) => 
+  api.delete(`/requisitions/${id}`).then(r => r.data);
+
+export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) => 
+  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data);
+
+// Helper functions for common status updates
+export const submitRequisition = (id: string) => 
+  updateRequisitionStatus(id, 'submitted');
+
+export const approveRequisition = (id: string) => 
+  updateRequisitionStatus(id, 'approved');
+
+export const fulfillRequisition = (id: string, data?: any) => 
+  updateRequisitionStatus(id, 'fulfilled', data);
+
+export const cancelRequisition = (id: string) => 
+  updateRequisitionStatus(id, 'cancelled');
+
+// ✅ ADDED: Approve requisition items
+export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) => 
+  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
 
 // ============================================
 // REFERRAL API CALLS
@@ -783,72 +870,6 @@ export const getReferralStats = async (params?: { startDate?: string; endDate?: 
   return response.data;
 };
 
-
-// ───── STOCK TRANSACTIONS ─────
-export const getStockTransactions = (filters?: any) => 
-  api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
-
-export const getStockTransaction = (id: string) => 
-  api.get(`/stock-transactions/${id}`).then(r => r.data);
-
-export const createStockTransaction = (data: any) => 
-  api.post('/stock-transactions', data).then(r => r.data);
-
-export const updateStockTransaction = (id: string, data: any) => 
-  api.put(`/stock-transactions/${id}`, data).then(r => r.data);
-
-export const getStockMovementReport = (filters?: any) => 
-  api.get('/stock-transactions/reports/movement', { params: filters }).then(r => r.data);
-
-export const getLowStockAlerts = () => 
-  api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
-
-export const getStockItemTransactionHistory = (stockItemId: string) => 
-  api.get(`/stock-transactions/stock-item/${stockItemId}`).then(r => r.data);
-
-// ───── INVOICES ─────
-export const getInvoices = (filters?: any) => 
-  api.get('/invoices', { params: filters }).then(r => handleResponse<Invoice>(r.data));
-
-export const getInvoice = (id: string) => 
-  api.get(`/invoices/${id}`).then(r => r.data);
-
-export const createInvoice = (data: any) => 
-  api.post('/invoices', data).then(r => r.data);
-
-export const updateInvoice = (id: string, data: any) => 
-  api.put(`/invoices/${id}`, data).then(r => r.data);
-
-export const deleteInvoice = (id: string) => 
-  api.delete(`/invoices/${id}`).then(r => r.data);
-
-// ───── REQUISITIONS ─────
-export const getRequisitions = (filters?: any) => 
-  api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
-
-export const getRequisition = (id: string) => 
-  api.get(`/requisitions/${id}`).then(r => r.data);
-
-export const createRequisition = (data: any) => 
-  api.post('/requisitions', data).then(r => r.data);
-
-export const updateRequisition = (id: string, data: any) => 
-  api.put(`/requisitions/${id}`, data).then(r => r.data);
-
-export const deleteRequisition = (id: string) => 
-  api.delete(`/requisitions/${id}`).then(r => r.data);
-
-export const submitRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/status`, { status: 'submitted' }).then(r => r.data);
-
-export const approveRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/status`, { status: 'approved' }).then(r => r.data);
-
-export const fulfillRequisition = (id: string, data: any) => 
-  api.patch(`/requisitions/${id}/status`, { status: 'fulfilled', ...(data || {}) }).then(r => r.data);
-
-export const cancelRequisition = (id: string) => 
-  api.patch(`/requisitions/${id}/status`, { status: 'cancelled' }).then(r => r.data);
 
 // ───── MEDICAL SERVICES ─────
 
@@ -1291,6 +1312,46 @@ export const createNotification = (data: any) =>
 export const sendBulkNotification = (data: any) => 
   api.post('/notifications/bulk', data).then(r => r.data);
 
+// Send notification to users by role
+export const sendRoleNotification = async (data: {
+  roles: string[];
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'appointment' | 'billing' | 'clinical';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  actionType?: string;
+  actionId?: string;
+  actionUrl?: string;
+  excludeUserId?: string;
+}) => {
+  const response = await api.post('/notifications/role', data);
+  return response.data;
+};
+
+// Trigger low stock check (admin only)
+export const triggerLowStockCheck = async () => {
+  const response = await api.post('/notifications/trigger/low-stock');
+  return response.data;
+};
+
+// Trigger appointment reminders (admin only)
+export const triggerAppointmentReminders = async () => {
+  const response = await api.post('/notifications/trigger/reminders');
+  return response.data;
+};
+
+// Clean up old notifications (admin only)
+export const cleanupOldNotifications = async (daysToKeep: number = 30) => {
+  const response = await api.delete(`/notifications/cleanup?daysToKeep=${daysToKeep}`);
+  return response.data;
+};
+
+// Get unread count only (quick check for badge)
+export const getUnreadCount = async () => {
+  const response = await api.get('/notifications/unread-count');
+  return response.data;
+};
+
 // ======================
 // USER API FUNCTIONS WITH DEPARTMENT SUPPORT
 // ======================
@@ -1662,7 +1723,6 @@ getFinalizedClaimsTotal,
   deleteStockItem,
   getLowStockItems,
   getStockCategories,
-  bulkUpdateStock,
   getStockTransactions,
   getStockTransaction,
   createStockTransaction,

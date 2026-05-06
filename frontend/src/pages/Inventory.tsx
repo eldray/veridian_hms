@@ -1,10 +1,10 @@
-// src/pages/Inventory.tsx
+// src/pages/Inventory.tsx - PHARMACY DASHBOARD (UPDATED)
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { StockItem } from '../types/api';
+import type { StockItem } from '../types';
 import { 
   Search, 
   Plus, 
@@ -19,7 +19,14 @@ import {
   BarChart3,
   ShoppingCart,
   History,
-  RefreshCw
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Clock,
+  Boxes,
+  Building2,
+  Truck
 } from 'lucide-react';
 
 // Custom hook for debounce
@@ -109,16 +116,18 @@ const Pagination = ({
 
 // Loading skeleton component
 const LoadingSkeleton = () => (
-  <div className="bg-[var(--bg-main)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+  <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
     <div className="overflow-x-auto">
       <table className="w-full">
-        <thead className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
+        <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
           <tr>
-            {['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Unit Price', 'Expiry Date', 'Status'].map(header => (
-              <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                {header}
-              </th>
-            ))}
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Item Name</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Category</th>
+            <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Current Stock</th>
+            <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Reorder Level</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Cost Price</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Expiry Date</th>
+            <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border-color)]">
@@ -126,7 +135,7 @@ const LoadingSkeleton = () => (
             <tr key={index} className="animate-pulse">
               {[...Array(7)].map((_, cellIndex) => (
                 <td key={cellIndex} className="px-4 py-3">
-                  <div className="h-4 bg-[var(--bg-card)] rounded w-3/4"></div>
+                  <div className="h-4 bg-[var(--bg-main)] rounded w-3/4"></div>
                 </td>
               ))}
             </tr>
@@ -145,17 +154,18 @@ export default function Inventory() {
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
-  // ✅ FIX: Only get what we need from the store
   const { 
     stockItems, 
     getStockItems, 
-    isLoading 
+    isLoading,
+    getLowStockItems,
+    lowStockAlerts
   } = useStockStore();
 
   const { hasRole } = useAuthStore();
-  const { error: toastError } = useToast();
+  const { error: toastError, success } = useToast();
 
-  // ✅ FIX: Calculate low stock and expiring items locally to avoid store issues
+  // Calculate stats locally
   const { lowStockItems, expiringItems, stats } = useMemo(() => {
     const lowStock = stockItems.filter(item => 
       item.currentStock <= item.reorderLevel
@@ -175,15 +185,16 @@ export default function Inventory() {
     
     const stats = {
       total: stockItems.length,
-      medications: stockItems.filter(item => item.category === 'medication').length,
+      medications: stockItems.filter(item => item.isMedication).length,
       lowStock: lowStock.length,
       expiring: expiring.length,
+      totalValue: stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0)
     };
 
     return { lowStockItems: lowStock, expiringItems: expiring, stats };
   }, [stockItems]);
 
-  // ✅ FIX: Simple filtered items calculation
+  // Filtered items based on search
   const filteredItems = useMemo(() => {
     if (!debouncedSearchQuery) return stockItems;
     
@@ -195,7 +206,7 @@ export default function Inventory() {
     );
   }, [stockItems, debouncedSearchQuery]);
 
-  // ✅ FIX: Simple pagination calculation
+  // Pagination
   const currentItems = useMemo(() => {
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -206,24 +217,26 @@ export default function Inventory() {
   const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
   const indexOfLastItem = Math.min(currentPage * itemsPerPage, filteredItems.length);
 
-  // ✅ FIX: Simple load function without complex dependencies
   const loadStockItems = useCallback(async () => {
     try {
       setIsRefreshing(true);
-      await getStockItems();
+      await Promise.all([
+        getStockItems(),
+        getLowStockItems()
+      ]);
       setCurrentPage(1);
+      success('Refreshed', 'Stock data updated successfully');
     } catch (error) {
       console.error('Failed to load stock items:', error);
       toastError('Load failed', 'Could not fetch stock items');
     } finally {
       setIsRefreshing(false);
     }
-  }, [getStockItems, toastError]);
+  }, [getStockItems, getLowStockItems, toastError, success]);
 
-  // ✅ FIX: Simple useEffect - load once on mount
   useEffect(() => {
     loadStockItems();
-  }, []); // Empty dependency array - load only once
+  }, []);
 
   const canManageStock = hasRole(['admin', 'pharmacist']);
 
@@ -236,167 +249,227 @@ export default function Inventory() {
     setCurrentPage(1);
   }, []);
 
+  const getStockStatus = (item: StockItem) => {
+    if (item.currentStock === 0) {
+      return { label: 'OUT OF STOCK', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', icon: AlertTriangle };
+    }
+    if (item.currentStock <= item.reorderLevel) {
+      return { label: 'LOW STOCK', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', icon: AlertTriangle };
+    }
+    return { label: 'IN STOCK', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: Package };
+  };
+
+  const isExpiringSoon = (expiryDate?: string) => {
+    if (!expiryDate) return false;
+    try {
+      const expiry = new Date(expiryDate);
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return expiry <= thirtyDaysFromNow && expiry >= new Date();
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
-      {/* Header with Navigation Buttons */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Pharmacy Dashboard</h1>
-          <p className="text-[var(--text-secondary)] text-sm">Manage medications, purchases, and requisitions</p>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">Inventory Dashboard</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+            Manage medications, track inventory, and monitor stock levels
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard/invoices"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={loadStockItems}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all text-sm font-medium"
           >
-            <FileText className="w-4 h-4" />
-            Invoices
-          </Link>
-          <Link
-            to="/dashboard/requisitions"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <ClipboardList className="w-4 h-4" />
-            Requisitions
-          </Link>
-          <Link
-            to="/dashboard/transactions"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <History className="w-4 h-4" />
-            Transactions
-          </Link>
-          <Link
-            to="/dashboard/stock"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-          >
-            <Warehouse className="w-4 h-4" />
-            Manage Stock
-          </Link>
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          {canManageStock && (
+            <Link
+              to="/dashboard/stock"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+            >
+              <Warehouse className="w-4 h-4" />
+              Manage Stock
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Quick Action Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link
-          to="/dashboard/invoices/create"
-          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all cursor-pointer"
+          to="/dashboard/invoices"
+          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-[var(--icon-green-text)]" />
+            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--icon-green-text)] transition-colors">
+              <ShoppingCart className="w-5 h-5 text-[var(--icon-green-text)] group-hover:text-white transition-colors" />
             </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">New Purchase</span>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Purchase</span>
           </div>
-          <p className="text-sm text-[var(--text-secondary)]">Create purchase invoice</p>
+          <p className="text-sm text-[var(--text-secondary)]">Create purchase invoice and receive stock</p>
         </Link>
 
         <Link
-          to="/dashboard/requisitions/create"
-          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all cursor-pointer"
+          to="/dashboard/requisitions"
+          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-blue-bg)] rounded-lg flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-[var(--icon-blue-text)]" />
+            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--icon-purple-text)] transition-colors">
+              <ClipboardList className="w-5 h-5 text-[var(--icon-purple-text)] group-hover:text-white transition-colors" />
             </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">New Requisition</span>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Requisition</span>
           </div>
-          <p className="text-sm text-[var(--text-secondary)]">Request stock items</p>
+          <p className="text-sm text-[var(--text-secondary)]">Request stock items from inventory</p>
         </Link>
 
         <Link
           to="/dashboard/transactions"
-          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all cursor-pointer"
+          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-[var(--icon-purple-text)]" />
+            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--icon-cyan-text)] transition-colors">
+              <History className="w-5 h-5 text-[var(--icon-cyan-text)] group-hover:text-white transition-colors" />
             </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">View Reports</span>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Transactions</span>
           </div>
-          <p className="text-sm text-[var(--text-secondary)]">Stock movement analytics</p>
+          <p className="text-sm text-[var(--text-secondary)]">View stock movement history</p>
         </Link>
 
-        <Link
-          to="/dashboard/stock"
-          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">Manage Items</span>
-          </div>
-          <p className="text-sm text-[var(--text-secondary)]">Add/edit stock items</p>
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">Total Items</span>
-          </div>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">Medications</span>
-          </div>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.medications}</p>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-[var(--icon-red-text)]" />
-            </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">Low Stock</span>
-          </div>
-          <p className="text-2xl font-bold text-[var(--icon-red-text)]">{stats.lowStock}</p>
-        </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-[var(--icon-yellow-text)]" />
+              <BarChart3 className="w-5 h-5 text-[var(--icon-yellow-text)]" />
             </div>
-            <span className="text-[var(--text-secondary)] text-sm font-medium">Expiring Soon</span>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Reports</span>
           </div>
-          <p className="text-2xl font-bold text-[var(--icon-yellow-text)]">{stats.expiring}</p>
+          <p className="text-sm text-[var(--text-secondary)]">Stock analytics and reports</p>
         </div>
       </div>
 
-      {/* Alerts */}
-      {(lowStockItems.length > 0 || expiringItems.length > 0) && (
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
+              <Package className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Total Items</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
+              <Boxes className="w-5 h-5 text-[var(--icon-green-text)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Medications</p>
+              <p className="text-2xl font-bold text-[var(--icon-green-text)]">{stats.medications}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5 text-[var(--icon-red-text)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Low Stock</p>
+              <p className="text-2xl font-bold text-[var(--icon-red-text)]">{stats.lowStock}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-[var(--icon-yellow-text)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Expiring Soon</p>
+              <p className="text-2xl font-bold text-[var(--icon-yellow-text)]">{stats.expiring}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-[var(--icon-purple-text)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Inventory Value</p>
+              <p className="text-xl font-bold text-[var(--icon-purple-text)]">
+                ₵{stats.totalValue.toFixed(0)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Banners */}
+      {(lowStockItems.length > 0 || stats.expiring > 0) && (
         <div className="space-y-3">
           {lowStockItems.length > 0 && (
-            <div className="bg-[var(--icon-red-bg)] border border-[var(--icon-red-text)] rounded-xl p-4">
+            <div className="bg-[var(--icon-red-bg)] border-l-4 border-[var(--icon-red-text)] rounded-r-xl p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-[var(--icon-red-text)] flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <h3 className="font-bold text-[var(--icon-red-text)] text-sm mb-1">Low Stock Alert</h3>
-                  <p className="text-[var(--icon-red-text)] text-xs">
-                    {lowStockItems.length} item(s) below reorder level
+                  <p className="text-sm text-[var(--icon-red-text)]">
+                    {lowStockItems.length} item(s) are below their reorder level.
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {lowStockItems.slice(0, 3).map(item => (
+                      <span key={item.id} className="text-xs px-2 py-1 bg-white/20 rounded-full text-[var(--icon-red-text)]">
+                        {item.name}: {item.currentStock} {item.unitOfMeasure}
+                      </span>
+                    ))}
+                    {lowStockItems.length > 3 && (
+                      <span className="text-xs px-2 py-1 bg-white/20 rounded-full text-[var(--icon-red-text)]">
+                        +{lowStockItems.length - 3} more
+                      </span>
+                    )}
+                  </div>
                 </div>
+                <Link
+                  to="/dashboard/stock"
+                  className="px-3 py-1.5 text-xs font-medium bg-white/20 text-[var(--icon-red-text)] rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  View All
+                </Link>
               </div>
             </div>
           )}
-          {expiringItems.length > 0 && (
-            <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4">
+          
+          {stats.expiring > 0 && (
+            <div className="bg-[var(--icon-yellow-bg)] border-l-4 border-[var(--icon-yellow-text)] rounded-r-xl p-4">
               <div className="flex items-start gap-3">
                 <Calendar className="w-5 h-5 text-[var(--icon-yellow-text)] flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <h3 className="font-bold text-[var(--icon-yellow-text)] text-sm mb-1">Expiry Alert</h3>
-                  <p className="text-[var(--icon-yellow-text)] text-xs">
-                    {expiringItems.length} item(s) expiring within 30 days
+                  <p className="text-sm text-[var(--icon-yellow-text)]">
+                    {stats.expiring} item(s) will expire within the next 30 days.
                   </p>
                 </div>
+                <Link
+                  to="/dashboard/stock"
+                  className="px-3 py-1.5 text-xs font-medium bg-white/20 text-[var(--icon-yellow-text)] rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  Review Stock
+                </Link>
               </div>
             </div>
           )}
@@ -404,10 +477,13 @@ export default function Inventory() {
       )}
 
       {/* Current Stock Section */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Current Stock</h2>
-          <div className="flex items-center gap-3">
+      <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
+              <Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+              Current Stock Inventory
+            </h2>
             <div className="relative">
               <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -415,17 +491,9 @@ export default function Inventory() {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 placeholder="Search by name, category, or description..."
-                className="w-64 pl-10 pr-4 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                className="w-64 pl-10 pr-4 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
               />
             </div>
-            <button
-              onClick={loadStockItems}
-              disabled={isLoading || isRefreshing}
-              className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
           </div>
         </div>
 
@@ -433,77 +501,87 @@ export default function Inventory() {
         {isLoading ? (
           <LoadingSkeleton />
         ) : filteredItems.length === 0 ? (
-          <div className="bg-[var(--bg-main)] rounded-xl p-8 text-center border border-[var(--border-color)]">
-            <Package className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+          <div className="py-12 text-center">
+            <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-[var(--text-tertiary)]" />
+            </div>
             <p className="text-[var(--text-secondary)] text-sm mb-1">
-              {searchQuery ? 'No items found' : 'No stock items yet'}
+              {searchQuery ? 'No items match your search' : 'No stock items found'}
             </p>
             {canManageStock && !searchQuery && (
               <Link
                 to="/dashboard/stock"
-                className="inline-flex items-center gap-2 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium text-sm transition-colors"
+                className="inline-flex items-center gap-2 mt-3 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium text-sm transition-colors"
               >
-                Add your first item
                 <Plus className="w-4 h-4" />
+                Add your first item
               </Link>
             )}
           </div>
         ) : (
-          <div className="bg-[var(--bg-main)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+          <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
+                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                   <tr>
-                    {['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Unit Price', 'Expiry Date', 'Status'].map(header => (
-                      <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                        {header}
-                      </th>
-                    ))}
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Item Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Current Stock</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Reorder Level</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Cost Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Expiry Date</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
                   {currentItems.map((item: StockItem) => {
-                    const isLowStock = item.currentStock <= item.reorderLevel;
-                    const isExpiringSoon = item.expiryDate && new Date(item.expiryDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                    const status = getStockStatus(item);
+                    const StatusIcon = status.icon;
+                    const expiring = isExpiringSoon(item.expiryDate);
+                    const isOutOfStock = item.currentStock === 0;
 
                     return (
-                      <tr key={item.id} className="hover:bg-[var(--bg-card)] transition-colors">
-                        <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{item.name}</td>
-                        <td className="px-4 py-3 text-sm text-[var(--text-secondary)] capitalize">{item.category}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`font-bold ${isLowStock ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-primary)]'}`}>
-                            {item.currentStock} {item.unitOfMeasure}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
-                          {item.reorderLevel} {item.unitOfMeasure}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-                          ${(item.sellingPrice || item.cashPrice || 0)?.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          {item.expiryDate ? (
-                            <span className={`font-medium ${isExpiringSoon ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-secondary)]'}`}>
-                              {new Date(item.expiryDate).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-[var(--text-tertiary)]">N/A</span>
-                          )}
+                      <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{item.name}</p>
+                            {item.strength && (
+                              <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{item.strength}</p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
-                          {isLowStock ? (
-                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]">
-                              Low Stock
-                            </span>
-                          ) : isExpiringSoon ? (
-                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)]">
-                              Expiring Soon
+                          <span className="text-xs px-2 py-1 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)] capitalize">
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm font-bold ${isOutOfStock || status.label === 'LOW STOCK' ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-primary)]'}`}>
+                            {item.currentStock}
+                          </span>
+                          <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-[var(--text-secondary)]">
+                          {item.reorderLevel}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-[var(--text-primary)]">
+                          ₵{item.costPrice?.toFixed(2) || '0.00'}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.expiryDate ? (
+                            <span className={`text-sm ${expiring ? 'text-[var(--icon-yellow-text)] font-medium' : 'text-[var(--text-secondary)]'}`}>
+                              {new Date(item.expiryDate).toLocaleDateString()}
+                              {expiring && <Clock className="w-3 h-3 inline ml-1" />}
                             </span>
                           ) : (
-                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--icon-green-text)]">
-                              In Stock
-                            </span>
+                            <span className="text-sm text-[var(--text-tertiary)]">—</span>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full ${status.color}`}>
+                            <StatusIcon className="w-3 h-3" />
+                            {status.label}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -521,9 +599,35 @@ export default function Inventory() {
                 onPageChange={handlePageChange}
               />
             )}
-          </div>
+          </>
         )}
       </div>
+
+      {/* Footer Stats */}
+      {!isLoading && filteredItems.length > 0 && (
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Average Stock Value</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">
+                ₵{(stats.totalValue / (stats.total || 1)).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Stock Turnover Rate</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">
+                {stats.total > 0 ? (stats.lowStock / stats.total * 100).toFixed(1) : 0}%
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)]">Health Score</p>
+              <p className="text-lg font-bold text-[var(--icon-green-text)]">
+                {stats.total > 0 ? Math.max(0, 100 - (stats.lowStock / stats.total * 50)).toFixed(0) : 100}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

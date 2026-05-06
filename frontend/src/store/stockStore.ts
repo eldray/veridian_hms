@@ -1,114 +1,220 @@
 // stores/stockStore.ts - COMPLETE FIXED VERSION
 import { create } from 'zustand';
+import api from '../api';
 import { 
   getStockItems as apiGetStockItems,
   getStockItem as apiGetStockItem,
   createStockItem as apiCreateStockItem,
   updateStockItem as apiUpdateStockItem,
   deleteStockItem as apiDeleteStockItem,
-  getStockTransactions as apiGetStockTransactions,
-  createStockTransaction as apiCreateStockTransaction,
   getLowStockItems as apiGetLowStockItems,
   getStockCategories as apiGetStockCategories,
-  bulkUpdateStock as apiBulkUpdateStock,
+  getStockTransactions as apiGetStockTransactions,
   getStockTransaction as apiGetStockTransaction,
+  createStockTransaction as apiCreateStockTransaction,
   updateStockTransaction as apiUpdateStockTransaction,
   getStockMovementReport as apiGetStockMovementReport,
-  getLowStockAlerts as apiGetLowStockAlerts,
-  getStockItemTransactionHistory as apiGetStockItemTransactionHistory,
   getRequisitions as apiGetRequisitions,
   createRequisition as apiCreateRequisition,
-  submitRequisition as apiSubmitRequisition,
-  approveRequisition as apiApproveRequisition,
-  fulfillRequisition as apiFulfillRequisition,
   deleteRequisition as apiDeleteRequisition,
   getInvoices as apiGetInvoices,
   createInvoice as apiCreateInvoice,
-  deleteInvoice as apiDeleteInvoice
+  deleteInvoice as apiDeleteInvoice,
+  updateRequisitionStatus,
+  approveRequisitionItems
 } from '../api';
-import type { StockItem, StockTransaction, Pagination, Requisition, Invoice } from '../types';
+
+// Helper to extract items from response
+const extractItems = (response: any, defaultField = 'data'): any[] => {
+  if (Array.isArray(response)) return response;
+  if (response?.data && Array.isArray(response.data)) return response.data;
+  if (response?.items && Array.isArray(response.items)) return response.items;
+  if (response?.stockItems && Array.isArray(response.stockItems)) return response.stockItems;
+  if (response?.transactions && Array.isArray(response.transactions)) return response.transactions;
+  if (response?.requisitions && Array.isArray(response.requisitions)) return response.requisitions;
+  if (response?.invoices && Array.isArray(response.invoices)) return response.invoices;
+  if (response?.[defaultField] && Array.isArray(response[defaultField])) return response[defaultField];
+  return [];
+};
+
+interface StockItem {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  strength?: string;
+  unitOfMeasure: string;
+  drugCode?: string;
+  reorderLevel: number;
+  currentStock: number;
+  costPrice: number;
+  isActive: boolean;
+  isMedication: boolean;
+  supplier?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  stockBatches?: any[];
+}
+
+interface StockTransaction {
+  id: string;
+  stockItemId: string;
+  transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale';
+  quantity: number;
+  balanceAfter: number;
+  reference?: string;
+  notes?: string;
+  transactionDate: string;
+  performedBy: string;
+  requisitionId?: string;
+  invoiceId?: string;
+  StockItem?: StockItem;
+  Requisition?: any;
+  Invoice?: any;
+}
+
+interface Requisition {
+  id: string;
+  requisitionNumber: string;
+  requestingDepartmentId: string;
+  requestedById: string;
+  urgency: 'routine' | 'urgent' | 'emergency';
+  requiredDate?: string;
+  purpose?: string;
+  status: 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
+  approvedById?: string;
+  approvedAt?: string;
+  fulfilledById?: string;
+  fulfilledAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  departments?: { name: string };
+  RequisitionItem?: any[];
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  supplierName: string;
+  invoiceDate: string;
+  totalAmount: number;
+  notes?: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  InvoiceItem?: any[];
+  StockTransaction?: any[];
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
 
 interface StockState {
+  // Data
   stockItems: StockItem[];
   transactions: StockTransaction[];
+  requisitions: Requisition[];
+  invoices: Invoice[];
+  
+  // Current items
   currentStockItem: StockItem | null;
   currentTransaction: StockTransaction | null;
+  
+  // UI state
   isLoading: boolean;
+  error: string | null;
   pagination: Pagination | null;
+  
+  // Derived data
   stockCategories: string[];
   lowStockAlerts: StockItem[];
   stockMovementReport: any;
-  requisitions: Requisition[];
-  invoices: Invoice[];
-  error: string | null;
   
-  // Stock Items
-  getStockItems: (filters?: any) => Promise<void>;
+  // ==================== STOCK ITEMS ====================
+  getStockItems: (filters?: { category?: string; isActive?: boolean; isMedication?: boolean }) => Promise<void>;
   getStockItem: (id: string) => Promise<void>;
-  createStockItem: (data: any) => Promise<void>;
-  updateStockItem: (id: string, data: any) => Promise<void>;
+  createStockItem: (data: Partial<StockItem>) => Promise<StockItem>;
+  updateStockItem: (id: string, data: Partial<StockItem>) => Promise<StockItem>;
   deleteStockItem: (id: string) => Promise<void>;
-  
   getLowStockItems: () => Promise<void>;
   getStockCategories: () => Promise<void>;
-  bulkUpdateStock: (data: any) => Promise<void>;
   
-  // Stock Transactions
-  getStockTransactions: (filters?: any) => Promise<void>;
-  createStockTransaction: (data: any) => Promise<void>;
+  // Stock level management
+  updateStockLevel: (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => Promise<any>;
+  bulkUpdateStock: (updates: Array<{ id: string; quantity: number; transactionType: string; reference?: string; notes?: string }>) => Promise<any[]>;
+  
+  // ==================== STOCK TRANSACTIONS ====================
+  getStockTransactions: (filters?: { stockItemId?: string; transactionType?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => Promise<void>;
   getStockTransaction: (id: string) => Promise<void>;
-  updateStockTransaction: (id: string, data: any) => Promise<void>;
+  createStockTransaction: (data: Partial<StockTransaction>) => Promise<StockTransaction>;
+  updateStockTransaction: (id: string, data: { notes?: string; reference?: string }) => Promise<StockTransaction>;
   
   // Reports
-  getStockMovementReport: (filters?: any) => Promise<void>;
-  getLowStockAlerts: () => Promise<void>;
-  getStockItemTransactionHistory: (stockItemId: string) => Promise<void>;
-
-  // Requisitions
-  getRequisitions: (filters?: any) => Promise<void>;
-  createRequisition: (data: any) => Promise<any>;
-  submitRequisition: (id: string) => Promise<any>;
-  approveRequisition: (id: string) => Promise<any>;
-  fulfillRequisition: (id: string, data?: any) => Promise<any>;
+  getStockMovementReport: (filters?: { startDate?: string; endDate?: string; stockItemId?: string; category?: string }) => Promise<any>;
+  getLowStockAlerts: () => Promise<StockItem[]>;
+  getStockItemTransactionHistory: (stockItemId: string, page?: number, limit?: number) => Promise<StockTransaction[]>;
+  
+  // ==================== REQUISITIONS ====================
+  getRequisitions: (filters?: { departmentId?: string; status?: string; urgency?: string; page?: number; limit?: number }) => Promise<void>;
+  getRequisition: (id: string) => Promise<Requisition>;
+  createRequisition: (data: any) => Promise<Requisition>;
+  updateRequisition: (id: string, data: any) => Promise<Requisition>;
   deleteRequisition: (id: string) => Promise<void>;
-
-  // Invoices
-  getInvoices: (filters?: any) => Promise<void>;
-  createInvoice: (data: any) => Promise<any>;
+  submitRequisition: (id: string) => Promise<Requisition>;
+  approveRequisition: (id: string) => Promise<Requisition>;
+  approveRequisitionItems: (id: string, approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }>) => Promise<Requisition>;
+  fulfillRequisition: (id: string, data?: any) => Promise<Requisition>;
+  cancelRequisition: (id: string) => Promise<Requisition>;
+  
+  // ==================== INVOICES ====================
+  getInvoices: (filters?: { supplierName?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => Promise<void>;
+  getInvoice: (id: string) => Promise<Invoice>;
+  createInvoice: (data: any) => Promise<Invoice>;
+  updateInvoice: (id: string, data: any) => Promise<Invoice>;
   deleteInvoice: (id: string) => Promise<void>;
   
-  // Utility functions
+  // ==================== UTILITIES ====================
+  getMedicationStockItems: () => StockItem[];
   getLocalLowStockItems: () => StockItem[];
   getExpiringItems: (days?: number) => StockItem[];
-  getMedicationStockItems: () => StockItem[];
-  
   clearCurrentStockItem: () => void;
   clearCurrentTransaction: () => void;
   clearError: () => void;
+  refreshAll: () => Promise<void>;
 }
 
 export const useStockStore = create<StockState>((set, get) => ({
+  // Initial state
   stockItems: [],
   transactions: [],
+  requisitions: [],
+  invoices: [],
   currentStockItem: null,
   currentTransaction: null,
   isLoading: false,
+  error: null,
   pagination: null,
   stockCategories: [],
   lowStockAlerts: [],
   stockMovementReport: null,
-  requisitions: [],
-  invoices: [],
-  error: null,
 
+  // ==================== STOCK ITEMS ====================
+  
   getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetStockItems(filters);
-      const stockItems = response.stockItems || response.data || response;
+      const stockItems = extractItems(response, 'stockItems');
       set({ 
-        stockItems: Array.isArray(stockItems) ? stockItems : [],
-        pagination: response.pagination || null,
+        stockItems: stockItems as StockItem[],
+        pagination: response?.pagination || null,
         isLoading: false 
       });
     } catch (error: any) {
@@ -136,7 +242,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  createStockItem: async (data: any) => {
+  createStockItem: async (data: Partial<StockItem>) => {
     set({ isLoading: true, error: null });
     try {
       const newStockItem = await apiCreateStockItem(data);
@@ -157,7 +263,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  updateStockItem: async (id: string, data: any) => {
+  updateStockItem: async (id: string, data: Partial<StockItem>) => {
     set({ isLoading: true, error: null });
     try {
       const updatedStockItem = await apiUpdateStockItem(id, data);
@@ -206,7 +312,8 @@ export const useStockStore = create<StockState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const lowStockItems = await apiGetLowStockItems();
-      set({ lowStockAlerts: lowStockItems, isLoading: false });
+      const items = extractItems(lowStockItems, 'lowStockItems');
+      set({ lowStockAlerts: items as StockItem[], isLoading: false });
     } catch (error: any) {
       console.error('Failed to fetch low stock items:', error);
       set({ 
@@ -221,7 +328,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const categories = await apiGetStockCategories();
-      set({ stockCategories: categories, isLoading: false });
+      set({ stockCategories: categories || [], isLoading: false });
     } catch (error: any) {
       console.error('Failed to fetch stock categories:', error);
       set({ 
@@ -232,14 +339,59 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
+  updateStockLevel: async (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await api.patch(`/stock-items/${id}/stock-level`, data);
+      // Refresh stock items to get updated data
+      await get().getStockItems();
+      // Also refresh low stock alerts
+      await get().getLowStockItems();
+      set({ isLoading: false });
+      return result.data;
+    } catch (error: any) {
+      console.error('Failed to update stock level:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to update stock level' 
+      });
+      throw error;
+    }
+  },
+
+  bulkUpdateStock: async (updates: Array<{ id: string; quantity: number; transactionType: string; reference?: string; notes?: string }>) => {
+    set({ isLoading: true, error: null });
+    try {
+      const results = [];
+      for (const update of updates) {
+        const result = await api.patch(`/stock-items/${update.id}/stock-level`, update);
+        results.push(result.data);
+      }
+      // Refresh stock items
+      await get().getStockItems();
+      await get().getLowStockItems();
+      set({ isLoading: false });
+      return results;
+    } catch (error: any) {
+      console.error('Failed to bulk update stock:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to bulk update stock' 
+      });
+      throw error;
+    }
+  },
+
+  // ==================== STOCK TRANSACTIONS ====================
+
   getStockTransactions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetStockTransactions(filters);
-      const transactions = response.transactions || response.data || response;
+      const transactions = extractItems(response, 'transactions');
       set({ 
-        transactions: Array.isArray(transactions) ? transactions : [],
-        pagination: response.pagination || null,
+        transactions: transactions as StockTransaction[],
+        pagination: response?.pagination || null,
         isLoading: false 
       });
     } catch (error: any) {
@@ -247,58 +399,6 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ 
         isLoading: false, 
         error: error.response?.data?.message || 'Failed to fetch stock transactions' 
-      });
-      throw error;
-    }
-  },
-
-  createStockTransaction: async (data: any) => {
-    set({ isLoading: true, error: null });
-    try {
-      const newTransaction = await apiCreateStockTransaction(data);
-      const { transactions } = get();
-      
-      set({ 
-        transactions: [newTransaction, ...transactions],
-        isLoading: false 
-      });
-      
-      // Update stock items array optimistically
-      const { stockItems } = get();
-      const updatedStockItems = stockItems.map(item => {
-        if (item.id === data.stockItemId) {
-          const adjustment = data.transactionType === 'purchase' ? data.quantity : -data.quantity;
-          return {
-            ...item,
-            currentStock: Math.max(0, (item.currentStock || 0) + adjustment)
-          };
-        }
-        return item;
-      });
-      
-      set({ stockItems: updatedStockItems });
-      return newTransaction;
-    } catch (error: any) {
-      console.error('Failed to create stock transaction:', error);
-      set({ 
-        isLoading: false, 
-        error: error.response?.data?.message || 'Failed to create stock transaction' 
-      });
-      throw error;
-    }
-  },
-
-  bulkUpdateStock: async (data: any) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiBulkUpdateStock(data);
-      set({ isLoading: false });
-      return result;
-    } catch (error: any) {
-      console.error('Failed to bulk update stock:', error);
-      set({ 
-        isLoading: false, 
-        error: error.response?.data?.message || 'Failed to bulk update stock' 
       });
       throw error;
     }
@@ -319,7 +419,43 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  updateStockTransaction: async (id: string, data: any) => {
+  createStockTransaction: async (data: Partial<StockTransaction>) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newTransaction = await apiCreateStockTransaction(data);
+      const { transactions } = get();
+      
+      set({ 
+        transactions: [newTransaction, ...transactions],
+        isLoading: false 
+      });
+      
+      // Update stock items array optimistically
+      const { stockItems } = get();
+      const updatedStockItems = stockItems.map(item => {
+        if (item.id === data.stockItemId) {
+          const adjustment = data.transactionType === 'purchase' ? data.quantity : -(data.quantity || 0);
+          return {
+            ...item,
+            currentStock: Math.max(0, (item.currentStock || 0) + (adjustment || 0))
+          };
+        }
+        return item;
+      });
+      
+      set({ stockItems: updatedStockItems as StockItem[] });
+      return newTransaction;
+    } catch (error: any) {
+      console.error('Failed to create stock transaction:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to create stock transaction' 
+      });
+      throw error;
+    }
+  },
+
+  updateStockTransaction: async (id: string, data: { notes?: string; reference?: string }) => {
     set({ isLoading: true, error: null });
     try {
       const updatedTransaction = await apiUpdateStockTransaction(id, data);
@@ -362,9 +498,11 @@ export const useStockStore = create<StockState>((set, get) => ({
   getLowStockAlerts: async () => {
     set({ isLoading: true, error: null });
     try {
-      const alerts = await apiGetLowStockAlerts();
-      set({ lowStockAlerts: alerts, isLoading: false });
-      return alerts;
+      // Use the stock-items endpoint for low stock alerts
+      const alerts = await apiGetLowStockItems();
+      const items = extractItems(alerts, 'lowStockItems');
+      set({ lowStockAlerts: items as StockItem[], isLoading: false });
+      return items as StockItem[];
     } catch (error: any) {
       console.error('Failed to fetch low stock alerts:', error);
       set({ 
@@ -375,12 +513,19 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  getStockItemTransactionHistory: async (stockItemId: string) => {
+  getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 50) => {
     set({ isLoading: true, error: null });
     try {
-      const history = await apiGetStockItemTransactionHistory(stockItemId);
-      set({ transactions: history, isLoading: false });
-      return history;
+      const response = await api.get(`/stock-items/${stockItemId}/transactions`, {
+        params: { page, limit }
+      });
+      const transactions = extractItems(response.data || response, 'transactions');
+      set({ 
+        transactions: transactions as StockTransaction[],
+        pagination: response.data?.pagination || response?.pagination || null,
+        isLoading: false 
+      });
+      return transactions as StockTransaction[];
     } catch (error: any) {
       console.error('Failed to fetch stock item transaction history:', error);
       set({ 
@@ -391,17 +536,40 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  // Requisitions
+  // ==================== REQUISITIONS ====================
+
   getRequisitions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetRequisitions(filters);
-      const requisitions = Array.isArray(response) ? response : (response?.requisitions || []);
-      set({ requisitions, isLoading: false, pagination: response?.pagination || null });
+      const requisitions = extractItems(response, 'requisitions');
+      set({ 
+        requisitions: requisitions as Requisition[],
+        pagination: response?.pagination || null,
+        isLoading: false 
+      });
     } catch (error: any) {
-      set({
-        isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch requisitions'
+      console.error('Failed to fetch requisitions:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to fetch requisitions' 
+      });
+      throw error;
+    }
+  },
+
+  getRequisition: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.get(`/requisitions/${id}`);
+      const requisition = response.data || response;
+      set({ isLoading: false });
+      return requisition;
+    } catch (error: any) {
+      console.error('Failed to fetch requisition:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to fetch requisition' 
       });
       throw error;
     }
@@ -411,16 +579,58 @@ export const useStockStore = create<StockState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await apiCreateRequisition(data);
-      const requisition = result?.requisition || result;
-      set(state => ({
-        requisitions: requisition ? [requisition as Requisition, ...state.requisitions] : state.requisitions,
-        isLoading: false
-      }));
-      return requisition;
+      const newRequisition = result.requisition || result;
+      const { requisitions } = get();
+      set({ 
+        requisitions: [newRequisition, ...requisitions],
+        isLoading: false 
+      });
+      return newRequisition;
     } catch (error: any) {
-      set({
-        isLoading: false,
-        error: error.response?.data?.message || 'Failed to create requisition'
+      console.error('Failed to create requisition:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to create requisition' 
+      });
+      throw error;
+    }
+  },
+
+  updateRequisition: async (id: string, data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.put(`/requisitions/${id}`, data);
+      const updatedRequisition = response.data || response;
+      const { requisitions } = get();
+      set({ 
+        requisitions: requisitions.map(req => req.id === id ? updatedRequisition : req),
+        isLoading: false 
+      });
+      return updatedRequisition;
+    } catch (error: any) {
+      console.error('Failed to update requisition:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to update requisition' 
+      });
+      throw error;
+    }
+  },
+
+  deleteRequisition: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeleteRequisition(id);
+      const { requisitions } = get();
+      set({ 
+        requisitions: requisitions.filter(req => req.id !== id),
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to delete requisition:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to delete requisition' 
       });
       throw error;
     }
@@ -429,7 +639,7 @@ export const useStockStore = create<StockState>((set, get) => ({
   submitRequisition: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiSubmitRequisition(id);
+      const result = await updateRequisitionStatus(id, 'submitted');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -442,7 +652,7 @@ export const useStockStore = create<StockState>((set, get) => ({
   approveRequisition: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiApproveRequisition(id);
+      const result = await updateRequisitionStatus(id, 'approved');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -452,10 +662,23 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
+  approveRequisitionItems: async (id: string, approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }>) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await approveRequisitionItems(id, { approvedItems });
+      await get().getRequisitions();
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition items' });
+      throw error;
+    }
+  },
+
   fulfillRequisition: async (id: string, data = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiFulfillRequisition(id, data);
+      const result = await updateRequisitionStatus(id, 'fulfilled', data);
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -465,32 +688,29 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
-  deleteRequisition: async (id: string) => {
+  cancelRequisition: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiDeleteRequisition(id);
-      set(state => ({
-        requisitions: state.requisitions.filter(req => req.id !== id),
-        isLoading: false
-      }));
+      const result = await updateRequisitionStatus(id, 'cancelled');
+      await get().getRequisitions();
+      set({ isLoading: false });
+      return result;
     } catch (error: any) {
-      set({
-        isLoading: false,
-        error: error.response?.data?.message || 'Failed to delete requisition'
-      });
+      set({ isLoading: false, error: error.response?.data?.message || 'Failed to cancel requisition' });
       throw error;
     }
   },
 
-  // Invoices
+  // ==================== INVOICES ====================
+
   getInvoices: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetInvoices(filters);
-      const invoices = response.invoices || response.data || response;
+      const invoices = extractItems(response, 'invoices');
       set({ 
-        invoices: Array.isArray(invoices) ? invoices : [],
-        pagination: response.pagination || null,
+        invoices: invoices as Invoice[],
+        pagination: response?.pagination || null,
         isLoading: false 
       });
     } catch (error: any) {
@@ -503,22 +723,63 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
 
+  getInvoice: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.get(`/invoices/${id}`);
+      const invoice = response.data || response;
+      set({ isLoading: false });
+      return invoice;
+    } catch (error: any) {
+      console.error('Failed to fetch invoice:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to fetch invoice' 
+      });
+      throw error;
+    }
+  },
+
   createInvoice: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiCreateInvoice(data);
-      const newInvoice = result?.invoice || result;
+      const newInvoice = result.invoice || result;
       const { invoices } = get();
       set({ 
-        invoices: newInvoice ? [newInvoice, ...invoices] : invoices,
+        invoices: [newInvoice, ...invoices],
         isLoading: false 
       });
+      // Refresh stock items as invoice may have added stock
+      await get().getStockItems();
+      await get().getLowStockItems();
       return newInvoice;
     } catch (error: any) {
       console.error('Failed to create invoice:', error);
       set({ 
         isLoading: false, 
         error: error.response?.data?.message || 'Failed to create invoice' 
+      });
+      throw error;
+    }
+  },
+
+  updateInvoice: async (id: string, data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.put(`/invoices/${id}`, data);
+      const updatedInvoice = response.data || response;
+      const { invoices } = get();
+      set({ 
+        invoices: invoices.map(inv => inv.id === id ? updatedInvoice : inv),
+        isLoading: false 
+      });
+      return updatedInvoice;
+    } catch (error: any) {
+      console.error('Failed to update invoice:', error);
+      set({ 
+        isLoading: false, 
+        error: error.response?.data?.message || 'Failed to update invoice' 
       });
       throw error;
     }
@@ -533,6 +794,9 @@ export const useStockStore = create<StockState>((set, get) => ({
         invoices: invoices.filter(inv => inv.id !== id),
         isLoading: false 
       });
+      // Refresh stock items as invoice deletion may reverse stock
+      await get().getStockItems();
+      await get().getLowStockItems();
     } catch (error: any) {
       console.error('Failed to delete invoice:', error);
       set({ 
@@ -542,6 +806,8 @@ export const useStockStore = create<StockState>((set, get) => ({
       throw error;
     }
   },
+
+  // ==================== UTILITIES ====================
 
   getMedicationStockItems: () => {
     return get().stockItems.filter(item => item.isMedication && item.isActive);
@@ -566,6 +832,16 @@ export const useStockStore = create<StockState>((set, get) => ({
         return false;
       }
     });
+  },
+
+  refreshAll: async () => {
+    await Promise.all([
+      get().getStockItems(),
+      get().getLowStockItems(),
+      get().getStockCategories(),
+      get().getRequisitions(),
+      get().getInvoices()
+    ]);
   },
 
   clearCurrentStockItem: () => {

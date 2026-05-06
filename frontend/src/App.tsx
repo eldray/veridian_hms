@@ -21,6 +21,7 @@ import Billing from './pages/Billing';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Laboratory from './pages/Laboratory';
+import AdmissionDetails from './pages/AdmissionDetails';
 import Pharmacy from './pages/Pharmacy';
 import MedicalEntries from './pages/MedicalEntries';
 import ProcessPayment from './pages/ProcessPayment';
@@ -253,6 +254,7 @@ function App() {
           <Route path="attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
           
           {/* Clinical routes */}
+          <Route path="admissions/:id" element={<ProtectedRoute><AdmissionDetails /></ProtectedRoute>} />
           <Route path="admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
           <Route path="wards" element={<ProtectedRoute><WardManagement /></ProtectedRoute>} />
           <Route path="laboratory" element={<ProtectedRoute><Laboratory /></ProtectedRoute>} />
