@@ -1,15 +1,17 @@
-// src/pages/Notifications.tsx
+// src/pages/Notifications.tsx - UPDATED WITH REAL USERS
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
+import { useSettingsStore } from '../store/settingsStore'; // ✅ Add this import
 import { useToast } from '../store/toastStore';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
   Search, Bell, Trash2, RefreshCw, Eye, CheckCircle,
   AlertCircle, AlertTriangle, Info, Calendar, DollarSign,
   Stethoscope, Send, Users, Shield, MessageSquare, X,
   Filter, Clock, ChevronRight, TrendingUp, Activity,
-  Crown, Syringe, UserCircle,
+  Crown, Syringe, UserCircle, Loader, User,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +27,7 @@ interface User {
   fullName: string;
   role: string;
   email?: string;
+  isActive?: boolean;
 }
 
 // ── Role config ───────────────────────────────────────────────────────────────
@@ -109,7 +112,8 @@ const AdminMessageModal: React.FC<{
   onSend: (data: any) => Promise<void>;
   isSending: boolean;
   users: User[];
-}> = ({ isOpen, onClose, onSend, isSending, users }) => {
+  isLoadingUsers?: boolean;
+}> = ({ isOpen, onClose, onSend, isSending, users, isLoadingUsers }) => {
   const [title, setTitle]                   = useState('');
   const [message, setMessage]               = useState('');
   const [type, setType]                     = useState<NotificationType>('info');
@@ -258,15 +262,22 @@ const AdminMessageModal: React.FC<{
                 className="max-h-44 overflow-y-auto rounded-lg border border-[var(--border-color)] p-1.5 space-y-0.5"
                 style={{ background: 'var(--bg-main)' }}
               >
-                {filteredUsers.length === 0 ? (
+                {isLoadingUsers ? (
+                  <div className="flex justify-center py-4">
+                    <Loader className="w-5 h-5 animate-spin text-[var(--icon-cyan-text)]" />
+                  </div>
+                ) : filteredUsers.length === 0 ? (
                   <p className="text-xs text-[var(--text-tertiary)] text-center py-4">No users found</p>
                 ) : (
                   filteredUsers.map((u) => {
                     const rc = ROLE_CONFIG[u.role];
+                    const isActive = u.isActive !== false;
                     return (
                       <label
                         key={u.id}
-                        className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors"
+                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                          !isActive ? 'opacity-50' : ''
+                        }`}
                         style={{ background: 'transparent' }}
                         onMouseEnter={(e) =>
                           ((e.currentTarget as HTMLLabelElement).style.background = 'var(--bg-card)')
@@ -285,11 +296,15 @@ const AdminMessageModal: React.FC<{
                                 : prev.filter((id) => id !== u.id)
                             )
                           }
-                          className="rounded border-[var(--border-color)]"
+                          disabled={!isActive}
+                          className="rounded border-[var(--border-color)] disabled:opacity-50"
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[var(--text-primary)] truncate">
                             {u.fullName}
+                            {!isActive && (
+                              <span className="ml-1 text-[10px] text-red-500">(Inactive)</span>
+                            )}
                           </p>
                           <span
                             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${rc?.bg} ${rc?.text}`}
@@ -409,7 +424,7 @@ const NotificationDetailModal: React.FC<{
     if (notification.actionUrl) {
       let targetUrl = notification.actionUrl;
       
-      // ✅ FIX: Use React Router navigate
+      // Use React Router navigate
       if (targetUrl.startsWith('/dashboard')) {
         navigate(targetUrl);
       } else if (targetUrl.startsWith('/')) {
@@ -476,6 +491,15 @@ const NotificationDetailModal: React.FC<{
               {notification.message}
             </p>
           </div>
+          // In the AdminMessageModal component, add this to show who sent
+          <div className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)] mt-1">
+            {notification.sender && (
+              <span className="flex items-center gap-1">
+                <User className="w-2.5 h-2.5" />
+                From: {notification.sender.fullName} ({notification.sender.role})
+              </span>
+            )}
+          </div>
 
           {notification.actionUrl && (
             <button
@@ -505,7 +529,7 @@ const NotificationDetailModal: React.FC<{
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Notifications() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const {
     notifications, getNotifications, markAsRead, markAllAsRead,
     deleteNotification, getNotificationStats, stats,
@@ -513,6 +537,7 @@ export default function Notifications() {
   } = useNotificationStore();
 
   const { user }            = useAuthStore();
+  const { users, getAllUsers, isLoading: isLoadingUsers } = useSettingsStore(); // ✅ Get real users
   const { success, error: toastError } = useToast();
 
   const [searchTerm, setSearchTerm]                   = useState('');
@@ -525,21 +550,21 @@ export default function Notifications() {
   const [isSending, setIsSending]                     = useState(false);
   const [viewMode, setViewMode]                       = useState<'list' | 'grid'>('list');
   const [sortBy, setSortBy]                           = useState<'date' | 'priority'>('date');
+  
+  // Confirmation modals state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showClearReadConfirm, setShowClearReadConfirm] = useState(false);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
-  const mockUsers: User[] = [
-    { id: '1',  fullName: 'System Administrator',      role: 'admin'       },
-    { id: '2',  fullName: 'Dr. John Smith',            role: 'doctor'      },
-    { id: '3',  fullName: 'Dr. Sarah Johnson',         role: 'doctor'      },
-    { id: '4',  fullName: 'Nurse Mary Williams',       role: 'nurse'       },
-    { id: '5',  fullName: 'Pharmacist David Brown',    role: 'pharmacist'  },
-    { id: '6',  fullName: 'Accounts Manager Lisa Davis', role: 'accounts'  },
-    { id: '7',  fullName: 'Lab Tech Mike Wilson',      role: 'lab_tech'    },
-    { id: '8',  fullName: 'Midwife Emily Jones',       role: 'midwife'     },
-    { id: '9',  fullName: 'Records Officer Tom Clark', role: 'records'     },
-    { id: '10', fullName: 'Sonographer Anne Taylor',   role: 'sonographer' },
-  ];
+  // Load users for admin broadcast
+  useEffect(() => {
+    if (isAdmin) {
+      getAllUsers();
+    }
+  }, [isAdmin, getAllUsers]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -590,10 +615,56 @@ export default function Notifications() {
     catch { toastError('Update failed', 'Failed to mark all as read'); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this notification?')) return;
-    try { await deleteNotification(id); success('Deleted', ''); await loadData(); }
-    catch { toastError('Delete failed', 'Could not delete notification'); }
+  const handleDelete = async (id: string, title: string) => {
+    setShowDeleteConfirm({ id, title });
+  };
+
+  const confirmDelete = async () => {
+    if (!showDeleteConfirm) return;
+    setIsDeleting(true);
+    try {
+      await deleteNotification(showDeleteConfirm.id);
+      success('Deleted', 'Notification deleted successfully');
+      await loadData();
+      setShowDeleteConfirm(null);
+    } catch {
+      toastError('Delete failed', 'Could not delete notification');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleClearReadNotifications = async () => {
+    setIsDeleting(true);
+    try {
+      const readNotifications = notifications.filter(n => n.isRead);
+      for (const notification of readNotifications) {
+        await deleteNotification(notification.id);
+      }
+      success('Cleared', 'All read notifications deleted');
+      await loadData();
+      setShowClearReadConfirm(false);
+    } catch {
+      toastError('Failed', 'Could not clear read notifications');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    setIsDeleting(true);
+    try {
+      for (const notification of notifications) {
+        await deleteNotification(notification.id);
+      }
+      success('Cleared', 'All notifications deleted');
+      await loadData();
+      setShowClearAllConfirm(false);
+    } catch {
+      toastError('Failed', 'Could not clear all notifications');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSendMessage = async (data: any) => {
@@ -625,7 +696,6 @@ export default function Notifications() {
       
       // Add /dashboard prefix if it's missing and it's not an external link
       if (!targetUrl.startsWith('/dashboard') && !targetUrl.startsWith('http')) {
-        // If it starts with / but not /dashboard, add /dashboard prefix
         if (targetUrl.startsWith('/')) {
           targetUrl = `/dashboard${targetUrl}`;
         } else {
@@ -633,7 +703,6 @@ export default function Notifications() {
         }
       }
       
-      console.log('Navigating to:', targetUrl);
       navigate(targetUrl);
     } else {
       setSelectedNotification(notif);
@@ -679,6 +748,29 @@ export default function Notifications() {
               Broadcast
             </button>
           )}
+          
+          {/* Clear read button */}
+          {notifications?.filter(n => n.isRead).length > 0 && (
+            <button
+              onClick={() => setShowClearReadConfirm(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear read
+            </button>
+          )}
+          
+          {/* Clear all button */}
+          {notifications && notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearAllConfirm(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Clear all
+            </button>
+          )}
+          
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
@@ -954,7 +1046,7 @@ export default function Notifications() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDelete(notif.id)}
+                        onClick={() => handleDelete(notif.id, notif.title)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: 'var(--text-tertiary)' }}
                         onMouseEnter={(e) =>
@@ -1043,7 +1135,7 @@ export default function Notifications() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDelete(notif.id)}
+                      onClick={() => handleDelete(notif.id, notif.title)}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: 'var(--text-tertiary)' }}
                       title="Delete"
@@ -1092,7 +1184,8 @@ export default function Notifications() {
         onClose={() => setIsAdminModalOpen(false)}
         onSend={handleSendMessage}
         isSending={isSending}
-        users={mockUsers}
+        users={users}
+        isLoadingUsers={isLoadingUsers}
       />
 
       {selectedNotification && (
@@ -1105,6 +1198,43 @@ export default function Notifications() {
           }}
         />
       )}
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm !== null}
+        onClose={() => setShowDeleteConfirm(null)}
+        onConfirm={confirmDelete}
+        title="Delete Notification"
+        message={`Are you sure you want to delete "${showDeleteConfirm?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmationModal
+        isOpen={showClearReadConfirm}
+        onClose={() => setShowClearReadConfirm(false)}
+        onConfirm={handleClearReadNotifications}
+        title="Clear Read Notifications"
+        message={`This will permanently delete ${notifications?.filter(n => n.isRead).length || 0} read notification(s). This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmationModal
+        isOpen={showClearAllConfirm}
+        onClose={() => setShowClearAllConfirm(false)}
+        onConfirm={handleClearAllNotifications}
+        title="Delete All Notifications"
+        message={`This will permanently delete all ${notifications?.length || 0} notification(s). This action cannot be undone.`}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

@@ -1,35 +1,34 @@
-// services/NotificationService.ts - UPDATED WITH CORRECT DASHBOARD URLS
+// services/NotificationService.ts - UPDATED with sender tracking
 import { PrismaClient, NotificationType, NotificationPriority } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export class NotificationService {
   
-  // Helper to validate user exists
   private static async userExists(userId: string): Promise<boolean> {
     if (!userId) return false;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, isActive: true }
+      select: { id: true, isActive: true, fullName: true, role: true }
     });
     return !!user && user.isActive;
   }
 
-  // Get users by role
-  private static async getUsersByRole(roles: string[]): Promise<{ id: string; fullName: string }[]> {
+  private static async getUsersByRole(roles: string[]): Promise<{ id: string; fullName: string; role: string }[]> {
     const users = await prisma.user.findMany({
       where: {
         role: { in: roles as any },
         isActive: true
       },
-      select: { id: true, fullName: true }
+      select: { id: true, fullName: true, role: true }
     });
     return users;
   }
 
-  // Core notification sending function
+  // Core notification sending function with sender tracking
   static async sendNotification(data: {
-    userId: string;
+    userId: string;        // Recipient
+    senderId?: string;     // ✅ Who sent it (for user-to-user messages)
     title: string;
     message: string;
     type: NotificationType;
@@ -50,9 +49,19 @@ export class NotificationService {
         return null;
       }
 
+      // If senderId provided, verify sender exists
+      if (data.senderId) {
+        const senderExists = await this.userExists(data.senderId);
+        if (!senderExists) {
+          console.warn(`⚠️ Cannot send notification: Sender ${data.senderId} does not exist or is inactive`);
+          return null;
+        }
+      }
+
       const notification = await prisma.notification.create({
         data: {
           userId: data.userId,
+          senderId: data.senderId,
           title: data.title,
           message: data.message,
           type: data.type,
@@ -62,10 +71,19 @@ export class NotificationService {
           actionUrl: data.actionUrl,
           isRead: false,
           isArchived: false
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true
+            }
+          }
         }
       });
 
-      console.log(`📢 Notification sent to user ${data.userId}: ${data.title}`);
+      console.log(`📢 Notification sent to user ${data.userId} from ${data.senderId || 'System'}: ${data.title}`);
       return notification;
     } catch (error) {
       console.error('Error sending notification:', error);
@@ -73,28 +91,44 @@ export class NotificationService {
     }
   }
 
-  // Send notification to multiple users
-  static async sendBulkNotification(data: {
+  // Send user-to-user message
+  static async sendUserMessage(data: {
+    fromUserId: string;
+    toUserId: string;
+    title: string;
+    message: string;
+    priority?: NotificationPriority;
+    actionUrl?: string;
+  }) {
+    return this.sendNotification({
+      userId: data.toUserId,
+      senderId: data.fromUserId,
+      title: data.title,
+      message: data.message,
+      type: 'system',
+      priority: data.priority || 'medium',
+      actionUrl: data.actionUrl
+    });
+  }
+
+  // Send bulk user messages
+  static async sendBulkUserMessages(data: {
+    fromUserId: string;
     userIds: string[];
     title: string;
     message: string;
-    type: NotificationType;
-    priority: NotificationPriority;
-    actionType?: string;
-    actionId?: string;
+    priority?: NotificationPriority;
     actionUrl?: string;
   }) {
     const results = { success: 0, failed: 0 };
     
     for (const userId of data.userIds) {
-      const result = await this.sendNotification({
-        userId,
+      const result = await this.sendUserMessage({
+        fromUserId: data.fromUserId,
+        toUserId: userId,
         title: data.title,
         message: data.message,
-        type: data.type,
         priority: data.priority,
-        actionType: data.actionType,
-        actionId: data.actionId,
         actionUrl: data.actionUrl
       });
       
@@ -105,8 +139,9 @@ export class NotificationService {
     return results;
   }
 
-  // Send notification to all users with specific roles
+  // Send role-based notification with sender tracking
   static async sendRoleNotification(data: {
+    senderId?: string;
     roles: string[];
     title: string;
     message: string;
@@ -122,16 +157,26 @@ export class NotificationService {
       .map(u => u.id)
       .filter(id => id !== data.excludeUserId);
     
-    return this.sendBulkNotification({
-      userIds,
-      title: data.title,
-      message: data.message,
-      type: data.type,
-      priority: data.priority,
-      actionType: data.actionType,
-      actionId: data.actionId,
-      actionUrl: data.actionUrl
-    });
+    const results = { success: 0, failed: 0 };
+    
+    for (const userId of userIds) {
+      const result = await this.sendNotification({
+        userId,
+        senderId: data.senderId,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        priority: data.priority,
+        actionType: data.actionType,
+        actionId: data.actionId,
+        actionUrl: data.actionUrl
+      });
+      
+      if (result) results.success++;
+      else results.failed++;
+    }
+    
+    return results;
   }
 
   // ============================================
@@ -408,7 +453,7 @@ export class NotificationService {
               }
             }
           },
-          prescribedBy: {
+          User_Medication_prescribedByIdToUser: {
             select: { id: true, fullName: true }
           }
         }

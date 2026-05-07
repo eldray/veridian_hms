@@ -1,11 +1,11 @@
-// src/components/NewAttendanceModal.tsx - REDESIGNED WITH CONSISTENT THEME
+// src/components/NewAttendanceModal.tsx - UPDATED VERSION
 import { useState, useEffect } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
-import { X, Save, User, CheckCircle, CreditCard,Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope } from 'lucide-react';
+import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope } from 'lucide-react';
 import type { AttendanceType, PaymentMode, AttendanceStatus } from '../types';
 import ComplaintInput from './ComplaintInput';
 
@@ -16,6 +16,17 @@ interface NewAttendanceModalProps {
   isEditMode?: boolean;
   attendanceData?: any;
 }
+
+// Valid attendance types - REMOVED general_consultation
+const VALID_ATTENDANCE_TYPES: AttendanceType[] = [
+  'emergency_acute',
+  'antenatal',
+  'postnatal',
+  'chronic_followup',
+  'specialist_consultation',
+  'delivery',
+  'surgery'
+];
 
 export default function NewAttendanceModal({
   patientId,
@@ -30,7 +41,7 @@ export default function NewAttendanceModal({
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
-  const [attendanceType, setAttendanceType] = useState<AttendanceType>('general_consultation');
+  const [attendanceType, setAttendanceType] = useState<AttendanceType>('emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
   const [nhisCCC, setNhisCCC] = useState('');
   const [complaints, setComplaints] = useState('');
@@ -50,9 +61,30 @@ export default function NewAttendanceModal({
     getInsuranceProviders().catch(console.error);
   }, [getInsuranceProviders]);
 
+  // Initialize from patient data (for new attendance)
+  useEffect(() => {
+    if (!isEditMode && patientId) {
+      const patientData = getPatientById(patientId);
+      setPatient(patientData);
+      
+      if (patientData) {
+        // ✅ AUTO-POPULATE PAYMENT METHOD FROM PATIENT
+        if (patientData.paymentMode) {
+          setPaymentMode(patientData.paymentMode as PaymentMode);
+        }
+        
+        // Auto-populate NHIS CCC if patient has it
+        if (patientData.paymentMode === 'nhis' && patientData.insuranceDetails?.memberId) {
+          setNhisCCC(patientData.insuranceDetails.memberId);
+        }
+      }
+    }
+  }, [patientId, getPatientById, isEditMode]);
+
+  // Initialize from attendance data (for edit mode)
   useEffect(() => {
     if (isEditMode && attendanceData) {
-      setAttendanceType(attendanceData.attendanceType || 'general_consultation');
+      setAttendanceType(attendanceData.attendanceType || 'emergency_acute');
       setPaymentMode(attendanceData.paymentMode || 'cash');
       setNhisCCC(attendanceData.nhisCCC || '');
       setComplaints(attendanceData.complaints || '');
@@ -65,20 +97,17 @@ export default function NewAttendanceModal({
         const patientData = getPatientById(patientId);
         setPatient(patientData);
       }
-    } else if (patientId) {
-      const patientData = getPatientById(patientId);
-      setPatient(patientData);
-      
-      if (patientData) {
-        if (patientData.paymentMode) {
-          setPaymentMode(patientData.paymentMode);
-        }
-        if (patientData.insuranceDetails?.memberId) {
-          setNhisCCC(patientData.insuranceDetails.memberId);
-        }
+    }
+  }, [isEditMode, attendanceData, patientId, getPatientById]);
+
+  // Watch for patient changes to update payment mode (for new attendance)
+  useEffect(() => {
+    if (!isEditMode && patient) {
+      if (patient.paymentMode) {
+        setPaymentMode(patient.paymentMode as PaymentMode);
       }
     }
-  }, [patientId, getPatientById, isEditMode, attendanceData]);
+  }, [patient, isEditMode]);
 
   const validateForm = (): boolean => {
     const errors: string[] = [];
@@ -92,12 +121,13 @@ export default function NewAttendanceModal({
     }
 
     if (paymentMode === 'private_insurance') {
-      if (!patient?.insuranceDetails?.providerId) {
+      if (!patient?.insuranceProviderId && !patient?.insuranceDetails?.providerId) {
         errors.push('Patient must have an insurance provider selected for private insurance');
       }
       
-      if (patient?.insuranceDetails?.providerId) {
-        const insuranceProvider = insuranceProviders?.find(p => p.id === patient.insuranceDetails.providerId);
+      const providerId = patient?.insuranceProviderId || patient?.insuranceDetails?.providerId;
+      if (providerId) {
+        const insuranceProvider = insuranceProviders?.find(p => p.id === providerId);
         if (!insuranceProvider) {
           errors.push('Selected insurance provider not found');
         } else if (!insuranceProvider.isActive) {
@@ -142,21 +172,25 @@ export default function NewAttendanceModal({
       return;
     }
 
+    // Get the insurance provider ID from patient
+    const insuranceProviderId = patient?.insuranceProviderId || patient?.insuranceDetails?.providerId;
+
     const attendanceDataPayload: any = {
       ...(isEditMode ? {} : { patientId }),
       dateTime: isEditMode ? attendanceData.dateTime : new Date().toISOString(),
       attendanceType,
       paymentMode,
       ...(paymentMode === 'nhis' && { nhisCCC: nhisCCC.trim() }),
-      ...(paymentMode === 'private_insurance' && patient?.insuranceDetails?.providerId && {
-        insuranceProviderId: patient.insuranceDetails.providerId
+      ...(paymentMode === 'private_insurance' && insuranceProviderId && {
+        insuranceProviderId: insuranceProviderId
       }),
       complaints: complaints.trim() || 'No complaints recorded',
-      createdById: user.id,
+      createdById: isEditMode ? attendanceData.createdById : user.id,
       ...(isEditMode && { updatedById: user.id }),
       ...(isEditMode ? { status } : { status: 'pending' }),
     };
 
+    // Clean up undefined values
     Object.keys(attendanceDataPayload).forEach(key => {
       if (attendanceDataPayload[key] === undefined || attendanceDataPayload[key] === null) {
         delete attendanceDataPayload[key];
@@ -184,6 +218,9 @@ export default function NewAttendanceModal({
       if (err.response?.data) {
         const serverError = err.response.data;
         errorMessage = serverError.message || serverError.error || errorMessage;
+        if (serverError.errors) {
+          console.error('Validation errors:', serverError.errors);
+        }
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -206,8 +243,8 @@ export default function NewAttendanceModal({
     { id: 'discharged', name: 'Discharged', color: 'indigo' }
   ];
 
+  // ✅ UPDATED: Removed general_consultation
   const attendanceTypes: { id: AttendanceType; name: string; icon: JSX.Element }[] = [
-    { id: 'general_consultation', name: 'General Consultation', icon: <Stethoscope className="w-3.5 h-3.5" /> },
     { id: 'emergency_acute', name: 'Emergency/Acute', icon: <AlertCircle className="w-3.5 h-3.5" /> },
     { id: 'antenatal', name: 'Antenatal', icon: <Calendar className="w-3.5 h-3.5" /> },
     { id: 'postnatal', name: 'Postnatal', icon: <Calendar className="w-3.5 h-3.5" /> },
@@ -230,8 +267,8 @@ export default function NewAttendanceModal({
     return colors[color] || colors.blue;
   };
 
-  const currentInsuranceProvider = paymentMode === 'private_insurance' && patient?.insuranceDetails?.providerId 
-    ? insuranceProviders?.find(p => p.id === patient.insuranceDetails.providerId)
+  const currentInsuranceProvider = paymentMode === 'private_insurance' 
+    ? insuranceProviders?.find(p => p.id === (patient?.insuranceProviderId || patient?.insuranceDetails?.providerId))
     : null;
 
   if (showSuccess) {
@@ -306,6 +343,13 @@ export default function NewAttendanceModal({
                   <span>•</span>
                   <span>{patient?.age || 'N/A'} years</span>
                 </div>
+                {/* ✅ Show patient's default payment mode */}
+                {patient?.paymentMode && (
+                  <div className="mt-2 text-xs">
+                    <span className="text-[var(--text-secondary)]">Default Payment: </span>
+                    <span className="font-medium text-[var(--text-primary)] capitalize">{patient.paymentMode}</span>
+                  </div>
+                )}
                 {paymentMode === 'private_insurance' && currentInsuranceProvider && (
                   <div className="mt-2 p-2 bg-[var(--icon-purple-bg)] rounded-lg border border-[var(--icon-purple-text)]">
                     <p className="text-xs font-medium text-[var(--icon-purple-text)]">
@@ -353,14 +397,11 @@ export default function NewAttendanceModal({
                   className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
                   disabled={isLoading}
                 >
-                  {statusOptions.map((option) => {
-                    const colors = getColorClasses(option.color, false);
-                    return (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    );
-                  })}
+                  {statusOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">
                   Update the attendance status based on current progress
@@ -368,7 +409,7 @@ export default function NewAttendanceModal({
               </div>
             )}
 
-            {/* Payment Mode Selection */}
+            {/* Payment Mode Selection - Auto-populated from patient */}
             <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
               <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Payment Mode</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -404,6 +445,11 @@ export default function NewAttendanceModal({
                   );
                 })}
               </div>
+              {patient?.paymentMode && !isEditMode && (
+                <p className="text-xs text-[var(--text-tertiary)] mt-2">
+                  Auto-populated from patient's default payment method
+                </p>
+              )}
             </div>
 
             {/* Attendance Type */}
@@ -505,7 +551,7 @@ export default function NewAttendanceModal({
               </div>
             )}
 
-            {/* Complaints - Enhanced with + sign and search */}
+            {/* Complaints */}
             <div className="bg-[var(--icon-cyan-bg)] border border-[var(--icon-cyan-text)] rounded-lg p-3">
               <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-[var(--icon-cyan-text)]" />

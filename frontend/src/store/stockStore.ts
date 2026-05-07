@@ -1,6 +1,9 @@
 // stores/stockStore.ts - COMPLETE FIXED VERSION
 import { create } from 'zustand';
 import api from '../api';
+// stores/stockStore.ts - UPDATED IMPORTS
+import { create } from 'zustand';
+import api from '../api';
 import { 
   getStockItems as apiGetStockItems,
   getStockItem as apiGetStockItem,
@@ -21,7 +24,14 @@ import {
   createInvoice as apiCreateInvoice,
   deleteInvoice as apiDeleteInvoice,
   updateRequisitionStatus,
-  approveRequisitionItems
+  approveRequisitionItems,
+  // ✅ ADD THESE MISSING REPORT API FUNCTIONS
+  getStockValueSummary as apiGetStockValueSummary,
+  getExpiryReport as apiGetExpiryReport,
+  getMovementSummary as apiGetMovementSummary,
+  getUsageReport as apiGetUsageReport,
+  getSupplierReport as apiGetSupplierReport,
+  getRequisitionSummary as apiGetRequisitionSummary,
 } from '../api';
 
 // Helper to extract items from response
@@ -179,6 +189,16 @@ interface StockState {
   createInvoice: (data: any) => Promise<Invoice>;
   updateInvoice: (id: string, data: any) => Promise<Invoice>;
   deleteInvoice: (id: string) => Promise<void>;
+
+
+  // ==================== STOCK REPORTS ====================
+  getStockValueSummary: () => Promise<any>;
+  getExpiryReport: (days?: number) => Promise<any>;
+  getMovementSummary: (startDate?: string, endDate?: string) => Promise<any>;
+  getUsageReport: (period?: string, limit?: number) => Promise<any>;
+  getSupplierReport: () => Promise<any>;
+  getRequisitionSummary: (startDate?: string, endDate?: string) => Promise<any>;
+
   
   // ==================== UTILITIES ====================
   getMedicationStockItems: () => StockItem[];
@@ -806,6 +826,80 @@ export const useStockStore = create<StockState>((set, get) => ({
       throw error;
     }
   },
+
+  
+// STOCK REPORTS
+getStockValueSummary: async () => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetStockValueSummary();
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get stock summary' });
+    throw error;
+  }
+},
+
+getExpiryReport: async (days = 30) => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetExpiryReport(days);
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get expiry report' });
+    throw error;
+  }
+},
+
+getMovementSummary: async (startDate?: string, endDate?: string) => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetMovementSummary(startDate, endDate);
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get movement summary' });
+    throw error;
+  }
+},
+
+getUsageReport: async (period = 'month', limit = 20) => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetUsageReport(period, limit);
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get usage report' });
+    throw error;
+  }
+},
+
+getSupplierReport: async () => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetSupplierReport();
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get supplier report' });
+    throw error;
+  }
+},
+
+getRequisitionSummary: async (startDate?: string, endDate?: string) => {
+  set({ isLoading: true, error: null });
+  try {
+    const data = await apiGetRequisitionSummary(startDate, endDate);
+    set({ isLoading: false });
+    return data;
+  } catch (error: any) {
+    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get requisition summary' });
+    throw error;
+  }
+},
 
   // ==================== UTILITIES ====================
 

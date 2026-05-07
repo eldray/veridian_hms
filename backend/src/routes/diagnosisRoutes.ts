@@ -1,4 +1,4 @@
-// routes/diagnosisRoutes.ts - ADD THIS ROUTE
+// routes/diagnosisRoutes.ts
 import { Router } from 'express';
 import {
   getDiagnoses,
@@ -27,6 +27,7 @@ router.get('/stats', requireAdmin, getDiagnosisStats);
 router.get('/morbidity-groups', requireClinicalStaff, getMorbidityGroups);
 router.get('/morbidity-group/:morbidityGroup', requireClinicalStaff, getDiagnosesByMorbidityGroup);
 router.get('/:id', requireClinicalStaff, getDiagnosisById);
+
 router.post('/', requireAdmin, createDiagnosis);
 router.put('/:id', requireAdmin, updateDiagnosis);
 router.delete('/:id', requireAdmin, deleteDiagnosis);

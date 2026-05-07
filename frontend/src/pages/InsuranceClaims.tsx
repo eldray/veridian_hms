@@ -1,4 +1,4 @@
-// src/pages/InsuranceClaims.tsx - UPDATED FOR SIMPLIFIED WORKFLOW
+// src/pages/InsuranceClaims.tsx - WITH NHIS & PRIVATE INSURANCE TABS
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -19,12 +19,12 @@ import {
   User,
   Activity,
   RefreshCw,
-  Send,
   Shield,
   ArrowLeft,
   Edit,
   Lock,
-  Printer
+  Printer,
+  Building
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,27 +34,22 @@ export default function InsuranceClaims() {
 
   const {
     claims,
-    currentDraft,
     getInsuranceClaims,
     generateClaimDraft,
     getClaimDraft,
-    updateClaimDraft,
     finalizeClaim,
     generateClaimXML,
     generateClaimPrint,
-    getFinalizedClaimsTotal,
-    finalizedClaimsTotal,
     isLoading: claimsLoading
   } = useInsuranceStore();
 
   const { attendances, getAttendances, isLoading: attendanceLoading } = useAttendanceStore();
-  const { user } = useAuthStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [activeTab, setActiveTab] = useState<'nhis' | 'private'>('nhis');
   const [showPendingAttendances, setShowPendingAttendances] = useState(false);
   const [processingClaims, setProcessingClaims] = useState<Set<string>>(new Set());
-  const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
 
   const isLoading = claimsLoading || attendanceLoading;
 
@@ -67,7 +62,6 @@ export default function InsuranceClaims() {
       await Promise.all([
         getInsuranceClaims(),
         getAttendances(),
-        getFinalizedClaimsTotal()
       ]);
       success('Data loaded', 'Insurance claims ready');
     } catch {
@@ -75,9 +69,20 @@ export default function InsuranceClaims() {
     }
   };
 
+  const getPatientFullName = (patient: any) => {
+    if (!patient) return 'Unknown';
+    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
+  };
+
+  // Filter claims by insurance type
+  const nhisClaims = claims.filter(c => c.insuranceProvider?.type === 'nhis');
+  const privateClaims = claims.filter(c => c.insuranceProvider?.type === 'private');
+
+  // Get eligible attendances based on active tab
   const getEligibleAttendances = () => {
+    const paymentMode = activeTab === 'nhis' ? 'nhis' : 'private_insurance';
     return attendances.filter(att =>
-      (att.paymentMode === 'nhis' || att.paymentMode === 'private_insurance') &&
+      att.paymentMode === paymentMode &&
       att.status === 'completed' &&
       !claims.some(c => c.attendanceId === att.id)
     );
@@ -85,15 +90,48 @@ export default function InsuranceClaims() {
 
   const eligibleAttendances = getEligibleAttendances();
 
-  const filteredClaims = claims.filter(claim => {
-    const matchesSearch =
-      claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.patient?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Stats for NHIS
+  const nhisStats = {
+    total: nhisClaims.length,
+    draft: nhisClaims.filter(c => c.status === 'draft').length,
+    submitted: nhisClaims.filter(c => c.status === 'submitted').length,
+    approved: nhisClaims.filter(c => c.status === 'approved').length,
+    paid: nhisClaims.filter(c => c.status === 'paid').length,
+    rejected: nhisClaims.filter(c => c.status === 'rejected').length,
+    totalAmount: nhisClaims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
+    approvedAmount: nhisClaims.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
+    paidAmount: nhisClaims.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.paidAmount || 0), 0),
+  };
 
-    const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  // Stats for Private Insurance
+  const privateStats = {
+    total: privateClaims.length,
+    draft: privateClaims.filter(c => c.status === 'draft').length,
+    submitted: privateClaims.filter(c => c.status === 'submitted').length,
+    approved: privateClaims.filter(c => c.status === 'approved').length,
+    paid: privateClaims.filter(c => c.status === 'paid').length,
+    rejected: privateClaims.filter(c => c.status === 'rejected').length,
+    totalAmount: privateClaims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
+    approvedAmount: privateClaims.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
+    paidAmount: privateClaims.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.paidAmount || 0), 0),
+  };
+
+  const currentStats = activeTab === 'nhis' ? nhisStats : privateStats;
+
+  // Filter claims by search and status for current tab
+  const getFilteredClaims = () => {
+    const claimsToFilter = activeTab === 'nhis' ? nhisClaims : privateClaims;
+    return claimsToFilter.filter(claim => {
+      const matchesSearch =
+        claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getPatientFullName(claim.patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  };
+
+  const filteredClaims = getFilteredClaims();
 
   const handleGenerateDraft = async (attendanceId: string) => {
     try {
@@ -101,6 +139,7 @@ export default function InsuranceClaims() {
       await generateClaimDraft(attendanceId);
       success('Draft created', 'Claim draft generated successfully');
       await loadData();
+      setShowPendingAttendances(false);
     } catch (error: any) {
       toastError('Create failed', error.message || 'Could not create draft');
     } finally {
@@ -109,19 +148,6 @@ export default function InsuranceClaims() {
         newSet.delete(attendanceId);
         return newSet;
       });
-    }
-  };
-
-  const handleEditClaim = async (claimId: string) => {
-    try {
-      setEditingClaimId(claimId);
-      await getClaimDraft(claimId);
-      // Navigate to edit page or open modal
-      navigate(`/dashboard/insurance-claims/${claimId}/edit`);
-    } catch (error: any) {
-      toastError('Edit failed', error.message || 'Could not load claim for editing');
-    } finally {
-      setEditingClaimId(null);
     }
   };
 
@@ -146,7 +172,7 @@ export default function InsuranceClaims() {
     try {
       setProcessingClaims(prev => new Set(prev).add(claimId));
       await generateClaimXML(claimId);
-      success('XML downloaded', 'Claim XML file ready for NHIS submission');
+      success('XML downloaded', 'Claim XML file ready for submission');
     } catch (error: any) {
       toastError('Download failed', error.message || 'Could not generate XML');
     } finally {
@@ -161,9 +187,7 @@ export default function InsuranceClaims() {
   const handlePrintClaim = async (claimId: string) => {
     try {
       setProcessingClaims(prev => new Set(prev).add(claimId));
-      const printData = await generateClaimPrint(claimId);
-      // Here you would typically open a print dialog or PDF
-      console.log('Print data:', printData);
+      await generateClaimPrint(claimId);
       success('Print ready', 'Claim data ready for printing');
     } catch (error: any) {
       toastError('Print failed', error.message || 'Could not generate print format');
@@ -198,14 +222,11 @@ export default function InsuranceClaims() {
     }
   };
 
-  const stats = {
-    total: claims.length,
-    draft: claims.filter(c => c.status === 'draft').length,
-    submitted: claims.filter(c => c.status === 'submitted').length,
-    approved: claims.filter(c => c.status === 'approved').length,
-    paid: claims.filter(c => c.status === 'paid').length,
-    totalAmount: claims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
-    finalizedAmount: finalizedClaimsTotal?.data?.totalAmount || 0,
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'submitted': return 'Finalized';
+      default: return status.charAt(0).toUpperCase() + status.slice(1);
+    }
   };
 
   return (
@@ -224,7 +245,7 @@ export default function InsuranceClaims() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Insurance Claims</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Generate, edit, and submit insurance claims</p>
+            <p className="text-sm text-[var(--text-secondary)]">Manage NHIS and Private Insurance claims</p>
           </div>
         </div>
         
@@ -256,31 +277,79 @@ export default function InsuranceClaims() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-[var(--border-color)]">
+        <button
+          onClick={() => {
+            setActiveTab('nhis');
+            setFilterStatus('all');
+            setSearchTerm('');
+          }}
+          className={`px-6 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'nhis'
+              ? 'text-[var(--icon-blue-text)] border-b-2 border-[var(--icon-blue-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            NHIS Claims
+            <span className="ml-1 px-2 py-0.5 bg-[var(--bg-main)] rounded-full text-xs">
+              {nhisClaims.length}
+            </span>
+          </div>
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('private');
+            setFilterStatus('all');
+            setSearchTerm('');
+          }}
+          className={`px-6 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'private'
+              ? 'text-[var(--icon-purple-text)] border-b-2 border-[var(--icon-purple-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Building className="w-4 h-4" />
+            Private Insurance Claims
+            <span className="ml-1 px-2 py-0.5 bg-[var(--bg-main)] rounded-full text-xs">
+              {privateClaims.length}
+            </span>
+          </div>
+        </button>
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
+          <div className="text-2xl font-bold text-[var(--text-primary)]">{currentStats.total}</div>
           <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claims</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-yellow-text)]">{stats.draft}</div>
+          <div className="text-2xl font-bold text-[var(--icon-yellow-text)]">{currentStats.draft}</div>
           <div className="text-xs text-[var(--text-secondary)] mt-1">Draft</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-purple-text)]">{stats.submitted}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Finalized</div>
+          <div className="text-2xl font-bold text-[var(--icon-purple-text)]">{currentStats.submitted}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Submitted</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-green-text)]">{stats.approved}</div>
+          <div className="text-2xl font-bold text-[var(--icon-green-text)]">{currentStats.approved}</div>
           <div className="text-xs text-[var(--text-secondary)] mt-1">Approved</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-lg font-bold text-[var(--text-primary)]">GHS {stats.totalAmount.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-[var(--icon-blue-text)]">{currentStats.paid}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Paid</div>
+        </div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="text-lg font-bold text-[var(--text-primary)]">GHS {currentStats.totalAmount.toFixed(2)}</div>
           <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claimed</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-lg font-bold text-[var(--icon-purple-text)]">GHS {stats.finalizedAmount.toFixed(2)}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Finalized Total</div>
+          <div className="text-lg font-bold text-[var(--icon-green-text)]">GHS {currentStats.approvedAmount.toFixed(2)}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-1">Approved Total</div>
         </div>
       </div>
 
@@ -289,7 +358,7 @@ export default function InsuranceClaims() {
         <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
             <PlayCircle className="w-5 h-5 text-[var(--icon-green-text)]" />
-            Eligible for Claims ({eligibleAttendances.length})
+            Eligible for {activeTab === 'nhis' ? 'NHIS' : 'Private Insurance'} Claims ({eligibleAttendances.length})
           </h2>
           <div className="space-y-3">
             {eligibleAttendances.slice(0, 5).map((att) => (
@@ -298,13 +367,6 @@ export default function InsuranceClaims() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold text-[var(--text-primary)] text-sm">{att.attendanceNumber}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                        att.paymentMode === 'nhis' 
-                          ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]' 
-                          : 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-text)]'
-                      }`}>
-                        {att.paymentMode}
-                      </span>
                       <span className="text-xs text-[var(--icon-green-text)] bg-[var(--icon-green-bg)] px-2 py-0.5 rounded-full border border-[var(--icon-green-text)]">
                         Completed
                       </span>
@@ -312,7 +374,7 @@ export default function InsuranceClaims() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-[var(--text-secondary)]">
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5" />
-                        <span className="truncate">{att.patient?.fullName}</span>
+                        <span className="truncate">{getPatientFullName(att.patient)}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5" />
@@ -351,7 +413,7 @@ export default function InsuranceClaims() {
           <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by claim, patient, or provider..."
+            placeholder={`Search ${activeTab === 'nhis' ? 'NHIS' : 'Private'} claims by claim number, patient, or provider...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
@@ -364,7 +426,7 @@ export default function InsuranceClaims() {
         >
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
-          <option value="submitted">Finalized</option>
+          <option value="submitted">Submitted</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
           <option value="paid">Paid</option>
@@ -389,7 +451,7 @@ export default function InsuranceClaims() {
       ) : filteredClaims.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
           <FileText className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
-          <p className="text-[var(--text-secondary)]">No claims found</p>
+          <p className="text-[var(--text-secondary)]">No {activeTab === 'nhis' ? 'NHIS' : 'Private Insurance'} claims found</p>
           {eligibleAttendances.length > 0 && (
             <p className="text-[var(--text-tertiary)] text-sm mt-1">
               {eligibleAttendances.length} completed visits ready for claims
@@ -406,13 +468,13 @@ export default function InsuranceClaims() {
                   <div>
                     <h3 className="font-semibold text-[var(--text-primary)] text-sm">{claim.claimNumber}</h3>
                     <p className="text-xs text-[var(--text-secondary)]">
-                      {claim.patient?.fullName} • {claim.insuranceProvider?.name}
+                      {getPatientFullName(claim.patient)} • {claim.insuranceProvider?.name}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(claim.status)}`}>
-                    {claim.status}
+                    {getStatusLabel(claim.status)}
                   </span>
                   <div className="flex gap-1.5">
                     {claim.status === 'submitted' && (
@@ -448,7 +510,7 @@ export default function InsuranceClaims() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-[var(--text-secondary)]">Claim:</span>
+                  <span className="text-[var(--text-secondary)]">Claim Amount:</span>
                   <p className="font-medium text-[var(--text-primary)]">GHS {claim.totalClaimAmount?.toFixed(2)}</p>
                 </div>
                 <div>
@@ -458,14 +520,16 @@ export default function InsuranceClaims() {
                   </p>
                 </div>
                 <div>
+                  <span className="text-[var(--text-secondary)]">Paid:</span>
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {claim.paidAmount ? `GHS ${claim.paidAmount.toFixed(2)}` : '—'}
+                  </p>
+                </div>
+                <div>
                   <span className="text-[var(--text-secondary)]">Submitted:</span>
                   <p className="font-medium text-[var(--text-primary)]">
                     {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
                   </p>
-                </div>
-                <div>
-                  <span className="text-[var(--text-secondary)]">Type:</span>
-                  <p className="font-medium text-[var(--text-primary)]">{claim.insuranceProvider?.type.toUpperCase()}</p>
                 </div>
               </div>
 

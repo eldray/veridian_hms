@@ -1,4 +1,4 @@
-// controllers/diagnosisController.ts - CORRECTED FOR UPDATED SCHEMA
+// controllers/diagnosisController.ts - CORRECTED FOR SIMPLIFIED SCHEMA
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/authMiddleware';
@@ -19,14 +19,14 @@ const handleError = (res: Response, message: string, error: any, statusCode = 50
 // GET ALL DIAGNOSES
 // ============================================
 export const getDiagnoses = async (req: Request, res: Response) => {
-  const { page = 1, limit = 10000 } = req.query;  // ← High default limit
-  const take = Math.min(parseInt(limit as string), 10000); // Max 10000
+  const { page = 1, limit = 100 } = req.query;
+  const take = Math.min(parseInt(limit as string), 100);
   const skip = (parseInt(page as string) - 1) * take;
   
   const [diagnoses, total] = await Promise.all([
     prisma.diagnosis.findMany({
       skip,
-      take,  // ← Use the limit from query
+      take,
       orderBy: { name: 'asc' }
     }),
     prisma.diagnosis.count()
@@ -38,7 +38,7 @@ export const getDiagnoses = async (req: Request, res: Response) => {
     pagination: {
       page: parseInt(page as string),
       limit: take,
-      total,  // ← This should be 190
+      total,
       pages: Math.ceil(total / take)
     }
   });
@@ -54,7 +54,7 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        // ✅ CORRECT: Use junction table
+        // ✅ GDRG tariff mapping via junction table
         gdrgTariffDiagnoses: {
           include: {
             gdrgTariff: {
@@ -77,7 +77,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        Admission: {
+        // ✅ Admissions where this is the principal diagnosis
+        admissionsAsPrincipal: {
           include: {
             Patient: {
               select: {
@@ -97,31 +98,8 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        AdmissionSecondaryDiagnosis: {
-          include: {
-            Admission: {
-              include: {
-                Patient: {
-                  select: {
-                    id: true,
-                    folderNumber: true,
-                    surname: true,
-                    otherNames: true
-                  }
-                },
-                Ward: {
-                  select: {
-                    id: true,
-                    wardName: true
-                  }
-                }
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10
-        },
-        AttendanceDiagnosis: {
+        // ✅ Attendance diagnoses (unified - works for OPD and IPD)
+        attendanceDiagnoses: {
           include: {
             Attendance: {
               include: {
@@ -187,7 +165,6 @@ export const getDiagnosisById = async (req: AuthRequest, res: Response) => {
 export const createDiagnosis = [
   body('name').notEmpty().withMessage('Diagnosis name is required').trim(),
   body('icdCode').notEmpty().withMessage('ICD code is required').trim().toUpperCase(),
-  body('gdrgGroupCode').optional().trim().toUpperCase(),
   body('morbidityGroup').notEmpty().withMessage('Morbidity group is required'),
 
   async (req: AuthRequest, res: Response) => {
@@ -204,7 +181,6 @@ export const createDiagnosis = [
       const {
         name,
         icdCode,
-        gdrgGroupCode,
         morbidityGroup,
         description,
         requiresAuthorization,
@@ -225,11 +201,11 @@ export const createDiagnosis = [
         });
       }
 
+      // ✅ Create diagnosis - NO gdrgGroupCode or gdrgTariffDiagnoses scalar field
       const diagnosis = await prisma.diagnosis.create({
         data: {
           name: name.trim(),
           icdCode: icdCode.trim().toUpperCase(),
-          gdrgTariffDiagnoses: gdrgGroupCode ? gdrgGroupCode.trim().toUpperCase() : icdCode.trim().toUpperCase(),
           morbidityGroup: morbidityGroup as MorbidityGroup,
           description: description?.trim(),
           requiresAuthorization: requiresAuthorization || false,
@@ -269,7 +245,6 @@ export const createDiagnosis = [
 export const updateDiagnosis = [
   body('name').optional().trim(),
   body('icdCode').optional().trim().toUpperCase(),
-  body('gdrgGroupCode').optional().trim().toUpperCase(),
   body('morbidityGroup').optional(),
   body('isActive').optional().isBoolean(),
 
@@ -285,7 +260,8 @@ export const updateDiagnosis = [
       }
 
       const { id } = req.params;
-      const updateData = { ...req.body, updatedAt: new Date() };
+      const { icdCode, ...restData } = req.body;
+      const updateData: any = { ...restData, updatedAt: new Date() };
 
       const existingDiagnosis = await prisma.diagnosis.findUnique({
         where: { id }
@@ -299,10 +275,10 @@ export const updateDiagnosis = [
       }
 
       // Check for duplicate ICD code if changing
-      if (updateData.icdCode && updateData.icdCode !== existingDiagnosis.icdCode) {
+      if (icdCode && icdCode !== existingDiagnosis.icdCode) {
         const duplicateIcd = await prisma.diagnosis.findFirst({
           where: {
-            icdCode: updateData.icdCode.trim().toUpperCase(),
+            icdCode: icdCode.trim().toUpperCase(),
             id: { not: id }
           }
         });
@@ -310,15 +286,10 @@ export const updateDiagnosis = [
         if (duplicateIcd) {
           return res.status(400).json({
             success: false,
-            message: `Diagnosis with ICD code ${updateData.icdCode} already exists`
+            message: `Diagnosis with ICD code ${icdCode} already exists`
           });
         }
-        updateData.icdCode = updateData.icdCode.trim().toUpperCase();
-      }
-
-      // Handle gdrgGroupCode
-      if (updateData.gdrgGroupCode) {
-        updateData.gdrgGroupCode = updateData.gdrgGroupCode.trim().toUpperCase();
+        updateData.icdCode = icdCode.trim().toUpperCase();
       }
 
       const diagnosis = await prisma.diagnosis.update({
@@ -359,9 +330,8 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
     const diagnosis = await prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        Admission: { take: 1 },
-        AdmissionSecondaryDiagnosis: { take: 1 },
-        AttendanceDiagnosis: { take: 1 },
+        admissionsAsPrincipal: { take: 1 },
+        attendanceDiagnoses: { take: 1 },
         ServiceCatalog: { take: 1 },
         gdrgTariffDiagnoses: { take: 1 }
       }
@@ -376,9 +346,8 @@ export const deleteDiagnosis = async (req: AuthRequest, res: Response) => {
 
     // Check for related records
     const hasRelatedRecords = 
-      diagnosis.Admission.length > 0 ||
-      diagnosis.AdmissionSecondaryDiagnosis.length > 0 ||
-      diagnosis.AttendanceDiagnosis.length > 0 ||
+      diagnosis.admissionsAsPrincipal.length > 0 ||
+      diagnosis.attendanceDiagnoses.length > 0 ||
       diagnosis.ServiceCatalog.length > 0 ||
       diagnosis.gdrgTariffDiagnoses.length > 0;
 
@@ -427,10 +396,6 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
       where.OR.push({ icdCode: { contains: searchTerm, mode: 'insensitive' } });
     }
     
-    if (field === 'all' || field === 'gdrgCode') {
-      where.OR.push({ gdrgGroupCode: { contains: searchTerm, mode: 'insensitive' } });
-    }
-
     if (field === 'all' || field === 'morbidityGroup') {
       where.OR.push({ morbidityGroup: { equals: searchTerm as any } });
     }
@@ -445,7 +410,6 @@ export const searchDiagnoses = async (req: AuthRequest, res: Response) => {
         id: true,
         name: true,
         icdCode: true,
-        gdrgTariffDiagnoses: true,
         morbidityGroup: true,
         description: true,
         isActive: true
@@ -529,9 +493,8 @@ export const getMorbidityGroups = async (req: AuthRequest, res: Response) => {
   }
 };
 
-
 // ============================================
-// GET DIAGNOSES BY MORBIDITY GROUP (for GHS reports)
+// GET DIAGNOSES BY MORBIDITY GROUP
 // ============================================
 export const getDiagnosesByMorbidityGroup = async (req: AuthRequest, res: Response) => {
   try {
@@ -551,7 +514,7 @@ export const getDiagnosesByMorbidityGroup = async (req: AuthRequest, res: Respon
           id: true,
           name: true,
           icdCode: true,
-          gdrgTariffDiagnoses: true,
+          morbidityGroup: true,
           description: true,
           isActive: true
         },

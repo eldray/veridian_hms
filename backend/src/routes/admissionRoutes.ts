@@ -6,7 +6,6 @@ import {
   createAdmission,
   updateAdmission,
   deleteAdmission,
-  updateAdmissionWithNHISData,
   dischargePatient,
   addDailyNotes, // ✅ ADDED
   getAdmissionStats,
@@ -40,8 +39,6 @@ router.put('/:id', updateAdmission);
 // DELETE /api/admissions/:id - Delete admission
 router.delete('/:id', deleteAdmission);
 
-// PATCH /api/admissions/:id/nhis - Update admission with NHIS IPD data
-router.patch('/:id/nhis', updateAdmissionWithNHISData);
 
 // POST /api/admissions/:id/discharge - Discharge patient
 router.post('/:id/discharge', dischargePatient);

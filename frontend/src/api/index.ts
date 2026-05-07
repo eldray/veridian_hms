@@ -1,6 +1,6 @@
 // src/api/index.ts - COMPLETE UPDATED VERSION (ALL BACKEND ROUTES COVERED)
 import api from './api';
-import type { ANCVisitData, AntenatalBookingData, DangerSign,  TTDose, IPTPDose,
+import type { 
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
   Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
   StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
@@ -199,33 +199,40 @@ export const deleteInsuranceProvider = (id: string) =>
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
 // ======================
-// ✅ NEW: SEPARATED CLAIM GENERATION
+// NHIS CLAIM API FUNCTIONS
 // ======================
-
 export const generateNHISClaim = (attendanceId: string) => 
   api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
 
+export const getNHISClaims = (filters?: any) => 
+  api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
+
+// ======================
+// PRIVATE INSURANCE CLAIM API FUNCTIONS
+// ======================
 export const generatePrivateInsuranceClaim = (attendanceId: string) => 
   api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
 
-export const updateClaimStatus = (claimId: string, data: { status: string; notes?: string }) => 
-  api.patch(`/insurance-claims/${claimId}/status`, data).then(r => r.data);
+export const getPrivateInsuranceClaims = (filters?: any) => 
+  api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
 
 // ======================
-// EXISTING WORKFLOW FUNCTIONS
+// COMMON CLAIM FUNCTIONS
 // ======================
+export const getInsuranceClaim = (id: string) => 
+  api.get(`/insurance-claims/${id}`).then(r => r.data);
 
-export const generateClaimDraft = (attendanceId: string) => 
-  api.post('/insurance-claims/drafts', { attendanceId }).then(r => r.data);
-
-export const getClaimDraft = (claimId: string) => 
-  api.get(`/insurance-claims/drafts/${claimId}`).then(r => r.data);
+export const getClaimByAttendanceId = (attendanceId: string) => 
+  api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
 
 export const updateClaimDraft = (claimId: string, data: any) => 
-  api.patch(`/insurance-claims/drafts/${claimId}`, data).then(r => r.data);
+  api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
 
 export const finalizeClaim = (claimId: string) => 
   api.post(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
+
+export const updateClaimStatus = (claimId: string, data: { status: string; notes?: string }) => 
+  api.patch(`/insurance-claims/${claimId}/status`, data).then(r => r.data);
 
 export const generateClaimXML = (claimId: string) => 
   api.get(`/insurance-claims/${claimId}/xml`, { responseType: 'blob' }).then(r => r.data);
@@ -235,19 +242,6 @@ export const generateClaimPrint = (claimId: string) =>
 
 export const getFinalizedClaimsTotal = (filters?: any) => 
   api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
-
-// ======================
-// VIEWING FUNCTIONS
-// ======================
-
-export const getInsuranceClaims = (filters?: any) => 
-  api.get('/insurance-claims', { params: filters }).then(r => r.data);
-
-export const getInsuranceClaim = (id: string) => 
-  api.get(`/insurance-claims/${id}`).then(r => r.data);
-
-export const getClaimByAttendanceId = (attendanceId: string) => 
-  api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
 
 // ───── PATIENTS ─────
 export const getPatient = (id: string) => 
@@ -800,6 +794,24 @@ export const cancelRequisition = (id: string) =>
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) => 
   api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
 
+// ───── STOCK REPORTS ─────
+export const getStockValueSummary = () => 
+  api.get('/stock-items/reports/value-summary').then(r => r.data);
+
+export const getExpiryReport = (days?: number) => 
+  api.get('/stock-items/reports/expiry', { params: { days } }).then(r => r.data);
+
+export const getMovementSummary = (startDate?: string, endDate?: string) => 
+  api.get('/stock-items/reports/movement-summary', { params: { startDate, endDate } }).then(r => r.data);
+
+export const getUsageReport = (period?: string, limit?: number) => 
+  api.get('/stock-items/reports/usage', { params: { period, limit } }).then(r => r.data);
+
+export const getSupplierReport = () => 
+  api.get('/stock-items/reports/supplier').then(r => r.data);
+
+export const getRequisitionSummary = (startDate?: string, endDate?: string) => 
+  api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => r.data);
 // ============================================
 // REFERRAL API CALLS
 // ============================================
@@ -1309,16 +1321,27 @@ export const getNotificationStats = () =>
 export const createNotification = (data: any) => 
   api.post('/notifications', data).then(r => r.data);
 
-export const sendBulkNotification = (data: any) => 
-  api.post('/notifications/bulk', data).then(r => r.data);
-
-// Send notification to users by role
-export const sendRoleNotification = async (data: {
-  roles: string[];
+export const sendBulkNotification = async (data: {
+  userIds: string[];
+  senderId?: string;  // ✅ NEW
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'appointment' | 'billing' | 'clinical';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  type: string;
+  priority: string;
+  actionType?: string;
+  actionId?: string;
+  actionUrl?: string;
+}) => {
+  const response = await api.post('/notifications/bulk', data);
+  return response.data;
+};
+export const sendRoleNotification = async (data: {
+  roles: string[];
+  senderId?: string;  // ✅ NEW
+  title: string;
+  message: string;
+  type: string;
+  priority: string;
   actionType?: string;
   actionId?: string;
   actionUrl?: string;
@@ -1327,6 +1350,26 @@ export const sendRoleNotification = async (data: {
   const response = await api.post('/notifications/role', data);
   return response.data;
 };
+
+// src/api/index.ts - Add these functions
+
+export const sendUserMessage = (data: {
+  toUserId: string;
+  title: string;
+  message: string;
+  priority?: string;
+  actionUrl?: string;
+}) => api.post('/notifications/message', data).then(r => r.data);
+
+export const sendBulkUserMessages = (data: {
+  userIds: string[];
+  title: string;
+  message: string;
+  priority?: string;
+  actionUrl?: string;
+}) => api.post('/notifications/messages/bulk', data).then(r => r.data);
+
+export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
 
 // Trigger low stock check (admin only)
 export const triggerLowStockCheck = async () => {
@@ -1730,6 +1773,14 @@ getFinalizedClaimsTotal,
   getStockMovementReport,
   getLowStockAlerts,
   getStockItemTransactionHistory,
+
+    // In the export default object, add:
+  getStockValueSummary,
+  getExpiryReport,
+  getMovementSummary,
+  getUsageReport,
+  getSupplierReport,
+  getRequisitionSummary,
   
   // Consultation Types
   getConsultationTypes,

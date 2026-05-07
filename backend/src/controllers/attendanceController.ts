@@ -6,6 +6,7 @@ import { body, validationResult } from 'express-validator';
 // Import the services
 import { BillingService } from '../services/BillingService';
 import { InsuranceService } from '../services/InsuranceService';
+import { NHISClaimService } from '../services/NHISClaimService';
 
 const prisma = new PrismaClient();
 
@@ -952,6 +953,9 @@ export const getAttendanceById = async (req: Request, res: Response) => {
                 role: true
               }
             }
+          },
+          orderBy: {
+            diagnosisType: 'asc'  // ✅ Add this to show primary first, then additional, then provisional
           }
         },
         LabTest: {
@@ -988,7 +992,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
             }
           }
         },
-        Scan: {  // ✅ This must be present
+        Scan: {
           include: {
             ServiceCatalog: true
           }
@@ -1038,6 +1042,9 @@ export const getAttendanceById = async (req: Request, res: Response) => {
                 role: true
               }
             }
+          },
+          orderBy: {
+            recordedAt: 'desc'  // ✅ Show most recent vitals first
           }
         }
       }
@@ -1047,12 +1054,24 @@ export const getAttendanceById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Attendance not found' });
     }
 
+    // ✅ OPTIONAL: Extract primary and additional diagnoses for easier frontend consumption
+    const attendanceDiagnoses = attendance.AttendanceDiagnosis || [];
+    const primaryDiagnosis = attendanceDiagnoses.find(d => d.diagnosisType === 'primary');
+    const additionalDiagnoses = attendanceDiagnoses.filter(d => d.diagnosisType === 'additional');
+    const provisionalDiagnoses = attendanceDiagnoses.filter(d => d.diagnosisType === 'provisional');
+
     const attendanceWithFullName = {
       ...attendance,
       patient: attendance.Patient ? {
         ...attendance.Patient,
         fullName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim()
-      } : null
+      } : null,
+      // ✅ OPTIONAL: Add separated diagnoses for convenience
+      primaryDiagnosis,
+      additionalDiagnoses,
+      provisionalDiagnoses,
+      // ✅ Also keep the original array for backward compatibility
+      AttendanceDiagnosis: attendanceDiagnoses
     };
 
     res.json(attendanceWithFullName);
@@ -1061,6 +1080,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching attendance', error });
   }
 };
+
 
 // ✅ CREATE ATTENDANCE - UPDATED WITH SCHEMA FIXES
 export const createAttendance = [
@@ -1189,9 +1209,10 @@ export const createAttendance = [
             chronicDiagnoses.push({
               diagnosisId: d.diagnosisId,
               notes: `Carried forward from previous visit (${lastAttendance.attendanceNumber})`,
-              primary: false,
+              diagnosisType: 'additional',
               date: new Date(),
-              createdById: user.id
+              createdById: user.id,
+              icdCode: d.Diagnosis.icdCode
             });
           }
         }
@@ -1549,146 +1570,146 @@ export const createAttendance = [
       // Generate initial bill
       await BillingService.generateBillFromAttendance(attendance.id);
 
-// ==============================================
-// STEP 6: FETCH FULLY POPULATED ATTENDANCE
-// ==============================================
+      // ==============================================
+      // STEP 6: FETCH FULLY POPULATED ATTENDANCE
+      // ==============================================
 
-const populatedAttendance = await prisma.attendance.findUnique({
-  where: { id: attendance.id },
-  include: {
-    Patient: {
-      include: {
-        InsuranceProvider: true
-      }
-    },
-    User_Attendance_createdByIdToUser: {
-      select: {
-        id: true,
-        fullName: true,
-        username: true,
-        role: true
-      }
-    },
-    User_Attendance_updatedByIdToUser: {
-      select: {
-        id: true,
-        fullName: true,
-        username: true,
-        role: true
-      }
-    },
-    Admission: true,
-    Bill: true,
-    ServiceRendered: {
-      include: {
-        ServiceCatalog: true
-      }
-    },
-    AttendanceDiagnosis: {
-      include: {
-        Diagnosis: true
-      }
-    },
-    LabTest: {
-      include: {
-        ServiceCatalog: true
-      }
-    },
-    Medication: {
-      include: {
-        ServiceCatalog: true,
-        StockItem: true
-      }
-    },
-    Procedure: {
-      include: {
-        ServiceCatalog: true
-      }
-    },
-    Scan: {
-      include: {
-        ServiceCatalog: true
-      }
-    },
-    Vitals: {
-      orderBy: { recordedAt: 'desc' },
-      take: 5
-    },
-    InsuranceProvider: true,
-    Ward: true,
-    Bed: true
-  }
-});
-
-// Fetch ANC visits separately if needed
-let antenatalVisits = [];
-if (attendanceType === 'antenatal' && existingBooking) {
-  antenatalVisits = await prisma.aNCVisit.findMany({
-    where: { attendanceId: attendance.id },
-    include: {
-      booking: {
+      const populatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendance.id },
         include: {
-          patient: {
+          Patient: {
+            include: {
+              InsuranceProvider: true
+            }
+          },
+          User_Attendance_createdByIdToUser: {
             select: {
               id: true,
-              surname: true,
-              otherNames: true,
-              folderNumber: true
+              fullName: true,
+              username: true,
+              role: true
+            }
+          },
+          User_Attendance_updatedByIdToUser: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+              role: true
+            }
+          },
+          Admission: true,
+          Bill: true,
+          ServiceRendered: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          AttendanceDiagnosis: {
+            include: {
+              Diagnosis: true
+            }
+          },
+          LabTest: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Medication: {
+            include: {
+              ServiceCatalog: true,
+              StockItem: true
+            }
+          },
+          Procedure: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Scan: {
+            include: {
+              ServiceCatalog: true
+            }
+          },
+          Vitals: {
+            orderBy: { recordedAt: 'desc' },
+            take: 5
+          },
+          InsuranceProvider: true,
+          Ward: true,
+          Bed: true
+        }
+      });
+
+      // Fetch ANC visits separately if needed
+      let antenatalVisits = [];
+      if (attendanceType === 'antenatal' && existingBooking) {
+        antenatalVisits = await prisma.aNCVisit.findMany({
+          where: { attendanceId: attendance.id },
+          include: {
+            booking: {
+              include: {
+                patient: {
+                  select: {
+                    id: true,
+                    surname: true,
+                    otherNames: true,
+                    folderNumber: true
+                  }
+                }
+              }
+            },
+            recordedBy: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true
+              }
             }
           }
-        }
-      },
-      recordedBy: {
-        select: {
-          id: true,
-          fullName: true,
-          role: true
-        }
+        });
       }
+
+      // ==============================================
+      // STEP 7: RESPONSE
+      // ==============================================
+
+      const responseData: any = {
+        message: 'Attendance created successfully',
+        attendance: populatedAttendance,
+        categories: {
+          encounterCategory,
+          visitCategory: mapToNHISVisitCategory(req.body.attendanceType),
+          gdrgCategory,
+          serviceCategory
+        }
+      };
+
+      if (attendanceType === 'antenatal' && existingBooking) {
+        responseData.antenatal = {
+          bookingId: existingBooking.id,
+          isFirstVisit: isFirstAntenatalVisit,
+          visitNumber: existingBooking ? await prisma.aNCVisit.count({ where: { bookingId: existingBooking.id } }) + 1 : 1
+        };
+      }
+
+      if (attendanceType === 'delivery' && existingBooking) {
+        responseData.delivery = {
+          bookingId: existingBooking.id,
+          deliveryRecorded: true
+        };
+      }
+
+      res.status(201).json(responseData);
+    } catch (error) { 
+      console.error('Error creating attendance:', error);
+      res.status(500).json({ 
+        message: 'Error creating attendance', 
+        error: (error as Error).message 
+      });
     }
-  });
-}
-
-// ==============================================
-// STEP 7: RESPONSE
-// ==============================================
-
-const responseData: any = {
-  message: 'Attendance created successfully',
-  attendance: populatedAttendance,
-  categories: {
-    encounterCategory,
-    visitCategory: mapToNHISVisitCategory(req.body.attendanceType),
-    gdrgCategory,
-    serviceCategory
   }
-};
-
-if (attendanceType === 'antenatal' && existingBooking) {
-  responseData.antenatal = {
-    bookingId: existingBooking.id,
-    isFirstVisit: isFirstAntenatalVisit,
-    visitNumber: existingBooking ? await prisma.aNCVisit.count({ where: { bookingId: existingBooking.id } }) + 1 : 1
-  };
-}
-
-if (attendanceType === 'delivery' && existingBooking) {
-  responseData.delivery = {
-    bookingId: existingBooking.id,
-    deliveryRecorded: true
-  };
-}
-
-res.status(201).json(responseData);
-} catch (error) { 
-  console.error('Error creating attendance:', error);
-  res.status(500).json({ 
-    message: 'Error creating attendance', 
-    error: (error as Error).message 
-  });
-}
-} 
-];  
+];
 
 // ✅ UPDATE ATTENDANCE STATUS
 export const updateAttendanceStatus = [
@@ -1719,14 +1740,112 @@ export const updateAttendanceStatus = [
         updateData.followUpDate = new Date(followUpDate);
       }
 
+      // ✅ FIRST get the attendance with all needed includes BEFORE updating
+      const beforeAttendance = await prisma.attendance.findUnique({
+        where: { id: req.params.id },
+        include: {
+          Patient: true,
+          Bill: true,
+          AttendanceDiagnosis: {
+            include: { Diagnosis: true }
+          },
+          ServiceRendered: {
+            include: { ServiceCatalog: true }
+          }
+        }
+      });
+
+      if (!beforeAttendance) {
+        return res.status(404).json({ message: 'Attendance not found' });
+      }
+
+      // ✅ Update the attendance
       const attendance = await prisma.attendance.update({
         where: { id: req.params.id },
         data: updateData,
         include: {
           Patient: true,
-          Bill: true
+          Bill: true,
+          AttendanceDiagnosis: {
+            include: { Diagnosis: true }
+          },
+          ServiceRendered: {
+            include: { ServiceCatalog: true }
+          }
         }
       });
+
+      // ✅ AUTO-GENERATE CLAIM WHEN STATUS CHANGES TO COMPLETED
+      if (status === 'completed' && 
+          (beforeAttendance.paymentMode === 'nhis' || beforeAttendance.paymentMode === 'private_insurance')) {
+        
+        // Check if claim already exists
+        const existingClaim = await prisma.insuranceClaim.findFirst({
+          where: { attendanceId: attendance.id }
+        });
+        
+        if (!existingClaim) {
+          try {
+            if (beforeAttendance.paymentMode === 'nhis') {
+              const nhisProvider = await prisma.insuranceProvider.findFirst({
+                where: { type: 'nhis', isActive: true }
+              });
+              
+              if (nhisProvider && beforeAttendance.nhisCCC) {
+                const patientAge = calculateAgeAtAttendance(
+                  beforeAttendance.Patient.dateOfBirth, 
+                  beforeAttendance.dateTime
+                );
+                
+                const gdrgTariff = await NHISClaimService.resolveGDRGByContext(
+                  beforeAttendance,  // Use the pre-update attendance with includes
+                  patientAge
+                );
+                
+                const claimNumber = `NHIS-AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+                
+                await prisma.insuranceClaim.create({
+                  data: {
+                    claimNumber,
+                    attendanceId: attendance.id,
+                    patientId: attendance.patientId,
+                    insuranceProviderId: nhisProvider.id,
+                    totalClaimAmount: gdrgTariff?.nhiaTariff || 0,
+                    status: 'draft',
+                    diagnosisCodes: beforeAttendance.AttendanceDiagnosis
+                      .filter(d => d.diagnosisType === 'primary')
+                      .map(d => d.Diagnosis?.icdCode),
+                    gdrgCodes: gdrgTariff ? [gdrgTariff.gdrgCode] : [],
+                    nhisServiceCodes: gdrgTariff ? [gdrgTariff.nhisServiceCode] : [],
+                    notes: `Auto-generated on completion. CCC: ${beforeAttendance.nhisCCC}`
+                  }
+                });
+                
+                console.log(`✅ Auto-generated NHIS claim for attendance ${attendance.attendanceNumber}`);
+              }
+            } else if (beforeAttendance.paymentMode === 'private_insurance' && beforeAttendance.insuranceProviderId) {
+              await prisma.insuranceClaim.create({
+                data: {
+                  claimNumber: `PVT-AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                  attendanceId: attendance.id,
+                  patientId: attendance.patientId,
+                  insuranceProviderId: beforeAttendance.insuranceProviderId,
+                  totalClaimAmount: beforeAttendance.Bill?.totalAmount || 0,
+                  status: 'draft',
+                  diagnosisCodes: beforeAttendance.AttendanceDiagnosis
+                    .filter(d => d.diagnosisType === 'primary')
+                    .map(d => d.Diagnosis?.icdCode),
+                  notes: `Auto-generated on completion`
+                }
+              });
+              console.log(`✅ Auto-generated private insurance claim for attendance ${attendance.attendanceNumber}`);
+            }
+          } catch (claimError) {
+            console.error('Failed to auto-generate claim:', claimError);
+            // Don't fail the attendance update if claim generation fails
+          }
+        }
+      }
 
       res.json(attendance);
     } catch (error) {
@@ -1736,10 +1855,11 @@ export const updateAttendanceStatus = [
   }
 ];
 
-// attendanceController.ts - IMPROVED VERSION
+// attendanceController.ts - FIXED addDiagnosisToAttendance
 export const addDiagnosisToAttendance = [
   body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
   body('diagnosisType').optional().isIn(['provisional', 'primary', 'additional']).withMessage('Valid diagnosis type required'),
+  
   async (req: Request, res: Response) => {
     try {
       const errors = validationResult(req);
@@ -1747,11 +1867,11 @@ export const addDiagnosisToAttendance = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { diagnosisId, notes, primary, diagnosisType } = req.body;
+      const { diagnosisId, notes, diagnosisType } = req.body;
       const user = (req as any).user;
       
-      // Determine the final diagnosis type
-      const finalDiagnosisType = diagnosisType || (primary ? 'primary' : 'provisional');
+      // ✅ diagnosisType is required - default to 'provisional' if not provided
+      const finalDiagnosisType = diagnosisType || 'provisional';
 
       const diagnosis = await prisma.diagnosis.findUnique({
         where: { id: diagnosisId }
@@ -1777,20 +1897,50 @@ export const addDiagnosisToAttendance = [
             diagnosisType: 'primary'
           },
           data: { 
-            primary: false, 
             diagnosisType: 'additional'  // Convert previous primary to additional
           }
         });
       }
 
-      // ✅ Create diagnosis with type
+      // ✅ Check if diagnosis already exists for this attendance
+      const existingDiagnosis = await prisma.attendanceDiagnosis.findFirst({
+        where: {
+          attendanceId: req.params.id,
+          diagnosisId: diagnosisId
+        }
+      });
+
+      if (existingDiagnosis) {
+        // If exists, update its type
+        const updated = await prisma.attendanceDiagnosis.update({
+          where: { id: existingDiagnosis.id },
+          data: {
+            diagnosisType: finalDiagnosisType,
+            notes: notes || existingDiagnosis.notes
+          },
+          include: { Diagnosis: true }
+        });
+        
+        const updatedAttendance = await prisma.attendance.findUnique({
+          where: { id: req.params.id },
+          include: {
+            AttendanceDiagnosis: {
+              include: { Diagnosis: true }
+            },
+            Bill: true
+          }
+        });
+        
+        return res.json(updatedAttendance);
+      }
+
+      // ✅ Create new diagnosis with type (NO `primary` field)
       const newDiagnosis = await prisma.attendanceDiagnosis.create({
         data: {
           attendanceId: req.params.id,
           diagnosisId,
           notes: notes || '',
-          primary: finalDiagnosisType === 'primary',
-          diagnosisType: finalDiagnosisType,
+          diagnosisType: finalDiagnosisType,  // ✅ Use diagnosisType only
           date: new Date(),
           createdById: user.id,
           icdCode: diagnosis.icdCode
@@ -1801,9 +1951,7 @@ export const addDiagnosisToAttendance = [
         where: { id: req.params.id },
         include: {
           AttendanceDiagnosis: {
-            include: {
-              Diagnosis: true
-            }
+            include: { Diagnosis: true }
           },
           Bill: true
         }
@@ -1817,19 +1965,93 @@ export const addDiagnosisToAttendance = [
   }
 ];
 
+// ✅ NEW: Set a diagnosis as primary (converts existing primary to additional)
+export const setPrimaryDiagnosis = [
+  body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
+  
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { id: attendanceId } = req.params;
+      const { diagnosisId } = req.body;
+
+      // Start transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Convert any existing primary to additional
+        await tx.attendanceDiagnosis.updateMany({
+          where: {
+            attendanceId: attendanceId,
+            diagnosisType: 'primary'
+          },
+          data: { diagnosisType: 'additional' }
+        });
+
+        // 2. Set the new primary diagnosis
+        const updated = await tx.attendanceDiagnosis.update({
+          where: { id: diagnosisId },
+          data: { diagnosisType: 'primary' },
+          include: { Diagnosis: true }
+        });
+
+        return updated;
+      });
+
+      // 3. Return updated attendance
+      const updatedAttendance = await prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        include: {
+          AttendanceDiagnosis: {
+            include: { Diagnosis: true }
+          }
+        }
+      });
+
+      res.json({
+        message: 'Primary diagnosis updated successfully',
+        attendance: updatedAttendance
+      });
+    } catch (error) {
+      console.error('Error setting primary diagnosis:', error);
+      res.status(500).json({ 
+        message: 'Error setting primary diagnosis', 
+        error: (error as Error).message 
+      });
+    }
+  }
+];
+
 export const removeDiagnosisFromAttendance = async (req: Request, res: Response) => {
   try {
+    const { id: attendanceId, diagnosisId } = req.params;
+
+    // ✅ Don't allow removing primary diagnosis
+    const diagnosisToRemove = await prisma.attendanceDiagnosis.findUnique({
+      where: { id: diagnosisId }
+    });
+
+    if (!diagnosisToRemove) {
+      return res.status(404).json({ message: 'Diagnosis not found' });
+    }
+
+    if (diagnosisToRemove.diagnosisType === 'primary') {
+      return res.status(400).json({ 
+        message: 'Cannot remove primary diagnosis. Please set another diagnosis as primary first.' 
+      });
+    }
+
     await prisma.attendanceDiagnosis.delete({
-      where: { id: req.params.diagnosisId }
+      where: { id: diagnosisId }
     });
 
     const updatedAttendance = await prisma.attendance.findUnique({
-      where: { id: req.params.id },
+      where: { id: attendanceId },
       include: {
         AttendanceDiagnosis: {
-          include: {
-            Diagnosis: true
-          }
+          include: { Diagnosis: true }
         }
       }
     });

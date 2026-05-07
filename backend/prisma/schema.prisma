@@ -842,47 +842,29 @@ model Diagnosis {
   tariffCode            String?
   isChronic             Boolean             @default(false)
   isNHISCovered         Boolean             @default(true)
-
-  // ✅ GHS Morbidity Group (for DHIMS2 reporting) - ONLY classification needed
   morbidityGroup        MorbidityGroup
-
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
-  // Relations for NHIS G-DRG (via junction table)
   gdrgTariffDiagnoses   GDRGTariffDiagnosis[]
-
-  // Other relations
-  Admission                   Admission[]
-  AdmissionSecondaryDiagnosis AdmissionSecondaryDiagnosis[]
-  AttendanceDiagnosis         AttendanceDiagnosis[]
-  ServiceCatalog              ServiceCatalog[]
+  attendanceDiagnoses   AttendanceDiagnosis[]  // ✅ This is all you need
+  ServiceCatalog        ServiceCatalog[]
 
   @@index([icdCode])
   @@index([morbidityGroup])
 }
 
-enum DiagnosisTypeEnum {
-  provisional   // Doctor's working diagnosis (not confirmed)
-  primary       // Main confirmed diagnosis
-  additional    // Secondary / co-morbid conditions
-}
-
 model AttendanceDiagnosis {
-  id                 String              @id @default(cuid())
+  id                 String          @id @default(cuid())
   attendanceId       String
   diagnosisId        String
-  primary            Boolean             @default(false)
+  diagnosisType      DiagnosisType   @default(provisional)  // primary, additional, provisional
   notes              String?
-  date               DateTime            @default(now())
+  date               DateTime        @default(now())
   createdById        String
   icdCode            String?
-  
-  // ✅ ADD THIS FIELD - Diagnosis type
-  diagnosisType      DiagnosisTypeEnum   @default(provisional)  // provisional, primary, additional
-  
-  presentOnAdmission PresentOnAdmission?
-  createdAt          DateTime            @default(now())
+  presentOnAdmission PresentOnAdmission?  // ✅ Keep this for admissions
+  createdAt          DateTime        @default(now())
 
   Attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   User       User       @relation(fields: [createdById], references: [id])
@@ -890,6 +872,7 @@ model AttendanceDiagnosis {
 
   @@index([attendanceId])
   @@index([diagnosisId])
+  @@index([diagnosisType])
 }
 
 
@@ -1141,7 +1124,7 @@ model Admission {
   id                          String             @id @default(cuid())
   admissionNumber             String             @unique
   patientId                   String
-  attendanceId                String?            @unique
+  attendanceId                String?            @unique  // ✅ Link to attendance
   wardId                      String
   bedId                       String
   admissionDate               DateTime
@@ -1159,40 +1142,28 @@ model Admission {
   admissionSource             AdmissionSource    @default(home)
   dischargeStatus             DischargeStatus?
   lengthOfStay                Int                @default(0)
-  principalDiagnosisId        String
-  principalIcdCode            String
-  principalPresentOnAdmission PresentOnAdmission @default(Y)
+  
+  // ❌ REMOVE these fields - they're redundant
+  // primaryAttendanceDiagnosisId String?           
+  // principalIcdCode            String
+  // principalPresentOnAdmission PresentOnAdmission
+  
   createdAt                   DateTime           @default(now())
   updatedAt                   DateTime           @default(now())
 
+  // Relations
   Attendance                  Attendance?                   @relation(fields: [attendanceId], references: [id])
   Bed                         Bed                           @relation(fields: [bedId], references: [id])
   Patient                     Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  Diagnosis                   Diagnosis                     @relation(fields: [principalDiagnosisId], references: [id])
   Ward                        Ward                          @relation(fields: [wardId], references: [id])
-  AdmissionSecondaryDiagnosis AdmissionSecondaryDiagnosis[]
   Bill                        Bill[]
-  deliveryRecords             DeliveryRecord[] // ✅ Changed from deliveryRecord
+  deliveryRecords             DeliveryRecord[]
 
   @@index([admissionNumber])
   @@index([patientId])
   @@index([status])
 }
 
-model AdmissionSecondaryDiagnosis {
-  id                 String                 @id @default(cuid())
-  admissionId        String
-  diagnosisId        String
-  icdCode            String
-  presentOnAdmission PresentOnAdmission     @default(Y)
-  diagnosisType      SecondaryDiagnosisType
-  createdAt          DateTime               @default(now())
-
-  Admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  Diagnosis Diagnosis @relation(fields: [diagnosisId], references: [id])
-
-  @@unique([admissionId, diagnosisId, diagnosisType])
-}
 
 model Ward {
   id                    String   @id @default(cuid())
@@ -1883,7 +1854,6 @@ model User {
   ServiceRendered                                 ServiceRendered[]
   Vitals                                          Vitals[]
   doctorAppointments                              Appointment[]             @relation("DoctorAppointments")
-  notifications                                   Notification[]
   AuditLog                                        AuditLog[]
   ReportExecution                                 ReportExecution[]
   DocumentTemplate                                DocumentTemplate[]
@@ -1904,6 +1874,9 @@ model User {
   antenatalBookingsCreated                        AntenatalBooking[]
   postnatalRecords                                PostnatalRecord[]
 
+  // ✅ Add these for notification relations
+  notificationsReceived  Notification[] @relation("ReceivedNotifications")  // Notifications sent TO this user
+  notificationsSent      Notification[] @relation("SentNotifications")      // Notifications sent FROM this user
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
@@ -1911,23 +1884,29 @@ model User {
 }
 
 model Notification {
-  id         String               @id @default(cuid())
-  userId     String
-  title      String
-  message    String
-  type       NotificationType     @default(info)
-  priority   NotificationPriority @default(medium)
-  actionType String?
-  actionId   String?
-  actionUrl  String?
-  isRead     Boolean              @default(false)
-  isArchived Boolean              @default(false)
-  createdAt  DateTime             @default(now())
-  readAt     DateTime?
+  id            String             @id @default(cuid())
+  userId        String             
+  senderId      String?            
+  title         String
+  message       String
+  type          NotificationType
+  priority      NotificationPriority
+  actionType    String?
+  actionId      String?
+  actionUrl     String?
+  isRead        Boolean            @default(false)
+  isArchived    Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  readAt        DateTime?
+  updatedAt     DateTime           @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User               @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sender        User?              @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
 
-  @@map("notifications")
+  @@index([userId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([isRead])
 }
 
 model ServiceRendered {
@@ -2226,11 +2205,6 @@ enum PresentOnAdmission {
   U
 }
 
-enum SecondaryDiagnosisType {
-  comorbidity
-  complication
-}
-
 enum AttendanceType {
   emergency_acute
   antenatal
@@ -2372,9 +2346,9 @@ enum ScanPriority {
 }
 
 enum DiagnosisType {
-  principal
-  secondary
-  comorbidity
+  provisional
+  primary
+  additional
 }
 
 enum AppointmentStatus {
@@ -2468,13 +2442,6 @@ enum BodyPart {
   extremities
   breast
   other
-}
-
-enum DiagnosisVariant {
-  adult
-  child
-  complicated
-  uncomplicated
 }
 
 enum ProcedureCategory {

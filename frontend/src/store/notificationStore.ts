@@ -27,6 +27,7 @@ interface NotificationStore {
   isLoading: boolean;
   error: string | null;
   pagination: Pagination | null;
+  conversations: any[];
   
   // Existing actions
   getNotifications: (filters?: any) => Promise<void>;
@@ -37,7 +38,10 @@ interface NotificationStore {
   getNotificationStats: () => Promise<void>;
   createNotification: (data: any) => Promise<void>;
   sendBulkNotification: (data: any) => Promise<void>;
-  
+    // ... existing actions ...
+  sendUserMessage: (data: any) => Promise<void>;
+  sendBulkUserMessages: (data: any) => Promise<void>;
+  getConversations: () => Promise<void>;
   // ✅ ADD THESE NEW ACTIONS
   sendRoleNotification: (data: {
     roles: string[];
@@ -67,6 +71,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   isLoading: false,
   error: null,
   pagination: null,
+  conversations: [],
 
 
   getNotifications: async (filters?: any) => {
@@ -113,6 +118,42 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         isLoading: false 
       });
       throw error; // ✅ ADDED: Re-throw for component handling
+    }
+  },
+
+  sendUserMessage: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSendUserMessage(data);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to send message', isLoading: false });
+      throw error;
+    }
+  },
+
+  sendBulkUserMessages: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSendBulkUserMessages(data);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to send messages', isLoading: false });
+      throw error;
+    }
+  },
+
+  getConversations: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetConversations();
+      const conversations = response.data || response;
+      set({ conversations, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to fetch conversations', isLoading: false });
+      throw error;
     }
   },
 
@@ -224,8 +265,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       throw error;
     }
   },
-
-  // ✅ ADD NEW ACTIONS:
 
   sendRoleNotification: async (data) => {
     set({ isLoading: true, error: null });

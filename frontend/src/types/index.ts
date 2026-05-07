@@ -26,8 +26,7 @@ export type AttendanceType =
   | 'chronic_followup'
   | 'specialist_consultation'
   | 'delivery'
-  | 'surgery'
-  | 'general_consultation';
+  | 'surgery';
 
 export type AttendanceStatus = 'pending' | 'completed' | 'cancelled' | 'admitted' | 'discharged';
 export type EncounterCategory = 'opd' | 'ipd' | 'daycase';
@@ -1441,6 +1440,47 @@ export interface MalariaReport {
     rdt: number;
     rdtPositive: number;
   };
+}
+
+// src/types/index.ts
+
+export interface Notification {
+  id: string;
+  userId: string;
+  senderId?: string;
+  sender?: {
+    id: string;
+    fullName: string;
+    role: string;
+  };
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'appointment' | 'billing' | 'clinical';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  actionType?: string;
+  actionId?: string;
+  actionUrl?: string;
+  isRead: boolean;
+  isArchived?: boolean;
+  createdAt: string;
+  readAt?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  read: number;
+  byType: Record<string, number>;
+  byPriority: Record<string, number>;
+  unreadPercentage: number;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
 }
 
 // ======================

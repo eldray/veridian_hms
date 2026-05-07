@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useThemeStore } from '../store/themeStore';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
   Hospital,
   LayoutDashboard,
@@ -147,6 +148,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showClearReadConfirm, setShowClearReadConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const { mode, toggleMode } = useThemeStore();
 
@@ -158,6 +164,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     notifications, 
     unreadCount, 
     getNotifications, 
+    deleteNotification,
     markAsRead, 
     markAllAsRead,
     isLoading: notificationsLoading 
@@ -197,9 +204,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => clearInterval(interval);
   }, [getNotifications]);
 
+
   const handleLogout = () => {
-    logout();
-    navigate('/');
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
+
+  const handleClearReadNotifications = async () => {
+    setIsDeleting(true);
+    try {
+      const readNotifications = notifications.filter(n => n.isRead);
+      for (const notification of readNotifications) {
+        await deleteNotification(notification.id);
+      }
+      await getNotifications({ limit: 10 });
+      setShowClearReadConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    setIsDeleting(true);
+    try {
+      for (const notification of notifications) {
+        await deleteNotification(notification.id);
+      }
+      await getNotifications({ limit: 10 });
+      setShowDeleteAllConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -326,14 +371,27 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-sm text-[var(--text-primary)]">Notifications</h3>
-                      {(unreadCount > 0 || (notifications?.filter(n => !n.isRead)?.length > 0)) && (
-                        <button 
-                          onClick={() => markAllAsRead()}
-                          className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
-                        >
-                          Mark all read
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {(unreadCount > 0 || (notifications?.filter(n => !n.isRead)?.length > 0)) && (
+                          <button 
+                            onClick={async () => {
+                              await markAllAsRead();
+                              await getNotifications({ limit: 10 });
+                            }}
+                            className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        {notifications && notifications.length > 0 && (
+                          <button 
+                            onClick={() => setShowDeleteAllConfirm(true)}
+                            className="text-xs text-red-500 hover:text-red-600 font-medium"
+                          >
+                            Delete all
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto custom-scrollbar">
@@ -344,68 +402,97 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       </div>
                     ) : notifications && notifications.length > 0 ? (
                       notifications.slice(0, 10).map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`p-3 border-b border-[var(--border-color)] cursor-pointer transition-all ${
-                              !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/10' : 'hover:bg-[var(--bg-main)]'
-                            }`}
-                            onClick={() => {
-                              // Mark as read first
-                              if (!notification.isRead) {
-                                markAsRead(notification.id);
-                              }
-                              
-                              // Close dropdown
-                              setNotificationDropdownOpen(false);
-                              
-                              // Navigate if actionUrl exists
-                              if (notification.actionUrl) {
-                                // Ensure the URL starts with /dashboard if it's a relative path
-                                let targetUrl = notification.actionUrl;
-                                if (targetUrl.startsWith('/')) {
-                                  // Already absolute path
-                                  navigate(targetUrl);
-                                } else if (targetUrl.startsWith('http')) {
-                                  // External link
-                                  window.open(targetUrl, '_blank');
-                                } else {
-                                  // Relative path - prepend /dashboard/
-                                  navigate(`/dashboard/${targetUrl}`);
-                                }
-                              } else {
-                                // Navigate to notifications page as fallback
-                                navigate('/dashboard/notifications');
-                              }
-                            }}
-                          >
+                        <div
+                          key={notification.id}
+                          className={`p-3 border-b border-[var(--border-color)] transition-all ${
+                            !notification.isRead ? 'bg-[var(--icon-cyan-bg)]/10' : 'hover:bg-[var(--bg-main)]'
+                          }`}
+                        >
                           <div className="flex items-start gap-2.5">
-                            <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
-                              notification.isRead 
-                                ? 'bg-[var(--text-tertiary)]' 
-                                : 'bg-[var(--icon-cyan-text)]'
-                            }`} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-[var(--text-primary)]">
-                                {notification.title}
-                              </p>
-                              <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--text-secondary)]">
-                                {notification.message}
-                              </p>
-                              <p className="text-[10px] mt-1 text-[var(--text-tertiary)]">
-                                {formatNotificationDate(notification.createdAt)}
-                              </p>
-                            </div>
-                            {!notification.isRead && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                            {/* Clickable content area */}
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer"
+                              onClick={() => {
+                                // Mark as read first if unread
+                                if (!notification.isRead) {
                                   markAsRead(notification.id);
+                                }
+                                
+                                // Close dropdown
+                                setNotificationDropdownOpen(false);
+                                
+                                // Navigate if actionUrl exists
+                                if (notification.actionUrl) {
+                                  let targetUrl = notification.actionUrl;
+                                  if (targetUrl.startsWith('/')) {
+                                    navigate(targetUrl);
+                                  } else if (targetUrl.startsWith('http')) {
+                                    window.open(targetUrl, '_blank');
+                                  } else {
+                                    navigate(`/dashboard/${targetUrl}`);
+                                  }
+                                } else {
+                                  navigate('/dashboard/notifications');
+                                }
+                              }}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                                  notification.isRead 
+                                    ? 'bg-[var(--text-tertiary)]' 
+                                    : 'bg-[var(--icon-cyan-text)]'
+                                }`} />
+                                {/* In the notification item */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-xs font-semibold text-[var(--text-primary)]">
+                                      {notification.title}
+                                    </p>
+                                    {notification.sender && (
+                                      <span className="text-[9px] text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                                        from: {notification.sender.fullName.split(' ')[0]}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--text-secondary)]">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-[10px] mt-1 text-[var(--text-tertiary)]">
+                                    {formatNotificationDate(notification.createdAt)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {!notification.isRead && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await markAsRead(notification.id);
+                                    await getNotifications({ limit: 10 });
+                                  }}
+                                  className="p-1 text-[var(--text-tertiary)] hover:text-green-600 transition-colors rounded"
+                                  title="Mark as read"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm('Delete this notification?')) {
+                                    await deleteNotification(notification.id);
+                                    await getNotifications({ limit: 10 });
+                                  }
                                 }}
-                                className="text-[10px] text-[var(--icon-cyan-text)] hover:underline"
+                                className="p-1 text-[var(--text-tertiary)] hover:text-red-600 transition-colors rounded"
+                                title="Delete"
                               >
-                                Mark read
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -417,14 +504,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                   </div>
                   {notifications && notifications.length > 0 && (
-                    <div className="p-2 border-t border-[var(--border-color)]">
+                    <div className="p-2 border-t border-[var(--border-color)] flex gap-2">
                       <Link
                         to="/dashboard/notifications"
-                        className="block text-center text-xs py-1.5 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
+                        className="flex-1 text-center text-xs py-1.5 text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
                         onClick={() => setNotificationDropdownOpen(false)}
                       >
-                        View all notifications
+                        View all
                       </Link>
+                      {notifications.filter(n => n.isRead).length > 0 && (
+                        <button
+                          onClick={() => setShowClearReadConfirm(true)}
+                          className="flex-1 text-center text-xs py-1.5 text-red-500 hover:text-red-600 font-medium"
+                        >
+                          Clear read
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -602,6 +697,43 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+
+            {/* Confirmation Modals */}
+            <ConfirmationModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={confirmLogout}
+        title="Sign Out"
+        message="Are you sure you want to sign out? You will need to log in again to access your account."
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        type="warning"
+        isLoading={isLoggingOut}
+      />
+
+      <ConfirmationModal
+        isOpen={showClearReadConfirm}
+        onClose={() => setShowClearReadConfirm(false)}
+        onConfirm={handleClearReadNotifications}
+        title="Clear Read Notifications"
+        message={`This will permanently delete ${notifications?.filter(n => n.isRead).length || 0} read notification(s). This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteAllConfirm}
+        onClose={() => setShowDeleteAllConfirm(false)}
+        onConfirm={handleDeleteAllNotifications}
+        title="Delete All Notifications"
+        message={`This will permanently delete all ${notifications?.length || 0} notification(s). This action cannot be undone.`}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

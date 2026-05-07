@@ -231,7 +231,11 @@ export const createGDRGTariff = async (req: AuthRequest, res: Response) => {
       allowsAddOn,
       effectiveFrom,
       effectiveTo,
-      notes
+      notes,
+      encounterCategory,
+      attendanceTypes,
+      isAntenatal,
+      isDelivery
     } = req.body;
 
     // Validate required fields
@@ -270,7 +274,12 @@ export const createGDRGTariff = async (req: AuthRequest, res: Response) => {
         effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
         effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
         notes: notes || null,
-        isActive: true
+        isActive: true,
+        // ✅ Add schema fields
+        encounterCategory: encounterCategory || null,
+        attendanceTypes: attendanceTypes || [],
+        isAntenatal: isAntenatal || false,
+        isDelivery: isDelivery || false
       }
     });
 

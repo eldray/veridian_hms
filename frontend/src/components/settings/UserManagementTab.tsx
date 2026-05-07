@@ -6,12 +6,14 @@ import { useToast } from '../../store/toastStore';
 import { Search, Plus, User, Mail, Phone, Shield, Edit, Ban, Activity, Loader, AlertCircle, X, CheckCircle } from 'lucide-react';
 import UserRegistrationModal from '../UserRegistrationModal';
 import UserEditModal from '../UserEditModal';
+import { UserMessageModal } from '../UserMessageModal';
 
 export default function UserManagementTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingUser, setEditingUser] = useState<any>(null);
   const [deactivatingUser, setDeactivatingUser] = useState<any>(null);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [messageUser, setMessageUser] = useState<{ id: string; name: string } | null>(null);
   
   const { 
     users, 
@@ -86,7 +88,6 @@ export default function UserManagementTab() {
       success('User Deactivated', `${deactivatingUser.fullName} has been deactivated`);
       await loadUsers();
     } catch (err) {
-      // Error handled by store
     }
   };
 
@@ -266,6 +267,16 @@ export default function UserManagementTab() {
           onSave={handleEditUser}
           onClose={() => setEditingUser(null)}
           isLoading={isLoading}
+        />
+      )}
+
+      // Add modal at the end
+      {messageUser && (
+        <UserMessageModal
+          isOpen={true}
+          onClose={() => setMessageUser(null)}
+          recipientId={messageUser.id}
+          recipientName={messageUser.name}
         />
       )}
 

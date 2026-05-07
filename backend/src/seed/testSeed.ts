@@ -1,6 +1,6 @@
-// src/seed/testSeed.ts - UPDATED VERSION (No gdrgGroupCode or gdrgCode)
+// src/seed/testSeed.ts - UPDATED FOR SIMPLIFIED SCHEMA
 
-import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, SecondaryDiagnosisType, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, MorbidityGroup } from '@prisma/client';
+import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, MorbidityGroup } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -49,7 +49,7 @@ const hasTestData = async (): Promise<boolean> => {
   }
 };
 
-// ✅ Delete test data
+// ✅ Delete test data - UPDATED (removed AdmissionSecondaryDiagnosis)
 export const deleteTestData = async (force: boolean = false) => {
   if (isProduction && !force) {
     return { success: false, message: 'Disabled in production', productionSafety: true };
@@ -104,14 +104,7 @@ export const deleteTestData = async (force: boolean = false) => {
       await prisma.bill.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
     }
 
-    // Delete admissions
-    const testAdmissions = await prisma.admission.findMany({
-      where: { patientId: { in: testPatientIds } },
-      select: { id: true }
-    });
-    for (const adm of testAdmissions) {
-      await prisma.admissionSecondaryDiagnosis.deleteMany({ where: { admissionId: adm.id } });
-    }
+    // Delete admissions (NO AdmissionSecondaryDiagnosis to delete)
     await prisma.admission.deleteMany({ where: { patientId: { in: testPatientIds } } });
 
     // Reset beds
@@ -137,7 +130,7 @@ export const deleteTestData = async (force: boolean = false) => {
   }
 };
 
-// ✅ Seed test data
+// ✅ Seed test data - UPDATED FOR SIMPLIFIED SCHEMA
 export const seedTestData = async (force: boolean = false) => {
   if (!SEEDING_ENABLED) {
     return { success: false, message: 'Seeding disabled', seedingDisabled: true };
@@ -210,42 +203,6 @@ export const seedTestData = async (force: boolean = false) => {
     const hypertensionDiag = await prisma.diagnosis.findFirst({
       where: { OR: [{ icdCode: 'I10' }, { name: { contains: 'hypertension', mode: 'insensitive' } }] },
     });
-
-    if (!malariaDiag || !anemiaDiag || !hypertensionDiag) {
-      console.log('⚠️ Some diagnoses not found, creating fallback diagnoses...');
-      
-      if (!malariaDiag) {
-        await prisma.diagnosis.upsert({
-          where: { icdCode: 'B54' },
-          create: {
-            name: 'Malaria, unspecified',
-            icdCode: 'B54',
-            morbidityGroup: 'uncomplicated_malaria_suspected',
-            isActive: true,
-            requiresAuthorization: false,
-            isChronic: false,
-            isNHISCovered: true,
-          },
-          update: {},
-        });
-      }
-      
-      if (!hypertensionDiag) {
-        await prisma.diagnosis.upsert({
-          where: { icdCode: 'I10' },
-          create: {
-            name: 'Essential hypertension',
-            icdCode: 'I10',
-            morbidityGroup: 'hypertension',
-            isActive: true,
-            requiresAuthorization: false,
-            isChronic: true,
-            isNHISCovered: true,
-          },
-          update: {},
-        });
-      }
-    }
 
     // Find services
     const generalConsult = await prisma.serviceCatalog.findFirst({ 
@@ -345,18 +302,17 @@ export const seedTestData = async (force: boolean = false) => {
       },
     });
 
-    // Add diagnosis - ✅ NO gdrgCode field
+    // ✅ FIXED: Add diagnosis using diagnosisType (no primary boolean, no diagnosisType enum)
     const finalMalariaDiag = malariaDiag || await prisma.diagnosis.findFirst({ where: { icdCode: 'B54' } });
     await prisma.attendanceDiagnosis.create({
       data: {
         attendanceId: nhisAttendance.id,
         diagnosisId: finalMalariaDiag!.id,
-        primary: true,
+        diagnosisType: DiagnosisType.primary,  // ✅ Use DiagnosisType enum
         date: new Date(),
         createdById: doctor.id,
         icdCode: 'B54',
         presentOnAdmission: PresentOnAdmission.Y,
-        diagnosisType: DiagnosisType.principal,
       }
     });
 
@@ -412,7 +368,7 @@ export const seedTestData = async (force: boolean = false) => {
       },
     });
 
-    // Create insurance claim - ✅ Added gdrgCodes and nhisServiceCodes
+    // Create insurance claim
     await prisma.insuranceClaim.create({
       data: {
         claimNumber: `CLAIM-${Date.now()}`,
@@ -427,8 +383,8 @@ export const seedTestData = async (force: boolean = false) => {
         labTestCodes: [],
         serviceCodes: [generalConsult.code],
         scanCodes: [],
-        gdrgCodes: ['OPDC06A'], // ✅ ADDED: Context-based GDRG for OPD
-        nhisServiceCodes: ['OPDC06A'], // ✅ ADDED: NHIS service code
+        gdrgCodes: ['OPDC06A'],
+        nhisServiceCodes: ['OPDC06A'],
         submissionDate: new Date(),
         preAuthNumber: 'PA-2024-001',
         notes: 'Malaria treatment claim',
@@ -463,12 +419,11 @@ export const seedTestData = async (force: boolean = false) => {
       data: {
         attendanceId: cashAttendance.id,
         diagnosisId: finalHypertensionDiag!.id,
-        primary: true,
+        diagnosisType: DiagnosisType.primary,  // ✅ Use DiagnosisType.primary
         date: new Date(),
         createdById: doctor.id,
         icdCode: 'I10',
         presentOnAdmission: PresentOnAdmission.Y,
-        diagnosisType: DiagnosisType.principal,
       }
     });
 
@@ -678,7 +633,7 @@ export const seedTestData = async (force: boolean = false) => {
     });
     console.log('✅ Appointment seeded');
 
-    // =============== 11. ADMISSION ===============
+    // =============== 11. ADMISSION - UPDATED (No principal fields) ===============
     const generalWard = await prisma.ward.findFirst({ where: { wardType: 'general' } });
     if (generalWard) {
       const bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
@@ -701,22 +656,56 @@ export const seedTestData = async (force: boolean = false) => {
             admissionType: AdmissionType.elective,
             admissionSource: AdmissionSource.opd,
             lengthOfStay: 1,
-            principalDiagnosisId: finalHypertensionDiag!.id,
-            principalIcdCode: 'I10',
-            principalPresentOnAdmission: PresentOnAdmission.Y,
+            // ✅ REMOVED: principalDiagnosisId, principalIcdCode, principalPresentOnAdmission
+            // These are now handled through AttendanceDiagnosis
           },
         });
 
-        if (anemiaDiag) {
-          await prisma.admissionSecondaryDiagnosis.create({
+        // ✅ Add primary diagnosis through AttendanceDiagnosis if not already present
+        const existingPrimary = await prisma.attendanceDiagnosis.findFirst({
+          where: {
+            attendanceId: cashAttendance.id,
+            diagnosisType: DiagnosisType.primary
+          }
+        });
+
+        if (!existingPrimary && finalHypertensionDiag) {
+          await prisma.attendanceDiagnosis.create({
             data: {
-              admissionId: admission.id,
-              diagnosisId: anemiaDiag.id,
-              icdCode: anemiaDiag.icdCode,
-              diagnosisType: SecondaryDiagnosisType.comorbidity,
+              attendanceId: cashAttendance.id,
+              diagnosisId: finalHypertensionDiag.id,
+              diagnosisType: DiagnosisType.primary,
+              icdCode: finalHypertensionDiag.icdCode,
               presentOnAdmission: PresentOnAdmission.Y,
-            },
+              createdById: doctor.id,
+              date: new Date(),
+            }
           });
+        }
+
+        // ✅ Add secondary diagnosis (anemia) through AttendanceDiagnosis if available
+        if (anemiaDiag) {
+          const existingAdditional = await prisma.attendanceDiagnosis.findFirst({
+            where: {
+              attendanceId: cashAttendance.id,
+              diagnosisId: anemiaDiag.id
+            }
+          });
+
+          if (!existingAdditional) {
+            await prisma.attendanceDiagnosis.create({
+              data: {
+                attendanceId: cashAttendance.id,
+                diagnosisId: anemiaDiag.id,
+                diagnosisType: DiagnosisType.additional,
+                icdCode: anemiaDiag.icdCode,
+                presentOnAdmission: PresentOnAdmission.Y,
+                createdById: doctor.id,
+                date: new Date(),
+                notes: 'Comorbidity present on admission'
+              }
+            });
+          }
         }
 
         await prisma.bed.update({ 

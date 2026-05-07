@@ -1,4 +1,4 @@
-// src/pages/Inventory.tsx - PHARMACY DASHBOARD (UPDATED)
+// src/pages/Inventory.tsx - FIXED REPORTS LINK
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useStockStore } from '../store/stockStore';
@@ -303,7 +303,7 @@ export default function Inventory() {
       </div>
 
       {/* Quick Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Link
           to="/dashboard/invoices"
           className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
@@ -343,15 +343,32 @@ export default function Inventory() {
           <p className="text-sm text-[var(--text-secondary)]">View stock movement history</p>
         </Link>
 
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+        {/* ✅ FIXED: Reports link - Now clickable and navigates to Stock Reports */}
+        <Link
+          to="/dashboard/stock/reports"
+          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
+        >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-[var(--icon-yellow-text)]" />
+            <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--icon-yellow-text)] transition-colors">
+              <BarChart3 className="w-5 h-5 text-[var(--icon-yellow-text)] group-hover:text-white transition-colors" />
             </div>
             <span className="text-[var(--text-secondary)] text-sm font-medium">Reports</span>
           </div>
-          <p className="text-sm text-[var(--text-secondary)]">Stock analytics and reports</p>
-        </div>
+          <p className="text-sm text-[var(--text-secondary)]">Stock analytics and performance reports</p>
+        </Link>
+
+        <Link
+          to="/dashboard/stock"
+          className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-[var(--icon-blue-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--icon-blue-text)] transition-colors">
+              <Package className="w-5 h-5 text-[var(--icon-blue-text)] group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Manage Items</span>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">Add/edit stock items</p>
+        </Link>
       </div>
 
       {/* Stats Cards */}

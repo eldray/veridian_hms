@@ -1,58 +1,50 @@
+// routes/insuranceClaimRoutes.ts
 import express from 'express';
 import {
-  generateClaimDraft,
-  getClaimDraft,
-  updateClaimDraft,
-  finalizeClaim,
-  generateClaimXML,
-  generateClaimPrint,
-  getFinalizedClaimsTotal,
-  getInsuranceClaims,
+  // NHIS
+  generateNHISClaim,
+  getNHISClaims,
+  // Private
+  generatePrivateInsuranceClaim,
+  getPrivateInsuranceClaims,
+  // Common
   getInsuranceClaim,
   getClaimByAttendanceId,
-  generateNHISClaim,           // ✅ ADDED
-  generatePrivateInsuranceClaim, // ✅ ADDED
-  updateClaimStatus            // ✅ ADDED (if you want to use it)
+  updateClaimDraft,
+  finalizeClaim,
+  updateClaimStatus,
+  generateClaimXML,
+  generateClaimPrint,
+  getFinalizedClaimsTotal
 } from '../controllers/insuranceClaimController';
-
 import { protect, requireAccountsStaff, requireMedicalStaff } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// All routes are protected
 router.use(protect);
 
 // ==========================================
-// 🆕 SEPARATED CLAIM GENERATION ROUTES
+// NHIS CLAIMS
 // ==========================================
-router.post('/nhis/generate', requireAccountsStaff, generateNHISClaim);           // ✅ ADDED
-router.post('/private/generate', requireAccountsStaff, generatePrivateInsuranceClaim); // ✅ ADDED
+router.post('/nhis/generate', requireAccountsStaff, generateNHISClaim);
+router.get('/nhis', requireAccountsStaff, getNHISClaims);
 
 // ==========================================
-// SIMPLIFIED WORKFLOW ROUTES
+// PRIVATE INSURANCE CLAIMS
 // ==========================================
-router.post('/drafts', requireAccountsStaff, generateClaimDraft);
-router.get('/drafts/:claimId', requireAccountsStaff, getClaimDraft);
-router.patch('/drafts/:claimId', requireAccountsStaff, updateClaimDraft);
-router.post('/:claimId/finalize', requireAccountsStaff, finalizeClaim);
-router.get('/:claimId/xml', requireAccountsStaff, generateClaimXML);
-router.get('/:claimId/print', requireAccountsStaff, generateClaimPrint);
+router.post('/private/generate', requireAccountsStaff, generatePrivateInsuranceClaim);
+router.get('/private', requireAccountsStaff, getPrivateInsuranceClaims);
 
 // ==========================================
-// STATUS MANAGEMENT ROUTES
+// COMMON CLAIM OPERATIONS
 // ==========================================
-router.patch('/:claimId/status', requireAccountsStaff, updateClaimStatus); // ✅ ADDED
-
-// ==========================================
-// FINANCIAL & REPORTING ROUTES
-// ==========================================
-router.get('/financials/finalized-total', requireAccountsStaff, getFinalizedClaimsTotal);
-
-// ==========================================
-// BASIC VIEWING ROUTES
-// ==========================================
-router.get('/', requireAccountsStaff, getInsuranceClaims);
 router.get('/:id', requireAccountsStaff, getInsuranceClaim);
 router.get('/attendance/:attendanceId', requireMedicalStaff, getClaimByAttendanceId);
+router.patch('/:claimId/draft', requireAccountsStaff, updateClaimDraft);
+router.post('/:claimId/finalize', requireAccountsStaff, finalizeClaim);
+router.patch('/:claimId/status', requireAccountsStaff, updateClaimStatus);
+router.get('/:claimId/xml', requireAccountsStaff, generateClaimXML);
+router.get('/:claimId/print', requireAccountsStaff, generateClaimPrint);
+router.get('/financials/finalized-total', requireAccountsStaff, getFinalizedClaimsTotal);
 
 export default router;

@@ -10,7 +10,7 @@ import {
   getStockCategories,
   updateStockLevel,
   getStockTransactions,
-  getMedicationsByStockItem
+  getMedicationsByStockItem,getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport,  getSupplierReport,getRequisitionSummary
 } from '../controllers/stockItemController';
 import { protect, requireRole } from '../middleware/authMiddleware';
 
@@ -48,5 +48,15 @@ router.put('/:id', requireRole(['admin', 'pharmacist']), updateStockItem);
 
 // DELETE /api/stock-items/:id - Delete a stock item
 router.delete('/:id', requireRole(['admin']), deleteStockItem);
+
+
+// Report endpoints
+router.get('/reports/value-summary', getStockValueSummary);
+router.get('/reports/expiry', getExpiryReport);
+router.get('/reports/movement-summary', getMovementSummary);
+router.get('/reports/usage', getUsageReport);
+router.get('/reports/supplier', getSupplierReport);
+router.get('/reports/requisition-summary', getRequisitionSummary);
+
 
 export default router;

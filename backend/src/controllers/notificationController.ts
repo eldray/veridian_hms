@@ -428,6 +428,141 @@ export const triggerAppointmentReminders = async (req: Request, res: Response) =
   }
 };
 
+// ✅ NEW: Send user-to-user message
+export const sendUserMessage = [
+  body('toUserId').notEmpty().withMessage('Recipient user ID is required'),
+  body('title').notEmpty().withMessage('Title is required'),
+  body('message').notEmpty().withMessage('Message is required'),
+  
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const { toUserId, title, message, priority, actionUrl } = req.body;
+      const fromUserId = req.user.id;
+
+      const result = await NotificationService.sendUserMessage({
+        fromUserId,
+        toUserId,
+        title,
+        message,
+        priority,
+        actionUrl
+      });
+
+      res.json({
+        success: true,
+        message: 'Message sent successfully',
+        data: result
+      });
+    } catch (error) {
+      console.error('Error sending user message:', error);
+      res.status(500).json({ success: false, message: 'Error sending message' });
+    }
+  }
+];
+
+// ✅ NEW: Send bulk user messages
+export const sendBulkUserMessages = [
+  body('userIds').isArray().withMessage('User IDs array is required'),
+  body('title').notEmpty().withMessage('Title is required'),
+  body('message').notEmpty().withMessage('Message is required'),
+  
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const { userIds, title, message, priority, actionUrl } = req.body;
+      const fromUserId = req.user.id;
+
+      const result = await NotificationService.sendBulkUserMessages({
+        fromUserId,
+        userIds,
+        title,
+        message,
+        priority,
+        actionUrl
+      });
+
+      res.json({
+        success: true,
+        message: `Messages sent to ${result.success} user(s)`,
+        data: result
+      });
+    } catch (error) {
+      console.error('Error sending bulk user messages:', error);
+      res.status(500).json({ success: false, message: 'Error sending messages' });
+    }
+  }
+];
+
+// ✅ NEW: Get conversations (messages between users)
+export const getConversations = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all users who have sent messages to current user or received from current user
+    const conversations = await prisma.notification.groupBy({
+      by: ['senderId', 'userId'],
+      where: {
+        OR: [
+          { userId: userId },
+          { senderId: userId }
+        ],
+        type: 'system', // User-to-user messages
+        senderId: { not: null }
+      },
+      _count: {
+        id: true
+      },
+      _max: {
+        createdAt: true
+      }
+    });
+
+    // Get user details for each conversation
+    const conversationUsers = await prisma.user.findMany({
+      where: {
+        id: {
+          in: [...new Set(conversations.flatMap(c => [c.senderId, c.userId].filter(Boolean)))]
+        }
+      },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        isActive: true
+      }
+    });
+
+    const conversationList = conversations.map(conv => {
+      const otherUserId = conv.senderId === userId ? conv.userId : conv.senderId;
+      const otherUser = conversationUsers.find(u => u.id === otherUserId);
+      return {
+        userId: otherUserId,
+        userName: otherUser?.fullName || 'Unknown',
+        userRole: otherUser?.role,
+        messageCount: conv._count.id,
+        lastMessageAt: conv._max.createdAt
+      };
+    });
+
+    res.json({
+      success: true,
+      data: conversationList
+    });
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    res.status(500).json({ success: false, message: 'Error fetching conversations' });
+  }
+};
+
 // Clean up old notifications
 export const cleanupOldNotifications = async (req: Request, res: Response) => {
   try {

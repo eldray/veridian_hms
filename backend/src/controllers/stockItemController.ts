@@ -16,9 +16,7 @@ export const getStockItems = async (req: Request, res: Response) => {
 
     const items = await prisma.stockItem.findMany({
       where,
-      // ✅ REMOVED: stockBatches doesn't exist as a relation field
-      // The correct relation name is StockBatch (capital S), but it's not needed for list view
-      orderBy: {
+   orderBy: {
         name: 'asc'
       }
     });
@@ -27,6 +25,420 @@ export const getStockItems = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching stock items:', error);
     res.status(500).json({ message: 'Error fetching stock items', error });
+  }
+};
+
+
+// Add to stockItemController.ts
+
+// Get stock value summary
+export const getStockValueSummary = async (req: Request, res: Response) => {
+  try {
+    const stockItems = await prisma.stockItem.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        currentStock: true,
+        costPrice: true,
+        reorderLevel: true,
+        expiryDate: true,
+        isMedication: true
+      }
+    });
+
+    const summary = {
+      totalItems: stockItems.length,
+      medications: stockItems.filter(i => i.isMedication).length,
+      totalValue: stockItems.reduce((sum, i) => sum + (i.costPrice || 0) * i.currentStock, 0),
+      lowStockItems: stockItems.filter(i => i.currentStock <= i.reorderLevel).length,
+      outOfStockItems: stockItems.filter(i => i.currentStock === 0).length,
+      expiringSoon: stockItems.filter(i => {
+        if (!i.expiryDate) return false;
+        const expiry = new Date(i.expiryDate);
+        const thirtyDays = new Date();
+        thirtyDays.setDate(thirtyDays.getDate() + 30);
+        return expiry <= thirtyDays && expiry >= new Date();
+      }).length,
+      byCategory: stockItems.reduce((acc, item) => {
+        const cat = item.category || 'other';
+        if (!acc[cat]) {
+          acc[cat] = { count: 0, value: 0 };
+        }
+        acc[cat].count++;
+        acc[cat].value += (item.costPrice || 0) * item.currentStock;
+        return acc;
+      }, {} as Record<string, { count: number; value: number }>)
+    };
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Error getting stock value summary:', error);
+    res.status(500).json({ message: 'Error getting stock summary', error });
+  }
+};
+
+// Get expiry report
+export const getExpiryReport = async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days as string);
+    
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + daysNum);
+
+    const stockItems = await prisma.stockItem.findMany({
+      where: {
+        expiryDate: {
+          not: null
+        },
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        currentStock: true,
+        expiryDate: true,
+        unitOfMeasure: true,
+        costPrice: true
+      },
+      orderBy: {
+        expiryDate: 'asc'
+      }
+    });
+
+    const expiringSoon = stockItems.filter(item => {
+      if (!item.expiryDate) return false;
+      const expiry = new Date(item.expiryDate);
+      return expiry >= today && expiry <= futureDate;
+    });
+
+    const expired = stockItems.filter(item => {
+      if (!item.expiryDate) return false;
+      const expiry = new Date(item.expiryDate);
+      return expiry < today;
+    });
+
+    const healthy = stockItems.filter(item => {
+      if (!item.expiryDate) return false;
+      const expiry = new Date(item.expiryDate);
+      return expiry > futureDate;
+    });
+
+    res.json({
+      summary: {
+        totalWithExpiry: stockItems.length,
+        expiringSoon: expiringSoon.length,
+        expired: expired.length,
+        healthy: healthy.length,
+        expiringValue: expiringSoon.reduce((sum, i) => sum + (i.costPrice || 0) * i.currentStock, 0)
+      },
+      expiringSoon: expiringSoon.slice(0, 50),
+      expired: expired.slice(0, 50),
+      reportPeriod: daysNum
+    });
+  } catch (error) {
+    console.error('Error getting expiry report:', error);
+    res.status(500).json({ message: 'Error getting expiry report', error });
+  }
+};
+
+// Get movement summary
+export const getMovementSummary = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate && endDate) {
+      where.transactionDate = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      };
+    }
+
+    const transactions = await prisma.stockTransaction.findMany({
+      where,
+      include: {
+        StockItem: {
+          select: {
+            name: true,
+            category: true
+          }
+        }
+      }
+    });
+
+    const byType = {
+      purchase: transactions.filter(t => t.transactionType === 'purchase'),
+      sale: transactions.filter(t => t.transactionType === 'sale'),
+      requisition: transactions.filter(t => t.transactionType === 'requisition'),
+      adjustment: transactions.filter(t => t.transactionType === 'adjustment')
+    };
+
+    // Top moving items
+    const itemMovement = transactions.reduce((acc, t) => {
+      const name = t.StockItem?.name || 'Unknown';
+      if (!acc[name]) {
+        acc[name] = { name, quantity: 0, type: t.transactionType };
+      }
+      acc[name].quantity += t.quantity;
+      return acc;
+    }, {} as Record<string, { name: string; quantity: number; type: string }>);
+
+    const summary = {
+      period: { startDate: startDate || null, endDate: endDate || null },
+      totalTransactions: transactions.length,
+      totalIn: byType.purchase.reduce((sum, t) => sum + t.quantity, 0),
+      totalOut: [...byType.sale, ...byType.requisition].reduce((sum, t) => sum + t.quantity, 0),
+      byType: {
+        purchases: byType.purchase.length,
+        purchaseQuantity: byType.purchase.reduce((sum, t) => sum + t.quantity, 0),
+        sales: byType.sale.length,
+        saleQuantity: byType.sale.reduce((sum, t) => sum + t.quantity, 0),
+        requisitions: byType.requisition.length,
+        requisitionQuantity: byType.requisition.reduce((sum, t) => sum + t.quantity, 0),
+        adjustments: byType.adjustment.length,
+        adjustmentQuantity: byType.adjustment.reduce((sum, t) => sum + t.quantity, 0)
+      },
+      topMovements: Object.values(itemMovement)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 10)
+    };
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Error getting movement summary:', error);
+    res.status(500).json({ message: 'Error getting movement summary', error });
+  }
+};
+
+// Get usage report (most dispensed items)
+export const getUsageReport = async (req: Request, res: Response) => {
+  try {
+    const { period = 'month', limit = 20 } = req.query;
+    
+    let startDate = new Date();
+    switch (period) {
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate.setMonth(startDate.getMonth() - 3);
+        break;
+      case 'year':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(startDate.getMonth() - 1);
+    }
+
+    const sales = await prisma.stockTransaction.findMany({
+      where: {
+        transactionType: 'sale',
+        transactionDate: { gte: startDate }
+      },
+      include: {
+        StockItem: {
+          select: {
+            name: true,
+            category: true,
+            unitOfMeasure: true
+          }
+        }
+      }
+    });
+
+    const requisitions = await prisma.stockTransaction.findMany({
+      where: {
+        transactionType: 'requisition',
+        transactionDate: { gte: startDate }
+      },
+      include: {
+        StockItem: {
+          select: {
+            name: true,
+            category: true,
+            unitOfMeasure: true
+          }
+        }
+      }
+    });
+
+    // Aggregate by item
+    const itemUsage = [...sales, ...requisitions].reduce((acc, t) => {
+      const name = t.StockItem?.name || 'Unknown';
+      if (!acc[name]) {
+        acc[name] = {
+          name,
+          category: t.StockItem?.category || 'other',
+          unit: t.StockItem?.unitOfMeasure || 'unit',
+          quantity: 0,
+          transactions: 0
+        };
+      }
+      acc[name].quantity += t.quantity;
+      acc[name].transactions++;
+      return acc;
+    }, {} as Record<string, any>);
+
+    const results = Object.values(itemUsage)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, parseInt(limit as string));
+
+    res.json({
+      period,
+      startDate,
+      summary: {
+        totalItemsDispensed: results.length,
+        totalQuantity: results.reduce((sum, i) => sum + i.quantity, 0),
+        topItem: results[0] || null
+      },
+      topItems: results
+    });
+  } catch (error) {
+    console.error('Error getting usage report:', error);
+    res.status(500).json({ message: 'Error getting usage report', error });
+  }
+};
+
+// Get supplier report
+export const getSupplierReport = async (req: Request, res: Response) => {
+  try {
+    const invoices = await prisma.invoice.findMany({
+      include: {
+        InvoiceItem: {
+          include: {
+            StockItem: {
+              select: {
+                name: true,
+                category: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { invoiceDate: 'desc' }
+    });
+
+    const supplierSummary = invoices.reduce((acc, inv) => {
+      if (!acc[inv.supplierName]) {
+        acc[inv.supplierName] = {
+          name: inv.supplierName,
+          totalSpent: 0,
+          invoiceCount: 0,
+          itemCount: 0,
+          lastOrderDate: inv.invoiceDate
+        };
+      }
+      acc[inv.supplierName].totalSpent += inv.totalAmount;
+      acc[inv.supplierName].invoiceCount++;
+      acc[inv.supplierName].itemCount += inv.InvoiceItem?.length || 0;
+      if (new Date(inv.invoiceDate) > new Date(acc[inv.supplierName].lastOrderDate)) {
+        acc[inv.supplierName].lastOrderDate = inv.invoiceDate;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    const suppliers = Object.values(supplierSummary);
+    const totalSpent = suppliers.reduce((sum, s: any) => sum + s.totalSpent, 0);
+
+    res.json({
+      summary: {
+        totalSuppliers: suppliers.length,
+        totalSpent,
+        averageSpent: suppliers.length > 0 ? totalSpent / suppliers.length : 0,
+        totalInvoices: invoices.length
+      },
+      suppliers: suppliers.sort((a: any, b: any) => b.totalSpent - a.totalSpent)
+    });
+  } catch (error) {
+    console.error('Error getting supplier report:', error);
+    res.status(500).json({ message: 'Error getting supplier report', error });
+  }
+};
+
+// Get requisition summary report
+export const getRequisitionSummary = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = {};
+    if (startDate && endDate) {
+      where.createdAt = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      };
+    }
+
+    const requisitions = await prisma.requisition.findMany({
+      where,
+      include: {
+        RequisitionItem: true,
+        departments: {
+          select: { name: true }
+        }
+      }
+    });
+
+    const byStatus = {
+      draft: requisitions.filter(r => r.status === 'draft').length,
+      submitted: requisitions.filter(r => r.status === 'submitted').length,
+      approved: requisitions.filter(r => r.status === 'approved').length,
+      fulfilled: requisitions.filter(r => r.status === 'fulfilled').length,
+      cancelled: requisitions.filter(r => r.status === 'cancelled').length
+    };
+
+    const byUrgency = {
+      routine: requisitions.filter(r => r.urgency === 'routine').length,
+      urgent: requisitions.filter(r => r.urgency === 'urgent').length,
+      emergency: requisitions.filter(r => r.urgency === 'emergency').length
+    };
+
+    const fulfillmentRate = requisitions.length > 0 
+      ? (byStatus.fulfilled / requisitions.length * 100).toFixed(1)
+      : 0;
+
+    // Department summary
+    const byDepartment = requisitions.reduce((acc, r) => {
+      const deptName = r.departments?.name || 'Unknown';
+      if (!acc[deptName]) {
+        acc[deptName] = { total: 0, fulfilled: 0, items: 0 };
+      }
+      acc[deptName].total++;
+      if (r.status === 'fulfilled') acc[deptName].fulfilled++;
+      acc[deptName].items += r.RequisitionItem?.length || 0;
+      return acc;
+    }, {} as Record<string, any>);
+
+    res.json({
+      summary: {
+        total: requisitions.length,
+        byStatus,
+        byUrgency,
+        fulfillmentRate: `${fulfillmentRate}%`,
+        averageItemsPerRequisition: requisitions.length > 0 
+          ? requisitions.reduce((sum, r) => sum + (r.RequisitionItem?.length || 0), 0) / requisitions.length 
+          : 0
+      },
+      byDepartment: Object.entries(byDepartment).map(([name, data]) => ({ name, ...data as any })),
+      recentRequisitions: requisitions.slice(0, 20).map(r => ({
+        id: r.id,
+        requisitionNumber: r.requisitionNumber,
+        status: r.status,
+        urgency: r.urgency,
+        createdAt: r.createdAt,
+        itemCount: r.RequisitionItem?.length || 0
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting requisition summary:', error);
+    res.status(500).json({ message: 'Error getting requisition summary', error });
   }
 };
 

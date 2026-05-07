@@ -58,7 +58,7 @@ router.use('/settings', settingsRoutes);
 router.use('/stock-items', stockItemRoutes);
 router.use('/stock-transactions', stockTransactionRoutes);
 router.use('/requisitions', requisitionRoutes);
-router.use('/invoices', invoiceRoutes); // ✅ ADD THIS - Missing invoice routes!
+router.use('/invoices', invoiceRoutes);
 router.use('/wards', wardRoutes);
 router.use('/beds', bedRoutes);
 router.use('/profile', profileRoutes);
@@ -68,8 +68,6 @@ router.use('/departments', departmentRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/reports/clinical', clinicalReportsRoutes);
-
-// ✅ FIXED: Remove /api prefix - just use the base paths
 router.use('/referrals', referralRoutes);
 router.use('/antenatal', antenatalRoutes);
 router.use('/reports/ghs', ghsReportRoutes);

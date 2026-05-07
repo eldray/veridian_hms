@@ -1,5 +1,5 @@
 // services/NHISClaimService.ts - COMPLETE CORRECTED VERSION
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, DiagnosisType, PresentOnAdmission } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -23,35 +23,32 @@ export class NHISClaimService {
     return Math.max(0, age);
   }
 
-  // In NHISClaimService.ts:
-static async findNHISProvider(): Promise<string | null> {
-  const prisma = new PrismaClient();
-  const nhisProvider = await prisma.insuranceProvider.findFirst({
-    where: { 
-      type: 'nhis',
-      isActive: true 
-    },
-    select: { id: true }
-  });
-  return nhisProvider?.id || null;
-}
+  static async findNHISProvider(): Promise<string | null> {
+    const nhisProvider = await prisma.insuranceProvider.findFirst({
+      where: { 
+        type: 'nhis',
+        isActive: true 
+      },
+      select: { id: true }
+    });
+    return nhisProvider?.id || null;
+  }
 
-static async getBillLineItems(billId: string) {
-  const prisma = new PrismaClient();
-  return await prisma.billLineItem.findMany({
-    where: { billId, isVoided: false },
-    include: {
-      serviceCatalog: {
-        select: {
-          name: true,
-          code: true,
-          nhisServiceCode: true
+  static async getBillLineItems(billId: string) {
+    return await prisma.billLineItem.findMany({
+      where: { billId, isVoided: false },
+      include: {
+        serviceCatalog: {
+          select: {
+            name: true,
+            code: true,
+            nhisServiceCode: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: 'asc' }
-  });
-}
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+  }
 
   static async resolveGDRGByContext(attendance: any, patientAgeInYears: number): Promise<any | null> {
     const isAdult = patientAgeInYears >= 12;
@@ -80,7 +77,8 @@ static async getBillLineItems(billId: string) {
     
     // Inpatient Admission (IPD)
     if (attendance.encounterCategory === 'ipd') {
-      const primaryDiagnosis = attendance.AttendanceDiagnosis?.[0]?.Diagnosis;
+      // ✅ FIXED: Use diagnosisType instead of primary
+      const primaryDiagnosis = attendance.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')?.Diagnosis;
       const morbidityGroup = primaryDiagnosis?.morbidityGroup;
       
       let gdrgCode = isAdult ? 'MEDI26A' : 'PAED34C';
@@ -132,7 +130,8 @@ static async getBillLineItems(billId: string) {
               } 
             } 
           },
-          where: { primary: true }
+          // ✅ FIXED: Use diagnosisType instead of primary
+          where: { diagnosisType: 'primary' }
         },
         ServiceRendered: { 
           include: { 
@@ -212,9 +211,10 @@ static async getBillLineItems(billId: string) {
     };
   }
 
-  static async generateIPDClaimData(admissionId: string) {
-    const admission = await prisma.admission.findUnique({
-      where: { id: admissionId },
+  // ✅ FIXED: generateIPDClaimData using AttendanceDiagnosis instead of removed models
+  static async generateIPDClaimData(attendanceId: string) {
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
       include: {
         Patient: { 
           select: { 
@@ -225,49 +225,52 @@ static async getBillLineItems(billId: string) {
             folderNumber: true
           } 
         },
-        Diagnosis: { 
-          select: { 
-            name: true, 
-            icdCode: true, 
-            morbidityGroup: true
-          } 
-        },
-        AdmissionSecondaryDiagnosis: { 
+        Admission: true,
+        AttendanceDiagnosis: { 
           include: { 
             Diagnosis: { 
               select: { 
                 name: true, 
-                icdCode: true 
+                icdCode: true, 
+                morbidityGroup: true
+              } 
+            } 
+          }
+        },
+        ServiceRendered: { 
+          include: { 
+            ServiceCatalog: { 
+              select: { 
+                name: true, 
+                nhisServiceCode: true 
               } 
             } 
           } 
-        },
-        Attendance: {
-          include: {
-            ServiceRendered: { 
-              include: { 
-                ServiceCatalog: { 
-                  select: { 
-                    name: true, 
-                    nhisServiceCode: true 
-                  } 
-                } 
-              } 
-            }
-          }
         }
       }
     });
 
-    if (!admission) throw new Error('Admission not found');
+    if (!attendance) throw new Error('Attendance not found');
+    if (!attendance.Admission) throw new Error('No admission found for this attendance');
+
+    const admission = attendance.Admission;
+    
+    // ✅ Get primary diagnosis from AttendanceDiagnosis
+    const primaryDiagnosis = attendance.AttendanceDiagnosis.find(d => d.diagnosisType === 'primary')?.Diagnosis;
+    // ✅ Get additional diagnoses
+    const additionalDiagnoses = attendance.AttendanceDiagnosis.filter(d => d.diagnosisType === 'additional');
+
+    if (!primaryDiagnosis) {
+      throw new Error('Primary diagnosis required for IPD claim');
+    }
 
     const patientAgeInYears = this.calculateAgeInYears(
-      admission.Patient.dateOfBirth,
+      attendance.Patient.dateOfBirth,
       admission.admissionDate
     );
 
     const isAdult = patientAgeInYears >= 12;
-    const morbidityGroup = admission.Diagnosis?.morbidityGroup;
+    const morbidityGroup = primaryDiagnosis?.morbidityGroup;
     
     let gdrgCode = isAdult ? 'MEDI26A' : 'PAED34C';
     if (morbidityGroup?.includes('malaria')) {
@@ -282,32 +285,36 @@ static async getBillLineItems(billId: string) {
       where: { gdrgCode, isActive: true }
     });
 
+    const lengthOfStay = admission.dischargeDate 
+      ? Math.ceil((admission.dischargeDate.getTime() - admission.admissionDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
     return {
       claimType: 'IPD',
       admissionType: admission.admissionType,
-      lengthOfStay: admission.lengthOfStay,
+      lengthOfStay: lengthOfStay,
       patient: {
-        nhisNumber: admission.Attendance?.nhisCCC,
-        fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
-        dateOfBirth: admission.Patient.dateOfBirth,
-        gender: admission.Patient.gender,
+        nhisNumber: attendance.nhisCCC,
+        fullName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim(),
+        dateOfBirth: attendance.Patient.dateOfBirth,
+        gender: attendance.Patient.gender,
         ageInYears: patientAgeInYears,
-        folderNumber: admission.Patient.folderNumber
+        folderNumber: attendance.Patient.folderNumber
       },
       clinical: {
         admissionDate: admission.admissionDate,
         dischargeDate: admission.dischargeDate,
         dischargeStatus: admission.dischargeStatus,
         principalDiagnosis: {
-          description: admission.Diagnosis.name,
-          icdCode: admission.principalIcdCode,
-          morbidityGroup: admission.Diagnosis.morbidityGroup,
-          presentOnAdmission: admission.principalPresentOnAdmission
+          description: primaryDiagnosis.name,
+          icdCode: primaryDiagnosis.icdCode,
+          morbidityGroup: primaryDiagnosis.morbidityGroup,
+          presentOnAdmission: attendance.AttendanceDiagnosis.find(d => d.diagnosisType === 'primary')?.presentOnAdmission || 'Y'
         },
-        secondaryDiagnoses: admission.AdmissionSecondaryDiagnosis.map(d => ({
+        secondaryDiagnoses: additionalDiagnoses.map(d => ({
           description: d.Diagnosis.name,
-          icdCode: d.icdCode,
-          presentOnAdmission: d.presentOnAdmission,
+          icdCode: d.Diagnosis.icdCode,
+          presentOnAdmission: d.presentOnAdmission || 'Y',
           diagnosisType: d.diagnosisType
         }))
       },
@@ -316,8 +323,8 @@ static async getBillLineItems(billId: string) {
         description: gdrgTariff.description,
         nhiaTariff: gdrgTariff.nhiaTariff
       } : null,
-      admissionId: admission.id,
-      attendanceId: admission.attendanceId
+      attendanceId: attendance.id,
+      admissionId: admission.id
     };
   }
   
@@ -342,7 +349,8 @@ static async getBillLineItems(billId: string) {
       errors.push('NHIS CCC number is required for NHIS claims');
     }
 
-    const primaryDiagnosis = attendance.AttendanceDiagnosis.find(d => d.primary);
+    // ✅ FIXED: Use diagnosisType instead of primary
+    const primaryDiagnosis = attendance.AttendanceDiagnosis.find(d => d.diagnosisType === 'primary');
     if (!primaryDiagnosis) {
       errors.push('Primary diagnosis is required for NHIS claims');
     }
