@@ -304,10 +304,15 @@ export const generateNHISClaim = [
 
 export const getNHISClaims = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, patientId, page = 1, limit = 50 } = req.query;
+    const { status, patientId, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
     const where: any = { InsuranceProvider: { type: 'nhis' } };
     if (status) where.status = status as string;
     if (patientId) where.patientId = patientId as string;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
+      if (dateTo) where.createdAt.lte = new Date(dateTo as string);
+    }
 
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, parseInt(limit as string));
@@ -428,10 +433,15 @@ export const generatePrivateInsuranceClaim = [
 
 export const getPrivateInsuranceClaims = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, patientId, page = 1, limit = 50 } = req.query;
+    const { status, patientId, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
     const where: any = { InsuranceProvider: { type: 'private' } };
     if (status) where.status = status as string;
     if (patientId) where.patientId = patientId as string;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
+      if (dateTo) where.createdAt.lte = new Date(dateTo as string);
+    }
 
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, parseInt(limit as string));
@@ -642,5 +652,111 @@ export const getFinalizedClaimsTotal = async (req: AuthRequest, res: Response) =
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching totals' });
+  }
+};
+
+// ==========================================
+// DELETE INSURANCE CLAIM
+// ==========================================
+export const deleteInsuranceClaim = async (req: AuthRequest, res: Response) => {
+  try {
+    const { claimId } = req.params;
+    
+    const claim = await prisma.insuranceClaim.findUnique({
+      where: { id: claimId }
+    });
+
+    if (!claim) {
+      return res.status(404).json({ success: false, message: 'Claim not found' });
+    }
+
+    // Prevent deletion of finalized/submitted claims
+    if (claim.status === 'submitted' || claim.status === 'approved' || claim.status === 'paid') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete finalized or submitted claims. Only draft claims can be deleted.' 
+      });
+    }
+
+    await prisma.insuranceClaim.delete({
+      where: { id: claimId }
+    });
+
+    res.json({ success: true, message: 'Claim deleted successfully' });
+  } catch (error) {
+    console.error('Delete claim error:', error);
+    res.status(500).json({ success: false, message: 'Error deleting claim' });
+  }
+};
+
+// ==========================================
+// GENERATE BATCH XML
+// ==========================================
+export const generateBatchXML = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+    
+    const batch = await prisma.claimBatch.findUnique({
+      where: { id: batchId },
+      include: { 
+        claims: {
+          include: {
+            InsuranceProvider: true,
+            Attendance: { include: { Patient: true } },
+            Bill: true
+          }
+        }
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    if (batch.claims.length === 0) {
+      return res.status(400).json({ success: false, message: 'Batch has no claims' });
+    }
+
+    // Generate NHIS batch XML format
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NHISBatch>
+  <BatchInfo>
+    <BatchNumber>${batch.batchNumber}</BatchNumber>
+    <BatchDate>${new Date(batch.batchDate).toISOString()}</BatchDate>
+    <FacilityCode>${process.env.NHIS_FACILITY_CODE || 'GH001'}</FacilityCode>
+    <GeneratedDate>${new Date().toISOString()}</GeneratedDate>
+    <TotalClaims>${batch.claims.length}</TotalClaims>
+    <TotalAmount>${batch.totalAmount.toFixed(2)}</TotalAmount>
+  </BatchInfo>
+  <Claims>\n`;
+
+    for (const claim of batch.claims) {
+      xml += `    <Claim>
+      <ClaimNumber>${claim.claimNumber}</ClaimNumber>
+      <PatientName>${claim.Attendance?.Patient?.surname || ''} ${claim.Attendance?.Patient?.otherNames || ''}</PatientName>
+      <Provider>${claim.InsuranceProvider?.name || ''}</Provider>
+      <Amount>${claim.totalClaimAmount?.toFixed(2) || '0.00'}</Amount>
+      <Status>${claim.status}</Status>
+    </Claim>\n`;
+    }
+
+    xml += `  </Claims>
+</NHISBatch>`;
+
+    // Update batch status and XML generation timestamp
+    await prisma.claimBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'generated',
+        xmlGeneratedAt: new Date()
+      }
+    });
+
+    res.set('Content-Type', 'application/xml');
+    res.set('Content-Disposition', `attachment; filename="batch_${batch.batchNumber}.xml"`);
+    res.send(xml);
+  } catch (error) {
+    console.error('Generate batch XML error:', error);
+    res.status(500).json({ success: false, message: 'Error generating batch XML' });
   }
 };

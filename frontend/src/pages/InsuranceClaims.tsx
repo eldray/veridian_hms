@@ -23,7 +23,11 @@ import {
   Lock,
   Printer,
   Building,
-  Layers
+  Layers,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  FileCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -60,6 +64,12 @@ export default function InsuranceClaims() {
   const [activeTab, setActiveTab] = useState<'nhis' | 'private'>('nhis');
   const [showPendingAttendances, setShowPendingAttendances] = useState(false);
   const [processingClaims, setProcessingClaims] = useState<Set<string>>(new Set());
+  const [selectedClaims, setSelectedClaims] = useState<Set<string>>(new Set());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   const isLoading = claimsLoading || attendanceLoading;
 
@@ -73,9 +83,21 @@ export default function InsuranceClaims() {
   const loadData = async () => {
     try {
       if (activeTab === 'nhis') {
-        await getNHISClaims();
+        await getNHISClaims({ 
+          status: filterStatus !== 'all' ? filterStatus : undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          page: currentPage,
+          limit: itemsPerPage
+        });
       } else {
-        await getPrivateInsuranceClaims();
+        await getPrivateInsuranceClaims({ 
+          status: filterStatus !== 'all' ? filterStatus : undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          page: currentPage,
+          limit: itemsPerPage
+        });
       }
       await getAttendances();
       await getFinalizedClaimsTotal({ type: activeTab });
@@ -200,6 +222,83 @@ export default function InsuranceClaims() {
         return newSet;
       });
     }
+  };
+
+  const handleBatchXMLGeneration = async () => {
+    if (selectedClaims.size === 0) {
+      toastError('No claims selected', 'Please select at least one claim');
+      return;
+    }
+    try {
+      setProcessingClaims(prev => new Set(prev).add('batch'));
+      await useInsuranceStore.getState().generateBatchXML(Array.from(selectedClaims));
+      success('Batch XML generated', `${selectedClaims.size} claims exported`);
+      setSelectedClaims(new Set());
+    } catch (error: any) {
+      toastError('Batch generation failed', error.message || 'Could not generate batch XML');
+    } finally {
+      setProcessingClaims(prev => {
+        const newSet = new Set(prev);
+        newSet.delete('batch');
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedClaims.size === 0) {
+      toastError('No claims selected', 'Please select at least one claim');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete ${selectedClaims.size} selected claims? Only draft claims can be deleted.`)) {
+      return;
+    }
+    try {
+      setProcessingClaims(prev => new Set(prev).add('delete'));
+      for (const claimId of selectedClaims) {
+        try {
+          await useInsuranceStore.getState().deleteInsuranceClaim(claimId);
+        } catch (err: any) {
+          toastError('Delete failed', `Could not delete claim: ${err.message}`);
+        }
+      }
+      success('Claims deleted', `${selectedClaims.size} claims processed`);
+      setSelectedClaims(new Set());
+      await loadData();
+    } catch (error: any) {
+      toastError('Delete failed', error.message || 'Could not delete claims');
+    } finally {
+      setProcessingClaims(prev => {
+        const newSet = new Set(prev);
+        newSet.delete('delete');
+        return newSet;
+      });
+    }
+  };
+
+  const toggleClaimSelection = (claimId: string) => {
+    setSelectedClaims(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(claimId)) {
+        newSet.delete(claimId);
+      } else {
+        newSet.add(claimId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllClaims = () => {
+    if (selectedClaims.size === currentClaims.length) {
+      setSelectedClaims(new Set());
+    } else {
+      setSelectedClaims(new Set(currentClaims.map(c => c.id)));
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    setTimeout(() => loadData(), 100);
   };
 
   const getStatusIcon = (status: string) => {
@@ -419,29 +518,94 @@ export default function InsuranceClaims() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder={`Search ${activeTab === 'nhis' ? 'NHIS' : 'Private'} claims by claim number, patient, or provider...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] space-y-4">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={`Search ${activeTab === 'nhis' ? 'NHIS' : 'Private'} claims by claim number, patient, or provider...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="draft">Draft</option>
+            <option value="submitted">Submitted</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="paid">Paid</option>
+          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[var(--text-secondary)] whitespace-nowrap">From:</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[var(--text-secondary)] whitespace-nowrap">To:</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setDateFrom('');
+              setDateTo('');
+              setCurrentPage(1);
+              loadData();
+            }}
+            className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all text-sm flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reset
+          </button>
         </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-        >
-          <option value="all">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="submitted">Submitted</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="paid">Paid</option>
-        </select>
+
+        {/* Batch Actions */}
+        <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selectedClaims.size === currentClaims.length && currentClaims.length > 0}
+              onChange={toggleAllClaims}
+              className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--icon-blue-text)] focus:ring-[var(--icon-blue-text)]"
+            />
+            <span className="text-sm text-[var(--text-secondary)]">
+              {selectedClaims.size > 0 ? `${selectedClaims.size} selected` : 'Select all'}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleBatchXMLGeneration}
+              disabled={selectedClaims.size === 0 || processingClaims.has('batch')}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              <FileCheck className="w-4 h-4" />
+              Generate Batch XML ({selectedClaims.size})
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={selectedClaims.size === 0 || processingClaims.has('delete')}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Claims List */}
@@ -475,6 +639,12 @@ export default function InsuranceClaims() {
             <div key={claim.id} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedClaims.has(claim.id)}
+                    onChange={() => toggleClaimSelection(claim.id)}
+                    className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--icon-blue-text)] focus:ring-[var(--icon-blue-text)]"
+                  />
                   {getStatusIcon(claim.status)}
                   <div>
                     <h3 className="font-semibold text-[var(--text-primary)] text-sm">{claim.claimNumber}</h3>
@@ -573,6 +743,32 @@ export default function InsuranceClaims() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
+          <div className="text-sm text-[var(--text-secondary)]">
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredClaims.length)} of {filteredClaims.length} results
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-4 py-2 text-sm text-[var(--text-primary)]">
+              Page {currentPage}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage * itemsPerPage >= filteredClaims.length}
+              className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -10,11 +10,20 @@ const SEEDING_ENABLED = process.env.ENABLE_SEEDING !== 'false';
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-const generateAttendanceNumber = () => `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-const generateClaimNumber = () => `CLAIM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-const generateReferralNumber = () => `REF-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-const generateAdmissionNumber = () => `ADM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+// Sequential number generators starting from 1000
+let patientNumberCounter = 1000;
+let attendanceNumberCounter = 1000;
+let billNumberCounter = 1000;
+let claimNumberCounter = 1000;
+let referralNumberCounter = 1000;
+let admissionNumberCounter = 1000;
+
+const generatePatientNumber = () => `PAT-${patientNumberCounter++}`;
+const generateAttendanceNumber = () => `ATT-${attendanceNumberCounter++}`;
+const generateBillNumber = () => `BILL-${billNumberCounter++}`;
+const generateClaimNumber = () => `CLAIM-${claimNumberCounter++}`;
+const generateReferralNumber = () => `REF-${referralNumberCounter++}`;
+const generateAdmissionNumber = () => `ADM-${admissionNumberCounter++}`;
 
 // Date helpers
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
@@ -1233,6 +1242,49 @@ console.log('✅ Test users created/verified');
       }
     }
 
+    // NHIS Admission - Patient 2 (Hypertension crisis observation)
+    if (generalWard) {
+      let bed2 = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+      
+      if (!bed2) {
+        bed2 = await prisma.bed.create({
+          data: {
+            wardId: generalWard.id,
+            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NEW-02`,
+            isOccupied: false,
+          },
+        });
+      }
+
+      if (bed2) {
+        await prisma.admission.create({
+          data: {
+            admissionNumber: generateAdmissionNumber(),
+            patientId: patients[1].id,
+            attendanceId: att2.id,
+            wardId: generalWard.id,
+            bedId: bed2.id,
+            admissionDate: daysAgo(9),
+            admissionTime: '14:30',
+            admittingDoctor: doctor.fullName,
+            reasonForAdmission: 'Hypertensive urgency - BP monitoring',
+            diagnosis: 'Essential hypertension with hypertensive urgency',
+            status: 'discharged',
+            dischargeDate: daysAgo(8),
+            dischargeTime: '09:00',
+            dischargeSummary: 'BP stabilized on adjusted medication. Discharged with follow-up plan.',
+            createdBy: doctor.fullName,
+            admissionType: AdmissionType.emergency,
+            admissionSource: AdmissionSource.opd,
+            dischargeStatus: 'home',
+            lengthOfStay: 1,
+          },
+        });
+
+        await prisma.bed.update({ where: { id: bed2.id }, data: { isOccupied: false, currentPatientId: null } });
+      }
+    }
+
     if (pediatricWard) {
       let bed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
       
@@ -1260,13 +1312,13 @@ console.log('✅ Test users created/verified');
         await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
       }
     }
-    console.log('✅ Admissions created');
+    console.log('✅ Admissions created (3 total: Cash, NHIS, Private Insurance)');
 
     // =============== CREATE APPOINTMENTS ===============
     // Follow-up appointment for Patient 1 (Malaria)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-001`,
+        appointmentNumber: `APT-${attendanceNumberCounter++}`,
         patientId: patients[0].id,
         doctorId: doctor.id,
         departmentId: medDept?.id,
@@ -1284,7 +1336,7 @@ console.log('✅ Test users created/verified');
     // Follow-up appointment for Patient 2 (Hypertension)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-002`,
+        appointmentNumber: `APT-${attendanceNumberCounter++}`,
         patientId: patients[1].id,
         doctorId: doctor.id,
         departmentId: medDept?.id,
@@ -1304,7 +1356,7 @@ console.log('✅ Test users created/verified');
     // Future appointment for Patient 3 (Hernia post-op)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-003`,
+        appointmentNumber: `APT-${attendanceNumberCounter++}`,
         patientId: patients[2].id,
         doctorId: doctor.id,
         departmentId: surgeryDept?.id,
@@ -1322,7 +1374,7 @@ console.log('✅ Test users created/verified');
     // Antenatal appointment for Patient 4
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-004`,
+        appointmentNumber: `APT-${attendanceNumberCounter++}`,
         patientId: patients[3].id,
         doctorId: doctor.id,
         departmentId: obsGynDept?.id,
