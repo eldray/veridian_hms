@@ -260,7 +260,7 @@ export default function InsuranceClaims() {
             Providers
           </button>
           <button
-            onClick={() => navigate('/dashboard/insurance-batches')}
+            onClick={() => navigate('/dashboard/insurance-claims/batches')}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
           >
             <Layers className="w-4 h-4" />
