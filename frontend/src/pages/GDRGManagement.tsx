@@ -1,4 +1,4 @@
-// src/pages/GDRGManagement.tsx - WITH PAGINATION
+// src/pages/GDRGManagement.tsx - COMPLETE WORKING VERSION
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGDRGTariffStore } from '../store/gdrgTariffStore';
@@ -12,26 +12,35 @@ import {
   Edit,
   Trash2,
   Search,
-  Filter,
   X,
-  Save,
-  AlertCircle,
   Loader,
   Shield,
   DollarSign,
   Calendar,
   Users,
-  Link2,
-  Unlink,
   CheckCircle,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   ChevronsLeft,
   ChevronsRight,
+  Stethoscope,
+  Scissors,
+  Link,
+  Unlink as UnlinkIcon
 } from 'lucide-react';
 import { GDRGMDC } from '../types';
+import { 
+  createGDRGTariff,
+  updateGDRGTariff,
+  deleteGDRGTariff,
+  getDiagnosesByGDRG,
+  linkDiagnosisToGDRG,
+  unlinkDiagnosisFromGDRG,
+  linkProcedureToGDRG,
+  unlinkProcedureFromGDRG,
+  getProceduresByGDRG
+} from '../api';
 
-// GDRG MDC Options (from schema enum)
 const GDRG_MDC_OPTIONS = [
   { value: 'ASUR', label: 'Adult Surgery' },
   { value: 'DENT', label: 'Dental and Maxillofacial Surgery' },
@@ -48,7 +57,6 @@ const GDRG_MDC_OPTIONS = [
   { value: 'ZOOM', label: 'Cross-MDC' },
 ];
 
-// Provider levels for applicability
 const PROVIDER_LEVELS = [
   { value: 1, label: 'Tertiary' },
   { value: 2, label: 'Secondary' },
@@ -73,12 +81,16 @@ const encounterCategoryOptions = [
 
 const ITEMS_PER_PAGE = 10;
 
+type TabType = 'diagnoses' | 'procedures';
+
 export default function GDRGManagement() {
   const navigate = useNavigate();
-  const { user, hasRole } = useAuthStore();
+  const { hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const { tariffs, fetchTariffs, isLoading } = useGDRGTariffStore();
   const { diagnoses, getDiagnoses, isLoading: loadingDiagnoses } = useMedicalServicesStore();
+  const [procedures, setProcedures] = useState<any[]>([]);
+  const [loadingProcedures, setLoadingProcedures] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,9 +106,21 @@ export default function GDRGManagement() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedTariff, setSelectedTariff] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('diagnoses');
+  const [formLoading, setFormLoading] = useState(false);
+  
+  // Diagnosis linking states
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
-  const [formLoading, setFormLoading] = useState(false);
+  const [linkedDiagnoses, setLinkedDiagnoses] = useState<any[]>([]);
+  const [searchDiagnosisTerm, setSearchDiagnosisTerm] = useState('');
+  const [linkingLoading, setLinkingLoading] = useState(false);
+  
+  // Procedure linking states
+  const [showProcedureModal, setShowProcedureModal] = useState(false);
+  const [selectedProcedure, setSelectedProcedure] = useState<any>(null);
+  const [linkedProcedures, setLinkedProcedures] = useState<any[]>([]);
+  const [searchProcedureTerm, setSearchProcedureTerm] = useState('');
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -121,8 +145,37 @@ export default function GDRGManagement() {
     isActive: true,
   });
 
+  // Load procedures from the API
+  const loadProcedures = async () => {
+    setLoadingProcedures(true);
+    try {
+      // Use the API client instead of raw fetch
+      const response = await fetch('/api/procedure-templates?limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('📦 Procedures loaded:', data);
+      
+      if (data.data && Array.isArray(data.data)) {
+        setProcedures(data.data);
+      } else if (Array.isArray(data)) {
+        setProcedures(data);
+      } else {
+        setProcedures([]);
+      }
+    } catch (error) {
+      console.error('Error loading procedures:', error);
+      setProcedures([]);
+    } finally {
+      setLoadingProcedures(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadProcedures();
   }, []);
 
   useEffect(() => {
@@ -135,11 +188,216 @@ export default function GDRGManagement() {
     }
   }, [showDiagnosisModal, diagnoses.length, getDiagnoses]);
 
+  useEffect(() => {
+    if (selectedTariff) {
+      loadLinkedDiagnoses();
+      loadLinkedProcedures();
+    }
+  }, [selectedTariff]);
+
   const loadData = async () => {
     await fetchTariffs();
   };
 
-  // Filtered tariffs
+  // ✅ FIXED: Load linked diagnoses with proper error handling
+  const loadLinkedDiagnoses = async () => {
+    if (!selectedTariff) return;
+    setLinkingLoading(true);
+    try {
+      console.log('🔍 Loading linked diagnoses for GDRG:', selectedTariff.gdrgCode);
+      const response = await getDiagnosesByGDRG(selectedTariff.gdrgCode);
+      console.log('📥 Linked diagnoses API response:', response);
+      
+      // Handle different response formats
+      let diagnosesList = [];
+      if (response?.data && Array.isArray(response.data)) {
+        diagnosesList = response.data;
+      } else if (Array.isArray(response)) {
+        diagnosesList = response;
+      } else {
+        diagnosesList = [];
+      }
+      
+      console.log('✅ Processed linked diagnoses:', diagnosesList);
+      setLinkedDiagnoses(diagnosesList);
+    } catch (error) {
+      console.error('Error loading linked diagnoses:', error);
+      setLinkedDiagnoses([]);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Load linked procedures
+  const loadLinkedProcedures = async () => {
+    if (!selectedTariff) return;
+    setLinkingLoading(true);
+    try {
+      console.log('🔍 Loading linked procedures for GDRG:', selectedTariff.gdrgCode);
+      const response = await getProceduresByGDRG(selectedTariff.gdrgCode);
+      console.log('📥 Linked procedures API response:', response);
+      
+      let proceduresList = [];
+      if (response?.data && Array.isArray(response.data)) {
+        proceduresList = response.data;
+      } else if (Array.isArray(response)) {
+        proceduresList = response;
+      } else {
+        proceduresList = [];
+      }
+      
+      console.log('✅ Processed linked procedures:', proceduresList);
+      setLinkedProcedures(proceduresList);
+    } catch (error) {
+      console.error('Error loading linked procedures:', error);
+      setLinkedProcedures([]);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Link diagnosis
+  const handleLinkDiagnosis = async () => {
+    if (!selectedTariff || !selectedDiagnosis) {
+      toastError('Link Failed', 'Please select a diagnosis first');
+      return;
+    }
+    
+    console.log('🔗 Linking diagnosis:', {
+      gdrgCode: selectedTariff.gdrgCode,
+      diagnosisId: selectedDiagnosis.id,
+      diagnosisName: selectedDiagnosis.name,
+    });
+    
+    setLinkingLoading(true);
+    try {
+      const result = await linkDiagnosisToGDRG(
+        selectedTariff.gdrgCode,
+        selectedDiagnosis.id,
+        linkedDiagnoses.length === 0,
+        selectedDiagnosis.icdCode
+      );
+      
+      console.log('📥 Link result:', result);
+      
+      if (result?.success || result?.id) {
+        success('Diagnosis Linked', `${selectedDiagnosis.name} linked successfully`);
+        await loadLinkedDiagnoses(); // Refresh the list
+        setShowDiagnosisModal(false);
+        setSelectedDiagnosis(null);
+        setSearchDiagnosisTerm('');
+      } else {
+        throw new Error(result?.message || 'Link failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Link error:', err);
+      toastError('Link Failed', err.message);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Unlink diagnosis
+  const handleUnlinkDiagnosis = async (diagnosisId: string) => {
+    if (!selectedTariff) return;
+    setLinkingLoading(true);
+    try {
+      console.log('🔗 Unlinking diagnosis:', diagnosisId);
+      const result = await unlinkDiagnosisFromGDRG(selectedTariff.gdrgCode, diagnosisId);
+      
+      if (result?.success) {
+        success('Diagnosis Unlinked', 'Removed successfully');
+        await loadLinkedDiagnoses();
+      } else {
+        throw new Error(result?.message || 'Unlink failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Unlink error:', err);
+      toastError('Unlink Failed', err.message);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Link procedure
+  const handleLinkProcedure = async () => {
+    if (!selectedTariff || !selectedProcedure) {
+      toastError('Link Failed', 'Please select a procedure first');
+      return;
+    }
+    
+    console.log('🔗 Linking procedure:', {
+      gdrgCode: selectedTariff.gdrgCode,
+      procedureId: selectedProcedure.id,
+      procedureName: selectedProcedure.name,
+    });
+    
+    setLinkingLoading(true);
+    try {
+      const result = await linkProcedureToGDRG(selectedTariff.gdrgCode, {
+        procedureId: selectedProcedure.id,
+        isPrimary: linkedProcedures.length === 0,
+        mappedCode: selectedProcedure.code
+      });
+      
+      console.log('📥 Link procedure result:', result);
+      
+      if (result?.success || result?.id) {
+        success('Procedure Linked', `${selectedProcedure.name} linked successfully`);
+        await loadLinkedProcedures();
+        setShowProcedureModal(false);
+        setSelectedProcedure(null);
+        setSearchProcedureTerm('');
+      } else {
+        throw new Error(result?.message || 'Link failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Link procedure error:', err);
+      toastError('Link Failed', err.message);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Unlink procedure
+  const handleUnlinkProcedure = async (procedureId: string) => {
+    if (!selectedTariff) return;
+    setLinkingLoading(true);
+    try {
+      const result = await unlinkProcedureFromGDRG(selectedTariff.gdrgCode, procedureId);
+      
+      if (result?.success) {
+        success('Procedure Unlinked', 'Removed successfully');
+        await loadLinkedProcedures();
+      } else {
+        throw new Error(result?.message || 'Unlink failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Unlink procedure error:', err);
+      toastError('Unlink Failed', err.message);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  // Filter diagnoses for modal (excluding already linked ones)
+  const filteredDiagnoses = diagnoses.filter(d => {
+    const isAlreadyLinked = linkedDiagnoses.some(link => link.diagnosisId === d.id);
+    const matchesSearch = searchDiagnosisTerm === '' || 
+      d.name.toLowerCase().includes(searchDiagnosisTerm.toLowerCase()) ||
+      d.icdCode.toLowerCase().includes(searchDiagnosisTerm.toLowerCase());
+    return matchesSearch && !isAlreadyLinked;
+  });
+
+  // Filter procedures for modal (excluding already linked ones)
+  const filteredProcedures = procedures.filter(p => {
+    const isAlreadyLinked = linkedProcedures.some(link => link.procedureId === p.id);
+    const matchesSearch = searchProcedureTerm === '' || 
+      p.name.toLowerCase().includes(searchProcedureTerm.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchProcedureTerm.toLowerCase());
+    return matchesSearch && !isAlreadyLinked;
+  });
+
   const filteredTariffs = tariffs.filter(tariff => {
     const matchesSearch = searchTerm === '' || 
       tariff.gdrgCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -152,7 +410,6 @@ export default function GDRGManagement() {
     return matchesSearch && matchesMDC && matchesActive;
   });
 
-  // Pagination calculations
   const totalItems = filteredTariffs.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -170,16 +427,16 @@ export default function GDRGManagement() {
     setCurrentPage(1);
   };
 
+  const handleViewDetails = (tariff: any) => {
+    setSelectedTariff(tariff);
+    setActiveTab('diagnoses');
+  };
+
   const handleCreate = async () => {
     setFormLoading(true);
     try {
-      const response = await fetch('/api/gdrg-tariffs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
-      if (result.success) {
+      const result = await createGDRGTariff(formData);
+      if (result.success || result.id) {
         success('GDRG Tariff Created', `${formData.gdrgCode} added successfully`);
         setShowForm(false);
         resetForm();
@@ -198,18 +455,16 @@ export default function GDRGManagement() {
     if (!editingItem) return;
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/gdrg-tariffs/${editingItem.gdrgCode}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
-      if (result.success) {
+      const result = await updateGDRGTariff(editingItem.gdrgCode, formData);
+      if (result.success || result.id) {
         success('GDRG Tariff Updated', `${formData.gdrgCode} updated successfully`);
         setShowForm(false);
         setEditingItem(null);
         resetForm();
         await fetchTariffs();
+        if (selectedTariff?.gdrgCode === editingItem.gdrgCode) {
+          setSelectedTariff(null);
+        }
       } else {
         throw new Error(result.message);
       }
@@ -223,13 +478,13 @@ export default function GDRGManagement() {
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      const response = await fetch(`/api/gdrg-tariffs/${deleteConfirm}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
+      const result = await deleteGDRGTariff(deleteConfirm);
       if (result.success) {
         success('GDRG Tariff Deleted', `Tariff removed successfully`);
         setDeleteConfirm(null);
+        if (selectedTariff?.gdrgCode === deleteConfirm) {
+          setSelectedTariff(null);
+        }
         await fetchTariffs();
       } else {
         throw new Error(result.message);
@@ -430,43 +685,194 @@ export default function GDRGManagement() {
         </div>
       </div>
 
-      {/* Tariffs Table */}
-      <div className="bg-[var(--bg-card)] rounded-xl border overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center"><Loader className="w-8 h-8 animate-spin mx-auto mb-3" /><p>Loading tariffs...</p></div>
-        ) : filteredTariffs.length === 0 ? (
-          <div className="p-8 text-center"><Shield className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p>No G-DRG tariffs found</p></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left">G-DRG Code</th>
-                  <th className="px-4 py-3 text-left">MDC</th>
-                  <th className="px-4 py-3 text-left">Description</th>
-                  <th className="px-4 py-3 text-right">NHIA Tariff</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {paginatedTariffs.map(tariff => (
-                  <tr key={tariff.gdrgCode} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3 font-mono font-bold">{tariff.gdrgCode}</td>
-                    <td className="px-4 py-3"><span className="px-2 py-1 bg-gray-100 rounded text-xs">{getMDCLabel(tariff.mdc)}</span></td>
-                    <td className="px-4 py-3 max-w-xs truncate">{tariff.description}</td>
-                    <td className="px-4 py-3 text-right font-medium">GHS {tariff.nhiaTariff.toFixed(2)}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs ${tariff.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{tariff.isActive ? 'Active' : 'Inactive'}</span></td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEdit(tariff)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteConfirm(tariff.gdrgCode)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </td>
+      {/* Main Content: Table and Details Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Tariffs Table */}
+        <div className="lg:col-span-2 bg-[var(--bg-card)] rounded-xl border overflow-hidden">
+          {isLoading ? (
+            <div className="p-8 text-center"><Loader className="w-8 h-8 animate-spin mx-auto mb-3" /><p>Loading tariffs...</p></div>
+          ) : filteredTariffs.length === 0 ? (
+            <div className="p-8 text-center"><Shield className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p>No G-DRG tariffs found</p></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[var(--bg-main)] border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left">G-DRG Code</th>
+                    <th className="px-4 py-3 text-left">MDC</th>
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-right">NHIA Tariff</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {paginatedTariffs.map(tariff => (
+                    <tr 
+                      key={tariff.gdrgCode} 
+                      className={`hover:bg-[var(--bg-main)] transition-colors cursor-pointer ${selectedTariff?.gdrgCode === tariff.gdrgCode ? 'bg-[var(--icon-cyan-bg)]' : ''}`}
+                      onClick={() => handleViewDetails(tariff)}
+                    >
+                      <td className="px-4 py-3 font-mono font-bold">{tariff.gdrgCode}</td>
+                      <td className="px-4 py-3"><span className="px-2 py-1 bg-gray-100 rounded text-xs">{getMDCLabel(tariff.mdc)}</span></td>
+                      <td className="px-4 py-3 max-w-xs truncate">{tariff.description}</td>
+                      <td className="px-4 py-3 text-right font-medium">GHS {tariff.nhiaTariff.toFixed(2)}</td>
+                      <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs ${tariff.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{tariff.isActive ? 'Active' : 'Inactive'}</span></td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEdit(tariff)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => setDeleteConfirm(tariff.gdrgCode)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                       </td>
+                     </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Details Sidebar */}
+        {selectedTariff && (
+          <div className="bg-[var(--bg-card)] rounded-xl border overflow-hidden">
+            <div className="bg-[var(--bg-main)] px-4 py-3 border-b flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-[var(--text-primary)]">{selectedTariff.gdrgCode}</h3>
+                <p className="text-xs text-[var(--text-secondary)]">{selectedTariff.description}</p>
+              </div>
+              <button onClick={() => setSelectedTariff(null)} className="p-1 hover:bg-[var(--bg-card)] rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b">
+              <button
+                onClick={() => setActiveTab('diagnoses')}
+                className={`flex-1 px-4 py-2 text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'diagnoses' ? 'border-b-2 border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]'}`}
+              >
+                <Stethoscope className="w-4 h-4" />
+                Diagnoses ({linkedDiagnoses.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('procedures')}
+                className={`flex-1 px-4 py-2 text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'procedures' ? 'border-b-2 border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]'}`}
+              >
+                <Scissors className="w-4 h-4" />
+                Procedures ({linkedProcedures.length})
+              </button>
+            </div>
+
+            <div className="p-4">
+              {activeTab === 'diagnoses' && (
+                <>
+                  <button
+                    onClick={() => setShowDiagnosisModal(true)}
+                    className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm"
+                  >
+                    <Link className="w-4 h-4" />
+                    Link Diagnosis
+                  </button>
+                  
+                  {linkingLoading ? (
+                    <div className="text-center py-8">
+                      <Loader className="w-6 h-6 animate-spin mx-auto" />
+                    </div>
+                  ) : linkedDiagnoses.length === 0 ? (
+                    <div className="text-center py-8 text-[var(--text-secondary)] text-sm">
+                      <Stethoscope className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      No diagnoses linked
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {linkedDiagnoses.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between p-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+                          <div className="flex items-center gap-2 flex-1">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{link.diagnosis?.name || link.name}</span>
+                                {link.isPrimary && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">Primary</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)] font-mono">{link.diagnosis?.icdCode || link.icdCode}</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleUnlinkDiagnosis(link.diagnosisId || link.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Unlink"
+                          >
+                            <UnlinkIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {activeTab === 'procedures' && (
+                <>
+                  <button
+                    onClick={() => setShowProcedureModal(true)}
+                    className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm"
+                  >
+                    <Link className="w-4 h-4" />
+                    Link Procedure
+                  </button>
+                  
+                  {linkingLoading ? (
+                    <div className="text-center py-8">
+                      <Loader className="w-6 h-6 animate-spin mx-auto" />
+                    </div>
+                  ) : linkedProcedures.length === 0 ? (
+                    <div className="text-center py-8 text-[var(--text-secondary)] text-sm">
+                      <Scissors className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      No procedures linked
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {linkedProcedures.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between p-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+                          <div className="flex items-center gap-2 flex-1">
+                            <CheckCircle className="w-4 h-4 text-purple-500" />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{link.procedure?.name || link.name}</span>
+                                {link.isPrimary && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">Primary</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)] font-mono">{link.procedure?.code || link.code}</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleUnlinkProcedure(link.procedureId || link.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Unlink"
+                          >
+                            <UnlinkIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Tariff Details */}
+            <div className="border-t p-4 bg-[var(--bg-main)]">
+              <h4 className="text-sm font-semibold mb-2">Tariff Details</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-[var(--text-secondary)]">NHIA Tariff:</span> <span className="font-medium">GHS {selectedTariff.nhiaTariff.toFixed(2)}</span></div>
+                <div><span className="text-[var(--text-secondary)]">Age Split:</span> <span className="font-medium">{selectedTariff.ageSplit === 'A' ? 'Adult (≥12)' : 'Child (<12)'}</span></div>
+                <div><span className="text-[var(--text-secondary)]">Effective From:</span> <span className="font-medium">{new Date(selectedTariff.effectiveFrom).toLocaleDateString()}</span></div>
+                <div><span className="text-[var(--text-secondary)]">Status:</span> <span className={`px-1.5 py-0.5 rounded-full text-xs ${selectedTariff.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{selectedTariff.isActive ? 'Active' : 'Inactive'}</span></div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -477,14 +883,14 @@ export default function GDRGManagement() {
           <button
             onClick={() => handlePageChange(1)}
             disabled={currentPage === 1}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
           >
             <ChevronsLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
           >
             <ChevronLeftIcon className="w-4 h-4" />
           </button>
@@ -521,21 +927,154 @@ export default function GDRGManagement() {
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
           >
             <ChevronRightIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => handlePageChange(totalPages)}
             disabled={currentPage === totalPages}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
           >
             <ChevronsRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Create/Edit Modal - unchanged */}
+      {/* Link Diagnosis Modal */}
+      {showDiagnosisModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto border">
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b px-5 py-3 flex justify-between">
+              <h3 className="font-bold">Link Diagnosis to {selectedTariff?.gdrgCode}</h3>
+              <button onClick={() => { setShowDiagnosisModal(false); setSearchDiagnosisTerm(''); }} className="p-1 hover:bg-[var(--bg-main)] rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-4">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+                <input 
+                  type="text" 
+                  placeholder="Search by diagnosis name or ICD code..." 
+                  value={searchDiagnosisTerm} 
+                  onChange={(e) => setSearchDiagnosisTerm(e.target.value)} 
+                  className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm" 
+                />
+              </div>
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {loadingDiagnoses ? (
+                  <div className="text-center py-8"><Loader className="w-6 h-6 animate-spin mx-auto" /></div>
+                ) : filteredDiagnoses.length === 0 ? (
+                  <div className="text-center py-8 text-[var(--text-secondary)]">
+                    {searchDiagnosisTerm ? 'No matching diagnoses found' : 'No diagnoses available'}
+                  </div>
+                ) : (
+                  filteredDiagnoses.map(d => (
+                    <button
+                      key={d.id}
+                      onClick={() => setSelectedDiagnosis(d)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedDiagnosis?.id === d.id 
+                          ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' 
+                          : 'hover:bg-[var(--bg-main)]'
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{d.name}</div>
+                      <div className="text-xs text-[var(--text-secondary)] font-mono">ICD-10: {d.icdCode}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="border-t p-4 flex gap-3">
+              <button 
+                onClick={handleLinkDiagnosis} 
+                disabled={!selectedDiagnosis} 
+                className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50"
+              >
+                Link Diagnosis
+              </button>
+              <button 
+                onClick={() => { setShowDiagnosisModal(false); setSelectedDiagnosis(null); setSearchDiagnosisTerm(''); }} 
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Procedure Modal */}
+      {showProcedureModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto border">
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b px-5 py-3 flex justify-between">
+              <h3 className="font-bold">Link Procedure to {selectedTariff?.gdrgCode}</h3>
+              <button onClick={() => { setShowProcedureModal(false); setSearchProcedureTerm(''); }} className="p-1 hover:bg-[var(--bg-main)] rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-4">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+                <input 
+                  type="text" 
+                  placeholder="Search by procedure name or code..." 
+                  value={searchProcedureTerm} 
+                  onChange={(e) => setSearchProcedureTerm(e.target.value)} 
+                  className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm" 
+                />
+              </div>
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {loadingProcedures ? (
+                  <div className="text-center py-8"><Loader className="w-6 h-6 animate-spin mx-auto" /></div>
+                ) : filteredProcedures.length === 0 ? (
+                  <div className="text-center py-8 text-[var(--text-secondary)]">
+                    {searchProcedureTerm ? 'No matching procedures found' : 'No procedures available'}
+                  </div>
+                ) : (
+                  filteredProcedures.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProcedure(p)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedProcedure?.id === p.id 
+                          ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' 
+                          : 'hover:bg-[var(--bg-main)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Scissors className="w-4 h-4" />
+                        <div className="font-medium text-sm">{p.name}</div>
+                      </div>
+                      <div className="text-xs text-[var(--text-secondary)] font-mono pl-6">Code: {p.code}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="border-t p-4 flex gap-3">
+              <button 
+                onClick={handleLinkProcedure} 
+                disabled={!selectedProcedure} 
+                className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50"
+              >
+                Link Procedure
+              </button>
+              <button 
+                onClick={() => { setShowProcedureModal(false); setSelectedProcedure(null); setSearchProcedureTerm(''); }} 
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border">
@@ -579,7 +1118,26 @@ export default function GDRGManagement() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 max-w-md w-full"><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-600" /></div><div><h3 className="text-lg font-bold">Delete G-DRG Tariff</h3><p className="text-sm text-[var(--text-secondary)]">This action cannot be undone.</p></div></div><p className="mb-6">Are you sure you want to delete tariff <strong>{deleteConfirm}</strong>?</p><div className="flex gap-3"><button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button><button onClick={handleDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button></div></div></div>)}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Delete G-DRG Tariff</h3>
+                <p className="text-sm text-[var(--text-secondary)]">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="mb-6">Are you sure you want to delete tariff <strong>{deleteConfirm}</strong>?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
+              <button onClick={handleDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

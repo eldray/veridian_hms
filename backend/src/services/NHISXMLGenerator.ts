@@ -1,4 +1,5 @@
-// services/NHISXMLGenerator.ts
+// services/NHISXMLGenerator.ts - UPDATED with proper field mapping
+
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -14,16 +15,21 @@ export class NHISXMLGenerator {
         Attendance: {
           include: {
             AttendanceDiagnosis: { include: { Diagnosis: true } },
-            ServiceRendered: { include: { ServiceCatalog: true } },
+            ServiceRendered: { include: { ServiceCatalog: { include: { pricing: true } } } },
             LabTest: { include: { ServiceCatalog: true } },
             Scan: { include: { ServiceCatalog: true } },
+            Procedure: { include: { ServiceCatalog: true } },
             Medication: {
-              include: { ServiceCatalog: true, StockItem: true, dispensedBy: { select: { fullName: true } } }
+              include: { 
+                ServiceCatalog: true, 
+                StockItem: true,
+                dispensedBy: { select: { fullName: true } }
+              }
             },
             Admission: true
           }
         },
-        Bill: { include: { BillLineItem: true } }
+        Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } }
       }
     });
 
@@ -31,7 +37,6 @@ export class NHISXMLGenerator {
 
     const attendance = claim.Attendance;
     const patient = claim.Patient;
-    const admission = attendance?.Admission;
 
     // Helper functions
     const calculateAge = (dob: Date, refDate: Date): number => {
@@ -46,152 +51,186 @@ export class NHISXMLGenerator {
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
     };
 
-    const patientAge = calculateAge(patient.dateOfBirth, attendance?.dateTime || new Date());
-    const ageGroup = patientAge >= 12 ? 'A' : 'C';
+    const formatDate = (date: Date): string => {
+      if (!date) return '';
+      const d = new Date(date);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    };
 
-    // Determine MDC
-    const primaryDiagnosis = attendance?.AttendanceDiagnosis?.find(d => d.diagnosisType === 'primary');
-    const morbidityGroup = primaryDiagnosis?.Diagnosis?.morbidityGroup || '';
-    let mdcCode = 'MEDI';
-    if (attendance?.attendanceType === 'antenatal' || attendance?.attendanceType === 'delivery') mdcCode = 'OBGY';
-    else if (attendance?.attendanceType === 'surgery') mdcCode = 'ASUR';
-    const finalMdcCode = `${mdcCode}${ageGroup}`;
+    const formatXmlDate = (date: Date): string => {
+      if (!date) return '';
+      return date.toISOString().split('T')[0];
+    };
+
+    const patientAge = calculateAge(patient.dateOfBirth, attendance?.dateTime || new Date());
+    const ageSplit = patientAge >= 12 ? 'A' : 'C';
+
+    // Get MDC from GDRG code
+    const principalGDRG = claim.principalGDRG || claim.gdrgCodes?.[0] || '';
+    let mdcCode = principalGDRG.slice(0, 4) || 'MEDI';
+    const finalMdcCode = `${mdcCode}${ageSplit}`;
 
     // Type of service
-    const typeOfService = admission ? 'IPD' : 'OPD';
-    const typeOfAttendance = attendance?.attendanceType === 'emergency_acute' ? 'EAE' : 'GEN';
+    const typeOfService = attendance?.Admission ? 'IPD' : 'OPD';
+    let typeOfAttendance = 'GEN';
+    if (attendance?.attendanceType === 'emergency_acute') typeOfAttendance = 'EAE';
+    else if (attendance?.attendanceType === 'antenatal') typeOfAttendance = 'ANC';
+    else if (attendance?.attendanceType === 'delivery') typeOfAttendance = 'DEL';
+    else if (attendance?.attendanceType === 'surgery') typeOfAttendance = 'SUR';
+    
     const serviceOutcome = attendance?.status === 'completed' ? 'DISC' : 'CONT';
 
     // Dates of service
-    const datesOfService = [];
-    if (admission) {
-      let currentDate = new Date(admission.admissionDate);
-      const dischargeDate = admission.dischargeDate || new Date();
-      while (currentDate <= dischargeDate) {
-        datesOfService.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    } else {
-      datesOfService.push(new Date(attendance?.dateTime || new Date()).toISOString().split('T')[0]);
+    const datesOfService = claim.datesOfService || [];
+    if (datesOfService.length === 0 && attendance?.dateTime) {
+      datesOfService.push(formatXmlDate(attendance.dateTime));
     }
 
-    // Investigations
-    const investigations = [];
-    for (const lab of attendance?.LabTest || []) {
-      if (lab.ServiceCatalog?.nhisServiceCode) {
-        investigations.push({
-          serviceDate: lab.requestedAt?.toISOString().split('T')[0] || datesOfService[0],
-          gdrgCode: lab.ServiceCatalog.nhisServiceCode
-        });
-      }
-    }
-    for (const scan of attendance?.Scan || []) {
-      if (scan.ServiceCatalog?.nhisServiceCode) {
-        investigations.push({
-          serviceDate: scan.requestedAt?.toISOString().split('T')[0] || datesOfService[0],
-          gdrgCode: scan.ServiceCatalog.nhisServiceCode
-        });
-      }
-    }
-
-    // Diagnoses
+    // ✅ DIAGNOSES - All diagnoses with proper format
     const diagnoses = [];
     for (const diag of attendance?.AttendanceDiagnosis || []) {
       if (diag.Diagnosis) {
         diagnoses.push({
-          gdrgCode: claim.gdrgCodes?.[0] || 'OPDC06A',
+          gdrgCode: principalGDRG,
           icd10: diag.Diagnosis.icdCode || '',
           diagnosis: diag.Diagnosis.name || ''
         });
       }
     }
 
-    // Medicines
+    // ✅ INVESTIGATIONS - Lab Tests (use investigationCode)
+    const investigations = [];
+    for (const lab of attendance?.LabTest || []) {
+      const nhisCode = lab.ServiceCatalog?.investigationCode || lab.ServiceCatalog?.nhisServiceCode;
+      if (nhisCode) {
+        investigations.push({
+          serviceDate: lab.requestedAt ? formatXmlDate(lab.requestedAt) : datesOfService[0],
+          gdrgCode: nhisCode,
+          description: lab.ServiceCatalog?.name || ''
+        });
+      }
+    }
+    
+    // ✅ SCANS - Also use investigationCode (same as Lab Tests per NHIS)
+    for (const scan of attendance?.Scan || []) {
+      const nhisCode = scan.ServiceCatalog?.investigationCode || scan.ServiceCatalog?.nhisServiceCode;
+      if (nhisCode) {
+        investigations.push({
+          serviceDate: scan.requestedAt ? formatXmlDate(scan.requestedAt) : datesOfService[0],
+          gdrgCode: nhisCode,
+          description: scan.ServiceCatalog?.name || ''
+        });
+      }
+    }
+
+    // ✅ MEDICINES - Use drugCode from StockItem
     const medicines = [];
     for (const med of attendance?.Medication || []) {
-      if (med.status === 'dispensed' && (med.ServiceCatalog?.code || med.StockItem?.drugCode)) {
+      const drugCode = med.StockItem?.drugCode || med.ServiceCatalog?.code;
+      if (drugCode && (med.status === 'dispensed' || med.status === 'prescribed')) {
+        const unitPrice = med.dispensedUnitCost || med.StockItem?.costPrice || 0;
+        const qty = med.quantity || 1;
         medicines.push({
-          medicineCode: med.ServiceCatalog?.code || med.StockItem?.drugCode || '',
-          dispensedQty: med.quantity || 1,
-          serviceDate: med.dispensedAt?.toISOString().split('T')[0] || datesOfService[0],
+          medicineCode: drugCode,
+          dispensedQty: qty,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * qty,
+          serviceDate: med.dispensedAt ? formatXmlDate(med.dispensedAt) : (med.prescribedAt ? formatXmlDate(med.prescribedAt) : datesOfService[0]),
           prescription: `${med.dosage || ''} ${med.frequency || ''} x ${med.duration || ''}`.trim() || 'As prescribed'
         });
       }
     }
 
+    // ✅ Calculate totals
+    const gdrgAmount = claim.totalClaimAmount - medicines.reduce((sum, m) => sum + m.totalPrice, 0);
+    const medicationsTotal = medicines.reduce((sum, m) => sum + m.totalPrice, 0);
+
     // Build XML
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<claims>\n';
-    xml += `  <claim>\n`;
-    xml += `    <claimid>${claim.claimNumber}</claimid>\n`;
-    xml += `    <claimCheckCode>${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}</claimCheckCode>\n`;
-    xml += `    <preAuthorizationCodes/>\n`;
-    xml += `    <physicianID>${attendance?.createdById || '1234568'}</physicianID>\n`;
-    xml += `    <principalGDRG>${claim.gdrgCodes?.[0] || 'OPDC06A'}</principalGDRG>\n`;
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<NHISClaim xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n';
     
-    xml += `    <memberInfo>\n`;
-    xml += `      <memberNo>${attendance?.nhisCCC || patient.folderNumber || ''}</memberNo>\n`;
-    xml += `      <surname>${escapeXml(patient.surname || '')}</surname>\n`;
-    xml += `      <otherNames>${escapeXml(patient.otherNames || '')}</otherNames>\n`;
-    xml += `      <dateOfBirth>${patient.dateOfBirth.toISOString().split('T')[0]}</dateOfBirth>\n`;
-    xml += `      <gender>${patient.gender === 'male' ? 'M' : 'F'}</gender>\n`;
-    xml += `      <hospitalRecNo>${patient.folderNumber || ''}</hospitalRecNo>\n`;
-    xml += `      <isDependant>0</isDependant>\n`;
-    xml += `    </memberInfo>\n`;
+    // Header
+    xml += '  <Header>\n';
+    xml += `    <ClaimNumber>${claim.claimNumber}</ClaimNumber>\n`;
+    xml += `    <ClaimDate>${formatXmlDate(claim.createdAt)}</ClaimDate>\n`;
+    xml += `    <ClaimCheckCode>${claim.claimCheckCode || '00000'}</ClaimCheckCode>\n`;
+    xml += `    <FacilityCode>${process.env.NHIS_FACILITY_CODE || '030610076'}</FacilityCode>\n`;
+    xml += '  </Header>\n';
     
-    xml += `    <serviceInfo>\n`;
-    xml += `      <typeOfService>${typeOfService}</typeOfService>\n`;
-    xml += `      <isUnbundled>0</isUnbundled>\n`;
-    xml += `      <includesPharmacy>${medicines.length > 0 ? '1' : '0'}</includesPharmacy>\n`;
-    xml += `      <typeOfAttendance>${typeOfAttendance}</typeOfAttendance>\n`;
-    xml += `      <serviceOutcome>${serviceOutcome}</serviceOutcome>\n`;
-    xml += `      <specialtiesAttended>\n`;
-    xml += `        <mdcCode>${finalMdcCode}</mdcCode>\n`;
-    xml += `      </specialtiesAttended>\n`;
-    xml += `      <datesOfService>\n`;
+    // Patient Info
+    xml += '  <PatientInfo>\n';
+    xml += `    <MemberNumber>${attendance?.nhisCCC || ''}</MemberNumber>\n`;
+    xml += `    <Surname>${escapeXml(patient.surname || '')}</Surname>\n`;
+    xml += `    <OtherNames>${escapeXml(patient.otherNames || '')}</OtherNames>\n`;
+    xml += `    <DateOfBirth>${formatXmlDate(patient.dateOfBirth)}</DateOfBirth>\n`;
+    xml += `    <Gender>${patient.gender === 'male' ? 'M' : 'F'}</Gender>\n`;
+    xml += `    <FolderNumber>${patient.folderNumber || ''}</FolderNumber>\n`;
+    xml += `    <Age>${patientAge}</Age>\n`;
+    xml += '  </PatientInfo>\n';
+    
+    // Service Info
+    xml += '  <ServiceInfo>\n';
+    xml += `    <TypeOfService>${typeOfService}</TypeOfService>\n`;
+    xml += `    <TypeOfAttendance>${typeOfAttendance}</TypeOfAttendance>\n`;
+    xml += `    <ServiceOutcome>${serviceOutcome}</ServiceOutcome>\n`;
+    xml += `    <MDCCode>${finalMdcCode}</MDCCode>\n`;
+    xml += '    <DatesOfService>\n';
     for (const date of datesOfService) {
-      xml += `        <date>${date}</date>\n`;
+      xml += `      <Date>${date}</Date>\n`;
     }
-    xml += `      </datesOfService>\n`;
-    xml += `    </serviceInfo>\n`;
+    xml += '    </DatesOfService>\n';
+    xml += '  </ServiceInfo>\n';
     
-    if (investigations.length > 0) {
-      xml += `    <investigations>\n`;
-      for (const inv of investigations) {
-        xml += `      <entry>\n`;
-        xml += `        <serviceDate>${inv.serviceDate}</serviceDate>\n`;
-        xml += `        <gdrgCode>${inv.gdrgCode}</gdrgCode>\n`;
-        xml += `      </entry>\n`;
-      }
-      xml += `    </investigations>\n`;
-    }
-    
-    xml += `    <diagnoses>\n`;
+    // Diagnoses
+    xml += '  <Diagnoses>\n';
     for (const diag of diagnoses) {
-      xml += `      <entry>\n`;
-      xml += `        <gdrgCode>${diag.gdrgCode}</gdrgCode>\n`;
-      xml += `        <icd10>${diag.icd10}</icd10>\n`;
-      xml += `        <diagnosis>${escapeXml(diag.diagnosis)}</diagnosis>\n`;
-      xml += `      </entry>\n`;
+      xml += '    <Diagnosis>\n';
+      xml += `      <ICD10Code>${diag.icd10}</ICD10Code>\n`;
+      xml += `      <GDRGCode>${diag.gdrgCode}</GDRGCode>\n`;
+      xml += `      <Description>${escapeXml(diag.diagnosis)}</Description>\n`;
+      xml += '    </Diagnosis>\n';
     }
-    xml += `    </diagnoses>\n`;
+    xml += '  </Diagnoses>\n';
     
-    if (medicines.length > 0) {
-      xml += `    <medicines>\n`;
-      for (const med of medicines) {
-        xml += `      <entry>\n`;
-        xml += `        <medicineCode>${med.medicineCode}</medicineCode>\n`;
-        xml += `        <dispensedQty>${med.dispensedQty}</dispensedQty>\n`;
-        xml += `        <serviceDate>${med.serviceDate}</serviceDate>\n`;
-        xml += `        <prescription>\n`;
-        xml += `          <unparsed>${escapeXml(med.prescription)}</unparsed>\n`;
-        xml += `        </prescription>\n`;
-        xml += `      </entry>\n`;
+    // Investigations
+    if (investigations.length > 0) {
+      xml += '  <Investigations>\n';
+      for (const inv of investigations) {
+        xml += '    <Investigation>\n';
+        xml += `      <ServiceDate>${inv.serviceDate}</ServiceDate>\n`;
+        xml += `      <NHISCode>${inv.gdrgCode}</NHISCode>\n`;
+        xml += `      <Description>${escapeXml(inv.description)}</Description>\n`;
+        xml += '    </Investigation>\n';
       }
-      xml += `    </medicines>\n`;
+      xml += '  </Investigations>\n';
     }
     
-    xml += `  </claim>\n`;
-    xml += `</claims>`;
+    // Medicines
+    if (medicines.length > 0) {
+      xml += '  <Medicines>\n';
+      for (const med of medicines) {
+        xml += '    <Medicine>\n';
+        xml += `      <DrugCode>${med.medicineCode}</DrugCode>\n`;
+        xml += `      <DispensedQuantity>${med.dispensedQty}</DispensedQuantity>\n`;
+        xml += `      <UnitPrice>${med.unitPrice.toFixed(2)}</UnitPrice>\n`;
+        xml += `      <TotalPrice>${med.totalPrice.toFixed(2)}</TotalPrice>\n`;
+        xml += `      <ServiceDate>${med.serviceDate}</ServiceDate>\n`;
+        xml += `      <Prescription>${escapeXml(med.prescription)}</Prescription>\n`;
+        xml += '    </Medicine>\n';
+      }
+      xml += '  </Medicines>\n';
+    }
+    
+    // Claim Summary
+    xml += '  <ClaimSummary>\n';
+    xml += `    <PrincipalGDRG>${principalGDRG}</PrincipalGDRG>\n`;
+    xml += `    <GDRGAmount>${gdrgAmount.toFixed(2)}</GDRGAmount>\n`;
+    xml += `    <MedicationsAmount>${medicationsTotal.toFixed(2)}</MedicationsAmount>\n`;
+    xml += `    <TotalClaimAmount>${claim.totalClaimAmount.toFixed(2)}</TotalClaimAmount>\n`;
+    xml += '  </ClaimSummary>\n';
+    
+    xml += '</NHISClaim>';
+    
     return xml;
   }
 }

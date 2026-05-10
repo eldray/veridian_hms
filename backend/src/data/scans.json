@@ -13,7 +13,8 @@
     "preparationInstructions": "Remove metal objects and jewelry",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "Abdominal Ultrasound",
@@ -29,7 +30,8 @@
     "preparationInstructions": "Fasting for 6 hours required",
     "duration": 30,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "Pelvic Ultrasound (Transabdominal)",
@@ -45,7 +47,8 @@
     "preparationInstructions": "Full bladder required – drink 1L water 1 hour before",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "Obstetric Ultrasound (Dating Scan)",
@@ -61,7 +64,8 @@
     "preparationInstructions": "Full bladder preferred",
     "duration": 25,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "Renal Ultrasound",
@@ -77,7 +81,8 @@
     "preparationInstructions": "Full bladder required",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "X-ray, Skull (AP/Lateral)",
@@ -93,7 +98,8 @@
     "preparationInstructions": "Remove hairpins and metal",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Abdomen (Supine)",
@@ -109,7 +115,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Lumbar Spine",
@@ -125,7 +132,8 @@
     "preparationInstructions": "Remove belts and metal",
     "duration": 15,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Cervical Spine",
@@ -141,7 +149,8 @@
     "preparationInstructions": "Remove necklaces and collars",
     "duration": 12,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Femur",
@@ -157,7 +166,8 @@
     "preparationInstructions": "Remove clothing over area",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Tibia/Fibula",
@@ -173,7 +183,8 @@
     "preparationInstructions": "Remove footwear and socks",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Ankle",
@@ -189,7 +200,8 @@
     "preparationInstructions": "Remove shoes and socks",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Shoulder",
@@ -205,7 +217,8 @@
     "preparationInstructions": "Wear sleeveless top or remove shirt",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Hand",
@@ -221,7 +234,8 @@
     "preparationInstructions": "Remove rings and bracelets",
     "duration": 8,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "Mammography (Screening)",
@@ -237,7 +251,8 @@
     "preparationInstructions": "Avoid deodorant or powder on day of exam",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 56.34
   },
   {
     "name": "Thyroid Ultrasound",
@@ -253,7 +268,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 15,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "Scrotal Ultrasound",
@@ -269,7 +285,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "X-ray, Pelvis",
@@ -285,7 +302,8 @@
     "preparationInstructions": "Remove metal objects and clothing below waist",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "X-ray, Ribs",
@@ -301,7 +319,8 @@
     "preparationInstructions": "Remove upper body clothing",
     "duration": 12,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "Barium Swallow (Fluoroscopy)",
@@ -317,7 +336,8 @@
     "preparationInstructions": "Fasting for 6 hours; inform if pregnant",
     "duration": 30,
     "contrastRequired": true,
-    "scanType": "contrast"
+    "scanType": "contrast",
+    "tariffGhC": 98.96
   },
   {
     "name": "Intravenous Urogram (IVU)",
@@ -333,7 +353,8 @@
     "preparationInstructions": "Fasting for 4 hours; laxative may be given",
     "duration": 60,
     "contrastRequired": true,
-    "scanType": "contrast"
+    "scanType": "contrast",
+    "tariffGhC": 264.14
   },
   {
     "name": "Hysterosalpingogram (HSG)",
@@ -349,13 +370,14 @@
     "preparationInstructions": "Schedule between days 7–10 of cycle; antibiotics may be prescribed",
     "duration": 30,
     "contrastRequired": true,
-    "scanType": "contrast"
+    "scanType": "contrast",
+    "tariffGhC": 63.19
   },
   {
     "name": "CT Scan, Head (Plain)",
     "scanCode": "scan23c",
-    "investigationCode": "scan23c",
-    "description": "Cross-sectional imaging of brain",
+    "investigationCode": "INVE34D",
+    "description": "Cross-sectional imaging of brain without contrast",
     "category": "ct_scan",
     "bodyPart": "head",
     "isPending": false,
@@ -365,12 +387,13 @@
     "preparationInstructions": "Remove all metal from head/neck",
     "duration": 15,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 102.01
   },
   {
     "name": "CT Scan, Abdomen (With Contrast)",
     "scanCode": "scan24c",
-    "investigationCode": "scan24c",
+    "investigationCode": "INVE33D",
     "description": "Detailed imaging of abdominal organs with contrast",
     "category": "ct_scan",
     "bodyPart": "abdomen",
@@ -381,12 +404,13 @@
     "preparationInstructions": "Fasting for 4–6 hours; IV access required",
     "duration": 25,
     "contrastRequired": true,
-    "scanType": "contrast"
+    "scanType": "contrast",
+    "tariffGhC": 284.38
   },
   {
     "name": "CT Scan, Chest (Plain)",
     "scanCode": "scan25c",
-    "investigationCode": "scan25c",
+    "investigationCode": "INVE34D",
     "description": "High-resolution imaging of lungs and mediastinum",
     "category": "ct_scan",
     "bodyPart": "chest",
@@ -397,7 +421,8 @@
     "preparationInstructions": "Remove upper body metal",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 102.01
   },
   {
     "name": "X-ray, Sinuses",
@@ -413,7 +438,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 10,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
   },
   {
     "name": "Breast Ultrasound",
@@ -429,7 +455,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 20,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 38.57
   },
   {
     "name": "Doppler Ultrasound, Lower Limb Veins",
@@ -445,7 +472,8 @@
     "preparationInstructions": "Wear loose clothing; no lotions on legs",
     "duration": 40,
     "contrastRequired": false,
-    "scanType": "doppler"
+    "scanType": "doppler",
+    "tariffGhC": 37.93
   },
   {
     "name": "Doppler Ultrasound, Carotid Arteries",
@@ -461,7 +489,8 @@
     "preparationInstructions": "No special preparation",
     "duration": 30,
     "contrastRequired": false,
-    "scanType": "doppler"
+    "scanType": "doppler",
+    "tariffGhC": 37.93
   },
   {
     "name": "X-ray, Wrist",
@@ -477,6 +506,364 @@
     "preparationInstructions": "Remove bracelets and watches",
     "duration": 8,
     "contrastRequired": false,
-    "scanType": "plain"
+    "scanType": "plain",
+    "tariffGhC": 34.80
+  },
+  {
+    "name": "CT Scan, 2 Regions (No Contrast)",
+    "scanCode": "scan31c",
+    "investigationCode": "INVE157D",
+    "description": "CT imaging of two anatomical regions without contrast",
+    "category": "ct_scan",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN31C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 25,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 177.14
+  },
+  {
+    "name": "CT Scan, 2 Regions (With 1 Contrast)",
+    "scanCode": "scan32c",
+    "investigationCode": "INVE158D",
+    "description": "CT imaging of two regions with single contrast dose",
+    "category": "ct_scan",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN32C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours; IV access required",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 181.20
+  },
+  {
+    "name": "CT Scan, 2 Regions (With 2 Contrast)",
+    "scanCode": "scan33c",
+    "investigationCode": "INVE159D",
+    "description": "CT imaging of two regions with double contrast (IV and oral/barium)",
+    "category": "ct_scan",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN33C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours; oral contrast may be given",
+    "duration": 35,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 203.97
+  },
+  {
+    "name": "CT Scan, 1 Region (With 2 Contrast)",
+    "scanCode": "scan34c",
+    "investigationCode": "INVE32D",
+    "description": "CT imaging of single region with double contrast",
+    "category": "ct_scan",
+    "bodyPart": "single",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN34C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours",
+    "duration": 25,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 354.32
+  },
+  {
+    "name": "MRI, 1 Region (No Contrast)",
+    "scanCode": "scan35m",
+    "investigationCode": "INVE81D",
+    "description": "Magnetic resonance imaging of single region without contrast",
+    "category": "mri",
+    "bodyPart": "single",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN35M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; inform of implants/claustrophobia",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 170.39
+  },
+  {
+    "name": "MRI, 1 Region (With Contrast)",
+    "scanCode": "scan36m",
+    "investigationCode": "INVE80D",
+    "description": "Magnetic resonance imaging of single region with contrast",
+    "category": "mri",
+    "bodyPart": "single",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN36M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; IV contrast will be administered",
+    "duration": 40,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 369.99
+  },
+  {
+    "name": "MRI, 2 Regions (No Contrast)",
+    "scanCode": "scan37m",
+    "investigationCode": "INVE160D",
+    "description": "MRI of two anatomical regions without contrast",
+    "category": "mri",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN37M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 45,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 402.15
+  },
+  {
+    "name": "MRI, 2 Regions (With Contrast)",
+    "scanCode": "scan38m",
+    "investigationCode": "INVE161D",
+    "description": "MRI of two regions with contrast enhancement",
+    "category": "mri",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN38M",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; IV contrast will be given",
+    "duration": 55,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 511.93
+  },
+  {
+    "name": "A-scan (Ophthalmology)",
+    "scanCode": "scan39o",
+    "investigationCode": "INVE125D",
+    "description": "Ultrasound biometry for intraocular lens calculation",
+    "category": "ophthalmology",
+    "bodyPart": "eye",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN39O",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 48.97
+  },
+  {
+    "name": "Bone Scan",
+    "scanCode": "scan40n",
+    "investigationCode": "INVE139D",
+    "description": "Nuclear medicine imaging of skeletal system",
+    "category": "nuclear_medicine",
+    "bodyPart": "skeleton",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN40N",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Hydrate well before scan; empty bladder before imaging",
+    "duration": 60,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 112.81
+  },
+  {
+    "name": "Ductologram/Galactography",
+    "scanCode": "scan41x",
+    "investigationCode": "INVE40D",
+    "description": "X-ray imaging of breast ducts with contrast",
+    "category": "mammography",
+    "bodyPart": "breast",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN41X",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "For abnormal nipple discharge only",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 77.92
+  },
+  {
+    "name": "Myocardial Perfusion Imaging",
+    "scanCode": "scan42n",
+    "investigationCode": "INVE145D",
+    "description": "Nuclear stress test for heart blood flow",
+    "category": "nuclear_medicine",
+    "bodyPart": "chest",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN42N",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No caffeine for 24 hours; may need to stop certain medications",
+    "duration": 180,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 201.86
+  },
+  {
+    "name": "Orthopantomograph (OPT)",
+    "scanCode": "scan43x",
+    "investigationCode": "INVE84D",
+    "description": "Panoramic dental X-ray of mandible and maxilla",
+    "category": "dental_xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN43X",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove jewelry, glasses, and dentures",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 52.64
+  },
+  {
+    "name": "Sialogram",
+    "scanCode": "scan44x",
+    "investigationCode": "INVE15E",
+    "description": "X-ray imaging of salivary ducts with contrast",
+    "category": "xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN44X",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 82.32
+  },
+  {
+    "name": "Transhepatic Cholangiography (PTC)",
+    "scanCode": "scan45f",
+    "investigationCode": "INVE138D",
+    "description": "Contrast X-ray of bile ducts via needle puncture",
+    "category": "fluoroscopy",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN45F",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours; coagulation screen required",
+    "duration": 60,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 113.66
+  },
+  {
+    "name": "Ultrasound - 2 Regions",
+    "scanCode": "scan46u",
+    "investigationCode": "INVE31E-2",
+    "description": "Ultrasound examination of two anatomical regions",
+    "category": "ultrasound",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN46U",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Preparation depends on regions examined",
+    "duration": 40,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 53.97
+  },
+  {
+    "name": "Ultrasound Biomicroscopy",
+    "scanCode": "scan47u",
+    "investigationCode": "INVE129D",
+    "description": "High-resolution ultrasound of anterior eye segment",
+    "category": "ophthalmology",
+    "bodyPart": "eye",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN47U",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 51.82
+  },
+  {
+    "name": "Venogram - 1 Region",
+    "scanCode": "scan48x",
+    "investigationCode": "INVE37E",
+    "description": "X-ray imaging of veins with contrast in one region",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN48X",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Inform of contrast allergy",
+    "duration": 45,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 237.36
+  },
+  {
+    "name": "X-ray, Two Regions",
+    "scanCode": "scan49x",
+    "investigationCode": "INVE90D",
+    "description": "Radiograph of two anatomical regions",
+    "category": "xray",
+    "bodyPart": "multiple",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN49X",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove metal objects from both areas",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 53.62
+  },
+  {
+    "name": "CT Scan, 1 Region (No Contrast)",
+    "scanCode": "scan50c",
+    "investigationCode": "INVE34D",
+    "description": "CT imaging of single region without contrast",
+    "category": "ct_scan",
+    "bodyPart": "single",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN50C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 102.01
+  },
+  {
+    "name": "CT Scan, 1 Region (With 1 Contrast)",
+    "scanCode": "scan51c",
+    "investigationCode": "INVE33D",
+    "description": "CT imaging of single region with IV contrast",
+    "category": "ct_scan",
+    "bodyPart": "single",
+    "isPending": false,
+    "tariffCode": "SCAN-SCAN51C",
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours; IV access required",
+    "duration": 20,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 284.38
   }
 ]

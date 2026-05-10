@@ -1,13 +1,84 @@
-// src/api/index.ts - COMPLETE UPDATED VERSION (ALL BACKEND ROUTES COVERED)
+// src/api/index.ts - COMPLETE FIXED VERSION
 import api from './api';
 import type { 
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
   Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
   StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
-  Appointment, Notification, ConsultationType, HospitalInfo
+  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus
 } from '../types';
 
-// Generic response handler
+// ============================================
+// MISSING TYPES - ADDED
+// ============================================
+
+export interface ReportFilter {
+  startDate?: string;
+  endDate?: string;
+  period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  departmentId?: string;
+  doctorId?: string;
+  patientId?: string;
+  diagnosisId?: string;
+  procedureId?: string;
+  medicationId?: string;
+  wardId?: string;
+  status?: string;
+  paymentMode?: string;
+  insuranceProviderId?: string;
+  [key: string]: any;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  supplierName: string;
+  invoiceDate: string;
+  totalAmount: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: InvoiceItem[];
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoiceId: string;
+  stockItemId: string;
+  quantity: number;
+  unitCost: number;
+  batchNumber?: string;
+  expiryDate?: string;
+}
+
+export interface Requisition {
+  id: string;
+  requisitionNumber: string;
+  requestingDepartmentId: string;
+  requestedById: string;
+  urgency: 'routine' | 'urgent' | 'emergency';
+  requiredDate?: string;
+  purpose?: string;
+  status: 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+  items?: RequisitionItem[];
+}
+
+export interface RequisitionItem {
+  id: string;
+  requisitionId: string;
+  stockItemId: string;
+  quantityRequested: number;
+  quantityApproved?: number;
+  quantityFulfilled?: number;
+  purpose?: string;
+  notes?: string;
+}
+
+// ============================================
+// GENERIC RESPONSE HANDLER
+// ============================================
+
 const handleResponse = <T>(response: any): T[] => {
   if (Array.isArray(response)) return response as T[];
   if (response?.data && Array.isArray(response.data)) return response.data as T[];
@@ -36,7 +107,7 @@ const handleResponse = <T>(response: any): T[] => {
   return [] as T[];
 };
 
-// function to convert date
+// Date conversion helper
 const convertISODateToInputFormat = (isoDate: string): string => {
   if (!isoDate) return '';
   
@@ -78,7 +149,7 @@ export const getUsers = () =>
 export const getUserStats = () => 
   api.get('/auth/users/stats').then(r => r.data);
 
-// Profile management - CORRECTED ENDPOINTS
+// Profile management
 export const getProfile = () => 
   api.get('/auth/profile').then(r => r.data);
 
@@ -86,9 +157,9 @@ export const updateProfile = (data: any) =>
   api.put('/auth/profile', data).then(r => r.data);
 
 export const changePassword = (currentPassword: string, newPassword: string) => 
-  api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data); // Fixed endpoint
+  api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
 
-  // ───── SETTINGS (Admin only) ─────
+// ───── SETTINGS (Admin only) ─────
 export const getHospitalDetails = () => 
   api.get('/settings/hospital').then(r => r.data);
 
@@ -127,13 +198,11 @@ export const updateHospitalNHISSettings = (data: any) =>
   api.put('/hospitals/settings/nhis', data).then(r => r.data);
 
 // ───── GDRG TARIFFS ─────
-
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
   const response = await api.get('/gdrg', { params: filters });
-  // Extract the data array from the response
   const result = response.data;
   if (result?.success && Array.isArray(result.data)) {
-    return result.data; // Return only the tariffs array
+    return result.data;
   }
   if (Array.isArray(result)) {
     return result;
@@ -170,13 +239,55 @@ export const lookupGDRGByAge = async (params: { gdrgCode: string; patientId?: st
   return response.data?.data || response.data;
 };
 
+// ==========================================
+// DIAGNOSIS GDRG LINKING
+// ==========================================
+
+export const getDiagnosesByGDRG = async (gdrgCode: string) => {
+  const response = await api.get(`/gdrg/${gdrgCode}/diagnoses`);
+  return response.data?.data || response.data || [];
+};
+
 export const linkDiagnosisToGDRG = async (gdrgCode: string, diagnosisId: string, isPrimary?: boolean, mappedIcdCode?: string) => {
-  const response = await api.post(`/gdrg/${gdrgCode}/diagnosis`, { diagnosisId, isPrimary, mappedIcdCode });
-  return response.data?.data || response.data;
+  const response = await api.post(`/gdrg/${gdrgCode}/diagnosis`, { 
+    diagnosisId, 
+    isPrimary: isPrimary || false, 
+    mappedIcdCode: mappedIcdCode || '' 
+  });
+  return response.data;
 };
 
 export const unlinkDiagnosisFromGDRG = async (gdrgCode: string, diagnosisId: string) => {
   const response = await api.delete(`/gdrg/${gdrgCode}/diagnosis/${diagnosisId}`);
+  return response.data;
+};
+
+export const getGDRGByDiagnosis = async (diagnosisId: string) => {
+  const response = await api.get(`/gdrg/diagnosis/${diagnosisId}`);
+  return response.data;
+};
+
+// ==========================================
+// PROCEDURE GDRG LINKING
+// ==========================================
+
+export const linkProcedureToGDRG = async (gdrgCode: string, data: { procedureId: string; isPrimary?: boolean; mappedCode?: string }) => {
+  const response = await api.post(`/gdrg/${gdrgCode}/procedure`, data);
+  return response.data;
+};
+
+export const unlinkProcedureFromGDRG = async (gdrgCode: string, procedureId: string) => {
+  const response = await api.delete(`/gdrg/${gdrgCode}/procedure/${procedureId}`);
+  return response.data;
+};
+
+export const getProceduresByGDRG = async (gdrgCode: string) => {
+  const response = await api.get(`/gdrg/${gdrgCode}/procedures`);
+  return response.data;
+};
+
+export const getGDRGByProcedure = async (procedureId: string) => {
+  const response = await api.get(`/gdrg/procedure/${procedureId}`);
   return response.data;
 };
 
@@ -199,34 +310,37 @@ export const deleteInsuranceProvider = (id: string) =>
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
 // ======================
-// NHIS CLAIM API FUNCTIONS
+// INSURANCE CLAIM API FUNCTIONS
 // ======================
+
 export const generateNHISClaim = (attendanceId: string) => 
   api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
 
 export const getNHISClaims = (filters?: any) => 
   api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
 
-// ======================
-// PRIVATE INSURANCE CLAIM API FUNCTIONS
-// ======================
 export const generatePrivateInsuranceClaim = (attendanceId: string) => 
   api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
 
 export const getPrivateInsuranceClaims = (filters?: any) => 
   api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
 
-// ======================
-// COMMON CLAIM FUNCTIONS
-// ======================
+export const getInsuranceClaims = (filters?: any) => 
+  api.get('/insurance-claims', { params: filters }).then(r => r.data);
+
 export const getInsuranceClaim = (id: string) => 
   api.get(`/insurance-claims/${id}`).then(r => r.data);
 
 export const getClaimByAttendanceId = (attendanceId: string) => 
   api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
 
+// ✅ FIX 1: Add the missing updateClaimDraft function (alias for updateInsuranceClaim)
 export const updateClaimDraft = (claimId: string, data: any) => 
   api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
+
+// ✅ FIX 2: Keep updateInsuranceClaim for the store
+export const updateInsuranceClaim = (claimId: string, data: any) => 
+  api.patch(`/insurance-claims/${claimId}`, data).then(r => r.data);
 
 export const finalizeClaim = (claimId: string) => 
   api.post(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
@@ -243,11 +357,35 @@ export const generateClaimPrint = (claimId: string) =>
 export const getFinalizedClaimsTotal = (filters?: any) => 
   api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
 
+// BATCH CLAIMS
+export const createClaimBatch = (data: { claimIds: string[]; description?: string }) => 
+  api.post('/insurance-claims/batches', data).then(r => r.data);
+
+export const getClaimBatches = (filters?: any) => 
+  api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
+
+export const getClaimBatch = (id: string) => 
+  api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
+
+export const addClaimsToBatch = (batchId: string, claimIds: string[]) => 
+  api.post(`/insurance-claims/batches/${batchId}/claims`, { claimIds }).then(r => r.data);
+
+export const removeClaimsFromBatch = (batchId: string, claimIds: string[]) => 
+  api.delete(`/insurance-claims/batches/${batchId}/claims`, { data: { claimIds } }).then(r => r.data);
+
+export const generateBatchXML = (batchId: string) => 
+  api.get(`/insurance-claims/batches/${batchId}/xml`, { responseType: 'blob' }).then(r => r.data);
+
+export const updateBatchStatus = (batchId: string, status: string) => 
+  api.patch(`/insurance-claims/batches/${batchId}/status`, { status }).then(r => r.data);
+
+export const deleteClaimBatch = (batchId: string) => 
+  api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
+
 // ───── PATIENTS ─────
 export const getPatient = (id: string) => 
   api.get(`/patients/${id}`).then(r => {
     const patient = r.data;
-    // Convert dateOfBirth to input format if it's in ISO format
     if (patient.dateOfBirth && patient.dateOfBirth.includes('T')) {
       patient.dateOfBirth = convertISODateToInputFormat(patient.dateOfBirth);
     }
@@ -257,8 +395,6 @@ export const getPatient = (id: string) =>
 export const getPatients = (filters?: any) => 
   api.get('/patients', { params: filters }).then(r => {
     const patients = handleResponse<Patient>(r.data);
-    
-    // Convert dates for all patients
     return patients.map((patient: any) => ({
       ...patient,
       dateOfBirth: patient.dateOfBirth && patient.dateOfBirth.includes('T') 
@@ -268,14 +404,10 @@ export const getPatients = (filters?: any) =>
   });
 
 export const createPatient = (data: any) => {
-  // Ensure date is in correct format before sending
   const processedData = { ...data };
-  
   if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
-    // Convert ISO to simple date format
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  
   if (data instanceof FormData) {
     return api.post('/patients', processedData, { 
       headers: { 'Content-Type': 'multipart/form-data' } 
@@ -286,14 +418,10 @@ export const createPatient = (data: any) => {
 };
 
 export const updatePatient = (id: string, data: any) => {
-  // Ensure date is in correct format before sending
   const processedData = { ...data };
-  
   if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
-    // Convert ISO to simple date format
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  
   if (data instanceof FormData) {
     return api.put(`/patients/${id}`, processedData, { 
       headers: { 'Content-Type': 'multipart/form-data' } 
@@ -303,60 +431,52 @@ export const updatePatient = (id: string, data: any) => {
   }
 };
 
-// Patient image upload using consistent API client
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
   api.post(`/patients/${patientId}/upload-image`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data);
 
 export const uploadPatientImageBase64 = (patientId: string, base64Image: string) =>
-  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image })
-    .then(r => r.data);
+  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image }).then(r => r.data);
 
 export const deletePatient = (id: string) => 
   api.delete(`/patients/${id}`).then(r => r.data);
 
 // ───── ATTENDANCES ─────
 export const getAttendances = (filters?: any) => 
-  api.get('/attendances', { params: filters })
-    .then(r => {
-      const attendances = handleResponse<Attendance>(r.data);
-      return { 
-        data: attendances, 
-        attendances: attendances,
-        pagination: r.data.pagination 
-      };
-    });
+  api.get('/attendances', { params: filters }).then(r => {
+    const attendances = handleResponse<Attendance>(r.data);
+    return { 
+      data: attendances, 
+      attendances: attendances,
+      pagination: r.data.pagination 
+    };
+  });
 
 export const getAttendance = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Attendance ID is required'));
   }
-  return api.get(`/attendances/${id}`)
-    .then(r => {
-      const attendance = r.data;
-      return { ...attendance, _id: attendance.id || attendance._id };
-    });
+  return api.get(`/attendances/${id}`).then(r => {
+    const attendance = r.data;
+    return { ...attendance, _id: attendance.id || attendance._id };
+  });
 };
 
 export const createAttendance = (data: any) => 
-  api.post('/attendances', data)
-    .then(r => {
-      const attendance = r.data;
-      return { ...attendance, _id: attendance.id || attendance._id };
-    });
+  api.post('/attendances', data).then(r => {
+    const attendance = r.data;
+    return { ...attendance, _id: attendance.id || attendance._id };
+  });
 
 export const updateAttendance = (id: string, data: any) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Attendance ID is required'));
   }
-  return api.put(`/attendances/${id}`, data)
-    .then(r => {
-      const attendance = r.data;
-      return { ...attendance, _id: attendance.id || attendance._id };
-    });
+  return api.put(`/attendances/${id}`, data).then(r => {
+    const attendance = r.data;
+    return { ...attendance, _id: attendance.id || attendance._id };
+  });
 };
 
 export const deleteAttendance = (id: string) => {
@@ -370,11 +490,10 @@ export const updateAttendanceStatus = (id: string, data: any) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Attendance ID is required'));
   }
-  return api.patch(`/attendances/${id}/status`, data)
-    .then(r => {
-      const attendance = r.data;
-      return { ...attendance, _id: attendance.id || attendance._id };
-    });
+  return api.patch(`/attendances/${id}/status`, data).then(r => {
+    const attendance = r.data;
+    return { ...attendance, _id: attendance.id || attendance._id };
+  });
 };
 
 // Diagnosis Operations
@@ -430,17 +549,15 @@ export const updateMedicationStatus = async (
     batchNumber?: string;
   }
 ) => {
-  const response = await api.patch(
-    `/attendances/${attendanceId}/medications/${medicationId}`,
-    data
-  );
-  return response; // Return the full response
+  const response = await api.patch(`/attendances/${attendanceId}/medications/${medicationId}`, data);
+  return response;
 };
 
 export const removeMedicationFromAttendance = async (attendanceId: string, medicationId: string) => {
   const response = await api.delete(`/attendances/${attendanceId}/medications/${medicationId}`);
   return response.data;
 };
+
 // Scan Operations
 export const addScanToAttendance = async (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => {
   const response = await api.post(`/attendances/${attendanceId}/scans`, data);
@@ -467,10 +584,10 @@ export const removeServiceFromAttendance = async (attendanceId: string, serviceI
   const response = await api.delete(`/attendances/${attendanceId}/services/${serviceId}`);
   return response.data;
 };
+
 // Bed Assignment
 export const assignBedToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/assign-bed`, data).then(r => r.data);
-
 
 // ============================================
 // VITALS API
@@ -496,7 +613,6 @@ export const deleteVitals = async (attendanceId: string, vitalsId: string) => {
   return response.data;
 };
 
-
 // Progress Notes Operations
 export const addProgressNoteToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/progress-notes`, data).then(r => r.data);
@@ -505,7 +621,6 @@ export const removeProgressNoteFromAttendance = (attendanceId: string, noteId: s
   api.delete(`/attendances/${attendanceId}/progress-notes/${noteId}`).then(r => r.data);
 
 // Billing Operations
-
 export const getBillingBreakdown = (attendanceId: string) => 
   api.get(`/attendances/${attendanceId}/billing-breakdown`).then(r => r.data);
 
@@ -533,21 +648,19 @@ export const generateNHISClaimFromAttendance = (attendanceId: string) =>
 export const getBills = (filters?: any) => 
   api.get('/bills', { params: filters }).then(r => { 
     console.log('📊 API Bills Response:', r.data);
-    
-    // Handle different response structures
     if (Array.isArray(r.data)) {
-      return r.data; // Direct array
+      return r.data;
     } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data; // { data: [] } format
+      return r.data.data;
     } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills; // { bills: [] } format
+      return r.data.bills;
     } else {
       console.warn('Unexpected bills API structure:', r.data);
       return [];
     }
   });
 
-  export const getBill = (id: string) => 
+export const getBill = (id: string) => 
   api.get(`/bills/${id}`).then(r => r.data);
 
 export const createBill = (data: any) => 
@@ -584,6 +697,60 @@ export const getBillLineItems = (billId: string) =>
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) => 
   api.delete(`/bills/line-items/${lineItemId}/void`, { data }).then(r => r.data);
 
+// ======================
+// WAIVER API FUNCTIONS
+// ======================
+
+export const createWaiverRequest = (data: {
+  patientId: string;
+  billId?: string;
+  waiverType: string;
+  reason: string;
+  amountRequested: number;
+  supportingDocs?: string[];
+}) => api.post('/waivers', data).then(r => r.data);
+
+export const getWaivers = (filters?: {
+  status?: string;
+  waiverType?: string;
+  patientId?: string;
+  billId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}) => api.get('/waivers', { params: filters }).then(r => r.data);
+
+export const getWaiverById = (id: string) => 
+  api.get(`/waivers/${id}`).then(r => r.data);
+
+export const updateWaiverStatus = (id: string, data: {
+  status: string;
+  amountApproved?: number;
+  rejectionReason?: string;
+}) => api.patch(`/waivers/${id}/status`, data).then(r => r.data);
+
+export const approveWaiver = (id: string, amountApproved?: number) => 
+  api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => r.data);
+
+export const rejectWaiver = (id: string, rejectionReason?: string) => 
+  api.post(`/waivers/${id}/reject`, { rejectionReason }).then(r => r.data);
+
+export const getWaiversByBill = (billId: string) => 
+  api.get(`/waivers/bill/${billId}`).then(r => r.data);
+
+export const getWaiversByPatient = (patientId: string, filters?: { page?: number; limit?: number }) => 
+  api.get(`/waivers/patient/${patientId}`, { params: filters }).then(r => r.data);
+
+export const getWaiverStatistics = (filters?: { startDate?: string; endDate?: string }) => 
+  api.get('/waivers/statistics', { params: filters }).then(r => r.data);
+
+export const deleteWaiver = (id: string) => 
+  api.delete(`/waivers/${id}`).then(r => r.data);
+
+export const applyWaiverToBill = (billId: string, waiverId: string) => 
+  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
+
 // Ward Charges
 export const getWardCharges = (attendanceId: string, params?: any) => 
   api.get(`/attendances/${attendanceId}/ward-charges`, { params }).then(r => r.data);
@@ -597,9 +764,7 @@ export const generateReceipt = (billId: string) =>
 
 // ───── ADMISSIONS ─────
 export const getAdmissions = (filters?: any) => 
-  api.get('/admissions', { params: filters }).then(r => {
-    return handleResponse<Admission>(r.data);
-  });
+  api.get('/admissions', { params: filters }).then(r => handleResponse<Admission>(r.data));
 
 export const getAdmission = (id: string) => 
   api.get(`/admissions/${id}`).then(r => r.data);
@@ -647,9 +812,7 @@ export const deleteDailyNote = (admissionId: string, noteId: string) =>
 
 // ───── WARDS & BEDS ─────
 export const getWards = (filters?: any) => 
-  api.get('/wards', { params: filters }).then(r => {
-    return handleResponse<Ward>(r.data);
-  });
+  api.get('/wards', { params: filters }).then(r => handleResponse<Ward>(r.data));
 
 export const getWard = (id: string) => 
   api.get(`/wards/${id}`).then(r => r.data);
@@ -703,17 +866,11 @@ export const getLowStockItems = () =>
 export const getStockCategories = () => 
   api.get('/stock-items/categories').then(r => r.data);
 
-// ✅ UPDATED: Use the stock-level endpoint instead
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => 
   api.patch(`/stock-items/${id}/stock-level`, data).then(r => r.data);
 
-// ✅ ADDED: Get stock item transaction history
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) => 
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
-
-// Remove bulkUpdateStock if you don't have the endpoint - use individual updateStockLevel instead
-// export const bulkUpdateStock = (data: any) => 
-//   api.patch('/stock-items/bulk-update', data).then(r => r.data);
 
 // ───── STOCK TRANSACTIONS ─────
 export const getStockTransactions = (filters?: any) => 
@@ -725,22 +882,14 @@ export const getStockTransaction = (id: string) =>
 export const createStockTransaction = (data: any) => 
   api.post('/stock-transactions', data).then(r => r.data);
 
-// ✅ FIXED: Update stock transaction (only notes/reference allowed)
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) => 
   api.put(`/stock-transactions/${id}`, data).then(r => r.data);
 
 export const getStockMovementReport = (filters?: any) => 
   api.get('/stock-transactions/reports/movement', { params: filters }).then(r => r.data);
 
-// ✅ FIXED: Use correct endpoint
 export const getLowStockAlerts = () => 
   api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
-// OR if you prefer using the stock-items endpoint:
-// export const getLowStockAlerts = () => getLowStockItems();
-
-// Remove this if using the stock-items endpoint:
-// export const getStockItemTransactionHistory = (stockItemId: string) => 
-//   api.get(`/stock-transactions/stock-item/${stockItemId}`).then(r => r.data);
 
 // ───── INVOICES ─────
 export const getInvoices = (filters?: any) => 
@@ -777,20 +926,11 @@ export const deleteRequisition = (id: string) =>
 export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) => 
   api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data);
 
-// Helper functions for common status updates
-export const submitRequisition = (id: string) => 
-  updateRequisitionStatus(id, 'submitted');
+export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
+export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
+export const fulfillRequisition = (id: string, data?: any) => updateRequisitionStatus(id, 'fulfilled', data);
+export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
-export const approveRequisition = (id: string) => 
-  updateRequisitionStatus(id, 'approved');
-
-export const fulfillRequisition = (id: string, data?: any) => 
-  updateRequisitionStatus(id, 'fulfilled', data);
-
-export const cancelRequisition = (id: string) => 
-  updateRequisitionStatus(id, 'cancelled');
-
-// ✅ ADDED: Approve requisition items
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) => 
   api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
 
@@ -812,6 +952,7 @@ export const getSupplierReport = () =>
 
 export const getRequisitionSummary = (startDate?: string, endDate?: string) => 
   api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => r.data);
+
 // ============================================
 // REFERRAL API CALLS
 // ============================================
@@ -882,22 +1023,12 @@ export const getReferralStats = async (params?: { startDate?: string; endDate?: 
   return response.data;
 };
 
-
 // ───── MEDICAL SERVICES ─────
-
 export const getDiagnoses = (filters?: any) => 
   api.get('/diagnoses', { params: filters }).then(r => {
-    console.log('Diagnoses API response:', r.data);
-    // The response might be { data: [...], pagination: {...} }
-    if (r.data?.success && Array.isArray(r.data.data)) {
-      return r.data.data;
-    }
-    if (Array.isArray(r.data)) {
-      return r.data;
-    }
-    if (r.data?.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    }
+    if (r.data?.success && Array.isArray(r.data.data)) return r.data.data;
+    if (Array.isArray(r.data)) return r.data;
+    if (r.data?.data && Array.isArray(r.data.data)) return r.data.data;
     return [];
   });
   
@@ -975,36 +1106,33 @@ export const bulkUpdateProcedureTemplates = (data: any) =>
 
 // ───── SERVICE CATALOG ─────
 export const getServiceCatalog = (filters?: any) => 
-  api.get('/service-catalog', { params: filters })
-    .then(r => {
-      const services = handleResponse<ServiceCatalog>(r.data);
-      return {
-        data: services,
-        services: services,
-        pagination: r.data.pagination
-      };
-    });
+  api.get('/service-catalog', { params: filters }).then(r => {
+    const services = handleResponse<ServiceCatalog>(r.data);
+    return {
+      data: services,
+      services: services,
+      pagination: r.data.pagination
+    };
+  });
 
 export const getServiceCatalogItem = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Service ID is required'));
   }
-  return api.get(`/service-catalog/${id}`)
-    .then(r => {
-      const service = r.data;
-      return { ...service, _id: service.id || service._id };
-    });
+  return api.get(`/service-catalog/${id}`).then(r => {
+    const service = r.data;
+    return { ...service, _id: service.id || service._id };
+  });
 };
 
 export const createServiceCatalogItem = (data: any) => {
   if (!data.name || !data.code) {
     return Promise.reject(new Error('Service name and code are required'));
   }
-  return api.post('/service-catalog', data)
-    .then(r => {
-      const service = r.data.service || r.data;
-      return { ...service, _id: service.id || service._id };
-    });
+  return api.post('/service-catalog', data).then(r => {
+    const service = r.data.service || r.data;
+    return { ...service, _id: service.id || service._id };
+  });
 };
 
 export const updateServiceCatalogItem = (id: string, data: any) => {
@@ -1012,16 +1140,13 @@ export const updateServiceCatalogItem = (id: string, data: any) => {
     console.error('Update attempted with invalid ID:', id);
     return Promise.reject(new Error('Valid Service ID is required for update'));
   }
-  
   if (!data || Object.keys(data).length === 0) {
     return Promise.reject(new Error('Update data is required'));
   }
-  
-  return api.put(`/service-catalog/${id}`, data)
-    .then(r => {
-      const service = r.data.service || r.data;
-      return { ...service, _id: service.id || service._id };
-    });
+  return api.put(`/service-catalog/${id}`, data).then(r => {
+    const service = r.data.service || r.data;
+    return { ...service, _id: service.id || service._id };
+  });
 };
 
 export const deleteServiceCatalogItem = (id: string) => {
@@ -1029,13 +1154,8 @@ export const deleteServiceCatalogItem = (id: string) => {
     console.error('Delete attempted with invalid ID:', id);
     return Promise.reject(new Error('Valid Service ID is required for deletion'));
   }
-  
   console.log('Deleting service with ID:', id);
-  return api.delete(`/service-catalog/${id}`)
-    .then(r => {
-      console.log('Delete response:', r.data);
-      return r.data;
-    });
+  return api.delete(`/service-catalog/${id}`).then(r => r.data);
 };
 
 export const getServiceMetadata = () => 
@@ -1100,8 +1220,6 @@ export const updateConsultationType = (id: string, data: any) =>
 export const deleteConsultationType = (id: string) => 
   api.delete(`/consultation-types/${id}`).then(r => r.data);
 
-// ───── REPORTS ─────
-
 // ============================================
 // GHS REPORT API CALLS
 // ============================================
@@ -1121,7 +1239,6 @@ export const getGHSDeliveryReport = async (filters: ReportFilter) => {
   return response.data.data;
 };
 
-// ✅ NEW: Form A - Combined ANC + Delivery + Postnatal (REPLACES above two)
 export const getGHSFormAReport = async (filters: ReportFilter) => {
   const response = await api.get('/reports/ghs/form-a', { params: filters });
   return response.data;
@@ -1142,22 +1259,18 @@ export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
   return response.data.data;
 };
 
-// Morbidity & Mortality Report
 export const getMorbidityMortalityReport = async (filters: ReportFilter) => {
   const response = await api.get('/reports/ghs/morbidity-mortality', { params: filters });
   return response.data;
 };
 
-// Get only top diagnoses
 export const getTopDiagnoses = async (filters: ReportFilter, limit: number = 10) => {
   const response = await api.get('/reports/ghs/top-diagnoses', { 
     params: { ...filters, limit } 
   });
-  // Return the data array directly
   return response.data?.data || response.data || [];
 };
 
-// Export any report to CSV
 export const exportGHSReportToCSV = async (submissionId: string) => {
   const response = await api.get(`/reports/ghs/submissions/${submissionId}/export`, {
     responseType: 'blob'
@@ -1165,26 +1278,24 @@ export const exportGHSReportToCSV = async (submissionId: string) => {
   return response.data;
 };
 
-// Get all report submissions
 export const getGHSReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
   const response = await api.get('/reports/ghs/submissions', { params: filters });
   return response.data.data;
 };
 
-// Get single report submission by ID
 export const getGHSReportSubmissionById = async (id: string) => {
   const response = await api.get(`/reports/ghs/submissions/${id}`);
-  return response.data.data;
-};
-
-export const getDemographicReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/demographic', { params: filters });
   return response.data.data;
 };
 
 // ============================================
 // REGULAR REPORT API CALLS
 // ============================================
+
+export const getDemographicReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/demographic', { params: filters });
+  return response.data.data;
+};
 
 export const getFinancialReport = async (filters: ReportFilter) => {
   const response = await api.get('/reports/financial', { params: filters });
@@ -1219,6 +1330,35 @@ export const exportReport = async (data: {
 }) => {
   const response = await api.post('/reports/export', data);
   return response.data;
+};
+
+// ============================================
+// CLINICAL REPORTS API CALLS
+// ============================================
+
+export const getLabReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/lab', { params: filters });
+  return response.data.data;
+};
+
+export const getScanReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/scans', { params: filters });
+  return response.data.data;
+};
+
+export const getProcedureReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/procedures', { params: filters });
+  return response.data.data;
+};
+
+export const getMedicationReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/medications', { params: filters });
+  return response.data.data;
+};
+
+export const getVitalsReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/clinical/vitals', { params: filters });
+  return response.data.data;
 };
 
 // ======================
@@ -1323,7 +1463,7 @@ export const createNotification = (data: any) =>
 
 export const sendBulkNotification = async (data: {
   userIds: string[];
-  senderId?: string;  // ✅ NEW
+  senderId?: string;
   title: string;
   message: string;
   type: string;
@@ -1335,9 +1475,10 @@ export const sendBulkNotification = async (data: {
   const response = await api.post('/notifications/bulk', data);
   return response.data;
 };
+
 export const sendRoleNotification = async (data: {
   roles: string[];
-  senderId?: string;  // ✅ NEW
+  senderId?: string;
   title: string;
   message: string;
   type: string;
@@ -1350,8 +1491,6 @@ export const sendRoleNotification = async (data: {
   const response = await api.post('/notifications/role', data);
   return response.data;
 };
-
-// src/api/index.ts - Add these functions
 
 export const sendUserMessage = (data: {
   toUserId: string;
@@ -1371,25 +1510,21 @@ export const sendBulkUserMessages = (data: {
 
 export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
 
-// Trigger low stock check (admin only)
 export const triggerLowStockCheck = async () => {
   const response = await api.post('/notifications/trigger/low-stock');
   return response.data;
 };
 
-// Trigger appointment reminders (admin only)
 export const triggerAppointmentReminders = async () => {
   const response = await api.post('/notifications/trigger/reminders');
   return response.data;
 };
 
-// Clean up old notifications (admin only)
 export const cleanupOldNotifications = async (daysToKeep: number = 30) => {
   const response = await api.delete(`/notifications/cleanup?daysToKeep=${daysToKeep}`);
   return response.data;
 };
 
-// Get unread count only (quick check for badge)
 export const getUnreadCount = async () => {
   const response = await api.get('/notifications/unread-count');
   return response.data;
@@ -1426,7 +1561,7 @@ export const createBackup = async () => {
   return response.data;
 };
 
-export const restoreBackup = async (backupFile) => {
+export const restoreBackup = async (backupFile: any) => {
   const formData = new FormData();
   formData.append('backupFile', backupFile);
   
@@ -1443,13 +1578,12 @@ export const getBackupList = async () => {
   return response.data.backups;
 };
 
-// src/api/index.ts - FIXED DOWNLOAD FUNCTION
 export const downloadBackup = async (filename: string) => {
   try {
     console.log('📥 Starting download for:', filename);
     
     const response = await api.get(`/backup/download/${filename}`, {
-      responseType: 'blob', // Ensure response is treated as blob
+      responseType: 'blob',
       headers: {
         'Accept': 'application/octet-stream'
       }
@@ -1461,18 +1595,22 @@ export const downloadBackup = async (filename: string) => {
       size: response.data?.size || 'unknown'
     });
 
-    // ✅ FIXED: Validate that response.data is a Blob
+    // Validate that response.data is a Blob
     if (!(response.data instanceof Blob)) {
       console.error('❌ Response data is not a Blob:', typeof response.data);
       throw new Error('Invalid response format: expected Blob');
     }
 
-    // ✅ FIXED: Create proper Blob with correct MIME type
+    // Get content-type as string
+    const contentType = response.headers['content-type'];
+    const contentTypeString = typeof contentType === 'string' ? contentType : 'application/octet-stream';
+
+    // Create proper Blob with correct MIME type
     const blob = new Blob([response.data], {
-      type: response.headers['content-type'] || 'application/octet-stream'
+      type: contentTypeString
     });
 
-    // ✅ FIXED: Create download link and trigger download
+    // Create download link and trigger download
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1494,7 +1632,6 @@ export const downloadBackup = async (filename: string) => {
   } catch (error: any) {
     console.error('❌ Download failed:', error);
     
-    // Enhanced error handling
     if (error.response?.status === 404) {
       throw new Error('Backup file not found on server');
     } else if (error.response?.status === 500) {
@@ -1506,47 +1643,16 @@ export const downloadBackup = async (filename: string) => {
     }
   }
 };
-export const deleteBackup = async (filename) => {
+
+export const deleteBackup = async (filename: string) => {
   const response = await api.delete(`/backup/${filename}`);
   return response.data;
-};
-
-// Add these to your API calls section
-
-// ============================================
-// CLINICAL REPORTS API CALLS
-// ============================================
-
-export const getLabReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/lab', { params: filters });
-  return response.data.data;
-};
-
-export const getScanReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/scans', { params: filters });
-  return response.data.data;
-};
-
-export const getProcedureReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/procedures', { params: filters });
-  return response.data.data;
-};
-
-export const getMedicationReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/medications', { params: filters });
-  return response.data.data;
-};
-
-export const getVitalsReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/vitals', { params: filters });
-  return response.data.data;
 };
 
 // ======================
 // UPLOAD SYSTEM (Static file serving)
 // ======================
 
-// Note: These are for static file serving, actual uploads are handled in specific endpoints
 export const servePatientImages = (filename: string) => 
   `/uploads/patients/${filename}`;
 
@@ -1565,8 +1671,6 @@ export default {
   logout,
   getUsers,
   getUserStats,
-  
-  // Profile
   getProfile,
   updateProfile,
   changePassword,
@@ -1589,6 +1693,55 @@ export default {
   
   // GDRG Tariffs
   getGDRGTariffs,
+  getGDRGByCode,
+  createGDRGTariff,
+  updateGDRGTariff,
+  deleteGDRGTariff,
+  lookupGDRGByAge,
+  
+  // Diagnosis GDRG Links
+  getDiagnosesByGDRG,
+  linkDiagnosisToGDRG,
+  unlinkDiagnosisFromGDRG,
+  getGDRGByDiagnosis,
+  
+  // Procedure GDRG Links
+  linkProcedureToGDRG,
+  unlinkProcedureFromGDRG,
+  getProceduresByGDRG,
+  getGDRGByProcedure,
+  
+  // Insurance
+  getInsuranceProviders,
+  getInsuranceProvider,
+  createInsuranceProvider,
+  updateInsuranceProvider,
+  deleteInsuranceProvider,
+  
+  // Insurance Claims
+  getInsuranceClaims,
+  getNHISClaims,
+  getPrivateInsuranceClaims,
+  getInsuranceClaim,
+  getClaimByAttendanceId,
+  generateNHISClaim,
+  generatePrivateInsuranceClaim,
+  updateInsuranceClaim,
+  finalizeClaim,
+  updateClaimStatus,
+  generateClaimXML,
+  generateClaimPrint,
+  getFinalizedClaimsTotal,
+  
+  // Batch Claims
+  createClaimBatch,
+  getClaimBatches,
+  getClaimBatch,
+  addClaimsToBatch,
+  removeClaimsFromBatch,
+  generateBatchXML,
+  updateBatchStatus,
+  deleteClaimBatch,
   
   // Patients
   getPatients,
@@ -1637,13 +1790,44 @@ export default {
   removeProgressNoteFromAttendance,
   
   // Billing
-  calculateAttendanceBill,
   getBillingBreakdown,
+  calculateAttendanceBill,
   getAttendanceStats,
-  
-  // NHIS Claim Validation
   validateNHISClaim,
   generateNHISClaimFromAttendance,
+  
+  // Bills & Payments
+  getBills,
+  getBill,
+  createBill,
+  updateBill,
+  deleteBill,
+  addPaymentToBill,
+  generateBillFromAttendance,
+  generateBillReport,
+  getBillingBreakdownForBill,
+  updateBillStatus,
+  getBillStatistics,
+  
+  // Waivers
+  createWaiverRequest,
+  getWaivers,
+  getWaiverById,
+  updateWaiverStatus,
+  approveWaiver,
+  rejectWaiver,
+  getWaiversByBill,
+  getWaiversByPatient,
+  getWaiverStatistics,
+  deleteWaiver,
+  applyWaiverToBill,
+  
+  // Ward Charges
+  getWardCharges,
+  generateDailyWardCharges,
+  
+  // Receipt
+  generateReceipt,
   
   // Admissions
   getAdmissions,
@@ -1655,6 +1839,7 @@ export default {
   updateAdmissionWithNHISData,
   addDailyNotesToAdmission,
   getAdmissionStats,
+  getAdmissionsByPatientId,
   addSecondaryDiagnosisToAdmission,
   removeSecondaryDiagnosisFromAdmission,
   addDailyNoteToAdmission,
@@ -1674,41 +1859,63 @@ export default {
   updateBed,
   deleteBed,
   
-  // Bills & Payments
-  getBills,
-  getBill,
-  createBill,
-  updateBill,
-  deleteBill,
-  addPaymentToBill,
-  generateBillFromAttendance,
-  generateBillReport,
-  getBillingBreakdownForBill,
-  updateBillStatus,
-  getBillStatistics,
+  // Stock Management
+  getStockItems,
+  getStockItem,
+  createStockItem,
+  updateStockItem,
+  deleteStockItem,
+  getLowStockItems,
+  getStockCategories,
+  updateStockLevel,
+  getStockItemTransactionHistory,
+  getStockValueSummary,
+  getExpiryReport,
+  getMovementSummary,
+  getUsageReport,
+  getSupplierReport,
+  getRequisitionSummary,
   
-  // Insurance
-// Insurance - SIMPLIFIED WORKFLOW
-getInsuranceProviders,
-getInsuranceProvider,
-createInsuranceProvider,
-updateInsuranceProvider,
-deleteInsuranceProvider,
-
-// Claims Management (Viewing Only)
-getInsuranceClaims,
-getInsuranceClaim,
-getClaimByAttendanceId,
-
-// NEW SIMPLIFIED WORKFLOW (7 functions)
-generateClaimDraft,
-getClaimDraft,
-updateClaimDraft,
-finalizeClaim,
-generateClaimXML,
-generateClaimPrint,
-getFinalizedClaimsTotal,
-
+  // Stock Transactions
+  getStockTransactions,
+  getStockTransaction,
+  createStockTransaction,
+  updateStockTransaction,
+  getStockMovementReport,
+  getLowStockAlerts,
+  
+  // Invoices
+  getInvoices,
+  getInvoice,
+  createInvoice,
+  updateInvoice,
+  deleteInvoice,
+  
+  // Requisitions
+  getRequisitions,
+  getRequisition,
+  createRequisition,
+  updateRequisition,
+  deleteRequisition,
+  updateRequisitionStatus,
+  submitRequisition,
+  approveRequisition,
+  fulfillRequisition,
+  cancelRequisition,
+  approveRequisitionItems,
+  
+  // Referrals
+  getReferrals,
+  getReferralById,
+  createOutgoingReferral,
+  createIncomingReferral,
+  updateReferralStatus,
+  updateReferral,
+  deleteReferral,
+  getReferralsByPatient,
+  generateReferralLetter,
+  getReferralStats,
+  
   // Medical Services
   getDiagnoses,
   getDiagnosis,
@@ -1758,30 +1965,6 @@ getFinalizedClaimsTotal,
   checkServiceCoverage,
   calculateServiceCost,
   
-  // Stock Management
-  getStockItems,
-  getStockItem,
-  createStockItem,
-  updateStockItem,
-  deleteStockItem,
-  getLowStockItems,
-  getStockCategories,
-  getStockTransactions,
-  getStockTransaction,
-  createStockTransaction,
-  updateStockTransaction,
-  getStockMovementReport,
-  getLowStockAlerts,
-  getStockItemTransactionHistory,
-
-    // In the export default object, add:
-  getStockValueSummary,
-  getExpiryReport,
-  getMovementSummary,
-  getUsageReport,
-  getSupplierReport,
-  getRequisitionSummary,
-  
   // Consultation Types
   getConsultationTypes,
   getConsultationType,
@@ -1823,6 +2006,14 @@ getFinalizedClaimsTotal,
   getNotificationStats,
   createNotification,
   sendBulkNotification,
+  sendRoleNotification,
+  sendUserMessage,
+  sendBulkUserMessages,
+  getConversations,
+  triggerLowStockCheck,
+  triggerAppointmentReminders,
+  cleanupOldNotifications,
+  getUnreadCount,
   
   // Users
   getUsersByDepartment,
@@ -1832,6 +2023,7 @@ getFinalizedClaimsTotal,
   getDashboardStats,
   getAppointmentCalendar,
   
+  // Reports
   getFinancialReport,
   getInsuranceClaimsReport,
   getClinicalReport,
@@ -1840,20 +2032,31 @@ getFinalizedClaimsTotal,
   exportReport,
   getGHSOPDReport,
   getGHSIPDReport,
+  getGHSDeliveryReport,
+  getGHSFormAReport,
+  getGHSMalariaReport,
+  getGHSIDSRReport,
   getGHSFamilyPlanningReport,
   getMorbidityMortalityReport,
   getDemographicReport,
-  getGHSFormAReport,  
   getTopDiagnoses,
+  exportGHSReportToCSV,
+  getGHSReportSubmissions,
+  getGHSReportSubmissionById,
+  getLabReport,
+  getScanReport,
+  getProcedureReport,
+  getMedicationReport,
+  getVitalsReport,
   
-  // Backup System
+  // Backup
   createBackup,
   restoreBackup,
   getBackupList,
   downloadBackup,
   deleteBackup,
   
-  // Upload System
+  // Upload
   servePatientImages,
   serveScanImages,
   serveDocuments

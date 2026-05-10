@@ -962,5 +962,93 @@ export const getBillLineItems = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Add to billController.ts
+export const applyWaiverToBill = [
+  body('waiverId').notEmpty().withMessage('Waiver ID is required'),
+
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { billId } = req.params;
+      const { waiverId } = req.body;
+
+      const waiver = await prisma.patientWaiver.findUnique({
+        where: { id: waiverId },
+        include: { bill: true }
+      });
+
+      if (!waiver) {
+        return res.status(404).json({
+          success: false,
+          message: 'Waiver not found'
+        });
+      }
+
+      if (waiver.status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only approved waivers can be applied to bills'
+        });
+      }
+
+      if (waiver.billId !== billId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Waiver does not belong to this bill'
+        });
+      }
+
+      // Apply waiver to bill
+      const updatedBill = await prisma.$transaction(async (tx) => {
+        const bill = await tx.bill.findUnique({
+          where: { id: billId }
+        });
+
+        if (!bill) throw new Error('Bill not found');
+
+        const newWaiverAmount = (bill.waiverAmount || 0) + waiver.amountApproved;
+        const newPatientPayable = bill.patientPayable - waiver.amountApproved;
+        const newBalance = newPatientPayable - bill.paidAmount;
+
+        const updated = await tx.bill.update({
+          where: { id: billId },
+          data: {
+            waiverAmount: newWaiverAmount,
+            patientPayable: newPatientPayable,
+            balance: newBalance,
+            discount: newWaiverAmount,
+            status: newBalance <= 0 ? 'paid' : bill.status
+          },
+          include: {
+            Patient: true,
+            Attendance: true
+          }
+        });
+
+        // Update attendance
+        if (updated.attendanceId) {
+          await tx.attendance.update({
+            where: { id: updated.attendanceId },
+            data: {
+              outstandingBalance: {
+                decrement: waiver.amountApproved
+              }
+            }
+          });
+        }
+
+        return updated;
+      });
+
+      res.json({
+        success: true,
+        message: `Waiver of GHS ${waiver.amountApproved} applied successfully`,
+        data: updatedBill
+      });
+
+    } catch (error) {
+      handleError(res, 'Error applying waiver to bill', error);
+    }
+  }
+];
 
 

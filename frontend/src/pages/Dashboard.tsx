@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - UPDATED WITH ROLE-BASED CONDITIONAL FETCHING
+// src/pages/Dashboard.tsx - UPDATED WITH WORKING INSURANCE CLAIMS
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -75,6 +75,43 @@ export default function Dashboard() {
     return { start, end };
   };
 
+  // Helper to extract array from API response
+  const extractArrayFromResponse = (response: any): any[] => {
+    if (!response) return [];
+    
+    // If response has success and data property
+    if (response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    // If response has data property that's an array
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    // If response is directly an array
+    if (Array.isArray(response)) {
+      return response;
+    }
+    // If response has claims property (for insurance claims)
+    if (response.claims && Array.isArray(response.claims)) {
+      return response.claims;
+    }
+    // If response has bills property
+    if (response.bills && Array.isArray(response.bills)) {
+      return response.bills;
+    }
+    // If response has patients property
+    if (response.patients && Array.isArray(response.patients)) {
+      return response.patients;
+    }
+    // If response has attendances property
+    if (response.attendances && Array.isArray(response.attendances)) {
+      return response.attendances;
+    }
+    
+    console.warn('Could not extract array from response:', response);
+    return [];
+  };
+
   const loadDashboardData = async () => {
     setIsLoading(true);
     setRefreshing(true);
@@ -87,7 +124,7 @@ export default function Dashboard() {
     try {
       console.log('🔄 Loading dashboard data for role:', user?.role);
 
-      // Load patients and attendances using stores (accessible by all)
+      // Load patients and attendances using stores
       await Promise.all([
         loadPatients(),
         getAttendances()
@@ -95,13 +132,11 @@ export default function Dashboard() {
 
       const totalPatients = patients.length;
       
-      // Calculate today's visits from the store data
       const todayVisits = attendances.filter(att => {
         const attDate = new Date(att.dateTime || att.createdAt);
         return attDate >= new Date(todayStart) && attDate <= new Date(todayEnd);
       }).length;
 
-      // Get recent attendances from store (last 10)
       const recentAttendancesList = [...attendances]
         .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime())
         .slice(0, 10);
@@ -116,13 +151,11 @@ export default function Dashboard() {
       // Build API calls based on user role
       const apiCalls: Promise<any>[] = [];
       
-      // Always fetch these (accessible by most roles)
       apiCalls.push(getAdmissions({ status: 'admitted' }));
       apiCalls.push(getStockItems());
       apiCalls.push(getDashboardStats());
       apiCalls.push(getAppointmentStatistics({ dateFrom: todayStart }));
 
-      // Role-specific API calls
       const isAccountsStaff = hasRole(['admin', 'accounts']);
       const isClinicalStaff = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
       const isAdminOnly = hasRole(['admin']);
@@ -136,7 +169,6 @@ export default function Dashboard() {
           dateTo: todayEnd
         }));
       } else {
-        // Push placeholders for accounts-only data
         apiCalls.push(Promise.resolve(null));
         apiCalls.push(Promise.resolve(null));
         apiCalls.push(Promise.resolve(null));
@@ -152,7 +184,6 @@ export default function Dashboard() {
         apiCalls.push(Promise.resolve(null));
       }
 
-      // Execute all API calls
       const [
         admissionRes,
         stockRes,
@@ -186,15 +217,16 @@ export default function Dashboard() {
 
       // Process admissions
       if (admissionRes.status === 'fulfilled') {
-        activeAdmissions = Array.isArray(admissionRes.value) ? admissionRes.value.length : 0;
+        const admissionsArray = extractArrayFromResponse(admissionRes.value);
+        activeAdmissions = admissionsArray.filter((a: any) => a.status === 'admitted').length;
       } else {
         newErrors.push('Admissions');
       }
 
       // Process stock
       if (stockRes.status === 'fulfilled') {
-        const stockItems = Array.isArray(stockRes.value) ? stockRes.value : [];
-        lowStockItems = stockItems.filter((item: any) => 
+        const stockItemsArray = extractArrayFromResponse(stockRes.value);
+        lowStockItems = stockItemsArray.filter((item: any) => 
           (item.currentStock || 0) <= (item.reorderLevel || 0)
         ).length;
       } else {
@@ -204,41 +236,55 @@ export default function Dashboard() {
       // Process dashboard stats
       if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
         const dashboardData = dashboardStatsRes.value;
-        totalRevenue = dashboardData.totalRevenue || 0;
+        totalRevenue = dashboardData.totalRevenue || dashboardData.data?.totalRevenue || 0;
       }
 
       // Process appointments
       if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value) {
         const appointmentData = appointmentStatsRes.value;
-        scheduledAppointments = appointmentData.scheduled || appointmentData.today || 0;
+        scheduledAppointments = appointmentData.scheduled || appointmentData.today || appointmentData.data?.scheduled || 0;
       } else {
         newErrors.push('Appointments');
       }
 
-      // Process bills (accounts only)
+      // Process bills (accounts only) - FIXED
       if (isAccountsStaff && billRes.status === 'fulfilled' && billRes.value) {
-        pendingBills = Array.isArray(billRes.value) ? billRes.value.length : 0;
-      } else if (isAccountsStaff) {
+        const billsArray = extractArrayFromResponse(billRes.value);
+        pendingBills = billsArray.filter((bill: any) => 
+          bill.status === 'pending' || bill.status === 'partial'
+        ).length;
+        console.log(`💰 Bills loaded: ${billsArray.length} total, ${pendingBills} pending`);
+      } else if (isAccountsStaff && billRes.status === 'rejected') {
         newErrors.push('Bills');
+        console.warn('⚠️ Failed to load bills data');
       }
 
-      // Process claims (accounts only)
+      // Process claims (accounts only) - FIXED
       if (isAccountsStaff && claimRes.status === 'fulfilled' && claimRes.value) {
-        pendingClaims = Array.isArray(claimRes.value) ? claimRes.value.length : 0;
-      } else if (isAccountsStaff) {
+        const claimsArray = extractArrayFromResponse(claimRes.value);
+        // Filter for pending claims (submitted status)
+        pendingClaims = claimsArray.filter((claim: any) => 
+          claim.status === 'submitted' || claim.status === 'pending' || claim.status === 'draft'
+        ).length;
+        console.log(`📋 Claims loaded: ${claimsArray.length} total, ${pendingClaims} pending`);
+      } else if (isAccountsStaff && claimRes.status === 'rejected') {
         newErrors.push('Claims');
+        console.warn('⚠️ Failed to load claims data');
       }
 
       // Process financial report (accounts only)
       if (isAccountsStaff && financialReportRes.status === 'fulfilled' && financialReportRes.value) {
         const financialData = financialReportRes.value;
-        totalRevenue = financialData.totalRevenue || totalRevenue;
+        const reportRevenue = financialData.totalRevenue || financialData.data?.totalRevenue || 0;
+        if (reportRevenue > 0) {
+          totalRevenue = reportRevenue;
+        }
       }
 
       // Process clinical report (clinical staff only)
       if (isClinicalStaff && clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
         const clinicalData = clinicalReportRes.value;
-        diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || [];
+        diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || clinicalData.data?.diagnosisTrends || [];
       }
 
       // Generate diagnosis trends from recent attendances if clinical report failed
@@ -293,7 +339,6 @@ export default function Dashboard() {
       } else if (newErrors.length > 0 && newErrors.length < 4) {
         toastError('Partial data loaded', `Some data could not be loaded: ${newErrors.join(', ')}`);
       }
-      // If many errors, don't show error toast
       
     } catch (err) {
       console.error('💥 Dashboard load error:', err);
@@ -444,7 +489,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-4 gap-6">
         {/* Left Column - Stats and Health Trends */}
         <div className="col-span-3 space-y-6">
-          {/* Enhanced Stats Grid - Show relevant stats based on role */}
+          {/* Enhanced Stats Grid */}
           <div className="grid grid-cols-4 gap-4">
             {/* Total Patients - All roles */}
             <Link to="/dashboard/patients" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
@@ -497,7 +542,7 @@ export default function Dashboard() {
               <div className="text-xs text-gray-500 mt-1">In patients</div>
             </Link>
 
-            {/* Pending Bills - Accounts only, otherwise show Appointments */}
+            {/* Pending Bills - Accounts only */}
             {hasRole(['admin', 'accounts']) ? (
               <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
                 <div className="flex items-center justify-between mb-3">
@@ -578,7 +623,7 @@ export default function Dashboard() {
                 {isLoading ? (
                   <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">${stats.totalRevenue.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-gray-900">GH₵ {stats.totalRevenue.toFixed(2)}</div>
                 )}
                 <div className="text-xs text-gray-500 mt-1">Collected</div>
               </Link>
@@ -613,9 +658,6 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-gray-900">{trend.patients} patients</div>
-                        {trend.percentage && (
-                          <div className="text-xs text-gray-500">{trend.percentage}% of cases</div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -700,7 +742,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-1 text-gray-500">
                           <Clock className="w-3 h-3" />
-                          <span>{formatTime(attendance.dateTime)}</span>
+                          <span>{formatTime(attendance.dateTime || attendance.createdAt)}</span>
                         </div>
                       </div>
                     </Link>

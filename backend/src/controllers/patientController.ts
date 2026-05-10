@@ -197,20 +197,18 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
                 isOccupied: true
               }
             },
-            Diagnosis: {
-              select: {
-                id: true,
-                name: true,
-                icdCode: true
-              }
-            },
-            AdmissionSecondaryDiagnosis: {
+            Attendance: {
               include: {
-                Diagnosis: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icdCode: true
+                AttendanceDiagnosis: {
+                  where: { diagnosisType: 'primary' },
+                  include: {
+                    Diagnosis: {
+                      select: {
+                        id: true,
+                        name: true,
+                        icdCode: true
+                      }
+                    }
                   }
                 }
               }
@@ -236,11 +234,44 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
             },
             LabTest: {
               include: {
-                LabTestTemplate: {
+                ServiceCatalog: {
                   select: {
                     id: true,
                     name: true,
-                    investigationCode: true
+                    code: true
+                  }
+                }
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 10
+            },
+            Procedure: {
+              include: {
+                ServiceCatalog: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true
+                  }
+                }
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 10
+            },
+            Medication: {
+              include: {
+                ServiceCatalog: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true
+                  }
+                },
+                StockItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    drugCode: true
                   }
                 }
               },
@@ -304,7 +335,9 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
       ...patient,
       fullName: `${patient.surname} ${patient.otherNames}`.trim(),
       age: ageDisplay.years,
-      ageDisplay: ageDisplay.display
+      ageDisplay: ageDisplay.display,
+      // Remove any undefined relations
+      AdmissionSecondaryDiagnosis: undefined
     };
 
     console.log('✅ Patient fetched successfully:', patient.folderNumber);

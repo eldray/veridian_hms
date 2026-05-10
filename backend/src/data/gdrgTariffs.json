@@ -7,7 +7,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 748.79
     },
     {
       "gdrgCode": "ASUR02A",
@@ -16,7 +17,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": 1116.24
     },
     {
       "gdrgCode": "ASUR03A",
@@ -25,7 +27,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 516.97
     },
     {
       "gdrgCode": "ASUR04A",
@@ -34,7 +37,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1100.54
     },
     {
       "gdrgCode": "ASUR05A",
@@ -43,7 +47,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 539.27
     },
     {
       "gdrgCode": "ASUR06A",
@@ -52,7 +57,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 987.47
     },
     {
       "gdrgCode": "ASUR07A",
@@ -61,7 +67,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 786.14
     },
     {
       "gdrgCode": "ASUR08A",
@@ -70,7 +77,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 734.77
     },
     {
       "gdrgCode": "ASUR09A",
@@ -79,7 +87,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 311.02
     },
     {
       "gdrgCode": "ASUR10A",
@@ -88,7 +97,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 741.48
     },
     {
       "gdrgCode": "ASUR11A",
@@ -97,7 +107,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1143.91
     },
     {
       "gdrgCode": "ASUR12A",
@@ -106,7 +117,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 985.48
     },
     {
       "gdrgCode": "ASUR13A",
@@ -115,7 +127,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1209.20
     },
     {
       "gdrgCode": "ASUR14A",
@@ -124,7 +137,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 425.66
     },
     {
       "gdrgCode": "ASUR15A",
@@ -133,7 +147,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 486.66
     },
     {
       "gdrgCode": "ASUR16A",
@@ -142,7 +157,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 757.64
     },
     {
       "gdrgCode": "ASUR17A",
@@ -151,7 +167,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 876.41
     },
     {
       "gdrgCode": "ASUR18A",
@@ -160,7 +177,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1203.95
     },
     {
       "gdrgCode": "ASUR19A",
@@ -171,7 +189,8 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 573.48
     },
     {
       "gdrgCode": "ASUR20A",
@@ -180,7 +199,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 402.84
     },
     {
       "gdrgCode": "ASUR21A",
@@ -189,7 +209,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 740.16
     },
     {
       "gdrgCode": "ASUR22A",
@@ -198,7 +219,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 406.32
     },
     {
       "gdrgCode": "ASUR23A",
@@ -207,7 +229,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 878.25
     },
     {
       "gdrgCode": "ASUR24A",
@@ -216,7 +239,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1111.36
     },
     {
       "gdrgCode": "ASUR25A",
@@ -225,7 +249,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 517.27
     },
     {
       "gdrgCode": "ASUR27A",
@@ -234,7 +259,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 266.81
     },
     {
       "gdrgCode": "ASUR28A",
@@ -243,7 +269,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 788.30
     },
     {
       "gdrgCode": "ASUR29A",
@@ -252,7 +279,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "ASUR30A",
@@ -261,7 +289,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 298.88
     },
     {
       "gdrgCode": "ASUR31A",
@@ -270,7 +299,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 332.72
     },
     {
       "gdrgCode": "ASUR32A",
@@ -279,7 +309,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 674.93
     },
     {
       "gdrgCode": "ASUR33A",
@@ -288,7 +319,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 918.23
     },
     {
       "gdrgCode": "ASUR34A",
@@ -297,7 +329,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 266.81
     },
     {
       "gdrgCode": "ASUR35A",
@@ -306,7 +339,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 383.53
     },
     {
       "gdrgCode": "ASUR36A",
@@ -315,7 +349,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 532.57
     },
     {
       "gdrgCode": "ASUR37A",
@@ -324,7 +359,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 727.40
     },
     {
       "gdrgCode": "PSUR01C",
@@ -333,7 +369,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 743.09
     },
     {
       "gdrgCode": "PSUR02C",
@@ -342,7 +379,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 859.27
     },
     {
       "gdrgCode": "PSUR03C",
@@ -351,7 +389,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 910.37
     },
     {
       "gdrgCode": "PSUR04C",
@@ -360,7 +399,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 766.00
     },
     {
       "gdrgCode": "PSUR05C",
@@ -369,7 +409,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 319.54
     },
     {
       "gdrgCode": "PSUR06C",
@@ -378,7 +419,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 350.89
     },
     {
       "gdrgCode": "PSUR07C",
@@ -387,7 +429,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 417.94
     },
     {
       "gdrgCode": "PSUR08C",
@@ -396,7 +439,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 731.46
     },
     {
       "gdrgCode": "PSUR09C",
@@ -405,7 +449,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 757.26
     },
     {
       "gdrgCode": "PSUR10C",
@@ -414,7 +459,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 665.38
     },
     {
       "gdrgCode": "PSUR11C",
@@ -423,7 +469,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 775.03
     },
     {
       "gdrgCode": "PSUR12C",
@@ -432,7 +479,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 631.40
     },
     {
       "gdrgCode": "PSUR14C",
@@ -441,7 +489,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 932.44
     },
     {
       "gdrgCode": "PSUR15C",
@@ -450,7 +499,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 603.60
     },
     {
       "gdrgCode": "PSUR16C",
@@ -459,7 +509,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1438.86
     },
     {
       "gdrgCode": "PSUR17C",
@@ -468,7 +519,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 502.27
     },
     {
       "gdrgCode": "PSUR18C",
@@ -477,7 +529,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 830.77
     },
     {
       "gdrgCode": "PSUR19C",
@@ -486,7 +539,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1108.14
     },
     {
       "gdrgCode": "PSUR20C",
@@ -495,7 +549,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 2112.31
     },
     {
       "gdrgCode": "PSUR21C",
@@ -504,7 +559,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 341.16
     },
     {
       "gdrgCode": "PSUR23C",
@@ -513,7 +569,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 813.55
     },
     {
       "gdrgCode": "PSUR24C",
@@ -522,7 +579,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 803.28
     },
     {
       "gdrgCode": "PSUR25C",
@@ -531,7 +589,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 856.49
     },
     {
       "gdrgCode": "PSUR26C",
@@ -540,7 +599,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 429.88
     },
     {
       "gdrgCode": "PSUR27C",
@@ -549,7 +609,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1197.91
     },
     {
       "gdrgCode": "PSUR28C",
@@ -558,7 +619,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1262.66
     },
     {
       "gdrgCode": "PSUR29C",
@@ -567,7 +629,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 420.91
     },
     {
       "gdrgCode": "PSUR30C",
@@ -576,7 +639,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 795.55
     },
     {
       "gdrgCode": "PSUR31C",
@@ -585,7 +649,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 763.49
     },
     {
       "gdrgCode": "PSUR32C",
@@ -594,7 +659,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PSUR33C",
@@ -603,7 +669,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 461.84
     },
     {
       "gdrgCode": "PSUR34C",
@@ -612,7 +679,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 429.65
     },
     {
       "gdrgCode": "PSUR35C",
@@ -621,7 +689,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 998.47
     },
     {
       "gdrgCode": "PSUR36C",
@@ -630,7 +699,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 252.38
     },
     {
       "gdrgCode": "PSUR37C",
@@ -639,7 +709,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 346.92
     },
     {
       "gdrgCode": "PSUR38C",
@@ -648,7 +719,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 573.24
     },
     {
       "gdrgCode": "PSUR39C",
@@ -657,7 +729,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 723.56
     },
     {
       "gdrgCode": "MEDI01A",
@@ -666,7 +739,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 381.14
     },
     {
       "gdrgCode": "MEDI02A",
@@ -675,7 +749,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 284.25
     },
     {
       "gdrgCode": "MEDI03A",
@@ -684,7 +759,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 540.25
     },
     {
       "gdrgCode": "MEDI04A",
@@ -693,7 +769,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 327.52
     },
     {
       "gdrgCode": "MEDI05A",
@@ -702,7 +779,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 289.63
     },
     {
       "gdrgCode": "MEDI06A",
@@ -711,7 +789,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 337.79
     },
     {
       "gdrgCode": "MEDI07A",
@@ -720,7 +799,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 473.86
     },
     {
       "gdrgCode": "MEDI08A",
@@ -729,7 +809,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 216.22
     },
     {
       "gdrgCode": "MEDI10A",
@@ -738,7 +819,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 431.00
     },
     {
       "gdrgCode": "MEDI11A",
@@ -747,7 +829,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 581.80
     },
     {
       "gdrgCode": "MEDI12A",
@@ -756,7 +839,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 285.91
     },
     {
       "gdrgCode": "MEDI13A",
@@ -765,7 +849,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 249.55
     },
     {
       "gdrgCode": "MEDI14A",
@@ -774,7 +859,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 266.33
     },
     {
       "gdrgCode": "MEDI15A",
@@ -783,7 +869,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 491.00
     },
     {
       "gdrgCode": "MEDI16A",
@@ -792,7 +879,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 311.98
     },
     {
       "gdrgCode": "MEDI17A",
@@ -801,7 +889,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 311.79
     },
     {
       "gdrgCode": "MEDI18A",
@@ -810,7 +899,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 371.58
     },
     {
       "gdrgCode": "MEDI19A",
@@ -819,7 +909,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 349.42
     },
     {
       "gdrgCode": "MEDI20A",
@@ -828,7 +919,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 508.24
     },
     {
       "gdrgCode": "MEDI21A",
@@ -837,7 +929,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1189.81
     },
     {
       "gdrgCode": "MEDI22A",
@@ -846,7 +939,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 138.67
     },
     {
       "gdrgCode": "MEDI23A",
@@ -855,7 +949,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 167.69
     },
     {
       "gdrgCode": "MEDI24A",
@@ -864,7 +959,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 330.82
     },
     {
       "gdrgCode": "MEDI25A",
@@ -873,7 +969,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 296.22
     },
     {
       "gdrgCode": "MEDI26A",
@@ -882,7 +979,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 154.10
     },
     {
       "gdrgCode": "MEDI27A",
@@ -891,7 +989,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 542.75
     },
     {
       "gdrgCode": "MEDI28A",
@@ -900,7 +999,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 91.82
     },
     {
       "gdrgCode": "MEDI29A",
@@ -909,7 +1009,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 332.77
     },
     {
       "gdrgCode": "MEDI30A",
@@ -918,7 +1019,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 417.16
     },
     {
       "gdrgCode": "MEDI31A",
@@ -927,7 +1029,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 222.44
     },
     {
       "gdrgCode": "MEDI32A",
@@ -936,7 +1039,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 252.28
     },
     {
       "gdrgCode": "MEDI33A",
@@ -945,7 +1049,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 221.92
     },
     {
       "gdrgCode": "MEDI34A",
@@ -954,7 +1059,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 352.90
     },
     {
       "gdrgCode": "MEDI35A",
@@ -963,7 +1069,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 346.18
     },
     {
       "gdrgCode": "MEDI36A",
@@ -972,7 +1079,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 288.52
     },
     {
       "gdrgCode": "MEDI37A",
@@ -981,7 +1089,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 58.68
     },
     {
       "gdrgCode": "MEDI38A",
@@ -990,7 +1099,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 284.77
     },
     {
       "gdrgCode": "MEDI39A",
@@ -999,7 +1109,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "MEDI40A",
@@ -1008,7 +1119,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "MEDI41A",
@@ -1017,7 +1129,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 448.46
     },
     {
       "gdrgCode": "PAED01C",
@@ -1026,7 +1139,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 253.01
     },
     {
       "gdrgCode": "PAED02C",
@@ -1035,7 +1149,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 258.77
     },
     {
       "gdrgCode": "PAED03C",
@@ -1044,7 +1159,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 490.56
     },
     {
       "gdrgCode": "PAED04C",
@@ -1053,7 +1169,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 344.02
     },
     {
       "gdrgCode": "PAED05C",
@@ -1062,7 +1179,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 396.23
     },
     {
       "gdrgCode": "PAED06C",
@@ -1071,7 +1189,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 308.77
     },
     {
       "gdrgCode": "PAED07C",
@@ -1080,7 +1199,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 247.26
     },
     {
       "gdrgCode": "PAED08C",
@@ -1089,7 +1209,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 286.19
     },
     {
       "gdrgCode": "PAED09C",
@@ -1098,7 +1219,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 242.40
     },
     {
       "gdrgCode": "PAED10C",
@@ -1107,7 +1229,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 581.98
     },
     {
       "gdrgCode": "PAED11C",
@@ -1116,7 +1239,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 268.42
     },
     {
       "gdrgCode": "PAED12C",
@@ -1125,7 +1249,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 356.16
     },
     {
       "gdrgCode": "PAED13C",
@@ -1134,7 +1259,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 481.22
     },
     {
       "gdrgCode": "PAED14C",
@@ -1143,7 +1269,8 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 367.85
     },
     {
       "gdrgCode": "PAED15C",
@@ -1152,7 +1279,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": 413.59
     },
     {
       "gdrgCode": "PAED16C",
@@ -1161,7 +1289,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 280.08
     },
     {
       "gdrgCode": "PAED18C",
@@ -1170,7 +1299,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 584.32
     },
     {
       "gdrgCode": "PAED19C",
@@ -1179,7 +1309,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 609.49
     },
     {
       "gdrgCode": "PAED20C",
@@ -1188,7 +1319,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 366.12
     },
     {
       "gdrgCode": "PAED21C",
@@ -1197,7 +1329,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 178.58
     },
     {
       "gdrgCode": "PAED22C",
@@ -1206,7 +1339,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 273.31
     },
     {
       "gdrgCode": "PAED23C",
@@ -1215,7 +1349,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 449.95
     },
     {
       "gdrgCode": "PAED24C",
@@ -1224,7 +1359,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 375.02
     },
     {
       "gdrgCode": "PAED25C",
@@ -1233,7 +1369,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 357.94
     },
     {
       "gdrgCode": "PAED26C",
@@ -1242,7 +1379,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 513.24
     },
     {
       "gdrgCode": "PAED27C",
@@ -1251,7 +1389,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 394.27
     },
     {
       "gdrgCode": "PAED28C",
@@ -1260,7 +1399,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 395.57
     },
     {
       "gdrgCode": "PAED29C",
@@ -1269,7 +1409,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1019.75
     },
     {
       "gdrgCode": "PAED30C",
@@ -1278,7 +1419,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 232.28
     },
     {
       "gdrgCode": "PAED31C",
@@ -1287,7 +1429,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 163.36
     },
     {
       "gdrgCode": "PAED32C",
@@ -1296,7 +1439,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 267.17
     },
     {
       "gdrgCode": "PAED33C",
@@ -1305,7 +1449,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 284.35
     },
     {
       "gdrgCode": "PAED34C",
@@ -1314,7 +1459,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 112.38
     },
     {
       "gdrgCode": "PAED35C",
@@ -1323,7 +1469,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 417.61
     },
     {
       "gdrgCode": "PAED36C",
@@ -1332,7 +1479,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 92.47
     },
     {
       "gdrgCode": "PAED37C",
@@ -1341,7 +1489,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 514.68
     },
     {
       "gdrgCode": "PAED38C",
@@ -1350,7 +1499,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 414.35
     },
     {
       "gdrgCode": "PAED39C",
@@ -1359,7 +1509,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 172.92
     },
     {
       "gdrgCode": "PAED40C",
@@ -1368,7 +1519,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 302.28
     },
     {
       "gdrgCode": "PAED41C",
@@ -1377,7 +1529,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 372.59
     },
     {
       "gdrgCode": "PAED42C",
@@ -1386,7 +1539,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 469.22
     },
     {
       "gdrgCode": "PAED43C",
@@ -1395,7 +1549,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 336.58
     },
     {
       "gdrgCode": "PAED44C",
@@ -1404,7 +1559,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 63.45
     },
     {
       "gdrgCode": "PAED45C",
@@ -1413,7 +1569,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 347.27
     },
     {
       "gdrgCode": "PAED46C",
@@ -1422,7 +1579,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 561.60
     },
     {
       "gdrgCode": "PAED47C",
@@ -1432,7 +1590,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED48C",
@@ -1442,7 +1601,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED49C",
@@ -1452,7 +1612,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED50C",
@@ -1462,7 +1623,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED51C",
@@ -1472,7 +1634,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED52C",
@@ -1482,7 +1645,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "PAED53C",
@@ -1492,7 +1656,8 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2]
+      "applicableLevels": [1, 2],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "ENTH01A",
@@ -1501,7 +1666,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 366.31
     },
     {
       "gdrgCode": "ENTH01C",
@@ -1510,7 +1676,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 365.36
     },
     {
       "gdrgCode": "ENTH02A",
@@ -1519,7 +1686,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 427.84
     },
     {
       "gdrgCode": "ENTH02C",
@@ -1528,7 +1696,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 396.83
     },
     {
       "gdrgCode": "ENTH05A",
@@ -1537,7 +1706,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 639.86
     },
     {
       "gdrgCode": "ENTH05C",
@@ -1546,7 +1716,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 621.31
     },
     {
       "gdrgCode": "ENTH06A",
@@ -1555,7 +1726,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 637.12
     },
     {
       "gdrgCode": "ENTH06C",
@@ -1564,7 +1736,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 574.43
     },
     {
       "gdrgCode": "ENTH07A",
@@ -1573,7 +1746,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 707.40
     },
     {
       "gdrgCode": "ENTH07C",
@@ -1582,7 +1756,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 626.89
     },
     {
       "gdrgCode": "ENTH08A",
@@ -1591,7 +1766,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 441.61
     },
     {
       "gdrgCode": "ENTH08C",
@@ -1600,7 +1776,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 475.29
     },
     {
       "gdrgCode": "ENTH09A",
@@ -1609,7 +1786,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 669.23
     },
     {
       "gdrgCode": "ENTH09C",
@@ -1618,7 +1796,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 611.51
     },
     {
       "gdrgCode": "ENTH10A",
@@ -1627,7 +1806,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1286.52
     },
     {
       "gdrgCode": "ENTH10C",
@@ -1636,7 +1816,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1128.18
     },
     {
       "gdrgCode": "ENTH12A",
@@ -1645,7 +1826,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 774.97
     },
     {
       "gdrgCode": "ENTH12C",
@@ -1654,7 +1836,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 682.13
     },
     {
       "gdrgCode": "ENTH13A",
@@ -1663,7 +1846,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 306.46
     },
     {
       "gdrgCode": "ENTH13C",
@@ -1672,7 +1856,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 306.15
     },
     {
       "gdrgCode": "ENTH14A",
@@ -1681,7 +1866,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 401.73
     },
     {
       "gdrgCode": "ENTH14C",
@@ -1690,7 +1876,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 332.15
     },
     {
       "gdrgCode": "ENTH15A",
@@ -1699,7 +1886,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 520.09
     },
     {
       "gdrgCode": "ENTH15C",
@@ -1708,7 +1896,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 435.16
     },
     {
       "gdrgCode": "ENTH16A",
@@ -1717,7 +1906,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 456.31
     },
     {
       "gdrgCode": "ENTH16C",
@@ -1726,7 +1916,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 409.99
     },
     {
       "gdrgCode": "ENTH17A",
@@ -1735,7 +1926,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 452.06
     },
     {
       "gdrgCode": "ENTH17C",
@@ -1744,7 +1936,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 428.02
     },
     {
       "gdrgCode": "ENTH18A",
@@ -1753,7 +1946,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 557.55
     },
     {
       "gdrgCode": "ENTH18C",
@@ -1762,7 +1956,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 533.12
     },
     {
       "gdrgCode": "ENTH19A",
@@ -1771,7 +1966,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 433.07
     },
     {
       "gdrgCode": "ENTH19C",
@@ -1780,7 +1976,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 358.80
     },
     {
       "gdrgCode": "ENTH20A",
@@ -1789,7 +1986,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 26.70
     },
     {
       "gdrgCode": "ENTH20C",
@@ -1798,7 +1996,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 29.64
     },
     {
       "gdrgCode": "ENTH21A",
@@ -1807,7 +2006,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 37.59
     },
     {
       "gdrgCode": "ENTH21C",
@@ -1816,7 +2016,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 35.10
     },
     {
       "gdrgCode": "ENTH22A",
@@ -1825,7 +2026,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 201.75
     },
     {
       "gdrgCode": "ENTH22C",
@@ -1834,7 +2036,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 196.54
     },
     {
       "gdrgCode": "ENTH23A",
@@ -1843,7 +2046,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 228.38
     },
     {
       "gdrgCode": "ENTH23C",
@@ -1852,7 +2056,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 223.51
     },
     {
       "gdrgCode": "ENTH24A",
@@ -1861,7 +2066,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 493.34
     },
     {
       "gdrgCode": "ENTH24C",
@@ -1870,7 +2076,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 471.74
     },
     {
       "gdrgCode": "OBGY01A",
@@ -1879,7 +2086,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 480.67
     },
     {
       "gdrgCode": "OBGY02A",
@@ -1888,7 +2096,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 333.17
     },
     {
       "gdrgCode": "OBGY03A",
@@ -1897,7 +2106,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 419.05
     },
     {
       "gdrgCode": "OBGY04A",
@@ -1906,7 +2116,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 213.07
     },
     {
       "gdrgCode": "OBGY05A",
@@ -1915,7 +2126,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 194.25
     },
     {
       "gdrgCode": "OBGY06A",
@@ -1924,7 +2136,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 191.66
     },
     {
       "gdrgCode": "OBGY07A",
@@ -1933,7 +2146,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 244.85
     },
     {
       "gdrgCode": "OBGY08A",
@@ -1942,7 +2156,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 5]
+      "applicableLevels": [1, 2, 3, 5],
+      "tariffGhC": 197.14
     },
     {
       "gdrgCode": "OBGY09A",
@@ -1951,7 +2166,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6]
+      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "tariffGhC": 147.97
     },
     {
       "gdrgCode": "OBGY10A",
@@ -1960,7 +2176,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 294.98
     },
     {
       "gdrgCode": "OBGY11A",
@@ -1969,7 +2186,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 265.45
     },
     {
       "gdrgCode": "OBGY12A",
@@ -1978,7 +2196,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 189.36
     },
     {
       "gdrgCode": "OBGY13A",
@@ -1987,7 +2206,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 509.36
     },
     {
       "gdrgCode": "OBGY14A",
@@ -1996,7 +2216,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 581.58
     },
     {
       "gdrgCode": "OBGY15A",
@@ -2005,7 +2226,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 511.25
     },
     {
       "gdrgCode": "OBGY16A",
@@ -2014,7 +2236,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 39.14
     },
     {
       "gdrgCode": "OBGY17A",
@@ -2023,7 +2246,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 447.68
     },
     {
       "gdrgCode": "OBGY18A",
@@ -2032,7 +2256,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 546.35
     },
     {
       "gdrgCode": "OBGY19A",
@@ -2041,7 +2266,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 848.09
     },
     {
       "gdrgCode": "OBGY20A",
@@ -2050,7 +2276,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 568.60
     },
     {
       "gdrgCode": "OBGY21A",
@@ -2059,7 +2286,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 463.93
     },
     {
       "gdrgCode": "OBGY22A",
@@ -2068,7 +2296,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 671.21
     },
     {
       "gdrgCode": "OBGY23A",
@@ -2077,7 +2306,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 133.37
     },
     {
       "gdrgCode": "OBGY24A",
@@ -2086,7 +2316,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 501.67
     },
     {
       "gdrgCode": "OBGY25A",
@@ -2095,7 +2326,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 289.96
     },
     {
       "gdrgCode": "OBGY26A",
@@ -2104,7 +2336,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 239.88
     },
     {
       "gdrgCode": "OBGY27A",
@@ -2113,7 +2346,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 424.79
     },
     {
       "gdrgCode": "OBGY28A",
@@ -2122,7 +2356,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 480.71
     },
     {
       "gdrgCode": "OBGY29A",
@@ -2132,7 +2367,8 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5]
+      "applicableLevels": [1, 2, 3, 4, 5],
+      "tariffGhC": 255.31
     },
     {
       "gdrgCode": "OBGY30A",
@@ -2142,7 +2378,8 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 224.71
     },
     {
       "gdrgCode": "OBGY31A",
@@ -2152,7 +2389,8 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 278.39
     },
     {
       "gdrgCode": "OBGY32A",
@@ -2162,7 +2400,8 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5]
+      "applicableLevels": [1, 2, 3, 4, 5],
+      "tariffGhC": 548.23
     },
     {
       "gdrgCode": "OBGY34A",
@@ -2172,7 +2411,8 @@
       "minAgeYears": 12,
       "isSurgical": false,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 10],
+      "tariffGhC": 165.24
     },
     {
       "gdrgCode": "OBGY35A",
@@ -2181,7 +2421,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 275.10
     },
     {
       "gdrgCode": "OBGY36A",
@@ -2190,7 +2431,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 562.90
     },
     {
       "gdrgCode": "OBGY38A",
@@ -2199,7 +2441,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 220.31
     },
     {
       "gdrgCode": "OBGY39A",
@@ -2208,7 +2451,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 868.42
     },
     {
       "gdrgCode": "OBGY40A",
@@ -2217,7 +2461,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 317.14
     },
     {
       "gdrgCode": "DENT01A",
@@ -2228,7 +2473,8 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 51.93
     },
     {
       "gdrgCode": "DENT01C",
@@ -2239,7 +2485,8 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 40.90
     },
     {
       "gdrgCode": "DENT02A",
@@ -2248,7 +2495,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 85.92
     },
     {
       "gdrgCode": "DENT03A",
@@ -2257,7 +2505,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 59.83
     },
     {
       "gdrgCode": "DENT03C",
@@ -2266,7 +2515,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 60.54
     },
     {
       "gdrgCode": "DENT04A",
@@ -2277,7 +2527,8 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 72.66
     },
     {
       "gdrgCode": "DENT04C",
@@ -2288,7 +2539,8 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 77.80
     },
     {
       "gdrgCode": "DENT05A",
@@ -2299,7 +2551,8 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 70.78
     },
     {
       "gdrgCode": "DENT05C",
@@ -2310,7 +2563,8 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 55.31
     },
     {
       "gdrgCode": "DENT06A",
@@ -2319,7 +2573,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 34.26
     },
     {
       "gdrgCode": "DENT06C",
@@ -2328,7 +2583,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 39.06
     },
     {
       "gdrgCode": "DENT07A",
@@ -2337,7 +2593,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 90.53
     },
     {
       "gdrgCode": "DENT07C",
@@ -2346,7 +2603,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 88.07
     },
     {
       "gdrgCode": "DENT08A",
@@ -2357,7 +2615,8 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 100.40
     },
     {
       "gdrgCode": "DENT08C",
@@ -2368,7 +2627,8 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 96.01
     },
     {
       "gdrgCode": "DENT09A",
@@ -2377,7 +2637,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 209.32
     },
     {
       "gdrgCode": "DENT09C",
@@ -2386,7 +2647,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 178.80
     },
     {
       "gdrgCode": "DENT10A",
@@ -2395,7 +2657,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 51.03
     },
     {
       "gdrgCode": "DENT10C",
@@ -2404,7 +2667,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 48.21
     },
     {
       "gdrgCode": "DENT11A",
@@ -2413,7 +2677,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 119.95
     },
     {
       "gdrgCode": "DENT11C",
@@ -2422,7 +2687,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 103.25
     },
     {
       "gdrgCode": "DENT12A",
@@ -2431,7 +2697,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 215.76
     },
     {
       "gdrgCode": "DENT12C",
@@ -2440,7 +2707,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 197.00
     },
     {
       "gdrgCode": "DENT13A",
@@ -2449,7 +2717,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 237.12
     },
     {
       "gdrgCode": "DENT13C",
@@ -2458,7 +2727,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 210.50
     },
     {
       "gdrgCode": "DENT14A",
@@ -2467,7 +2737,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 517.67
     },
     {
       "gdrgCode": "DENT14C",
@@ -2476,7 +2747,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 463.93
     },
     {
       "gdrgCode": "DENT15A",
@@ -2485,7 +2757,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 102.84
     },
     {
       "gdrgCode": "DENT15C",
@@ -2494,7 +2767,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 85.48
     },
     {
       "gdrgCode": "DENT16A",
@@ -2503,7 +2777,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 78.35
     },
     {
       "gdrgCode": "DENT16C",
@@ -2512,7 +2787,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 68.05
     },
     {
       "gdrgCode": "DENT17A",
@@ -2521,7 +2797,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 64.72
     },
     {
       "gdrgCode": "DENT17C",
@@ -2530,7 +2807,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 49.38
     },
     {
       "gdrgCode": "DENT18A",
@@ -2539,7 +2817,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 497.32
     },
     {
       "gdrgCode": "DENT18C",
@@ -2548,7 +2827,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 456.62
     },
     {
       "gdrgCode": "DENT19A",
@@ -2557,7 +2837,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 643.78
     },
     {
       "gdrgCode": "DENT19C",
@@ -2566,7 +2847,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 539.95
     },
     {
       "gdrgCode": "DENT20A",
@@ -2575,7 +2857,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 205.54
     },
     {
       "gdrgCode": "DENT20C",
@@ -2584,7 +2867,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 185.34
     },
     {
       "gdrgCode": "DENT21A",
@@ -2593,7 +2877,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 503.98
     },
     {
       "gdrgCode": "DENT21C",
@@ -2602,7 +2887,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 429.54
     },
     {
       "gdrgCode": "DENT22A",
@@ -2611,7 +2897,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 101.18
     },
     {
       "gdrgCode": "DENT22C",
@@ -2620,7 +2907,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 73.14
     },
     {
       "gdrgCode": "DENT23A",
@@ -2629,7 +2917,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 33.32
     },
     {
       "gdrgCode": "DENT23C",
@@ -2638,7 +2927,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 29.74
     },
     {
       "gdrgCode": "DENT24A",
@@ -2647,7 +2937,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 22.87
     },
     {
       "gdrgCode": "DENT24C",
@@ -2656,7 +2947,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 22.70
     },
     {
       "gdrgCode": "OPHT01A",
@@ -2665,7 +2957,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 478.79
     },
     {
       "gdrgCode": "OPHT01C",
@@ -2674,7 +2967,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 452.66
     },
     {
       "gdrgCode": "OPHT02A",
@@ -2683,7 +2977,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 490.56
     },
     {
       "gdrgCode": "OPHT02C",
@@ -2692,7 +2987,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 454.16
     },
     {
       "gdrgCode": "OPHT03A",
@@ -2701,7 +2997,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 36.90
     },
     {
       "gdrgCode": "OPHT03C",
@@ -2710,7 +3007,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 31.93
     },
     {
       "gdrgCode": "OPHT04A",
@@ -2719,7 +3017,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 241.67
     },
     {
       "gdrgCode": "OPHT04C",
@@ -2728,7 +3027,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 237.76
     },
     {
       "gdrgCode": "OPHT05A",
@@ -2737,7 +3037,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 317.59
     },
     {
       "gdrgCode": "OPHT05C",
@@ -2746,7 +3047,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 291.37
     },
     {
       "gdrgCode": "OPHT06A",
@@ -2755,7 +3057,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 186.74
     },
     {
       "gdrgCode": "OPHT06C",
@@ -2764,7 +3067,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 191.75
     },
     {
       "gdrgCode": "OPHT07A",
@@ -2773,7 +3077,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 166.35
     },
     {
       "gdrgCode": "OPHT07C",
@@ -2782,7 +3087,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 163.36
     },
     {
       "gdrgCode": "OPHT08A",
@@ -2791,7 +3097,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 175.86
     },
     {
       "gdrgCode": "OPHT08C",
@@ -2800,7 +3107,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 171.84
     },
     {
       "gdrgCode": "OPHT09A",
@@ -2809,7 +3117,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 183.83
     },
     {
       "gdrgCode": "OPHT09C",
@@ -2818,7 +3127,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 197.39
     },
     {
       "gdrgCode": "OPHT10A",
@@ -2827,7 +3137,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 222.44
     },
     {
       "gdrgCode": "OPHT10C",
@@ -2836,7 +3147,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 216.54
     },
     {
       "gdrgCode": "OPHT11A",
@@ -2845,7 +3157,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 322.75
     },
     {
       "gdrgCode": "OPHT11C",
@@ -2854,7 +3167,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 287.84
     },
     {
       "gdrgCode": "OPHT12A",
@@ -2863,7 +3177,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 122.14
     },
     {
       "gdrgCode": "OPHT12C",
@@ -2872,7 +3187,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 119.58
     },
     {
       "gdrgCode": "OPHT13A",
@@ -2881,7 +3197,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 162.91
     },
     {
       "gdrgCode": "OPHT13C",
@@ -2890,7 +3207,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 170.74
     },
     {
       "gdrgCode": "OPHT14A",
@@ -2899,7 +3217,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 211.36
     },
     {
       "gdrgCode": "OPHT14C",
@@ -2908,7 +3227,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 189.76
     },
     {
       "gdrgCode": "OPHT15A",
@@ -2917,7 +3237,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 179.58
     },
     {
       "gdrgCode": "OPHT15C",
@@ -2926,7 +3247,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 200.44
     },
     {
       "gdrgCode": "OPHT16A",
@@ -2935,7 +3257,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 46.81
     },
     {
       "gdrgCode": "OPHT16C",
@@ -2944,7 +3267,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 44.65
     },
     {
       "gdrgCode": "OPHT17A",
@@ -2953,7 +3277,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 23.71
     },
     {
       "gdrgCode": "OPHT18A",
@@ -2962,7 +3287,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 276.53
     },
     {
       "gdrgCode": "ORTH01A",
@@ -2971,7 +3297,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 86.99
     },
     {
       "gdrgCode": "ORTH01C",
@@ -2980,7 +3307,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 84.74
     },
     {
       "gdrgCode": "ORTH02A",
@@ -2989,7 +3317,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 416.16
     },
     {
       "gdrgCode": "ORTH02C",
@@ -2998,7 +3327,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 416.16
     },
     {
       "gdrgCode": "ORTH03A",
@@ -3007,7 +3337,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 650.21
     },
     {
       "gdrgCode": "ORTH03C",
@@ -3016,7 +3347,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 606.92
     },
     {
       "gdrgCode": "ORTH04A",
@@ -3025,7 +3357,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6]
+      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "tariffGhC": 407.39
     },
     {
       "gdrgCode": "ORTH04C",
@@ -3034,7 +3367,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6]
+      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "tariffGhC": 393.18
     },
     {
       "gdrgCode": "ORTH05A",
@@ -3043,7 +3377,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 379.98
     },
     {
       "gdrgCode": "ORTH05C",
@@ -3052,7 +3387,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 381.10
     },
     {
       "gdrgCode": "ORTH07A",
@@ -3061,7 +3397,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 281.69
     },
     {
       "gdrgCode": "ORTH07C",
@@ -3070,7 +3407,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 279.11
     },
     {
       "gdrgCode": "ORTH08A",
@@ -3079,7 +3417,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 713.54
     },
     {
       "gdrgCode": "ORTH08C",
@@ -3088,7 +3427,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 708.36
     },
     {
       "gdrgCode": "ORTH09A",
@@ -3097,7 +3437,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 503.35
     },
     {
       "gdrgCode": "ORTH09C",
@@ -3106,7 +3447,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 493.74
     },
     {
       "gdrgCode": "ORTH10A",
@@ -3115,7 +3457,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1173.77
     },
     {
       "gdrgCode": "ORTH10C",
@@ -3124,7 +3467,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1078.60
     },
     {
       "gdrgCode": "ORTH11A",
@@ -3133,7 +3477,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 220.67
     },
     {
       "gdrgCode": "ORTH11C",
@@ -3142,7 +3487,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 211.07
     },
     {
       "gdrgCode": "ORTH12A",
@@ -3151,7 +3497,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 799.72
     },
     {
       "gdrgCode": "ORTH12C",
@@ -3160,7 +3507,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 728.11
     },
     {
       "gdrgCode": "ORTH14A",
@@ -3169,7 +3517,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 892.84
     },
     {
       "gdrgCode": "ORTH14C",
@@ -3178,7 +3527,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 787.79
     },
     {
       "gdrgCode": "ORTH15A",
@@ -3187,7 +3537,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 181.98
     },
     {
       "gdrgCode": "ORTH15C",
@@ -3196,7 +3547,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 167.60
     },
     {
       "gdrgCode": "ORTH16A",
@@ -3205,7 +3557,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 117.64
     },
     {
       "gdrgCode": "ORTH16C",
@@ -3214,7 +3567,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 113.21
     },
     {
       "gdrgCode": "ORTH17A",
@@ -3223,7 +3577,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 808.13
     },
     {
       "gdrgCode": "ORTH17C",
@@ -3232,7 +3587,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 837.97
     },
     {
       "gdrgCode": "ORTH18A",
@@ -3241,7 +3597,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 941.71
     },
     {
       "gdrgCode": "ORTH18C",
@@ -3250,7 +3607,28 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 882.85
+    },
+    {
+      "gdrgCode": "ORTH19A",
+      "mdc": "ORTH",
+      "description": "Skin traction",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 392.69
+    },
+    {
+      "gdrgCode": "ORTH19C",
+      "mdc": "ORTH",
+      "description": "Skin traction",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": false,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 366.20
     },
     {
       "gdrgCode": "ORTH20A",
@@ -3259,7 +3637,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 696.47
     },
     {
       "gdrgCode": "ORTH20C",
@@ -3268,7 +3647,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 735.52
     },
     {
       "gdrgCode": "ORTH22A",
@@ -3277,7 +3657,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 558.84
     },
     {
       "gdrgCode": "ORTH22C",
@@ -3286,7 +3667,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 558.79
     },
     {
       "gdrgCode": "ORTH23A",
@@ -3295,7 +3677,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 568.02
     },
     {
       "gdrgCode": "ORTH23C",
@@ -3304,7 +3687,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 607.79
     },
     {
       "gdrgCode": "ORTH24A",
@@ -3313,7 +3697,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 137.61
     },
     {
       "gdrgCode": "ORTH24C",
@@ -3322,7 +3707,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 177.83
     },
     {
       "gdrgCode": "ORTH25A",
@@ -3331,7 +3717,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 334.78
     },
     {
       "gdrgCode": "ORTH25C",
@@ -3340,7 +3727,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 346.92
     },
     {
       "gdrgCode": "ORTH26A",
@@ -3349,7 +3737,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 532.57
     },
     {
       "gdrgCode": "ORTH26C",
@@ -3358,7 +3747,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 587.28
     },
     {
       "gdrgCode": "ORTH27A",
@@ -3367,7 +3757,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 727.40
     },
     {
       "gdrgCode": "ORTH27C",
@@ -3376,7 +3767,308 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 723.56
+    },
+    {
+      "gdrgCode": "RSURO1A",
+      "mdc": "RSUR",
+      "description": "Reconstructive repair",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 711.92
+    },
+    {
+      "gdrgCode": "RSURO1C",
+      "mdc": "RSUR",
+      "description": "Reconstructive repair",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 668.42
+    },
+    {
+      "gdrgCode": "RSURO2A",
+      "mdc": "RSUR",
+      "description": "Shaving and skin grafting",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1002.79
+    },
+    {
+      "gdrgCode": "RSURO2C",
+      "mdc": "RSUR",
+      "description": "Shaving and skin grafting",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 970.08
+    },
+    {
+      "gdrgCode": "RSURO3A",
+      "mdc": "RSUR",
+      "description": "Excisional debridement and dressing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 783.07
+    },
+    {
+      "gdrgCode": "RSURO3C",
+      "mdc": "RSUR",
+      "description": "Excisional debridement and dressing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 739.40
+    },
+    {
+      "gdrgCode": "RSURO4A",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with suturing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 486.77
+    },
+    {
+      "gdrgCode": "RSURO4C",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with suturing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 431.06
+    },
+    {
+      "gdrgCode": "RSURO5A",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with skin grafting",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 746.24
+    },
+    {
+      "gdrgCode": "RSURO5C",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with skin grafting",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 705.05
+    },
+    {
+      "gdrgCode": "RSURO6A",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with flap reconstruction",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 877.37
+    },
+    {
+      "gdrgCode": "RSURO6C",
+      "mdc": "RSUR",
+      "description": "Excisional debridement with flap reconstruction",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 798.82
+    },
+    {
+      "gdrgCode": "RSURO7A",
+      "mdc": "RSUR",
+      "description": "Excision biopsy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 310.13
+    },
+    {
+      "gdrgCode": "RSURO7C",
+      "mdc": "RSUR",
+      "description": "Excision biopsy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 291.66
+    },
+    {
+      "gdrgCode": "RSURO8A",
+      "mdc": "RSUR",
+      "description": "Escharotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 852.61
+    },
+    {
+      "gdrgCode": "RSURO8C",
+      "mdc": "RSUR",
+      "description": "Escharotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 816.42
+    },
+    {
+      "gdrgCode": "RSURO9A",
+      "mdc": "RSUR",
+      "description": "Z-plasty",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 596.84
+    },
+    {
+      "gdrgCode": "RSURO9C",
+      "mdc": "RSUR",
+      "description": "Z-plasty",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 560.23
+    },
+    {
+      "gdrgCode": "RSUR10A",
+      "mdc": "RSUR",
+      "description": "Corrective osteotomy",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1119.95
+    },
+    {
+      "gdrgCode": "RSUR10C",
+      "mdc": "RSUR",
+      "description": "Corrective osteotomy",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1013.40
+    },
+    {
+      "gdrgCode": "RSUR11A",
+      "mdc": "RSUR",
+      "description": "Reconstruction",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 637.25
+    },
+    {
+      "gdrgCode": "RSUR11C",
+      "mdc": "RSUR",
+      "description": "Reconstruction",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 586.80
+    },
+    {
+      "gdrgCode": "RSUR12A",
+      "mdc": "RSUR",
+      "description": "Release/excision and split skin grafting",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 756.58
+    },
+    {
+      "gdrgCode": "RSUR12C",
+      "mdc": "RSUR",
+      "description": "Release/excision and split skin grafting",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 674.81
+    },
+    {
+      "gdrgCode": "RSUR13A",
+      "mdc": "RSUR",
+      "description": "Release/excision and full thickness skin graft",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 806.95
+    },
+    {
+      "gdrgCode": "RSUR13C",
+      "mdc": "RSUR",
+      "description": "Release/excision and full thickness skin graft",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 754.92
+    },
+    {
+      "gdrgCode": "RSUR14A",
+      "mdc": "RSUR",
+      "description": "Debauling",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1065.58
+    },
+    {
+      "gdrgCode": "RSUR14C",
+      "mdc": "RSUR",
+      "description": "Debauling",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 1003.42
+    },
+    {
+      "gdrgCode": "RSUR15A",
+      "mdc": "RSUR",
+      "description": "Primary suturing",
+      "ageSplit": "A",
+      "minAgeYears": 12,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 492.43
+    },
+    {
+      "gdrgCode": "RSUR15C",
+      "mdc": "RSUR",
+      "description": "Primary suturing",
+      "ageSplit": "C",
+      "maxAgeYears": 11,
+      "isSurgical": true,
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 462.54
     },
     {
       "gdrgCode": "ZOOM01A",
@@ -3386,7 +4078,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 158.64
     },
     {
       "gdrgCode": "ZOOM01C",
@@ -3396,7 +4089,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 149.37
     },
     {
       "gdrgCode": "ZOOM02A",
@@ -3406,7 +4100,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 46.32
     },
     {
       "gdrgCode": "ZOOM02C",
@@ -3416,7 +4111,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 34.97
     },
     {
       "gdrgCode": "ZOOM03A",
@@ -3426,7 +4122,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 108.54
     },
     {
       "gdrgCode": "ZOOM03C",
@@ -3436,7 +4133,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 101.03
     },
     {
       "gdrgCode": "ZOOM04A",
@@ -3446,7 +4144,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 21.05
     },
     {
       "gdrgCode": "ZOOM04C",
@@ -3456,7 +4155,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 21.05
     },
     {
       "gdrgCode": "ZOOM05A",
@@ -3466,7 +4166,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 32.55
     },
     {
       "gdrgCode": "ZOOM05C",
@@ -3476,7 +4177,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 32.55
     },
     {
       "gdrgCode": "ZOOM06A",
@@ -3486,7 +4188,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [2, 3, 4, 5, 6, 10]
+      "applicableLevels": [2, 3, 4, 5, 6, 10],
+      "tariffGhC": 57.60
     },
     {
       "gdrgCode": "ZOOM06C",
@@ -3496,7 +4199,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [2, 3, 4, 5, 6, 10]
+      "applicableLevels": [2, 3, 4, 5, 6, 10],
+      "tariffGhC": 57.60
     },
     {
       "gdrgCode": "ZOOM07A",
@@ -3506,7 +4210,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 81.59
     },
     {
       "gdrgCode": "ZOOM07C",
@@ -3516,7 +4221,8 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 78.97
     },
     {
       "gdrgCode": "ZOOM08A",
@@ -3526,7 +4232,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 110.00
     },
     {
       "gdrgCode": "ZOOM09A",
@@ -3536,7 +4243,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 110.00
     },
     {
       "gdrgCode": "ZOOM10A",
@@ -3546,7 +4254,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 12.00
     },
     {
       "gdrgCode": "ZOOM11A",
@@ -3556,7 +4265,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 12.00
     },
     {
       "gdrgCode": "ZOOM12A",
@@ -3566,7 +4276,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 6.00
     },
     {
       "gdrgCode": "ZOOM13A",
@@ -3576,7 +4287,8 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 2.00
     },
     {
       "gdrgCode": "OPDC01A",
@@ -3585,7 +4297,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC01C",
@@ -3594,7 +4307,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC02A",
@@ -3604,7 +4318,8 @@
       "minAgeYears": 12,
       "isSurgical": false,
       "isAntenatal": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 37.08
     },
     {
       "gdrgCode": "OPDC03A",
@@ -3613,7 +4328,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 25.21
     },
     {
       "gdrgCode": "OPDC03C",
@@ -3622,7 +4338,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7]
+      "applicableLevels": [1, 2, 3, 7],
+      "tariffGhC": 25.71
     },
     {
       "gdrgCode": "OPDC04A",
@@ -3631,7 +4348,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 30.16
     },
     {
       "gdrgCode": "OPDC04C",
@@ -3640,7 +4358,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 28.84
     },
     {
       "gdrgCode": "OPDC05A",
@@ -3649,7 +4368,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 28.55
     },
     {
       "gdrgCode": "OPDC05C",
@@ -3658,7 +4378,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8]
+      "applicableLevels": [1, 2, 3, 8],
+      "tariffGhC": 28.02
     },
     {
       "gdrgCode": "OPDC06A",
@@ -3667,7 +4388,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 28.70
     },
     {
       "gdrgCode": "OPDC06C",
@@ -3676,7 +4398,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 29.06
     },
     {
       "gdrgCode": "OPDC07A",
@@ -3685,7 +4408,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC08A",
@@ -3694,7 +4418,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC09C",
@@ -3703,7 +4428,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC10C",
@@ -3712,7 +4438,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC11A",
@@ -3721,7 +4448,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 23.56
     },
     {
       "gdrgCode": "OPDC11C",
@@ -3730,7 +4458,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10]
+      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "tariffGhC": 23.10
     },
     {
       "gdrgCode": "OPDC12A",
@@ -3739,7 +4468,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1]
+      "applicableLevels": [1],
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC13A",
@@ -3748,7 +4478,8 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 27.96
     },
     {
       "gdrgCode": "OPDC13C",
@@ -3757,7 +4488,8 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3]
+      "applicableLevels": [1, 2, 3],
+      "tariffGhC": 27.60
     }
   ]
 }

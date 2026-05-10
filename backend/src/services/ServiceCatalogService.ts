@@ -2,6 +2,24 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class ServiceCatalogService {
+
+    // Get NHIS investigation code (for both Lab Tests and Scans)
+  static getNHISInvestigationCode(serviceCatalog: any): string | null {
+    // Priority order: investigationCode -> nhisServiceCode -> null
+    return serviceCatalog?.investigationCode || serviceCatalog?.nhisServiceCode || null;
+  }
+
+  // Get drug code for medication
+  static getDrugCode(stockItem: any, serviceCatalog: any): string | null {
+    // Priority: drugCode from StockItem -> code from ServiceCatalog -> null
+    return stockItem?.drugCode || serviceCatalog?.code || null;
+  }
+
+  // Get procedure code
+  static getProcedureCode(serviceCatalog: any): string | null {
+    return serviceCatalog?.procedureCode || null;
+  }
+
   static async findServiceForReference(serviceType: string, referenceId: string): Promise<string | null> {
     try {
       const fieldMap: Record<string, string> = {

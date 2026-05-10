@@ -18,9 +18,11 @@ const handleError = (res: Response, message: string, error: any, statusCode = 50
 // ============================================
 // GET ALL DIAGNOSES
 // ============================================
+// controllers/diagnosisController.ts - REMOVE CAP
 export const getDiagnoses = async (req: Request, res: Response) => {
-  const { page = 1, limit = 100 } = req.query;
-  const take = Math.min(parseInt(limit as string), 100);
+  const { page = 1, limit = 1000 } = req.query;
+  // ✅ No cap - allow any limit up to 10000
+  const take = Math.min(parseInt(limit as string), 10000);
   const skip = (parseInt(page as string) - 1) * take;
   
   const [diagnoses, total] = await Promise.all([

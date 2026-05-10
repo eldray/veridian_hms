@@ -208,43 +208,75 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   },
 
   // === DIAGNOSIS ACTIONS ===
-  getDiagnoses: async (filters = {}) => {
-    set({ isLoadingDiagnoses: true, errors: { ...get().errors, diagnoses: null } });
-    try {
-      // ✅ Use high limit to get all records
-      const apiFilters = { ...filters, limit: 10000, page: 1 }; 
-      const response = await apiGetDiagnoses(apiFilters);
-      
-      let diagnosesArray: Diagnosis[] = [];
-      let totalCount = 0;
-      
-      if (response.data && Array.isArray(response.data)) {
-        diagnosesArray = response.data;
-        totalCount = response.pagination?.total || diagnosesArray.length;
-      } else if (Array.isArray(response)) {
-        diagnosesArray = response;
-        totalCount = diagnosesArray.length;
-      } else if (response.success && Array.isArray(response.data)) {
-        diagnosesArray = response.data;
-        totalCount = response.pagination?.total || diagnosesArray.length;
-      }
-      
-      console.log(`📊 Diagnoses loaded: ${diagnosesArray.length} records (Total in DB: ${totalCount})`);
-      
-      set({ 
-        diagnoses: diagnosesArray,
-        diagnosesTotalCount: totalCount,
-        isLoadingDiagnoses: false 
-      });
-    } catch (error: any) {
-      console.error('Failed to fetch diagnoses:', error);
-      set({
-        errors: { ...get().errors, diagnoses: error.message },
-        isLoadingDiagnoses: false
-      });
-      throw error;
+// In medicalServicesStore.ts
+
+getDiagnoses: async (filters = {}) => {
+  set({ isLoadingDiagnoses: true });
+  try {
+    // ✅ Use a larger limit to get all diagnoses (or fetch all pages)
+    const { page = 1, limit = 1000, search } = filters; // Increased default limit to 1000
+    
+    const response = await apiGetDiagnoses({ ...filters, page, limit });
+    
+    let diagnosesArray: Diagnosis[] = [];
+    let totalCount = 0;
+    let currentPage = 1;
+    let totalPages = 1;
+    
+    if (response.data && Array.isArray(response.data)) {
+      diagnosesArray = response.data;
+      totalCount = response.pagination?.total || diagnosesArray.length;
+      currentPage = response.pagination?.page || page;
+      totalPages = response.pagination?.pages || 1;
+    } else if (response.success && Array.isArray(response.data)) {
+      diagnosesArray = response.data;
+      totalCount = response.pagination?.total || diagnosesArray.length;
+      currentPage = response.pagination?.page || page;
+      totalPages = response.pagination?.pages || 1;
+    } else if (Array.isArray(response)) {
+      diagnosesArray = response;
+      totalCount = diagnosesArray.length;
     }
-  },
+    
+    // ✅ If there are more pages, fetch them all
+    if (currentPage < totalPages) {
+      const allPagesPromises = [];
+      for (let p = currentPage + 1; p <= totalPages; p++) {
+        allPagesPromises.push(apiGetDiagnoses({ ...filters, page: p, limit }));
+      }
+      const additionalPages = await Promise.all(allPagesPromises);
+      
+      for (const additionalResponse of additionalPages) {
+        let additionalData = [];
+        if (additionalResponse.data && Array.isArray(additionalResponse.data)) {
+          additionalData = additionalResponse.data;
+        } else if (additionalResponse.success && Array.isArray(additionalResponse.data)) {
+          additionalData = additionalResponse.data;
+        } else if (Array.isArray(additionalResponse)) {
+          additionalData = additionalResponse;
+        }
+        diagnosesArray = [...diagnosesArray, ...additionalData];
+      }
+    }
+    
+    console.log(`📊 Diagnoses loaded: ${diagnosesArray.length} records (Total: ${totalCount})`);
+    
+    set({ 
+      diagnoses: diagnosesArray,
+      diagnosesTotalCount: totalCount,
+      diagnosesCurrentPage: 1,
+      diagnosesTotalPages: 1,
+      isLoadingDiagnoses: false 
+    });
+  } catch (error: any) {
+    console.error('Failed to fetch diagnoses:', error);
+    set({
+      errors: { ...get().errors, diagnoses: error.message },
+      isLoadingDiagnoses: false
+    });
+    throw error;
+  }
+},
 
   getDiagnosis: async (id: string) => {
     set({ isLoading: true });
@@ -346,12 +378,12 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   // === LAB TEST TEMPLATES ===
   getLabTestTemplates: async (filters = {}) => {
-    set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
+    set({ isLoadingLabTests: true });
     try {
       const apiFilters = { ...filters, limit: 10000, page: 1 };
       const response = await apiGetLabTestTemplates(apiFilters);
       
-      let labTestsArray: LabTestTemplate[] = [];
+      let labTestsArray = [];
       let totalCount = 0;
       
       if (response.data && Array.isArray(response.data)) {
@@ -362,20 +394,17 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         totalCount = labTestsArray.length;
       }
       
-      console.log(`📊 Lab tests loaded: ${labTestsArray.length} records (Total in DB: ${totalCount})`);
+      console.log('📊 Lab tests loaded:', labTestsArray);
+      console.log('📊 First lab test sample:', labTestsArray[0]); // Debug - check the structure
       
       set({ 
         labTestTemplates: labTestsArray,
         labTestsTotalCount: totalCount,
         isLoadingLabTests: false 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch lab test templates:', error);
-      set({
-        errors: { ...get().errors, labTests: error.message },
-        isLoadingLabTests: false
-      });
-      throw error;
+      set({ isLoadingLabTests: false });
     }
   },
 
@@ -498,7 +527,14 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         totalCount = proceduresArray.length;
       }
       
+      // ✅ Ensure procedureCode is properly set
+      proceduresArray = proceduresArray.map(item => ({
+        ...item,
+        procedureCode: item.procedureCode || item.procedure_code || item.code || 'N/A'
+      }));
+      
       console.log(`📊 Procedures loaded: ${proceduresArray.length} records (Total in DB: ${totalCount})`);
+      console.log('📊 First procedure sample:', proceduresArray[0]);
       
       set({ 
         procedureTemplates: proceduresArray,
@@ -625,7 +661,14 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         totalCount = scansArray.length;
       }
       
+      // ✅ Ensure scanCode is properly set
+      scansArray = scansArray.map(item => ({
+        ...item,
+        scanCode: item.scanCode || item.scan_code || item.code || 'N/A'
+      }));
+      
       console.log(`📊 Scans loaded: ${scansArray.length} records (Total in DB: ${totalCount})`);
+      console.log('📊 First scan sample:', scansArray[0]);
       
       set({ 
         scanTemplates: scansArray,

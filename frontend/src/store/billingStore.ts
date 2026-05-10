@@ -1,4 +1,4 @@
-// stores/billingStore.ts - FIXED TO MATCH BACKEND RESPONSE
+// stores/billingStore.ts - CORRECTED (No Duplicate)
 import { create } from 'zustand';
 import { 
   getBills as apiGetBills,
@@ -11,8 +11,12 @@ import {
   generateBillReport as apiGenerateBillReport,
   getBillingBreakdownForBill as apiGetBillingBreakdown,
   updateBillStatus as apiUpdateBillStatus,
-  getBillStatistics as apiGetBillStatistics
+  getBillStatistics as apiGetBillStatistics,
+  getBillLineItems as apiGetBillLineItems,
+  voidBillLineItem as apiVoidBillLineItem,
+  applyWaiverToBill as apiApplyWaiverToBill
 } from '../api';
+
 import type { Bill, Pagination, Payment } from '../types';
 
 interface BillingState {
@@ -36,9 +40,10 @@ interface BillingState {
   getBillingBreakdown: (billId: string) => Promise<any>;
   updateBillStatus: (billId: string, status: string, data?: any) => Promise<void>;
   getBillStatistics: (filters?: any) => Promise<void>;
-  getBillLineItems: (billId: string) => Promise<BillLineItem[]>;
+  getBillLineItems: (billId: string) => Promise<any[]>;
   voidBillLineItem: (lineItemId: string, reason: string) => Promise<void>;
-  
+  applyWaiverToBill: (billId: string, waiverId: string) => Promise<Bill>;
+
   clearCurrentBill: () => void;
 }
 
@@ -49,111 +54,157 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   pagination: null,
   billStatistics: null,
 
-
-// Add to the store:
-getBillLineItems: async (billId: string) => {
-  set({ isLoading: true });
-  try {
-    const response = await apiGetBillLineItems(billId);
-    set({ isLoading: false });
-    return response.data || response;
-  } catch (error) {
-    set({ isLoading: false });
-    throw error;
-  }
-},
-
-voidBillLineItem: async (lineItemId: string, reason: string) => {
-  set({ isLoading: true });
-  try {
-    await apiVoidBillLineItem(lineItemId, { reason });
-    set({ isLoading: false });
-  } catch (error) {
-    set({ isLoading: false });
-    throw error;
-  }
-},
-// stores/billingStore.ts - FIXED getBill
-getBill: async (id: string) => {
-  set({ isLoading: true });
-  try {
-    const response = await apiGetBill(id);
-    console.log('📄 Billing Store - Raw Response:', response);
-    
-    // ✅ EXTRACT the bill from response.data
-    let billData = null;
-    if (response && response.success === true && response.data) {
-      billData = response.data;
-    } else if (response && response.id) {
-      billData = response;
-    } else {
-      billData = response;
+  // ==========================================
+  // BILL LINE ITEMS
+  // ==========================================
+  getBillLineItems: async (billId: string) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetBillLineItems(billId);
+      set({ isLoading: false });
+      return response.data || response;
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
     }
-    
-    console.log('📄 Billing Store - Extracted Bill:', {
-      id: billData?.id,
-      billNumber: billData?.billNumber,
-      totalAmount: billData?.totalAmount,
-      status: billData?.status,
-      lineItemsCount: billData?.BillLineItem?.length
-    });
-    
-    set({ currentBill: billData, isLoading: false });
-  } catch (error: any) {
-    console.error('❌ Failed to fetch bill:', error);
-    set({ isLoading: false });
-    throw error;
-  }
-},
+  },
 
-// Also fix getBills
-getBills: async (filters = {}) => {
-  if (get().isLoading) return;
-  
-  set({ isLoading: true });
-  try {
-    const response = await apiGetBills(filters);
-    console.log('📊 Billing Store - API Response:', response);
+  voidBillLineItem: async (lineItemId: string, reason: string) => {
+    set({ isLoading: true });
+    try {
+      await apiVoidBillLineItem(lineItemId, { reason });
+      set({ isLoading: false });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==========================================
+  // WAIVER FUNCTIONS
+  // ==========================================
+  applyWaiverToBill: async (billId: string, waiverId: string) => {
+    set({ isLoading: true });
+    try {
+      const updatedBill = await apiApplyWaiverToBill(billId, waiverId);
+      const bills = get().bills.map(bill => 
+        bill.id === billId ? updatedBill : bill
+      );
+      set({ 
+        bills,
+        currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
+        isLoading: false 
+      });
+      return updatedBill;
+    } catch (error: any) {
+      console.error('❌ Failed to apply waiver to bill:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==========================================
+  // BILLING BREAKDOWN - ONLY ONE VERSION
+  // ==========================================
+  getBillingBreakdown: async (billId: string) => {
+    set({ isLoading: true });
+    try {
+      const breakdown = await apiGetBillingBreakdown(billId);
+      set({ isLoading: false });
+      return breakdown;
+    } catch (error: any) {
+      console.error('❌ Failed to get billing breakdown:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==========================================
+  // GET BILL BY ID
+  // ==========================================
+  getBill: async (id: string) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetBill(id);
+      console.log('📄 Billing Store - Raw Response:', response);
+      
+      let billData = null;
+      if (response && response.success === true && response.data) {
+        billData = response.data;
+      } else if (response && response.id) {
+        billData = response;
+      } else {
+        billData = response;
+      }
+      
+      console.log('📄 Billing Store - Extracted Bill:', {
+        id: billData?.id,
+        billNumber: billData?.billNumber,
+        totalAmount: billData?.totalAmount,
+        status: billData?.status,
+        lineItemsCount: billData?.BillLineItem?.length
+      });
+      
+      set({ currentBill: billData, isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Failed to fetch bill:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==========================================
+  // GET ALL BILLS
+  // ==========================================
+  getBills: async (filters = {}) => {
+    if (get().isLoading) return;
     
-    let billsArray: Bill[] = [];
-    let paginationData = null;
+    set({ isLoading: true });
+    try {
+      const response = await apiGetBills(filters);
+      console.log('📊 Billing Store - API Response:', response);
+      
+      let billsArray: Bill[] = [];
+      let paginationData = null;
 
-    // ✅ Handle { success: true, data: [], pagination: {} } format
-    if (response && response.success === true) {
-      billsArray = response.data || [];
-      paginationData = response.pagination || null;
-    } 
-    else if (Array.isArray(response)) {
-      billsArray = response;
-    }
-    else if (response && Array.isArray(response.data)) {
-      billsArray = response.data;
-    }
-    else if (response && response.bills) {
-      billsArray = response.bills;
-    }
-    else {
-      console.warn('Unexpected bills API response structure:', response);
-      billsArray = [];
-    }
+      if (response && response.success === true) {
+        billsArray = response.data || [];
+        paginationData = response.pagination || null;
+      } 
+      else if (Array.isArray(response)) {
+        billsArray = response;
+      }
+      else if (response && Array.isArray(response.data)) {
+        billsArray = response.data;
+      }
+      else if (response && response.bills) {
+        billsArray = response.bills;
+      }
+      else {
+        console.warn('Unexpected bills API response structure:', response);
+        billsArray = [];
+      }
 
-    console.log('✅ Billing Store - Processed Bills:', billsArray.length);
-    
-    set({ 
-      bills: billsArray,
-      pagination: paginationData,
-      isLoading: false 
-    });
-  } catch (error: any) {
-    console.error('❌ Failed to fetch bills:', error);
-    set({ 
-      bills: [],
-      isLoading: false 
-    });
-    throw error;
-  }
-},
+      console.log('✅ Billing Store - Processed Bills:', billsArray.length);
+      
+      set({ 
+        bills: billsArray,
+        pagination: paginationData,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('❌ Failed to fetch bills:', error);
+      set({ 
+        bills: [],
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
 
+  // ==========================================
+  // CREATE BILL
+  // ==========================================
   createBill: async (data: any) => {
     set({ isLoading: true });
     try {
@@ -171,6 +222,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // UPDATE BILL
+  // ==========================================
   updateBill: async (id: string, data: any) => {
     set({ isLoading: true });
     try {
@@ -190,6 +244,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // DELETE BILL
+  // ==========================================
   deleteBill: async (id: string) => {
     set({ isLoading: true });
     try {
@@ -207,12 +264,14 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // ADD PAYMENT TO BILL
+  // ==========================================
   addPaymentToBill: async (billId: string, paymentData: Partial<Payment>) => {
     set({ isLoading: true });
     try {
       const updatedBill = await apiAddPaymentToBill(billId, paymentData);
       
-      // Update bills list
       const bills = get().bills.map(bill => 
         bill.id === billId ? updatedBill : bill
       );
@@ -229,6 +288,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // GENERATE BILL FROM ATTENDANCE
+  // ==========================================
   generateBillFromAttendance: async (attendanceId: string) => {
     set({ isLoading: true });
     try {
@@ -247,6 +309,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // GENERATE BILL REPORT
+  // ==========================================
   generateBillReport: async (billId: string) => {
     set({ isLoading: true });
     try {
@@ -260,19 +325,9 @@ getBills: async (filters = {}) => {
     }
   },
 
-  getBillingBreakdown: async (billId: string) => {
-    set({ isLoading: true });
-    try {
-      const breakdown = await apiGetBillingBreakdown(billId);
-      set({ isLoading: false });
-      return breakdown;
-    } catch (error: any) {
-      console.error('❌ Failed to get billing breakdown:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
+  // ==========================================
+  // UPDATE BILL STATUS
+  // ==========================================
   updateBillStatus: async (billId: string, status: string, data: any = {}) => {
     set({ isLoading: true });
     try {
@@ -294,6 +349,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // GET BILL STATISTICS
+  // ==========================================
   getBillStatistics: async (filters = {}) => {
     set({ isLoading: true });
     try {
@@ -309,6 +367,9 @@ getBills: async (filters = {}) => {
     }
   },
 
+  // ==========================================
+  // CLEAR CURRENT BILL
+  // ==========================================
   clearCurrentBill: () => {
     set({ currentBill: null });
   },

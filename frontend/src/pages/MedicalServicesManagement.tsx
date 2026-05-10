@@ -1,4 +1,4 @@
-// src/components/settings/MedicalServicesManagement.tsx - UPDATED WITH CONSISTENT STYLING
+// src/components/settings/MedicalServicesManagement.tsx - REDESIGNED WITH MORBIDITY DROPDOWN
 import React, { useState, useEffect } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import CreateEditModal from '../components/CreateEditModal';
@@ -15,7 +15,8 @@ import {
   CheckCircle, 
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 import { 
   getDiagnoses as apiGetDiagnoses,
@@ -30,6 +31,145 @@ interface MedicalServicesManagementProps {
   initialTab?: ActiveTab;
 }
 
+// Complete list of morbidity groups from Ghana NHIS classification
+const MORBIDITY_GROUPS = [
+  // Communicable Immunizable
+  { value: 'afp_polio', label: 'AFP/Polio', category: 'Communicable Immunizable' },
+  { value: 'meningitis', label: 'Meningitis', category: 'Communicable Immunizable' },
+  { value: 'neonatal_tetanus', label: 'Neonatal Tetanus', category: 'Communicable Immunizable' },
+  { value: 'pertussis_whooping_cough', label: 'Pertussis (Whooping Cough)', category: 'Communicable Immunizable' },
+  { value: 'diphtheria', label: 'Diphtheria', category: 'Communicable Immunizable' },
+  { value: 'measles', label: 'Measles', category: 'Communicable Immunizable' },
+  { value: 'yellow_fever', label: 'Yellow Fever', category: 'Communicable Immunizable' },
+  { value: 'tetanus', label: 'Tetanus', category: 'Communicable Immunizable' },
+  { value: 'tuberculosis', label: 'Tuberculosis', category: 'Communicable Immunizable' },
+  
+  // Communicable Non-Immunizable
+  { value: 'uncomplicated_malaria_suspected', label: 'Uncomplicated Malaria (Suspected)', category: 'Communicable Non-Immunizable' },
+  { value: 'uncomplicated_malaria_tested', label: 'Uncomplicated Malaria (Tested)', category: 'Communicable Non-Immunizable' },
+  { value: 'uncomplicated_malaria_positive', label: 'Uncomplicated Malaria (Positive)', category: 'Communicable Non-Immunizable' },
+  { value: 'uncomplicated_malaria_not_tested_treated', label: 'Uncomplicated Malaria (Not Tested/Treated)', category: 'Communicable Non-Immunizable' },
+  { value: 'uncomplicated_malaria_tested_negative_treated', label: 'Uncomplicated Malaria (Tested Negative/Treated)', category: 'Communicable Non-Immunizable' },
+  { value: 'malaria_in_pregnancy_suspected', label: 'Malaria in Pregnancy (Suspected)', category: 'Communicable Non-Immunizable' },
+  { value: 'malaria_in_pregnancy_tested', label: 'Malaria in Pregnancy (Tested)', category: 'Communicable Non-Immunizable' },
+  { value: 'malaria_in_pregnancy_positive', label: 'Malaria in Pregnancy (Positive)', category: 'Communicable Non-Immunizable' },
+  { value: 'malaria_in_pregnancy_not_tested_treated', label: 'Malaria in Pregnancy (Not Tested/Treated)', category: 'Communicable Non-Immunizable' },
+  { value: 'malaria_in_pregnancy_tested_negative_treated', label: 'Malaria in Pregnancy (Tested Negative/Treated)', category: 'Communicable Non-Immunizable' },
+  { value: 'severe_malaria_lab_confirmed', label: 'Severe Malaria (Lab Confirmed)', category: 'Communicable Non-Immunizable' },
+  { value: 'severe_malaria_non_lab_confirmed', label: 'Severe Malaria (Non-Lab Confirmed)', category: 'Communicable Non-Immunizable' },
+  { value: 'typhoid_fever', label: 'Typhoid Fever', category: 'Communicable Non-Immunizable' },
+  { value: 'suspected_cholera', label: 'Suspected Cholera', category: 'Communicable Non-Immunizable' },
+  { value: 'diarrhoea_diseases', label: 'Diarrhoea Diseases', category: 'Communicable Non-Immunizable' },
+  { value: 'viral_hepatitis', label: 'Viral Hepatitis', category: 'Communicable Non-Immunizable' },
+  { value: 'schistosomiasis_bilharzia', label: 'Schistosomiasis (Bilharzia)', category: 'Communicable Non-Immunizable' },
+  { value: 'suspected_guinea_worm', label: 'Suspected Guinea Worm', category: 'Communicable Non-Immunizable' },
+  { value: 'onchocerciasis', label: 'Onchocerciasis', category: 'Communicable Non-Immunizable' },
+  { value: 'buruli_ulcer', label: 'Buruli Ulcer', category: 'Communicable Non-Immunizable' },
+  { value: 'leprosy', label: 'Leprosy', category: 'Communicable Non-Immunizable' },
+  { value: 'hiv_aids_related_conditions', label: 'HIV/AIDS Related Conditions', category: 'Communicable Non-Immunizable' },
+  { value: 'mumps', label: 'Mumps', category: 'Communicable Non-Immunizable' },
+  { value: 'intestinal_worms', label: 'Intestinal Worms', category: 'Communicable Non-Immunizable' },
+  { value: 'chicken_pox', label: 'Chicken Pox', category: 'Communicable Non-Immunizable' },
+  { value: 'upper_respiratory_tract_infections', label: 'Upper Respiratory Tract Infections', category: 'Communicable Non-Immunizable' },
+  { value: 'pneumonia', label: 'Pneumonia', category: 'Communicable Non-Immunizable' },
+  { value: 'septicaemia', label: 'Septicaemia', category: 'Communicable Non-Immunizable' },
+  
+  // Non-Communicable Diseases
+  { value: 'malnutrition', label: 'Malnutrition', category: 'Non-Communicable' },
+  { value: 'obesity', label: 'Obesity', category: 'Non-Communicable' },
+  { value: 'anaemia', label: 'Anaemia', category: 'Non-Communicable' },
+  { value: 'other_nutritional_diseases', label: 'Other Nutritional Diseases', category: 'Non-Communicable' },
+  { value: 'hypertension', label: 'Hypertension', category: 'Non-Communicable' },
+  { value: 'cardiac_diseases', label: 'Cardiac Diseases', category: 'Non-Communicable' },
+  { value: 'stroke', label: 'Stroke', category: 'Non-Communicable' },
+  { value: 'diabetes_mellitus', label: 'Diabetes Mellitus', category: 'Non-Communicable' },
+  { value: 'rheumatism_arthritis', label: 'Rheumatism/Arthritis', category: 'Non-Communicable' },
+  { value: 'sickle_cell_disease', label: 'Sickle Cell Disease', category: 'Non-Communicable' },
+  { value: 'asthma', label: 'Asthma', category: 'Non-Communicable' },
+  { value: 'chronic_obstructive_pulmonary_disease', label: 'COPD', category: 'Non-Communicable' },
+  { value: 'breast_cancer', label: 'Breast Cancer', category: 'Non-Communicable' },
+  { value: 'cervical_cancer', label: 'Cervical Cancer', category: 'Non-Communicable' },
+  { value: 'lymphoma', label: 'Lymphoma', category: 'Non-Communicable' },
+  { value: 'prostate_cancer', label: 'Prostate Cancer', category: 'Non-Communicable' },
+  { value: 'hepatocellular_carcinoma', label: 'Hepatocellular Carcinoma', category: 'Non-Communicable' },
+  { value: 'all_other_cancers', label: 'All Other Cancers', category: 'Non-Communicable' },
+  
+  // Mental Health
+  { value: 'schizophrenia', label: 'Schizophrenia', category: 'Mental Health' },
+  { value: 'acute_psychotic_disorder', label: 'Acute Psychotic Disorder', category: 'Mental Health' },
+  { value: 'mono_symptoms_delusion', label: 'Mono-Symptoms Delusion', category: 'Mental Health' },
+  { value: 'depression', label: 'Depression', category: 'Mental Health' },
+  { value: 'substance_abuse', label: 'Substance Abuse', category: 'Mental Health' },
+  { value: 'epilepsy', label: 'Epilepsy', category: 'Mental Health' },
+  { value: 'autism', label: 'Autism', category: 'Mental Health' },
+  { value: 'mental_retardation', label: 'Mental Retardation', category: 'Mental Health' },
+  { value: 'attention_deficit_hyperactivity_disorder', label: 'ADHD', category: 'Mental Health' },
+  { value: 'conversion_disorders', label: 'Conversion Disorders', category: 'Mental Health' },
+  { value: 'post_traumatic_stress_syndrome', label: 'PTSD', category: 'Mental Health' },
+  { value: 'generalized_anxiety', label: 'Generalized Anxiety', category: 'Mental Health' },
+  { value: 'other_anxiety_disorders', label: 'Other Anxiety Disorders', category: 'Mental Health' },
+  { value: 'neurosis', label: 'Neurosis', category: 'Mental Health' },
+  
+  // Specialized Conditions
+  { value: 'acute_eye_infection', label: 'Acute Eye Infection', category: 'Specialized' },
+  { value: 'cataract', label: 'Cataract', category: 'Specialized' },
+  { value: 'trachoma', label: 'Trachoma', category: 'Specialized' },
+  { value: 'otitis_media', label: 'Otitis Media', category: 'Specialized' },
+  { value: 'other_acute_ear_infection', label: 'Other Acute Ear Infection', category: 'Specialized' },
+  { value: 'dental_caries', label: 'Dental Caries', category: 'Specialized' },
+  { value: 'dental_swellings', label: 'Dental Swellings', category: 'Specialized' },
+  { value: 'traumatic_conditions_oral', label: 'Traumatic Conditions (Oral)', category: 'Specialized' },
+  { value: 'periodontal_diseases', label: 'Periodontal Diseases', category: 'Specialized' },
+  { value: 'cerebral_palsy', label: 'Cerebral Palsy', category: 'Specialized' },
+  { value: 'liver_diseases', label: 'Liver Diseases', category: 'Specialized' },
+  { value: 'acute_urinary_tract_infection', label: 'Acute UTI', category: 'Specialized' },
+  { value: 'skin_diseases', label: 'Skin Diseases', category: 'Specialized' },
+  { value: 'ulcer', label: 'Ulcer', category: 'Specialized' },
+  { value: 'kidney_related_diseases', label: 'Kidney Related Diseases', category: 'Specialized' },
+  { value: 'other_oral_conditions', label: 'Other Oral Conditions', category: 'Specialized' },
+  
+  // Obstetrics & Gynaecology
+  { value: 'gynaecological_conditions', label: 'Gynaecological Conditions', category: 'Obstetrics & Gynaecology' },
+  { value: 'pregnancy_related_complications', label: 'Pregnancy Related Complications', category: 'Obstetrics & Gynaecology' },
+  { value: 'anaemia_in_pregnancy', label: 'Anaemia in Pregnancy', category: 'Obstetrics & Gynaecology' },
+  
+  // Reproductive Tract
+  { value: 'gonorrhoea', label: 'Gonorrhoea', category: 'Reproductive Tract' },
+  { value: 'genital_ulcer', label: 'Genital Ulcer', category: 'Reproductive Tract' },
+  { value: 'vaginal_discharge', label: 'Vaginal Discharge', category: 'Reproductive Tract' },
+  { value: 'urethral_discharge', label: 'Urethral Discharge', category: 'Reproductive Tract' },
+  { value: 'other_diseases_male_reproductive_system', label: 'Other Male Reproductive Diseases', category: 'Reproductive Tract' },
+  { value: 'other_diseases_female_reproductive_system', label: 'Other Female Reproductive Diseases', category: 'Reproductive Tract' },
+  
+  // Injuries
+  { value: 'transport_injuries_road_traffic_accidents', label: 'Road Traffic Accidents', category: 'Injuries' },
+  { value: 'home_injuries', label: 'Home Injuries', category: 'Injuries' },
+  { value: 'occupational_industrial_injuries', label: 'Occupational/Industrial Injuries', category: 'Injuries' },
+  { value: 'burns', label: 'Burns', category: 'Injuries' },
+  { value: 'poisoning_occupational', label: 'Poisoning (Occupational)', category: 'Injuries' },
+  { value: 'dog_bite', label: 'Dog Bite', category: 'Injuries' },
+  { value: 'human_bites', label: 'Human Bites', category: 'Injuries' },
+  { value: 'snake_bite', label: 'Snake Bite', category: 'Injuries' },
+  { value: 'sexual_abuse', label: 'Sexual Abuse', category: 'Injuries' },
+  { value: 'domestic_violence', label: 'Domestic Violence', category: 'Injuries' },
+  { value: 'pyrexia_unknown_origin_non_malaria', label: 'Pyrexia Unknown Origin (Non-Malaria)', category: 'Injuries' },
+  { value: 'brought_in_dead', label: 'Brought In Dead', category: 'Injuries' },
+  { value: 'other_animal_bites', label: 'Other Animal Bites', category: 'Injuries' },
+  { value: 'all_other_diseases', label: 'All Other Diseases', category: 'Injuries' },
+];
+
+// Group morbidity options by category for the select dropdown
+const getMorbidityOptionsByCategory = () => {
+  const grouped: { [key: string]: typeof MORBIDITY_GROUPS } = {};
+  MORBIDITY_GROUPS.forEach(item => {
+    if (!grouped[item.category]) {
+      grouped[item.category] = [];
+    }
+    grouped[item.category].push(item);
+  });
+  return grouped;
+};
+
 export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: MedicalServicesManagementProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +178,8 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [morbidityFilter, setMorbidityFilter] = useState<string>('all');
+  const [showMorbidityDropdown, setShowMorbidityDropdown] = useState(false);
   
   // Total counts state
   const [totalCounts, setTotalCounts] = useState({
@@ -50,24 +192,17 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   const { success, error: toastError } = useToast();
   
   const {
-    // Data
     diagnoses,
     labTestTemplates,
     procedureTemplates,
     scanTemplates,
-    
-    // Loading states
     isLoadingDiagnoses,
     isLoadingLabTests,
     isLoadingProcedures,
     isLoadingScans,
-    
-    // Metadata
     scanCategories,
     scanBodyParts,
     scanTypes,
-    
-    // Actions
     getDiagnoses,
     getLabTestTemplates,
     getProcedureTemplates,
@@ -114,13 +249,6 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       ]);
       
       setTotalCounts({
-        diagnoses: Array.isArray(allDiagnoses) ? allDiagnoses.length : 0,
-        labTests: Array.isArray(allLabTests) ? allLabTests.length : 0,
-        procedures: Array.isArray(allProcedures) ? allProcedures.length : 0,
-        scans: Array.isArray(allScans) ? allScans.length : 0,
-      });
-      
-      console.log('Total counts loaded:', {
         diagnoses: Array.isArray(allDiagnoses) ? allDiagnoses.length : 0,
         labTests: Array.isArray(allLabTests) ? allLabTests.length : 0,
         procedures: Array.isArray(allProcedures) ? allProcedures.length : 0,
@@ -175,40 +303,50 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   };
 
   const getFilteredData = () => {
-    const data = getCurrentData();
-    if (!searchTerm) return data;
-
-    const term = searchTerm.toLowerCase();
-    return data.filter((item: any) => {
-      switch (activeTab) {
-        case 'diagnoses':
-          return (
-            item.name?.toLowerCase().includes(term) ||
-            item.icdCode?.toLowerCase().includes(term) ||
-            item.gdrgGroupCode?.toLowerCase().includes(term)
-          );
-        case 'lab-tests':
-          return (
-            item.name?.toLowerCase().includes(term) ||
-            item.investigationCode?.toLowerCase().includes(term) ||
-            item.category?.toLowerCase().includes(term)
-          );
-        case 'procedures':
-          return (
-            item.name?.toLowerCase().includes(term) ||
-            item.procedureCode?.toLowerCase().includes(term) ||
-            item.category?.toLowerCase().includes(term)
-          );
-        case 'scans':
-          return (
-            item.name?.toLowerCase().includes(term) ||
-            item.scanCode?.toLowerCase().includes(term) ||
-            item.category?.toLowerCase().includes(term)
-          );
-        default:
-          return false;
-      }
-    });
+    let data = getCurrentData();
+    
+    // Apply search term filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter((item: any) => {
+        switch (activeTab) {
+          case 'diagnoses':
+            return (
+              item.name?.toLowerCase().includes(term) ||
+              item.icdCode?.toLowerCase().includes(term) ||
+              item.gdrgGroupCode?.toLowerCase().includes(term) ||
+              item.morbidityGroup?.toLowerCase().includes(term)
+            );
+          case 'lab-tests':
+            return (
+              item.name?.toLowerCase().includes(term) ||
+              item.investigationCode?.toLowerCase().includes(term) ||
+              item.category?.toLowerCase().includes(term)
+            );
+          case 'procedures':
+            return (
+              item.name?.toLowerCase().includes(term) ||
+              item.procedureCode?.toLowerCase().includes(term) ||
+              item.category?.toLowerCase().includes(term)
+            );
+          case 'scans':
+            return (
+              item.name?.toLowerCase().includes(term) ||
+              item.scanCode?.toLowerCase().includes(term) ||
+              item.category?.toLowerCase().includes(term)
+            );
+          default:
+            return false;
+        }
+      });
+    }
+    
+    // Apply morbidity filter (only for diagnoses tab)
+    if (activeTab === 'diagnoses' && morbidityFilter !== 'all') {
+      data = data.filter((item: any) => item.morbidityGroup === morbidityFilter);
+    }
+    
+    return data;
   };
 
   const handleCreate = async (data: any) => {
@@ -233,7 +371,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       }
       setShowCreateModal(false);
       await loadData();
-      await loadAllCounts(); // Refresh counts
+      await loadAllCounts();
     } catch (error: any) {
       toastError('Create failed', error.message || 'Failed to create item');
     }
@@ -263,7 +401,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       }
       setEditingItem(null);
       await loadData();
-      await loadAllCounts(); // Refresh counts
+      await loadAllCounts();
     } catch (error: any) {
       toastError('Update failed', error.message || 'Failed to update item');
     }
@@ -291,7 +429,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       }
       setDeleteConfirm(null);
       await loadData();
-      await loadAllCounts(); // Refresh counts
+      await loadAllCounts();
     } catch (error: any) {
       toastError('Delete failed', error.message || 'Failed to delete item');
     }
@@ -324,7 +462,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeTab]);
+  }, [searchTerm, activeTab, morbidityFilter]);
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -347,17 +485,42 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   const getCode = (item: any) => {
     switch (activeTab) {
       case 'diagnoses':
-        return `${item.icdCode}${item.gdrgGroupCode ? ` / ${item.gdrgGroupCode}` : ''}`;
+        return `${item.icdCode || 'N/A'}${item.gdrgGroupCode ? ` / ${item.gdrgGroupCode}` : ''}`;
       case 'lab-tests':
-        return item.investigationCode;
+        // Lab tests use the service catalog code
+        return item.code || item.investigationCode || 'N/A';
       case 'procedures':
-        return item.procedureCode;
+        // Procedures use the service catalog code
+        return item.code || item.procedureCode || 'N/A';
       case 'scans':
-        return item.scanCode;
+        // Scans use the service catalog code
+        return item.code || item.scanCode || 'N/A';
       default:
         return 'N/A';
     }
   };
+
+  const getCategory = (item: any) => {
+    switch (activeTab) {
+      case 'lab-tests':
+        // Get category from the LabTestTemplate relation or serviceCategory
+        return item.LabTestTemplate?.category || item.serviceCategory || item.category || 'General';
+      case 'procedures':
+        return item.serviceCategory || item.category || 'General';
+      case 'scans':
+        return item.serviceCategory || item.category || 'General';
+      default:
+        return item.category || 'General';
+    }
+  };
+
+  const getMorbidityGroupLabel = (value: string) => {
+    const found = MORBIDITY_GROUPS.find(m => m.value === value);
+    return found ? found.label : value || 'Unassigned';
+  };
+
+  const morbidityOptionsByCategory = getMorbidityOptionsByCategory();
+  const selectedMorbidityLabel = morbidityFilter === 'all' ? 'All Morbidities' : getMorbidityGroupLabel(morbidityFilter);
 
   return (
     <div className="space-y-6">
@@ -373,6 +536,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                 setActiveTab(tab.id);
                 setSearchTerm('');
                 setCurrentPage(1);
+                setMorbidityFilter('all');
               }}
               className={`bg-[var(--bg-card)] rounded-xl p-3 border transition-all text-center ${
                 isActiveTab
@@ -394,7 +558,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
         })}
       </div>
 
-      {/* Search and Add Button */}
+      {/* Search, Filter and Add Button */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-[200px] max-w-sm">
           <div className="relative">
@@ -408,6 +572,64 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
             />
           </div>
         </div>
+        
+        {/* Morbidity Filter Dropdown - Only show for Diagnoses tab */}
+        {activeTab === 'diagnoses' && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMorbidityDropdown(!showMorbidityDropdown)}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition-colors text-sm"
+            >
+              <Filter className="w-4 h-4 text-[var(--text-secondary)]" />
+              <span className="text-[var(--text-primary)]">{selectedMorbidityLabel}</span>
+            </button>
+            
+            {showMorbidityDropdown && (
+              <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg z-20">
+                <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-2">
+                  <button
+                    onClick={() => {
+                      setMorbidityFilter('all');
+                      setShowMorbidityDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm ${
+                      morbidityFilter === 'all'
+                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                        : 'text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+                    }`}
+                  >
+                    All Morbidities
+                  </button>
+                </div>
+                {Object.entries(morbidityOptionsByCategory).map(([category, items]) => (
+                  <div key={category} className="border-b border-[var(--border-color)] last:border-0">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)] uppercase sticky top-[45px]">
+                      {category}
+                    </div>
+                    {items.map((item) => (
+                      <button
+                        key={item.value}
+                        onClick={() => {
+                          setMorbidityFilter(item.value);
+                          setShowMorbidityDropdown(false);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm ${
+                          morbidityFilter === item.value
+                            ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                            : 'text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
@@ -431,9 +653,9 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
               No {activeTab} found
             </h3>
             <p className="text-sm text-[var(--text-secondary)] mb-4">
-              {searchTerm ? 'Try adjusting your search terms' : `Get started by creating your first ${activeTab.slice(0, -1)}`}
+              {searchTerm || morbidityFilter !== 'all' ? 'Try adjusting your search or filter terms' : `Get started by creating your first ${activeTab.slice(0, -1)}`}
             </p>
-            {!searchTerm && (
+            {!searchTerm && morbidityFilter === 'all' && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
@@ -452,6 +674,9 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Name</th>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Code</th>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Category</th>
+                    {activeTab === 'diagnoses' && (
+                      <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Morbidity Group</th>
+                    )}
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Status</th>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Actions</th>
                   </tr>
@@ -477,6 +702,13 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                             : item.category || 'General'}
                         </span>
                       </td>
+                      {activeTab === 'diagnoses' && (
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-2 py-1 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded text-xs">
+                            {getMorbidityGroupLabel(item.morbidityGroup)}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         {getStatusBadge(item)}
                       </td>
@@ -498,7 +730,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                           </button>
                         </div>
                       </td>
-                    </tr>
+                      </tr>
                   ))}
                 </tbody>
               </table>
@@ -561,7 +793,8 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
           metadata={{
             scanCategories,
             scanBodyParts,
-            scanTypes
+            scanTypes,
+            morbidityGroups: MORBIDITY_GROUPS
           }}
         />
       )}

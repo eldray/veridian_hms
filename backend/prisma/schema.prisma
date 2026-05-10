@@ -161,9 +161,7 @@ model ServiceCatalog {
   scanTemplateId      String?
   consultationTypeId  String?
   createdById         String?
-
-  // ✅ Link to GDRG Tariff for NHIS claims
-  gdrgTariffId String?
+  gdrgTariffId        String?
 
   User              User?              @relation(fields: [createdById], references: [id])
   Diagnosis         Diagnosis?         @relation(fields: [diagnosisId], references: [id])
@@ -185,6 +183,9 @@ model ServiceCatalog {
   procedures   Procedure[]
   medications  Medication[]
   BillLineItem BillLineItem[]
+
+  // ✅ ADD THIS - opposite relation for GDRG procedure linking
+  gdrgProcedureLinks GDRGTariffProcedure[]
 
   @@index([code])
   @@index([isPrivateInsuranceExempted])
@@ -236,7 +237,7 @@ model Patient {
   PatientWaiver        PatientWaiver[]
   deliveryRecords      DeliveryRecord[]
   abortionRecords      AbortionRecord[]
-  postnatalRecords      PostnatalRecord[]
+  postnatalRecords     PostnatalRecord[]
 
   @@index([folderNumber])
   @@index([otherNames])
@@ -385,16 +386,16 @@ model Attendance {
   gdrgCategory           String?
   serviceCategory        ServiceCategory?
 
-    // 🆕 NEW CLINICAL FIELDS
-  historyPresentingComplaint  String?  // H.P.C
-  onsetDurationQuality        String?  // O.D.Q  
-  physicalExamination         String?  // Physical exam findings
-  treatmentPlan               String?  // Treatment plan / physician notes
-  followUpDate                DateTime? // Follow-up appointment date
+  // 🆕 NEW CLINICAL FIELDS
+  historyPresentingComplaint String? // H.P.C
+  onsetDurationQuality       String? // O.D.Q  
+  physicalExamination        String? // Physical exam findings
+  treatmentPlan              String? // Treatment plan / physician notes
+  followUpDate               DateTime? // Follow-up appointment date
 
-  antenatalBookings          AntenatalBooking[] @relation("FirstANCAttendance")
-  currentAntenatalBookings   AntenatalBooking[] @relation("CurrentANCAttendance")
-  antenatalVisits             ANCVisit[]
+  antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
+  currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
+  antenatalVisits          ANCVisit[]
 
   totalBill          Float @default(0)
   paidAmount         Float @default(0)
@@ -550,6 +551,21 @@ model Procedure {
   @@index([status])
 }
 
+model GDRGTariffProcedure {
+  gdrgTariffId String
+  procedureId  String
+  isPrimary    Boolean  @default(false)
+  mappedCode   String?
+  createdAt    DateTime @default(now())
+
+  gdrgTariff GDRGTariff     @relation(fields: [gdrgTariffId], references: [id])
+  procedure  ServiceCatalog @relation(fields: [procedureId], references: [id])
+
+  @@id([gdrgTariffId, procedureId])
+  @@index([procedureId])
+  @@map("gdrg_tariff_procedures")
+}
+
 model Medication {
   id                   String           @id @default(cuid())
   attendanceId         String
@@ -575,9 +591,9 @@ model Medication {
   dispensedUnitCost    Float?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
-  
+
   // ✅ NEW: Track multiple dose administrations
-  administeredDoses    Json?            // Stores [{ doseNumber, administeredAt, administeredBy }]
+  administeredDoses Json? // Stores [{ doseNumber, administeredAt, administeredBy }]
 
   User_Medication_administeredByIdToUser User?           @relation("Medication_administeredByIdToUser", fields: [administeredById], references: [id])
   Attendance                             Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -640,42 +656,34 @@ enum GDRGMDC {
 }
 
 model GDRGTariff {
-  id              String   @id @default(cuid())
-  gdrgCode        String   @unique
-  mdc             GDRGMDC
-  description     String
-  nhiaTariff      Float
-
-  // Age split (A = Adult ≥12 years, C = Child <12 years)
-  ageSplit        String   @default("A")
-  minAgeYears     Int?
-  maxAgeYears     Int?
-
-  // Provider level applicability (1=Tertiary, 2=Secondary, 3=Primary, etc.)
-  applicableLevels Int[]
-
-  // NHIS Service Code for claim submission
-  nhisServiceCode String?
-
-  // For ZOOM codes or special procedures
-  isZoomCode      Boolean  @default(false)
-  allowsAddOn     Boolean  @default(false)
-
-  // ✅ NEW: Context-based GDRG resolution fields
-  encounterCategory EncounterCategory?  // "opd", "ipd", "daycase"
-  attendanceTypes   AttendanceType[]    // Which attendance types use this GDRG
-  isAntenatal       Boolean             @default(false)
-  isDelivery        Boolean             @default(false)
-
-  effectiveFrom   DateTime @default(now())
-  effectiveTo     DateTime?
-  isActive        Boolean  @default(true)
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String             @id @default(cuid())
+  gdrgCode          String             @unique
+  mdc               GDRGMDC
+  description       String
+  nhiaTariff        Float
+  ageSplit          String             @default("A")
+  minAgeYears       Int?
+  maxAgeYears       Int?
+  applicableLevels  Int[]
+  nhisServiceCode   String?
+  isZoomCode        Boolean            @default(false)
+  allowsAddOn       Boolean            @default(false)
+  encounterCategory EncounterCategory?
+  attendanceTypes   AttendanceType[]
+  isAntenatal       Boolean            @default(false)
+  isDelivery        Boolean            @default(false)
+  effectiveFrom     DateTime           @default(now())
+  effectiveTo       DateTime?
+  isActive          Boolean            @default(true)
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   diagnoses      GDRGTariffDiagnosis[]
   ServiceCatalog ServiceCatalog[]
+
+  // ✅ ADD THIS - opposite relation for procedures
+  procedures GDRGTariffProcedure[]
 
   @@index([gdrgCode])
   @@index([mdc])
@@ -833,38 +841,38 @@ enum MorbidityGroup {
 }
 
 model Diagnosis {
-  id                    String              @id @default(cuid())
+  id                    String         @id @default(cuid())
   name                  String
-  icdCode               String              @unique
+  icdCode               String         @unique
   description           String?
-  isActive              Boolean             @default(true)
-  requiresAuthorization Boolean             @default(false)
+  isActive              Boolean        @default(true)
+  requiresAuthorization Boolean        @default(false)
   tariffCode            String?
-  isChronic             Boolean             @default(false)
-  isNHISCovered         Boolean             @default(true)
+  isChronic             Boolean        @default(false)
+  isNHISCovered         Boolean        @default(true)
   morbidityGroup        MorbidityGroup
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
-  gdrgTariffDiagnoses   GDRGTariffDiagnosis[]
-  attendanceDiagnoses   AttendanceDiagnosis[]  // ✅ This is all you need
-  ServiceCatalog        ServiceCatalog[]
+  gdrgTariffDiagnoses GDRGTariffDiagnosis[]
+  attendanceDiagnoses AttendanceDiagnosis[] // ✅ This is all you need
+  ServiceCatalog      ServiceCatalog[]
 
   @@index([icdCode])
   @@index([morbidityGroup])
 }
 
 model AttendanceDiagnosis {
-  id                 String          @id @default(cuid())
+  id                 String              @id @default(cuid())
   attendanceId       String
   diagnosisId        String
-  diagnosisType      DiagnosisType   @default(provisional)  // primary, additional, provisional
+  diagnosisType      DiagnosisType       @default(provisional) // primary, additional, provisional
   notes              String?
-  date               DateTime        @default(now())
+  date               DateTime            @default(now())
   createdById        String
   icdCode            String?
-  presentOnAdmission PresentOnAdmission?  // ✅ Keep this for admissions
-  createdAt          DateTime        @default(now())
+  presentOnAdmission PresentOnAdmission? // ✅ Keep this for admissions
+  createdAt          DateTime            @default(now())
 
   Attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   User       User       @relation(fields: [createdById], references: [id])
@@ -874,7 +882,6 @@ model AttendanceDiagnosis {
   @@index([diagnosisId])
   @@index([diagnosisType])
 }
-
 
 // ============================================================
 // BILLING
@@ -1016,10 +1023,10 @@ model Payment {
 model InsuranceClaim {
   id                  String      @id @default(cuid())
   claimNumber         String      @unique
-  billId              String
+  billId              String?      // ← Already optional
   patientId           String
-  insuranceProviderId String
   attendanceId        String      @unique
+  insuranceProviderId String
   totalClaimAmount    Float       @default(0)
   approvedAmount      Float?
   rejectedAmount      Float?
@@ -1029,15 +1036,20 @@ model InsuranceClaim {
   approvalDate        DateTime?
   paymentDate         DateTime?
   preAuthNumber       String?
-  batchId             String?
 
-  diagnosisCodes String[]
-  procedureCodes String[]
-  labTestCodes   String[]
-  serviceCodes   String[]
-  scanCodes      String[]
-
-  // ✅ GDRG codes used for NHIS claim
+  diagnosisCodes   String[]
+  procedureCodes   String[]
+  labTestCodes     String[]
+  serviceCodes     String[]
+  scanCodes        String[]
+  principalGDRG    String?
+  claimCheckCode   String?
+  typeOfService    String?
+  typeOfAttendance String?
+  serviceOutcome   String?
+  mdcCode          String?
+  datesOfService   String[]
+  medicationCodes  String[]
   gdrgCodes        String[]
   nhisServiceCodes String[]
 
@@ -1047,13 +1059,17 @@ model InsuranceClaim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  Attendance                            Attendance            @relation(fields: [attendanceId], references: [id])
-  Bill                                  Bill                  @relation(fields: [billId], references: [id], onDelete: Cascade)
-  User_InsuranceClaim_createdByIdToUser User                  @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
-  InsuranceProvider                     InsuranceProvider     @relation(fields: [insuranceProviderId], references: [id])
-  Patient                               Patient               @relation(fields: [patientId], references: [id])
-  User_InsuranceClaim_updatedByIdToUser User?                 @relation("InsuranceClaim_updatedByIdToUser", fields: [updatedById], references: [id])
-  ClaimSubmissionBatch                  ClaimSubmissionBatch? @relation(fields: [batchId], references: [id])
+  // Relations
+  Attendance                            Attendance        @relation(fields: [attendanceId], references: [id])
+  // ✅ FIX: Make Bill optional (add ?)
+  Bill                                  Bill?             @relation(fields: [billId], references: [id], onDelete: Cascade)
+  User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
+  InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
+  Patient                               Patient           @relation(fields: [patientId], references: [id])
+  User_InsuranceClaim_updatedByIdToUser User?             @relation("InsuranceClaim_updatedByIdToUser", fields: [updatedById], references: [id])
+
+  batch ClaimBatch? @relation(fields: [batchId], references: [id])
+  batchId String?   @map("batch_id")
 
   @@index([claimNumber])
   @@index([status])
@@ -1061,34 +1077,33 @@ model InsuranceClaim {
   @@index([batchId])
 }
 
-model ClaimSubmissionBatch {
-  id                  String                @id @default(cuid())
-  batchNumber         String                @unique
-  insuranceProviderId String
-  claimPeriodStart    DateTime
-  claimPeriodEnd      DateTime
-  totalClaims         Int                   @default(0)
-  totalClaimAmount    Float                 @default(0)
-  submissionMethod    ClaimSubmissionMethod
-  submissionDate      DateTime?
-  nhiaReferenceNumber String?
-  portalBatchId       String?
-  status              BatchStatus           @default(draft)
-  acknowledgedAt      DateTime?
-  notes               String?
-  submittedById       String?
-  createdById         String
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+model ClaimBatch {
+  id             String      @id @default(cuid())
+  batchNumber    String      @unique
+  batchDate      DateTime    @default(now())
+  description    String?
+  totalAmount    Float       @default(0)
+  status         BatchStatus @default(draft)
+  xmlGeneratedAt DateTime?
+  xmlFilePath    String?
+  createdById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  claims      InsuranceClaim[]
-  submittedBy User?            @relation("Batch_submittedBy", fields: [submittedById], references: [id])
-  createdBy   User             @relation("Batch_createdBy", fields: [createdById], references: [id])
+  claims    InsuranceClaim[]
+  createdBy User             @relation(fields: [createdById], references: [id])
 
+  @@index([batchDate])
   @@index([status])
-  @@index([submissionDate])
   @@index([batchNumber])
-  @@map("claim_submission_batches")
+  @@map("claim_batches")
+}
+
+enum BatchStatus {
+  draft
+  generated
+  submitted
+  exported
 }
 
 // ============================================================
@@ -1121,49 +1136,48 @@ model WardChargeRecord {
 }
 
 model Admission {
-  id                          String             @id @default(cuid())
-  admissionNumber             String             @unique
-  patientId                   String
-  attendanceId                String?            @unique  // ✅ Link to attendance
-  wardId                      String
-  bedId                       String
-  admissionDate               DateTime
-  admissionTime               String
-  admittingDoctor             String
-  reasonForAdmission          String
-  diagnosis                   String
-  status                      String             @default("admitted")
-  dischargeDate               DateTime?
-  dischargeTime               String?
-  dischargeSummary            String?
-  dailyNotes                  Json?
-  createdBy                   String
-  admissionType               AdmissionType      @default(emergency)
-  admissionSource             AdmissionSource    @default(home)
-  dischargeStatus             DischargeStatus?
-  lengthOfStay                Int                @default(0)
-  
+  id                 String           @id @default(cuid())
+  admissionNumber    String           @unique
+  patientId          String
+  attendanceId       String?          @unique // ✅ Link to attendance
+  wardId             String
+  bedId              String
+  admissionDate      DateTime
+  admissionTime      String
+  admittingDoctor    String
+  reasonForAdmission String
+  diagnosis          String
+  status             String           @default("admitted")
+  dischargeDate      DateTime?
+  dischargeTime      String?
+  dischargeSummary   String?
+  dailyNotes         Json?
+  createdBy          String
+  admissionType      AdmissionType    @default(emergency)
+  admissionSource    AdmissionSource  @default(home)
+  dischargeStatus    DischargeStatus?
+  lengthOfStay       Int              @default(0)
+
   // ❌ REMOVE these fields - they're redundant
   // primaryAttendanceDiagnosisId String?           
   // principalIcdCode            String
   // principalPresentOnAdmission PresentOnAdmission
-  
-  createdAt                   DateTime           @default(now())
-  updatedAt                   DateTime           @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 
   // Relations
-  Attendance                  Attendance?                   @relation(fields: [attendanceId], references: [id])
-  Bed                         Bed                           @relation(fields: [bedId], references: [id])
-  Patient                     Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  Ward                        Ward                          @relation(fields: [wardId], references: [id])
-  Bill                        Bill[]
-  deliveryRecords             DeliveryRecord[]
+  Attendance      Attendance?      @relation(fields: [attendanceId], references: [id])
+  Bed             Bed              @relation(fields: [bedId], references: [id])
+  Patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Ward            Ward             @relation(fields: [wardId], references: [id])
+  Bill            Bill[]
+  deliveryRecords DeliveryRecord[]
 
   @@index([admissionNumber])
   @@index([patientId])
   @@index([status])
 }
-
 
 model Ward {
   id                    String   @id @default(cuid())
@@ -1250,218 +1264,218 @@ model ReferralRecord {
 // ============================================================
 
 model AntenatalBooking {
-  id                       String   @id @default(cuid())
-  patientId                String   @unique
-  pregnancyNumber          Int      @default(1)
-  attendanceId             String   @unique
-  currentAttendanceId      String?  @unique
-  
+  id                  String  @id @default(cuid())
+  patientId           String  @unique
+  pregnancyNumber     Int     @default(1)
+  attendanceId        String  @unique
+  currentAttendanceId String? @unique
+
   // Pregnancy dates
-  bookingDate              DateTime
-  lmp                      DateTime?
-  edd                      DateTime?
-  gestationalAgeWeeks      Int?
-  
+  bookingDate         DateTime
+  lmp                 DateTime?
+  edd                 DateTime?
+  gestationalAgeWeeks Int?
+
   // Obstetric history
-  gravida                  Int
-  para                     Int
-  previousCSection         Boolean  @default(false)
-  previousComplications    String?
-  
+  gravida               Int
+  para                  Int
+  previousCSection      Boolean @default(false)
+  previousComplications String?
+
   // IPTp Tracking (GHS Form A)
-  iptpDoses                Json
-  iptp1Date                DateTime?
-  iptp2Date                DateTime?
-  iptp3Date                DateTime?
-  iptp4Date                DateTime?
-  iptp5Date                DateTime?
-  
+  iptpDoses Json
+  iptp1Date DateTime?
+  iptp2Date DateTime?
+  iptp3Date DateTime?
+  iptp4Date DateTime?
+  iptp5Date DateTime?
+
   // TT Vaccination (GHS Form A)
-  ttDoses                  Json
-  tt1Date                  DateTime?
-  tt2Date                  DateTime?
-  tt3Date                  DateTime?
-  tt4Date                  DateTime?
-  tt5Date                  DateTime?
-  
+  ttDoses Json
+  tt1Date DateTime?
+  tt2Date DateTime?
+  tt3Date DateTime?
+  tt4Date DateTime?
+  tt5Date DateTime?
+
   // Malaria in Pregnancy
-  malariaTested            Boolean  @default(false)
-  malariaPositive          Boolean  @default(false)
-  malariaTreatment         String?
-  malariaIPTpGiven         Boolean  @default(false)
-  
+  malariaTested    Boolean @default(false)
+  malariaPositive  Boolean @default(false)
+  malariaTreatment String?
+  malariaIPTpGiven Boolean @default(false)
+
   // Anaemia
-  hbBooking                Float?
-  hb36Weeks                Float?
-  anaemiaDiagnosed         Boolean  @default(false)
-  ironFolateGiven          Boolean  @default(false)
-  
+  hbBooking        Float?
+  hb36Weeks        Float?
+  anaemiaDiagnosed Boolean @default(false)
+  ironFolateGiven  Boolean @default(false)
+
   // ITN/LLIN
-  itnGiven                 Boolean  @default(false)
-  itnGivenDate             DateTime?
-  
+  itnGiven     Boolean   @default(false)
+  itnGivenDate DateTime?
+
   // Risk assessment
-  riskLevel                AntenatalRisk
-  riskFactors              Json?
-  
+  riskLevel   AntenatalRisk
+  riskFactors Json?
+
   // Delivery outcome
-  deliveryRecordId         String?  @unique
-  deliveryOutcome          String?
-  deliveryDate             DateTime?
-  
+  deliveryRecordId String?   @unique
+  deliveryOutcome  String?
+  deliveryDate     DateTime?
+
   // Status
-  isActive                 Boolean  @default(true)
-  isCompleted              Boolean  @default(false)
-  
+  isActive    Boolean @default(true)
+  isCompleted Boolean @default(false)
+
   // Audit
-  createdById              String
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   // Relations
-  patient                  Patient              @relation(fields: [patientId], references: [id])
-  attendance               Attendance           @relation("FirstANCAttendance", fields: [attendanceId], references: [id])
-  currentAttendance        Attendance?          @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
-  deliveryRecord           DeliveryRecord?      @relation(fields: [deliveryRecordId], references: [id])
-  visits                   ANCVisit[]
-  postnatalRecords         PostnatalRecord[]
-  createdBy                User                 @relation(fields: [createdById], references: [id])
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  attendance        Attendance        @relation("FirstANCAttendance", fields: [attendanceId], references: [id])
+  currentAttendance Attendance?       @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
+  deliveryRecord    DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
+  visits            ANCVisit[]
+  postnatalRecords  PostnatalRecord[]
+  createdBy         User              @relation(fields: [createdById], references: [id])
 }
 
 model ANCVisit {
-  id                       String   @id @default(cuid())
-  bookingId                String
-  attendanceId             String   @unique
-  visitNumber              Int
-  
+  id           String @id @default(cuid())
+  bookingId    String
+  attendanceId String @unique
+  visitNumber  Int
+
   // Visit data
-  visitDate                DateTime
-  gestationalAgeWeeks      Int?
-  weight                   Float?
-  bloodPressure            String?
-  fundalHeight             Int?
-  fetalHeartRate           Int?
-  fetalMovements           Boolean?
-  presentation             String?
-  
+  visitDate           DateTime
+  gestationalAgeWeeks Int?
+  weight              Float?
+  bloodPressure       String?
+  fundalHeight        Int?
+  fetalHeartRate      Int?
+  fetalMovements      Boolean?
+  presentation        String?
+
   // Oedema
-  oedema                   Boolean  @default(false)
-  oedemaGrade              String?
-  
+  oedema      Boolean @default(false)
+  oedemaGrade String?
+
   // Urinalysis
-  urinalysisProtein        Boolean?
-  urinalysisGlucose        Boolean?
-  urinalysisBlood          Boolean?
-  
+  urinalysisProtein Boolean?
+  urinalysisGlucose Boolean?
+  urinalysisBlood   Boolean?
+
   // IPTp at this visit
-  iptpGiven                Boolean  @default(false)
-  iptpDoseNumber           Int?
-  iptpDrug                 String?
-  
+  iptpGiven      Boolean @default(false)
+  iptpDoseNumber Int?
+  iptpDrug       String?
+
   // TT at this visit
-  ttGiven                  Boolean  @default(false)
-  ttDoseNumber             Int?
-  
+  ttGiven      Boolean @default(false)
+  ttDoseNumber Int?
+
   // Supplements
-  ironGiven                Boolean  @default(false)
-  folateGiven              Boolean  @default(false)
-  calciumGiven             Boolean  @default(false)
-  
+  ironGiven    Boolean @default(false)
+  folateGiven  Boolean @default(false)
+  calciumGiven Boolean @default(false)
+
   // Malaria screening
-  malariaTestDone          Boolean  @default(false)
-  malariaTestResult        String?
-  malariaTreatmentGiven    Boolean  @default(false)
-  
+  malariaTestDone       Boolean @default(false)
+  malariaTestResult     String?
+  malariaTreatmentGiven Boolean @default(false)
+
   // Danger signs
-  dangerSignsPresent       Boolean  @default(false)
-  dangerSignsList          String[]
-  referralMade             Boolean  @default(false)
-  referredTo               String?
-  
+  dangerSignsPresent Boolean  @default(false)
+  dangerSignsList    String[]
+  referralMade       Boolean  @default(false)
+  referredTo         String?
+
   // Next visit
-  nextVisitDate            DateTime?
-  returnInstructions       String?
-  
+  nextVisitDate      DateTime?
+  returnInstructions String?
+
   // Audit
-  recordedById             String
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  
+  recordedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   // Relations
-  booking                  AntenatalBooking @relation(fields: [bookingId], references: [id])
-  attendance               Attendance       @relation(fields: [attendanceId], references: [id])
-  recordedBy               User             @relation(fields: [recordedById], references: [id])
-  
+  booking    AntenatalBooking @relation(fields: [bookingId], references: [id])
+  attendance Attendance       @relation(fields: [attendanceId], references: [id])
+  recordedBy User             @relation(fields: [recordedById], references: [id])
+
   @@unique([bookingId, visitNumber])
 }
 
 model PostnatalRecord {
-  id                    String         @id @default(cuid())
-  patientId             String
-  attendanceId          String         @unique
-  antenatalBookingId    String?
-  deliveryRecordId      String?
-  examinationDate       DateTime       @default(now())
-  dayNumber             Int            @default(1)
-  
+  id                 String   @id @default(cuid())
+  patientId          String
+  attendanceId       String   @unique
+  antenatalBookingId String?
+  deliveryRecordId   String?
+  examinationDate    DateTime @default(now())
+  dayNumber          Int      @default(1)
+
   // Maternal assessment
-  maternalCondition     String?        // good, fair, poor, critical
-  maternalComplications Json           @default("[]")
+  maternalCondition     String? // good, fair, poor, critical
+  maternalComplications Json    @default("[]")
   bloodPressure         String?
   temperature           Float?
   pulse                 Int?
   fundalHeight          Int?
-  lochia                String?        // normal, heavy, foul_smelling, scanty
-  perinealCondition     String?        // intact, healing, infected, dehisced
-  caesareanWound        String?        // healing, infected, dehisced
-  
+  lochia                String? // normal, heavy, foul_smelling, scanty
+  perinealCondition     String? // intact, healing, infected, dehisced
+  caesareanWound        String? // healing, infected, dehisced
+
   // Breastfeeding
-  breastfeedingStatus   String?        // exclusive, mixed, not_breastfeeding
-  breastfeedingDifficulties Json       @default("[]")
-  latching              String?        // good, fair, poor
-  
+  breastfeedingStatus       String? // exclusive, mixed, not_breastfeeding
+  breastfeedingDifficulties Json    @default("[]")
+  latching                  String? // good, fair, poor
+
   // Baby assessment
-  babyCondition         String?        // good, fair, poor, critical
-  babyWeight            Float?
-  babyTemperature       Float?
-  babyFeeding           String?        // good, fair, poor
-  jaundice              Boolean        @default(false)
-  jaundiceSeverity      String?        // mild, moderate, severe
-  cordCondition         String?        // dry, moist, infected
-  
+  babyCondition    String? // good, fair, poor, critical
+  babyWeight       Float?
+  babyTemperature  Float?
+  babyFeeding      String? // good, fair, poor
+  jaundice         Boolean @default(false)
+  jaundiceSeverity String? // mild, moderate, severe
+  cordCondition    String? // dry, moist, infected
+
   // Immunizations
-  bcgGiven              Boolean        @default(false)
-  opv0Given             Boolean        @default(false)
-  hepB0Given            Boolean        @default(false)
-  
+  bcgGiven   Boolean @default(false)
+  opv0Given  Boolean @default(false)
+  hepB0Given Boolean @default(false)
+
   // Family Planning
-  familyPlanningDiscussed   Boolean    @default(false)
+  familyPlanningDiscussed      Boolean @default(false)
   familyPlanningMethodAccepted String?
-  
+
   // Danger signs
-  maternalDangerSigns   Json           @default("[]")
-  babyDangerSigns       Json           @default("[]")
-  
+  maternalDangerSigns Json @default("[]")
+  babyDangerSigns     Json @default("[]")
+
   // Referrals
-  referralMade          Boolean        @default(false)
-  referredTo            String?
-  referralReason        String?
-  
+  referralMade   Boolean @default(false)
+  referredTo     String?
+  referralReason String?
+
   // Next visit
-  nextVisitDate         DateTime?
-  nextVisitType         String?        // day_7, day_14, day_28, day_42, other
-  
-  notes                 String?
-  createdById           String
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  nextVisitDate DateTime?
+  nextVisitType String? // day_7, day_14, day_28, day_42, other
+
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  patient               Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  attendance            Attendance     @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  antenatalBooking      AntenatalBooking? @relation(fields: [antenatalBookingId], references: [id])
-  deliveryRecord        DeliveryRecord? @relation(fields: [deliveryRecordId], references: [id])
-  createdBy             User           @relation(fields: [createdById], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attendance       Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  antenatalBooking AntenatalBooking? @relation(fields: [antenatalBookingId], references: [id])
+  deliveryRecord   DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
+  createdBy        User              @relation(fields: [createdById], references: [id])
 
   @@index([patientId])
   @@index([attendanceId])
@@ -1861,22 +1875,26 @@ model User {
   NHISEligibilityCheck                            NHISEligibilityCheck[]
   PreAuthorisationRequest_requested               PreAuthorisationRequest[] @relation("PreAuth_requestedBy")
   PreAuthorisationRequest_updated                 PreAuthorisationRequest[] @relation("PreAuth_updatedBy")
-  ClaimSubmissionBatch_submitted                  ClaimSubmissionBatch[]    @relation("Batch_submittedBy")
-  ClaimSubmissionBatch_created                    ClaimSubmissionBatch[]    @relation("Batch_createdBy")
-  BillLineItem_voided                             BillLineItem[]            @relation("BillLineItem_voidedBy")
-  PatientWaiver_requested                         PatientWaiver[]           @relation("Waiver_requestedBy")
-  PatientWaiver_approved                          PatientWaiver[]           @relation("Waiver_approvedBy")
-  ReferralRecord                                  ReferralRecord[]
-  ANCVisit                                        ANCVisit[]
-  ghsReportSubmissions                            GHSReportSubmission[]
-  idsrAlerts                                      IDSRAlert[]
-  deliveryRecords                                 DeliveryRecord[]
-  antenatalBookingsCreated                        AntenatalBooking[]
-  postnatalRecords                                PostnatalRecord[]
 
-  // ✅ Add these for notification relations
-  notificationsReceived  Notification[] @relation("ReceivedNotifications")  // Notifications sent TO this user
-  notificationsSent      Notification[] @relation("SentNotifications")      // Notifications sent FROM this user
+  // ❌ REMOVE ClaimSubmissionBatch relations (model being deleted)
+  // ClaimSubmissionBatch_submitted                  ClaimSubmissionBatch[]    @relation("Batch_submittedBy")
+  // ClaimSubmissionBatch_created                    ClaimSubmissionBatch[]    @relation("Batch_createdBy")
+
+  // ✅ CORRECT - Opposite relation for ClaimBatch (no fields argument needed)
+  claimBatchesCreated ClaimBatch[]
+
+  BillLineItem_voided      BillLineItem[]        @relation("BillLineItem_voidedBy")
+  PatientWaiver_requested  PatientWaiver[]       @relation("Waiver_requestedBy")
+  PatientWaiver_approved   PatientWaiver[]       @relation("Waiver_approvedBy")
+  ReferralRecord           ReferralRecord[]
+  ANCVisit                 ANCVisit[]
+  ghsReportSubmissions     GHSReportSubmission[]
+  idsrAlerts               IDSRAlert[]
+  deliveryRecords          DeliveryRecord[]
+  antenatalBookingsCreated AntenatalBooking[]
+  postnatalRecords         PostnatalRecord[]
+  notificationsReceived    Notification[]        @relation("ReceivedNotifications")
+  notificationsSent        Notification[]        @relation("SentNotifications")
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
@@ -1884,24 +1902,24 @@ model User {
 }
 
 model Notification {
-  id            String             @id @default(cuid())
-  userId        String             
-  senderId      String?            
-  title         String
-  message       String
-  type          NotificationType
-  priority      NotificationPriority
-  actionType    String?
-  actionId      String?
-  actionUrl     String?
-  isRead        Boolean            @default(false)
-  isArchived    Boolean            @default(false)
-  createdAt     DateTime           @default(now())
-  readAt        DateTime?
-  updatedAt     DateTime           @updatedAt
+  id         String               @id @default(cuid())
+  userId     String
+  senderId   String?
+  title      String
+  message    String
+  type       NotificationType
+  priority   NotificationPriority
+  actionType String?
+  actionId   String?
+  actionUrl  String?
+  isRead     Boolean              @default(false)
+  isArchived Boolean              @default(false)
+  createdAt  DateTime             @default(now())
+  readAt     DateTime?
+  updatedAt  DateTime             @updatedAt
 
-  user          User               @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  sender        User?              @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+  user   User  @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([senderId])
@@ -2016,20 +2034,20 @@ model DeliveryRecord {
 
   // Foreign key for the reverse relation
   antenatalBookingId String?
-  
+
   // Relations
-  patient    Patient          @relation(fields: [patientId], references: [id])
-  attendance Attendance       @relation(fields: [attendanceId], references: [id])
-  Admission  Admission?       @relation(fields: [admissionId], references: [id])
-  createdBy  User             @relation(fields: [createdById], references: [id])
-  
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+  Admission  Admission? @relation(fields: [admissionId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+
   // This side has NO fields/references arguments - just @relation()
-  antenatalBooking   AntenatalBooking? @relation()
-  
+  antenatalBooking AntenatalBooking? @relation()
+
   Newborn          NewbornRecord[]
-  AbortionRecord   AbortionRecord? @relation(fields: [abortionRecordId], references: [id])
+  AbortionRecord   AbortionRecord?   @relation(fields: [abortionRecordId], references: [id])
   abortionRecordId String?
-  postnatalRecords      PostnatalRecord[]
+  postnatalRecords PostnatalRecord[]
 
   @@index([deliveryDate])
   @@index([patientId])
@@ -2083,12 +2101,12 @@ model AbortionRecord {
 
 enum GHSReportType {
   opd_morbidity
-  opd_attendance      // ✅ NEW - For OPD Attendance report
+  opd_attendance // ✅ NEW - For OPD Attendance report
   ipd_morbidity
   idsr
   form_a_morbidity
   form_a_services
-  form_a_complete     // ✅ NEW - For combined ANC + Delivery + Postnatal
+  form_a_complete // ✅ NEW - For combined ANC + Delivery + Postnatal
   malaria_data
   monthly_summary
 }
@@ -2583,15 +2601,6 @@ enum PreAuthStatus {
   rejected
   cancelled
   expired
-}
-
-enum BatchStatus {
-  draft
-  submitted
-  acknowledged
-  partially_paid
-  paid
-  disputed
 }
 
 enum ClaimSubmissionMethod {

@@ -12,16 +12,22 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "wbc", "fieldType": "number", "label": "White Blood Cell Count", "unit": "x 10^9/L", "referenceRange": "4.0–11.0" },
-      { "fieldName": "rbc", "fieldType": "number", "label": "Red Blood Cell Count", "unit": "x 10^12/L", "referenceRange": "4.5–5.9" },
-      { "fieldName": "hb", "fieldType": "number", "label": "Hemoglobin", "unit": "g/dL", "referenceRange": "13.5–17.5" },
-      { "fieldName": "hct", "fieldType": "number", "label": "Hematocrit", "unit": "%", "referenceRange": "40–52" },
-      { "fieldName": "mcv", "fieldType": "number", "label": "Mean Corpuscular Volume", "unit": "fL", "referenceRange": "80–100" },
-      { "fieldName": "mch", "fieldType": "number", "label": "Mean Corpuscular Hemoglobin", "unit": "pg", "referenceRange": "27–34" },
-      { "fieldName": "mchc", "fieldType": "number", "label": "Mean Corpuscular Hb Conc", "unit": "g/dL", "referenceRange": "32–36" },
-      { "fieldName": "rdw", "fieldType": "number", "label": "RDW", "unit": "%", "referenceRange": "11.5–14.5" },
-      { "fieldName": "plt", "fieldType": "number", "label": "Platelet Count", "unit": "x 10^9/L", "referenceRange": "150–450" },
-      { "fieldName": "mpv", "fieldType": "number", "label": "Mean Platelet Volume", "unit": "fL", "referenceRange": "7.5–11.5" }
+      { "fieldName": "wbc", "fieldType": "number", "label": "White Blood Cell Count", "unit": "x 10^9/L", "referenceRange": "4.0–11.0", "lowThreshold": 4.0, "highThreshold": 11.0 },
+      { "fieldName": "rbc", "fieldType": "number", "label": "Red Blood Cell Count", "unit": "x 10^12/L", "referenceRange": "4.5–5.9", "lowThreshold": 4.5, "highThreshold": 5.9 },
+      { "fieldName": "hb", "fieldType": "number", "label": "Hemoglobin", "unit": "g/dL", "referenceRange": "13.5–17.5", "lowThreshold": 13.5, "highThreshold": 17.5 },
+      { "fieldName": "hct", "fieldType": "number", "label": "Hematocrit", "unit": "%", "referenceRange": "40–52", "lowThreshold": 40, "highThreshold": 52 },
+      { "fieldName": "mcv", "fieldType": "number", "label": "Mean Corpuscular Volume", "unit": "fL", "referenceRange": "80–100", "lowThreshold": 80, "highThreshold": 100 },
+      { "fieldName": "mch", "fieldType": "number", "label": "Mean Corpuscular Hemoglobin", "unit": "pg", "referenceRange": "27–34", "lowThreshold": 27, "highThreshold": 34 },
+      { "fieldName": "mchc", "fieldType": "number", "label": "Mean Corpuscular Hb Concentration", "unit": "g/dL", "referenceRange": "32–36", "lowThreshold": 32, "highThreshold": 36 },
+      { "fieldName": "rdw", "fieldType": "number", "label": "RDW", "unit": "%", "referenceRange": "11.5–14.5", "lowThreshold": 11.5, "highThreshold": 14.5 },
+      { "fieldName": "plt", "fieldType": "number", "label": "Platelet Count", "unit": "x 10^9/L", "referenceRange": "150–450", "lowThreshold": 150, "highThreshold": 450 },
+      { "fieldName": "mpv", "fieldType": "number", "label": "Mean Platelet Volume", "unit": "fL", "referenceRange": "7.5–11.5", "lowThreshold": 7.5, "highThreshold": 11.5 },
+      { "fieldName": "neutrophils", "fieldType": "number", "label": "Neutrophils", "unit": "%", "referenceRange": "40–70", "lowThreshold": 40, "highThreshold": 70 },
+      { "fieldName": "lymphocytes", "fieldType": "number", "label": "Lymphocytes", "unit": "%", "referenceRange": "20–40", "lowThreshold": 20, "highThreshold": 40 },
+      { "fieldName": "monocytes", "fieldType": "number", "label": "Monocytes", "unit": "%", "referenceRange": "2–10", "lowThreshold": 2, "highThreshold": 10 },
+      { "fieldName": "eosinophils", "fieldType": "number", "label": "Eosinophils", "unit": "%", "referenceRange": "1–6", "lowThreshold": 1, "highThreshold": 6 },
+      { "fieldName": "basophils", "fieldType": "number", "label": "Basophils", "unit": "%", "referenceRange": "0–1", "lowThreshold": 0, "highThreshold": 1 },
+      { "fieldName": "film_comment", "fieldType": "textarea", "label": "Film Comment", "referenceRange": "N/A" }
     ]
   },
   {
@@ -57,41 +63,57 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "glucose_random", "fieldType": "number", "label": "Random Blood Glucose", "unit": "mmol/L", "referenceRange": "3.9–11.1" }
+      { "fieldName": "glucose_random", "fieldType": "number", "label": "Random Blood Glucose", "unit": "mmol/L", "referenceRange": "3.9–11.1", "lowThreshold": 3.9, "highThreshold": 11.1 }
     ]
   },
   {
     "name": "Blood Glucose (Fasting)",
-    "investigationCode": "INVE47D",
+    "investigationCode": "INVE46D",
     "category": "biochemistry",
     "subCategory": "glucose",
     "description": "Fasting blood glucose test",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE47D",
+    "tariffCode": "LAB-INVE46D-FAST",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "glucose_fasting", "fieldType": "number", "label": "Fasting Blood Glucose", "unit": "mmol/L", "referenceRange": "3.9–5.6" }
+      { "fieldName": "glucose_fasting", "fieldType": "number", "label": "Fasting Blood Glucose", "unit": "mmol/L", "referenceRange": "3.9–5.6", "lowThreshold": 3.9, "highThreshold": 5.6 }
     ]
   },
   {
     "name": "Oral Glucose Tolerance Test",
-    "investigationCode": "INVE48D",
+    "investigationCode": "INVE83D",
     "category": "biochemistry",
     "subCategory": "glucose",
     "description": "2-hour OGTT for diabetes diagnosis",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE48D",
+    "tariffCode": "LAB-INVE83D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "glucose_fasting", "fieldType": "number", "label": "Fasting Glucose", "unit": "mmol/L", "referenceRange": "3.9–5.6" },
-      { "fieldName": "glucose_1hr", "fieldType": "number", "label": "1 Hour Glucose", "unit": "mmol/L", "referenceRange": "<11.1" },
-      { "fieldName": "glucose_2hr", "fieldType": "number", "label": "2 Hour Glucose", "unit": "mmol/L", "referenceRange": "<7.8" }
+      { "fieldName": "glucose_fasting", "fieldType": "number", "label": "Fasting Glucose", "unit": "mmol/L", "referenceRange": "3.9–5.6", "lowThreshold": 3.9, "highThreshold": 5.6 },
+      { "fieldName": "glucose_1hr", "fieldType": "number", "label": "1 Hour Glucose", "unit": "mmol/L", "referenceRange": "<11.1", "highThreshold": 11.1 },
+      { "fieldName": "glucose_2hr", "fieldType": "number", "label": "2 Hour Glucose", "unit": "mmol/L", "referenceRange": "<7.8", "highThreshold": 7.8 }
+    ]
+  },
+  {
+    "name": "2 Hour Post Prandial Blood Glucose",
+    "investigationCode": "INVE01D",
+    "category": "biochemistry",
+    "subCategory": "glucose",
+    "description": "Post-meal blood glucose test",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE01D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "glucose_2hr_pp", "fieldType": "number", "label": "2 Hour Post Prandial Glucose", "unit": "mmol/L", "referenceRange": "<7.8", "highThreshold": 7.8 }
     ]
   },
   {
@@ -109,19 +131,19 @@
     "resultTemplate": [
       { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Clear", "options": ["Clear", "Hazy", "Cloudy", "Turbid"] },
       { "fieldName": "color", "fieldType": "text", "label": "Color", "referenceRange": "Straw" },
-      { "fieldName": "specific_gravity", "fieldType": "number", "label": "Specific Gravity", "referenceRange": "1.005–1.030" },
-      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "4.5–8.0" },
+      { "fieldName": "specific_gravity", "fieldType": "number", "label": "Specific Gravity", "referenceRange": "1.005–1.030", "lowThreshold": 1.005, "highThreshold": 1.030 },
+      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "4.5–8.0", "lowThreshold": 4.5, "highThreshold": 8.0 },
       { "fieldName": "protein", "fieldType": "select", "label": "Protein", "referenceRange": "Negative", "options": ["Negative", "Trace", "+1", "+2", "+3", "+4"] },
-      { "fieldName": "glucose", "fieldType": "select", "label": "Glucose", "referenceRange": "Negative", "options": ["Negative", "+1", "+2", "+3", "+4"] },
+      { "fieldName": "glucose", "fieldType": "select", "label": "Glucose", "referenceRange": "Negative", "options": ["Negative", "Trace", "+1", "+2", "+3", "+4"] },
       { "fieldName": "ketones", "fieldType": "select", "label": "Ketones", "referenceRange": "Negative", "options": ["Negative", "Trace", "+1", "+2", "+3"] },
-      { "fieldName": "blood", "fieldType": "select", "label": "Blood", "referenceRange": "Negative", "options": ["Negative", "+1", "+2", "+3"] },
+      { "fieldName": "blood", "fieldType": "select", "label": "Blood", "referenceRange": "Negative", "options": ["Negative", "Trace", "+1", "+2", "+3"] },
       { "fieldName": "bilirubin", "fieldType": "select", "label": "Bilirubin", "referenceRange": "Negative", "options": ["Negative", "+1", "+2", "+3"] },
       { "fieldName": "urobilinogen", "fieldType": "select", "label": "Urobilinogen", "referenceRange": "Normal", "options": ["Normal", "Increased"] },
       { "fieldName": "nitrite", "fieldType": "select", "label": "Nitrite", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
       { "fieldName": "leukocytes", "fieldType": "select", "label": "Leukocyte Esterase", "referenceRange": "Negative", "options": ["Negative", "+1", "+2", "+3"] },
-      { "fieldName": "rbc", "fieldType": "number", "label": "RBC", "unit": "/HPF", "referenceRange": "0-2" },
-      { "fieldName": "wbc", "fieldType": "number", "label": "WBC", "unit": "/HPF", "referenceRange": "0-5" },
-      { "fieldName": "epithelial_cells", "fieldType": "number", "label": "Epithelial Cells", "unit": "/HPF", "referenceRange": "0-5" },
+      { "fieldName": "rbc", "fieldType": "number", "label": "RBC", "unit": "/HPF", "referenceRange": "0-2", "lowThreshold": 0, "highThreshold": 2 },
+      { "fieldName": "wbc", "fieldType": "number", "label": "WBC", "unit": "/HPF", "referenceRange": "0-5", "lowThreshold": 0, "highThreshold": 5 },
+      { "fieldName": "epithelial_cells", "fieldType": "number", "label": "Epithelial Cells", "unit": "/HPF", "referenceRange": "0-5", "lowThreshold": 0, "highThreshold": 5 },
       { "fieldName": "casts", "fieldType": "text", "label": "Casts", "referenceRange": "None seen" },
       { "fieldName": "crystals", "fieldType": "text", "label": "Crystals", "referenceRange": "None seen" },
       { "fieldName": "bacteria", "fieldType": "select", "label": "Bacteria", "referenceRange": "None", "options": ["None", "Few", "Moderate", "Many"] }
@@ -156,7 +178,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "beta_hcg", "fieldType": "number", "label": "Beta-hCG", "unit": "mIU/mL", "referenceRange": "Non-pregnant: <5" }
+      { "fieldName": "beta_hcg", "fieldType": "number", "label": "Beta-hCG", "unit": "mIU/mL", "referenceRange": "Non-pregnant: <5", "highThreshold": 5 }
     ]
   },
   {
@@ -164,7 +186,7 @@
     "investigationCode": "INVE38E",
     "category": "serology",
     "subCategory": "febrile_illness",
-    "description": "Widal test for typhoid fever",
+    "description": "Widal test for typhoid fever with titres",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -172,10 +194,28 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "salmonella_typhi_o", "fieldType": "select", "label": "S. typhi O antigen", "referenceRange": "Negative (<1:80)", "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)", "Positive (≥1:640)"] },
-      { "fieldName": "salmonella_typhi_h", "fieldType": "select", "label": "S. typhi H antigen", "referenceRange": "Negative (<1:80)", "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)", "Positive (≥1:640)"] },
-      { "fieldName": "salmonella_paratyphi_ah", "fieldType": "select", "label": "S. paratyphi AH", "referenceRange": "Negative (<1:80)", "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)"] },
-      { "fieldName": "salmonella_paratyphi_bh", "fieldType": "select", "label": "S. paratyphi BH", "referenceRange": "Negative (<1:80)", "options": ["Negative (<1:80)", "Positive (1:80)", "Positive (1:160)", "Positive (1:320)"] }
+      { "fieldName": "salmonella_typhi_o", "fieldType": "select", "label": "S. typhi O antigen", "referenceRange": "<1:80", "options": ["<1:80", "1:80", "1:160", "1:320", "1:640", "1:1280"] },
+      { "fieldName": "salmonella_typhi_h", "fieldType": "select", "label": "S. typhi H antigen", "referenceRange": "<1:80", "options": ["<1:80", "1:80", "1:160", "1:320", "1:640", "1:1280"] },
+      { "fieldName": "salmonella_paratyphi_ah", "fieldType": "select", "label": "S. paratyphi AH", "referenceRange": "<1:80", "options": ["<1:80", "1:80", "1:160", "1:320"] },
+      { "fieldName": "salmonella_paratyphi_bh", "fieldType": "select", "label": "S. paratyphi BH", "referenceRange": "<1:80", "options": ["<1:80", "1:80", "1:160", "1:320"] },
+      { "fieldName": "interpretation", "fieldType": "textarea", "label": "Interpretation", "referenceRange": "N/A" }
+    ]
+  },
+  {
+    "name": "Typhi Dot",
+    "investigationCode": "INVE149",
+    "category": "serology",
+    "subCategory": "febrile_illness",
+    "description": "Typhoid IgM/IgG rapid test",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE149",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "typhi_igm", "fieldType": "select", "label": "Typhi IgM", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "typhi_igg", "fieldType": "select", "label": "Typhi IgG", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
     ]
   },
   {
@@ -195,6 +235,39 @@
     ]
   },
   {
+    "name": "HIV Confirmatory Test",
+    "investigationCode": "INVE68D",
+    "category": "serology",
+    "subCategory": "hiv",
+    "description": "HIV confirmatory test",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE68D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "hiv_confirmation", "fieldType": "select", "label": "HIV Confirmatory", "referenceRange": "Negative", "options": ["Negative", "Positive", "Indeterminate"] }
+    ]
+  },
+  {
+    "name": "CD4 Count",
+    "investigationCode": "INVE27D",
+    "category": "immunology",
+    "subCategory": "hiv",
+    "description": "CD4 T-cell count for HIV monitoring",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": true,
+    "tariffCode": "LAB-INVE27D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "cd4_count", "fieldType": "number", "label": "CD4 Count", "unit": "cells/μL", "referenceRange": "500–1500", "lowThreshold": 500, "highThreshold": 1500 },
+      { "fieldName": "cd4_percentage", "fieldType": "number", "label": "CD4 Percentage", "unit": "%", "referenceRange": "30–60", "lowThreshold": 30, "highThreshold": 60 }
+    ]
+  },
+  {
     "name": "Hepatitis B Surface Antigen",
     "investigationCode": "INVE63D",
     "category": "serology",
@@ -211,6 +284,26 @@
     ]
   },
   {
+    "name": "Hepatitis B Profile",
+    "investigationCode": "INVE64D",
+    "category": "serology",
+    "subCategory": "hepatitis",
+    "description": "Complete Hepatitis B profile",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE64D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "hbsag", "fieldType": "select", "label": "HBsAg", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "anti_hbs", "fieldType": "select", "label": "Anti-HBs", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "anti_hbc", "fieldType": "select", "label": "Anti-HBc", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "hbeag", "fieldType": "select", "label": "HBeAg", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "anti_hbe", "fieldType": "select", "label": "Anti-HBe", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
     "name": "Hepatitis C Antibody",
     "investigationCode": "INVE105",
     "category": "serology",
@@ -224,6 +317,24 @@
     "isTaxable": false,
     "resultTemplate": [
       { "fieldName": "hcv_ab", "fieldType": "select", "label": "Hepatitis C Antibody", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
+    "name": "Viral Serology",
+    "investigationCode": "INVE133",
+    "category": "serology",
+    "subCategory": "viral",
+    "description": "Viral serology panel",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE133",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "viral_igm", "fieldType": "select", "label": "IgM", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "viral_igg", "fieldType": "select", "label": "IgG", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "virus_type", "fieldType": "text", "label": "Virus Type", "referenceRange": "N/A" }
     ]
   },
   {
@@ -245,26 +356,59 @@
       { "fieldName": "occult_blood", "fieldType": "select", "label": "Occult Blood", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
       { "fieldName": "ova_cysts", "fieldType": "select", "label": "Ova/Cysts", "referenceRange": "Not seen", "options": ["Not seen", "Present"] },
       { "fieldName": "parasites", "fieldType": "text", "label": "Parasites Identified", "referenceRange": "None" },
-      { "fieldName": "pus_cells", "fieldType": "number", "label": "Pus Cells", "unit": "/HPF", "referenceRange": "0-5" },
-      { "fieldName": "rbc", "fieldType": "number", "label": "Red Blood Cells", "unit": "/HPF", "referenceRange": "0-2" }
+      { "fieldName": "pus_cells", "fieldType": "number", "label": "Pus Cells", "unit": "/HPF", "referenceRange": "0-5", "lowThreshold": 0, "highThreshold": 5 },
+      { "fieldName": "rbc", "fieldType": "number", "label": "Red Blood Cells", "unit": "/HPF", "referenceRange": "0-2", "lowThreshold": 0, "highThreshold": 2 }
     ]
   },
   {
     "name": "Stool Culture & Sensitivity",
-    "investigationCode": "INVE97C",
+    "investigationCode": "INVE19E",
     "category": "microbiology",
     "subCategory": "bacteriology",
     "description": "Stool culture for enteric pathogens",
     "specimenType": "stool",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE97C",
+    "tariffCode": "LAB-INVE19E",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
       { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Normal flora", "Pathogen isolated"] },
       { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
-      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" }
+      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" },
+      { "fieldName": "resistant_antibiotics", "fieldType": "textarea", "label": "Resistant Antibiotics", "referenceRange": "N/A" }
+    ]
+  },
+  {
+    "name": "Stool for Occult Blood",
+    "investigationCode": "INVE20E",
+    "category": "gastroenterology",
+    "subCategory": "stool",
+    "description": "Fecal occult blood test",
+    "specimenType": "stool",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE20E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "occult_blood", "fieldType": "select", "label": "Occult Blood", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
+    "name": "Helicobacter Pylori Stool Antigen",
+    "investigationCode": "INVE62D",
+    "category": "microbiology",
+    "subCategory": "gastrointestinal",
+    "description": "H. pylori stool antigen test",
+    "specimenType": "stool",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE62D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "h_pylori_antigen", "fieldType": "select", "label": "H. pylori Antigen", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
     ]
   },
   {
@@ -280,17 +424,17 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "alt", "fieldType": "number", "label": "ALT (SGPT)", "unit": "U/L", "referenceRange": "7–56" },
-      { "fieldName": "ast", "fieldType": "number", "label": "AST (SGOT)", "unit": "U/L", "referenceRange": "5–40" },
-      { "fieldName": "alp", "fieldType": "number", "label": "Alkaline Phosphatase", "unit": "U/L", "referenceRange": "44–147" },
-      { "fieldName": "ggt", "fieldType": "number", "label": "GGT", "unit": "U/L", "referenceRange": "9–48" },
-      { "fieldName": "total_bilirubin", "fieldType": "number", "label": "Total Bilirubin", "unit": "μmol/L", "referenceRange": "3.4–20.5" },
-      { "fieldName": "direct_bilirubin", "fieldType": "number", "label": "Direct Bilirubin", "unit": "μmol/L", "referenceRange": "0–5.1" },
-      { "fieldName": "indirect_bilirubin", "fieldType": "number", "label": "Indirect Bilirubin", "unit": "μmol/L", "referenceRange": "3.4–15.4" },
-      { "fieldName": "total_protein", "fieldType": "number", "label": "Total Protein", "unit": "g/L", "referenceRange": "60–80" },
-      { "fieldName": "albumin", "fieldType": "number", "label": "Albumin", "unit": "g/L", "referenceRange": "35–50" },
-      { "fieldName": "globulin", "fieldType": "number", "label": "Globulin", "unit": "g/L", "referenceRange": "23–35" },
-      { "fieldName": "a_g_ratio", "fieldType": "number", "label": "A/G Ratio", "referenceRange": "1.0–2.1" }
+      { "fieldName": "alt", "fieldType": "number", "label": "ALT (SGPT)", "unit": "U/L", "referenceRange": "7–56", "lowThreshold": 7, "highThreshold": 56 },
+      { "fieldName": "ast", "fieldType": "number", "label": "AST (SGOT)", "unit": "U/L", "referenceRange": "5–40", "lowThreshold": 5, "highThreshold": 40 },
+      { "fieldName": "alp", "fieldType": "number", "label": "Alkaline Phosphatase", "unit": "U/L", "referenceRange": "44–147", "lowThreshold": 44, "highThreshold": 147 },
+      { "fieldName": "ggt", "fieldType": "number", "label": "GGT", "unit": "U/L", "referenceRange": "9–48", "lowThreshold": 9, "highThreshold": 48 },
+      { "fieldName": "total_bilirubin", "fieldType": "number", "label": "Total Bilirubin", "unit": "μmol/L", "referenceRange": "3.4–20.5", "lowThreshold": 3.4, "highThreshold": 20.5 },
+      { "fieldName": "direct_bilirubin", "fieldType": "number", "label": "Direct Bilirubin", "unit": "μmol/L", "referenceRange": "0–5.1", "lowThreshold": 0, "highThreshold": 5.1 },
+      { "fieldName": "indirect_bilirubin", "fieldType": "number", "label": "Indirect Bilirubin", "unit": "μmol/L", "referenceRange": "3.4–15.4", "lowThreshold": 3.4, "highThreshold": 15.4 },
+      { "fieldName": "total_protein", "fieldType": "number", "label": "Total Protein", "unit": "g/L", "referenceRange": "60–80", "lowThreshold": 60, "highThreshold": 80 },
+      { "fieldName": "albumin", "fieldType": "number", "label": "Albumin", "unit": "g/L", "referenceRange": "35–50", "lowThreshold": 35, "highThreshold": 50 },
+      { "fieldName": "globulin", "fieldType": "number", "label": "Globulin", "unit": "g/L", "referenceRange": "23–35", "lowThreshold": 23, "highThreshold": 35 },
+      { "fieldName": "a_g_ratio", "fieldType": "number", "label": "A/G Ratio", "referenceRange": "1.0–2.1", "lowThreshold": 1.0, "highThreshold": 2.1 }
     ]
   },
   {
@@ -306,9 +450,9 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1" },
-      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106" },
-      { "fieldName": "egfr", "fieldType": "number", "label": "eGFR", "unit": "mL/min/1.73m²", "referenceRange": ">90" }
+      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1", "lowThreshold": 2.5, "highThreshold": 7.1 },
+      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106", "lowThreshold": 62, "highThreshold": 106 },
+      { "fieldName": "egfr", "fieldType": "number", "label": "eGFR", "unit": "mL/min/1.73m²", "referenceRange": ">90", "lowThreshold": 90 }
     ]
   },
   {
@@ -324,12 +468,31 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145" },
-      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1" },
-      { "fieldName": "chloride", "fieldType": "number", "label": "Chloride", "unit": "mmol/L", "referenceRange": "98–107" },
-      { "fieldName": "bicarbonate", "fieldType": "number", "label": "Bicarbonate", "unit": "mmol/L", "referenceRange": "22–29" },
-      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1" },
-      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106" }
+      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145", "lowThreshold": 136, "highThreshold": 145 },
+      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1", "lowThreshold": 3.5, "highThreshold": 5.1 },
+      { "fieldName": "chloride", "fieldType": "number", "label": "Chloride", "unit": "mmol/L", "referenceRange": "98–107", "lowThreshold": 98, "highThreshold": 107 },
+      { "fieldName": "bicarbonate", "fieldType": "number", "label": "Bicarbonate", "unit": "mmol/L", "referenceRange": "22–29", "lowThreshold": 22, "highThreshold": 29 },
+      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1", "lowThreshold": 2.5, "highThreshold": 7.1 },
+      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106", "lowThreshold": 62, "highThreshold": 106 }
+    ]
+  },
+  {
+    "name": "BUE & Creatinine",
+    "investigationCode": "INVE24D",
+    "category": "biochemistry",
+    "subCategory": "renal",
+    "description": "Blood urea, electrolytes and creatinine",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE24D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1", "lowThreshold": 2.5, "highThreshold": 7.1 },
+      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106", "lowThreshold": 62, "highThreshold": 106 },
+      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145", "lowThreshold": 136, "highThreshold": 145 },
+      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1", "lowThreshold": 3.5, "highThreshold": 5.1 }
     ]
   },
   {
@@ -345,12 +508,12 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "total_cholesterol", "fieldType": "number", "label": "Total Cholesterol", "unit": "mmol/L", "referenceRange": "<5.2" },
-      { "fieldName": "hdl_cholesterol", "fieldType": "number", "label": "HDL Cholesterol", "unit": "mmol/L", "referenceRange": ">1.0" },
-      { "fieldName": "ldl_cholesterol", "fieldType": "number", "label": "LDL Cholesterol", "unit": "mmol/L", "referenceRange": "<2.6" },
-      { "fieldName": "triglycerides", "fieldType": "number", "label": "Triglycerides", "unit": "mmol/L", "referenceRange": "<1.7" },
-      { "fieldName": "vldl", "fieldType": "number", "label": "VLDL", "unit": "mmol/L", "referenceRange": "<0.78" },
-      { "fieldName": "non_hdl", "fieldType": "number", "label": "Non-HDL Cholesterol", "unit": "mmol/L", "referenceRange": "<3.4" }
+      { "fieldName": "total_cholesterol", "fieldType": "number", "label": "Total Cholesterol", "unit": "mmol/L", "referenceRange": "<5.2", "highThreshold": 5.2 },
+      { "fieldName": "hdl_cholesterol", "fieldType": "number", "label": "HDL Cholesterol", "unit": "mmol/L", "referenceRange": ">1.0", "lowThreshold": 1.0 },
+      { "fieldName": "ldl_cholesterol", "fieldType": "number", "label": "LDL Cholesterol", "unit": "mmol/L", "referenceRange": "<2.6", "highThreshold": 2.6 },
+      { "fieldName": "triglycerides", "fieldType": "number", "label": "Triglycerides", "unit": "mmol/L", "referenceRange": "<1.7", "highThreshold": 1.7 },
+      { "fieldName": "vldl", "fieldType": "number", "label": "VLDL", "unit": "mmol/L", "referenceRange": "<0.78", "highThreshold": 0.78 },
+      { "fieldName": "non_hdl", "fieldType": "number", "label": "Non-HDL Cholesterol", "unit": "mmol/L", "referenceRange": "<3.4", "highThreshold": 3.4 }
     ]
   },
   {
@@ -388,20 +551,39 @@
   },
   {
     "name": "Hemoglobin Electrophoresis",
-    "investigationCode": "INVE15E",
+    "investigationCode": "INVE59D",
     "category": "hematology",
     "subCategory": "hemoglobinopathy",
-    "description": "Quantitative hemoglobin analysis",
+    "description": "Qualitative hemoglobin electrophoresis",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE15E",
+    "tariffCode": "LAB-INVE59D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "hb_a", "fieldType": "number", "label": "Hb A", "unit": "%", "referenceRange": "95–98" },
-      { "fieldName": "hb_a2", "fieldType": "number", "label": "Hb A2", "unit": "%", "referenceRange": "2.2–3.8" },
-      { "fieldName": "hb_f", "fieldType": "number", "label": "Hb F", "unit": "%", "referenceRange": "<1" },
+      { "fieldName": "hb_pattern", "fieldType": "textarea", "label": "Hemoglobin Pattern", "referenceRange": "Hb A dominant" },
+      { "fieldName": "hb_s", "fieldType": "select", "label": "Hb S", "referenceRange": "Absent", "options": ["Absent", "Present"] },
+      { "fieldName": "hb_c", "fieldType": "select", "label": "Hb C", "referenceRange": "Absent", "options": ["Absent", "Present"] },
+      { "fieldName": "hb_f", "fieldType": "select", "label": "Hb F", "referenceRange": "Normal (<1%)", "options": ["Normal", "Increased"] }
+    ]
+  },
+  {
+    "name": "Hb Electrophoresis (Quantitative)",
+    "investigationCode": "INVE58D",
+    "category": "hematology",
+    "subCategory": "hemoglobinopathy",
+    "description": "Quantitative hemoglobin electrophoresis",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE58D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "hb_a", "fieldType": "number", "label": "Hb A", "unit": "%", "referenceRange": "95–98", "lowThreshold": 95, "highThreshold": 98 },
+      { "fieldName": "hb_a2", "fieldType": "number", "label": "Hb A2", "unit": "%", "referenceRange": "2.2–3.8", "lowThreshold": 2.2, "highThreshold": 3.8 },
+      { "fieldName": "hb_f", "fieldType": "number", "label": "Hb F", "unit": "%", "referenceRange": "<1", "highThreshold": 1 },
       { "fieldName": "hb_s", "fieldType": "number", "label": "Hb S", "unit": "%", "referenceRange": "0" },
       { "fieldName": "hb_c", "fieldType": "number", "label": "Hb C", "unit": "%", "referenceRange": "0" }
     ]
@@ -419,9 +601,59 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0" },
-      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5" },
-      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23" }
+      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0", "lowThreshold": 0.4, "highThreshold": 4.0 },
+      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5", "lowThreshold": 3.5, "highThreshold": 6.5 },
+      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23", "lowThreshold": 9, "highThreshold": 23 }
+    ]
+  },
+  {
+    "name": "Thyroid Profile (TSH, FT3, FT4)",
+    "investigationCode": "INVE25E",
+    "category": "biochemistry",
+    "subCategory": "thyroid",
+    "description": "Complete thyroid profile",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE25E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0", "lowThreshold": 0.4, "highThreshold": 4.0 },
+      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5", "lowThreshold": 3.5, "highThreshold": 6.5 },
+      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23", "lowThreshold": 9, "highThreshold": 23 }
+    ]
+  },
+  {
+    "name": "T3",
+    "investigationCode": "INVE21E",
+    "category": "biochemistry",
+    "subCategory": "thyroid",
+    "description": "Total T3",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE21E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "t3", "fieldType": "number", "label": "T3", "unit": "nmol/L", "referenceRange": "1.2–2.8", "lowThreshold": 1.2, "highThreshold": 2.8 }
+    ]
+  },
+  {
+    "name": "T4",
+    "investigationCode": "INVE22E",
+    "category": "biochemistry",
+    "subCategory": "thyroid",
+    "description": "Total T4",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE22E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "t4", "fieldType": "number", "label": "T4", "unit": "nmol/L", "referenceRange": "55–150", "lowThreshold": 55, "highThreshold": 150 }
     ]
   },
   {
@@ -437,9 +669,9 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "total_psa", "fieldType": "number", "label": "Total PSA", "unit": "ng/mL", "referenceRange": "<4.0" },
+      { "fieldName": "total_psa", "fieldType": "number", "label": "Total PSA", "unit": "ng/mL", "referenceRange": "<4.0", "highThreshold": 4.0 },
       { "fieldName": "free_psa", "fieldType": "number", "label": "Free PSA", "unit": "ng/mL", "referenceRange": "N/A" },
-      { "fieldName": "free_psa_ratio", "fieldType": "number", "label": "Free/Total PSA Ratio", "unit": "%", "referenceRange": ">25" }
+      { "fieldName": "free_psa_ratio", "fieldType": "number", "label": "Free/Total PSA Ratio", "unit": "%", "referenceRange": ">25", "lowThreshold": 25 }
     ]
   },
   {
@@ -455,8 +687,8 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "hba1c", "fieldType": "number", "label": "HbA1c", "unit": "%", "referenceRange": "4.0–5.6" },
-      { "fieldName": "estimated_avg_glucose", "fieldType": "number", "label": "Estimated Average Glucose", "unit": "mmol/L", "referenceRange": "3.9–7.0" }
+      { "fieldName": "hba1c", "fieldType": "number", "label": "HbA1c", "unit": "%", "referenceRange": "4.0–5.6", "lowThreshold": 4.0, "highThreshold": 5.6 },
+      { "fieldName": "estimated_avg_glucose", "fieldType": "number", "label": "Estimated Average Glucose", "unit": "mmol/L", "referenceRange": "3.9–7.0", "lowThreshold": 3.9, "highThreshold": 7.0 }
     ]
   },
   {
@@ -472,7 +704,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "crp", "fieldType": "number", "label": "C-Reactive Protein", "unit": "mg/L", "referenceRange": "<5.0" }
+      { "fieldName": "crp", "fieldType": "number", "label": "C-Reactive Protein", "unit": "mg/L", "referenceRange": "<5.0", "highThreshold": 5.0 }
     ]
   },
   {
@@ -488,11 +720,11 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "rheumatoid_factor", "fieldType": "number", "label": "Rheumatoid Factor", "unit": "IU/mL", "referenceRange": "<14" }
+      { "fieldName": "rheumatoid_factor", "fieldType": "number", "label": "Rheumatoid Factor", "unit": "IU/mL", "referenceRange": "<14", "highThreshold": 14 }
     ]
   },
   {
-    "name": "ASO titre",
+    "name": "ASO Titre",
     "investigationCode": "INVE154",
     "category": "serology",
     "subCategory": "streptococcal",
@@ -504,7 +736,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "aso_titre", "fieldType": "number", "label": "ASO Titre", "unit": "IU/mL", "referenceRange": "<200" }
+      { "fieldName": "aso_titre", "fieldType": "number", "label": "ASO Titre", "unit": "IU/mL", "referenceRange": "<200", "highThreshold": 200 }
     ]
   },
   {
@@ -573,8 +805,9 @@
     "resultTemplate": [
       { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No significant growth", "options": ["No significant growth", "Significant growth", "Mixed growth", "Contaminated"] },
       { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
-      { "fieldName": "colony_count", "fieldType": "number", "label": "Colony Count", "unit": "CFU/mL", "referenceRange": "<10^5" },
-      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" }
+      { "fieldName": "colony_count", "fieldType": "number", "label": "Colony Count", "unit": "CFU/mL", "referenceRange": "<10^5", "highThreshold": 100000 },
+      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" },
+      { "fieldName": "resistant_antibiotics", "fieldType": "textarea", "label": "Resistant Antibiotics", "referenceRange": "N/A" }
     ]
   },
   {
@@ -611,18 +844,18 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "liquefaction_time", "fieldType": "number", "label": "Liquefaction Time", "unit": "minutes", "referenceRange": "<60" },
-      { "fieldName": "volume", "fieldType": "number", "label": "Volume", "unit": "mL", "referenceRange": "1.5–5.0" },
-      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "7.2–8.0" },
+      { "fieldName": "liquefaction_time", "fieldType": "number", "label": "Liquefaction Time", "unit": "minutes", "referenceRange": "<60", "highThreshold": 60 },
+      { "fieldName": "volume", "fieldType": "number", "label": "Volume", "unit": "mL", "referenceRange": "1.5–5.0", "lowThreshold": 1.5, "highThreshold": 5.0 },
+      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "7.2–8.0", "lowThreshold": 7.2, "highThreshold": 8.0 },
       { "fieldName": "viscosity", "fieldType": "select", "label": "Viscosity", "referenceRange": "Normal", "options": ["Normal", "Increased"] },
-      { "fieldName": "sperm_count", "fieldType": "number", "label": "Sperm Count", "unit": "million/mL", "referenceRange": ">15" },
-      { "fieldName": "total_sperm_count", "fieldType": "number", "label": "Total Sperm Count", "unit": "million", "referenceRange": ">39" },
-      { "fieldName": "motility_progressive", "fieldType": "number", "label": "Progressive Motility", "unit": "%", "referenceRange": ">32" },
+      { "fieldName": "sperm_count", "fieldType": "number", "label": "Sperm Count", "unit": "million/mL", "referenceRange": ">15", "lowThreshold": 15 },
+      { "fieldName": "total_sperm_count", "fieldType": "number", "label": "Total Sperm Count", "unit": "million", "referenceRange": ">39", "lowThreshold": 39 },
+      { "fieldName": "motility_progressive", "fieldType": "number", "label": "Progressive Motility", "unit": "%", "referenceRange": ">32", "lowThreshold": 32 },
       { "fieldName": "motility_non_progressive", "fieldType": "number", "label": "Non-progressive Motility", "unit": "%", "referenceRange": "N/A" },
       { "fieldName": "motility_immotile", "fieldType": "number", "label": "Immotile", "unit": "%", "referenceRange": "N/A" },
-      { "fieldName": "normal_morphology", "fieldType": "number", "label": "Normal Morphology", "unit": "%", "referenceRange": ">4" },
-      { "fieldName": "vitality", "fieldType": "number", "label": "Vitality", "unit": "%", "referenceRange": ">58" },
-      { "fieldName": "leukocytes", "fieldType": "number", "label": "Leukocytes", "unit": "million/mL", "referenceRange": "<1" }
+      { "fieldName": "normal_morphology", "fieldType": "number", "label": "Normal Morphology", "unit": "%", "referenceRange": ">4", "lowThreshold": 4 },
+      { "fieldName": "vitality", "fieldType": "number", "label": "Vitality", "unit": "%", "referenceRange": ">58", "lowThreshold": 58 },
+      { "fieldName": "leukocytes", "fieldType": "number", "label": "Leukocytes", "unit": "million/mL", "referenceRange": "<1", "highThreshold": 1 }
     ]
   },
   {
@@ -638,8 +871,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "esr_1hr", "fieldType": "number", "label": "ESR (Westergren 1hr)", "unit": "mm/hr", "referenceRange": "Male: 0–15, Female: 0–20" },
-      { "fieldName": "esr_2hr", "fieldType": "number", "label": "ESR (Westergren 2hr)", "unit": "mm/hr", "referenceRange": "Male: 0–30, Female: 0–40" }
+      { "fieldName": "esr_1hr", "fieldType": "number", "label": "ESR (Westergren 1hr)", "unit": "mm/hr", "referenceRange": "0–15", "lowThreshold": 0, "highThreshold": 15 }
     ]
   },
   {
@@ -655,26 +887,43 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "pt", "fieldType": "number", "label": "Prothrombin Time", "unit": "seconds", "referenceRange": "11–13.5" },
-      { "fieldName": "control_pt", "fieldType": "number", "label": "Control PT", "unit": "seconds", "referenceRange": "11–13.5" },
-      { "fieldName": "inr", "fieldType": "number", "label": "INR", "referenceRange": "0.8–1.2" }
+      { "fieldName": "pt", "fieldType": "number", "label": "Prothrombin Time", "unit": "seconds", "referenceRange": "11–13.5", "lowThreshold": 11, "highThreshold": 13.5 },
+      { "fieldName": "control_pt", "fieldType": "number", "label": "Control PT", "unit": "seconds", "referenceRange": "11–13.5", "lowThreshold": 11, "highThreshold": 13.5 },
+      { "fieldName": "inr", "fieldType": "number", "label": "INR", "referenceRange": "0.8–1.2", "lowThreshold": 0.8, "highThreshold": 1.2 }
     ]
   },
   {
     "name": "Activated Partial Thromboplastin Time",
-    "investigationCode": "INVE96D",
+    "investigationCode": "INVE06D",
     "category": "hematology",
     "subCategory": "coagulation",
     "description": "APTT for coagulation screening",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE96D",
+    "tariffCode": "LAB-INVE06D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "aptt", "fieldType": "number", "label": "APTT", "unit": "seconds", "referenceRange": "25–35" },
-      { "fieldName": "control_aptt", "fieldType": "number", "label": "Control APTT", "unit": "seconds", "referenceRange": "25–35" }
+      { "fieldName": "aptt", "fieldType": "number", "label": "APTT", "unit": "seconds", "referenceRange": "25–35", "lowThreshold": 25, "highThreshold": 35 },
+      { "fieldName": "control_aptt", "fieldType": "number", "label": "Control APTT", "unit": "seconds", "referenceRange": "25–35", "lowThreshold": 25, "highThreshold": 35 }
+    ]
+  },
+  {
+    "name": "Bleeding and Clotting Time",
+    "investigationCode": "INVE15D",
+    "category": "hematology",
+    "subCategory": "coagulation",
+    "description": "Bleeding and clotting time test",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE15D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "bleeding_time", "fieldType": "number", "label": "Bleeding Time", "unit": "minutes", "referenceRange": "1–9", "lowThreshold": 1, "highThreshold": 9 },
+      { "fieldName": "clotting_time", "fieldType": "number", "label": "Clotting Time", "unit": "minutes", "referenceRange": "5–11", "lowThreshold": 5, "highThreshold": 11 }
     ]
   },
   {
@@ -690,7 +939,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "d_dimer", "fieldType": "number", "label": "D-Dimer", "unit": "μg/mL", "referenceRange": "<0.5" }
+      { "fieldName": "d_dimer", "fieldType": "number", "label": "D-Dimer", "unit": "μg/mL", "referenceRange": "<0.5", "highThreshold": 0.5 }
     ]
   },
   {
@@ -706,23 +955,39 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "troponin_i", "fieldType": "number", "label": "Troponin I", "unit": "ng/mL", "referenceRange": "<0.04" }
+      { "fieldName": "troponin_i", "fieldType": "number", "label": "Troponin I", "unit": "ng/mL", "referenceRange": "<0.04", "highThreshold": 0.04 }
     ]
   },
   {
     "name": "CK-MB",
-    "investigationCode": "INVE30E",
+    "investigationCode": "INVE29D",
     "category": "biochemistry",
     "subCategory": "cardiac",
     "description": "Creatine kinase-MB for cardiac injury",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE30E",
+    "tariffCode": "LAB-INVE29D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ck_mb", "fieldType": "number", "label": "CK-MB", "unit": "U/L", "referenceRange": "<25" }
+      { "fieldName": "ck_mb", "fieldType": "number", "label": "CK-MB", "unit": "U/L", "referenceRange": "<25", "highThreshold": 25 }
+    ]
+  },
+  {
+    "name": "Creatine Kinase (CK)",
+    "investigationCode": "INVE30D",
+    "category": "biochemistry",
+    "subCategory": "cardiac",
+    "description": "Total creatine kinase",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE30D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "ck_total", "fieldType": "number", "label": "Creatine Kinase", "unit": "U/L", "referenceRange": "30–200", "lowThreshold": 30, "highThreshold": 200 }
     ]
   },
   {
@@ -730,7 +995,7 @@
     "investigationCode": "INVE04D",
     "category": "biochemistry",
     "subCategory": "pancreatic",
-    "description": "Pancreatic enzyme for pancreatitis",
+    "description": "Amylase for pancreatitis",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -738,39 +1003,39 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "amylase", "fieldType": "number", "label": "Amylase", "unit": "U/L", "referenceRange": "28–100" }
+      { "fieldName": "amylase", "fieldType": "number", "label": "Amylase", "unit": "U/L", "referenceRange": "28–100", "lowThreshold": 28, "highThreshold": 100 }
     ]
   },
   {
     "name": "Lipase",
-    "investigationCode": "INVE05D",
+    "investigationCode": "INVE85D",
     "category": "biochemistry",
     "subCategory": "pancreatic",
-    "description": "Lipase for pancreatitis diagnosis",
+    "description": "Pancreatic specific amylase",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE05D",
+    "tariffCode": "LAB-INVE85D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "lipase", "fieldType": "number", "label": "Lipase", "unit": "U/L", "referenceRange": "13–60" }
+      { "fieldName": "pancreatic_amylase", "fieldType": "number", "label": "Pancreatic Amylase", "unit": "U/L", "referenceRange": "13–53", "lowThreshold": 13, "highThreshold": 53 }
     ]
   },
   {
     "name": "Cortisol (AM)",
-    "investigationCode": "INVE41B",
+    "investigationCode": "INVE91D",
     "category": "biochemistry",
     "subCategory": "endocrine",
     "description": "Morning cortisol level",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE41B",
+    "tariffCode": "LAB-INVE91D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "cortisol_am", "fieldType": "number", "label": "Cortisol (8 AM)", "unit": "nmol/L", "referenceRange": "171–536" }
+      { "fieldName": "cortisol_am", "fieldType": "number", "label": "Cortisol (8 AM)", "unit": "nmol/L", "referenceRange": "171–536", "lowThreshold": 171, "highThreshold": 536 }
     ]
   },
   {
@@ -786,7 +1051,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "prolactin", "fieldType": "number", "label": "Prolactin", "unit": "mIU/L", "referenceRange": "Male: 86–324, Female: 102–496" }
+      { "fieldName": "prolactin", "fieldType": "number", "label": "Prolactin", "unit": "mIU/L", "referenceRange": "86–324", "lowThreshold": 86, "highThreshold": 324 }
     ]
   },
   {
@@ -802,39 +1067,39 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "testosterone_total", "fieldType": "number", "label": "Testosterone", "unit": "nmol/L", "referenceRange": "Male: 8.64–29.0, Female: 0.29–1.67" }
+      { "fieldName": "testosterone_total", "fieldType": "number", "label": "Testosterone", "unit": "nmol/L", "referenceRange": "8.64–29.0", "lowThreshold": 8.64, "highThreshold": 29.0 }
     ]
   },
   {
     "name": "Estradiol (E2)",
-    "investigationCode": "INVE25E",
+    "investigationCode": "INVE43D",
     "category": "biochemistry",
     "subCategory": "endocrine",
     "description": "Estradiol level",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE25E",
+    "tariffCode": "LAB-INVE43D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "estradiol", "fieldType": "number", "label": "Estradiol", "unit": "pmol/L", "referenceRange": "Follicular: 70–550, Luteal: 200–800" }
+      { "fieldName": "estradiol", "fieldType": "number", "label": "Estradiol", "unit": "pmol/L", "referenceRange": "70–550", "lowThreshold": 70, "highThreshold": 550 }
     ]
   },
   {
     "name": "Progesterone",
-    "investigationCode": "INVE26E",
+    "investigationCode": "INVE93D",
     "category": "biochemistry",
     "subCategory": "endocrine",
     "description": "Progesterone level",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE26E",
+    "tariffCode": "LAB-INVE93D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "progesterone", "fieldType": "number", "label": "Progesterone", "unit": "nmol/L", "referenceRange": "Follicular: 0.3–3.0, Luteal: 5–60" }
+      { "fieldName": "progesterone", "fieldType": "number", "label": "Progesterone", "unit": "nmol/L", "referenceRange": "0.3–3.0", "lowThreshold": 0.3, "highThreshold": 3.0 }
     ]
   },
   {
@@ -850,7 +1115,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "cea", "fieldType": "number", "label": "CEA", "unit": "ng/mL", "referenceRange": "Non-smoker: <2.5, Smoker: <5.0" }
+      { "fieldName": "cea", "fieldType": "number", "label": "CEA", "unit": "ng/mL", "referenceRange": "<2.5", "highThreshold": 2.5 }
     ]
   },
   {
@@ -866,7 +1131,7 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "afp", "fieldType": "number", "label": "Alpha-fetoprotein", "unit": "IU/mL", "referenceRange": "<7.0" }
+      { "fieldName": "afp", "fieldType": "number", "label": "Alpha-fetoprotein", "unit": "IU/mL", "referenceRange": "<7.0", "highThreshold": 7.0 }
     ]
   },
   {
@@ -882,23 +1147,23 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ca_125", "fieldType": "number", "label": "CA-125", "unit": "U/mL", "referenceRange": "<35" }
+      { "fieldName": "ca_125", "fieldType": "number", "label": "CA-125", "unit": "U/mL", "referenceRange": "<35", "highThreshold": 35 }
     ]
   },
   {
     "name": "CA 19-9",
-    "investigationCode": "INVE46B",
+    "investigationCode": "INVE137",
     "category": "biochemistry",
     "subCategory": "tumor_markers",
     "description": "Pancreatic cancer marker",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE46B",
+    "tariffCode": "LAB-INVE137",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ca_19_9", "fieldType": "number", "label": "CA 19-9", "unit": "U/mL", "referenceRange": "<37" }
+      { "fieldName": "ca_19_9", "fieldType": "number", "label": "CA 19-9", "unit": "U/mL", "referenceRange": "<37", "highThreshold": 37 }
     ]
   },
   {
@@ -914,15 +1179,15 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ferritin", "fieldType": "number", "label": "Ferritin", "unit": "ng/mL", "referenceRange": "Male: 30–400, Female: 15–150" }
+      { "fieldName": "ferritin", "fieldType": "number", "label": "Ferritin", "unit": "ng/mL", "referenceRange": "30–400", "lowThreshold": 30, "highThreshold": 400 }
     ]
   },
   {
-    "name": "Vitamin B12",
+    "name": "Vitamin B12 and Folate",
     "investigationCode": "INVE126",
     "category": "biochemistry",
     "subCategory": "hematinic",
-    "description": "Vitamin B12 level",
+    "description": "Vitamin B12 and folate levels",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -930,23 +1195,8 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "vitamin_b12", "fieldType": "number", "label": "Vitamin B12", "unit": "pg/mL", "referenceRange": "200–900" }
-    ]
-  },
-  {
-    "name": "Folate",
-    "investigationCode": "INVE127",
-    "category": "biochemistry",
-    "subCategory": "hematinic",
-    "description": "Folic acid level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE127",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "folate", "fieldType": "number", "label": "Folate", "unit": "ng/mL", "referenceRange": ">3.0" }
+      { "fieldName": "vitamin_b12", "fieldType": "number", "label": "Vitamin B12", "unit": "pg/mL", "referenceRange": "200–900", "lowThreshold": 200, "highThreshold": 900 },
+      { "fieldName": "folate", "fieldType": "number", "label": "Folate", "unit": "ng/mL", "referenceRange": ">3.0", "lowThreshold": 3.0 }
     ]
   },
   {
@@ -962,39 +1212,39 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "calcium", "fieldType": "number", "label": "Calcium", "unit": "mmol/L", "referenceRange": "2.10–2.55" }
+      { "fieldName": "calcium", "fieldType": "number", "label": "Calcium", "unit": "mmol/L", "referenceRange": "2.10–2.55", "lowThreshold": 2.10, "highThreshold": 2.55 }
     ]
   },
   {
     "name": "Phosphate",
-    "investigationCode": "INVE07E",
+    "investigationCode": "INVE109",
     "category": "biochemistry",
     "subCategory": "bone_metabolism",
     "description": "Serum phosphate",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE07E",
+    "tariffCode": "LAB-INVE109",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "phosphate", "fieldType": "number", "label": "Phosphate", "unit": "mmol/L", "referenceRange": "0.80–1.50" }
+      { "fieldName": "phosphate", "fieldType": "number", "label": "Phosphate", "unit": "mmol/L", "referenceRange": "0.80–1.50", "lowThreshold": 0.80, "highThreshold": 1.50 }
     ]
   },
   {
     "name": "Magnesium",
-    "investigationCode": "INVE08E",
+    "investigationCode": "INVE107",
     "category": "biochemistry",
     "subCategory": "electrolytes",
     "description": "Serum magnesium",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE08E",
+    "tariffCode": "LAB-INVE107",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "magnesium", "fieldType": "number", "label": "Magnesium", "unit": "mmol/L", "referenceRange": "0.70–1.00" }
+      { "fieldName": "magnesium", "fieldType": "number", "label": "Magnesium", "unit": "mmol/L", "referenceRange": "0.70–1.00", "lowThreshold": 0.70, "highThreshold": 1.00 }
     ]
   },
   {
@@ -1010,41 +1260,41 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "uric_acid", "fieldType": "number", "label": "Uric Acid", "unit": "μmol/L", "referenceRange": "Male: 210–420, Female: 150–360" }
+      { "fieldName": "uric_acid", "fieldType": "number", "label": "Uric Acid", "unit": "μmol/L", "referenceRange": "210–420", "lowThreshold": 210, "highThreshold": 420 }
     ]
   },
   {
     "name": "Iron Studies",
-    "investigationCode": "INVE36B",
+    "investigationCode": "INVE09E",
     "category": "biochemistry",
     "subCategory": "hematinic",
     "description": "Complete iron profile",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE36B",
+    "tariffCode": "LAB-INVE09E",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "serum_iron", "fieldType": "number", "label": "Serum Iron", "unit": "μg/dL", "referenceRange": "50–170" },
-      { "fieldName": "tibc", "fieldType": "number", "label": "TIBC", "unit": "μg/dL", "referenceRange": "250–400" },
-      { "fieldName": "transferrin_saturation", "fieldType": "number", "label": "Transferrin Saturation", "unit": "%", "referenceRange": "20–50" }
+      { "fieldName": "serum_iron", "fieldType": "number", "label": "Serum Iron", "unit": "μg/dL", "referenceRange": "50–170", "lowThreshold": 50, "highThreshold": 170 },
+      { "fieldName": "tibc", "fieldType": "number", "label": "TIBC", "unit": "μg/dL", "referenceRange": "250–400", "lowThreshold": 250, "highThreshold": 400 },
+      { "fieldName": "transferrin_saturation", "fieldType": "number", "label": "Transferrin Saturation", "unit": "%", "referenceRange": "20–50", "lowThreshold": 20, "highThreshold": 50 }
     ]
   },
   {
-    "name": "Helicobacter Pylori Antigen",
-    "investigationCode": "INVE62D",
-    "category": "microbiology",
-    "subCategory": "gastrointestinal",
-    "description": "H. pylori stool antigen test",
-    "specimenType": "stool",
+    "name": "Total Iron Binding Capacity",
+    "investigationCode": "INVE26E",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Total iron binding capacity",
+    "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE62D",
+    "tariffCode": "LAB-INVE26E",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "h_pylori_antigen", "fieldType": "select", "label": "H. pylori Antigen", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+      { "fieldName": "tibc", "fieldType": "number", "label": "TIBC", "unit": "μg/dL", "referenceRange": "250–400", "lowThreshold": 250, "highThreshold": 400 }
     ]
   },
   {
@@ -1061,13 +1311,13 @@
     "isTaxable": false,
     "resultTemplate": [
       { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Clear and colorless", "options": ["Clear and colorless", "Cloudy", "Xanthochromic", "Bloody"] },
-      { "fieldName": "opening_pressure", "fieldType": "number", "label": "Opening Pressure", "unit": "cmH2O", "referenceRange": "10–20" },
-      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "mg/dL", "referenceRange": "15–45" },
-      { "fieldName": "glucose", "fieldType": "number", "label": "Glucose", "unit": "mmol/L", "referenceRange": "2.8–4.4" },
-      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "0–5" },
+      { "fieldName": "opening_pressure", "fieldType": "number", "label": "Opening Pressure", "unit": "cmH2O", "referenceRange": "10–20", "lowThreshold": 10, "highThreshold": 20 },
+      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "mg/dL", "referenceRange": "15–45", "lowThreshold": 15, "highThreshold": 45 },
+      { "fieldName": "glucose", "fieldType": "number", "label": "Glucose", "unit": "mmol/L", "referenceRange": "2.8–4.4", "lowThreshold": 2.8, "highThreshold": 4.4 },
+      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "0–5", "lowThreshold": 0, "highThreshold": 5 },
       { "fieldName": "rbc_count", "fieldType": "number", "label": "RBC Count", "unit": "cells/μL", "referenceRange": "0" },
       { "fieldName": "neutrophils", "fieldType": "number", "label": "Neutrophils", "unit": "%", "referenceRange": "0" },
-      { "fieldName": "lymphocytes", "fieldType": "number", "label": "Lymphocytes", "unit": "%", "referenceRange": "60–70" },
+      { "fieldName": "lymphocytes", "fieldType": "number", "label": "Lymphocytes", "unit": "%", "referenceRange": "60–70", "lowThreshold": 60, "highThreshold": 70 },
       { "fieldName": "gram_stain", "fieldType": "text", "label": "Gram Stain", "referenceRange": "No organisms seen" }
     ]
   },
@@ -1085,22 +1335,22 @@
     "isTaxable": false,
     "resultTemplate": [
       { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Straw-colored", "options": ["Straw-colored", "Bloody", "Turbid", "Purulent"] },
-      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "g/L", "referenceRange": "<30 (Transudate)" },
-      { "fieldName": "ldh", "fieldType": "number", "label": "LDH", "unit": "U/L", "referenceRange": "<200" },
-      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<1000" },
+      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "g/L", "referenceRange": "<30", "highThreshold": 30 },
+      { "fieldName": "ldh", "fieldType": "number", "label": "LDH", "unit": "U/L", "referenceRange": "<200", "highThreshold": 200 },
+      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<1000", "highThreshold": 1000 },
       { "fieldName": "rbc_count", "fieldType": "number", "label": "RBC Count", "unit": "cells/μL", "referenceRange": "0" }
     ]
   },
   {
     "name": "Peripheral Blood Film",
-    "investigationCode": "INVE30H",
+    "investigationCode": "INVE53D",
     "category": "hematology",
     "subCategory": "morphology",
     "description": "Blood film examination",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE30H",
+    "tariffCode": "LAB-INVE53D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
@@ -1112,11 +1362,153 @@
     ]
   },
   {
+    "name": "Platelet Count",
+    "investigationCode": "INVE110",
+    "category": "hematology",
+    "subCategory": "basic",
+    "description": "Platelet count only",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE110",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "plt", "fieldType": "number", "label": "Platelet Count", "unit": "x 10^9/L", "referenceRange": "150–450", "lowThreshold": 150, "highThreshold": 450 }
+    ]
+  },
+  {
+    "name": "Absolute Eosinophil Count",
+    "investigationCode": "INVE150",
+    "category": "hematology",
+    "subCategory": "basic",
+    "description": "Absolute eosinophil count",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE150",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "aec", "fieldType": "number", "label": "Absolute Eosinophil Count", "unit": "cells/μL", "referenceRange": "<500", "highThreshold": 500 }
+    ]
+  },
+  {
+    "name": "Reticulocyte Count",
+    "investigationCode": "INVE96D",
+    "category": "hematology",
+    "subCategory": "basic",
+    "description": "Reticulocyte count for bone marrow function",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE96D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "reticulocyte_count", "fieldType": "number", "label": "Reticulocyte Count", "unit": "%", "referenceRange": "0.5–2.5", "lowThreshold": 0.5, "highThreshold": 2.5 },
+      { "fieldName": "absolute_reticulocyte", "fieldType": "number", "label": "Absolute Reticulocyte", "unit": "x 10^9/L", "referenceRange": "25–100", "lowThreshold": 25, "highThreshold": 100 }
+    ]
+  },
+  {
+    "name": "WBC + Differential",
+    "investigationCode": "INVE120",
+    "category": "hematology",
+    "subCategory": "basic",
+    "description": "White blood cell count with differential",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE120",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "wbc", "fieldType": "number", "label": "White Blood Cell Count", "unit": "x 10^9/L", "referenceRange": "4.0–11.0", "lowThreshold": 4.0, "highThreshold": 11.0 },
+      { "fieldName": "neutrophils", "fieldType": "number", "label": "Neutrophils", "unit": "%", "referenceRange": "40–70", "lowThreshold": 40, "highThreshold": 70 },
+      { "fieldName": "lymphocytes", "fieldType": "number", "label": "Lymphocytes", "unit": "%", "referenceRange": "20–40", "lowThreshold": 20, "highThreshold": 40 },
+      { "fieldName": "monocytes", "fieldType": "number", "label": "Monocytes", "unit": "%", "referenceRange": "2–10", "lowThreshold": 2, "highThreshold": 10 },
+      { "fieldName": "eosinophils", "fieldType": "number", "label": "Eosinophils", "unit": "%", "referenceRange": "1–6", "lowThreshold": 1, "highThreshold": 6 },
+      { "fieldName": "basophils", "fieldType": "number", "label": "Basophils", "unit": "%", "referenceRange": "0–1", "lowThreshold": 0, "highThreshold": 1 }
+    ]
+  },
+  {
+    "name": "Arterial Blood Gas (ABG)",
+    "investigationCode": "INVE07D",
+    "category": "biochemistry",
+    "subCategory": "blood_gas",
+    "description": "Arterial blood gas analysis",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE07D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "7.35–7.45", "lowThreshold": 7.35, "highThreshold": 7.45 },
+      { "fieldName": "pco2", "fieldType": "number", "label": "pCO2", "unit": "mmHg", "referenceRange": "35–45", "lowThreshold": 35, "highThreshold": 45 },
+      { "fieldName": "po2", "fieldType": "number", "label": "pO2", "unit": "mmHg", "referenceRange": "80–100", "lowThreshold": 80, "highThreshold": 100 },
+      { "fieldName": "hco3", "fieldType": "number", "label": "HCO3", "unit": "mmol/L", "referenceRange": "22–26", "lowThreshold": 22, "highThreshold": 26 },
+      { "fieldName": "base_excess", "fieldType": "number", "label": "Base Excess", "unit": "mmol/L", "referenceRange": "-2 to +2", "lowThreshold": -2, "highThreshold": 2 },
+      { "fieldName": "o2_saturation", "fieldType": "number", "label": "O2 Saturation", "unit": "%", "referenceRange": "95–100", "lowThreshold": 95, "highThreshold": 100 }
+    ]
+  },
+  {
+    "name": "ECG",
+    "investigationCode": "INVE41D",
+    "category": "cardiology",
+    "subCategory": "ecg",
+    "description": "Electrocardiogram",
+    "specimenType": "other",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE41D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "ecg_report", "fieldType": "textarea", "label": "ECG Report", "referenceRange": "Normal sinus rhythm" }
+    ]
+  },
+  {
+    "name": "EEG (Electroencephalogram)",
+    "investigationCode": "INVE142",
+    "category": "neurology",
+    "subCategory": "eeg",
+    "description": "Electroencephalogram",
+    "specimenType": "other",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE142",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "eeg_report", "fieldType": "textarea", "label": "EEG Report", "referenceRange": "Normal" }
+    ]
+  },
+  {
+    "name": "Pulmonary Function Test",
+    "investigationCode": "INVE135",
+    "category": "pulmonology",
+    "subCategory": "pft",
+    "description": "Spirometry and lung function",
+    "specimenType": "other",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE135",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "fev1", "fieldType": "number", "label": "FEV1", "unit": "L", "referenceRange": ">80% predicted", "lowThreshold": 80 },
+      { "fieldName": "fvc", "fieldType": "number", "label": "FVC", "unit": "L", "referenceRange": ">80% predicted", "lowThreshold": 80 },
+      { "fieldName": "fev1_fvc_ratio", "fieldType": "number", "label": "FEV1/FVC Ratio", "unit": "%", "referenceRange": ">70", "lowThreshold": 70 }
+    ]
+  }
+  ,
+  {
     "name": "Dengue NS1 Antigen",
     "investigationCode": "INVE33S",
     "category": "serology",
     "subCategory": "viral",
-    "description": "Early dengue detection",
+    "description": "Early dengue detection (NS1 antigen)",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1132,7 +1524,7 @@
     "investigationCode": "INVE34S",
     "category": "serology",
     "subCategory": "viral",
-    "description": "Dengue serology",
+    "description": "Dengue serology for past/current infection",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1149,7 +1541,7 @@
     "investigationCode": "INVE35S",
     "category": "serology",
     "subCategory": "viral",
-    "description": "Chikungunya serology",
+    "description": "Chikungunya virus serology",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1195,11 +1587,11 @@
     ]
   },
   {
-    "name": "Wound Swab Culture",
+    "name": "Wound Swab Culture & Sensitivity",
     "investigationCode": "INVE27M",
     "category": "microbiology",
     "subCategory": "bacteriology",
-    "description": "Wound swab culture and sensitivity",
+    "description": "Wound swab culture with antibiotic sensitivity",
     "specimenType": "swab",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1209,15 +1601,16 @@
     "resultTemplate": [
       { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Growth observed", "Mixed growth"] },
       { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
-      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" }
+      { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" },
+      { "fieldName": "resistant_antibiotics", "fieldType": "textarea", "label": "Resistant Antibiotics", "referenceRange": "N/A" }
     ]
   },
   {
-    "name": "Sputum for AFB",
+    "name": "Sputum for Acid-Fast Bacilli (AFB)",
     "investigationCode": "INVE53M",
     "category": "microbiology",
     "subCategory": "mycobacteriology",
-    "description": "Sputum AFB smear for TB",
+    "description": "Sputum AFB smear microscopy for TB screening",
     "specimenType": "sputum",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1234,7 +1627,7 @@
     "investigationCode": "INVE54M",
     "category": "molecular",
     "subCategory": "tb",
-    "description": "Molecular TB test with rifampicin resistance",
+    "description": "Molecular TB test with rifampicin resistance detection",
     "specimenType": "sputum",
     "isActive": true,
     "requiresAuthorization": true,
@@ -1252,7 +1645,7 @@
     "investigationCode": "INVE51M",
     "category": "microbiology",
     "subCategory": "body_fluids",
-    "description": "Ascitic fluid examination",
+    "description": "Ascitic fluid examination for liver disease patients",
     "specimenType": "fluid",
     "isActive": true,
     "requiresAuthorization": true,
@@ -1261,10 +1654,10 @@
     "isTaxable": false,
     "resultTemplate": [
       { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Straw-colored", "options": ["Straw-colored", "Cloudy", "Bloody", "Chylous"] },
-      { "fieldName": "saag", "fieldType": "number", "label": "SAAG", "unit": "g/L", "referenceRange": "≥1.1 (Portal hypertension)" },
-      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "g/L", "referenceRange": "<25 (Transudate)" },
-      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<250" },
-      { "fieldName": "pmn_percent", "fieldType": "number", "label": "PMN %", "unit": "%", "referenceRange": "<50" }
+      { "fieldName": "saag", "fieldType": "number", "label": "SAAG", "unit": "g/L", "referenceRange": "≥1.1", "lowThreshold": 1.1 },
+      { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "g/L", "referenceRange": "<25", "highThreshold": 25 },
+      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<250", "highThreshold": 250 },
+      { "fieldName": "pmn_percent", "fieldType": "number", "label": "PMN %", "unit": "%", "referenceRange": "<50", "highThreshold": 50 }
     ]
   },
   {
@@ -1272,7 +1665,7 @@
     "investigationCode": "INVE52M",
     "category": "microbiology",
     "subCategory": "body_fluids",
-    "description": "Joint fluid analysis",
+    "description": "Joint fluid analysis for arthritis/gout",
     "specimenType": "fluid",
     "isActive": true,
     "requiresAuthorization": true,
@@ -1282,33 +1675,17 @@
     "resultTemplate": [
       { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Clear, straw-colored", "options": ["Clear, straw-colored", "Cloudy", "Bloody", "Purulent"] },
       { "fieldName": "viscosity", "fieldType": "select", "label": "Viscosity", "referenceRange": "High", "options": ["High", "Low"] },
-      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<200" },
-      { "fieldName": "pmn_percent", "fieldType": "number", "label": "PMN %", "unit": "%", "referenceRange": "<25" },
+      { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<200", "highThreshold": 200 },
+      { "fieldName": "pmn_percent", "fieldType": "number", "label": "PMN %", "unit": "%", "referenceRange": "<25", "highThreshold": 25 },
       { "fieldName": "crystals", "fieldType": "select", "label": "Crystals", "referenceRange": "None seen", "options": ["None seen", "Urate crystals", "Calcium pyrophosphate", "Hydroxyapatite"] }
     ]
   },
   {
-    "name": "Fructosamine",
-    "investigationCode": "INVE40B",
-    "category": "biochemistry",
-    "subCategory": "diabetes",
-    "description": "2-3 week average glucose control",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE40B",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "fructosamine", "fieldType": "number", "label": "Fructosamine", "unit": "μmol/L", "referenceRange": "200–285" }
-    ]
-  },
-  {
-    "name": "Spot Urine Protein Creatinine Ratio",
+    "name": "Spot Urine Protein Creatinine Ratio (UPCR)",
     "investigationCode": "INVE44B",
     "category": "biochemistry",
     "subCategory": "renal",
-    "description": "Proteinuria quantification",
+    "description": "Proteinuria quantification (spot urine)",
     "specimenType": "urine",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1316,135 +1693,58 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "upcr", "fieldType": "number", "label": "UPCR", "unit": "mg/mmol", "referenceRange": "<30" }
+      { "fieldName": "urine_protein", "fieldType": "number", "label": "Urine Protein", "unit": "mg/dL", "referenceRange": "<30" },
+      { "fieldName": "urine_creatinine", "fieldType": "number", "label": "Urine Creatinine", "unit": "mg/dL", "referenceRange": "N/A" },
+      { "fieldName": "upcr", "fieldType": "number", "label": "UPCR", "unit": "mg/mmol", "referenceRange": "<30", "highThreshold": 30 }
     ]
   },
   {
-    "name": "24-Hour Urine Protein",
-    "investigationCode": "INVE45B",
+    "name": "Fructosamine",
+    "investigationCode": "INVE40B",
     "category": "biochemistry",
-    "subCategory": "renal",
-    "description": "24-hour urinary protein excretion",
-    "specimenType": "urine",
+    "subCategory": "diabetes",
+    "description": "2-3 week average glucose control (alternative to HbA1c)",
+    "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE45B",
+    "tariffCode": "LAB-INVE40B",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "urine_protein_24h", "fieldType": "number", "label": "Urine Protein", "unit": "g/24h", "referenceRange": "<0.15" },
-      { "fieldName": "urine_volume", "fieldType": "number", "label": "24h Urine Volume", "unit": "mL", "referenceRange": "800–2000" }
+      { "fieldName": "fructosamine", "fieldType": "number", "label": "Fructosamine", "unit": "μmol/L", "referenceRange": "200–285", "lowThreshold": 200, "highThreshold": 285 }
     ]
   }
   ,
   {
-    "name": "2 Hour Post Prandial Blood Glucose",
-    "investigationCode": "INVE01D",
-    "category": "biochemistry",
-    "subCategory": "glucose",
-    "description": "Post-meal blood glucose test",
+    "name": "TPHA (Treponema Pallidum Hemagglutination Assay)",
+    "investigationCode": "INVE37E",
+    "category": "serology",
+    "subCategory": "syphilis",
+    "description": "Confirmatory test for syphilis",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE01D",
+    "tariffCode": "LAB-INVE37E",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "glucose_2hr_pp", "fieldType": "number", "label": "2 Hour Post Prandial Glucose", "unit": "mmol/L", "referenceRange": "<7.8" }
+      { "fieldName": "tpha", "fieldType": "select", "label": "TPHA Result", "referenceRange": "Non-reactive", "options": ["Non-reactive", "Reactive"] }
     ]
   },
   {
-    "name": "24 Hour Urine for Protein",
-    "investigationCode": "INVE02D",
-    "category": "urinalysis",
-    "subCategory": "protein",
-    "description": "24-hour urine protein quantification",
-    "specimenType": "urine",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE02D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "total_protein_24h", "fieldType": "number", "label": "Total Protein", "unit": "mg/24h", "referenceRange": "<150" },
-      { "fieldName": "urine_volume", "fieldType": "number", "label": "Urine Volume", "unit": "mL", "referenceRange": "N/A" }
-    ]
-  },
-  {
-    "name": "Arterial Blood Gas (ABG)",
-    "investigationCode": "INVE07D",
-    "category": "biochemistry",
-    "subCategory": "blood_gas",
-    "description": "Arterial blood gas analysis",
+    "name": "Hepatitis C Antibody",
+    "investigationCode": "INVE105",
+    "category": "serology",
+    "subCategory": "hepatitis",
+    "description": "Hepatitis C virus antibody screening",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE07D",
+    "tariffCode": "LAB-INVE105",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ph", "fieldType": "number", "label": "pH", "referenceRange": "7.35–7.45" },
-      { "fieldName": "pco2", "fieldType": "number", "label": "pCO2", "unit": "mmHg", "referenceRange": "35–45" },
-      { "fieldName": "po2", "fieldType": "number", "label": "pO2", "unit": "mmHg", "referenceRange": "80–100" },
-      { "fieldName": "hco3", "fieldType": "number", "label": "HCO3", "unit": "mmol/L", "referenceRange": "22–26" },
-      { "fieldName": "base_excess", "fieldType": "number", "label": "Base Excess", "unit": "mmol/L", "referenceRange": "-2 to +2" },
-      { "fieldName": "o2_saturation", "fieldType": "number", "label": "O2 Saturation", "unit": "%", "referenceRange": "95–100" }
-    ]
-  },
-  {
-    "name": "Bleeding and Clotting Time",
-    "investigationCode": "INVE15D",
-    "category": "hematology",
-    "subCategory": "coagulation",
-    "description": "Bleeding and clotting time test",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE15D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "bleeding_time", "fieldType": "number", "label": "Bleeding Time", "unit": "minutes", "referenceRange": "1–9" },
-      { "fieldName": "clotting_time", "fieldType": "number", "label": "Clotting Time", "unit": "minutes", "referenceRange": "5–11" }
-    ]
-  },
-  {
-    "name": "Blood Urea & Electrolytes",
-    "investigationCode": "INVE21D",
-    "category": "biochemistry",
-    "subCategory": "renal",
-    "description": "Urea and electrolyte panel",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE21D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1" },
-      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145" },
-      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1" },
-      { "fieldName": "chloride", "fieldType": "number", "label": "Chloride", "unit": "mmol/L", "referenceRange": "98–107" },
-      { "fieldName": "bicarbonate", "fieldType": "number", "label": "Bicarbonate", "unit": "mmol/L", "referenceRange": "22–29" }
-    ]
-  },
-  {
-    "name": "BUE & Creatinine",
-    "investigationCode": "INVE24D",
-    "category": "biochemistry",
-    "subCategory": "renal",
-    "description": "Blood urea, electrolytes and creatinine",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE24D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1" },
-      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106" },
-      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145" },
-      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1" }
+      { "fieldName": "hcv_antibody", "fieldType": "select", "label": "Anti-HCV", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
     ]
   },
   {
@@ -1460,342 +1760,193 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "cd4_count", "fieldType": "number", "label": "CD4 Count", "unit": "cells/μL", "referenceRange": "500–1500" },
-      { "fieldName": "cd4_percentage", "fieldType": "number", "label": "CD4 Percentage", "unit": "%", "referenceRange": "30–60" }
+      { "fieldName": "cd4_count", "fieldType": "number", "label": "CD4 Count", "unit": "cells/μL", "referenceRange": "500–1500", "lowThreshold": 500, "highThreshold": 1500 },
+      { "fieldName": "cd4_percentage", "fieldType": "number", "label": "CD4 Percentage", "unit": "%", "referenceRange": "30–60", "lowThreshold": 30, "highThreshold": 60 }
     ]
   },
   {
-    "name": "Coombs Test (Direct)",
-    "investigationCode": "INVE28D",
-    "category": "immunology",
-    "subCategory": "autoimmune",
-    "description": "Direct antiglobulin test for hemolytic anemia",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE28D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "direct_coombs", "fieldType": "select", "label": "Direct Coombs Test", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
-    ]
-  },
-  {
-    "name": "Creatine Kinase (CK)",
-    "investigationCode": "INVE30D",
+    "name": "Prostate Specific Antigen (PSA)",
+    "investigationCode": "INVE94D",
     "category": "biochemistry",
-    "subCategory": "cardiac",
-    "description": "Total creatine kinase",
+    "subCategory": "tumor_markers",
+    "description": "Prostate cancer screening test",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE30D",
+    "tariffCode": "LAB-INVE94D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ck_total", "fieldType": "number", "label": "Creatine Kinase", "unit": "U/L", "referenceRange": "30–200" }
+      { "fieldName": "total_psa", "fieldType": "number", "label": "Total PSA", "unit": "ng/mL", "referenceRange": "<4.0", "highThreshold": 4.0 },
+      { "fieldName": "free_psa", "fieldType": "number", "label": "Free PSA", "unit": "ng/mL", "referenceRange": "N/A" },
+      { "fieldName": "free_psa_ratio", "fieldType": "number", "label": "Free/Total PSA Ratio", "unit": "%", "referenceRange": ">25", "lowThreshold": 25 }
     ]
   },
   {
-    "name": "CSF Latex Agglutination",
-    "investigationCode": "INVE31D",
-    "category": "microbiology",
-    "subCategory": "cns",
-    "description": "CSF latex agglutination for bacterial antigens",
-    "specimenType": "csf",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE31D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "latex_agglutination", "fieldType": "select", "label": "Latex Agglutination", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
-      { "fieldName": "antigen_detected", "fieldType": "text", "label": "Antigen Detected", "referenceRange": "None" }
-    ]
-  },
-  {
-    "name": "Cytology",
-    "investigationCode": "INVE36D",
-    "category": "pathology",
-    "subCategory": "cytology",
-    "description": "Cytological examination of cells",
-    "specimenType": "fluid",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE36D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "cytology_result", "fieldType": "textarea", "label": "Cytology Report", "referenceRange": "No malignant cells seen" }
-    ]
-  },
-  {
-    "name": "Digoxin Level",
-    "investigationCode": "INVE37D",
+    "name": "Glycosylated Haemoglobin (HbA1c)",
+    "investigationCode": "INVE57D",
     "category": "biochemistry",
-    "subCategory": "therapeutic_drug",
-    "description": "Serum digoxin level monitoring",
+    "subCategory": "diabetes",
+    "description": "3-month average blood glucose control",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE37D",
+    "tariffCode": "LAB-INVE57D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "digoxin", "fieldType": "number", "label": "Digoxin Level", "unit": "ng/mL", "referenceRange": "0.5–2.0" }
+      { "fieldName": "hba1c", "fieldType": "number", "label": "HbA1c", "unit": "%", "referenceRange": "4.0–5.6", "lowThreshold": 4.0, "highThreshold": 5.6 },
+      { "fieldName": "estimated_avg_glucose", "fieldType": "number", "label": "Estimated Average Glucose", "unit": "mmol/L", "referenceRange": "3.9–7.0", "lowThreshold": 3.9, "highThreshold": 7.0 }
     ]
   },
   {
-    "name": "DHEA-S",
-    "investigationCode": "INVE38D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Dehydroepiandrosterone sulfate",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE38D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "dheas", "fieldType": "number", "label": "DHEA-S", "unit": "μmol/L", "referenceRange": "Male: 2.4–14.3, Female: 1.3–9.8" }
-    ]
-  },
-  {
-    "name": "ECG",
-    "investigationCode": "INVE41D",
-    "category": "cardiology",
-    "subCategory": "ecg",
-    "description": "Electrocardiogram",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE41D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ecg_report", "fieldType": "textarea", "label": "ECG Report", "referenceRange": "Normal sinus rhythm" }
-    ]
-  },
-  {
-    "name": "Estrogen (E2)",
-    "investigationCode": "INVE43D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Estradiol level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE43D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "estradiol", "fieldType": "number", "label": "Estradiol", "unit": "pmol/L", "referenceRange": "Follicular: 70–550, Luteal: 200–800" }
-    ]
-  },
-  {
-    "name": "Factor IX Assay",
-    "investigationCode": "INVE44D",
-    "category": "hematology",
-    "subCategory": "coagulation",
-    "description": "Factor IX activity assay",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE44D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "factor_ix", "fieldType": "number", "label": "Factor IX Activity", "unit": "%", "referenceRange": "50–150" }
-    ]
-  },
-  {
-    "name": "Factor VIII Assay",
-    "investigationCode": "INVE45D",
-    "category": "hematology",
-    "subCategory": "coagulation",
-    "description": "Factor VIII activity assay",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE45D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "factor_viii", "fieldType": "number", "label": "Factor VIII Activity", "unit": "%", "referenceRange": "50–150" }
-    ]
-  },
-  {
-    "name": "FSH",
-    "investigationCode": "INVE48D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Follicle stimulating hormone",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE48D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "fsh", "fieldType": "number", "label": "FSH", "unit": "IU/L", "referenceRange": "Follicular: 3.5–12.5, Postmenopausal: 25–135" }
-    ]
-  },
-  {
-    "name": "FT3",
-    "investigationCode": "INVE49D",
-    "category": "biochemistry",
-    "subCategory": "thyroid",
-    "description": "Free T3",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE49D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5" }
-    ]
-  },
-  {
-    "name": "FT4",
-    "investigationCode": "INVE50D",
-    "category": "biochemistry",
-    "subCategory": "thyroid",
-    "description": "Free T4",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE50D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23" }
-    ]
-  },
-  {
-    "name": "Fungal Culture",
-    "investigationCode": "INVE54D",
-    "category": "microbiology",
-    "subCategory": "mycology",
-    "description": "Fungal culture and identification",
-    "specimenType": "swab",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE54D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "fungal_culture", "fieldType": "select", "label": "Fungal Culture", "referenceRange": "No growth", "options": ["No growth", "Growth observed"] },
-      { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" }
-    ]
-  },
-  {
-    "name": "GGT",
-    "investigationCode": "INVE55D",
+    "name": "Liver Function Tests (LFT)",
+    "investigationCode": "INVE74D",
     "category": "biochemistry",
     "subCategory": "liver",
-    "description": "Gamma-glutamyl transferase",
+    "description": "Comprehensive liver function panel",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE55D",
+    "tariffCode": "LAB-INVE74D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "ggt", "fieldType": "number", "label": "GGT", "unit": "U/L", "referenceRange": "9–48" }
+      { "fieldName": "alt", "fieldType": "number", "label": "ALT (SGPT)", "unit": "U/L", "referenceRange": "7–56", "lowThreshold": 7, "highThreshold": 56 },
+      { "fieldName": "ast", "fieldType": "number", "label": "AST (SGOT)", "unit": "U/L", "referenceRange": "5–40", "lowThreshold": 5, "highThreshold": 40 },
+      { "fieldName": "alp", "fieldType": "number", "label": "Alkaline Phosphatase", "unit": "U/L", "referenceRange": "44–147", "lowThreshold": 44, "highThreshold": 147 },
+      { "fieldName": "ggt", "fieldType": "number", "label": "GGT", "unit": "U/L", "referenceRange": "9–48", "lowThreshold": 9, "highThreshold": 48 },
+      { "fieldName": "total_bilirubin", "fieldType": "number", "label": "Total Bilirubin", "unit": "μmol/L", "referenceRange": "3.4–20.5", "lowThreshold": 3.4, "highThreshold": 20.5 },
+      { "fieldName": "direct_bilirubin", "fieldType": "number", "label": "Direct Bilirubin", "unit": "μmol/L", "referenceRange": "0–5.1", "lowThreshold": 0, "highThreshold": 5.1 },
+      { "fieldName": "total_protein", "fieldType": "number", "label": "Total Protein", "unit": "g/L", "referenceRange": "60–80", "lowThreshold": 60, "highThreshold": 80 },
+      { "fieldName": "albumin", "fieldType": "number", "label": "Albumin", "unit": "g/L", "referenceRange": "35–50", "lowThreshold": 35, "highThreshold": 50 }
     ]
   },
   {
-    "name": "G6PD",
-    "investigationCode": "INVE56D",
-    "category": "hematology",
-    "subCategory": "enzyme",
-    "description": "Glucose-6-phosphate dehydrogenase",
+    "name": "Renal Function Test (RFT)",
+    "investigationCode": "INVE112",
+    "category": "biochemistry",
+    "subCategory": "renal",
+    "description": "Kidney function test panel",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE56D",
+    "tariffCode": "LAB-INVE112",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "g6pd", "fieldType": "number", "label": "G6PD", "unit": "U/g Hb", "referenceRange": "7.0–20.0" }
+      { "fieldName": "urea", "fieldType": "number", "label": "Urea", "unit": "mmol/L", "referenceRange": "2.5–7.1", "lowThreshold": 2.5, "highThreshold": 7.1 },
+      { "fieldName": "creatinine", "fieldType": "number", "label": "Creatinine", "unit": "μmol/L", "referenceRange": "62–106", "lowThreshold": 62, "highThreshold": 106 }
     ]
   },
   {
-    "name": "Hb Electrophoresis (Quantitative)",
-    "investigationCode": "INVE15E",
-    "category": "hematology",
-    "subCategory": "hemoglobinopathy",
-    "description": "Quantitative hemoglobin electrophoresis",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE15E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "hb_a", "fieldType": "number", "label": "Hb A", "unit": "%", "referenceRange": "95–98" },
-      { "fieldName": "hb_a2", "fieldType": "number", "label": "Hb A2", "unit": "%", "referenceRange": "2.2–3.8" },
-      { "fieldName": "hb_f", "fieldType": "number", "label": "Hb F", "unit": "%", "referenceRange": "<1" },
-      { "fieldName": "hb_s", "fieldType": "number", "label": "Hb S", "unit": "%", "referenceRange": "0" }
-    ]
-  },
-  {
-    "name": "Hb A2 & F Estimation",
-    "investigationCode": "INVE58D",
-    "category": "hematology",
-    "subCategory": "hemoglobinopathy",
-    "description": "Hemoglobin A2 and F estimation",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE58D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "hb_a2", "fieldType": "number", "label": "Hb A2", "unit": "%", "referenceRange": "2.2–3.8" },
-      { "fieldName": "hb_f", "fieldType": "number", "label": "Hb F", "unit": "%", "referenceRange": "<1" }
-    ]
-  },
-  {
-    "name": "Hemoglobin Estimation",
-    "investigationCode": "INVE60D",
-    "category": "hematology",
-    "subCategory": "basic",
-    "description": "Hemoglobin level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE60D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "hemoglobin", "fieldType": "number", "label": "Hemoglobin", "unit": "g/dL", "referenceRange": "Male: 13.5–17.5, Female: 12.0–15.5" }
-    ]
-  },
-  {
-    "name": "HDL Cholesterol",
-    "investigationCode": "INVE61D",
+    "name": "Lipid Profile",
+    "investigationCode": "INVE75D",
     "category": "biochemistry",
     "subCategory": "lipids",
-    "description": "High-density lipoprotein cholesterol",
+    "description": "Complete lipid profile for cardiovascular risk",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE61D",
+    "tariffCode": "LAB-INVE75D",
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "hdl", "fieldType": "number", "label": "HDL Cholesterol", "unit": "mmol/L", "referenceRange": ">1.0" }
+      { "fieldName": "total_cholesterol", "fieldType": "number", "label": "Total Cholesterol", "unit": "mmol/L", "referenceRange": "<5.2", "highThreshold": 5.2 },
+      { "fieldName": "triglycerides", "fieldType": "number", "label": "Triglycerides", "unit": "mmol/L", "referenceRange": "<1.7", "highThreshold": 1.7 },
+      { "fieldName": "hdl_cholesterol", "fieldType": "number", "label": "HDL Cholesterol", "unit": "mmol/L", "referenceRange": ">1.0", "lowThreshold": 1.0 },
+      { "fieldName": "ldl_cholesterol", "fieldType": "number", "label": "LDL Cholesterol", "unit": "mmol/L", "referenceRange": "<2.6", "highThreshold": 2.6 },
+      { "fieldName": "vldl", "fieldType": "number", "label": "VLDL", "unit": "mmol/L", "referenceRange": "<0.78", "highThreshold": 0.78 }
     ]
   },
   {
-    "name": "Hepatitis B Profile",
+    "name": "Thyroid Function Test (TSH, FT3, FT4)",
+    "investigationCode": "INVE24E",
+    "category": "biochemistry",
+    "subCategory": "thyroid",
+    "description": "Complete thyroid function profile",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE24E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0", "lowThreshold": 0.4, "highThreshold": 4.0 },
+      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5", "lowThreshold": 3.5, "highThreshold": 6.5 },
+      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23", "lowThreshold": 9, "highThreshold": 23 }
+    ]
+  },
+  {
+    "name": "Ferritin",
+    "investigationCode": "INVE08E",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Iron storage marker for anemia diagnosis",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE08E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "ferritin", "fieldType": "number", "label": "Ferritin", "unit": "ng/mL", "referenceRange": "30–400", "lowThreshold": 30, "highThreshold": 400 }
+    ]
+  },
+  {
+    "name": "Serum Iron",
+    "investigationCode": "INVE09E",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Serum iron level for anemia workup",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE09E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "serum_iron", "fieldType": "number", "label": "Serum Iron", "unit": "μg/dL", "referenceRange": "50–170", "lowThreshold": 50, "highThreshold": 170 }
+    ]
+  },
+  {
+    "name": "Total Iron Binding Capacity (TIBC)",
+    "investigationCode": "INVE26E",
+    "category": "biochemistry",
+    "subCategory": "hematinic",
+    "description": "Total iron binding capacity for anemia evaluation",
+    "specimenType": "blood",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE26E",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "tibc", "fieldType": "number", "label": "TIBC", "unit": "μg/dL", "referenceRange": "250–400", "lowThreshold": 250, "highThreshold": 400 }
+    ]
+  },
+  {
+    "name": "Helicobacter Pylori Stool Antigen",
+    "investigationCode": "INVE62D",
+    "category": "microbiology",
+    "subCategory": "gastrointestinal",
+    "description": "H. pylori stool antigen test for gastritis/ulcer",
+    "specimenType": "stool",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE62D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      { "fieldName": "h_pylori_antigen", "fieldType": "select", "label": "H. pylori Antigen", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
+    "name": "Hepatitis B Profile (Full)",
     "investigationCode": "INVE64D",
     "category": "serology",
     "subCategory": "hepatitis",
-    "description": "Complete Hepatitis B profile",
+    "description": "Complete Hepatitis B serological profile",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -1805,422 +1956,17 @@
     "resultTemplate": [
       { "fieldName": "hbsag", "fieldType": "select", "label": "HBsAg", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
       { "fieldName": "anti_hbs", "fieldType": "select", "label": "Anti-HBs", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
-      { "fieldName": "anti_hbc", "fieldType": "select", "label": "Anti-HBc", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+      { "fieldName": "anti_hbc", "fieldType": "select", "label": "Anti-HBc", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "hbeag", "fieldType": "select", "label": "HBeAg", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+      { "fieldName": "anti_hbe", "fieldType": "select", "label": "Anti-HBe", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
     ]
   },
   {
-    "name": "High Vaginal Swab Routine",
-    "investigationCode": "INVE66D",
-    "category": "microbiology",
-    "subCategory": "gynecology",
-    "description": "Routine vaginal swab examination",
-    "specimenType": "swab",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE66D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "pus_cells", "fieldType": "select", "label": "Pus Cells", "referenceRange": "Scanty", "options": ["None", "Scanty", "Moderate", "Many"] },
-      { "fieldName": "epithelial_cells", "fieldType": "select", "label": "Epithelial Cells", "referenceRange": "Moderate", "options": ["None", "Scanty", "Moderate", "Many"] },
-      { "fieldName": "trichomonas", "fieldType": "select", "label": "Trichomonas", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
-      { "fieldName": "yeast_cells", "fieldType": "select", "label": "Yeast Cells", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] }
-    ]
-  },
-  {
-    "name": "Histopathology",
-    "investigationCode": "INVE67D",
-    "category": "pathology",
-    "subCategory": "histopathology",
-    "description": "Tissue biopsy examination",
-    "specimenType": "tissue",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE67D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "histopathology_report", "fieldType": "textarea", "label": "Histopathology Report", "referenceRange": "No significant pathology" }
-    ]
-  },
-  {
-    "name": "HIV Confirmatory Test",
-    "investigationCode": "INVE68D",
-    "category": "serology",
-    "subCategory": "hiv",
-    "description": "HIV confirmatory test (Western blot or similar)",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE68D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "hiv_confirmation", "fieldType": "select", "label": "HIV Confirmatory", "referenceRange": "Negative", "options": ["Negative", "Positive", "Indeterminate"] }
-    ]
-  },
-  {
-    "name": "Immunostaining",
-    "investigationCode": "INVE71D",
-    "category": "pathology",
-    "subCategory": "immunohistochemistry",
-    "description": "Immunohistochemical staining",
-    "specimenType": "tissue",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE71D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "immunostaining_result", "fieldType": "textarea", "label": "Immunostaining Result", "referenceRange": "N/A" }
-    ]
-  },
-  {
-    "name": "LDL Cholesterol",
-    "investigationCode": "INVE73D",
-    "category": "biochemistry",
-    "subCategory": "lipids",
-    "description": "Low-density lipoprotein cholesterol",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE73D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ldl", "fieldType": "number", "label": "LDL Cholesterol", "unit": "mmol/L", "referenceRange": "<2.6" }
-    ]
-  },
-  {
-    "name": "LE Cell",
-    "investigationCode": "INVE76D",
-    "category": "hematology",
-    "subCategory": "autoimmune",
-    "description": "Lupus erythematosus cell test",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE76D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "le_cell", "fieldType": "select", "label": "LE Cell", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
-    ]
-  },
-  {
-    "name": "LH",
-    "investigationCode": "INVE77D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Luteinizing hormone",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE77D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "lh", "fieldType": "number", "label": "LH", "unit": "IU/L", "referenceRange": "Follicular: 2.4–12.6, Mid-cycle: 14–95" }
-    ]
-  },
-  {
-    "name": "Miscellaneous Cultures",
-    "investigationCode": "INVE79D",
-    "category": "microbiology",
-    "subCategory": "bacteriology",
-    "description": "Culture of fluids, aspirates & exudates",
-    "specimenType": "fluid",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE79D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Growth observed"] },
-      { "fieldName": "organism", "fieldType": "text", "label": "Organism", "referenceRange": "None" }
-    ]
-  },
-  {
-    "name": "Pancreatic Amylase",
-    "investigationCode": "INVE85D",
-    "category": "biochemistry",
-    "subCategory": "pancreatic",
-    "description": "Pancreatic specific amylase",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE85D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "pancreatic_amylase", "fieldType": "number", "label": "Pancreatic Amylase", "unit": "U/L", "referenceRange": "13–53" }
-    ]
-  },
-  {
-    "name": "Pap Smear",
-    "investigationCode": "INVE86D",
-    "category": "pathology",
-    "subCategory": "cytology",
-    "description": "Cervical cancer screening",
-    "specimenType": "swab",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE86D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "pap_result", "fieldType": "select", "label": "Pap Smear Result", "referenceRange": "Negative for intraepithelial lesion", "options": ["Negative", "ASC-US", "LSIL", "HSIL", "AGC"] }
-    ]
-  },
-  {
-    "name": "Plasma Cortisol",
-    "investigationCode": "INVE91D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Plasma cortisol level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE91D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "cortisol", "fieldType": "number", "label": "Cortisol", "unit": "nmol/L", "referenceRange": "AM: 171–536, PM: 64–327" }
-    ]
-  },
-  {
-    "name": "Progesterone",
-    "investigationCode": "INVE93D",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Progesterone level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE93D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "progesterone", "fieldType": "number", "label": "Progesterone", "unit": "nmol/L", "referenceRange": "Follicular: 0.3–3.0, Luteal: 5–60" }
-    ]
-  },
-  {
-    "name": "Reticulocyte Count",
-    "investigationCode": "INVE96D",
-    "category": "hematology",
-    "subCategory": "basic",
-    "description": "Reticulocyte count for bone marrow function",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE96D",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "reticulocyte_count", "fieldType": "number", "label": "Reticulocyte Count", "unit": "%", "referenceRange": "0.5–2.5" },
-      { "fieldName": "absolute_reticulocyte", "fieldType": "number", "label": "Absolute Reticulocyte", "unit": "x 10^9/L", "referenceRange": "25–100" }
-    ]
-  },
-  {
-    "name": "Serum ACTH",
-    "investigationCode": "INVE01E",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Adrenocorticotropic hormone",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE01E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "acth", "fieldType": "number", "label": "ACTH", "unit": "pg/mL", "referenceRange": "10–60" }
-    ]
-  },
-  {
-    "name": "Serum Albumin",
-    "investigationCode": "INVE02E",
-    "category": "biochemistry",
-    "subCategory": "protein",
-    "description": "Serum albumin level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE02E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "albumin", "fieldType": "number", "label": "Albumin", "unit": "g/L", "referenceRange": "35–50" }
-    ]
-  },
-  {
-    "name": "Serum Electrolytes (Na+, K+)",
-    "investigationCode": "INVE07E",
-    "category": "biochemistry",
-    "subCategory": "electrolytes",
-    "description": "Sodium and potassium",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE07E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "sodium", "fieldType": "number", "label": "Sodium", "unit": "mmol/L", "referenceRange": "136–145" },
-      { "fieldName": "potassium", "fieldType": "number", "label": "Potassium", "unit": "mmol/L", "referenceRange": "3.5–5.1" }
-    ]
-  },
-  {
-    "name": "Serum Iron",
-    "investigationCode": "INVE09E",
-    "category": "biochemistry",
-    "subCategory": "hematinic",
-    "description": "Serum iron level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE09E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "serum_iron", "fieldType": "number", "label": "Serum Iron", "unit": "μg/dL", "referenceRange": "50–170" }
-    ]
-  },
-  {
-    "name": "Serum LDH",
-    "investigationCode": "INVE10E",
-    "category": "biochemistry",
-    "subCategory": "enzyme",
-    "description": "Lactate dehydrogenase",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE10E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ldh", "fieldType": "number", "label": "LDH", "unit": "U/L", "referenceRange": "140–280" }
-    ]
-  },
-  {
-    "name": "Serum Total Protein",
-    "investigationCode": "INVE12E",
-    "category": "biochemistry",
-    "subCategory": "protein",
-    "description": "Total protein level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE12E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "total_protein", "fieldType": "number", "label": "Total Protein", "unit": "g/L", "referenceRange": "60–80" }
-    ]
-  },
-  {
-    "name": "Serum Triglyceride",
-    "investigationCode": "INVE13E",
-    "category": "biochemistry",
-    "subCategory": "lipids",
-    "description": "Triglyceride level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE13E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "triglycerides", "fieldType": "number", "label": "Triglyceride", "unit": "mmol/L", "referenceRange": "<1.7" }
-    ]
-  },
-  {
-    "name": "Skin Scraping for Fungal",
-    "investigationCode": "INVE17E",
-    "category": "microbiology",
-    "subCategory": "mycology",
-    "description": "Skin scraping for fungal elements",
-    "specimenType": "tissue",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE17E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "fungal_elements", "fieldType": "select", "label": "Fungal Elements", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
-      { "fieldName": "hyphae", "fieldType": "select", "label": "Hyphae", "referenceRange": "Absent", "options": ["Absent", "Present"] }
-    ]
-  },
-  {
-    "name": "Skin Snip",
-    "investigationCode": "INVE18E",
-    "category": "microbiology",
-    "subCategory": "parasitology",
-    "description": "Skin snip for microfilaria",
-    "specimenType": "tissue",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE18E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "microfilaria", "fieldType": "select", "label": "Microfilaria", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] }
-    ]
-  },
-  {
-    "name": "Stool for Occult Blood",
-    "investigationCode": "INVE20E",
-    "category": "gastroenterology",
-    "subCategory": "stool",
-    "description": "Fecal occult blood test",
-    "specimenType": "stool",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE20E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "occult_blood", "fieldType": "select", "label": "Occult Blood", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
-    ]
-  },
-  {
-    "name": "T3",
-    "investigationCode": "INVE21E",
-    "category": "biochemistry",
-    "subCategory": "thyroid",
-    "description": "Total T3",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE21E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "t3", "fieldType": "number", "label": "T3", "unit": "nmol/L", "referenceRange": "1.2–2.8" }
-    ]
-  },
-  {
-    "name": "T4",
-    "investigationCode": "INVE22E",
-    "category": "biochemistry",
-    "subCategory": "thyroid",
-    "description": "Total T4",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE22E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "t4", "fieldType": "number", "label": "T4", "unit": "nmol/L", "referenceRange": "55–150" }
-    ]
-  },
-  {
-    "name": "Thyroid Profile (TSH, FT3, FT4)",
+    "name": "Thyroid Profile (Extended)",
     "investigationCode": "INVE25E",
     "category": "biochemistry",
     "subCategory": "thyroid",
-    "description": "Complete thyroid profile",
+    "description": "Extended thyroid profile including T3 and T4",
     "specimenType": "blood",
     "isActive": true,
     "requiresAuthorization": false,
@@ -2228,287 +1974,1005 @@
     "vatRate": 0,
     "isTaxable": false,
     "resultTemplate": [
-      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0" },
-      { "fieldName": "ft3", "fieldType": "number", "label": "Free T3", "unit": "pmol/L", "referenceRange": "3.5–6.5" },
-      { "fieldName": "ft4", "fieldType": "number", "label": "Free T4", "unit": "pmol/L", "referenceRange": "9–23" }
-    ]
-  },
-  {
-    "name": "TIBC",
-    "investigationCode": "INVE26E",
-    "category": "biochemistry",
-    "subCategory": "hematinic",
-    "description": "Total iron binding capacity",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE26E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "tibc", "fieldType": "number", "label": "TIBC", "unit": "μg/dL", "referenceRange": "250–400" }
-    ]
-  },
-  {
-    "name": "Total Serum Cholesterol",
-    "investigationCode": "INVE27E",
-    "category": "biochemistry",
-    "subCategory": "lipids",
-    "description": "Total cholesterol level",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE27E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "total_cholesterol", "fieldType": "number", "label": "Total Cholesterol", "unit": "mmol/L", "referenceRange": "<5.2" }
-    ]
-  },
-  {
-    "name": "Trophozoite Count",
-    "investigationCode": "INVE28E",
-    "category": "microbiology",
-    "subCategory": "parasitology",
-    "description": "Quantitative malaria parasite count",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE28E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "parasite_count", "fieldType": "number", "label": "Parasite Count", "unit": "parasites/μL", "referenceRange": "0" }
-    ]
-  },
-  {
-    "name": "Urine for Bence Jones Protein",
-    "investigationCode": "INVE35E",
-    "category": "urinalysis",
-    "subCategory": "protein",
-    "description": "Bence Jones protein in urine",
-    "specimenType": "urine",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE35E",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "bence_jones", "fieldType": "select", "label": "Bence Jones Protein", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
-    ]
-  },
-  {
-    "name": "Viral Serology",
-    "investigationCode": "INVE133",
-    "category": "serology",
-    "subCategory": "viral",
-    "description": "Viral serology panel",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE133",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "viral_igm", "fieldType": "select", "label": "IgM", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
-      { "fieldName": "viral_igg", "fieldType": "select", "label": "IgG", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
-      { "fieldName": "virus_type", "fieldType": "text", "label": "Virus Type", "referenceRange": "N/A" }
-    ]
-  },
-  {
-    "name": "Calcium Infusion Test",
-    "investigationCode": "INVE134",
-    "category": "biochemistry",
-    "subCategory": "endocrine",
-    "description": "Calcium infusion test for gastrinoma",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE134",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "gastrin_baseline", "fieldType": "number", "label": "Baseline Gastrin", "unit": "pg/mL", "referenceRange": "<100" },
-      { "fieldName": "gastrin_post_calcium", "fieldType": "number", "label": "Post-Calcium Gastrin", "unit": "pg/mL", "referenceRange": "N/A" }
-    ]
-  },
-  {
-    "name": "Pulmonary Function Test",
-    "investigationCode": "INVE135",
-    "category": "pulmonology",
-    "subCategory": "pft",
-    "description": "Spirometry and lung function",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE135",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "fev1", "fieldType": "number", "label": "FEV1", "unit": "L", "referenceRange": ">80% predicted" },
-      { "fieldName": "fvc", "fieldType": "number", "label": "FVC", "unit": "L", "referenceRange": ">80% predicted" },
-      { "fieldName": "fev1_fvc_ratio", "fieldType": "number", "label": "FEV1/FVC Ratio", "unit": "%", "referenceRange": ">70" }
-    ]
-  },
-  {
-    "name": "CA 19-9",
-    "investigationCode": "INVE137",
-    "category": "biochemistry",
-    "subCategory": "tumor_markers",
-    "description": "Pancreatic cancer marker",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE137",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "ca_19_9", "fieldType": "number", "label": "CA 19-9", "unit": "U/mL", "referenceRange": "<37" }
-    ]
-  },
-  {
-    "name": "EEG",
-    "investigationCode": "INVE142",
-    "category": "neurology",
-    "subCategory": "eeg",
-    "description": "Electroencephalogram",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE142",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "eeg_report", "fieldType": "textarea", "label": "EEG Report", "referenceRange": "Normal" }
-    ]
-  },
-  {
-    "name": "Holter Monitor",
-    "investigationCode": "INVE143",
-    "category": "cardiology",
-    "subCategory": "ecg",
-    "description": "24-hour ambulatory ECG monitoring",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE143",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "holter_report", "fieldType": "textarea", "label": "Holter Report", "referenceRange": "Normal sinus rhythm" }
-    ]
-  },
-  {
-    "name": "Angiography",
-    "investigationCode": "INVE144",
-    "category": "radiology",
-    "subCategory": "angiography",
-    "description": "Blood vessel imaging",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE144",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "angiography_report", "fieldType": "textarea", "label": "Angiography Report", "referenceRange": "Normal vessels" }
-    ]
-  },
-  {
-    "name": "Typhi Dot",
-    "investigationCode": "INVE149",
-    "category": "serology",
-    "subCategory": "febrile_illness",
-    "description": "Typhoid IgM/IgG rapid test",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE149",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "typhi_igm", "fieldType": "select", "label": "Typhi IgM", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
-      { "fieldName": "typhi_igg", "fieldType": "select", "label": "Typhi IgG", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
-    ]
-  },
-  {
-    "name": "Absolute Eosinophil Count",
-    "investigationCode": "INVE150",
-    "category": "hematology",
-    "subCategory": "basic",
-    "description": "Absolute eosinophil count",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE150",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "aec", "fieldType": "number", "label": "Absolute Eosinophil Count", "unit": "cells/μL", "referenceRange": "<500" }
-    ]
-  },
-  {
-    "name": "Blood Sugar PP",
-    "investigationCode": "INVE151",
-    "category": "biochemistry",
-    "subCategory": "glucose",
-    "description": "Post prandial blood sugar",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE151",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "glucose_pp", "fieldType": "number", "label": "Post Prandial Glucose", "unit": "mmol/L", "referenceRange": "<7.8" }
-    ]
-  },
-  {
-    "name": "Biopsy L/A",
-    "investigationCode": "INVE152",
-    "category": "pathology",
-    "subCategory": "histopathology",
-    "description": "Biopsy macroscopic description",
-    "specimenType": "tissue",
-    "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE152",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "macroscopic_description", "fieldType": "textarea", "label": "Macroscopic Description", "referenceRange": "N/A" }
-    ]
-  },
-  {
-    "name": "Gonioscopy",
-    "investigationCode": "INVE155",
-    "category": "ophthalmology",
-    "subCategory": "eye",
-    "description": "Angle of anterior chamber examination",
-    "specimenType": "other",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE155",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "gonioscopy_result", "fieldType": "text", "label": "Gonioscopy Result", "referenceRange": "Open angles" }
-    ]
-  },
-  {
-    "name": "Hematocrit",
-    "investigationCode": "INVE156",
-    "category": "hematology",
-    "subCategory": "basic",
-    "description": "Packed cell volume",
-    "specimenType": "blood",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE156",
-    "vatRate": 0,
-    "isTaxable": false,
-    "resultTemplate": [
-      { "fieldName": "hematocrit", "fieldType": "number", "label": "Hematocrit", "unit": "%", "referenceRange": "Male: 40–52, Female: 36–48" }
+      { "fieldName": "tsh", "fieldType": "number", "label": "TSH", "unit": "mIU/L", "referenceRange": "0.4–4.0", "lowThreshold": 0.4, "highThreshold": 4.0 },
+      { "fieldName": "t3", "fieldType": "number", "label": "Total T3", "unit": "nmol/L", "referenceRange": "1.2–2.8", "lowThreshold": 1.2, "highThreshold": 2.8 },
+      { "fieldName": "t4", "fieldType": "number", "label": "Total T4", "unit": "nmol/L", "referenceRange": "55–150", "lowThreshold": 55, "highThreshold": 150 }
     ]
   }
-]
+,{
+  "name": "Absolute Eosinophil Count",
+  "investigationCode": "INVE150",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Absolute eosinophil count for allergic/parasitic conditions",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE150",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "aec", "fieldType": "number", "label": "Absolute Eosinophil Count", "unit": "cells/μL", "referenceRange": "30–500", "lowThreshold": 30, "highThreshold": 500 }
+  ]
+},
+{
+  "name": "Bleeding and Clotting Time",
+  "investigationCode": "INVE15D",
+  "category": "hematology",
+  "subCategory": "coagulation",
+  "description": "Bleeding and clotting time test for coagulation disorders",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE15D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "bleeding_time", "fieldType": "number", "label": "Bleeding Time (Ivy)", "unit": "minutes", "referenceRange": "2–9", "lowThreshold": 2, "highThreshold": 9 },
+    { "fieldName": "clotting_time", "fieldType": "number", "label": "Clotting Time (Lee-White)", "unit": "minutes", "referenceRange": "5–11", "lowThreshold": 5, "highThreshold": 11 }
+  ]
+},
+{
+  "name": "Blood Grouping & Antibody Screen",
+  "investigationCode": "INVE18D",
+  "category": "hematology",
+  "subCategory": "blood_group",
+  "description": "ABO/Rh blood grouping with atypical antibody screening",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE18D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "abo_group", "fieldType": "select", "label": "ABO Blood Group", "referenceRange": "N/A", "options": ["A", "B", "AB", "O"] },
+    { "fieldName": "rh_type", "fieldType": "select", "label": "Rh Type", "referenceRange": "N/A", "options": ["Positive", "Negative"] },
+    { "fieldName": "antibody_screen", "fieldType": "select", "label": "Atypical Antibody Screen", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+  ]
+},
+{
+  "name": "Crossmatching",
+  "investigationCode": "INVE104",
+  "category": "hematology",
+  "subCategory": "blood_group",
+  "description": "Crossmatching for blood transfusion",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE104",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "crossmatch_result", "fieldType": "select", "label": "Crossmatch Result", "referenceRange": "Compatible", "options": ["Compatible", "Incompatible"] }
+  ]
+},
+{
+  "name": "Reticulocyte Count",
+  "investigationCode": "INVE96D",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Reticulocyte count for bone marrow function assessment",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE96D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "reticulocyte_percent", "fieldType": "number", "label": "Reticulocyte Count", "unit": "%", "referenceRange": "0.5–2.5", "lowThreshold": 0.5, "highThreshold": 2.5 },
+    { "fieldName": "absolute_reticulocyte", "fieldType": "number", "label": "Absolute Reticulocyte Count", "unit": "x 10^9/L", "referenceRange": "25–100", "lowThreshold": 25, "highThreshold": 100 }
+  ]
+},
+{
+  "name": "Total Leucocyte Count",
+  "investigationCode": "INVE114",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Total white blood cell count only",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE114",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "wbc", "fieldType": "number", "label": "Total Leucocyte Count", "unit": "x 10^9/L", "referenceRange": "4.0–11.0", "lowThreshold": 4.0, "highThreshold": 11.0 }
+  ]
+},
+{
+  "name": "Acid Phosphatase",
+  "investigationCode": "INVE100",
+  "category": "biochemistry",
+  "subCategory": "enzyme",
+  "description": "Acid phosphatase for prostate pathology",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE100",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "acid_phosphatase", "fieldType": "number", "label": "Acid Phosphatase", "unit": "U/L", "referenceRange": "0–3", "highThreshold": 3 }
+  ]
+},
+{
+  "name": "Aldolase",
+  "investigationCode": "INVE101",
+  "category": "biochemistry",
+  "subCategory": "enzyme",
+  "description": "Aldolase for muscle disease",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE101",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "aldolase", "fieldType": "number", "label": "Aldolase", "unit": "U/L", "referenceRange": "1.0–7.5", "lowThreshold": 1.0, "highThreshold": 7.5 }
+  ]
+},
+{
+  "name": "Chloride",
+  "investigationCode": "INVE101",
+  "category": "biochemistry",
+  "subCategory": "electrolytes",
+  "description": "Serum chloride level",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE101",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "chloride", "fieldType": "number", "label": "Chloride", "unit": "mmol/L", "referenceRange": "98–107", "lowThreshold": 98, "highThreshold": 107 }
+  ]
+},
+{
+  "name": "Digoxin Level",
+  "investigationCode": "INVE37D",
+  "category": "biochemistry",
+  "subCategory": "therapeutic_drug",
+  "description": "Serum digoxin level monitoring",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE37D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "digoxin", "fieldType": "number", "label": "Digoxin Level", "unit": "ng/mL", "referenceRange": "0.8–2.0", "lowThreshold": 0.8, "highThreshold": 2.0 }
+  ]
+},
+{
+  "name": "DHEA-S",
+  "investigationCode": "INVE38D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Dehydroepiandrosterone sulfate for adrenal function",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE38D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "dheas", "fieldType": "number", "label": "DHEA-S", "unit": "μg/dL", "referenceRange": "M: 80–560, F: 35–430", "lowThreshold": 35, "highThreshold": 560 }
+  ]
+},
+{
+  "name": "Estrogen (Estradiol)",
+  "investigationCode": "INVE43D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Estradiol level for fertility/menopause",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE43D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "estradiol", "fieldType": "number", "label": "Estradiol", "unit": "pmol/L", "referenceRange": "Follicular: 70–550, Luteal: 200–800, Postmenopausal: <130", "lowThreshold": 70, "highThreshold": 550 }
+  ]
+},
+{
+  "name": "Follicle Stimulating Hormone",
+  "investigationCode": "INVE48D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "FSH for fertility/menopause assessment",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE48D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "fsh", "fieldType": "number", "label": "FSH", "unit": "IU/L", "referenceRange": "Follicular: 3.5–12.5, Ovulatory: 4.7–21.5, Luteal: 1.7–7.7, Postmenopausal: 25–135", "lowThreshold": 1.7, "highThreshold": 135 }
+  ]
+},
+{
+  "name": "Luteinizing Hormone",
+  "investigationCode": "INVE77D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "LH for fertility assessment",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE77D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "lh", "fieldType": "number", "label": "Luteinizing Hormone", "unit": "IU/L", "referenceRange": "Follicular: 2.4–12.6, Mid-cycle: 14–95, Luteal: 1.0–11.4, Postmenopausal: 7.7–58.5", "lowThreshold": 1.0, "highThreshold": 95 }
+  ]
+},
+{
+  "name": "Plasma Cortisol",
+  "investigationCode": "INVE91D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Plasma cortisol for adrenal function",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE91D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "cortisol_am", "fieldType": "number", "label": "Cortisol (8 AM)", "unit": "nmol/L", "referenceRange": "171–536", "lowThreshold": 171, "highThreshold": 536 },
+    { "fieldName": "cortisol_pm", "fieldType": "number", "label": "Cortisol (4 PM)", "unit": "nmol/L", "referenceRange": "64–327", "lowThreshold": 64, "highThreshold": 327 }
+  ]
+},
+{
+  "name": "Progesterone",
+  "investigationCode": "INVE93D",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Progesterone for fertility/menstrual disorders",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE93D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "progesterone", "fieldType": "number", "label": "Progesterone", "unit": "nmol/L", "referenceRange": "Follicular: 0.3–3.0, Luteal: 5–60, Postmenopausal: <0.6", "lowThreshold": 0.3, "highThreshold": 60 }
+  ]
+},
+{
+  "name": "Serum ACTH",
+  "investigationCode": "INVE01E",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Adrenocorticotropic hormone for pituitary function",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE01E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "acth", "fieldType": "number", "label": "ACTH", "unit": "pg/mL", "referenceRange": "10–60", "lowThreshold": 10, "highThreshold": 60 }
+  ]
+},
+{
+  "name": "Serum Prolactin",
+  "investigationCode": "INVE11E",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Prolactin for hyperprolactinemia/fertility",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE11E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "prolactin", "fieldType": "number", "label": "Prolactin", "unit": "mIU/L", "referenceRange": "M: 86–324, F: 102–496", "lowThreshold": 86, "highThreshold": 496 }
+  ]
+},
+{
+  "name": "Testosterone",
+  "investigationCode": "INVE23E",
+  "category": "biochemistry",
+  "subCategory": "endocrine",
+  "description": "Total testosterone for hypogonadism/hirsutism",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE23E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "testosterone", "fieldType": "number", "label": "Testosterone", "unit": "nmol/L", "referenceRange": "M: 8.64–29.0, F: 0.29–1.67", "lowThreshold": 0.29, "highThreshold": 29.0 }
+  ]
+},
+{
+  "name": "Anti-Streptolysin O Titre",
+  "investigationCode": "INVE154",
+  "category": "serology",
+  "subCategory": "streptococcal",
+  "description": "ASO titre for post-streptococcal complications",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE154",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "aso_titre", "fieldType": "number", "label": "ASO Titre", "unit": "IU/mL", "referenceRange": "<200", "highThreshold": 200 }
+  ]
+},
+{
+  "name": "Coombs Test (Direct)",
+  "investigationCode": "INVE28D",
+  "category": "immunology",
+  "subCategory": "autoimmune",
+  "description": "Direct antiglobulin test for hemolytic anemia",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE28D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "direct_coombs", "fieldType": "select", "label": "Direct Coombs Test", "referenceRange": "Negative", "options": ["Negative", "Positive (1+)", "Positive (2+)", "Positive (3+)", "Positive (4+)"] }
+  ]
+},
+{
+  "name": "CSF Latex Agglutination",
+  "investigationCode": "INVE31D",
+  "category": "microbiology",
+  "subCategory": "cns",
+  "description": "CSF latex agglutination for bacterial antigens",
+  "specimenType": "csf",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE31D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "latex_result", "fieldType": "select", "label": "Latex Agglutination", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+    { "fieldName": "antigen_detected", "fieldType": "select", "label": "Antigen Detected", "referenceRange": "None", "options": ["None", "S. pneumoniae", "N. meningitidis", "H. influenzae type b", "E. coli K1", "S. agalactiae"] }
+  ]
+},
+{
+  "name": "Donor Screening for HB & AG",
+  "investigationCode": "INVE103",
+  "category": "serology",
+  "subCategory": "blood_bank",
+  "description": "Donor screening for Hepatitis B and Australia antigen",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE103",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "hbsag", "fieldType": "select", "label": "HBsAg", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+    { "fieldName": "hcv", "fieldType": "select", "label": "Hepatitis C Antibody", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+    { "fieldName": "hiv", "fieldType": "select", "label": "HIV", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+  ]
+},
+{
+  "name": "LE Cell",
+  "investigationCode": "INVE76D",
+  "category": "immunology",
+  "subCategory": "autoimmune",
+  "description": "Lupus erythematosus cell test for SLE",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE76D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "le_cell", "fieldType": "select", "label": "LE Cell", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+  ]
+},
+{
+  "name": "Rheumatoid Factor",
+  "investigationCode": "INVE97D",
+  "category": "serology",
+  "subCategory": "autoimmune",
+  "description": "Rheumatoid factor for arthritis diagnosis",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE97D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "rf", "fieldType": "number", "label": "Rheumatoid Factor", "unit": "IU/mL", "referenceRange": "<14", "highThreshold": 14 }
+  ]
+},
+{
+  "name": "TPHA",
+  "investigationCode": "INVE37E",
+  "category": "serology",
+  "subCategory": "syphilis",
+  "description": "Treponema pallidum hemagglutination assay for syphilis confirmation",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE37E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "tpha", "fieldType": "select", "label": "TPHA", "referenceRange": "Non-reactive", "options": ["Non-reactive", "Reactive"] }
+  ]
+},
+{
+  "name": "Typhi Dot",
+  "investigationCode": "INVE149",
+  "category": "serology",
+  "subCategory": "febrile_illness",
+  "description": "Typhoid IgM/IgG rapid test",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE149",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "typhi_igm", "fieldType": "select", "label": "Typhi IgM", "referenceRange": "Negative", "options": ["Negative", "Positive"] },
+    { "fieldName": "typhi_igg", "fieldType": "select", "label": "Typhi IgG", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+  ]
+},
+{
+  "name": "VDRL/RPR",
+  "investigationCode": "INVE36E",
+  "category": "serology",
+  "subCategory": "syphilis",
+  "description": "Syphilis screening test",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE36E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "vdrl", "fieldType": "select", "label": "VDRL/RPR", "referenceRange": "Non-reactive", "options": ["Non-reactive", "Reactive (1:1)", "Reactive (1:2)", "Reactive (1:4)", "Reactive (1:8)", "Reactive (1:16)"] }
+  ]
+},
+{
+  "name": "Viral Serology",
+  "investigationCode": "INVE133",
+  "category": "serology",
+  "subCategory": "viral",
+  "description": "Viral serology panel (IgM/IgG for multiple viruses)",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE133",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "virus_type", "fieldType": "text", "label": "Virus Tested", "referenceRange": "N/A" },
+    { "fieldName": "igm_result", "fieldType": "select", "label": "IgM", "referenceRange": "Negative", "options": ["Negative", "Positive", "Equivocal"] },
+    { "fieldName": "igg_result", "fieldType": "select", "label": "IgG", "referenceRange": "Negative", "options": ["Negative", "Positive", "Equivocal"] }
+  ]
+},
+{
+  "name": "Blood Culture and Sensitivity",
+  "investigationCode": "INVE16D",
+  "category": "microbiology",
+  "subCategory": "bacteriology",
+  "description": "Blood culture for bacteremia with antibiotic sensitivity",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE16D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Growth observed"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
+    { "fieldName": "time_to_positivity", "fieldType": "number", "label": "Time to Positivity", "unit": "hours", "referenceRange": "N/A" },
+    { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" },
+    { "fieldName": "resistant_antibiotics", "fieldType": "textarea", "label": "Resistant Antibiotics", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Cerebrospinal Fluid for C/S",
+  "investigationCode": "INVE26D",
+  "category": "microbiology",
+  "subCategory": "cns",
+  "description": "CSF culture and sensitivity for meningitis",
+  "specimenType": "csf",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE26D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Growth observed"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
+    { "fieldName": "gram_stain", "fieldType": "text", "label": "Gram Stain", "referenceRange": "No organisms seen" },
+    { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Fungal Cultures",
+  "investigationCode": "INVE54D",
+  "category": "microbiology",
+  "subCategory": "mycology",
+  "description": "Fungal culture and identification",
+  "specimenType": "swab",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE54D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Fungal Culture", "referenceRange": "No growth", "options": ["No growth", "Growth observed"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" }
+  ]
+},
+{
+  "name": "High Vaginal Swab Routine",
+  "investigationCode": "INVE66D",
+  "category": "microbiology",
+  "subCategory": "gynecology",
+  "description": "Routine vaginal swab microscopic examination",
+  "specimenType": "swab",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE66D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "pus_cells", "fieldType": "select", "label": "Pus Cells", "referenceRange": "Scanty", "options": ["None", "Scanty", "Moderate", "Many"] },
+    { "fieldName": "epithelial_cells", "fieldType": "select", "label": "Epithelial Cells", "referenceRange": "Moderate", "options": ["None", "Scanty", "Moderate", "Many"] },
+    { "fieldName": "trichomonas", "fieldType": "select", "label": "Trichomonas vaginalis", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
+    { "fieldName": "yeast_cells", "fieldType": "select", "label": "Yeast Cells", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
+    { "fieldName": "clue_cells", "fieldType": "select", "label": "Clue Cells", "referenceRange": "Absent", "options": ["Absent", "Present"] }
+  ]
+},
+{
+  "name": "Miscellaneous Cultures",
+  "investigationCode": "INVE79D",
+  "category": "microbiology",
+  "subCategory": "bacteriology",
+  "description": "Culture of fluids, aspirates and exudates",
+  "specimenType": "fluid",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE79D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "specimen_type", "fieldType": "text", "label": "Specimen Type", "referenceRange": "N/A" },
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Growth observed", "Mixed growth"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" }
+  ]
+},
+{
+  "name": "Pleural Fluid Analysis",
+  "investigationCode": "INVE136",
+  "category": "microbiology",
+  "subCategory": "body_fluids",
+  "description": "Pleural fluid analysis for effusion",
+  "specimenType": "fluid",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE136",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "appearance", "fieldType": "select", "label": "Appearance", "referenceRange": "Straw-colored", "options": ["Straw-colored", "Bloody", "Turbid", "Purulent"] },
+    { "fieldName": "protein", "fieldType": "number", "label": "Protein", "unit": "g/L", "referenceRange": "<30 (Transudate), >30 (Exudate)" },
+    { "fieldName": "ldh", "fieldType": "number", "label": "LDH", "unit": "U/L", "referenceRange": "<200" },
+    { "fieldName": "glucose", "fieldType": "number", "label": "Glucose", "unit": "mmol/L", "referenceRange": "3.3–5.5" },
+    { "fieldName": "wbc_count", "fieldType": "number", "label": "WBC Count", "unit": "cells/μL", "referenceRange": "<1000", "highThreshold": 1000 }
+  ]
+},
+{
+  "name": "Skin Scraping for Fungal Elements",
+  "investigationCode": "INVE17E",
+  "category": "microbiology",
+  "subCategory": "mycology",
+  "description": "Microscopic examination of skin scrapings for fungi",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE17E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "fungal_elements", "fieldType": "select", "label": "Fungal Elements", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
+    { "fieldName": "hyphae", "fieldType": "select", "label": "Hyphae", "referenceRange": "Absent", "options": ["Absent", "Septate hyphae", "Aseptate hyphae"] },
+    { "fieldName": "yeast", "fieldType": "select", "label": "Yeast Cells", "referenceRange": "Absent", "options": ["Absent", "Present"] }
+  ]
+},
+{
+  "name": "Skin Snip",
+  "investigationCode": "INVE18E",
+  "category": "microbiology",
+  "subCategory": "parasitology",
+  "description": "Skin snip for microfilaria detection",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE18E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "microfilaria", "fieldType": "select", "label": "Microfilaria", "referenceRange": "Not seen", "options": ["Not seen", "Seen"] },
+    { "fieldName": "species", "fieldType": "select", "label": "Species if seen", "referenceRange": "N/A", "options": ["Not applicable", "Onchocerca volvulus", "Mansonella perstans", "Loa loa"] }
+  ]
+},
+{
+  "name": "Stool Culture & Sensitivity",
+  "investigationCode": "INVE19E",
+  "category": "microbiology",
+  "subCategory": "bacteriology",
+  "description": "Stool culture for enteric pathogens",
+  "specimenType": "stool",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE19E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No growth", "options": ["No growth", "Normal flora", "Pathogen isolated"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
+    { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Urine Culture and Sensitivity",
+  "investigationCode": "INVE34E",
+  "category": "microbiology",
+  "subCategory": "bacteriology",
+  "description": "Urine culture for UTI with sensitivity",
+  "specimenType": "urine",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE34E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "culture_result", "fieldType": "select", "label": "Culture Result", "referenceRange": "No significant growth", "options": ["No significant growth", "Significant growth (>10^5 CFU/mL)", "Mixed growth", "Contaminated"] },
+    { "fieldName": "organism", "fieldType": "text", "label": "Organism Identified", "referenceRange": "None" },
+    { "fieldName": "colony_count", "fieldType": "number", "label": "Colony Count", "unit": "CFU/mL", "referenceRange": "<10000", "highThreshold": 100000 },
+    { "fieldName": "sensitive_antibiotics", "fieldType": "textarea", "label": "Sensitive Antibiotics", "referenceRange": "N/A" },
+    { "fieldName": "resistant_antibiotics", "fieldType": "textarea", "label": "Resistant Antibiotics", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Biopsy L/A (Macroscopic Description)",
+  "investigationCode": "INVE152",
+  "category": "pathology",
+  "subCategory": "histopathology",
+  "description": "Biopsy macroscopic description and tissue processing",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE152",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "specimen_type", "fieldType": "text", "label": "Specimen Type", "referenceRange": "N/A" },
+    { "fieldName": "macroscopic_description", "fieldType": "textarea", "label": "Macroscopic Description", "referenceRange": "N/A" },
+    { "fieldName": "microscopic_description", "fieldType": "textarea", "label": "Microscopic Description", "referenceRange": "N/A" },
+    { "fieldName": "diagnosis", "fieldType": "textarea", "label": "Histopathological Diagnosis", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Bone Marrow Aspirate",
+  "investigationCode": "INVE23D",
+  "category": "pathology",
+  "subCategory": "hematopathology",
+  "description": "Bone marrow aspiration for hematological disorders",
+  "specimenType": "marrow",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE23D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "cellularity", "fieldType": "select", "label": "Cellularity", "referenceRange": "Normocellular", "options": ["Hypocellular", "Normocellular", "Hypercellular"] },
+    { "fieldName": "myeloid_erythroid_ratio", "fieldType": "number", "label": "M:E Ratio", "referenceRange": "2:1 to 4:1", "lowThreshold": 2, "highThreshold": 4 },
+    { "fieldName": "blast_percentage", "fieldType": "number", "label": "Blast Cells", "unit": "%", "referenceRange": "<5", "highThreshold": 5 },
+    { "fieldName": "megakaryocytes", "fieldType": "select", "label": "Megakaryocytes", "referenceRange": "Adequate", "options": ["Decreased", "Adequate", "Increased"] },
+    { "fieldName": "dysplasia", "fieldType": "select", "label": "Dysplasia", "referenceRange": "Absent", "options": ["Absent", "Present"] }
+  ]
+},
+{
+  "name": "Bone Marrow - Trephine Biopsy",
+  "investigationCode": "INVE22D",
+  "category": "pathology",
+  "subCategory": "hematopathology",
+  "description": "Bone marrow trephine biopsy for hematological disorders",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE22D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "cellularity", "fieldType": "text", "label": "Cellularity", "referenceRange": "Age-appropriate" },
+    { "fieldName": "architecture", "fieldType": "textarea", "label": "Bone Marrow Architecture", "referenceRange": "Normal" },
+    { "fieldName": "infiltrate", "fieldType": "textarea", "label": "Infiltrate (if present)", "referenceRange": "None" },
+    { "fieldName": "fibrosis", "fieldType": "select", "label": "Fibrosis", "referenceRange": "Absent", "options": ["Absent", "Mild", "Moderate", "Severe"] },
+    { "fieldName": "diagnosis", "fieldType": "textarea", "label": "Diagnosis", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Cytology",
+  "investigationCode": "INVE36D",
+  "category": "pathology",
+  "subCategory": "cytology",
+  "description": "Cytological examination of body fluids or aspirates",
+  "specimenType": "fluid",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE36D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "specimen_source", "fieldType": "text", "label": "Specimen Source", "referenceRange": "N/A" },
+    { "fieldName": "adequacy", "fieldType": "select", "label": "Specimen Adequacy", "referenceRange": "Satisfactory", "options": ["Unsatisfactory", "Satisfactory", "Limited"] },
+    { "fieldName": "cytology_result", "fieldType": "textarea", "label": "Cytology Report", "referenceRange": "No malignant cells seen" }
+  ]
+},
+{
+  "name": "Fine Needle Aspiration",
+  "investigationCode": "INVE86D",
+  "category": "pathology",
+  "subCategory": "cytology",
+  "description": "Fine needle aspiration cytology",
+  "specimenType": "aspirate",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE86D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "site", "fieldType": "text", "label": "Aspiration Site", "referenceRange": "N/A" },
+    { "fieldName": "adequacy", "fieldType": "select", "label": "Specimen Adequacy", "referenceRange": "Adequate", "options": ["Inadequate", "Adequate"] },
+    { "fieldName": "cytology_result", "fieldType": "textarea", "label": "Cytology Result", "referenceRange": "Benign" }
+  ]
+},
+{
+  "name": "Histopathology",
+  "investigationCode": "INVE67D",
+  "category": "pathology",
+  "subCategory": "histopathology",
+  "description": "Gross and microscopic examination of tissue biopsy",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE67D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "specimen_type", "fieldType": "text", "label": "Specimen Type", "referenceRange": "N/A" },
+    { "fieldName": "gross_description", "fieldType": "textarea", "label": "Gross Description", "referenceRange": "N/A" },
+    { "fieldName": "microscopic_description", "fieldType": "textarea", "label": "Microscopic Description", "referenceRange": "N/A" },
+    { "fieldName": "diagnosis", "fieldType": "textarea", "label": "Pathological Diagnosis", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Immunostaining",
+  "investigationCode": "INVE71D",
+  "category": "pathology",
+  "subCategory": "immunohistochemistry",
+  "description": "Immunohistochemical staining for tissue diagnosis",
+  "specimenType": "tissue",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE71D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "antibody_panel", "fieldType": "textarea", "label": "Antibodies Tested", "referenceRange": "N/A" },
+    { "fieldName": "staining_pattern", "fieldType": "textarea", "label": "Staining Pattern", "referenceRange": "N/A" },
+    { "fieldName": "interpretation", "fieldType": "textarea", "label": "Interpretation", "referenceRange": "N/A" }
+  ]
+},
+{
+  "name": "Pap Smear",
+  "investigationCode": "INVE86D",
+  "category": "pathology",
+  "subCategory": "cytology",
+  "description": "Cervical cancer screening (Pap smear)",
+  "specimenType": "swab",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE86D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "specimen_adequacy", "fieldType": "select", "label": "Specimen Adequacy", "referenceRange": "Satisfactory", "options": ["Unsatisfactory", "Satisfactory"] },
+    { "fieldName": "interpretation", "fieldType": "select", "label": "Interpretation", "referenceRange": "Negative for intraepithelial lesion", "options": ["Negative for intraepithelial lesion", "ASC-US", "ASC-H", "LSIL", "HSIL", "AGC", "Squamous cell carcinoma", "Adenocarcinoma"] },
+    { "fieldName": "microorganisms", "fieldType": "textarea", "label": "Microorganisms Detected", "referenceRange": "None" }
+  ]
+},
+{
+  "name": "Activated Partial Thromboplastin Time",
+  "investigationCode": "INVE06D",
+  "category": "hematology",
+  "subCategory": "coagulation",
+  "description": "APTT for coagulation screening (intrinsic pathway)",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE06D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "aptt", "fieldType": "number", "label": "APTT", "unit": "seconds", "referenceRange": "25–35", "lowThreshold": 25, "highThreshold": 35 },
+    { "fieldName": "control_aptt", "fieldType": "number", "label": "Control APTT", "unit": "seconds", "referenceRange": "25–35", "lowThreshold": 25, "highThreshold": 35 },
+    { "fieldName": "ratio", "fieldType": "number", "label": "APTT Ratio", "referenceRange": "0.8–1.2", "lowThreshold": 0.8, "highThreshold": 1.2 }
+  ]
+},
+{
+  "name": "Factor VIII Assay",
+  "investigationCode": "INVE45D",
+  "category": "hematology",
+  "subCategory": "coagulation",
+  "description": "Factor VIII activity assay for hemophilia A",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE45D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "factor_viii", "fieldType": "number", "label": "Factor VIII Activity", "unit": "%", "referenceRange": "50–150", "lowThreshold": 50, "highThreshold": 150 }
+  ]
+},
+{
+  "name": "Factor IX Assay",
+  "investigationCode": "INVE44D",
+  "category": "hematology",
+  "subCategory": "coagulation",
+  "description": "Factor IX activity assay for hemophilia B",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": true,
+  "tariffCode": "LAB-INVE44D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "factor_ix", "fieldType": "number", "label": "Factor IX Activity", "unit": "%", "referenceRange": "50–150", "lowThreshold": 50, "highThreshold": 150 }
+  ]
+},
+{
+  "name": "Prothrombin Time",
+  "investigationCode": "INVE95D",
+  "category": "hematology",
+  "subCategory": "coagulation",
+  "description": "Prothrombin time with INR for warfarin monitoring",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE95D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "pt", "fieldType": "number", "label": "Prothrombin Time", "unit": "seconds", "referenceRange": "11–13.5", "lowThreshold": 11, "highThreshold": 13.5 },
+    { "fieldName": "control_pt", "fieldType": "number", "label": "Control PT", "unit": "seconds", "referenceRange": "11–13.5", "lowThreshold": 11, "highThreshold": 13.5 },
+    { "fieldName": "inr", "fieldType": "number", "label": "INR", "referenceRange": "0.8–1.2", "lowThreshold": 0.8, "highThreshold": 1.2 }
+  ]
+},
+{
+  "name": "Glucose-6-Phosphate Dehydrogenase, G6PD",
+  "investigationCode": "INVE56D",
+  "category": "hematology",
+  "subCategory": "enzyme",
+  "description": "Glucose-6-phosphate dehydrogenase for hemolytic anemia",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE56D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "g6pd", "fieldType": "number", "label": "G6PD", "unit": "U/g Hb", "referenceRange": "7.0–20.5", "lowThreshold": 7.0, "highThreshold": 20.5 }
+  ]
+},
+{
+  "name": "Haemoglobin A2 & F Estimation",
+  "investigationCode": "INVE58D",
+  "category": "hematology",
+  "subCategory": "hemoglobinopathy",
+  "description": "Quantitative HbA2 and HbF for thalassemia screening",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE58D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "hb_a2", "fieldType": "number", "label": "Hb A2", "unit": "%", "referenceRange": "2.2–3.8", "lowThreshold": 2.2, "highThreshold": 3.8 },
+    { "fieldName": "hb_f", "fieldType": "number", "label": "Hb F", "unit": "%", "referenceRange": "<1.0", "highThreshold": 1.0 }
+  ]
+},
+{
+  "name": "Haemoglobin Electrophoresis (Qualitative)",
+  "investigationCode": "INVE59D",
+  "category": "hematology",
+  "subCategory": "hemoglobinopathy",
+  "description": "Qualitative hemoglobin electrophoresis for hemoglobinopathies",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE59D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "hb_pattern", "fieldType": "textarea", "label": "Hemoglobin Pattern", "referenceRange": "Hb A dominant" },
+    { "fieldName": "hb_s", "fieldType": "select", "label": "Hb S", "referenceRange": "Absent", "options": ["Absent", "Present"] },
+    { "fieldName": "hb_c", "fieldType": "select", "label": "Hb C", "referenceRange": "Absent", "options": ["Absent", "Present"] },
+    { "fieldName": "hb_e", "fieldType": "select", "label": "Hb E", "referenceRange": "Absent", "options": ["Absent", "Present"] },
+    { "fieldName": "hb_f", "fieldType": "select", "label": "Hb F", "referenceRange": "Normal", "options": ["Normal", "Increased"] }
+  ]
+},
+{
+  "name": "Haemoglobin Estimation",
+  "investigationCode": "INVE60D",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Hemoglobin level only",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE60D",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "hb", "fieldType": "number", "label": "Hemoglobin", "unit": "g/dL", "referenceRange": "M: 13.5–17.5, F: 12.0–15.5", "lowThreshold": 12.0, "highThreshold": 17.5 }
+  ]
+},
+{
+  "name": "Hematocrit",
+  "investigationCode": "INVE156",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Packed cell volume",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE156",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "hct", "fieldType": "number", "label": "Hematocrit", "unit": "%", "referenceRange": "M: 40–52, F: 36–48", "lowThreshold": 36, "highThreshold": 52 }
+  ]
+},
+{
+  "name": "Platelet Count",
+  "investigationCode": "INVE110",
+  "category": "hematology",
+  "subCategory": "basic",
+  "description": "Platelet count only",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE110",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "plt", "fieldType": "number", "label": "Platelet Count", "unit": "x 10^9/L", "referenceRange": "150–450", "lowThreshold": 150, "highThreshold": 450 }
+  ]
+},
+{
+  "name": "Sickling Test",
+  "investigationCode": "INVE16E",
+  "category": "hematology",
+  "subCategory": "hemoglobinopathy",
+  "description": "Sickle cell solubility test",
+  "specimenType": "blood",
+  "isActive": true,
+  "requiresAuthorization": false,
+  "tariffCode": "LAB-INVE16E",
+  "vatRate": 0,
+  "isTaxable": false,
+  "resultTemplate": [
+    { "fieldName": "sickling", "fieldType": "select", "label": "Sickling Test", "referenceRange": "Negative", "options": ["Negative", "Positive"] }
+  ]
+}]

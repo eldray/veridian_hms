@@ -1,8 +1,7 @@
-// src/pages/InsuranceClaims.tsx - WITH NHIS & PRIVATE INSURANCE TABS
+// src/pages/InsuranceClaims.tsx - UPDATED WITH SEPARATED STORE FUNCTIONS
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useAttendanceStore } from '../store/attendanceStore';
-import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
   Plus,
@@ -11,7 +10,6 @@ import {
   Download,
   Eye,
   CheckCircle,
-  Clock,
   XCircle,
   DollarSign,
   PlayCircle,
@@ -24,7 +22,8 @@ import {
   Edit,
   Lock,
   Printer,
-  Building
+  Building,
+  Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -33,13 +32,24 @@ export default function InsuranceClaims() {
   const { success, error: toastError } = useToast();
 
   const {
-    claims,
-    getInsuranceClaims,
-    generateClaimDraft,
-    getClaimDraft,
+    // NHIS Claims
+    nhisClaims,
+    getNHISClaims,
+    generateNHISClaim,
+    
+    // Private Claims
+    privateClaims,
+    getPrivateInsuranceClaims,
+    generatePrivateInsuranceClaim,
+    
+    // Common
     finalizeClaim,
     generateClaimXML,
     generateClaimPrint,
+    getFinalizedClaimsTotal,
+    finalizedClaimsTotal,
+    
+    // UI State
     isLoading: claimsLoading
   } = useInsuranceStore();
 
@@ -53,17 +63,23 @@ export default function InsuranceClaims() {
 
   const isLoading = claimsLoading || attendanceLoading;
 
+  // Get current claims based on active tab
+  const currentClaims = activeTab === 'nhis' ? nhisClaims : privateClaims;
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeTab]);
 
   const loadData = async () => {
     try {
-      await Promise.all([
-        getInsuranceClaims(),
-        getAttendances(),
-      ]);
-      success('Data loaded', 'Insurance claims ready');
+      if (activeTab === 'nhis') {
+        await getNHISClaims();
+      } else {
+        await getPrivateInsuranceClaims();
+      }
+      await getAttendances();
+      await getFinalizedClaimsTotal({ type: activeTab });
+      success('Data loaded', `${activeTab.toUpperCase()} claims ready`);
     } catch {
       toastError('Load failed', 'Could not fetch claims or visits');
     }
@@ -74,74 +90,60 @@ export default function InsuranceClaims() {
     return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
   };
 
-  // Filter claims by insurance type
-  const nhisClaims = claims.filter(c => c.insuranceProvider?.type === 'nhis');
-  const privateClaims = claims.filter(c => c.insuranceProvider?.type === 'private');
-
   // Get eligible attendances based on active tab
   const getEligibleAttendances = () => {
     const paymentMode = activeTab === 'nhis' ? 'nhis' : 'private_insurance';
     return attendances.filter(att =>
       att.paymentMode === paymentMode &&
       att.status === 'completed' &&
-      !claims.some(c => c.attendanceId === att.id)
+      !currentClaims.some(c => c.attendanceId === att.id)
     );
   };
 
   const eligibleAttendances = getEligibleAttendances();
 
-  // Stats for NHIS
-  const nhisStats = {
-    total: nhisClaims.length,
-    draft: nhisClaims.filter(c => c.status === 'draft').length,
-    submitted: nhisClaims.filter(c => c.status === 'submitted').length,
-    approved: nhisClaims.filter(c => c.status === 'approved').length,
-    paid: nhisClaims.filter(c => c.status === 'paid').length,
-    rejected: nhisClaims.filter(c => c.status === 'rejected').length,
-    totalAmount: nhisClaims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
-    approvedAmount: nhisClaims.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
-    paidAmount: nhisClaims.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.paidAmount || 0), 0),
+  // Stats for current tab
+  const currentStats = {
+    total: currentClaims.length,
+    draft: currentClaims.filter(c => c.status === 'draft').length,
+    submitted: currentClaims.filter(c => c.status === 'submitted').length,
+    approved: currentClaims.filter(c => c.status === 'approved').length,
+    paid: currentClaims.filter(c => c.status === 'paid').length,
+    rejected: currentClaims.filter(c => c.status === 'rejected').length,
+    totalAmount: currentClaims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
+    approvedAmount: currentClaims.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
+    paidAmount: currentClaims.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.paidAmount || 0), 0),
+    finalizedAmount: activeTab === 'nhis' 
+      ? (finalizedClaimsTotal?.totalAmount || 0)
+      : (finalizedClaimsTotal?.totalAmount || 0)
   };
 
-  // Stats for Private Insurance
-  const privateStats = {
-    total: privateClaims.length,
-    draft: privateClaims.filter(c => c.status === 'draft').length,
-    submitted: privateClaims.filter(c => c.status === 'submitted').length,
-    approved: privateClaims.filter(c => c.status === 'approved').length,
-    paid: privateClaims.filter(c => c.status === 'paid').length,
-    rejected: privateClaims.filter(c => c.status === 'rejected').length,
-    totalAmount: privateClaims.reduce((sum, c) => sum + (c.totalClaimAmount || 0), 0),
-    approvedAmount: privateClaims.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.approvedAmount || 0), 0),
-    paidAmount: privateClaims.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.paidAmount || 0), 0),
-  };
+  // Filter claims by search and status
+  const filteredClaims = currentClaims.filter(claim => {
+    const matchesSearch =
+      claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getPatientFullName(claim.patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
-  const currentStats = activeTab === 'nhis' ? nhisStats : privateStats;
-
-  // Filter claims by search and status for current tab
-  const getFilteredClaims = () => {
-    const claimsToFilter = activeTab === 'nhis' ? nhisClaims : privateClaims;
-    return claimsToFilter.filter(claim => {
-      const matchesSearch =
-        claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getPatientFullName(claim.patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
-      return matchesSearch && matchesStatus;
-    });
-  };
-
-  const filteredClaims = getFilteredClaims();
-
-  const handleGenerateDraft = async (attendanceId: string) => {
+  const handleGenerateClaim = async (attendanceId: string) => {
     try {
       setProcessingClaims(prev => new Set(prev).add(attendanceId));
-      await generateClaimDraft(attendanceId);
-      success('Draft created', 'Claim draft generated successfully');
+      
+      if (activeTab === 'nhis') {
+        await generateNHISClaim(attendanceId);
+        success('NHIS Claim Generated', 'Claim draft created successfully');
+      } else {
+        await generatePrivateInsuranceClaim(attendanceId);
+        success('Private Insurance Claim Generated', 'Claim draft created successfully');
+      }
+      
       await loadData();
       setShowPendingAttendances(false);
     } catch (error: any) {
-      toastError('Create failed', error.message || 'Could not create draft');
+      toastError('Generation failed', error.message || 'Could not generate claim');
     } finally {
       setProcessingClaims(prev => {
         const newSet = new Set(prev);
@@ -257,6 +259,13 @@ export default function InsuranceClaims() {
             <Shield className="w-4 h-4" />
             Providers
           </button>
+          <button
+            onClick={() => navigate('/dashboard/insurance-batches')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          >
+            <Layers className="w-4 h-4" />
+            Batches
+          </button>
           {eligibleAttendances.length > 0 && (
             <button
               onClick={() => setShowPendingAttendances(!showPendingAttendances)}
@@ -284,6 +293,7 @@ export default function InsuranceClaims() {
             setActiveTab('nhis');
             setFilterStatus('all');
             setSearchTerm('');
+            loadData();
           }}
           className={`px-6 py-3 text-sm font-medium transition-all relative ${
             activeTab === 'nhis'
@@ -304,6 +314,7 @@ export default function InsuranceClaims() {
             setActiveTab('private');
             setFilterStatus('all');
             setSearchTerm('');
+            loadData();
           }}
           className={`px-6 py-3 text-sm font-medium transition-all relative ${
             activeTab === 'private'
@@ -392,12 +403,12 @@ export default function InsuranceClaims() {
                   </div>
                   <div className="flex gap-2 ml-3">
                     <button
-                      onClick={() => handleGenerateDraft(att.id)}
+                      onClick={() => handleGenerateClaim(att.id)}
                       disabled={processingClaims.has(att.id)}
                       className="px-3 py-1.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white disabled:opacity-50 text-xs flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
-                      {processingClaims.has(att.id) ? 'Creating...' : 'Create Draft'}
+                      {processingClaims.has(att.id) ? 'Generating...' : 'Generate Claim'}
                     </button>
                   </div>
                 </div>

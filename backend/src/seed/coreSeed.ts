@@ -75,24 +75,65 @@ const addSchemaDefaults = (data: any, type: string) => {
         isActive: true,
       };
 
-    case 'procedureTemplate':
-      return {
-        ...baseDefaults,
-        name: data.name || 'Unknown Procedure',
-        procedureCode: data.procedureCode,
-        description: data.description || '',
-        category: data.category || 'diagnostic',
-        department: data.department || 'general',
-        duration: data.duration ?? 60,
-        isNHISCovered: data.isNHISCovered ?? true,
-        isPrivateInsExempted: data.isPrivateInsExempted ?? false,
-        nhisRequiresAuth: data.nhisRequiresAuth ?? false,
-        privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
-        vatRate: data.vatRate ?? 0,
-        isTaxable: data.isTaxable ?? true,
-        tariffCode: data.tariffCode || `PROC-${data.procedureCode}`,
-        isActive: true,
-      };
+      case 'procedureTemplate':
+        // Map invalid category names to valid enum values
+        const categoryMap: Record<string, string> = {
+          // Surgical categories
+          'General Surgery': 'surgical',
+          'Thoracic Surgery': 'surgical',
+          'Vascular Surgery': 'surgical',
+          'Neurosurgery': 'surgical',
+          'Paediatric Surgery': 'pediatric',
+          'Gynaecology': 'obstetric',
+          'Obstetrics': 'obstetric',
+          'Orthopaedics': 'orthopedic',
+          'Reconstructive Surgery': 'surgical',
+          'Plastic Surgery': 'surgical',
+          
+          // Specialty categories
+          'Urology': 'urology',
+          'ENT': 'ent',
+          'Dental': 'dental',
+          'Ophthalmology': 'ophthalmic',
+          'Neurology': 'neurology',
+          'Dermatology': 'dermatology',
+          
+          // Procedure types
+          'Endoscopy': 'diagnostic',
+          'Laparoscopic Surgery': 'laparoscopic',
+          'Laparoscopic': 'laparoscopic',
+          'Laparotomy': 'laparotomy',
+          'Interventional Radiology': 'diagnostic',
+          
+          // Other
+          'Family Planning': 'therapeutic',
+          'Nursing Procedure': 'therapeutic',
+          'Emergency': 'emergency',
+          'Observation': 'therapeutic',
+          'Administrative': 'therapeutic',
+          'Diagnostic': 'diagnostic',
+          'Family Planning': 'therapeutic',
+        };
+        
+        const mappedCategory = categoryMap[data.category] || 'therapeutic';
+        
+        return {
+          ...baseDefaults,
+          name: data.name || 'Unknown Procedure',
+          procedureCode: data.procedureCode,
+          description: data.description || '',
+          category: mappedCategory,  // Use mapped value
+          department: data.department || 'general',
+          duration: data.duration ?? 60,
+          isNHISCovered: data.isNHISCovered ?? true,
+          isPrivateInsExempted: data.isPrivateInsExempted ?? false,
+          nhisRequiresAuth: data.nhisRequiresAuth ?? false,
+          privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
+          vatRate: data.vatRate ?? 0,
+          isTaxable: data.isTaxable ?? true,
+          tariffCode: data.tariffCode || `PROC-${data.procedureCode}`,
+          isActive: true,
+        };
 
     case 'diagnosis':
       return {
@@ -230,15 +271,21 @@ const hasCoreData = async (): Promise<boolean> => {
       prisma.department.count().catch(() => 0),
       prisma.insuranceProvider.count().catch(() => 0),
       prisma.servicePricing.count().catch(() => 0),
+      prisma.procedureTemplate.count().catch(() => 0), // ✅ ADD THIS
+      prisma.labTestTemplate.count().catch(() => 0),   // ✅ ADD THIS
+      prisma.scanTemplate.count().catch(() => 0),      // ✅ ADD THIS
     ]);
 
-    const [diagnosisCount, serviceCatalogCount, stockItemCount, departmentCount, insuranceProviderCount, servicePricingCount] = counts;
+    const [diagnosisCount, serviceCatalogCount, stockItemCount, departmentCount, insuranceProviderCount, servicePricingCount, procedureTemplateCount, labTestTemplateCount, scanTemplateCount] = counts;
 
     const hasData = diagnosisCount > 0 && 
                    serviceCatalogCount > 0 && 
                    stockItemCount > 0 && 
                    departmentCount > 0 &&
-                   insuranceProviderCount > 0;
+                   insuranceProviderCount > 0 &&
+                   procedureTemplateCount > 0 &&      // ✅ ADD THIS
+                   labTestTemplateCount > 0 &&        // ✅ ADD THIS
+                   scanTemplateCount > 0;             // ✅ ADD THIS
 
     console.log('📊 Core data check:', {
       diagnoses: diagnosisCount,
@@ -247,6 +294,9 @@ const hasCoreData = async (): Promise<boolean> => {
       stockItems: stockItemCount,
       departments: departmentCount,
       insuranceProviders: insuranceProviderCount,
+      procedureTemplates: procedureTemplateCount,
+      labTestTemplates: labTestTemplateCount,
+      scanTemplates: scanTemplateCount,
       hasCoreData: hasData
     });
 

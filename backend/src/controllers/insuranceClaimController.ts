@@ -13,9 +13,129 @@ const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => {
   return (arr || []).map(mapper).filter(Boolean);
 };
 
+
+// Add this function after the imports and before the other functions
+export const getAllInsuranceClaims = async (req: AuthRequest, res: Response) => {
+  try {
+    const { 
+      status, 
+      insuranceProviderId, 
+      patientId, 
+      dateFrom, 
+      dateTo, 
+      page = 1, 
+      limit = 50 
+    } = req.query;
+
+    const where: any = {};
+    
+    if (status) {
+      if (typeof status === 'string' && status.includes(',')) {
+        const statusArray = status.split(',').map(s => s.trim());
+        where.status = { in: statusArray };
+      } else {
+        where.status = status as string;
+      }
+    }
+    
+    if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId as string;
+    if (patientId) where.patientId = patientId as string;
+    
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
+      if (dateTo) {
+        const endDate = new Date(dateTo as string);
+        endDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endDate;
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [claims, total] = await Promise.all([
+      prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          InsuranceProvider: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              coveragePercentage: true
+            }
+          },
+          Patient: {
+            select: {
+              id: true,
+              folderNumber: true,
+              surname: true,
+              otherNames: true,
+              contact: true
+            }
+          },
+          Attendance: {
+            select: {
+              id: true,
+              attendanceNumber: true,
+              dateTime: true,
+              status: true,
+              nhisCCC: true
+            }
+          },
+          Bill: {
+            select: {
+              id: true,
+              billNumber: true,
+              totalAmount: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.insuranceClaim.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: claims,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching insurance claims:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching insurance claims',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+};
+
 // ==========================================
 // NHIS CLAIM FUNCTIONS
 // ==========================================
+
+// First, add this helper function at the top of the file (if not already there):
+const calculateAgeInYears = (dateOfBirth: Date, asOfDate: Date): number => {
+  const birthDate = new Date(dateOfBirth);
+  const targetDate = new Date(asOfDate);
+  let age = targetDate.getFullYear() - birthDate.getFullYear();
+  const monthDiff = targetDate.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return Math.max(0, age);
+};
+
 
 export const generateNHISClaim = [
   body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
@@ -33,24 +153,39 @@ export const generateNHISClaim = [
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Check existing claim
         const existingClaim = await tx.insuranceClaim.findFirst({
           where: { attendanceId, InsuranceProvider: { type: 'nhis' } }
         });
         if (existingClaim) return { claim: existingClaim, isExisting: true };
 
-        // Get attendance with data
         const attendance = await tx.attendance.findUnique({
           where: { id: attendanceId },
           include: {
             Patient: true,
             InsuranceProvider: true,
             Bill: true,
+            Admission: true,
             AttendanceDiagnosis: {
-              include: { Diagnosis: true },
-              where: { diagnosisType: 'primary' }
+              where: { diagnosisType: 'primary' },
+              include: { Diagnosis: true }
             },
-            ServiceRendered: { include: { ServiceCatalog: true } }
+            ServiceRendered: { include: { ServiceCatalog: true } },
+            Medication: {
+              where: { status: 'dispensed' },
+              include: { ServiceCatalog: true, StockItem: true }
+            },
+            LabTest: {
+              where: { status: 'completed' },
+              include: { ServiceCatalog: true }
+            },
+            Scan: {
+              where: { status: 'completed' },
+              include: { ServiceCatalog: true }
+            },
+            Procedure: {
+              where: { status: 'completed' },
+              include: { ServiceCatalog: true }
+            }
           }
         });
 
@@ -60,35 +195,92 @@ export const generateNHISClaim = [
         }
         if (!attendance.nhisCCC) throw new Error('NHIS CCC number required');
 
-        // Calculate age and get GDRG tariff
-        const patientAge = NHISClaimService.calculateAgeInYears(
-          attendance.Patient.dateOfBirth,
-          attendance.dateTime
-        );
-        const gdrgTariff = await NHISClaimService.resolveGDRGByContext(attendance, patientAge);
-        if (!gdrgTariff) throw new Error(`No GDRG tariff found for age: ${patientAge}`);
+        const primaryDiagnosis = attendance.AttendanceDiagnosis[0];
+        if (!primaryDiagnosis) throw new Error('Primary diagnosis required');
+
+        const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({
+          where: { diagnosisId: primaryDiagnosis.diagnosisId },
+          include: { gdrgTariff: true }
+        });
+
+        if (!gdrgLink) {
+          throw new Error(`No GDRG tariff linked to diagnosis: ${primaryDiagnosis.Diagnosis?.name}`);
+        }
+
+        const patientAge = calculateAgeInYears(attendance.Patient.dateOfBirth, attendance.dateTime);
+        const isAdult = patientAge >= 12;
+        const ageSplit = isAdult ? 'A' : 'C';
+        const baseGdrgCode = gdrgLink.gdrgTariff.gdrgCode.slice(0, -1);
+        const finalGdrgCode = baseGdrgCode + ageSplit;
+        
+        const gdrgTariff = await tx.gDRGTariff.findFirst({
+          where: { gdrgCode: finalGdrgCode, isActive: true }
+        }) || gdrgLink.gdrgTariff;
 
         const claimNumber = `NHIS-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-        const diagnosisCodes = safeMap(attendance.AttendanceDiagnosis, d => d.Diagnosis?.icdCode);
-        const serviceCodes = safeMap(attendance.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode);
+        
+        const diagnosisCodes = [primaryDiagnosis.Diagnosis?.icdCode].filter(Boolean);
+        const labTestCodes = attendance.LabTest.map(lt => lt.ServiceCatalog?.nhisServiceCode).filter(Boolean);
+        const scanCodes = attendance.Scan.map(s => s.ServiceCatalog?.nhisServiceCode).filter(Boolean);
+        const procedureCodes = attendance.Procedure.map(p => p.ServiceCatalog?.code).filter(Boolean);
+        const medicationCodes = attendance.Medication.map(m => m.StockItem?.drugCode || m.ServiceCatalog?.code).filter(Boolean);
+        const serviceCodes = attendance.ServiceRendered.map(s => s.ServiceCatalog?.nhisServiceCode).filter(Boolean);
 
-        const claim = await tx.insuranceClaim.create({
-          data: {
-            claimNumber,
-            billId: attendance.Bill?.id,
-            patientId: attendance.patientId,
-            attendanceId: attendance.id,
-            insuranceProviderId: attendance.insuranceProviderId,
-            totalClaimAmount: gdrgTariff.nhiaTariff,
-            status: 'draft',
-            createdById: req.user.id,
-            diagnosisCodes,
-            serviceCodes,
-            gdrgCodes: [gdrgTariff.gdrgCode],
-            nhisServiceCodes: [gdrgTariff.nhisServiceCode],
-            notes: `NHIS CCC: ${attendance.nhisCCC}, GDRG: ${gdrgTariff.gdrgCode}`
+        const totalClaimAmount = gdrgTariff.nhiaTariff;
+        const principalGDRG = gdrgTariff.gdrgCode;
+        const claimCheckCode = attendance.nhisCCC;
+        const typeOfService = attendance.Admission ? 'IPD' : 'OPD';
+        const serviceOutcome = attendance.status === 'completed' ? 'DISC' : 'CONT';
+        const mdcCode = principalGDRG.match(/^[A-Z]+/)?.[0] || 'MEDI';
+
+        let typeOfAttendance = 'GEN';
+        if (attendance.attendanceType === 'emergency_acute') typeOfAttendance = 'EAE';
+        else if (attendance.attendanceType === 'antenatal') typeOfAttendance = 'ANC';
+        else if (attendance.attendanceType === 'delivery') typeOfAttendance = 'DEL';
+        else if (attendance.attendanceType === 'surgery') typeOfAttendance = 'SUR';
+
+        const datesOfService: string[] = [];
+        if (attendance.Admission) {
+          let currentDate = new Date(attendance.Admission.admissionDate);
+          const dischargeDate = attendance.Admission.dischargeDate || new Date();
+          while (currentDate <= dischargeDate) {
+            datesOfService.push(currentDate.toISOString().split('T')[0]);
+            currentDate.setDate(currentDate.getDate() + 1);
           }
-        });
+        } else {
+          datesOfService.push(attendance.dateTime.toISOString().split('T')[0]);
+        }
+
+          // ✅ FIXED: Connect both Attendance AND Bill
+          const claim = await tx.insuranceClaim.create({
+            data: {
+              claimNumber,
+              billId: attendance.Bill?.id,
+              patientId: attendance.patientId,
+              attendanceId: attendance.id,
+              insuranceProviderId: attendance.insuranceProviderId,
+              totalClaimAmount,
+              status: 'draft',
+              createdById: req.user.id,
+              diagnosisCodes,
+              labTestCodes,
+              procedureCodes,
+              medicationCodes,
+              serviceCodes,
+              gdrgCodes: [principalGDRG],
+              // ✅ FIX: Filter out null values
+              nhisServiceCodes: gdrgTariff.nhisServiceCode ? [gdrgTariff.nhisServiceCode] : [],
+              principalGDRG,
+              claimCheckCode,
+              typeOfService,
+              serviceOutcome,
+              mdcCode,
+              typeOfAttendance,
+              datesOfService,
+              scanCodes,
+              notes: `NHIS CCC: ${attendance.nhisCCC}, GDRG: ${principalGDRG}`
+            }
+          });
 
         await tx.attendance.update({
           where: { id: attendanceId },
@@ -101,10 +293,10 @@ export const generateNHISClaim = [
       res.status(201).json({
         success: true,
         message: result.isExisting ? 'NHIS claim already exists' : 'NHIS claim generated',
-        data: result.claim,
-        gdrgDetails: result.gdrgDetails
+        data: result.claim
       });
     } catch (error: any) {
+      console.error('Error generating NHIS claim:', error);
       res.status(500).json({ success: false, message: error.message });
     }
   }

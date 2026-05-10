@@ -1,4 +1,4 @@
-// src/components/NewAttendanceModal.tsx - UPDATED VERSION
+// src/components/NewAttendanceModal.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -17,7 +17,6 @@ interface NewAttendanceModalProps {
   attendanceData?: any;
 }
 
-// Valid attendance types - REMOVED general_consultation
 const VALID_ATTENDANCE_TYPES: AttendanceType[] = [
   'emergency_acute',
   'antenatal',
@@ -50,10 +49,25 @@ export default function NewAttendanceModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // Get full name from surname + otherNames
-  const getPatientFullName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+  // ✅ HELPER: Resolve insurance provider ID from all possible data shapes
+  const resolveInsuranceProviderId = (source: any): string | undefined => {
+    if (!source) return undefined;
+    return (
+      source?.insuranceProviderId ||
+      source?.insuranceDetails?.providerId ||
+      source?.insuranceDetails?.insuranceProviderId ||
+      source?.insuranceDetails?.provider?.id ||
+      source?.insurance?.providerId ||
+      undefined
+    );
+  };
+
+  // ✅ HELPER: Resolve patient from state OR attendanceData fallback
+  const resolvedPatient = patient || (isEditMode ? attendanceData : null);
+
+  const getPatientFullName = (p: any) => {
+    if (!p) return 'Unknown Patient';
+    return `${p.surname || ''} ${p.otherNames || ''}`.trim();
   };
 
   // Load insurance providers
@@ -66,14 +80,11 @@ export default function NewAttendanceModal({
     if (!isEditMode && patientId) {
       const patientData = getPatientById(patientId);
       setPatient(patientData);
-      
+
       if (patientData) {
-        // ✅ AUTO-POPULATE PAYMENT METHOD FROM PATIENT
         if (patientData.paymentMode) {
           setPaymentMode(patientData.paymentMode as PaymentMode);
         }
-        
-        // Auto-populate NHIS CCC if patient has it
         if (patientData.paymentMode === 'nhis' && patientData.insuranceDetails?.memberId) {
           setNhisCCC(patientData.insuranceDetails.memberId);
         }
@@ -89,12 +100,10 @@ export default function NewAttendanceModal({
       setNhisCCC(attendanceData.nhisCCC || '');
       setComplaints(attendanceData.complaints || '');
       setStatus(attendanceData.status || 'pending');
-      
-      if (attendanceData.patientId) {
-        const patientData = getPatientById(attendanceData.patientId);
-        setPatient(patientData);
-      } else if (patientId) {
-        const patientData = getPatientById(patientId);
+
+      const pid = attendanceData.patientId || patientId;
+      if (pid) {
+        const patientData = getPatientById(pid);
         setPatient(patientData);
       }
     }
@@ -109,6 +118,7 @@ export default function NewAttendanceModal({
     }
   }, [patient, isEditMode]);
 
+  // ✅ FIXED validateForm — uses resolvedPatient so patient=null doesn't break it
   const validateForm = (): boolean => {
     const errors: string[] = [];
 
@@ -121,19 +131,22 @@ export default function NewAttendanceModal({
     }
 
     if (paymentMode === 'private_insurance') {
-      if (!patient?.insuranceProviderId && !patient?.insuranceDetails?.providerId) {
+      // ✅ Use resolvedPatient (falls back to attendanceData if patient state is null)
+      const src = patient || (isEditMode ? attendanceData : null);
+      const providerId = resolveInsuranceProviderId(src);
+
+      if (!providerId) {
         errors.push('Patient must have an insurance provider selected for private insurance');
-      }
-      
-      const providerId = patient?.insuranceProviderId || patient?.insuranceDetails?.providerId;
-      if (providerId) {
-        const insuranceProvider = insuranceProviders?.find(p => p.id === providerId);
+      } else if (insuranceProviders && insuranceProviders.length > 0) {
+        // Only validate against the list if it has actually loaded
+        const insuranceProvider = insuranceProviders.find(p => p.id === providerId);
         if (!insuranceProvider) {
           errors.push('Selected insurance provider not found');
         } else if (!insuranceProvider.isActive) {
           errors.push('Selected insurance provider is not active');
         }
       }
+      // If insuranceProviders list is empty/still loading, skip lookup — the ID is enough
     }
 
     if (!complaints.trim()) {
@@ -172,8 +185,9 @@ export default function NewAttendanceModal({
       return;
     }
 
-    // Get the insurance provider ID from patient
-    const insuranceProviderId = patient?.insuranceProviderId || patient?.insuranceDetails?.providerId;
+    // ✅ Resolve insurance provider ID from the best available source
+    const src = patient || (isEditMode ? attendanceData : null);
+    const insuranceProviderId = resolveInsuranceProviderId(src);
 
     const attendanceDataPayload: any = {
       ...(isEditMode ? {} : { patientId }),
@@ -182,7 +196,7 @@ export default function NewAttendanceModal({
       paymentMode,
       ...(paymentMode === 'nhis' && { nhisCCC: nhisCCC.trim() }),
       ...(paymentMode === 'private_insurance' && insuranceProviderId && {
-        insuranceProviderId: insuranceProviderId
+        insuranceProviderId
       }),
       complaints: complaints.trim() || 'No complaints recorded',
       createdById: isEditMode ? attendanceData.createdById : user.id,
@@ -190,7 +204,7 @@ export default function NewAttendanceModal({
       ...(isEditMode ? { status } : { status: 'pending' }),
     };
 
-    // Clean up undefined values
+    // Clean up undefined/null values
     Object.keys(attendanceDataPayload).forEach(key => {
       if (attendanceDataPayload[key] === undefined || attendanceDataPayload[key] === null) {
         delete attendanceDataPayload[key];
@@ -199,7 +213,7 @@ export default function NewAttendanceModal({
 
     try {
       let result;
-      
+
       if (isEditMode && attendanceData) {
         result = await updateAttendance(attendanceData.id, attendanceDataPayload);
         success('Attendance Updated', 'Attendance record has been successfully updated');
@@ -207,14 +221,14 @@ export default function NewAttendanceModal({
         result = await createAttendance(attendanceDataPayload);
         success('Attendance Created', `New attendance created for ${getPatientFullName(patient)}`);
       }
-      
+
       setShowSuccess(true);
       setTimeout(() => {
         onSuccess(result);
       }, 1500);
     } catch (err: any) {
       let errorMessage = 'Failed to save attendance';
-      
+
       if (err.response?.data) {
         const serverError = err.response.data;
         errorMessage = serverError.message || serverError.error || errorMessage;
@@ -224,7 +238,7 @@ export default function NewAttendanceModal({
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       error('Save Failed', errorMessage);
     }
   };
@@ -243,7 +257,6 @@ export default function NewAttendanceModal({
     { id: 'discharged', name: 'Discharged', color: 'indigo' }
   ];
 
-  // ✅ UPDATED: Removed general_consultation
   const attendanceTypes: { id: AttendanceType; name: string; icon: JSX.Element }[] = [
     { id: 'emergency_acute', name: 'Emergency/Acute', icon: <AlertCircle className="w-3.5 h-3.5" /> },
     { id: 'antenatal', name: 'Antenatal', icon: <Calendar className="w-3.5 h-3.5" /> },
@@ -267,8 +280,21 @@ export default function NewAttendanceModal({
     return colors[color] || colors.blue;
   };
 
-  const currentInsuranceProvider = paymentMode === 'private_insurance' 
-    ? insuranceProviders?.find(p => p.id === (patient?.insuranceProviderId || patient?.insuranceDetails?.providerId))
+  // ✅ FIXED: currentInsuranceProvider uses resolvedPatient + fallback object when list is loading
+  const resolvedProviderId = resolveInsuranceProviderId(resolvedPatient);
+
+  const currentInsuranceProvider = paymentMode === 'private_insurance'
+    ? (
+        insuranceProviders?.find(p => p.id === resolvedProviderId) ??
+        (resolvedProviderId
+          ? {
+              id: resolvedProviderId,
+              name: resolvedPatient?.insuranceDetails?.providerName || 'Insurance Provider',
+              isActive: true,
+              coveragePercentage: '—'
+            }
+          : null)
+      )
     : null;
 
   if (showSuccess) {
@@ -282,7 +308,7 @@ export default function NewAttendanceModal({
             {isEditMode ? 'Attendance Updated!' : 'Attendance Created!'}
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
-            {isEditMode 
+            {isEditMode
               ? 'Attendance record has been successfully updated.'
               : `New attendance record has been successfully created for ${getPatientFullName(patient)}.`
             }
@@ -301,6 +327,7 @@ export default function NewAttendanceModal({
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[var(--border-color)] shadow-xl">
+
         {/* Header */}
         <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-4 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
@@ -312,7 +339,7 @@ export default function NewAttendanceModal({
                 {isEditMode ? 'Edit Attendance' : 'Create New Attendance'}
               </h2>
               <p className="text-xs text-[var(--text-secondary)]">
-                {patient ? getPatientFullName(patient) : 'Loading...'} • {patient?.folderNumber}
+                {resolvedPatient ? getPatientFullName(resolvedPatient) : 'Loading...'} • {resolvedPatient?.folderNumber}
                 {isEditMode && attendanceData?.attendanceNumber && ` • ${attendanceData.attendanceNumber}`}
               </p>
             </div>
@@ -328,6 +355,7 @@ export default function NewAttendanceModal({
 
         {/* Content */}
         <div className="p-4 space-y-4">
+
           {/* Patient Info Card */}
           <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
             <div className="flex items-center gap-2">
@@ -335,19 +363,20 @@ export default function NewAttendanceModal({
                 <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-sm text-[var(--text-primary)]">{patient ? getPatientFullName(patient) : 'Loading...'}</p>
+                <p className="font-semibold text-sm text-[var(--text-primary)]">
+                  {resolvedPatient ? getPatientFullName(resolvedPatient) : 'Loading...'}
+                </p>
                 <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <span>{patient?.folderNumber}</span>
+                  <span>{resolvedPatient?.folderNumber}</span>
                   <span>•</span>
-                  <span className="capitalize">{patient?.gender || 'N/A'}</span>
+                  <span className="capitalize">{resolvedPatient?.gender || 'N/A'}</span>
                   <span>•</span>
-                  <span>{patient?.age || 'N/A'} years</span>
+                  <span>{resolvedPatient?.age || 'N/A'} years</span>
                 </div>
-                {/* ✅ Show patient's default payment mode */}
-                {patient?.paymentMode && (
+                {resolvedPatient?.paymentMode && (
                   <div className="mt-2 text-xs">
                     <span className="text-[var(--text-secondary)]">Default Payment: </span>
-                    <span className="font-medium text-[var(--text-primary)] capitalize">{patient.paymentMode}</span>
+                    <span className="font-medium text-[var(--text-primary)] capitalize">{resolvedPatient.paymentMode}</span>
                   </div>
                 )}
                 {paymentMode === 'private_insurance' && currentInsuranceProvider && (
@@ -356,8 +385,10 @@ export default function NewAttendanceModal({
                       Insurance: {currentInsuranceProvider.name}
                     </p>
                     <p className="text-xs text-[var(--icon-purple-text)] opacity-80">
-                      Coverage: {currentInsuranceProvider.coveragePercentage}% • 
-                      {currentInsuranceProvider.isActive ? ' Active' : ' Inactive'}
+                      {currentInsuranceProvider.coveragePercentage !== '—'
+                        ? `Coverage: ${currentInsuranceProvider.coveragePercentage}% • `
+                        : ''}
+                      {currentInsuranceProvider.isActive ? 'Active' : 'Inactive'}
                     </p>
                   </div>
                 )}
@@ -387,6 +418,7 @@ export default function NewAttendanceModal({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+
             {/* Status Selection (Edit Mode Only) */}
             {isEditMode && (
               <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
@@ -409,7 +441,7 @@ export default function NewAttendanceModal({
               </div>
             )}
 
-            {/* Payment Mode Selection - Auto-populated from patient */}
+            {/* Payment Mode Selection */}
             <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
               <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Payment Mode</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -417,7 +449,7 @@ export default function NewAttendanceModal({
                   const Icon = mode.icon;
                   const isSelected = paymentMode === mode.id;
                   const colors = getColorClasses(mode.color, isSelected);
-                  
+
                   return (
                     <button
                       type="button"
@@ -445,7 +477,7 @@ export default function NewAttendanceModal({
                   );
                 })}
               </div>
-              {patient?.paymentMode && !isEditMode && (
+              {resolvedPatient?.paymentMode && !isEditMode && (
                 <p className="text-xs text-[var(--text-tertiary)] mt-2">
                   Auto-populated from patient's default payment method
                 </p>
@@ -476,7 +508,7 @@ export default function NewAttendanceModal({
             {paymentMode === 'nhis' && (
               <div className={`rounded-lg p-3 border ${
                 nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
-                  ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]' 
+                  ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
               }`}>
                 <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1">
@@ -500,12 +532,12 @@ export default function NewAttendanceModal({
                   />
                   <p className={`text-xs mt-1 ${
                     nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
-                      ? 'text-[var(--icon-green-text)]' 
+                      ? 'text-[var(--icon-green-text)]'
                       : 'text-yellow-700 dark:text-yellow-500'
                   }`}>
-                    {nhisCCC.trim() 
-                      ? nhisCCC.trim().length === 5 
-                        ? 'Valid NHIS CCC code format' 
+                    {nhisCCC.trim()
+                      ? nhisCCC.trim().length === 5
+                        ? 'Valid NHIS CCC code format'
                         : 'CCC code must be exactly 5 digits'
                       : 'Required for NHIS claim processing'
                     }
@@ -536,11 +568,13 @@ export default function NewAttendanceModal({
                           ? 'text-[var(--icon-green-text)]'
                           : 'text-[var(--icon-red-text)]'
                       }`}>
-                        Status: {currentInsuranceProvider.isActive 
-                          ? 'Active ✓'
-                          : 'Inactive ✗'
-                        }
+                        Status: {currentInsuranceProvider.isActive ? 'Active ✓' : 'Inactive ✗'}
                       </p>
+                      {resolvedPatient?.insuranceDetails?.insuranceNumber && (
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          Policy No: {resolvedPatient.insuranceDetails.insuranceNumber}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="text-xs text-[var(--icon-red-text)]">

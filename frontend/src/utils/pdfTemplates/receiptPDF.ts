@@ -9,6 +9,13 @@ export const generateReceiptHTML = (
 ): string => {
   // Format dates
   const formatDate = (dateString: string) => {
+    if (!dateString) return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -18,12 +25,148 @@ export const generateReceiptHTML = (
     });
   };
 
+  // Safe access with fallbacks
+  const receiptNumber = payment?.receiptNumber || `RCP-${Date.now()}`;
+  const paymentAmount = payment?.amount || 0;
+  const paymentMethod = payment?.paymentMethod || payment?.paymentMode || 'cash';
+  const paymentDate = payment?.paymentDate || payment?.transactionDate || new Date().toISOString();
+  const reference = payment?.reference || '';
+  const receivedBy = payment?.receivedBy || 'System';
+  const patientFullName = patient?.fullName || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim() || 'Unknown Patient';
+  const patientId = patient?.folderNumber || patient?.id || 'N/A';
+  const patientContact = patient?.contact || patient?.phone || 'N/A';
+  const billPaymentMode = bill?.paymentMode || 'cash';
+  const billTotal = bill?.totalAmount || 0;
+  const billPaidAmount = bill?.paidAmount || 0;
+  const billBalance = bill?.balance || 0;
+  const billNumber = bill?.billNumber || 'N/A';
+  
+  // Get bill line items
+  const billLineItems = bill?.BillLineItem || [];
+  
+  // Group line items by category
+  const groupedItems: Record<string, any[]> = {
+    Consultation: [],
+    'Laboratory Tests': [],
+    'Scans & Imaging': [],
+    Medications: [],
+    Procedures: [],
+    'Ward & Accommodation': [],
+    'Other Services': [],
+  };
+
+  const categoryMap: Record<string, string> = {
+    consultation: 'Consultation',
+    lab_test: 'Laboratory Tests',
+    scan: 'Scans & Imaging',
+    medication: 'Medications',
+    procedure: 'Procedures',
+    ward: 'Ward & Accommodation',
+  };
+
+  billLineItems.forEach((item: any) => {
+    if (!item.isVoided) {
+      const key = categoryMap[item.serviceType?.toLowerCase()] ?? 'Other Services';
+      groupedItems[key].push(item);
+    }
+  });
+
+  // Remove empty categories
+  Object.keys(groupedItems).forEach(key => {
+    if (groupedItems[key].length === 0) delete groupedItems[key];
+  });
+
+  // Generate line items HTML
+  const generateLineItemsHTML = () => {
+    if (billLineItems.length === 0) {
+      return '<p style="text-align: center; color: #64748b;">No items in this bill</p>';
+    }
+
+    let itemsHTML = '';
+    
+    for (const [category, items] of Object.entries(groupedItems)) {
+      // Category header
+      itemsHTML += `
+        <div style="margin-top: 20px;">
+          <h3 style="color: #1e40af; font-size: 16px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0;">
+            ${category}
+          </h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <th style="padding: 10px; text-align: left;">Service</th>
+                <th style="padding: 10px; text-align: center; width: 60px;">Qty</th>
+                <th style="padding: 10px; text-align: right; width: 100px;">Unit Price</th>
+                <th style="padding: 10px; text-align: right; width: 100px;">Total</th>
+                <th style="padding: 10px; text-align: right; width: 100px;">Paid</th>
+                <th style="padding: 10px; text-align: right; width: 100px;">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      // Items
+      items.forEach((item: any) => {
+        const description = item.description || 'N/A';
+        const code = item.serviceCatalog?.code || '';
+        const quantity = item.quantity || 1;
+        const unitPrice = item.unitPrice || 0;
+        const total = item.lineTotal || 0;
+        const paid = item.paidAmount || 0;
+        const balance = item.balance || item.patientPayableAmount || 0;
+        const isPaid = item.isFullyPaid || balance === 0;
+        
+        itemsHTML += `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px;">
+              <div style="font-weight: 500;">${escapeHtml(description)}</div>
+              ${code ? `<div style="font-size: 11px; color: #64748b;">Code: ${escapeHtml(code)}</div>` : ''}
+            </td>
+            <td style="padding: 10px; text-align: center;">${quantity}</td>
+            <td style="padding: 10px; text-align: right;">GHS ${unitPrice.toFixed(2)}</td>
+            <td style="padding: 10px; text-align: right; font-weight: 500;">GHS ${total.toFixed(2)}</td>
+            <td style="padding: 10px; text-align: right; color: #059669;">GHS ${paid.toFixed(2)}</td>
+            <td style="padding: 10px; text-align: right; font-weight: 500; color: ${balance > 0 ? '#dc2626' : '#059669'};">GHS ${balance.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      
+      // Category totals
+      const categoryTotal = items.reduce((sum, item) => sum + (item.lineTotal || 0), 0);
+      const categoryPaid = items.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
+      const categoryBalance = items.reduce((sum, item) => sum + (item.balance || item.patientPayableAmount || 0), 0);
+      
+      itemsHTML += `
+            </tbody>
+            <tfoot>
+              <tr style="background: #f8fafc; border-top: 2px solid #e2e8f0;">
+                <td colspan="3" style="padding: 10px; text-align: right; font-weight: 600;">Category Total:</td>
+                <td style="padding: 10px; text-align: right; font-weight: 600;">GHS ${categoryTotal.toFixed(2)}</td>
+                <td style="padding: 10px; text-align: right; font-weight: 600;">GHS ${categoryPaid.toFixed(2)}</td>
+                <td style="padding: 10px; text-align: right; font-weight: 600;">GHS ${categoryBalance.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    }
+    
+    return itemsHTML;
+  };
+
+  // Helper function to escape HTML
+  function escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Payment Receipt - ${payment.receiptNumber}</title>
+  <title>Payment Receipt - ${receiptNumber}</title>
   <style>
     * {
       margin: 0;
@@ -39,7 +182,7 @@ export const generateReceiptHTML = (
     }
     
     .receipt-container {
-      max-width: 800px;
+      max-width: 1000px;
       margin: 0 auto;
       background: white;
       border-radius: 16px;
@@ -320,10 +463,10 @@ export const generateReceiptHTML = (
           <path d="M2 12l10 5 10-5"></path>
         </svg>
       </div>
-      <div class="hospital-name">${hospitalInfo.name}</div>
+      <div class="hospital-name">${hospitalInfo.name || 'Veridian Hospital'}</div>
       <div class="hospital-details">
-        ${hospitalInfo.address}<br>
-        Tel: ${hospitalInfo.phone} | Email: ${hospitalInfo.email}
+        ${hospitalInfo.address || '123 Main Street, Accra, Ghana'}<br>
+        Tel: ${hospitalInfo.phone || '+233 123 456 789'} | Email: ${hospitalInfo.email || 'info@hospital.com'}
       </div>
       <div class="receipt-badge">OFFICIAL RECEIPT</div>
     </div>
@@ -334,24 +477,24 @@ export const generateReceiptHTML = (
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Receipt Number</div>
-            <div class="info-value">${payment.receiptNumber}</div>
+            <div class="info-value">${receiptNumber}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Date & Time</div>
-            <div class="info-value">${formatDate(payment.paymentDate)}</div>
+            <div class="info-value">${formatDate(paymentDate)}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Bill Number</div>
-            <div class="info-value">${bill.billNumber}</div>
+            <div class="info-value">${billNumber}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Payment Method</div>
-            <div class="info-value">${payment.paymentMode.replace('_', ' ').toUpperCase()}</div>
+            <div class="info-value">${paymentMethod.replace('_', ' ').toUpperCase()}</div>
           </div>
-          ${payment.reference ? `
+          ${reference ? `
           <div class="info-item">
             <div class="info-label">Reference</div>
-            <div class="info-value">${payment.reference}</div>
+            <div class="info-value">${escapeHtml(reference)}</div>
           </div>
           ` : ''}
         </div>
@@ -362,50 +505,56 @@ export const generateReceiptHTML = (
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Patient Name</div>
-            <div class="info-value">${patient.fullName}</div>
+            <div class="info-value">${escapeHtml(patientFullName)}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Patient ID</div>
-            <div class="info-value">${patient.folderNumber || patient.id}</div>
+            <div class="info-value">${escapeHtml(patientId)}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Contact</div>
-            <div class="info-value">${patient.contact}</div>
+            <div class="info-value">${escapeHtml(patientContact)}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Payment Mode</div>
-            <div class="info-value">${bill.paymentMode.replace('_', ' ').toUpperCase()}</div>
+            <div class="info-value">${billPaymentMode.replace('_', ' ').toUpperCase()}</div>
           </div>
         </div>
+      </div>
+      
+      <!-- Bill Line Items Section -->
+      <div class="section">
+        <div class="section-title">Bill Details</div>
+        ${generateLineItemsHTML()}
       </div>
       
       <div class="amount-section">
         <div class="amount-row">
           <span class="amount-label">Amount Paid</span>
-          <span class="amount-value">GHS ${payment.amount.toFixed(2)}</span>
+          <span class="amount-value">GHS ${paymentAmount.toFixed(2)}</span>
         </div>
-        <div class="total-amount">GHS ${payment.amount.toFixed(2)}</div>
+        <div class="total-amount">GHS ${paymentAmount.toFixed(2)}</div>
       </div>
       
       <div class="section">
-        <div class="section-title">Bill Summary</div>
+        <div class="section-title">Payment Summary</div>
         <div class="bill-summary">
           <div class="summary-row">
             <span class="summary-label">Total Bill Amount</span>
-            <span class="summary-value">GHS ${bill.totalAmount.toFixed(2)}</span>
+            <span class="summary-value">GHS ${billTotal.toFixed(2)}</span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Previous Payments</span>
-            <span class="summary-value">GHS ${(bill.paidAmount - payment.amount).toFixed(2)}</span>
+            <span class="summary-value">GHS ${(billPaidAmount - paymentAmount).toFixed(2)}</span>
           </div>
           <div class="summary-row">
             <span class="summary-label">This Payment</span>
-            <span class="summary-value">GHS ${payment.amount.toFixed(2)}</span>
+            <span class="summary-value">GHS ${paymentAmount.toFixed(2)}</span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Outstanding Balance</span>
-            <span class="summary-value" style="color: ${bill.balance > 0 ? '#dc2626' : '#059669'}; font-weight: bold;">
-              GHS ${(bill.balance - payment.amount).toFixed(2)}
+            <span class="summary-value" style="color: ${billBalance - paymentAmount > 0 ? '#dc2626' : '#059669'}; font-weight: bold;">
+              GHS ${Math.max(0, billBalance - paymentAmount).toFixed(2)}
             </span>
           </div>
         </div>
@@ -418,12 +567,12 @@ export const generateReceiptHTML = (
         </div>
         <div class="signature-box">
           <div class="signature-line"></div>
-          <div>Received By: ${payment.receivedBy}</div>
+          <div>Received By: ${escapeHtml(receivedBy)}</div>
         </div>
       </div>
       
       <div class="footer">
-        <p>This is an official receipt from ${hospitalInfo.name}. Please keep this document for your records.</p>
+        <p>This is an official receipt from ${hospitalInfo.name || 'Veridian Hospital'}. Please keep this document for your records.</p>
         <p style="margin-top: 10px; font-size: 13px; color: #475569;">
           Generated on ${new Date().toLocaleDateString('en-US', {
             year: 'numeric',
@@ -454,10 +603,9 @@ export const generateReceiptHTML = (
   </div>
   
   <script>
-    // Auto-print in some browsers
     window.addEventListener('load', function() {
-      // Uncomment the next line if you want to auto-print
-      // window.print();
+      // Auto-print can be enabled by uncommenting:
+      // setTimeout(() => window.print(), 500);
     });
   </script>
 </body>

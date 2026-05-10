@@ -35,6 +35,8 @@ import documentRoutes from './routes/documentRoutes';
 import gdrgRoutes from './routes/gdrgRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
 import clinicalReportsRoutes from './routes/clinicalReportsRoutes';
+import waiverRoutes from './routes/waiverRoutes';
+
 
 const router = Router();
 
@@ -73,6 +75,7 @@ router.use('/antenatal', antenatalRoutes);
 router.use('/reports/ghs', ghsReportRoutes);
 router.use('/documents', documentRoutes);
 router.use('/gdrg', gdrgRoutes);
+router.use('/waivers', waiverRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

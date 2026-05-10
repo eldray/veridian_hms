@@ -1,4 +1,4 @@
-// src/store/insuranceStore.ts - COMPLETE WITH SEPARATE NHIS & PRIVATE FUNCTIONS
+// src/store/insuranceStore.ts - COMPLETE UPDATED VERSION
 import { create } from 'zustand';
 import {
   // NHIS Claim Functions
@@ -10,12 +10,26 @@ import {
   getPrivateInsuranceClaims as apiGetPrivateInsuranceClaims,
   
   // Common Claim Functions
+  getInsuranceClaims as apiGetInsuranceClaims,
   getInsuranceClaim as apiGetInsuranceClaim,
-  updateClaimDraft as apiUpdateClaimDraft,
+  getClaimByAttendanceId as apiGetClaimByAttendanceId,
+ // updateClaimDraft as apiUpdateClaimDraft,
+  updateInsuranceClaim as apiUpdateInsuranceClaim, 
   finalizeClaim as apiFinalizeClaim,
+  updateClaimStatus as apiUpdateClaimStatus,
   generateClaimXML as apiGenerateClaimXML,
   generateClaimPrint as apiGenerateClaimPrint,
-  getClaimByAttendanceId as apiGetClaimByAttendanceId,
+  getFinalizedClaimsTotal as apiGetFinalizedClaimsTotal,
+  
+  // Batch Claim Functions
+  createClaimBatch as apiCreateClaimBatch,
+  getClaimBatches as apiGetClaimBatches,
+  getClaimBatch as apiGetClaimBatch,
+  addClaimsToBatch as apiAddClaimsToBatch,
+  removeClaimsFromBatch as apiRemoveClaimsFromBatch,
+  generateBatchXML as apiGenerateBatchXML,
+  updateBatchStatus as apiUpdateBatchStatus,
+  deleteClaimBatch as apiDeleteClaimBatch,
   
   // Provider Functions
   getInsuranceProviders as apiGetInsuranceProviders,
@@ -26,13 +40,28 @@ import {
 } from '../api';
 import type { InsuranceProvider, InsuranceClaim, Pagination } from '../types';
 
+interface Batch {
+  id: string;
+  batchNumber: string;
+  batchDate: string;
+  description: string | null;
+  totalAmount: number;
+  status: string;
+  claims: InsuranceClaim[];
+  createdBy: { fullName: string; username: string };
+  createdAt: string;
+}
+
 interface InsuranceState {
   // Data
   nhisClaims: InsuranceClaim[];
   privateClaims: InsuranceClaim[];
+  allClaims: InsuranceClaim[];
   providers: InsuranceProvider[];
+  batches: Batch[];
   currentClaim: InsuranceClaim | null;
   currentDraft: any | null;
+  currentBatch: Batch | null;
   currentProvider: InsuranceProvider | null;
   
   // UI State
@@ -63,6 +92,11 @@ interface InsuranceState {
     approvedAmount: number;
     paidAmount: number;
   };
+  finalizedClaimsTotal: {
+    total: number;
+    totalAmount: number;
+    claims: any[];
+  } | null;
 
   // ==========================================
   // NHIS CLAIM FUNCTIONS
@@ -79,12 +113,27 @@ interface InsuranceState {
   // ==========================================
   // COMMON CLAIM FUNCTIONS
   // ==========================================
+  getInsuranceClaims: (filters?: any) => Promise<void>;
   getInsuranceClaim: (id: string) => Promise<void>;
   getClaimByAttendanceId: (attendanceId: string) => Promise<InsuranceClaim | null>;
   updateClaimDraft: (claimId: string, data: any) => Promise<InsuranceClaim>;
   finalizeClaim: (claimId: string) => Promise<InsuranceClaim>;
+  updateClaimStatus: (claimId: string, status: string, notes?: string) => Promise<InsuranceClaim>;
   generateClaimXML: (claimId: string) => Promise<void>;
   generateClaimPrint: (claimId: string) => Promise<any>;
+  getFinalizedClaimsTotal: (filters?: any) => Promise<void>;
+  
+  // ==========================================
+  // BATCH CLAIM FUNCTIONS
+  // ==========================================
+  createClaimBatch: (claimIds: string[], description?: string) => Promise<Batch>;
+  getClaimBatches: (filters?: any) => Promise<void>;
+  getClaimBatch: (id: string) => Promise<Batch | null>;
+  addClaimsToBatch: (batchId: string, claimIds: string[]) => Promise<Batch>;
+  removeClaimsFromBatch: (batchId: string, claimIds: string[]) => Promise<Batch>;
+  generateBatchXML: (batchId: string) => Promise<void>;
+  updateBatchStatus: (batchId: string, status: string) => Promise<Batch>;
+  deleteClaimBatch: (batchId: string) => Promise<void>;
   
   // ==========================================
   // PROVIDER FUNCTIONS
@@ -100,10 +149,9 @@ interface InsuranceState {
   // ==========================================
   clearCurrentClaim: () => void;
   clearCurrentDraft: () => void;
+  clearCurrentBatch: () => void;
   clearCurrentProvider: () => void;
   clearError: () => void;
-  
-  // Helper to update stats
   updateStats: () => void;
 }
 
@@ -126,13 +174,17 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   // Initial state
   nhisClaims: [],
   privateClaims: [],
+  allClaims: [],
   providers: [],
+  batches: [],
   currentClaim: null,
   currentDraft: null,
+  currentBatch: null,
   currentProvider: null,
   isLoading: false,
   pagination: null,
   error: null,
+  finalizedClaimsTotal: null,
   nhisStats: {
     total: 0,
     draft: 0,
@@ -195,6 +247,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       const result = await apiGenerateNHISClaim(attendanceId);
       // Refresh NHIS claims list after generation
       await get().getNHISClaims();
+      await get().getInsuranceClaims();
       set({ 
         currentClaim: result.data || result,
         currentDraft: result.data || result,
@@ -247,6 +300,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       const result = await apiGeneratePrivateInsuranceClaim(attendanceId);
       // Refresh private claims list after generation
       await get().getPrivateInsuranceClaims();
+      await get().getInsuranceClaims();
       set({ 
         currentClaim: result.data || result,
         currentDraft: result.data || result,
@@ -264,6 +318,32 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   // COMMON CLAIM FUNCTIONS
   // ==========================================
   
+  getInsuranceClaims: async (filters = {}) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetInsuranceClaims(filters);
+      
+      let claims: InsuranceClaim[] = [];
+      if (response?.data && Array.isArray(response.data)) {
+        claims = response.data;
+      } else if (Array.isArray(response)) {
+        claims = response;
+      } else if (response?.claims && Array.isArray(response.claims)) {
+        claims = response.claims;
+      }
+      
+      set({ 
+        allClaims: claims,
+        pagination: response?.pagination || null,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to fetch insurance claims:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
   getInsuranceClaim: async (id: string) => {
     set({ isLoading: true });
     try {
@@ -311,7 +391,9 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         });
       }
       
-      set({ 
+      // Also update allClaims
+      set({
+        allClaims: get().allClaims.map(c => c.id === claimId ? claimData : c),
         currentDraft: claimData,
         currentClaim: claimData,
         isLoading: false 
@@ -323,6 +405,32 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       throw error;
     }
   },
+
+// In insuranceStore.ts - replace the updateInsuranceClaim function
+
+updateInsuranceClaim: async (claimId: string, data: any) => {
+  set({ isLoading: true });
+  try {
+    // Call the API function that uses PATCH to /draft endpoint
+    const response = await apiUpdateInsuranceClaim(claimId, data);
+    const claimData = response.data || response;
+    
+    // Update the claim in the store
+    set(state => ({
+      currentClaim: claimData,
+      allClaims: state.allClaims.map(c => c.id === claimId ? claimData : c),
+      nhisClaims: state.nhisClaims.map(c => c.id === claimId ? claimData : c),
+      privateClaims: state.privateClaims.map(c => c.id === claimId ? claimData : c),
+      isLoading: false
+    }));
+    
+    return claimData;
+  } catch (error: any) {
+    console.error('Failed to update claim:', error);
+    set({ isLoading: false, error: error.message });
+    throw error;
+  }
+},
 
   finalizeClaim: async (claimId: string) => {
     set({ isLoading: true });
@@ -345,7 +453,9 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         });
       }
       
-      set({ 
+      // Also update allClaims
+      set({
+        allClaims: get().allClaims.map(c => c.id === claimId ? claimData : c),
         currentDraft: null,
         currentClaim: claimData,
         isLoading: false 
@@ -353,6 +463,39 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       return claimData;
     } catch (error: any) {
       console.error('Failed to finalize claim:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  updateClaimStatus: async (claimId: string, status: string, notes?: string) => {
+    set({ isLoading: true });
+    try {
+      const updatedClaim = await apiUpdateClaimStatus(claimId, { status, notes });
+      const claimData = updatedClaim.data || updatedClaim;
+      
+      const isNHIS = claimData.insuranceProvider?.type === 'nhis';
+      
+      if (isNHIS) {
+        set({
+          nhisClaims: get().nhisClaims.map(c => c.id === claimId ? claimData : c),
+          nhisStats: calculateStats(get().nhisClaims.map(c => c.id === claimId ? claimData : c)),
+        });
+      } else {
+        set({
+          privateClaims: get().privateClaims.map(c => c.id === claimId ? claimData : c),
+          privateStats: calculateStats(get().privateClaims.map(c => c.id === claimId ? claimData : c)),
+        });
+      }
+      
+      set({
+        allClaims: get().allClaims.map(c => c.id === claimId ? claimData : c),
+        currentClaim: claimData,
+        isLoading: false 
+      });
+      return claimData;
+    } catch (error: any) {
+      console.error('Failed to update claim status:', error);
       set({ isLoading: false, error: error.message });
       throw error;
     }
@@ -386,6 +529,178 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       return printData;
     } catch (error: any) {
       console.error('Failed to generate claim print:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  getFinalizedClaimsTotal: async (filters = {}) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetFinalizedClaimsTotal(filters);
+      set({ 
+        finalizedClaimsTotal: response.data || response,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to fetch finalized claims total:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  // ==========================================
+  // BATCH CLAIM FUNCTIONS
+  // ==========================================
+  
+  createClaimBatch: async (claimIds: string[], description?: string) => {
+    set({ isLoading: true });
+    try {
+      const batch = await apiCreateClaimBatch({ claimIds, description });
+      const batchData = batch.data || batch;
+      set({ 
+        batches: [batchData, ...get().batches],
+        currentBatch: batchData,
+        isLoading: false 
+      });
+      // Refresh claims list to update batchId
+      await get().getInsuranceClaims();
+      return batchData;
+    } catch (error: any) {
+      console.error('Failed to create claim batch:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  getClaimBatches: async (filters = {}) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetClaimBatches(filters);
+      let batches: Batch[] = [];
+      if (response?.data && Array.isArray(response.data)) {
+        batches = response.data;
+      } else if (Array.isArray(response)) {
+        batches = response;
+      } else if (response?.batches && Array.isArray(response.batches)) {
+        batches = response.batches;
+      }
+      set({ 
+        batches,
+        pagination: response?.pagination || null,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to fetch claim batches:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  getClaimBatch: async (id: string) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetClaimBatch(id);
+      const batch = response.data || response;
+      set({ 
+        currentBatch: batch,
+        isLoading: false 
+      });
+      return batch;
+    } catch (error: any) {
+      console.error('Failed to fetch claim batch:', error);
+      set({ isLoading: false, error: error.message });
+      return null;
+    }
+  },
+
+  addClaimsToBatch: async (batchId: string, claimIds: string[]) => {
+    set({ isLoading: true });
+    try {
+      const batch = await apiAddClaimsToBatch(batchId, claimIds);
+      const batchData = batch.data || batch;
+      set({ 
+        batches: get().batches.map(b => b.id === batchId ? batchData : b),
+        currentBatch: batchData,
+        isLoading: false 
+      });
+      await get().getInsuranceClaims();
+      return batchData;
+    } catch (error: any) {
+      console.error('Failed to add claims to batch:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  removeClaimsFromBatch: async (batchId: string, claimIds: string[]) => {
+    set({ isLoading: true });
+    try {
+      const batch = await apiRemoveClaimsFromBatch(batchId, claimIds);
+      const batchData = batch.data || batch;
+      set({ 
+        batches: get().batches.map(b => b.id === batchId ? batchData : b),
+        currentBatch: batchData,
+        isLoading: false 
+      });
+      await get().getInsuranceClaims();
+      return batchData;
+    } catch (error: any) {
+      console.error('Failed to remove claims from batch:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  generateBatchXML: async (batchId: string) => {
+    set({ isLoading: true });
+    try {
+      const blob = await apiGenerateBatchXML(batchId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch_${batchId}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('Failed to generate batch XML:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  updateBatchStatus: async (batchId: string, status: string) => {
+    set({ isLoading: true });
+    try {
+      const batch = await apiUpdateBatchStatus(batchId, status);
+      const batchData = batch.data || batch;
+      set({ 
+        batches: get().batches.map(b => b.id === batchId ? batchData : b),
+        currentBatch: batchData,
+        isLoading: false 
+      });
+      return batchData;
+    } catch (error: any) {
+      console.error('Failed to update batch status:', error);
+      set({ isLoading: false, error: error.message });
+      throw error;
+    }
+  },
+
+  deleteClaimBatch: async (batchId: string) => {
+    set({ isLoading: true });
+    try {
+      await apiDeleteClaimBatch(batchId);
+      set({ 
+        batches: get().batches.filter(b => b.id !== batchId),
+        currentBatch: get().currentBatch?.id === batchId ? null : get().currentBatch,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      console.error('Failed to delete claim batch:', error);
       set({ isLoading: false, error: error.message });
       throw error;
     }
@@ -490,6 +805,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
 
   clearCurrentClaim: () => set({ currentClaim: null }),
   clearCurrentDraft: () => set({ currentDraft: null }),
+  clearCurrentBatch: () => set({ currentBatch: null }),
   clearCurrentProvider: () => set({ currentProvider: null }),
   clearError: () => set({ error: null }),
 }));

@@ -1,4 +1,4 @@
-// routes/insuranceClaimRoutes.ts
+// routes/insuranceClaimRoutes.ts - ADD THE MISSING ROUTE
 import express from 'express';
 import {
   // NHIS
@@ -8,6 +8,7 @@ import {
   generatePrivateInsuranceClaim,
   getPrivateInsuranceClaims,
   // Common
+  getAllInsuranceClaims,  // ✅ ADD THIS IMPORT
   getInsuranceClaim,
   getClaimByAttendanceId,
   updateClaimDraft,
@@ -22,6 +23,11 @@ import { protect, requireAccountsStaff, requireMedicalStaff } from '../middlewar
 const router = express.Router();
 
 router.use(protect);
+
+// ==========================================
+// GET ALL CLAIMS (For dashboard and general listing)
+// ==========================================
+router.get('/', requireAccountsStaff, getAllInsuranceClaims);  // ✅ ADD THIS ROUTE
 
 // ==========================================
 // NHIS CLAIMS

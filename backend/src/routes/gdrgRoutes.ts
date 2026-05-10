@@ -8,7 +8,13 @@ import {
   updateGDRGTariff,
   deleteGDRGTariff,
   linkDiagnosisToGDRG,
-  unlinkDiagnosisFromGDRG
+  getDiagnosesByGDRG,  
+  getGDRGByDiagnosis,   
+  unlinkDiagnosisFromGDRG,
+  linkProcedureToGDRG,
+  unlinkProcedureFromGDRG,
+  getProceduresByGDRG,
+  getGDRGByProcedure
 } from '../controllers/gdrgController';
 import {
   protect,
@@ -53,5 +59,19 @@ router.post('/:gdrgCode/diagnosis', requireAdmin, linkDiagnosisToGDRG);
 
 // Unlink diagnosis from GDRG tariff
 router.delete('/:gdrgCode/diagnosis/:diagnosisId', requireAdmin, unlinkDiagnosisFromGDRG);
+
+// ============================================
+// Diagnosis Linking Routes
+// ============================================
+router.get('/:gdrgCode/diagnoses', requireClinicalStaff, getDiagnosesByGDRG);
+router.get('/diagnosis/:diagnosisId', requireClinicalStaff, getGDRGByDiagnosis);
+
+// ============================================
+// Procedure GDRG Linking Routes (Admin Only)
+// ============================================
+router.post('/:gdrgCode/procedure', requireAdmin, linkProcedureToGDRG);
+router.delete('/:gdrgCode/procedure/:procedureId', requireAdmin, unlinkProcedureFromGDRG);
+router.get('/:gdrgCode/procedures', requireClinicalStaff, getProceduresByGDRG);
+router.get('/procedure/:procedureId', requireClinicalStaff, getGDRGByProcedure);
 
 export default router;

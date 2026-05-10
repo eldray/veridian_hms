@@ -511,3 +511,254 @@ export const unlinkDiagnosisFromGDRG = async (req: AuthRequest, res: Response) =
     });
   }
 };
+
+// ==========================================
+// DIAGNOSIS LINKING - GET DIAGNOSES BY GDRG
+// ==========================================
+
+export const getDiagnosesByGDRG = async (req: AuthRequest, res: Response) => {
+  try {
+    const { gdrgCode } = req.params;
+
+    const tariff = await prisma.gDRGTariff.findUnique({
+      where: { gdrgCode },
+      include: {
+        diagnoses: {
+          include: {
+            diagnosis: {
+              select: {
+                id: true,
+                name: true,
+                icdCode: true,
+                morbidityGroup: true,
+                isActive: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!tariff) {
+      return res.status(404).json({ success: false, message: 'GDRG tariff not found' });
+    }
+
+    // Transform the response to a clean array
+    const linkedDiagnoses = tariff.diagnoses.map(d => ({
+      id: d.id,
+      diagnosisId: d.diagnosisId,
+      name: d.diagnosis?.name,
+      icdCode: d.diagnosis?.icdCode,
+      morbidityGroup: d.diagnosis?.morbidityGroup,
+      isPrimary: d.isPrimary,
+      mappedIcdCode: d.mappedIcdCode
+    }));
+
+    console.log(`✅ Found ${linkedDiagnoses.length} linked diagnoses for ${gdrgCode}`);
+
+    res.json({ 
+      success: true, 
+      data: linkedDiagnoses,
+      count: linkedDiagnoses.length
+    });
+  } catch (error) {
+    console.error('Error fetching diagnoses by GDRG:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching diagnoses', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ==========================================
+// DIAGNOSIS LINKING - GET GDRG BY DIAGNOSIS
+// ==========================================
+
+export const getGDRGByDiagnosis = async (req: AuthRequest, res: Response) => {
+  try {
+    const { diagnosisId } = req.params;
+
+    const links = await prisma.gDRGTariffDiagnosis.findMany({
+      where: { diagnosisId },
+      include: {
+        gdrgTariff: {
+          select: {
+            id: true,
+            gdrgCode: true,
+            description: true,
+            nhiaTariff: true,
+            mdc: true,
+            ageSplit: true,
+            isActive: true
+          }
+        }
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      data: links.map(l => ({
+        id: l.gdrgTariff.id,
+        gdrgCode: l.gdrgTariff.gdrgCode,
+        description: l.gdrgTariff.description,
+        nhiaTariff: l.gdrgTariff.nhiaTariff,
+        mdc: l.gdrgTariff.mdc,
+        ageSplit: l.gdrgTariff.ageSplit,
+        isActive: l.gdrgTariff.isActive,
+        isPrimary: l.isPrimary
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching GDRG by diagnosis:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching GDRG tariff', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ==========================================
+// PROCEDURE TO GDRG LINKING (Same style as Diagnosis)
+// ==========================================
+
+export const linkProcedureToGDRG = async (req: AuthRequest, res: Response) => {
+  try {
+    const { gdrgCode } = req.params;
+    const { procedureId, isPrimary, mappedCode } = req.body;
+
+    if (!procedureId) {
+      return res.status(400).json({ success: false, message: 'procedureId is required' });
+    }
+
+    const tariff = await prisma.gDRGTariff.findUnique({ where: { gdrgCode } });
+    if (!tariff) {
+      return res.status(404).json({ success: false, message: 'GDRG tariff not found' });
+    }
+
+    const procedure = await prisma.serviceCatalog.findFirst({
+      where: { id: procedureId, serviceType: 'procedure' }
+    });
+    if (!procedure) {
+      return res.status(404).json({ success: false, message: 'Procedure not found' });
+    }
+
+    const existingLink = await prisma.gDRGTariffProcedure.findUnique({
+      where: {
+        gdrgTariffId_procedureId: {
+          gdrgTariffId: tariff.id,
+          procedureId
+        }
+      }
+    });
+
+    if (existingLink) {
+      return res.status(400).json({ success: false, message: 'Procedure already linked to this GDRG tariff' });
+    }
+
+    const link = await prisma.gDRGTariffProcedure.create({
+      data: {
+        gdrgTariffId: tariff.id,
+        procedureId,
+        isPrimary: isPrimary || false,
+        mappedCode: mappedCode || procedure.code
+      },
+      include: { gdrgTariff: true, procedure: true }
+    });
+
+    res.json({ success: true, data: link, message: 'Procedure linked to GDRG tariff successfully' });
+  } catch (error) {
+    console.error('Error linking procedure to GDRG:', error);
+    res.status(500).json({ success: false, message: 'Error linking procedure to GDRG', error: (error as Error).message });
+  }
+};
+
+export const unlinkProcedureFromGDRG = async (req: AuthRequest, res: Response) => {
+  try {
+    const { gdrgCode, procedureId } = req.params;
+
+    const tariff = await prisma.gDRGTariff.findUnique({ where: { gdrgCode } });
+    if (!tariff) {
+      return res.status(404).json({ success: false, message: 'GDRG tariff not found' });
+    }
+
+    await prisma.gDRGTariffProcedure.delete({
+      where: {
+        gdrgTariffId_procedureId: {
+          gdrgTariffId: tariff.id,
+          procedureId
+        }
+      }
+    });
+
+    res.json({ success: true, message: 'Procedure unlinked from GDRG tariff successfully' });
+  } catch (error) {
+    console.error('Error unlinking procedure from GDRG:', error);
+    res.status(500).json({ success: false, message: 'Error unlinking procedure from GDRG', error: (error as Error).message });
+  }
+};
+
+export const getProceduresByGDRG = async (req: AuthRequest, res: Response) => {
+  try {
+    const { gdrgCode } = req.params;
+
+    const tariff = await prisma.gDRGTariff.findUnique({
+      where: { gdrgCode },
+      include: {
+        procedures: {
+          include: {
+            procedure: {
+              include: { pricing: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!tariff) {
+      return res.status(404).json({ success: false, message: 'GDRG tariff not found' });
+    }
+
+    res.json({
+      success: true,
+      data: tariff.procedures.map(p => ({
+        id: p.procedure.id,
+        name: p.procedure.name,
+        code: p.procedure.code,
+        isPrimary: p.isPrimary,
+        mappedCode: p.mappedCode,
+        cashPrice: p.procedure.pricing?.cashPrice,
+        nhisPrice: p.procedure.pricing?.nhisPrice
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching procedures by GDRG:', error);
+    res.status(500).json({ success: false, message: 'Error fetching procedures', error: (error as Error).message });
+  }
+};
+
+export const getGDRGByProcedure = async (req: AuthRequest, res: Response) => {
+  try {
+    const { procedureId } = req.params;
+
+    const links = await prisma.gDRGTariffProcedure.findMany({
+      where: { procedureId },
+      include: { gdrgTariff: true }
+    });
+
+    res.json({
+      success: true,
+      data: links.map(l => ({
+        id: l.gdrgTariff.id,
+        gdrgCode: l.gdrgTariff.gdrgCode,
+        description: l.gdrgTariff.description,
+        nhiaTariff: l.gdrgTariff.nhiaTariff,
+        isPrimary: l.isPrimary
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching GDRG by procedure:', error);
+    res.status(500).json({ success: false, message: 'Error fetching GDRG tariff', error: (error as Error).message });
+  }
+};

@@ -1,10 +1,9 @@
-// services/BillingService.ts - COMPLETE CORRECTED VERSION
+// services/BillingService.ts - COMPLETE FIXED VERSION
 import { PrismaClient, PaymentMode, EncounterCategory, AttendanceType, ServiceType } from '@prisma/client';
 import { NHISClaimService } from './NHISClaimService';
 
 const prisma = new PrismaClient();
 
-// At the top of BillingService.ts, ensure this mapping is complete:
 const mapCategoryToServiceType = (category: string): ServiceType => {
   const mapping: Record<string, ServiceType> = {
     'opd': ServiceType.consultation,
@@ -69,13 +68,8 @@ export class BillingService {
       include: { pricing: true }
     });
 
-    if (!service) {
-      throw new Error('Service not found');
-    }
-
-    if (!service.pricing) {
-      throw new Error('Service pricing not configured');
-    }
+    if (!service) throw new Error('Service not found');
+    if (!service.pricing) throw new Error('Service pricing not configured');
 
     const baseCashPrice = service.pricing.cashPrice * quantity;
     const baseNHISPrice = service.pricing.nhisPrice * quantity;
@@ -91,28 +85,22 @@ export class BillingService {
       case 'cash':
         patientPayable = baseCashPrice;
         insuranceCovered = 0;
-        requiresAuthorization = false;
-        isExempted = false;
         break;
 
       case 'nhis':
         if (!service.isNHISCovered) {
           isExempted = true;
-          insuranceCovered = 0;
           patientPayable = baseCashPrice;
         } else {
           requiresAuthorization = service.nhisRequiresAuth || false;
-          
           if (service.nhisCoverageType === 'full') {
             insuranceCovered = baseNHISPrice;
             patientPayable = 0;
-            copayAmount = 0;
           } else if (service.nhisCoverageType === 'partial') {
             insuranceCovered = baseNHISPrice;
             patientPayable = Math.max(0, baseCashPrice - baseNHISPrice);
             copayAmount = patientPayable;
           } else {
-            insuranceCovered = 0;
             patientPayable = baseCashPrice;
             isExempted = true;
           }
@@ -120,17 +108,14 @@ export class BillingService {
         break;
 
       case 'private_insurance':
-        if (!insuranceProvider) {
-          throw new Error('Insurance provider required for private insurance billing');
-        }
-
-        const isPrivateCovered = service.isNHISCovered !== false;
+        if (!insuranceProvider) throw new Error('Insurance provider required');
+        
+        const isPrivateCovered = !service.isPrivateInsuranceExempted;
         if (!isPrivateCovered) {
           isExempted = true;
-          insuranceCovered = 0;
           patientPayable = baseCashPrice;
         } else {
-          requiresAuthorization = service.privateInsRequiresAuth || true;
+          requiresAuthorization = service.privateInsRequiresAuth || false;
           const coveragePercentage = insuranceProvider.coveragePercentage || 80;
           insuranceCovered = (baseInsurancePrice * coveragePercentage) / 100;
           patientPayable = baseInsurancePrice - insuranceCovered;
@@ -152,78 +137,16 @@ export class BillingService {
     };
   }
 
-  // Add to BillingService.ts - SYNTAX FIXED
-
-static async verifyMedicationBilling(attendanceId: string): Promise<{
-  medicationsInServiceRendered: any[];
-  medicationsInBill: any[];
-  missingFromBill: any[];
-}> {
-  const attendance = await prisma.attendance.findUnique({
-    where: { id: attendanceId },
-    include: {
-      Medication: {
-        include: { ServiceCatalog: true }
-      },
-      ServiceRendered: {
-        include: { ServiceCatalog: true }
-      },
-      Bill: {
-        include: {
-          BillLineItem: {
-            include: { serviceCatalog: true }
-          }
-        }
-      }
-    }
-  });
-
-  if (!attendance) {
-    throw new Error('Attendance not found');
-  }
-
-  const medicationsInServiceRendered = attendance.ServiceRendered.filter(
-    (sr: any) => sr.ServiceCatalog?.serviceType === 'medication'
-  );
-
-  const medicationsInBill = attendance.Bill?.BillLineItem.filter(
-    (item: any) => item.serviceCatalog?.serviceType === 'medication'
-  ) || [];
-
-  const prescribedMedications = attendance.Medication.filter((m: any) => m.status !== 'cancelled');
-  
-  const missingFromBill = prescribedMedications.filter((med: any) => {
-    return !medicationsInBill.some((billItem: any) => 
-      billItem.serviceCatalogId === med.serviceCatalogId
-    );
-  });
-
-  return {
-    medicationsInServiceRendered,
-    medicationsInBill,
-    missingFromBill
-  };
-}
-
-
-// In BillingService.ts - Update generateBillFromAttendance
   static async generateBillFromAttendance(attendanceId: string) {
-    console.log('=========================================');
-    console.log('💰 BILLING SERVICE - generateBillFromAttendance');
-    console.log('=========================================');
-    console.log('📌 Attendance ID:', attendanceId);
+    console.log('💰 BILLING SERVICE - generateBillFromAttendance for:', attendanceId);
     
     return await prisma.$transaction(async (tx) => {
-      console.log('🔍 Fetching attendance with services...');
-      
       const attendance = await tx.attendance.findUnique({
         where: { id: attendanceId },
         include: {
           ServiceRendered: {
             include: { 
-              ServiceCatalog: { 
-                include: { pricing: true }
-              }
+              ServiceCatalog: { include: { pricing: true } }
             }
           },
           Patient: true,
@@ -231,25 +154,9 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         }
       });
 
-      if (!attendance) {
-        console.log('❌ Attendance not found');
-        throw new Error('Attendance not found');
-      }
-
-      console.log('📊 Attendance Data:', {
-        id: attendance.id,
-        patientId: attendance.patientId,
-        paymentMode: attendance.paymentMode,
-        servicesRenderedCount: attendance.ServiceRendered.length
-      });
-
-      console.log('📋 Services Rendered:');
-      attendance.ServiceRendered.forEach((sr, index) => {
-        console.log(`  ${index + 1}. ${sr.ServiceCatalog?.name} (${sr.ServiceCatalog?.code}) - Qty: ${sr.quantity}`);
-      });
+      if (!attendance) throw new Error('Attendance not found');
 
       if (attendance.paymentMode === 'nhis' && !attendance.nhisCCC) {
-        console.log('❌ NHIS CCC missing');
         throw new Error('NHIS CCC number is required for NHIS billing');
       }
 
@@ -263,14 +170,7 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
 
       for (const rendered of attendance.ServiceRendered) {
         const service = rendered.ServiceCatalog;
-        if (!service || !service.pricing) {
-          console.log(`⚠️ Skipping service ${rendered.serviceItemId} - no pricing found`);
-          continue;
-        }
-
-        console.log(`\n🔄 Processing service: ${service.name}`);
-        console.log(`   Quantity: ${rendered.quantity}`);
-        console.log(`   Pricing - Cash: ${service.pricing.cashPrice}, NHIS: ${service.pricing.nhisPrice}, Insurance: ${service.pricing.insurancePrice}`);
+        if (!service || !service.pricing) continue;
 
         const calculation = await this.calculateServiceBilling(
           service.id,
@@ -279,17 +179,10 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
           attendance.InsuranceProvider
         );
 
-        console.log(`   Calculation Result:`);
-        console.log(`     - Cash Price: ${calculation.cashPrice}`);
-        console.log(`     - Insurance Covered: ${calculation.insuranceCovered}`);
-        console.log(`     - Patient Payable: ${calculation.patientPayable}`);
-        console.log(`     - Requires Auth: ${calculation.requiresAuthorization}`);
-
         totalCashPrice += calculation.cashPrice;
         totalInsuranceCovered += calculation.insuranceCovered;
         totalPatientPayable += calculation.patientPayable;
         totalCopay += calculation.copayAmount;
-
         if (calculation.isExempted) hasExemptedServices = true;
         if (calculation.requiresAuthorization) requiresAuthorization = true;
 
@@ -314,68 +207,71 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         });
       }
 
-      console.log('\n📊 TOTALS:');
-      console.log(`   Total Cash Price: ${totalCashPrice}`);
-      console.log(`   Total Insurance Covered: ${totalInsuranceCovered}`);
-      console.log(`   Total Patient Payable: ${totalPatientPayable}`);
-
-      let bill = await tx.bill.findUnique({
-        where: { attendanceId }
+      // Get existing waivers for this bill
+      let existingBill = await tx.bill.findUnique({
+        where: { attendanceId },
+        include: { PatientWaiver: true }
       });
 
+      const totalWaiverAmount = existingBill?.PatientWaiver?.reduce((sum, w) => 
+        w.status === 'approved' ? sum + w.amountApproved : sum, 0) || 0;
+
+      // Calculate final patient payable after waivers
       const subtotal = totalCashPrice;
       const taxAmount = 0;
       const totalAmount = subtotal + taxAmount;
-      const patientPayable = totalPatientPayable;
-      const balance = patientPayable - (bill?.paidAmount || 0);
+      const insuranceCovered = totalInsuranceCovered;
+      const patientPayableBeforeWaiver = totalPatientPayable;
+      const patientPayable = Math.max(0, patientPayableBeforeWaiver - totalWaiverAmount);
+      const discount = totalWaiverAmount; // Waiver acts as discount
+      const waiverAmount = totalWaiverAmount;
+      const paidAmount = existingBill?.paidAmount || 0;
+      const balance = patientPayable - paidAmount;
+      
+      let status: 'draft' | 'pending' | 'partial' | 'paid' | 'cancelled' = 'pending';
+      if (balance <= 0) status = 'paid';
+      else if (paidAmount > 0) status = 'partial';
+      else status = 'pending';
 
       const billData = {
         subtotal,
         taxAmount,
         totalAmount,
-        insuranceCovered: totalInsuranceCovered,
+        discount,
+        waiverAmount,
+        insuranceCovered,
         patientPayable,
+        paidAmount,
         balance,
-        status: patientPayable <= 0 ? 'paid' as const : 'pending' as const
+        status
       };
 
-      console.log('\n💰 Bill Data to Save:', billData);
-
-      if (!bill) {
-        console.log('📝 Creating new bill...');
+      let bill;
+      if (!existingBill) {
         bill = await tx.bill.create({
           data: {
             patientId: attendance.patientId,
             attendanceId: attendance.id,
             paymentMode: attendance.paymentMode,
             insuranceProviderId: attendance.insuranceProviderId,
-            billNumber: `BILL-${Date.now()}`,
+            billNumber: `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
             createdById: attendance.createdById,
             ...billData
           }
         });
-        console.log(`✅ Bill created: ${bill.billNumber} (${bill.id})`);
       } else {
-        console.log(`📝 Updating existing bill: ${bill.billNumber}`);
         bill = await tx.bill.update({
-          where: { id: bill.id },
+          where: { id: existingBill.id },
           data: billData
         });
-        console.log(`✅ Bill updated`);
       }
 
-      // Delete existing line items
-      const deleted = await tx.billLineItem.deleteMany({
-        where: { billId: bill.id }
-      });
-      console.log(`🗑️ Deleted ${deleted.count} existing line items`);
+      // Delete and recreate line items
+      await tx.billLineItem.deleteMany({ where: { billId: bill.id } });
 
-      // Create new line items
-      console.log(`📝 Creating ${billItems.length} new line items...`);
       for (const item of billItems) {
         const serviceType = mapCategoryToServiceType(item.category);
-        
-        const lineItem = await tx.billLineItem.create({
+        await tx.billLineItem.create({
           data: {
             billId: bill.id,
             serviceCatalogId: item.serviceCatalogId,
@@ -389,11 +285,9 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
             lineTotal: item.totalCashPrice,
             insuranceCoveredAmount: item.insuranceCovered,
             patientPayableAmount: item.patientPayable,
-            discount: 0,
-            pricingSnapshotId: null
+            discount: 0
           }
         });
-        console.log(`   ✅ Created line item: ${lineItem.description} - ${lineItem.lineTotal}`);
       }
 
       await tx.attendance.update({
@@ -404,16 +298,14 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         }
       });
 
-      console.log('=========================================');
-      console.log('✅ BILL GENERATION COMPLETE');
-      console.log('=========================================');
-
       return {
         bill,
         summary: {
           totalCashPrice,
           totalInsuranceCovered,
-          totalPatientPayable,
+          totalPatientPayable: patientPayableBeforeWaiver,
+          totalWaiverAmount: waiverAmount,
+          finalPatientPayable: patientPayable,
           totalCopay,
           hasExemptedServices,
           requiresAuthorization,
@@ -430,28 +322,27 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
       include: {
         ServiceRendered: {
           include: { 
-            ServiceCatalog: { 
-              include: { pricing: true }
-            }
+            ServiceCatalog: { include: { pricing: true } }
           }
         },
         InsuranceProvider: true,
         Bill: {
           include: {
-            BillLineItem: true
+            BillLineItem: true,
+            PatientWaiver: true
           }
         }
       }
     });
 
-    if (!attendance) {
-      throw new Error('Attendance not found');
-    }
+    if (!attendance) throw new Error('Attendance not found');
 
     const breakdown = {
       paymentMode: attendance.paymentMode,
       insuranceProvider: attendance.InsuranceProvider?.name,
       coveragePercentage: attendance.InsuranceProvider?.coveragePercentage,
+      totalWaiverAmount: attendance.Bill?.PatientWaiver?.reduce((sum, w) => 
+        w.status === 'approved' ? sum + w.amountApproved : sum, 0) || 0,
       
       services: {
         byCoverage: {
@@ -473,7 +364,9 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         cashPrice: 0,
         insuranceCovered: 0,
         patientCopay: 0,
-        patientPayable: 0
+        patientPayableBeforeWaiver: 0,
+        patientPayableAfterWaiver: 0,
+        waiverApplied: 0
       },
       
       authorization: {
@@ -519,7 +412,7 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
       breakdown.totals.cashPrice += calculation.cashPrice;
       breakdown.totals.insuranceCovered += calculation.insuranceCovered;
       breakdown.totals.patientCopay += calculation.copayAmount;
-      breakdown.totals.patientPayable += calculation.patientPayable;
+      breakdown.totals.patientPayableBeforeWaiver += calculation.patientPayable;
 
       if (calculation.requiresAuthorization) {
         breakdown.authorization.required = true;
@@ -527,23 +420,32 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
       }
     }
 
+    breakdown.totals.waiverApplied = breakdown.totalWaiverAmount;
+    breakdown.totals.patientPayableAfterWaiver = breakdown.totals.patientPayableBeforeWaiver - breakdown.totalWaiverAmount;
+
     return breakdown;
   }
 
-  static async getBillLineItems(billId: string) {
-    return await prisma.billLineItem.findMany({
-      where: { billId, isVoided: false },
+  static async getGDRGForAttendance(attendanceId: string): Promise<any | null> {
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
       include: {
-        serviceCatalog: {
-          select: {
-            name: true,
-            code: true,
-            nhisServiceCode: true
-          }
+        Patient: { select: { dateOfBirth: true } },
+        AttendanceDiagnosis: {
+          where: { diagnosisType: 'primary' }, // ✅ FIXED: Use diagnosisType
+          include: { Diagnosis: true }
         }
-      },
-      orderBy: { createdAt: 'asc' }
+      }
     });
+
+    if (!attendance) return null;
+
+    const ageInYears = NHISClaimService.calculateAgeInYears(
+      attendance.Patient.dateOfBirth,
+      attendance.dateTime
+    );
+
+    return await NHISClaimService.resolveGDRGByContext(attendance, ageInYears);
   }
 
   static async voidBillLineItem(lineItemId: string, voidedById: string, reason: string) {
@@ -553,13 +455,8 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         include: { bill: true }
       });
 
-      if (!lineItem) {
-        throw new Error('Bill line item not found');
-      }
-
-      if (lineItem.isVoided) {
-        throw new Error('Line item already voided');
-      }
+      if (!lineItem) throw new Error('Bill line item not found');
+      if (lineItem.isVoided) throw new Error('Line item already voided');
 
       const voidedItem = await tx.billLineItem.update({
         where: { id: lineItemId },
@@ -571,6 +468,7 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
         }
       });
 
+      // Recalculate bill totals
       const activeItems = await tx.billLineItem.findMany({
         where: {
           billId: lineItem.billId,
@@ -598,27 +496,5 @@ static async verifyMedicationBilling(attendanceId: string): Promise<{
 
       return voidedItem;
     });
-  }
-
-  static async getGDRGForAttendance(attendanceId: string): Promise<any | null> {
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      include: {
-        Patient: { select: { dateOfBirth: true } },
-        AttendanceDiagnosis: {
-          where: { primary: true },
-          include: { Diagnosis: true }
-        }
-      }
-    });
-
-    if (!attendance) return null;
-
-    const ageInYears = NHISClaimService.calculateAgeInYears(
-      attendance.Patient.dateOfBirth,
-      attendance.dateTime
-    );
-
-    return await NHISClaimService.resolveGDRGByContext(attendance, ageInYears);
   }
 }

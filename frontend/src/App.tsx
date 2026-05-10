@@ -38,6 +38,7 @@ import StockManagement from './pages/StockManagement';
 import InsuranceProviders from './pages/InsuranceProviders';
 import InsuranceClaims from './pages/InsuranceClaims';
 import EditInsuranceClaim from './pages/EditInsuranceClaim';
+import ClaimBatches from './pages/ClaimBatches';
 import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
 import Appointments from './pages/Appointments';
@@ -299,6 +300,7 @@ function App() {
           <Route path="insurance-providers" element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />
           <Route path="insurance-claims" element={<ProtectedRoute><InsuranceClaims /></ProtectedRoute>} />
           <Route path="insurance-claims/:id/edit" element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
+          <Route path="insurance-claims/batches" element={<ProtectedRoute><ClaimBatches /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
           

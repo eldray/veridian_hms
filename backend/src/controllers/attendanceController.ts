@@ -5,7 +5,6 @@ import { body, validationResult } from 'express-validator';
 
 // Import the services
 import { BillingService } from '../services/BillingService';
-import { InsuranceService } from '../services/InsuranceService';
 import { NHISClaimService } from '../services/NHISClaimService';
 
 const prisma = new PrismaClient();
@@ -20,6 +19,32 @@ const VALID_ATTENDANCE_TYPES = [
   'delivery',
   'surgery'
 ];
+
+// ✅ Determine GDRG category
+const determineGDRGCategory = (attendanceType: string, patientAge: number, diagnoses: any[] = []): string => {
+  const baseMapping: Record<string, string> = {
+    'emergency_acute': 'adult_medicine',
+    'antenatal': 'obstetrics_gynaecology', 
+    'postnatal': 'obstetrics_gynaecology',
+    'chronic_followup': 'adult_medicine',
+    'specialist_consultation': 'specialist',
+    'delivery': 'obstetrics_gynaecology',
+    'surgery': 'adult_surgery'
+  };
+
+  let baseCategory = baseMapping[attendanceType] || 'out_patient';
+
+  if (patientAge < 12) {
+    const pediatricMap: Record<string, string> = {
+      'adult_medicine': 'paediatrics',
+      'adult_surgery': 'paediatric_surgery',
+      'out_patient': 'paediatrics',
+    };
+    baseCategory = pediatricMap[baseCategory] || baseCategory;
+  }
+
+  return baseCategory;
+};
 
 // ✅ FIXED: Allow service additions for pending AND admitted attendances
 const validateAttendanceAllowsServiceAddition = async (attendanceId: string): Promise<void> => {
@@ -52,34 +77,6 @@ const calculateAgeAtAttendance = (dateOfBirth: Date, attendanceDate: Date): numb
   }
   
   return age;
-};
-
-// ✅ NEW: Determine GDRG category for NHIS claims
-const determineGDRGCategory = (attendanceType: string, patientAge: number, diagnoses: any[] = []): string => {
-  // Base mapping by attendance type
-  const baseMapping: Record<string, string> = {
-    'emergency_acute': 'adult_medicine',
-    'antenatal': 'obstetrics_gynaecology', 
-    'postnatal': 'obstetrics_gynaecology',
-    'chronic_followup': 'adult_medicine',
-    'specialist_consultation': 'specialist',
-    'delivery': 'obstetrics_gynaecology',
-    'surgery': 'adult_surgery'
-  };
-
-  let baseCategory = baseMapping[attendanceType] || 'out_patient';
-
-  // Pediatric adjustment
-  if (patientAge < 12) {
-    const pediatricMap: Record<string, string> = {
-      'adult_medicine': 'paediatrics',
-      'adult_surgery': 'paediatric_surgery',
-      'out_patient': 'paediatrics',
-    };
-    baseCategory = pediatricMap[baseCategory] || baseCategory;
-  }
-
-  return baseCategory;
 };
 
 // ✅ NEW: Determine service category
@@ -702,11 +699,70 @@ export const addLabTestToAttendance = [
 ];
 
 
-// ✅ NHIS CLAIM VALIDATION
+// ✅ NHIS CLAIM VALIDATION - FIXED (No InsuranceService)
 export const validateNHISClaim = async (req: Request, res: Response) => {
   try {
     const { attendanceId } = req.params;
-    const validation = await InsuranceService.validateClaimReadiness(attendanceId, 'NHIS');
+    
+    // Direct implementation without InsuranceService
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        ServiceRendered: { 
+          include: { 
+            ServiceCatalog: { 
+              include: { pricing: true } 
+            } 
+          } 
+        },
+        AttendanceDiagnosis: true,
+        Bill: true,
+        InsuranceProvider: true
+      }
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ 
+        message: 'Attendance not found',
+        isValid: false,
+        errors: ['Attendance not found']
+      });
+    }
+
+    const errors: string[] = [];
+
+    // NHIS specific validations
+    if (!attendance.nhisCCC) {
+      errors.push('NHIS CCC number required');
+    }
+    
+    const servicesWithoutNHISCodes = attendance.ServiceRendered
+      .filter(s => !s.ServiceCatalog.nhisServiceCode)
+      .map(s => s.ServiceCatalog.name);
+    
+    if (servicesWithoutNHISCodes.length > 0) {
+      errors.push(`Services missing NHIS codes: ${servicesWithoutNHISCodes.join(', ')}`);
+    }
+
+    const servicesWithoutNHISPrices = attendance.ServiceRendered
+      .filter(s => s.ServiceCatalog.pricing && s.ServiceCatalog.pricing.nhisPrice === 0)
+      .map(s => s.ServiceCatalog.name);
+    
+    if (servicesWithoutNHISPrices.length > 0) {
+      errors.push(`Services missing NHIS prices: ${servicesWithoutNHISPrices.join(', ')}`);
+    }
+    
+    const hasPrimaryDiagnosis = attendance.AttendanceDiagnosis.some(d => d.diagnosisType === 'primary');
+    if (!hasPrimaryDiagnosis) {
+      errors.push('Primary diagnosis required for NHIS claim');
+    }
+
+    const validation = {
+      isValid: errors.length === 0,
+      errors,
+      claimType: 'NHIS',
+      attendanceId
+    };
     
     res.json({
       message: validation.isValid ? 'Claim is valid' : 'Claim validation failed',
@@ -1083,10 +1139,13 @@ export const getAttendanceById = async (req: Request, res: Response) => {
 
 
 // ✅ CREATE ATTENDANCE - UPDATED WITH SCHEMA FIXES
+// ✅ CREATE ATTENDANCE - COMPLETE FIXED VERSION (Works for ALL payment modes)
 export const createAttendance = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceType').isIn(VALID_ATTENDANCE_TYPES).withMessage('Valid attendance type is required'),
   body('paymentMode').isIn(['cash', 'nhis', 'private_insurance']).withMessage('Valid payment mode is required'),
+  
+  // NHIS CCC validation
   body('nhisCCC')
     .optional()
     .custom((value, { req }) => {
@@ -1097,6 +1156,8 @@ export const createAttendance = [
       }
       return true;
     }),
+  
+  // Insurance Provider validation (flexible - doesn't require patient to be pre-linked)
   body('insuranceProviderId')
     .optional()
     .custom(async (value, { req }) => {
@@ -1119,13 +1180,20 @@ export const createAttendance = [
           throw new Error('Insurance provider must be of type private');
         }
         
+        // ✅ FIX: Don't require patient to be pre-linked to this provider
+        // Just log a warning if not linked, but still allow the attendance
         const patient = await prisma.patient.findUnique({
           where: { id: req.body.patientId },
           include: { InsuranceProvider: true }
         });
         
         if (!patient?.insuranceProviderId || patient.insuranceProviderId !== value) {
-          throw new Error('Patient is not linked to this insurance provider');
+          console.log(`ℹ️ Patient ${patient?.folderNumber} is not linked to provider ${provider.name}, but proceeding with attendance`);
+          // Auto-update patient's default provider if desired (optional)
+          // await prisma.patient.update({
+          //   where: { id: req.body.patientId },
+          //   data: { insuranceProviderId: value }
+          // });
         }
       }
       return true;
@@ -1146,6 +1214,7 @@ export const createAttendance = [
         return res.status(404).json({ message: 'Patient not found' });
       }
 
+      // Payment mode specific validations
       if (req.body.paymentMode === 'nhis' && !req.body.nhisCCC) {
         return res.status(400).json({ message: 'NHIS CCC code is required for NHIS attendances' });
       }
@@ -1163,19 +1232,27 @@ export const createAttendance = [
       // PREPARE DATA FOR ATTENDANCE CREATION
       // ==============================================
 
-      // AUTO-SET NHIS PROVIDER IF PAYMENT MODE IS NHIS
+      // AUTO-SET PROVIDER BASED ON PAYMENT MODE
       let insuranceProviderId = req.body.insuranceProviderId;
       
       if (req.body.paymentMode === 'nhis' && !insuranceProviderId) {
-        const nhisProviderId = await InsuranceService.findNHISProvider();
-        if (nhisProviderId) {
-          insuranceProviderId = nhisProviderId;
-          console.log('🔗 Auto-linked NHIS provider:', nhisProviderId);
+        const nhisProvider = await prisma.insuranceProvider.findFirst({
+          where: { type: 'nhis', isActive: true },
+          select: { id: true }
+        });
+        if (nhisProvider) {
+          insuranceProviderId = nhisProvider.id;
+          console.log('🔗 Auto-linked NHIS provider:', insuranceProviderId);
         } else {
           return res.status(400).json({ 
             message: 'NHIS insurance provider not found in system. Please contact administrator.' 
           });
         }
+      }
+
+      // For cash payments, ensure no provider is set
+      if (req.body.paymentMode === 'cash') {
+        insuranceProviderId = null;
       }
 
       // Fetch previous attendances for chronic conditions
@@ -1246,6 +1323,7 @@ export const createAttendance = [
       const patientAge = calculateAgeAtAttendance(patient.dateOfBirth, new Date());
       const gdrgCategory = determineGDRGCategory(req.body.attendanceType, patientAge);
       const serviceCategory = determineServiceCategory(req.body.attendanceType);
+      const visitCategory = mapToNHISVisitCategory(req.body.attendanceType);
 
       // Generate attendance number
       const generateAttendanceNumber = async (): Promise<string> => {
@@ -1269,7 +1347,7 @@ export const createAttendance = [
       const attendanceNumber = await generateAttendanceNumber();
 
       // ==============================================
-      // STEP 1: CREATE ATTENDANCE FIRST
+      // STEP 1: CREATE ATTENDANCE
       // ==============================================
       
       const attendance = await prisma.attendance.create({
@@ -1280,9 +1358,9 @@ export const createAttendance = [
           dateTime: req.body.dateTime ? new Date(req.body.dateTime) : new Date(),
           attendanceType: req.body.attendanceType,
           paymentMode: req.body.paymentMode,
-          nhisCCC: req.body.nhisCCC,
+          nhisCCC: req.body.nhisCCC || null,
           complaints: req.body.complaints || 'No complaints recorded',
-          visitCategory: mapToNHISVisitCategory(req.body.attendanceType) as any,
+          visitCategory: visitCategory as any,
           encounterCategory: encounterCategory as any,
           gdrgCategory,
           serviceCategory: serviceCategory as any,
@@ -1305,17 +1383,14 @@ export const createAttendance = [
       console.log(`✅ Attendance created: ${attendance.attendanceNumber}`);
 
       // ==============================================
-      // STEP 2: AUTO-BOOKING LOGIC (using the created attendance)
+      // STEP 2: AUTO-BOOKING LOGIC (Antenatal/Delivery/Postnatal)
       // ==============================================
       
       const attendanceType = req.body.attendanceType;
-      let antenatalBookingId: string | undefined;
-      let isFirstAntenatalVisit = false;
       let existingBooking: any = null;
 
       // 🔵 HANDLE ANTENATAL VISIT
       if (attendanceType === 'antenatal') {
-        // Check for existing ACTIVE booking
         existingBooking = await prisma.antenatalBooking.findFirst({
           where: {
             patientId: patient.id,
@@ -1325,14 +1400,10 @@ export const createAttendance = [
         });
 
         if (!existingBooking) {
-          // FIRST VISIT - Create new booking with attendance connection
-          isFirstAntenatalVisit = true;
-          
           const pregnancyCount = await prisma.antenatalBooking.count({
             where: { patientId: patient.id }
           });
-
-          // Calculate EDD from LMP if provided
+          
           let edd: Date | undefined;
           let lmp: Date | undefined;
           let gestationalAgeWeeks: number | undefined;
@@ -1341,18 +1412,14 @@ export const createAttendance = [
             lmp = new Date(req.body.lmp);
             edd = new Date(lmp);
             edd.setDate(edd.getDate() + 280);
-            
             const diffTime = new Date().getTime() - lmp.getTime();
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            gestationalAgeWeeks = Math.floor(diffDays / 7);
+            gestationalAgeWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24) / 7);
           } else if (req.body.gestationalAgeWeeks) {
             gestationalAgeWeeks = parseInt(req.body.gestationalAgeWeeks);
-            // Estimate EDD from gestational age
             edd = new Date();
             edd.setDate(edd.getDate() + (280 - (gestationalAgeWeeks * 7)));
           }
 
-          // ✅ Create booking with attendance connection (attendance already exists)
           const newBooking = await prisma.antenatalBooking.create({
             data: {
               patient: { connect: { id: patient.id } },
@@ -1373,21 +1440,15 @@ export const createAttendance = [
               ttDoses: []
             }
           });
-          
-          antenatalBookingId = newBooking.id;
           existingBooking = newBooking;
-          
-          console.log(`✅ Auto-created ANTENATAL booking for patient ${patient.folderNumber} (Visit #1)`);
+          console.log(`✅ Auto-created ANTENATAL booking for patient ${patient.folderNumber}`);
         } else {
-          // SUBSEQUENT VISIT - Use existing booking
-          antenatalBookingId = existingBooking.id;
-          console.log(`🔄 Using existing ANTENATAL booking for patient ${patient.folderNumber} (Follow-up visit)`);
+          console.log(`🔄 Using existing ANTENATAL booking for patient ${patient.folderNumber}`);
         }
       }
 
       // 🟢 HANDLE DELIVERY VISIT
       if (attendanceType === 'delivery') {
-        // Find active antenatal booking
         existingBooking = await prisma.antenatalBooking.findFirst({
           where: {
             patientId: patient.id,
@@ -1397,7 +1458,6 @@ export const createAttendance = [
         });
 
         if (!existingBooking) {
-          // No active booking - create one for this delivery with attendance connection
           const pregnancyCount = await prisma.antenatalBooking.count({
             where: { patientId: patient.id }
           });
@@ -1422,12 +1482,9 @@ export const createAttendance = [
               ttDoses: []
             }
           });
-          
-          antenatalBookingId = newBooking.id;
           existingBooking = newBooking;
           console.log(`✅ Created booking for delivery (no prior ANC)`);
         } else {
-          antenatalBookingId = existingBooking.id;
           console.log(`✅ Delivery linked to existing antenatal booking ${existingBooking.id}`);
         }
 
@@ -1436,7 +1493,7 @@ export const createAttendance = [
           data: {
             patientId: patient.id,
             attendanceId: attendance.id,
-            antenatalBookingId: antenatalBookingId,
+            antenatalBookingId: existingBooking.id,
             deliveryDate: new Date(),
             deliveryType: req.body.deliveryType || 'spontaneous_vertex',
             deliveryOutcome: req.body.deliveryOutcome || 'live_birth',
@@ -1470,13 +1527,10 @@ export const createAttendance = [
             deliveryOutcome: req.body.deliveryOutcome || 'delivered'
           }
         });
-        
-        console.log(`✅ Created delivery record for booking ${existingBooking.id}`);
       }
 
       // 🟡 HANDLE POSTNATAL VISIT
       if (attendanceType === 'postnatal') {
-        // Find the most recent completed antenatal booking (delivered)
         existingBooking = await prisma.antenatalBooking.findFirst({
           where: {
             patientId: patient.id,
@@ -1487,7 +1541,6 @@ export const createAttendance = [
         });
 
         if (existingBooking) {
-          antenatalBookingId = existingBooking.id;
           console.log(`✅ Postnatal visit linked to delivery from ${existingBooking.deliveryDate}`);
         } else {
           console.log(`⚠️ No delivery record found for postnatal visit`);
@@ -1518,7 +1571,6 @@ export const createAttendance = [
             recordedById: user.id
           }
         });
-        
         console.log(`✅ Created ANC Visit #${nextVisitNumber} for booking ${existingBooking.id}`);
       }
 
@@ -1641,35 +1693,6 @@ export const createAttendance = [
         }
       });
 
-      // Fetch ANC visits separately if needed
-      let antenatalVisits = [];
-      if (attendanceType === 'antenatal' && existingBooking) {
-        antenatalVisits = await prisma.aNCVisit.findMany({
-          where: { attendanceId: attendance.id },
-          include: {
-            booking: {
-              include: {
-                patient: {
-                  select: {
-                    id: true,
-                    surname: true,
-                    otherNames: true,
-                    folderNumber: true
-                  }
-                }
-              }
-            },
-            recordedBy: {
-              select: {
-                id: true,
-                fullName: true,
-                role: true
-              }
-            }
-          }
-        });
-      }
-
       // ==============================================
       // STEP 7: RESPONSE
       // ==============================================
@@ -1679,17 +1702,18 @@ export const createAttendance = [
         attendance: populatedAttendance,
         categories: {
           encounterCategory,
-          visitCategory: mapToNHISVisitCategory(req.body.attendanceType),
+          visitCategory,
           gdrgCategory,
           serviceCategory
         }
       };
 
       if (attendanceType === 'antenatal' && existingBooking) {
+        const visitCount = await prisma.aNCVisit.count({ where: { bookingId: existingBooking.id } });
         responseData.antenatal = {
           bookingId: existingBooking.id,
-          isFirstVisit: isFirstAntenatalVisit,
-          visitNumber: existingBooking ? await prisma.aNCVisit.count({ where: { bookingId: existingBooking.id } }) + 1 : 1
+          isFirstVisit: !existingBooking.gestationalAgeWeeks,
+          visitNumber: visitCount + 1
         };
       }
 
@@ -1701,6 +1725,7 @@ export const createAttendance = [
       }
 
       res.status(201).json(responseData);
+      
     } catch (error) { 
       console.error('Error creating attendance:', error);
       res.status(500).json({ 
@@ -1712,6 +1737,8 @@ export const createAttendance = [
 ];
 
 // ✅ UPDATE ATTENDANCE STATUS
+// attendanceController.ts - REPLACE the existing updateAttendanceStatus function
+
 export const updateAttendanceStatus = [
   body('status').isIn(['pending','completed', 'cancelled', 'admitted', 'discharged'])
     .withMessage('Valid status is required'),
@@ -1740,18 +1767,42 @@ export const updateAttendanceStatus = [
         updateData.followUpDate = new Date(followUpDate);
       }
 
-      // ✅ FIRST get the attendance with all needed includes BEFORE updating
+      // ✅ Get attendance with ALL needed data BEFORE updating
       const beforeAttendance = await prisma.attendance.findUnique({
         where: { id: req.params.id },
         include: {
-          Patient: true,
-          Bill: true,
+          Patient: {
+            include: { InsuranceProvider: true }
+          },
+          Bill: {
+            include: {
+              BillLineItem: {
+                include: { serviceCatalog: true }
+              }
+            }
+          },
           AttendanceDiagnosis: {
             include: { Diagnosis: true }
           },
           ServiceRendered: {
             include: { ServiceCatalog: true }
-          }
+          },
+          LabTest: {
+            include: { ServiceCatalog: true }
+          },
+          Scan: {
+            include: { ServiceCatalog: true }
+          },
+          Procedure: {
+            include: { ServiceCatalog: true }
+          },
+          Medication: {
+            include: { 
+              ServiceCatalog: true,
+              StockItem: true
+            }
+          },
+          InsuranceProvider: true
         }
       });
 
@@ -1765,13 +1816,7 @@ export const updateAttendanceStatus = [
         data: updateData,
         include: {
           Patient: true,
-          Bill: true,
-          AttendanceDiagnosis: {
-            include: { Diagnosis: true }
-          },
-          ServiceRendered: {
-            include: { ServiceCatalog: true }
-          }
+          Bill: true
         }
       });
 
@@ -1792,17 +1837,83 @@ export const updateAttendanceStatus = [
               });
               
               if (nhisProvider && beforeAttendance.nhisCCC) {
-                const patientAge = calculateAgeAtAttendance(
-                  beforeAttendance.Patient.dateOfBirth, 
-                  beforeAttendance.dateTime
-                );
+                // ✅ Get GDRG using GDRGResolver
+                const gdrgResult = await GDRGResolver.resolveForAttendance(attendance.id);
+                const gdrgTariff = gdrgResult.tariff;
                 
-                const gdrgTariff = await NHISClaimService.resolveGDRGByContext(
-                  beforeAttendance,  // Use the pre-update attendance with includes
-                  patientAge
-                );
+                // ✅ Calculate medications total for NHIS
+                const medicationsTotal = beforeAttendance.Medication
+                  .filter(m => m.status === 'dispensed')
+                  .reduce((sum, m) => {
+                    const unitPrice = m.dispensedUnitCost || m.StockItem?.costPrice || 0;
+                    const qty = m.quantity || 1;
+                    return sum + (unitPrice * qty);
+                  }, 0);
                 
-                const claimNumber = `NHIS-AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+                // ✅ Total claim amount = GDRG tariff + Medications total
+                const totalClaimAmount = (gdrgTariff?.nhiaTariff || 0) + medicationsTotal;
+                
+                // ✅ COLLECT ALL DIAGNOSES (not just primary)
+                const allDiagnosisCodes = beforeAttendance.AttendanceDiagnosis
+                  .map(d => d.Diagnosis?.icdCode)
+                  .filter(Boolean);
+                
+                const primaryDiagnosisCode = beforeAttendance.AttendanceDiagnosis
+                  .find(d => d.diagnosisType === 'primary')
+                  ?.Diagnosis?.icdCode;
+                
+                // ✅ INVESTIGATIONS - Lab Tests + Scans (both use investigationCode)
+                const investigationCodes = [
+                  ...beforeAttendance.LabTest.map(l => l.ServiceCatalog?.investigationCode),
+                  ...beforeAttendance.Scan.map(s => s.ServiceCatalog?.investigationCode)
+                ].filter(Boolean);
+                
+                // ✅ MEDICATION CODES - from StockItem.drugCode or ServiceCatalog.code
+                const medicationCodes = beforeAttendance.Medication
+                  .map(m => m.StockItem?.drugCode || m.ServiceCatalog?.code)
+                  .filter(Boolean);
+                
+                // ✅ PROCEDURE CODES - from ServiceCatalog.procedureCode
+                const procedureCodes = beforeAttendance.Procedure
+                  .map(p => p.ServiceCatalog?.procedureCode)
+                  .filter(Boolean);
+                
+                // ✅ Dates of service
+                const datesOfService: string[] = [];
+                if (beforeAttendance.Admission) {
+                  const admission = beforeAttendance.Admission as any;
+                  let currentDate = new Date(admission.admissionDate);
+                  const dischargeDate = admission.dischargeDate || new Date();
+                  while (currentDate <= dischargeDate) {
+                    datesOfService.push(currentDate.toISOString().split('T')[0]);
+                    currentDate.setDate(currentDate.getDate() + 1);
+                  }
+                } else {
+                  datesOfService.push(beforeAttendance.dateTime.toISOString().split('T')[0]);
+                }
+                
+                // ✅ Determine type of service
+                const typeOfService = beforeAttendance.Admission ? 'IPD' : 'OPD';
+                const serviceOutcome = status === 'completed' ? 'DISC' : 'CONT';
+                
+                // ✅ Type of attendance for XML
+                let typeOfAttendance = 'GEN';
+                if (beforeAttendance.attendanceType === 'emergency_acute') typeOfAttendance = 'EAE';
+                else if (beforeAttendance.attendanceType === 'antenatal') typeOfAttendance = 'ANC';
+                else if (beforeAttendance.attendanceType === 'delivery') typeOfAttendance = 'DEL';
+                else if (beforeAttendance.attendanceType === 'surgery') typeOfAttendance = 'SUR';
+                
+                // ✅ MDC from GDRG
+                const mdcCode = gdrgTariff?.mdc || gdrgResult.mdc || 'MEDI';
+                
+                // ✅ CRITICAL FIX: Extract the sequence number from attendanceNumber
+                // attendanceNumber format: ATT-XXXX where XXXX is the sequence
+                // We want claimNumber to be the same number, e.g., ATT-1003 → NHIS-1003
+                const attendanceNumber = beforeAttendance.attendanceNumber;
+                const attendanceSequence = attendanceNumber.replace('ATT-', '');
+                
+                // ✅ Create claim number matching attendance number
+                const claimNumber = `NHIS-${attendanceSequence}`;
                 
                 await prisma.insuranceClaim.create({
                   data: {
@@ -1810,35 +1921,76 @@ export const updateAttendanceStatus = [
                     attendanceId: attendance.id,
                     patientId: attendance.patientId,
                     insuranceProviderId: nhisProvider.id,
-                    totalClaimAmount: gdrgTariff?.nhiaTariff || 0,
+                    totalClaimAmount,
                     status: 'draft',
-                    diagnosisCodes: beforeAttendance.AttendanceDiagnosis
-                      .filter(d => d.diagnosisType === 'primary')
-                      .map(d => d.Diagnosis?.icdCode),
+                    createdById: user.id,
+                    // Diagnosis fields
+                    diagnosisCodes: allDiagnosisCodes,
+                    // Service codes
+                    labTestCodes: investigationCodes,
+                    scanCodes: investigationCodes,  // Same as investigation codes
+                    procedureCodes: procedureCodes,
+                    medicationCodes: medicationCodes,
+                    serviceCodes: investigationCodes,  // For fallback
+                    // GDRG fields
+                    principalGDRG: gdrgTariff?.gdrgCode || null,
                     gdrgCodes: gdrgTariff ? [gdrgTariff.gdrgCode] : [],
                     nhisServiceCodes: gdrgTariff ? [gdrgTariff.nhisServiceCode] : [],
-                    notes: `Auto-generated on completion. CCC: ${beforeAttendance.nhisCCC}`
+                    // Service info
+                    typeOfService,
+                    typeOfAttendance,
+                    serviceOutcome,
+                    claimCheckCode: beforeAttendance.nhisCCC,
+                    mdcCode,
+                    datesOfService,
+                    notes: `Auto-generated on completion. CCC: ${beforeAttendance.nhisCCC}, GDRG: ${gdrgTariff?.gdrgCode || 'N/A'}, Meds Total: ${medicationsTotal}`
                   }
                 });
                 
                 console.log(`✅ Auto-generated NHIS claim for attendance ${attendance.attendanceNumber}`);
+                console.log(`   - Claim Number: ${claimNumber} (matches attendance number)`);
+                console.log(`   - GDRG: ${gdrgTariff?.gdrgCode}, Amount: ${gdrgTariff?.nhiaTariff}`);
+                console.log(`   - Medications Total: ${medicationsTotal}`);
+                console.log(`   - Total Claim: ${totalClaimAmount}`);
               }
             } else if (beforeAttendance.paymentMode === 'private_insurance' && beforeAttendance.insuranceProviderId) {
+              // Private insurance claim with matching attendance number
+              const attendanceNumber = beforeAttendance.attendanceNumber;
+              const attendanceSequence = attendanceNumber.replace('ATT-', '');
+              const claimNumber = `PVT-${attendanceSequence}`;
+              
+              const medicationsTotal = beforeAttendance.Medication
+                .filter(m => m.status === 'dispensed')
+                .reduce((sum, m) => sum + ((m.dispensedUnitCost || m.StockItem?.costPrice || 0) * (m.quantity || 1)), 0);
+              
+              const servicesTotal = beforeAttendance.ServiceRendered
+                .reduce((sum, s) => sum + (s.ServiceCatalog?.pricing?.cashPrice || 0), 0);
+              
+              const totalClaimAmount = beforeAttendance.Bill?.totalAmount || (servicesTotal + medicationsTotal);
+              
+              const allDiagnosisCodes = beforeAttendance.AttendanceDiagnosis
+                .map(d => d.Diagnosis?.icdCode)
+                .filter(Boolean);
+              
+              const medicationCodes = beforeAttendance.Medication
+                .map(m => m.StockItem?.drugCode || m.ServiceCatalog?.code)
+                .filter(Boolean);
+              
               await prisma.insuranceClaim.create({
                 data: {
-                  claimNumber: `PVT-AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                  claimNumber,
                   attendanceId: attendance.id,
                   patientId: attendance.patientId,
                   insuranceProviderId: beforeAttendance.insuranceProviderId,
-                  totalClaimAmount: beforeAttendance.Bill?.totalAmount || 0,
+                  totalClaimAmount,
                   status: 'draft',
-                  diagnosisCodes: beforeAttendance.AttendanceDiagnosis
-                    .filter(d => d.diagnosisType === 'primary')
-                    .map(d => d.Diagnosis?.icdCode),
-                  notes: `Auto-generated on completion`
+                  createdById: user.id,
+                  diagnosisCodes: allDiagnosisCodes,
+                  medicationCodes: medicationCodes,
+                  notes: `Auto-generated on completion. Private insurance claim.`
                 }
               });
-              console.log(`✅ Auto-generated private insurance claim for attendance ${attendance.attendanceNumber}`);
+              console.log(`✅ Auto-generated private insurance claim ${claimNumber} for attendance ${attendance.attendanceNumber}`);
             }
           } catch (claimError) {
             console.error('Failed to auto-generate claim:', claimError);
@@ -2694,12 +2846,14 @@ export const addVitalsToAttendance = [
         return res.status(404).json({ message: 'Attendance not found' });
       }
 
-      // ✅ CALCULATE BMI IF WEIGHT AND HEIGHT PROVIDED
-      const vitalsData: any = { ...req.body };
-      if (vitalsData.weight && vitalsData.height) {
-        const heightInMeters = vitalsData.height / 100;
-        vitalsData.bmi = parseFloat((vitalsData.weight / (heightInMeters * heightInMeters)).toFixed(1));
-      }
+    // ✅ CALCULATE BMI IF WEIGHT AND HEIGHT PROVIDED with guard
+    const vitalsData: any = { ...req.body };
+    if (vitalsData.weight && vitalsData.height && vitalsData.height > 0) {
+      const heightInMeters = vitalsData.height / 100;
+      vitalsData.bmi = parseFloat((vitalsData.weight / (heightInMeters * heightInMeters)).toFixed(1));
+    } else if (vitalsData.weight && (!vitalsData.height || vitalsData.height === 0)) {
+      console.log('⚠️ Height not provided or invalid, BMI calculation skipped');
+    }
 
       // ✅ CREATE VITALS WITH ALL FIELDS
       const newVitals = await prisma.vitals.create({
@@ -2819,27 +2973,32 @@ export const updateVitals = [
         });
       }
 
-      // ✅ CALCULATE BMI IF WEIGHT AND HEIGHT PROVIDED
+      // ✅ CALCULATE BMI IF WEIGHT AND HEIGHT PROVIDED with guard
       const updateData: any = { ...req.body };
-      if (updateData.weight !== undefined && updateData.height !== undefined) {
+      
+      // Remove any fields that shouldn't be updated directly
+      delete updateData.id;
+      delete updateData.createdAt;
+      delete updateData.recordedAt;
+      
+      if (updateData.weight !== undefined && updateData.height !== undefined && updateData.height > 0) {
         const heightInMeters = updateData.height / 100;
         updateData.bmi = parseFloat((updateData.weight / (heightInMeters * heightInMeters)).toFixed(1));
-      } else if (updateData.weight !== undefined && existingVitals.height) {
-        // Update BMI if weight changed but height remains
+      } else if (updateData.weight !== undefined && existingVitals.height && existingVitals.height > 0) {
         const heightInMeters = existingVitals.height / 100;
         updateData.bmi = parseFloat((updateData.weight / (heightInMeters * heightInMeters)).toFixed(1));
-      } else if (updateData.height !== undefined && existingVitals.weight) {
-        // Update BMI if height changed but weight remains
+      } else if (updateData.height !== undefined && updateData.height > 0 && existingVitals.weight) {
         const heightInMeters = updateData.height / 100;
         updateData.bmi = parseFloat((existingVitals.weight / (heightInMeters * heightInMeters)).toFixed(1));
       }
 
-      // ✅ UPDATE VITALS
+      // ✅ UPDATE VITALS with user tracking
       const updatedVitals = await prisma.vitals.update({
         where: { id: vitalsId },
         data: {
           ...updateData,
           updatedAt: new Date()
+          // Note: If you add updatedById to schema, also add: updatedById: user.id
         },
         include: {
           User: {
@@ -2975,9 +3134,23 @@ export const addServiceToAttendance = [
 ];
 
 // ✅ UPDATE: Fix the getBillingBreakdown endpoint
+// REPLACE the getBillingBreakdown function
+
 export const getBillingBreakdown = async (req: Request, res: Response) => {
   try {
-    const breakdown = await BillingService.getBillingBreakdown(req.params.id);
+    const { id } = req.params;
+    
+    // ✅ Check if attendance exists
+    const attendance = await prisma.attendance.findUnique({
+      where: { id },
+      select: { id: true, attendanceNumber: true, status: true }
+    });
+    
+    if (!attendance) {
+      return res.status(404).json({ message: 'Attendance not found' });
+    }
+    
+    const breakdown = await BillingService.getBillingBreakdown(id);
     res.json(breakdown);
   } catch (error) {
     console.error('Error getting billing breakdown:', error);
