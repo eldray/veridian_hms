@@ -1334,8 +1334,6 @@ console.log('✅ Test users created/verified');
     // =============== CREATE MATERNITY DATA FOR PATIENTS 6-10 ===============
     console.log('\\n🤰 Creating maternity data for patients 6-10...');
     
-    const obsGynDept = await prisma.department.findFirst({ where: { name: 'Obstetrics & Gynecology' } });
-    const maternityWard = await prisma.ward.findFirst({ where: { wardType: 'maternity' } });
     let midwifeUser = await prisma.user.findFirst({ where: { role: 'midwife' } });
     
     if (!midwifeUser) {
