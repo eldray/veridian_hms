@@ -166,7 +166,7 @@ export const getTopDiagnoses = async (req: AuthRequest, res: Response) => {
       end.setHours(23, 59, 59, 999);
     }
     
-    const topDiagnoses = await GHSMorbidityService.getTopDiagnosesOnly(start, end, topLimit);
+    const topDiagnoses = await GHSMorbidityService.getTopDiagnoses(start, end, topLimit);
     
     res.json({
       success: true,

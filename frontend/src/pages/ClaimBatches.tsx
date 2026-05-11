@@ -28,7 +28,8 @@ import {
   Loader,
   Printer,
   Edit,
-  Lock
+  Lock,
+  Send
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -74,6 +75,8 @@ export default function ClaimBatches() {
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(ITEMS_PER_PAGE);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -91,8 +94,12 @@ export default function ClaimBatches() {
 
   const loadData = async () => {
     try {
+      const filters: any = {};
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+      
       await Promise.all([
-        getClaimBatches(),
+        getClaimBatches(filters),
         getInsuranceClaims()
       ]);
     } catch (error) {
@@ -183,6 +190,18 @@ export default function ClaimBatches() {
       await loadData();
     } catch (error: any) {
       toastError('Generation Failed', error.message);
+    } finally {
+      setProcessingBatch(null);
+    }
+  };
+
+  const handleDownloadXML = async (batchId: string, batchNumber: string) => {
+    setProcessingBatch(batchId);
+    try {
+      await generateBatchXML(batchId);
+      success('Download Started', 'XML file is being downloaded');
+    } catch (error: any) {
+      toastError('Download Failed', error.message);
     } finally {
       setProcessingBatch(null);
     }
@@ -313,7 +332,7 @@ export default function ClaimBatches() {
 
       {/* Filters */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[200px] relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
@@ -322,6 +341,24 @@ export default function ClaimBatches() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-[var(--text-secondary)]">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-[var(--text-secondary)]">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
             />
           </div>
           <select
@@ -334,6 +371,28 @@ export default function ClaimBatches() {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition text-sm"
+          >
+            <Filter className="w-4 h-4" />
+            Apply Filters
+          </button>
+          {(startDate || endDate || filterStatus !== 'all' || searchTerm) && (
+            <button
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+                setFilterStatus('all');
+                setSearchTerm('');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition text-sm"
+            >
+              <XCircle className="w-4 h-4" />
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -431,6 +490,20 @@ export default function ClaimBatches() {
                         <Download className="w-3 h-3" />
                       )}
                       Generate XML
+                    </button>
+                  )}
+                  {(batch.status === 'generated' || batch.status === 'submitted' || batch.status === 'exported') && (
+                    <button
+                      onClick={() => handleDownloadXML(batch.id, batch.batchNumber)}
+                      disabled={processingBatch === batch.id}
+                      className="flex-1 py-1.5 text-xs flex items-center justify-center gap-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition disabled:opacity-50"
+                    >
+                      {processingBatch === batch.id ? (
+                        <Loader className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Download className="w-3 h-3" />
+                      )}
+                      Download XML
                     </button>
                   )}
                   {batch.status === 'generated' && (

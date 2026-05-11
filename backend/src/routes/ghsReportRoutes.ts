@@ -1,7 +1,7 @@
 // routes/ghsReportRoutes.ts - CLEAN VERSION
 
 import express from 'express';
-import { protect, requireAccountsStaff } from '../middleware/authMiddleware';
+import { protect, requireRole } from '../middleware/authMiddleware';
 import {
   generateOPDReport,
   generateIPDReport,
@@ -18,7 +18,8 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(requireAccountsStaff);
+// Allow admin, doctor, and accounts staff to access GHS reports
+router.use(requireRole(['admin', 'doctor', 'accounts']));
 
 // ==============================================
 // GENERATE REPORTS
