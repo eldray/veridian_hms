@@ -16,7 +16,16 @@ import {
   updateClaimStatus,
   generateClaimXML,
   generateClaimPrint,
-  getFinalizedClaimsTotal
+  getFinalizedClaimsTotal,
+  // Batch functions
+  createClaimBatch,
+  getClaimBatches,
+  getClaimBatch,
+  addClaimsToBatch,
+  removeClaimsFromBatch,
+  generateBatchXML,
+  updateBatchStatus,
+  deleteClaimBatch
 } from '../controllers/insuranceClaimController';
 import { protect, requireAccountsStaff, requireMedicalStaff } from '../middleware/authMiddleware';
 
@@ -52,5 +61,17 @@ router.patch('/:claimId/status', requireAccountsStaff, updateClaimStatus);
 router.get('/:claimId/xml', requireAccountsStaff, generateClaimXML);
 router.get('/:claimId/print', requireAccountsStaff, generateClaimPrint);
 router.get('/financials/finalized-total', requireAccountsStaff, getFinalizedClaimsTotal);
+
+// ==========================================
+// CLAIM BATCH OPERATIONS
+// ==========================================
+router.post('/batches', requireAccountsStaff, createClaimBatch);
+router.get('/batches', requireAccountsStaff, getClaimBatches);
+router.get('/batches/:id', requireAccountsStaff, getClaimBatch);
+router.post('/batches/:batchId/claims', requireAccountsStaff, addClaimsToBatch);
+router.delete('/batches/:batchId/claims', requireAccountsStaff, removeClaimsFromBatch);
+router.get('/batches/:batchId/xml', requireAccountsStaff, generateBatchXML);
+router.patch('/batches/:batchId/status', requireAccountsStaff, updateBatchStatus);
+router.delete('/batches/:batchId', requireAccountsStaff, deleteClaimBatch);
 
 export default router;

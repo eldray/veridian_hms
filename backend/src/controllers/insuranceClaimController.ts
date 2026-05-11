@@ -13,6 +13,584 @@ const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => {
   return (arr || []).map(mapper).filter(Boolean);
 };
 
+// ==========================================
+// CLAIM BATCH FUNCTIONS
+// ==========================================
+
+export const createClaimBatch = async (req: AuthRequest, res: Response) => {
+  try {
+    const { claimIds, description } = req.body;
+    
+    if (!claimIds || !Array.isArray(claimIds) || claimIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'At least one claim ID is required' 
+      });
+    }
+
+    const batchNumber = `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    const batch = await prisma.$transaction(async (tx) => {
+      // Verify all claims exist and are eligible for batching
+      const claims = await tx.insuranceClaim.findMany({
+        where: { id: { in: claimIds } },
+        include: { InsuranceProvider: true }
+      });
+
+      if (claims.length !== claimIds.length) {
+        throw new Error('One or more claims not found');
+      }
+
+      // Check that all claims are submitted and for NHIS
+      for (const claim of claims) {
+        if (claim.status !== 'submitted') {
+          throw new Error(`Claim ${claim.claimNumber} is not in submitted status`);
+        }
+        if (claim.InsuranceProvider?.type !== 'nhis') {
+          throw new Error(`Claim ${claim.claimNumber} is not an NHIS claim`);
+        }
+        if (claim.batchId) {
+          throw new Error(`Claim ${claim.claimNumber} is already in a batch`);
+        }
+      }
+
+      // Calculate total amount
+      const totalAmount = claims.reduce((sum, c) => sum + c.totalClaimAmount, 0);
+
+      // Create the batch
+      const createdBatch = await tx.claimBatch.create({
+        data: {
+          batchNumber,
+          description: description || null,
+          totalAmount,
+          status: 'draft',
+          createdById: req.user!.id,
+          claims: {
+            connect: claimIds.map(id => ({ id }))
+          }
+        },
+        include: {
+          claims: {
+            include: {
+              InsuranceProvider: true,
+              Patient: true,
+              Attendance: true,
+              Bill: true
+            }
+          },
+          createdBy: {
+            select: { id: true, fullName: true, username: true }
+          }
+        }
+      });
+
+      // Update claims with batchId
+      await tx.insuranceClaim.updateMany({
+        where: { id: { in: claimIds } },
+        data: { batchId: createdBatch.id }
+      });
+
+      return createdBatch;
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Claim batch created successfully',
+      data: batch
+    });
+  } catch (error: any) {
+    console.error('Error creating claim batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error creating claim batch' 
+    });
+  }
+};
+
+export const getClaimBatches = async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, startDate, endDate, page = 1, limit = 50 } = req.query;
+    
+    const where: any = {};
+    if (status) {
+      where.status = status as string;
+    }
+    
+    // Add date range filtering
+    if (startDate || endDate) {
+      where.batchDate = {};
+      if (startDate) {
+        where.batchDate.gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        // Set to end of day for inclusive filtering
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        where.batchDate.lte = endDateObj;
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [batches, total] = await Promise.all([
+      prisma.claimBatch.findMany({
+        where,
+        include: {
+          claims: {
+            select: {
+              id: true,
+              claimNumber: true,
+              totalClaimAmount: true,
+              status: true,
+              Patient: {
+                select: {
+                  id: true,
+                  folderNumber: true,
+                  surname: true,
+                  otherNames: true
+                }
+              }
+            }
+          },
+          createdBy: {
+            select: { id: true, fullName: true, username: true }
+          }
+        },
+        orderBy: { batchDate: 'desc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.claimBatch.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: batches,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching claim batches:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching claim batches' 
+    });
+  }
+};
+
+export const getClaimBatch = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const batch = await prisma.claimBatch.findUnique({
+      where: { id },
+      include: {
+        claims: {
+          include: {
+            InsuranceProvider: true,
+            Patient: true,
+            Attendance: true,
+            Bill: true
+          }
+        },
+        createdBy: {
+          select: { id: true, fullName: true, username: true }
+        }
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Batch not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: batch
+    });
+  } catch (error) {
+    console.error('Error fetching claim batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching claim batch' 
+    });
+  }
+};
+
+export const addClaimsToBatch = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+    const { claimIds } = req.body;
+
+    if (!claimIds || !Array.isArray(claimIds) || claimIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'At least one claim ID is required' 
+      });
+    }
+
+    const batch = await prisma.$transaction(async (tx) => {
+      const existingBatch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: true }
+      });
+
+      if (!existingBatch) {
+        throw new Error('Batch not found');
+      }
+
+      if (existingBatch.status !== 'draft') {
+        throw new Error('Can only add claims to draft batches');
+      }
+
+      // Verify claims
+      const claims = await tx.insuranceClaim.findMany({
+        where: { 
+          id: { in: claimIds },
+          batchId: null // Must not be in any batch
+        },
+        include: { InsuranceProvider: true }
+      });
+
+      if (claims.length !== claimIds.length) {
+        throw new Error('One or more claims not found or already in a batch');
+      }
+
+      // Check claims are submitted and NHIS
+      for (const claim of claims) {
+        if (claim.status !== 'submitted') {
+          throw new Error(`Claim ${claim.claimNumber} is not in submitted status`);
+        }
+        if (claim.InsuranceProvider?.type !== 'nhis') {
+          throw new Error(`Claim ${claim.claimNumber} is not an NHIS claim`);
+        }
+      }
+
+      // Calculate additional amount
+      const additionalAmount = claims.reduce((sum, c) => sum + c.totalClaimAmount, 0);
+
+      // Add claims to batch
+      await tx.claimBatch.update({
+        where: { id: batchId },
+        data: {
+          totalAmount: existingBatch.totalAmount + additionalAmount,
+          claims: {
+            connect: claimIds.map(id => ({ id }))
+          }
+        }
+      });
+
+      // Update claims with batchId
+      await tx.insuranceClaim.updateMany({
+        where: { id: { in: claimIds } },
+        data: { batchId }
+      });
+
+      // Return updated batch
+      return await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: {
+          claims: {
+            include: {
+              InsuranceProvider: true,
+              Patient: true,
+              Attendance: true,
+              Bill: true
+            }
+          },
+          createdBy: {
+            select: { id: true, fullName: true, username: true }
+          }
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Claims added to batch successfully',
+      data: batch
+    });
+  } catch (error: any) {
+    console.error('Error adding claims to batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error adding claims to batch' 
+    });
+  }
+};
+
+export const removeClaimsFromBatch = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+    const { claimIds } = req.body;
+
+    if (!claimIds || !Array.isArray(claimIds) || claimIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'At least one claim ID is required' 
+      });
+    }
+
+    const batch = await prisma.$transaction(async (tx) => {
+      const existingBatch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { 
+          claims: {
+            where: { id: { in: claimIds } },
+            select: { id: true, totalClaimAmount: true }
+          }
+        }
+      });
+
+      if (!existingBatch) {
+        throw new Error('Batch not found');
+      }
+
+      if (existingBatch.status !== 'draft') {
+        throw new Error('Can only remove claims from draft batches');
+      }
+
+      // Calculate amount to remove
+      const removedAmount = existingBatch.claims.reduce((sum, c) => sum + c.totalClaimAmount, 0);
+
+      // Remove claims from batch
+      await tx.claimBatch.update({
+        where: { id: batchId },
+        data: {
+          totalAmount: existingBatch.totalAmount - removedAmount,
+          claims: {
+            disconnect: claimIds.map(id => ({ id }))
+          }
+        }
+      });
+
+      // Remove batchId from claims
+      await tx.insuranceClaim.updateMany({
+        where: { id: { in: claimIds } },
+        data: { batchId: null }
+      });
+
+      // Return updated batch
+      return await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: {
+          claims: {
+            include: {
+              InsuranceProvider: true,
+              Patient: true,
+              Attendance: true,
+              Bill: true
+            }
+          },
+          createdBy: {
+            select: { id: true, fullName: true, username: true }
+          }
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Claims removed from batch successfully',
+      data: batch
+    });
+  } catch (error: any) {
+    console.error('Error removing claims from batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error removing claims from batch' 
+    });
+  }
+};
+
+export const generateBatchXML = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+
+    const batch = await prisma.claimBatch.findUnique({
+      where: { id: batchId },
+      include: {
+        claims: {
+          include: {
+            InsuranceProvider: true,
+            Patient: true,
+            Attendance: true,
+            Bill: true
+          }
+        },
+        createdBy: true
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Batch not found' 
+      });
+    }
+
+    if (batch.claims.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Batch has no claims' 
+      });
+    }
+
+    // Generate XML for each claim in the batch
+    const facilityCode = process.env.NHIS_FACILITY_CODE || 'FAC001';
+    const batchXml = `<?xml version="1.0" encoding="UTF-8"?>
+<NHISBatchSubmission>
+  <BatchInfo>
+    <BatchNumber>${batch.batchNumber}</BatchNumber>
+    <BatchDate>${batch.batchDate.toISOString()}</BatchDate>
+    <FacilityCode>${facilityCode}</FacilityCode>
+    <TotalClaims>${batch.claims.length}</TotalClaims>
+    <TotalAmount>${batch.totalAmount}</TotalAmount>
+    <GeneratedBy>${batch.createdBy.fullName || batch.createdBy.username}</GeneratedBy>
+    <GeneratedAt>${new Date().toISOString()}</GeneratedAt>
+  </BatchInfo>
+  <Claims>
+${batch.claims.map(claim => `    <Claim>
+      <ClaimNumber>${claim.claimNumber}</ClaimNumber>
+      <PatientCCC>${claim.Attendance?.nhisCCC || ''}</PatientCCC>
+      <PatientName>${claim.Patient?.surname || ''} ${claim.Patient?.otherNames || ''}</PatientName>
+      <TotalAmount>${claim.totalClaimAmount}</TotalAmount>
+      <DiagnosisCodes>${claim.diagnosisCodes?.join(',') || ''}</DiagnosisCodes>
+      <GDRGCodes>${claim.gdrgCodes?.join(',') || ''}</GDRGCodes>
+    </Claim>`).join('\n')}
+  </Claims>
+</NHISBatchSubmission>`;
+
+    // Update batch status
+    await prisma.claimBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'generated',
+        xmlGeneratedAt: new Date()
+      }
+    });
+
+    res.set('Content-Type', 'application/xml');
+    res.set('Content-Disposition', `attachment; filename="batch_${batch.batchNumber}.xml"`);
+    res.send(batchXml);
+  } catch (error: any) {
+    console.error('Error generating batch XML:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error generating batch XML' 
+    });
+  }
+};
+
+export const updateBatchStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Status is required' 
+      });
+    }
+
+    const validStatuses = ['draft', 'generated', 'submitted', 'exported'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid status value' 
+      });
+    }
+
+    const batch = await prisma.claimBatch.update({
+      where: { id: batchId },
+      data: {
+        status: status as any,
+        ...(status === 'submitted' ? { submissionDate: new Date() } : {})
+      },
+      include: {
+        claims: {
+          include: {
+            InsuranceProvider: true,
+            Patient: true,
+            Attendance: true,
+            Bill: true
+          }
+        },
+        createdBy: {
+          select: { id: true, fullName: true, username: true }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Batch status updated successfully',
+      data: batch
+    });
+  } catch (error: any) {
+    console.error('Error updating batch status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error updating batch status' 
+    });
+  }
+};
+
+export const deleteClaimBatch = async (req: AuthRequest, res: Response) => {
+  try {
+    const { batchId } = req.params;
+
+    const batch = await prisma.$transaction(async (tx) => {
+      const existingBatch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: true }
+      });
+
+      if (!existingBatch) {
+        throw new Error('Batch not found');
+      }
+
+      if (existingBatch.status !== 'draft') {
+        throw new Error('Can only delete draft batches');
+      }
+
+      // Remove batchId from all claims in the batch
+      await tx.insuranceClaim.updateMany({
+        where: { batchId },
+        data: { batchId: null }
+      });
+
+      // Delete the batch
+      await tx.claimBatch.delete({
+        where: { id: batchId }
+      });
+
+      return existingBatch;
+    });
+
+    res.json({
+      success: true,
+      message: 'Batch deleted successfully',
+      data: batch
+    });
+  } catch (error: any) {
+    console.error('Error deleting claim batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error deleting claim batch' 
+    });
+  }
+};
+
 
 // Add this function after the imports and before the other functions
 export const getAllInsuranceClaims = async (req: AuthRequest, res: Response) => {
@@ -304,10 +882,23 @@ export const generateNHISClaim = [
 
 export const getNHISClaims = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, patientId, page = 1, limit = 50 } = req.query;
+    const { status, patientId, startDate, endDate, page = 1, limit = 50 } = req.query;
     const where: any = { InsuranceProvider: { type: 'nhis' } };
     if (status) where.status = status as string;
     if (patientId) where.patientId = patientId as string;
+    
+    // Add date range filtering based on attendance dateTime
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) {
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: new Date(startDate as string) };
+      }
+      if (endDate) {
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: endDateObj };
+      }
+    }
 
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, parseInt(limit as string));
@@ -428,10 +1019,23 @@ export const generatePrivateInsuranceClaim = [
 
 export const getPrivateInsuranceClaims = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, patientId, page = 1, limit = 50 } = req.query;
+    const { status, patientId, startDate, endDate, page = 1, limit = 50 } = req.query;
     const where: any = { InsuranceProvider: { type: 'private' } };
     if (status) where.status = status as string;
     if (patientId) where.patientId = patientId as string;
+    
+    // Add date range filtering based on attendance dateTime
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) {
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: new Date(startDate as string) };
+      }
+      if (endDate) {
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: endDateObj };
+      }
+    }
 
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, parseInt(limit as string));

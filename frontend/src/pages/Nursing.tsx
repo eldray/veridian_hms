@@ -423,7 +423,13 @@ export default function Nursing() {
     return inpatientAttendances.filter(a => {
       const patient = patients.find(p => getEntityId(p) === a.patientId);
       const patientName = patient ? `${patient.surname} ${patient.otherNames}`.toLowerCase() : '';
-      return patientName.includes(lower) || a.attendanceNumber?.toLowerCase().includes(lower) || patient?.folderNumber?.toLowerCase().includes(lower);
+      const attendanceNumber = (a.attendanceNumber || '').toLowerCase();
+      const folderNumber = (patient?.folderNumber || '').toLowerCase();
+      
+      // Search by patient name, attendance number, or folder number
+      return patientName.includes(lower) || 
+             attendanceNumber.includes(lower) || 
+             folderNumber.includes(lower);
     });
   }, [inpatientAttendances, patients, searchQuery]);
   

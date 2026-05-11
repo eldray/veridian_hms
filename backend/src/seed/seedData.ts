@@ -3,12 +3,14 @@ import { seedCoreData } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
 import { seedTestData, deleteTestData, initializeDatabase } from './testSeed.js';
+import { seedMaternityData } from './seedMaternityData.js';
 
 // This file orchestrates the complete database seeding process in the correct order:
 // 1. Core data (diagnoses, templates, GDRG tariffs, service catalog, stock items, wards)
 // 2. Diagnosis ↔ GDRG linking (MUST run after GDRG tariffs exist)
 // 3. Procedure ↔ GDRG linking (MUST run after GDRG tariffs exist)
 // 4. Test data (5 patients with all payment methods, attendances, bills, claims, referrals)
+// 5. Maternity data (5 patients with antenatal, delivery, and postnatal records)
 
 export const seedDatabase = async (force: boolean = false) => {
   console.log('🏥 Starting comprehensive database initialization...');
