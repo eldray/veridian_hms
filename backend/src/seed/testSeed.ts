@@ -11,10 +11,18 @@ const SEEDING_ENABLED = process.env.ENABLE_SEEDING !== 'false';
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-const generateAttendanceNumber = () => `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-const generateClaimNumber = () => `CLAIM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+// Counter-based generators for patient and attendance numbers starting from 1000
+let patientCounter = 1000;
+let attendanceCounter = 1000;
+let admissionCounter = 1000;
+let claimCounter = 1000;
+
+const generatePatientNumber = () => `PAT-${++patientCounter}`;
+const generateAttendanceNumber = () => `ATT-${++attendanceCounter}`;
+const generateClaimNumber = () => `CLAIM-${++claimCounter}`;
 const generateReferralNumber = () => `REF-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-const generateAdmissionNumber = () => `ADM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+const generateAdmissionNumber = () => `ADM-${++admissionCounter}`;
 
 // Date helpers
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
@@ -227,7 +235,8 @@ console.log('✅ Test users created/verified');
       throw new Error('Core data incomplete. Run core seeding first.');
     }
 
-    // =============== CREATE 5 TEST PATIENTS ===============
+    // =============== CREATE 10 TEST PATIENTS ===============
+    // Ensure we have patients for all three payment modes: cash, nhis, and private_insurance
     const patientsData = [
       {
         folderNumber: 'PAT-TEST-001',
@@ -265,10 +274,10 @@ console.log('✅ Test users created/verified');
         contact: '+233244333333',
         address: '789 Hospital Road, Takoradi',
         paymentMode: PaymentMode.private_insurance,
-        insuranceProviderId: privateProvider?.id,
+        insuranceProviderId: privateProvider?.id, // Properly selected from the list of private insurance providers
         registeredBy: admin.fullName,
         registeredAt: daysAgo(20),
-        insuranceDetails: { policyNumber: 'PRV-87654', provider: 'Acacia Health' },
+        insuranceDetails: { policyNumber: 'PRV-87654', provider: privateProvider?.name || 'Acacia Health' },
       },
       {
         folderNumber: 'PAT-TEST-004',
@@ -362,9 +371,10 @@ console.log('✅ Test users created/verified');
         contact: '+233244600005',
         address: '8 Postnatal Circle, Tema',
         paymentMode: PaymentMode.private_insurance,
+        insuranceProviderId: privateProvider?.id, // Properly selected from the list of private insurance providers
         registeredBy: admin.fullName,
         registeredAt: daysAgo(160),
-        insuranceDetails: { policyNumber: 'PRV-MAT-005', provider: 'Acacia Health' },
+        insuranceDetails: { policyNumber: 'PRV-MAT-005', provider: privateProvider?.name || 'Acacia Health' },
       },
     ];
 
