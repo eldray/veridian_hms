@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import api from '../api/api';
 import {
   Plus,
   Search,
