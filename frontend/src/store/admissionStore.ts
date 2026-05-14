@@ -62,11 +62,12 @@ const transformAdmission = (admission: unknown): Admission => {
   return {
     ...adm,
     id: getEntityId(adm) || adm.id,
-  // Ensure dailyNotes is always an array
-  dailyNotes: admission.dailyNotes || [],
-  // Ensure secondaryDiagnoses is always an array
-  secondaryDiagnoses: admission.secondaryDiagnoses || [],
-});
+    // Ensure dailyNotes is always an array
+    dailyNotes: (adm.dailyNotes as any[]) || [],
+    // Ensure secondaryDiagnoses is always an array
+    secondaryDiagnoses: (adm.secondaryDiagnoses as any[]) || [],
+  };
+};
 
 export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   admissions: [],
