@@ -1,3 +1,4 @@
+// backend/src/routes/worklistRoutes.ts
 import { Router } from 'express';
 import {
   getVitalsWorklist,
@@ -7,12 +8,12 @@ import {
   getScanWorklist,
   getTheatreWorklist
 } from '../controllers/worklistController';
-import { authenticate } from '../middleware/auth';
+import { protect } from '../middleware/authMiddleware';  // ✅ Changed from 'authenticate' to 'protect'
 
 const router = Router();
 
 // All worklist routes require authentication
-router.use(authenticate);
+router.use(protect);  // ✅ Changed from 'authenticate' to 'protect'
 
 // Department-specific worklist endpoints
 router.get('/vitals', getVitalsWorklist);

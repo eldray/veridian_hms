@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api';
+import api from '../api';
 import { WorklistState, WorklistItem, DepartmentType } from '../types/worklist';
 
 const initialState: WorklistState = {
