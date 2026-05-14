@@ -1,0 +1,7 @@
+
+Command	Purpose
+npx prisma migrate reset	Reset database and reapply all migrations
+npx prisma migrate dev --name <name>	Create and apply a new migration
+npx prisma db push	Push schema changes without migration files (prototyping only)
+npx prisma migrate status	Check migration status
+npx prisma studio	View/edit database data visually

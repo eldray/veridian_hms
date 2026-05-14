@@ -1471,7 +1471,7 @@ console.log('✅ Test users created/verified');
           attendanceNumber: generateAttendanceNumber(),
           patientId: patient.id,
           dateTime: bookingDate,
-          attendanceType: AttendanceType.antepartum,
+          attendanceType: AttendanceType.antenatal,
           paymentMode: patient.paymentMode,
           insuranceProviderId: patient.insuranceProviderId,
           complaints: 'Routine antenatal booking visit',
