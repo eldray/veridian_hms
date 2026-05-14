@@ -63,15 +63,9 @@ const transformAdmission = (admission: unknown): Admission => {
     ...adm,
     id: getEntityId(adm) || adm.id,
     // Ensure dailyNotes is always an array
-<<<<<<< HEAD
     dailyNotes: admission.dailyNotes || [],
     // Ensure secondaryDiagnoses is always an array
     secondaryDiagnoses: admission.secondaryDiagnoses || [],
-=======
-    dailyNotes: (adm.dailyNotes as any[]) || [],
-    // Ensure secondaryDiagnoses is always an array
-    secondaryDiagnoses: (adm.secondaryDiagnoses as any[]) || [],
->>>>>>> d11790173fce28c47e56ed7f7a221c8881f71c71
   };
 };
 
