@@ -269,7 +269,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getGHSOPDReport(filters);
       const reportData = response.data || response;
       set({ opdReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch OPD report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch OPD report', isLoading: false });
       throw error;
@@ -282,7 +282,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getGHSIPDReport(filters);
       const reportData = response.data || response;
       set({ ipdReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch IPD report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch IPD report', isLoading: false });
       throw error;
@@ -295,7 +295,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getGHSIDSRReport(filters);
       const reportData = response.data || response;
       set({ idsrReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch IDSR report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch IDSR report', isLoading: false });
       throw error;
@@ -308,7 +308,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getGHSMalariaReport(filters);
       const reportData = response.data || response;
       set({ malariaReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Malaria report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Malaria report', isLoading: false });
       throw error;
@@ -321,7 +321,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getGHSFormAReport(filters);
       const reportData = response.data || response;
       set({ formAReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Form A report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Form A report', isLoading: false });
       throw error;
@@ -334,7 +334,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getMorbidityMortalityReport(filters);
       const reportData = response.data || response;
       set({ morbidityMortalityReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Morbidity/Mortality report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Morbidity/Mortality report', isLoading: false });
       throw error;
@@ -356,7 +356,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       }
       
       set({ topDiagnoses: diagnosesArray, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Top Diagnoses:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch top diagnoses', isLoading: false });
       throw error;
@@ -373,7 +373,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getFinancialReportAPI(filters);
       const reportData = response.data || response;
       set({ financialReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Financial report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Financial report', isLoading: false });
       throw error;
@@ -386,7 +386,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getInsuranceClaimsReportAPI(filters);
       const reportData = response.data || response;
       set({ insuranceClaimsReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Insurance Claims report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Insurance Claims report', isLoading: false });
       throw error;
@@ -399,7 +399,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getClinicalReportAPI(filters);
       const reportData = response.data || response;
       set({ clinicalReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Clinical report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Clinical report', isLoading: false });
       throw error;
@@ -412,7 +412,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getAttendanceReportAPI(filters);
       const reportData = response.data || response;
       set({ attendanceReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Attendance report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Attendance report', isLoading: false });
       throw error;
@@ -425,7 +425,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getRevenueReportAPI(filters);
       const reportData = response.data || response;
       set({ revenueReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Revenue report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Revenue report', isLoading: false });
       throw error;
@@ -442,7 +442,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getFamilyPlanningReportAPI(filters);
       const reportData = response.data || response;
       set({ familyPlanningReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Family Planning report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Family Planning report', isLoading: false });
       throw error;
@@ -455,7 +455,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getDemographicReportAPI(filters);
       const reportData = response.data || response;
       set({ demographicReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Demographic report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Demographic report', isLoading: false });
       throw error;
@@ -472,7 +472,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getLabReportAPI(filters);
       const reportData = response.data || response;
       set({ labReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Lab report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Lab report', isLoading: false });
       throw error;
@@ -485,7 +485,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getScanReportAPI(filters);
       const reportData = response.data || response;
       set({ scanReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Scan report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Scan report', isLoading: false });
       throw error;
@@ -498,7 +498,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getProcedureReportAPI(filters);
       const reportData = response.data || response;
       set({ procedureReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Procedure report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Procedure report', isLoading: false });
       throw error;
@@ -511,7 +511,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getMedicationReportAPI(filters);
       const reportData = response.data || response;
       set({ medicationReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Medication report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Medication report', isLoading: false });
       throw error;
@@ -524,7 +524,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getVitalsReportAPI(filters);
       const reportData = response.data || response;
       set({ vitalsReport: reportData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch Vitals report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch Vitals report', isLoading: false });
       throw error;
@@ -541,7 +541,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getReportSubmissions(filters);
       const submissions = response.data || response;
       set({ reportSubmissions: Array.isArray(submissions) ? submissions : [], isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch report submissions:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch submissions', isLoading: false });
       throw error;
@@ -555,7 +555,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const submission = response.data || response;
       set({ currentSubmission: submission, isLoading: false });
       return submission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch report:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch report', isLoading: false });
       throw error;
@@ -577,7 +577,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       document.body.removeChild(a);
       
       set({ isExporting: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to export report:', error);
       set({ error: error.response?.data?.message || 'Failed to export report', isExporting: false });
       throw error;

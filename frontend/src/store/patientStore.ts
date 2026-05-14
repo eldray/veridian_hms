@@ -9,7 +9,7 @@ import {
   uploadPatientImage as apiUploadPatientImage,
   uploadPatientImageBase64 as apiUploadPatientImageBase64
 } from '../api';
-import type { Patient, Pagination } from '../types';
+import type { Patient, Pagination, PatientFilters } from '../types';
 
 interface PatientState {
   patients: Patient[];
@@ -18,11 +18,11 @@ interface PatientState {
   currentPatient: Patient | null;
   pagination: Pagination | null;
   
-  loadPatients: (filters?: any) => Promise<void>;
-  addPatient: (data: FormData | any) => Promise<Patient>;
+  loadPatients: (filters?: PatientFilters) => Promise<void>;
+  addPatient: (data: FormData | Partial<Patient>) => Promise<Patient>;
   getPatientById: (id: string) => Patient | undefined;
   fetchPatient: (id: string) => Promise<Patient>;
-  updatePatient: (id: string, data: FormData | any) => Promise<Patient>;
+  updatePatient: (id: string, data: FormData | Partial<Patient>) => Promise<Patient>;
   deletePatient: (id: string) => Promise<void>;
   uploadPatientImage: (patientId: string, imageFile: File | string) => Promise<string>;
   searchPatients: (query: string) => Patient[];
@@ -31,18 +31,18 @@ interface PatientState {
 }
 
 // ✅ HELPER: Add fullName to patient object for frontend compatibility
-const addFullNameToPatient = (patient: any): Patient => {
+const addFullNameToPatient = (patient: Patient): Patient => {
   if (!patient) return patient;
   
   return {
     ...patient,
     fullName: `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
-  };
+  } as Patient;
 };
 
 // ✅ HELPER: Extract patient data from various API response formats
-const extractPatientData = (response: any): Patient => {
-  let patientData;
+const extractPatientData = (response: unknown): Patient => {
+  let patientData: any;
   
   // Handle nested response structures
   if (response.data?.patient) {
@@ -59,17 +59,17 @@ const extractPatientData = (response: any): Patient => {
 };
 
 // ✅ HELPER: Extract patients array from various API response formats
-const extractPatientsArray = (response: any): Patient[] => {
-  let patientsArray = [];
+const extractPatientsArray = (response: unknown): Patient[] => {
+  let patientsArray: any[] = [];
   
   if (Array.isArray(response)) {
     patientsArray = response;
-  } else if (Array.isArray(response.patients)) {
-    patientsArray = response.patients;
-  } else if (Array.isArray(response.data?.patients)) {
-    patientsArray = response.data.patients;
-  } else if (Array.isArray(response.data)) {
-    patientsArray = response.data;
+  } else if (Array.isArray((response as any).patients)) {
+    patientsArray = (response as any).patients;
+  } else if (Array.isArray((response as any).data?.patients)) {
+    patientsArray = (response as any).data.patients;
+  } else if (Array.isArray((response as any).data)) {
+    patientsArray = (response as any).data;
   }
   
   return patientsArray.map(addFullNameToPatient);
@@ -97,7 +97,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         pagination,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to load patients:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load patients';
       set({ 
@@ -137,7 +137,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }));
       
       return newPatient;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to add patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to add patient';
       set({ 
@@ -174,7 +174,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       
       set({ currentPatient: patientData, isLoading: false });
       return patientData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to fetch patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch patient';
       set({ 
@@ -216,7 +216,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }));
       
       return updatedPatient;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to update patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update patient';
       set({ 
@@ -240,7 +240,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         currentPatient: state.currentPatient?.id === id ? null : state.currentPatient,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to delete patient:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to delete patient';
       set({ 
@@ -283,7 +283,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }));
 
       return imageUrl;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to upload patient image:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to upload image';
       set({ error: errorMessage, isLoading: false });

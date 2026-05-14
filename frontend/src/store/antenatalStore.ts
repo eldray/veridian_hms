@@ -72,7 +72,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       }
       
       set({ bookings, pagination, isLoadingBookings: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoadingBookings: false });
       throw error;
     }
@@ -85,7 +85,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       const booking = response.data || response;
       set({ currentBooking: booking, isLoading: false });
       return booking;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 404 means no booking found - that's fine, not an error
       if (error.response?.status === 404) {
         set({ currentBooking: null, isLoading: false });
@@ -103,7 +103,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       const booking = response.data || response;
       set({ currentBooking: booking, isLoading: false });
       return booking;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -133,7 +133,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         isLoading: false,
       }));
       return booking;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -149,7 +149,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         currentBooking: state.currentBooking?.id === bookingId ? booking : state.currentBooking,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -162,7 +162,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       const visits = response.data?.visits || response.data || [];
       set({ currentVisits: visits, isLoadingVisits: false });
       return visits;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoadingVisits: false });
       throw error;
     }
@@ -175,7 +175,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       const visit = response.data || response;
       set({ currentVisit: visit, isLoading: false });
       return visit;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -194,7 +194,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         currentVisit: visit,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -209,7 +209,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         currentVisit: state.currentVisit?.id === id ? null : state.currentVisit,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -221,7 +221,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       const response = await apiGetStats(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }

@@ -18,29 +18,30 @@ import {
 } from '../api';
 
 import type { Bill, Pagination, Payment } from '../types';
+import type { BillFilters, BillStatistics, BillingBreakdown, BillLineItem } from '../types/billing';
 
 interface BillingState {
   bills: Bill[];
   currentBill: Bill | null;
   isLoading: boolean;
   pagination: Pagination | null;
-  billStatistics: any;
+  billStatistics: BillStatistics | null;
   
   // Core Bills
-  getBills: (filters?: any) => Promise<void>;
+  getBills: (filters?: BillFilters) => Promise<void>;
   getBill: (id: string) => Promise<void>;
-  createBill: (data: any) => Promise<void>;
-  updateBill: (id: string, data: any) => Promise<void>;
+  createBill: (data: Partial<Bill>) => Promise<void>;
+  updateBill: (id: string, data: Partial<Bill>) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
   
   // Payment functions
   addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<void>;
   generateBillFromAttendance: (attendanceId: string) => Promise<Bill>;
-  generateBillReport: (billId: string) => Promise<any>;
-  getBillingBreakdown: (billId: string) => Promise<any>;
-  updateBillStatus: (billId: string, status: string, data?: any) => Promise<void>;
-  getBillStatistics: (filters?: any) => Promise<void>;
-  getBillLineItems: (billId: string) => Promise<any[]>;
+  generateBillReport: (billId: string) => Promise<BillingBreakdown>;
+  getBillingBreakdown: (billId: string) => Promise<BillingBreakdown>;
+  updateBillStatus: (billId: string, status: string, data?: Partial<Payment>) => Promise<void>;
+  getBillStatistics: (filters?: BillFilters) => Promise<void>;
+  getBillLineItems: (billId: string) => Promise<BillLineItem[]>;
   voidBillLineItem: (lineItemId: string, reason: string) => Promise<void>;
   applyWaiverToBill: (billId: string, waiverId: string) => Promise<Bill>;
 
@@ -96,7 +97,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
       return updatedBill;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to apply waiver to bill:', error);
       set({ isLoading: false });
       throw error;
@@ -112,7 +113,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const breakdown = await apiGetBillingBreakdown(billId);
       set({ isLoading: false });
       return breakdown;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to get billing breakdown:', error);
       set({ isLoading: false });
       throw error;
@@ -146,7 +147,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       });
       
       set({ currentBill: billData, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to fetch bill:', error);
       set({ isLoading: false });
       throw error;
@@ -192,7 +193,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         pagination: paginationData,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to fetch bills:', error);
       set({ 
         bills: [],
@@ -205,7 +206,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ==========================================
   // CREATE BILL
   // ==========================================
-  createBill: async (data: any) => {
+  createBill: async (data: Partial<Bill>) => {
     set({ isLoading: true });
     try {
       const newBill = await apiCreateBill(data);
@@ -215,7 +216,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: newBill,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to create bill:', error);
       set({ isLoading: false });
       throw error;
@@ -225,7 +226,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ==========================================
   // UPDATE BILL
   // ==========================================
-  updateBill: async (id: string, data: any) => {
+  updateBill: async (id: string, data: Partial<Bill>) => {
     set({ isLoading: true });
     try {
       const updatedBill = await apiUpdateBill(id, data);
@@ -237,7 +238,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: updatedBill,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to update bill:', error);
       set({ isLoading: false });
       throw error;
@@ -257,7 +258,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: get().currentBill?.id === id ? null : get().currentBill,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to delete bill:', error);
       set({ isLoading: false });
       throw error;
@@ -281,7 +282,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to add payment:', error);
       set({ isLoading: false });
       throw error;
@@ -302,7 +303,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         isLoading: false 
       });
       return newBill;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to generate bill from attendance:', error);
       set({ isLoading: false });
       throw error;
@@ -318,7 +319,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const report = await apiGenerateBillReport(billId);
       set({ isLoading: false });
       return report;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to generate bill report:', error);
       set({ isLoading: false });
       throw error;
@@ -328,7 +329,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ==========================================
   // UPDATE BILL STATUS
   // ==========================================
-  updateBillStatus: async (billId: string, status: string, data: any = {}) => {
+  updateBillStatus: async (billId: string, status: string, data: Partial<Payment> = {}) => {
     set({ isLoading: true });
     try {
       const updatedBill = await apiUpdateBillStatus(billId, { status, ...data });
@@ -342,7 +343,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to update bill status:', error);
       set({ isLoading: false });
       throw error;
@@ -360,7 +361,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         billStatistics: statistics,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to fetch bill statistics:', error);
       set({ isLoading: false });
       throw error;

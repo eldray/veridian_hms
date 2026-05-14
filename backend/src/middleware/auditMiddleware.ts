@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { AuthRequest } from './authMiddleware';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -29,7 +30,7 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
       try {
         previousState = await captureEntityState(options.entityType, entityId);
       } catch (error) {
-        console.warn(`⚠️ Could not capture previous state for ${options.entityType}/${entityId}:`, error);
+        logger.warn(`Could not capture previous state for ${options.entityType}/${entityId}`, { error });
       }
     }
 
@@ -59,9 +60,9 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
                 responseTime,
                 statusCode: res.statusCode
               }
-            }).catch(console.error);
+            }).catch(err => logger.error('Failed to create audit log with new state', { error: err }));
           })
-          .catch(console.error);
+          .catch(err => logger.error('Failed to capture new state for audit', { error: err }));
       } else {
         // Create audit log without new state
         createAuditLog({
@@ -80,7 +81,7 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
             responseTime,
             statusCode: res.statusCode
           }
-        }).catch(console.error);
+        }).catch(err => logger.error('Failed to create audit log', { error: err }));
       }
 
       return originalJson.call(this, body);
@@ -110,7 +111,7 @@ async function captureEntityState(entityType: string, entityId: string): Promise
     });
     return record;
   } catch (error) {
-    console.error(`Failed to capture state for ${entityType}/${entityId}:`, error);
+    logger.error(`Failed to capture state for ${entityType}/${entityId}`, { error });
     return null;
   }
 }
@@ -141,9 +142,13 @@ async function createAuditLog(data: {
         metadata: data.metadata || {}
       }
     });
-    console.log(`✅ Audit log created: ${data.action} on ${data.entityType}/${data.entityId}`);
+    logger.info('Audit log created', { 
+      action: data.action, 
+      entityType: data.entityType, 
+      entityId: data.entityId 
+    });
   } catch (error) {
-    console.error('❌ Failed to create audit log:', error);
+    logger.error('Failed to create audit log', { error });
   }
 }
 
@@ -256,7 +261,7 @@ export const logFinancialMutation = async (
           requestBody: req.body,
           statusCode: res.statusCode
         }
-      }).catch(console.error);
+      }).catch(err => logger.error('Failed to create audit log', { error: err }));
     }
 
     return originalJson.call(this, body);

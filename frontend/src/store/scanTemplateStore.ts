@@ -77,7 +77,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const templates = await apiGetScanTemplates(filters);
       set({ scanTemplates: templates, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan templates' });
       throw error;
     }
@@ -88,7 +88,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const template = await apiGetScanTemplate(id);
       set({ currentScanTemplate: template, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan template' });
       throw error;
     }
@@ -104,7 +104,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
         currentScanTemplate: newTemplate,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to create scan template' });
       throw error;
     }
@@ -122,7 +122,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
         currentScanTemplate: updatedTemplate,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to update scan template' });
       throw error;
     }
@@ -138,7 +138,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
         currentScanTemplate: get().currentScanTemplate?.id === id ? null : get().currentScanTemplate,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to delete scan template' });
       throw error;
     }
@@ -149,7 +149,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const categories = await apiGetScanCategories();
       set({ categories, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan categories' });
       throw error;
     }
@@ -160,7 +160,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const bodyParts = await apiGetScanBodyParts();
       set({ bodyParts, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan body parts' });
       throw error;
     }
@@ -172,7 +172,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
     try {
       const scanTypes = await apiGetScanTypes();
       set({ scanTypes, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to fetch scan types' });
       throw error;
     }
@@ -187,7 +187,7 @@ export const useScanTemplateStore = create<ScanTemplateState>((set, get) => ({
       await get().getScanTemplates();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.message || 'Failed to bulk update scan templates' });
       throw error;
     }

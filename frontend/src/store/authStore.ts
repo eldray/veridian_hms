@@ -10,7 +10,7 @@ import {
   updateProfile as apiUpdateProfile,
   changePassword as apiChangePassword
 } from '../api';
-import type { User, UserRole } from '../types';
+import type { User, UserRole, LoginResponse, RegisterRequest, RegisterResponse, ProfileUpdateRequest } from '../types';
 
 interface AuthState {
   user: User | null;
@@ -20,14 +20,14 @@ interface AuthState {
   
   // Auth
   login: (username: string, password: string) => Promise<boolean>;
-  register: (userData: any) => Promise<void>;
+  register: (userData: RegisterRequest) => Promise<void>;
   checkAuth: () => Promise<void>;
   logout: () => void;
   hasRole: (roles: UserRole[]) => boolean;
   
   // Profile
   getProfile: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: ProfileUpdateRequest) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
@@ -66,14 +66,14 @@ export const useAuthStore = create<AuthState>()(
             isInitialized: true
           });
           return true;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('❌ Login failed:', error);
           set({ isLoading: false });
           throw error;
         }
       },
 
-      register: async (userData) => {
+      register: async (userData: RegisterRequest) => {
         set({ isLoading: true });
         try {
           const response = await apiRegister(userData);
@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isInitialized: true
           });
-        } catch (error) {
+        } catch (error: unknown) {
           set({ isLoading: false });
           throw error;
         }
@@ -135,7 +135,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isInitialized: true
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('❌ Token verification failed:', error);
           
           // Only clear auth data on 401 Unauthorized, not on network errors
@@ -187,24 +187,24 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      updateProfile: async (data) => {
+      updateProfile: async (data: ProfileUpdateRequest) => {
         set({ isLoading: true });
         try {
           const user = await apiUpdateProfile(data);
           set({ user, isLoading: false });
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to update profile:', error);
           set({ isLoading: false });
           throw error;
         }
       },
 
-      changePassword: async (currentPassword, newPassword) => {
+      changePassword: async (currentPassword: string, newPassword: string) => {
         set({ isLoading: true });
         try {
           await apiChangePassword(currentPassword, newPassword);
           set({ isLoading: false });
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to change password:', error);
           set({ isLoading: false });
           throw error;

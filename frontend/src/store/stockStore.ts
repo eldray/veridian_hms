@@ -237,7 +237,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock items:', error);
       set({ 
         isLoading: false, 
@@ -252,7 +252,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     try {
       const stockItem = await apiGetStockItem(id);
       set({ currentStockItem: stockItem, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock item:', error);
       set({ 
         isLoading: false, 
@@ -273,7 +273,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return newStockItem;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create stock item:', error);
       set({ 
         isLoading: false, 
@@ -297,7 +297,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return updatedStockItem;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update stock item:', error);
       set({ 
         isLoading: false, 
@@ -318,7 +318,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         currentStockItem: currentStockItem?.id === id ? null : currentStockItem,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete stock item:', error);
       set({ 
         isLoading: false, 
@@ -334,7 +334,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const lowStockItems = await apiGetLowStockItems();
       const items = extractItems(lowStockItems, 'lowStockItems');
       set({ lowStockAlerts: items as StockItem[], isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch low stock items:', error);
       set({ 
         isLoading: false, 
@@ -349,7 +349,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     try {
       const categories = await apiGetStockCategories();
       set({ stockCategories: categories || [], isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock categories:', error);
       set({ 
         isLoading: false, 
@@ -369,7 +369,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getLowStockItems();
       set({ isLoading: false });
       return result.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update stock level:', error);
       set({ 
         isLoading: false, 
@@ -392,7 +392,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getLowStockItems();
       set({ isLoading: false });
       return results;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to bulk update stock:', error);
       set({ 
         isLoading: false, 
@@ -414,7 +414,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock transactions:', error);
       set({ 
         isLoading: false, 
@@ -429,7 +429,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     try {
       const transaction = await apiGetStockTransaction(id);
       set({ currentTransaction: transaction, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock transaction:', error);
       set({ 
         isLoading: false, 
@@ -465,7 +465,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       
       set({ stockItems: updatedStockItems as StockItem[] });
       return newTransaction;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create stock transaction:', error);
       set({ 
         isLoading: false, 
@@ -489,7 +489,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return updatedTransaction;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update stock transaction:', error);
       set({ 
         isLoading: false, 
@@ -505,7 +505,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const report = await apiGetStockMovementReport(filters);
       set({ stockMovementReport: report, isLoading: false });
       return report;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock movement report:', error);
       set({ 
         isLoading: false, 
@@ -523,7 +523,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const items = extractItems(alerts, 'lowStockItems');
       set({ lowStockAlerts: items as StockItem[], isLoading: false });
       return items as StockItem[];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch low stock alerts:', error);
       set({ 
         isLoading: false, 
@@ -546,7 +546,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return transactions as StockTransaction[];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch stock item transaction history:', error);
       set({ 
         isLoading: false, 
@@ -568,7 +568,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch requisitions:', error);
       set({ 
         isLoading: false, 
@@ -585,7 +585,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const requisition = response.data || response;
       set({ isLoading: false });
       return requisition;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch requisition:', error);
       set({ 
         isLoading: false, 
@@ -606,7 +606,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return newRequisition;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create requisition:', error);
       set({ 
         isLoading: false, 
@@ -627,7 +627,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return updatedRequisition;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update requisition:', error);
       set({ 
         isLoading: false, 
@@ -646,7 +646,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         requisitions: requisitions.filter(req => req.id !== id),
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete requisition:', error);
       set({ 
         isLoading: false, 
@@ -663,7 +663,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.response?.data?.message || 'Failed to submit requisition' });
       throw error;
     }
@@ -676,7 +676,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition' });
       throw error;
     }
@@ -689,7 +689,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition items' });
       throw error;
     }
@@ -702,7 +702,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.response?.data?.message || 'Failed to fulfill requisition' });
       throw error;
     }
@@ -715,7 +715,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false, error: error.response?.data?.message || 'Failed to cancel requisition' });
       throw error;
     }
@@ -733,7 +733,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch invoices:', error);
       set({ 
         isLoading: false, 
@@ -750,7 +750,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       const invoice = response.data || response;
       set({ isLoading: false });
       return invoice;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch invoice:', error);
       set({ 
         isLoading: false, 
@@ -774,7 +774,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       await get().getStockItems();
       await get().getLowStockItems();
       return newInvoice;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create invoice:', error);
       set({ 
         isLoading: false, 
@@ -795,7 +795,7 @@ export const useStockStore = create<StockState>((set, get) => ({
         isLoading: false 
       });
       return updatedInvoice;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update invoice:', error);
       set({ 
         isLoading: false, 
@@ -817,7 +817,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       // Refresh stock items as invoice deletion may reverse stock
       await get().getStockItems();
       await get().getLowStockItems();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete invoice:', error);
       set({ 
         isLoading: false, 
@@ -835,7 +835,7 @@ getStockValueSummary: async () => {
     const data = await apiGetStockValueSummary();
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get stock summary' });
     throw error;
   }
@@ -847,7 +847,7 @@ getExpiryReport: async (days = 30) => {
     const data = await apiGetExpiryReport(days);
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get expiry report' });
     throw error;
   }
@@ -859,7 +859,7 @@ getMovementSummary: async (startDate?: string, endDate?: string) => {
     const data = await apiGetMovementSummary(startDate, endDate);
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get movement summary' });
     throw error;
   }
@@ -871,7 +871,7 @@ getUsageReport: async (period = 'month', limit = 20) => {
     const data = await apiGetUsageReport(period, limit);
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get usage report' });
     throw error;
   }
@@ -883,7 +883,7 @@ getSupplierReport: async () => {
     const data = await apiGetSupplierReport();
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get supplier report' });
     throw error;
   }
@@ -895,7 +895,7 @@ getRequisitionSummary: async (startDate?: string, endDate?: string) => {
     const data = await apiGetRequisitionSummary(startDate, endDate);
     set({ isLoading: false });
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     set({ isLoading: false, error: error.response?.data?.message || 'Failed to get requisition summary' });
     throw error;
   }

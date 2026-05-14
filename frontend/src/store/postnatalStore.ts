@@ -138,7 +138,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       }
       
       set({ postnatalRecords: records, pagination, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -151,7 +151,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       const record = response.data || response;
       set({ currentPostnatal: record, isLoading: false });
       return record;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -168,7 +168,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
         isLoading: false,
       }));
       return record;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -184,7 +184,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
         currentPostnatal: state.currentPostnatal?.id === id ? record : state.currentPostnatal,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -199,7 +199,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
         currentPostnatal: state.currentPostnatal?.id === id ? null : state.currentPostnatal,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -212,7 +212,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       const data = response.data || response;
       set({ isLoading: false });
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -225,7 +225,7 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       const result = response.data || response;
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }

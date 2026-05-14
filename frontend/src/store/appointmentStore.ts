@@ -73,7 +73,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
 
       console.log('📋 [AppointmentStore] Final appointments:', appointmentsArray);
       set({ appointments: appointmentsArray, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [AppointmentStore] Error fetching appointments:', error);
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointments', 
@@ -89,7 +89,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     try {
       const appointment = await getAppointment(id);
       set({ currentAppointment: appointment, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointment', 
         isLoading: false 
@@ -107,7 +107,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false 
       }));
       return newAppointment;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to create appointment', 
         isLoading: false 
@@ -128,7 +128,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false
       }));
       return updatedAppointment;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update appointment', 
         isLoading: false 
@@ -146,7 +146,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         currentAppointment: state.currentAppointment?.id === id || state.currentAppointment?.id === id ? null : state.currentAppointment, // ✅ FIXED ID CHECK
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete appointment', 
         isLoading: false 
@@ -167,7 +167,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false
       }));
       return updatedAppointment; // ✅ ADDED RETURN
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update appointment status', 
         isLoading: false 
@@ -188,7 +188,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false
       }));
       return updatedAppointment; // ✅ ADDED RETURN
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to check in appointment', 
         isLoading: false 
@@ -203,7 +203,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const statistics = await getAppointmentStatistics(filters);
       set({ statistics, isLoading: false });
       return statistics; // ✅ ADDED RETURN
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointment statistics', 
         isLoading: false 
@@ -224,7 +224,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false
       }));
       return schedule; // ✅ ADDED RETURN
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch doctor schedule', 
         isLoading: false 
@@ -239,7 +239,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const slots = await getAvailableSlots(doctorId, date);
       set({ availableSlots: slots, isLoading: false });
       return slots; // ✅ ADDED RETURN
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch available slots', 
         isLoading: false 
@@ -255,7 +255,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const calendarData = await getAppointmentCalendar(month, year);
       set({ appointmentCalendar: calendarData, isLoading: false });
       return calendarData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointment calendar', 
         isLoading: false 

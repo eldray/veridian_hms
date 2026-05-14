@@ -98,7 +98,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch notifications', 
         isLoading: false 
@@ -112,7 +112,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const notification = await apiGetNotification(id);
       set({ currentNotification: notification, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch notification', 
         isLoading: false 
@@ -127,7 +127,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiSendUserMessage(data);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.response?.data?.message || 'Failed to send message', isLoading: false });
       throw error;
     }
@@ -139,7 +139,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiSendBulkUserMessages(data);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.response?.data?.message || 'Failed to send messages', isLoading: false });
       throw error;
     }
@@ -151,7 +151,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const response = await apiGetConversations();
       const conversations = response.data || response;
       set({ conversations, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.response?.data?.message || 'Failed to fetch conversations', isLoading: false });
       throw error;
     }
@@ -169,7 +169,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: Math.max(0, state.unreadCount - 1),
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to mark notification as read', 
         isLoading: false 
@@ -187,7 +187,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: 0,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to mark all notifications as read', 
         isLoading: false 
@@ -208,7 +208,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: deletedNotification && !deletedNotification.isRead ? state.unreadCount - 1 : state.unreadCount,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete notification', 
         isLoading: false 
@@ -222,7 +222,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const stats = await apiGetNotificationStats();
       set({ stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch notification stats', 
         isLoading: false 
@@ -241,7 +241,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         isLoading: false 
       }));
       return newNotification;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to create notification', 
         isLoading: false 
@@ -257,7 +257,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiSendBulkNotification(data);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to send bulk notification', 
         isLoading: false 
@@ -272,7 +272,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiSendRoleNotification(data);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to send role notification', 
         isLoading: false 
@@ -287,7 +287,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiTriggerLowStockCheck();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to trigger low stock check', 
         isLoading: false 
@@ -302,7 +302,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiTriggerAppointmentReminders();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to trigger appointment reminders', 
         isLoading: false 
@@ -317,7 +317,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiCleanupOldNotifications(daysToKeep);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to cleanup notifications', 
         isLoading: false 
@@ -332,7 +332,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const count = result.data?.unreadCount || result.unreadCount || 0;
       set({ unreadCount: count });
       return count;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to get unread count:', error);
       return 0;
     }
