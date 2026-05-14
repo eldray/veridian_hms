@@ -358,7 +358,7 @@ export const getFinalizedClaimsTotal = (filters?: any) =>
   api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
 
 // BATCH CLAIMS
-export const createClaimBatch = (data: { claimIds: string[]; description?: string }) => 
+export const createClaimBatch = (data: { claimIds: string[]; description?: string; insuranceType?: string }) => 
   api.post('/insurance-claims/batches', data).then(r => r.data);
 
 export const getClaimBatches = (filters?: any) => 
@@ -756,7 +756,7 @@ export const getWardCharges = (attendanceId: string, params?: any) =>
   api.get(`/attendances/${attendanceId}/ward-charges`, { params }).then(r => r.data);
 
 export const generateDailyWardCharges = (date?: string) => 
-  api.post('/ward-charges/generate-daily', { date }).then(r => r.data);
+  api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
 
 // Receipt Generation
 export const generateReceipt = (billId: string) => 

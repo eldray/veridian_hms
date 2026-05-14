@@ -19,7 +19,7 @@ const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => {
 
 export const createClaimBatch = async (req: AuthRequest, res: Response) => {
   try {
-    const { claimIds, description } = req.body;
+    const { claimIds, description, insuranceType } = req.body;
     
     if (!claimIds || !Array.isArray(claimIds) || claimIds.length === 0) {
       return res.status(400).json({ 
@@ -28,6 +28,9 @@ export const createClaimBatch = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Determine insurance type from claims if not provided
+    let targetInsuranceType = insuranceType;
+    
     const batchNumber = `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
     const batch = await prisma.$transaction(async (tx) => {
@@ -41,13 +44,22 @@ export const createClaimBatch = async (req: AuthRequest, res: Response) => {
         throw new Error('One or more claims not found');
       }
 
-      // Check that all claims are submitted and for NHIS
+      // Determine insurance type from first claim if not provided
+      if (!targetInsuranceType && claims.length > 0) {
+        targetInsuranceType = claims[0].InsuranceProvider?.type;
+      }
+
+      if (!targetInsuranceType) {
+        throw new Error('Insurance type must be specified or determinable from claims');
+      }
+
+      // Check that all claims are submitted and for the same insurance provider type
       for (const claim of claims) {
         if (claim.status !== 'submitted') {
           throw new Error(`Claim ${claim.claimNumber} is not in submitted status`);
         }
-        if (claim.InsuranceProvider?.type !== 'nhis') {
-          throw new Error(`Claim ${claim.claimNumber} is not an NHIS claim`);
+        if (claim.InsuranceProvider?.type !== targetInsuranceType) {
+          throw new Error(`Claim ${claim.claimNumber} does not match the insurance type (${targetInsuranceType})`);
         }
         if (claim.batchId) {
           throw new Error(`Claim ${claim.claimNumber} is already in a batch`);
