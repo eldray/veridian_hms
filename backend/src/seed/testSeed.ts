@@ -1339,6 +1339,94 @@ console.log('✅ Test users created/verified');
         await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
       }
     }
+
+    // =============== ADD MORE ADMISSIONS FOR ALL PAYMENT MODES ===============
+    console.log('\\n🏥 Creating additional admissions for all payment modes...');
+
+    // Admission for NHIS patient (Patient 2 - Ama Serwaa)
+    if (generalWard) {
+      let nhisBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+
+      if (!nhisBed) {
+        nhisBed = await prisma.bed.create({
+          data: {
+            wardId: generalWard.id,
+            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
+            isOccupied: false,
+          },
+        });
+      }
+
+      if (nhisBed && attendances[1]) {
+        await prisma.admission.create({
+          data: {
+            admissionNumber: generateAdmissionNumber(),
+            patientId: patients[1].id,
+            attendanceId: attendances[1].id,
+            wardId: generalWard.id,
+            bedId: nhisBed.id,
+            admissionDate: daysAgo(2),
+            admissionTime: '14:00',
+            admittingDoctor: doctor.fullName,
+            reasonForAdmission: 'Hypertensive crisis management',
+            diagnosis: 'Essential hypertension with complications',
+            status: 'admitted',
+            createdBy: doctor.fullName,
+            admissionType: AdmissionType.urgent,
+            admissionSource: AdmissionSource.opd,
+            lengthOfStay: 1,
+          },
+        });
+
+        await prisma.bed.update({ where: { id: nhisBed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
+      }
+    }
+
+    // Admission for Private Insurance patient (Patient 9 - Christina Boateng - maternity patient with private insurance)
+    if (maternityWard) {
+      let privBed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
+
+      if (!privBed) {
+        privBed = await prisma.bed.create({
+          data: {
+            wardId: maternityWard.id,
+            bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-PRV-01`,
+            isOccupied: false,
+          },
+        });
+      }
+
+      // Find attendance for patient 9 (private insurance)
+      const privPatientAttendance = await prisma.attendance.findFirst({
+        where: { patientId: patients[9].id },
+        orderBy: { dateTime: 'desc' }
+      });
+
+      if (privBed && privPatientAttendance) {
+        await prisma.admission.create({
+          data: {
+            admissionNumber: generateAdmissionNumber(),
+            patientId: patients[9].id,
+            attendanceId: privPatientAttendance.id,
+            wardId: maternityWard.id,
+            bedId: privBed.id,
+            admissionDate: daysAgo(1),
+            admissionTime: '06:00',
+            admittingDoctor: doctor.fullName,
+            reasonForAdmission: 'Elective C-section delivery',
+            diagnosis: 'Term pregnancy for elective caesarean section',
+            status: 'admitted',
+            createdBy: doctor.fullName,
+            admissionType: AdmissionType.elective,
+            admissionSource: AdmissionSource.opd,
+            lengthOfStay: 1,
+          },
+        });
+
+        await prisma.bed.update({ where: { id: privBed.id }, data: { isOccupied: true, currentPatientId: patients[9].id } });
+      }
+    }
+
     console.log('✅ Admissions created');
 
     // =============== CREATE MATERNITY DATA FOR PATIENTS 6-10 ===============

@@ -126,7 +126,7 @@ interface InsuranceState {
   // ==========================================
   // BATCH CLAIM FUNCTIONS
   // ==========================================
-  createClaimBatch: (claimIds: string[], description?: string) => Promise<Batch>;
+  createClaimBatch: (claimIds: string[], description?: string, insuranceType?: string) => Promise<Batch>;
   getClaimBatches: (filters?: any) => Promise<void>;
   getClaimBatch: (id: string) => Promise<Batch | null>;
   addClaimsToBatch: (batchId: string, claimIds: string[]) => Promise<Batch>;
@@ -553,10 +553,10 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
   // BATCH CLAIM FUNCTIONS
   // ==========================================
   
-  createClaimBatch: async (claimIds: string[], description?: string) => {
+  createClaimBatch: async (claimIds: string[], description?: string, insuranceType?: string) => {
     set({ isLoading: true });
     try {
-      const batch = await apiCreateClaimBatch({ claimIds, description });
+      const batch = await apiCreateClaimBatch({ claimIds, description, insuranceType });
       const batchData = batch.data || batch;
       set({ 
         batches: [batchData, ...get().batches],

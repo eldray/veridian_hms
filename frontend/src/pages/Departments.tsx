@@ -79,13 +79,14 @@ export default function Departments() {
   const loadAvailableUsers = async () => {
     setLoadingUsers(true);
     try {
-      const response = await api.get('/users', {
-        params: {
-          role: ['admin', 'doctor'].join(',')
-        }
-      });
+      // Use the proper API function from settings endpoints to fetch all users
+      const response = await api.get('/settings/users');
       const usersData = response.data?.data || response.data || [];
-      setAvailableUsers(usersData);
+      // Filter only doctors and admins for department head assignment
+      const filteredUsers = usersData.filter((u: any) => 
+        u.role === 'admin' || u.role === 'doctor'
+      );
+      setAvailableUsers(filteredUsers);
     } catch (err) {
       console.error('Error loading users:', err);
       error('Load Failed', 'Could not load available users');

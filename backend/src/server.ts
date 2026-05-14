@@ -4,7 +4,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import routes from './app';
+import { runDailyWardChargeJob } from './cron/wardChargeCron';
 
 // Load environment variables
 dotenv.config();
@@ -98,6 +100,16 @@ const startServer = async () => {
   } else {
     console.log('🏭 Production: Skipping auto-seeding');
   }
+
+  // 🕐 Schedule daily ward charge job at midnight (00:00) every day
+  cron.schedule('0 0 * * *', async () => {
+    console.log('⏰ Running scheduled daily ward charge job...');
+    await runDailyWardChargeJob();
+  }, {
+    timezone: 'UTC'
+  });
+
+  console.log('✅ Daily ward charge cron job scheduled for midnight UTC');
 
   app.listen(PORT, () => {
     console.log(`🏥 Hospital Management System API running on port ${PORT}`);

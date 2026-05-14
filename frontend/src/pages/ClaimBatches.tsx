@@ -123,12 +123,20 @@ export default function ClaimBatches() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedBatches = filteredBatches.slice(startIndex, endIndex);
 
-  // Get eligible claims for batch creation (submitted NHIS claims not in any batch)
+  // Get eligible claims for batch creation (submitted claims not in any batch, grouped by insurance type)
   const eligibleClaims = allClaims.filter(claim => 
     claim.status === 'submitted' && 
-    claim.insuranceProvider?.type === 'nhis' &&
+    claim.insuranceProvider &&
     !claim.batchId
   );
+  
+  // Group eligible claims by insurance provider type
+  const claimsByType = eligibleClaims.reduce((acc, claim) => {
+    const type = claim.insuranceProvider?.type || 'unknown';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(claim);
+    return acc;
+  }, {} as Record<string, typeof eligibleClaims>);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -154,7 +162,7 @@ export default function ClaimBatches() {
     }
   };
 
-  const handleCreateBatch = async () => {
+  const handleCreateBatch = async (insuranceType?: string) => {
     if (selectedClaims.size === 0) {
       warning('No Claims Selected', 'Please select at least one claim to create a batch');
       return;
@@ -162,7 +170,15 @@ export default function ClaimBatches() {
 
     try {
       const claimIds = Array.from(selectedClaims);
-      await createClaimBatch(claimIds, batchDescription || `Batch of ${claimIds.length} claims`);
+      
+      // Determine insurance type from selected claims if not provided
+      let targetInsuranceType = insuranceType;
+      if (!targetInsuranceType && selectedClaims.size > 0) {
+        const firstClaim = allClaims.find(c => c.id === claimIds[0]);
+        targetInsuranceType = firstClaim?.insuranceProvider?.type;
+      }
+      
+      await createClaimBatch(claimIds, batchDescription || `Batch of ${claimIds.length} claims`, targetInsuranceType);
       success('Batch Created', `Batch created with ${claimIds.length} claims`);
       setShowCreateModal(false);
       setSelectedClaims(new Set());
@@ -285,16 +301,22 @@ export default function ClaimBatches() {
             <p className="text-sm text-[var(--text-secondary)]">Group NHIS claims into batches for submission</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {eligibleClaims.length > 0 && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Create Batch ({eligibleClaims.length} available)
-            </button>
-          )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {Object.keys(claimsByType).map(type => (
+            claimsByType[type].length > 0 && (
+              <button
+                key={type}
+                onClick={() => {
+                  setShowCreateModal(true);
+                  setSelectedClaims(new Set());
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Create {type.toUpperCase()} Batch ({claimsByType[type].length})
+              </button>
+            )
+          ))}
           <button
             onClick={loadData}
             disabled={isLoading}
