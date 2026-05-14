@@ -5,16 +5,18 @@ import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
 import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { 
   ChevronLeft, RefreshCw, Activity, Plus, User, Calendar, 
   AlertTriangle, Heart, Thermometer, Wind, Droplet, 
   Ruler, Weight, TrendingUp, Clock, CheckCircle, 
   XCircle, Stethoscope, FileText, Download, Printer,
-  Baby, Shield
+  Baby, Shield, Users
 } from 'lucide-react';
 import type { Vitals, VitalsEntry, Patient, Attendance } from '../types/vitals';
 
@@ -148,6 +150,7 @@ export default function Vitals() {
   } = useAttendanceStore();
   const { user } = useAuthStore();
   const { success, error } = useToast();
+  const { setDepartment, selectItem, clearSelection } = useWorklistStore();
 
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
@@ -156,6 +159,7 @@ export default function Vitals() {
   const [refreshing, setRefreshing] = useState(false);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [editingVitals, setEditingVitals] = useState<Vitals | null>(null);
+  const [showWorklist, setShowWorklist] = useState(false);
 
   const loadData = async () => {
     setRefreshing(true);
@@ -282,14 +286,30 @@ export default function Vitals() {
           </div>
         </div>
         
-        <button
-          onClick={loadData}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setDepartment('vitals');
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
+          
+          <button
+            onClick={loadData}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Patient & Attendance Selection */}
@@ -601,6 +621,29 @@ export default function Vitals() {
         attendanceId={selectedAttendanceId}
         attendanceType={selectedAttendance?.attendanceType}
       />
+
+      {/* Worklist Panel */}
+      {showWorklist && (
+        <WorklistPanel
+          department="vitals"
+          onClose={() => {
+            setShowWorklist(false);
+            clearSelection();
+          }}
+          onSelectPatient={(patientId, item) => {
+            setSelectedPatientId(patientId);
+            // Auto-select the first available attendance for this patient if not already selected
+            if (!selectedAttendanceId) {
+              const patientAttendances = attendances.filter(a => a.patientId === patientId);
+              if (patientAttendances.length > 0) {
+                setSelectedAttendanceId(patientAttendances[0].id || '');
+              }
+            }
+            setShowWorklist(false);
+            success('Patient Loaded', `${item.patient.firstName} ${item.patient.lastName}'s details loaded`);
+          }}
+        />
+      )}
     </div>
   );
 }

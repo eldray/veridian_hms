@@ -36,6 +36,7 @@ import gdrgRoutes from './routes/gdrgRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
 import clinicalReportsRoutes from './routes/clinicalReportsRoutes';
 import waiverRoutes from './routes/waiverRoutes';
+import worklistRoutes from './routes/worklistRoutes';
 import { manualRunWardCharges } from './cron/wardChargeCron';
 
 
@@ -77,6 +78,7 @@ router.use('/reports/ghs', ghsReportRoutes);
 router.use('/documents', documentRoutes);
 router.use('/gdrg', gdrgRoutes);
 router.use('/waivers', waiverRoutes);
+router.use('/worklist', worklistRoutes);
 
 // Ward Charges - Manual trigger endpoint
 router.post('/admissions/ward-charges/generate', manualRunWardCharges);
