@@ -12,7 +12,7 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
         vitals: [...state.vitals, newVitals],
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to record vitals',
         isLoading: false
@@ -30,7 +30,7 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
         isLoading: false
       }));
       return vitals;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to fetch vitals',
         isLoading: false
@@ -49,7 +49,7 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
         ),
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to update vitals',
         isLoading: false
@@ -66,7 +66,7 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
         vitals: state.vitals.filter(v => v.id !== vitalsId), // ✅ FIXED: Use id consistently
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to delete vitals',
         isLoading: false

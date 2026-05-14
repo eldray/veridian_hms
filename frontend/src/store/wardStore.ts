@@ -97,7 +97,7 @@ export const useWardStore = create<WardState>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [WardStore] Failed to fetch wards:', error);
       set({ isLoading: false });
       throw error;
@@ -109,7 +109,7 @@ export const useWardStore = create<WardState>((set, get) => ({
     try {
       const ward = await apiGetWard(id);
       set({ currentWard: transformWard(ward), isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch ward:', error);
       set({ isLoading: false });
       throw error;
@@ -133,7 +133,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       });
       
       return transformedWard;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [WardStore] Failed to create ward:', error);
       set({ isLoading: false });
       throw error;
@@ -154,7 +154,7 @@ export const useWardStore = create<WardState>((set, get) => ({
         isLoading: false 
       });
       return transformedWard;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update ward:', error);
       set({ isLoading: false });
       throw error;
@@ -174,7 +174,7 @@ export const useWardStore = create<WardState>((set, get) => ({
           (get().currentWard.id === id || get().currentWard.id === id) ? null : get().currentWard,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete ward:', error);
       set({ isLoading: false });
       throw error;
@@ -208,7 +208,7 @@ export const useWardStore = create<WardState>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [WardStore] Failed to fetch beds:', error);
       set({ isLoading: false });
       throw error;
@@ -220,7 +220,7 @@ export const useWardStore = create<WardState>((set, get) => ({
     try {
       const bed = await apiGetBed(id);
       set({ currentBed: transformBed(bed), isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch bed:', error);
       set({ isLoading: false });
       throw error;
@@ -244,7 +244,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       });
       
       return transformedBed;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [WardStore] Failed to create bed:', error);
       set({ isLoading: false });
       throw error;
@@ -265,7 +265,7 @@ export const useWardStore = create<WardState>((set, get) => ({
         isLoading: false 
       });
       return transformedBed;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update bed:', error);
       set({ isLoading: false });
       throw error;
@@ -285,7 +285,7 @@ export const useWardStore = create<WardState>((set, get) => ({
           (get().currentBed.id === id || get().currentBed.id === id) ? null : get().currentBed,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete bed:', error);
       set({ isLoading: false });
       throw error;
@@ -305,7 +305,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       });
       
       return transformedBeds;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [WardStore] Failed to fetch available beds:', error);
       set({ isLoading: false });
       throw error;

@@ -160,7 +160,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       }
       
       set({ deliveries, pagination, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -173,7 +173,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       const delivery = response.data || response;
       set({ currentDelivery: delivery, currentNewborns: delivery?.Newborn || [], isLoading: false });
       return delivery;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -190,7 +190,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
         isLoading: false,
       }));
       return delivery;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -206,7 +206,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
         currentDelivery: state.currentDelivery?.id === id ? delivery : state.currentDelivery,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -221,7 +221,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
         currentDelivery: state.currentDelivery?.id === id ? null : state.currentDelivery,
         isLoading: false,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -233,7 +233,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       const response = await getDeliveryStatistics(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;
     }

@@ -243,6 +243,8 @@ model Patient {
   @@index([otherNames])
   @@index([paymentMode])
   @@index([surname])
+  @@index([contact])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -931,6 +933,8 @@ model Bill {
   @@index([billNumber])
   @@index([patientId])
   @@index([status])
+  @@index([admissionId])
+  @@index([createdAt])
 }
 
 model BillLineItem {
@@ -1176,7 +1180,9 @@ model Admission {
 
   @@index([admissionNumber])
   @@index([patientId])
+  @@index([wardId])
   @@index([status])
+  @@index([admissionDate])
 }
 
 model Ward {

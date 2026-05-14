@@ -98,7 +98,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const hospital = await getHospitalDetails();
       set({ hospital, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch hospital details:', error);
       set({
         isLoading: false,
@@ -114,7 +114,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const hospital = await updateHospitalDetails(data);
       set({ hospital, isLoading: false });
       return hospital;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update hospital details:', error);
       set({
         isLoading: false,
@@ -129,7 +129,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const hospital = await getHospital();
       set({ hospital, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch hospital:', error);
       set({
         isLoading: false,
@@ -167,7 +167,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch users:', error);
       set({
         isLoading: false,
@@ -186,7 +186,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       );
       set({ users, isLoading: false });
       return updatedUser;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update user:', error);
       set({
         isLoading: false,
@@ -204,7 +204,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         user.id === userId ? { ...user, isActive: false } : user
       );
       set({ users, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to deactivate user:', error);
       set({
         isLoading: false,
@@ -223,7 +223,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
         error: error.response?.data?.message || 'Failed to fetch users'
@@ -237,7 +237,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const stats = await getUserStats();
       set({ userStats: stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
         error: error.response?.data?.message || 'Failed to fetch user stats'
@@ -252,7 +252,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const users = await getUsersByDepartment(departmentId);
       set({ isLoading: false });
       return users;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
         error: error.response?.data?.message || 'Failed to fetch department users'
@@ -272,7 +272,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       );
 
       set({ users: updatedUsers, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
         error: error.response?.data?.message || 'Failed to update user department'
@@ -288,7 +288,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const result = await createBackup();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || 'Failed to create backup',
         isLoading: false
@@ -306,7 +306,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const result = await restoreBackup(formData);
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || 'Failed to restore backup',
         isLoading: false
@@ -328,7 +328,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         backups,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         error: error.response?.data?.message || 'Failed to fetch backups',
         isLoading: false,
@@ -348,7 +348,7 @@ downloadBackup: async (filename: string) => {
     
     set({ isLoading: false });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Store: Download failed:', error);
     
     const errorMessage = error.response?.data?.message || error.message || 'Failed to download backup';
@@ -367,7 +367,7 @@ downloadBackup: async (filename: string) => {
       await deleteBackup(filename);
       const backups = get().backups.filter(backup => backup.filename !== filename);
       set({ backups, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
         error: error.response?.data?.message || 'Failed to delete backup'
@@ -382,7 +382,7 @@ downloadBackup: async (filename: string) => {
     try {
       const nhisConfig = await getHospitalNHISSettings();
       set({ nhisConfig, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch NHIS config:', error);
       set({
         isLoading: false,
@@ -397,7 +397,7 @@ downloadBackup: async (filename: string) => {
     try {
       const nhisConfig = await updateHospitalNHISSettings(config);
       set({ nhisConfig, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update NHIS config:', error);
       set({
         isLoading: false,

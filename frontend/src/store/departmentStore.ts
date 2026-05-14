@@ -56,7 +56,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       // Handle both response formats: direct array or { data: [] }
       const departments = Array.isArray(response) ? response : response?.data || [];
       set({ departments, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch departments', 
         isLoading: false 
@@ -70,7 +70,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     try {
       const department = await apiGetDepartment(id);
       set({ currentDepartment: department, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch department', 
         isLoading: false 
@@ -87,7 +87,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
         departments: [...state.departments, newDepartment],
         isLoading: false 
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to create department', 
         isLoading: false 
@@ -107,7 +107,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
         currentDepartment: state.currentDepartment?.id === id ? updatedDepartment : state.currentDepartment,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update department', 
         isLoading: false 
@@ -125,7 +125,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
         currentDepartment: state.currentDepartment?.id === id ? null : state.currentDepartment,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete department', 
         isLoading: false 
@@ -147,7 +147,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
         currentDepartment: state.currentDepartment?.id === departmentId ? updatedDepartment : state.currentDepartment,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to assign department head', 
         isLoading: false 
@@ -161,7 +161,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     try {
       const stats = await apiGetDepartmentStats(id);
       set({ departmentStats: stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch department stats', 
         isLoading: false 
@@ -177,7 +177,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       // Handle response format
       const users = Array.isArray(response) ? response : response?.users || [];
       set({ departmentUsers: users, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch department users', 
         isLoading: false 
@@ -196,7 +196,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       // Also refresh departments list to update counts
       await get().getDepartments();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to assign user to department', 
         isLoading: false 
@@ -215,7 +215,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       // Also refresh departments list to update counts
       await get().getDepartments();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to remove user from department', 
         isLoading: false 
@@ -233,7 +233,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       await get().getDepartments();
       set({ isLoading: false });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to bulk update departments', 
         isLoading: false 

@@ -268,7 +268,7 @@ getDiagnoses: async (filters = {}) => {
       diagnosesTotalPages: 1,
       isLoadingDiagnoses: false 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to fetch diagnoses:', error);
     set({
       errors: { ...get().errors, diagnoses: error.message },
@@ -283,7 +283,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const diagnosis = await apiGetDiagnosis(id);
       set({ currentDiagnosis: diagnosis, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch diagnosis:', error);
       set({ isLoading: false });
       throw error;
@@ -300,7 +300,7 @@ getDiagnoses: async (filters = {}) => {
         currentDiagnosis: newDiagnosis,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create diagnosis:', error);
       set({ isLoading: false });
       throw error;
@@ -316,7 +316,7 @@ getDiagnoses: async (filters = {}) => {
         currentDiagnosis: updatedDiagnosis,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update diagnosis:', error);
       set({ isLoading: false });
       throw error;
@@ -334,7 +334,7 @@ getDiagnoses: async (filters = {}) => {
         currentDiagnosis: get().currentDiagnosis?.id === id ? null : get().currentDiagnosis,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete diagnosis:', error);
       set({ isLoading: false });
       throw error;
@@ -347,7 +347,7 @@ getDiagnoses: async (filters = {}) => {
       const results = await apiSearchDiagnoses(query);
       set({ isLoadingDiagnoses: false });
       return results;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoadingDiagnoses: false });
       throw error;
     }
@@ -358,7 +358,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const stats = await apiGetDiagnosisStats();
       set({ diagnosisStats: stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -370,7 +370,7 @@ getDiagnoses: async (filters = {}) => {
       await apiBulkUpdateDiagnoses(data);
       await get().getDiagnoses();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -413,7 +413,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const template = await apiGetLabTestTemplate(id);
       set({ currentLabTestTemplate: template, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch lab test template:', error);
       set({ isLoading: false });
       throw error;
@@ -430,7 +430,7 @@ getDiagnoses: async (filters = {}) => {
         currentLabTestTemplate: newTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create lab test template:', error);
       set({ isLoading: false });
       throw error;
@@ -446,7 +446,7 @@ getDiagnoses: async (filters = {}) => {
         currentLabTestTemplate: updatedTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update lab test template:', error);
       set({ isLoading: false });
       throw error;
@@ -463,7 +463,7 @@ getDiagnoses: async (filters = {}) => {
         currentLabTestTemplate: get().currentLabTestTemplate?.id === id ? null : get().currentLabTestTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete lab test template:', error);
       set({ isLoading: false });
       throw error;
@@ -474,7 +474,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const categories = await apiGetLabTestCategories();
       return categories;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -483,7 +483,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const subCategories = await apiGetLabTestSubCategories();
       return subCategories;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -492,7 +492,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const specimenTypes = await apiGetSpecimenTypes();
       return specimenTypes;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -503,7 +503,7 @@ getDiagnoses: async (filters = {}) => {
       await apiBulkUpdateLabTestTemplates(data);
       await get().getLabTestTemplates();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -541,7 +541,7 @@ getDiagnoses: async (filters = {}) => {
         proceduresTotalCount: totalCount,
         isLoadingProcedures: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch procedure templates:', error);
       set({
         errors: { ...get().errors, procedures: error.message },
@@ -556,7 +556,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const template = await apiGetProcedureTemplate(id);
       set({ currentProcedureTemplate: template, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch procedure template:', error);
       set({ isLoading: false });
       throw error;
@@ -573,7 +573,7 @@ getDiagnoses: async (filters = {}) => {
         currentProcedureTemplate: newTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create procedure template:', error);
       set({ isLoading: false });
       throw error;
@@ -589,7 +589,7 @@ getDiagnoses: async (filters = {}) => {
         currentProcedureTemplate: updatedTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update procedure template:', error);
       set({ isLoading: false });
       throw error;
@@ -606,7 +606,7 @@ getDiagnoses: async (filters = {}) => {
         currentProcedureTemplate: get().currentProcedureTemplate?.id === id ? null : get().currentProcedureTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete procedure template:', error);
       set({ isLoading: false });
       throw error;
@@ -617,7 +617,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const categories = await apiGetProcedureCategories();
       return categories;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -626,7 +626,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const departments = await apiGetProcedureDepartments();
       return departments;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -637,7 +637,7 @@ getDiagnoses: async (filters = {}) => {
       await apiBulkUpdateProcedureTemplates(data);
       await get().getProcedureTemplates();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -675,7 +675,7 @@ getDiagnoses: async (filters = {}) => {
         scansTotalCount: totalCount,
         isLoadingScans: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch scan templates:', error);
       set({
         errors: { ...get().errors, scans: error.message },
@@ -690,7 +690,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const template = await apiGetScanTemplate(id);
       set({ currentScanTemplate: template, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -706,7 +706,7 @@ getDiagnoses: async (filters = {}) => {
         currentScanTemplate: newTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -721,7 +721,7 @@ getDiagnoses: async (filters = {}) => {
         currentScanTemplate: updatedTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -737,7 +737,7 @@ getDiagnoses: async (filters = {}) => {
         currentScanTemplate: get().currentScanTemplate?.id === id ? null : get().currentScanTemplate,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -748,7 +748,7 @@ getDiagnoses: async (filters = {}) => {
       const categories = await apiGetScanCategories();
       set({ scanCategories: categories });
       return categories;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ errors: { ...get().errors, scans: error.message } });
       throw error;
     }
@@ -759,7 +759,7 @@ getDiagnoses: async (filters = {}) => {
       const bodyParts = await apiGetScanBodyParts();
       set({ scanBodyParts: bodyParts });
       return bodyParts;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ errors: { ...get().errors, scans: error.message } });
       throw error;
     }
@@ -770,7 +770,7 @@ getDiagnoses: async (filters = {}) => {
       const scanTypes = await apiGetScanTypes();
       set({ scanTypes });
       return scanTypes;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -781,7 +781,7 @@ getDiagnoses: async (filters = {}) => {
       await apiBulkUpdateScanTemplates(data);
       await get().getScanTemplates();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -821,7 +821,7 @@ getDiagnoses: async (filters = {}) => {
       });
       
       return { services, pagination };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to fetch service catalog:', error);
       set({
         errors: { ...get().errors, serviceCatalog: error.message },
@@ -874,7 +874,7 @@ getDiagnoses: async (filters = {}) => {
     });
     
     return { services, pagination };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Failed to fetch service catalog:', error);
     set({
       errors: { ...get().errors, serviceCatalog: error.message },
@@ -900,7 +900,7 @@ getDiagnoses: async (filters = {}) => {
       });
       
       return newItem;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create service catalog item:', error);
       set({ isLoading: false });
       throw error;
@@ -923,7 +923,7 @@ getDiagnoses: async (filters = {}) => {
       });
       
       return updatedItem;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update service catalog item:', error);
       set({ isLoading: false });
       throw error;
@@ -944,7 +944,7 @@ getDiagnoses: async (filters = {}) => {
         currentServiceCatalogItem: get().currentServiceCatalogItem?.id === id ? null : get().currentServiceCatalogItem,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete service catalog item:', error);
       set({ isLoading: false });
       throw error;
@@ -956,7 +956,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const metadata = await apiGetServiceMetadata();
       set({ serviceMetadata: metadata, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch service metadata:', error);
       set({ isLoading: false });
       throw error;
@@ -969,7 +969,7 @@ getDiagnoses: async (filters = {}) => {
       const report = await apiGetNHISReadinessReport();
       set({ isLoading: false });
       return report;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -979,7 +979,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const service = await apiGetServiceByNHISCode(nhisCode);
       return service;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch service by NHIS code:', error);
       return null;
     }
@@ -989,7 +989,7 @@ getDiagnoses: async (filters = {}) => {
     try {
       const services = await apiGetServicesByCategory(category);
       return services;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch services by category:', error);
       return [];
     }
@@ -1001,7 +1001,7 @@ getDiagnoses: async (filters = {}) => {
       const coverage = await apiCheckServiceCoverage(data);
       set({ isLoading: false });
       return coverage;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -1013,7 +1013,7 @@ getDiagnoses: async (filters = {}) => {
       const cost = await apiCalculateServiceCost(data);
       set({ isLoading: false });
       return cost;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }

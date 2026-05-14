@@ -1509,3 +1509,20 @@ export interface ReportFilter {
   endDate?: string;
   period?: string;
 }
+
+export interface PatientFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  surname?: string;
+  otherNames?: string;
+  nhisNumber?: string;
+  hospitalNumber?: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  phone?: string;
+  email?: string;
+  region?: string;
+  district?: string;
+  town?: string;
+}

@@ -109,7 +109,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         hospital: hospitalData, 
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ All hospital fetch attempts failed, using default:', error);
       
       // Use default hospital as fallback
@@ -132,7 +132,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       const hospital = await getHospital(id);
       set({ isLoading: false });
       return hospital;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch hospital:', error);
       set({
         error: error.response?.data?.message || 'Failed to fetch hospital',
@@ -153,7 +153,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         pagination: response.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch hospitals:', error);
       set({
         error: error.response?.data?.message || 'Failed to fetch hospitals',
@@ -172,7 +172,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         isLoading: false
       }));
       return newHospital;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create hospital:', error);
       set({
         error: error.response?.data?.message || 'Failed to create hospital',
@@ -197,7 +197,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       }));
       
       return updatedHospital;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update hospital:', error);
       set({
         error: error.response?.data?.message || 'Failed to update hospital',
@@ -218,7 +218,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         hospital: state.hospital?.id === id ? null : state.hospital,
         isLoading: false
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete hospital:', error);
       set({
         error: error.response?.data?.message || 'Failed to delete hospital',
@@ -235,7 +235,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       const nhisSettings = await getHospitalNHISSettings();
       set({ isLoading: false });
       return nhisSettings;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch NHIS settings:', error);
       set({
         error: error.response?.data?.message || 'Failed to fetch NHIS settings',
@@ -251,7 +251,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       const nhisSettings = await updateHospitalNHISSettings(data);
       set({ isLoading: false });
       return nhisSettings;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update NHIS settings:', error);
       set({
         error: error.response?.data?.message || 'Failed to update NHIS settings',

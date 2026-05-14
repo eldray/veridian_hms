@@ -15,6 +15,8 @@ import {
   removeSecondaryDiagnosisFromAdmission as apiRemoveSecondaryDiagnosisFromAdmission,
   getAdmissionStats as apiGetAdmissionStats
 } from '../api';
+import type { Admission, AdmissionSecondaryDiagnosis } from '../types';
+import type { AdmissionFilters, AdmissionStats, DailyNote, DischargeData, SecondaryDiagnosisData } from '../types/admission';
 
 // ✅ Helper for consistent ID access
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -22,30 +24,30 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 };
 
 interface AdmissionState {
-  admissions: any[];
-  currentAdmission: any | null;
-  admissionStats: any | null;
+  admissions: Admission[];
+  currentAdmission: Admission | null;
+  admissionStats: AdmissionStats | null;
   isLoading: boolean;
   error: string | null;
   
   // Core CRUD operations
-  getAdmissions: (filters?: any) => Promise<void>;
+  getAdmissions: (filters?: AdmissionFilters) => Promise<void>;
   getAdmission: (id: string) => Promise<void>;
-  createAdmission: (data: any) => Promise<void>;
-  updateAdmission: (id: string, data: any) => Promise<void>;
+  createAdmission: (data: Partial<Admission>) => Promise<void>;
+  updateAdmission: (id: string, data: Partial<Admission>) => Promise<void>;
   deleteAdmission: (id: string) => Promise<void>;
-  dischargePatient: (id: string, data: any) => Promise<void>;
+  dischargePatient: (id: string, data: DischargeData) => Promise<void>;
   
   // NHIS operations
-  updateAdmissionWithNHISData: (id: string, data: any) => Promise<void>;
+  updateAdmissionWithNHISData: (id: string, data: Partial<Admission>) => Promise<void>;
   
   // Daily notes operations
-  addDailyNote: (admissionId: string, data: any) => Promise<void>;
-  updateDailyNote: (admissionId: string, noteId: string, data: any) => Promise<void>;
+  addDailyNote: (admissionId: string, data: { note: string }) => Promise<void>;
+  updateDailyNote: (admissionId: string, noteId: string, data: { note: string }) => Promise<void>;
   deleteDailyNote: (admissionId: string, noteId: string) => Promise<void>;
   
   // Secondary diagnoses operations
-  addSecondaryDiagnosis: (admissionId: string, data: any) => Promise<void>;
+  addSecondaryDiagnosis: (admissionId: string, data: SecondaryDiagnosisData) => Promise<void>;
   removeSecondaryDiagnosis: (admissionId: string, diagnosisId: string) => Promise<void>;
   
   // Stats
@@ -55,9 +57,11 @@ interface AdmissionState {
   clearCurrentAdmission: () => void;
 }
 
-const transformAdmission = (admission: any) => ({
-  ...admission,
-  id: getEntityId(admission) || admission.id,
+const transformAdmission = (admission: unknown): Admission => {
+  const adm = admission as any;
+  return {
+    ...adm,
+    id: getEntityId(adm) || adm.id,
   // Ensure dailyNotes is always an array
   dailyNotes: admission.dailyNotes || [],
   // Ensure secondaryDiagnoses is always an array
@@ -97,7 +101,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         admissions: transformedAdmissions,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [AdmissionStore] Failed to fetch admissions:', error);
       set({ 
         error: error.response?.data?.message || 'Failed to fetch admissions',
@@ -115,7 +119,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         currentAdmission: transformAdmission(admission),
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch admission',
         isLoading: false 
@@ -124,7 +128,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
     }
   },
 
-  createAdmission: async (data: any) => {
+  createAdmission: async (data: Partial<Admission>) => {
     set({ isLoading: true, error: null });
     try {
       console.log('🔍 [AdmissionStore] Creating admission with data:', data);
@@ -141,7 +145,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [AdmissionStore] Failed to create admission:', error);
       set({ 
         error: error.response?.data?.message || 'Failed to create admission',
@@ -152,7 +156,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  updateAdmission: async (id: string, data: any) => {
+  updateAdmission: async (id: string, data: Partial<Admission>) => {
     set({ isLoading: true, error: null });
     try {
       const updatedAdmission = await apiUpdateAdmission(id, data);
@@ -166,7 +170,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         isLoading: false 
       });
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update admission',
         isLoading: false 
@@ -189,7 +193,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
           (getEntityId(get().currentAdmission) === id || get().currentAdmission.id === id) ? null : get().currentAdmission,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete admission',
         isLoading: false 
@@ -199,7 +203,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  dischargePatient: async (id: string, data: any) => {
+  dischargePatient: async (id: string, data: DischargeData) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiDischargePatient(id, data);
@@ -213,7 +217,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         isLoading: false 
       });
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to discharge patient',
         isLoading: false 
@@ -223,7 +227,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  updateAdmissionWithNHISData: async (id: string, data: any) => {
+  updateAdmissionWithNHISData: async (id: string, data: Partial<Admission>) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiUpdateAdmissionWithNHISData(id, data);
@@ -237,7 +241,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         isLoading: false 
       });
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update NHIS data',
         isLoading: false 
@@ -247,7 +251,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  addDailyNote: async (admissionId: string, data: any) => {
+  addDailyNote: async (admissionId: string, data: { note: string }) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiAddDailyNoteToAdmission(admissionId, data);
@@ -267,7 +271,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to add daily note',
         isLoading: false 
@@ -277,7 +281,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  updateDailyNote: async (admissionId: string, noteId: string, data: any) => {
+  updateDailyNote: async (admissionId: string, noteId: string, data: { note: string }) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiUpdateDailyNote(admissionId, noteId, data);
@@ -297,7 +301,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to update daily note',
         isLoading: false 
@@ -327,7 +331,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete daily note',
         isLoading: false 
@@ -337,7 +341,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
   },
 
   // ✅ FIXED: Proper ID comparison
-  addSecondaryDiagnosis: async (admissionId: string, data: any) => {
+  addSecondaryDiagnosis: async (admissionId: string, data: SecondaryDiagnosisData) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiAddSecondaryDiagnosisToAdmission(admissionId, data);
@@ -357,7 +361,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to add secondary diagnosis',
         isLoading: false 
@@ -387,7 +391,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
       });
       
       return transformedAdmission;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to remove secondary diagnosis',
         isLoading: false 
@@ -404,7 +408,7 @@ export const useAdmissionStore = create<AdmissionState>((set, get) => ({
         admissionStats: stats,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch admission statistics',
         isLoading: false 

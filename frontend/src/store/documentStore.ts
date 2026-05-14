@@ -38,7 +38,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const documents = response.data;
       set({ documents, isLoading: false });
       return documents;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to fetch documents';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -51,7 +51,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generateReceipt(billId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate receipt';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -65,7 +65,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generateBillStatement(billId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate bill statement';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -78,7 +78,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generateReferralLetter(referralId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate referral letter';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -91,7 +91,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generateDischargeSummary(admissionId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate discharge summary';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -104,7 +104,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generateLabResult(labTestId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate lab result';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -117,7 +117,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.generatePrescription(attendanceId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to generate prescription';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -130,7 +130,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const blob = await documentApi.downloadDocument(documentId);
       set({ isLoading: false });
       return blob;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to download document';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -143,7 +143,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const response = await documentApi.reprintDocument(documentId);
       set({ isLoading: false });
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to reprint document';
       set({ error: errorMsg, isLoading: false });
       throw error;
@@ -157,7 +157,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const templates = response.data;
       set({ templates, isLoading: false });
       return templates;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.message || 'Failed to fetch templates';
       set({ error: errorMsg, isLoading: false });
       throw error;

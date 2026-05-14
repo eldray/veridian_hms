@@ -234,7 +234,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch NHIS claims:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -254,7 +254,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         isLoading: false 
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate NHIS claim:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -287,7 +287,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch private insurance claims:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -307,7 +307,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         isLoading: false 
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate private insurance claim:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -337,7 +337,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch insurance claims:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -349,7 +349,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     try {
       const claim = await apiGetInsuranceClaim(id);
       set({ currentClaim: claim.data || claim, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch insurance claim:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -363,7 +363,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       const claim = response.data || response;
       set({ isLoading: false });
       return claim;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch claim by attendance:', error);
       set({ isLoading: false });
       return null;
@@ -399,7 +399,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         isLoading: false 
       });
       return claimData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update claim draft:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -425,7 +425,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
     }));
     
     return claimData;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update claim:', error);
     set({ isLoading: false, error: error.message });
     throw error;
@@ -461,7 +461,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         isLoading: false 
       });
       return claimData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to finalize claim:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -494,7 +494,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         isLoading: false 
       });
       return claimData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update claim status:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -514,7 +514,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate claim XML:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -527,7 +527,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       const printData = await apiGenerateClaimPrint(claimId);
       set({ isLoading: false });
       return printData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate claim print:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -542,7 +542,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         finalizedClaimsTotal: response.data || response,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch finalized claims total:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -566,7 +566,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       // Refresh claims list to update batchId
       await get().getInsuranceClaims();
       return batchData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create claim batch:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -590,7 +590,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         pagination: response?.pagination || null,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch claim batches:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -607,7 +607,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         isLoading: false 
       });
       return batch;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch claim batch:', error);
       set({ isLoading: false, error: error.message });
       return null;
@@ -626,7 +626,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       });
       await get().getInsuranceClaims();
       return batchData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add claims to batch:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -645,7 +645,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       });
       await get().getInsuranceClaims();
       return batchData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to remove claims from batch:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -665,7 +665,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to generate batch XML:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -683,7 +683,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         isLoading: false 
       });
       return batchData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update batch status:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -699,7 +699,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         currentBatch: get().currentBatch?.id === batchId ? null : get().currentBatch,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete claim batch:', error);
       set({ isLoading: false, error: error.message });
       throw error;
@@ -725,7 +725,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       }
 
       set({ providers, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch insurance providers:', error);
       set({ providers: [], isLoading: false });
       throw error;
@@ -737,7 +737,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
     try {
       const provider = await apiGetInsuranceProvider(id);
       set({ currentProvider: provider.data || provider, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch insurance provider:', error);
       set({ isLoading: false });
       throw error;
@@ -753,7 +753,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         currentProvider: newProvider.data || newProvider,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create insurance provider:', error);
       set({ isLoading: false });
       throw error;
@@ -769,7 +769,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         currentProvider: updatedProvider.data || updatedProvider,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update insurance provider:', error);
       set({ isLoading: false });
       throw error;
@@ -785,7 +785,7 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
         currentProvider: get().currentProvider?.id === id ? null : get().currentProvider,
         isLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete insurance provider:', error);
       set({ isLoading: false });
       throw error;
