@@ -1,5 +1,5 @@
 // src/seed/testSeed.ts
-import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus } from '@prisma/client';
+import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus, ServiceType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
