@@ -6,7 +6,9 @@ import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 
 import {
   ChevronLeft,
@@ -27,6 +29,7 @@ import {
   Plus,
   X,
   Search,
+  Users,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -51,6 +54,7 @@ const getStatusBadge = (status: string) => {
 export default function Theatre() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { setDepartment, selectItem, clearSelection } = useWorklistStore();
 
   const [isLoading, setIsLoading]                   = useState(true);
   const [refreshing, setRefreshing]                 = useState(false);
@@ -58,6 +62,7 @@ export default function Theatre() {
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [selectedProcedureId, setSelectedProcedureId]   = useState('');
   const [showScheduleModal, setShowScheduleModal]   = useState(false);
+  const [showWorklist, setShowWorklist]             = useState(false);
 
   // Theatre form
   const [anesthesiaNotes, setAnesthesiaNotes]       = useState('');
@@ -322,6 +327,19 @@ export default function Theatre() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setDepartment('theatre');
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
           <button
             onClick={() => navigate('/dashboard/medical-entries')}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm"

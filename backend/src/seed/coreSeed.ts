@@ -752,8 +752,8 @@ export const seedCoreData = async (force: boolean = false) => {
           const stockData = addSchemaDefaults({
             ...item,
             isMedication,
-            // Default quantities for stock items
-            currentStock: item.currentStock ?? Math.floor(Math.random() * 500) + 100, // Random 100-600
+            // Default quantities for stock items - ALL set to 100
+            currentStock: item.currentStock ?? 100, // Fixed quantity of 100 for all items
             reorderLevel: item.reorderLevel ?? 50,
             costPrice: item.costPrice ?? item.unitPrice ?? Math.floor(Math.random() * 100) + 10,
           }, 'stockItem');
