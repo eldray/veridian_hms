@@ -6,6 +6,8 @@ import { usePatientStore } from '../store/patientStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
@@ -25,6 +27,7 @@ import {
   FileText,
   UserCircle,
   Zap,
+  Users,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -217,6 +220,7 @@ export default function DispenseMedication() {
 
   const [isLoading, setIsLoading]                       = useState(true);
   const [refreshing, setRefreshing]                     = useState(false);
+  const [showWorklist, setShowWorklist]                 = useState(false);
   const [selectedPatientId, setSelectedPatientId]       = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [dispensingId, setDispensingId]                 = useState<string | null>(null);
@@ -489,6 +493,19 @@ export default function DispenseMedication() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
+          
           <button
             onClick={() => navigate('/dashboard/medical-entries')}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
@@ -1006,6 +1023,20 @@ export default function DispenseMedication() {
         />
       )}
 
+      {/* Worklist Panel */}
+      {showWorklist && (
+        <WorklistPanel
+          department="pharmacy"
+          onSelectPatient={(patientId, item) => {
+            setSelectedPatientId(patientId);
+            if (item.attendanceId) {
+              setSelectedAttendanceId(item.attendanceId);
+            }
+            setShowWorklist(false);
+          }}
+          onClose={() => setShowWorklist(false)}
+        />
+      )}
     </div> // closes outer space-y-5 p-6
   );
 }

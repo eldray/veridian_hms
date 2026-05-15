@@ -7,6 +7,8 @@ import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 
 // Modal Components
@@ -52,7 +54,8 @@ import {
   Edit,
   ClipboardList,
   Microscope,
-  Image
+  Image,
+  Users
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -217,6 +220,7 @@ export default function MedicalEntries() {
 
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
+  const { setDepartment, selectItem, clearSelection } = useWorklistStore();
 
   // State
   const [isLoading, setIsLoading] = useState(true);
@@ -226,6 +230,7 @@ export default function MedicalEntries() {
   const [latestVitals, setLatestVitals] = useState<any>(null);
   const [scanResultFor, setScanResultFor] = useState<any>(null);
   const [savingResult, setSavingResult] = useState(false);
+  const [showWorklist, setShowWorklist] = useState(false);
 
   // Clinical form state
   const [presentedComplaints, setPresentedComplaints] = useState('');
@@ -525,6 +530,20 @@ export default function MedicalEntries() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setDepartment('medical');
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
+          
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
@@ -1758,6 +1777,22 @@ export default function MedicalEntries() {
           onSaveResult={handleSaveScanResult}
           onClose={() => setScanResultFor(null)}
           saving={savingResult}
+        />
+      )}
+
+      {/* Worklist Panel */}
+      {showWorklist && (
+        <WorklistPanel
+          department="medical"
+          onSelectPatient={(patientId, item) => {
+            setSelectedPatientId(patientId);
+            // Find attendance from the worklist item
+            if (item.attendanceId) {
+              setSelectedAttendanceId(item.attendanceId);
+            }
+            setShowWorklist(false);
+          }}
+          onClose={() => setShowWorklist(false)}
         />
       )}
     </div>

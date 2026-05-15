@@ -6,11 +6,13 @@ import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ScanResultForm } from '../components/scans/ScanResultForm';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 
 import {
   ChevronLeft,
@@ -30,6 +32,7 @@ import {
   Edit,
   Trash2,
   Eye,
+  Users,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -55,6 +58,7 @@ const getStatusBadge = (status: string) => {
 export default function Scans() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { setDepartment, selectItem, clearSelection } = useWorklistStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +68,7 @@ export default function Scans() {
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showResultForm, setShowResultForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showWorklist, setShowWorklist] = useState(false);
 
   const {
     attendances,
@@ -332,6 +337,19 @@ export default function Scans() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setDepartment('scans');
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
           <button
             onClick={handlePrintResults}
             disabled={completedScans.length === 0}
@@ -672,6 +690,24 @@ export default function Scans() {
             setSelectedScan(null);
           }}
           saving={isSubmitting}
+        />
+      )}
+
+      {/* Worklist Panel */}
+      {showWorklist && (
+        <WorklistPanel
+          department="scans"
+          onClose={() => {
+            setShowWorklist(false);
+            clearSelection();
+          }}
+          onSelect={(item) => {
+            selectItem(item);
+            setShowWorklist(false);
+            // Auto-select patient and attendance if available
+            if (item.patientId) setSelectedPatientId(item.patientId);
+            if (item.attendanceId) setSelectedAttendanceId(item.attendanceId);
+          }}
         />
       )}
     </div>

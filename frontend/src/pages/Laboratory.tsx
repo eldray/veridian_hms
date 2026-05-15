@@ -6,6 +6,8 @@ import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
+import { useWorklistStore } from '../stores/worklistStore';
+import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
@@ -35,6 +37,7 @@ import {
   Search,
   Filter,
   X,
+  Users,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
@@ -286,6 +289,7 @@ const getDefaultParametersForTest = (testName: string): any[] => {
 export default function Laboratory() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { setDepartment, selectItem, clearSelection } = useWorklistStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -300,6 +304,7 @@ export default function Laboratory() {
   const [showLabModal, setShowLabModal] = useState(false);
   const [resultEntryTest, setResultEntryTest] = useState<any>(null);
   const [isMultiParamModalOpen, setIsMultiParamModalOpen] = useState(false);
+  const [showWorklist, setShowWorklist] = useState(false);
 
   const { hospital } = useHospitalStore();
   const {
@@ -577,6 +582,20 @@ export default function Laboratory() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setDepartment('lab');
+              setShowWorklist(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+          >
+            <Users className="w-4 h-4" />
+            <span>Today's Queue</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
+            </span>
+          </button>
+          
           <button
             onClick={handlePrintResults}
             disabled={completedTests.length === 0}
