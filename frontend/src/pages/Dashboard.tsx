@@ -157,7 +157,7 @@ export default function Dashboard() {
       apiCalls.push(getAppointmentStatistics({ dateFrom: todayStart }));
 
       const isAccountsStaff = hasRole(['admin', 'accounts']);
-      const isClinicalStaff = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
+      const isClinicalStaff = hasRole(['admin', 'doctor','pharmacist', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
       const isAdminOnly = hasRole(['admin']);
       
       if (isAccountsStaff) {
@@ -424,8 +424,8 @@ export default function Dashboard() {
   };
 
   const quickActions = [
-    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', color: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'records', 'sonographer'] },
-    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', color: 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
+    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', color: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist','sonographer'] },
+    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', color: 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife','pharmacist', 'records', 'sonographer'] },
     { icon: Bed, label: 'Admission', path: '/dashboard/admissions', color: 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife'] },
     { icon: DollarSign, label: 'Billing', path: '/dashboard/billing', color: 'bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white', roles: ['admin', 'accounts'] },
     { icon: Pill, label: 'Pharmacy', path: '/dashboard/pharmacy', color: 'bg-yellow-100 text-yellow-600 hover:bg-yellow-600 hover:text-white', roles: ['admin', 'pharmacist', 'doctor'] },
@@ -631,7 +631,7 @@ export default function Dashboard() {
           </div>
 
           {/* Diagnosis Trends - Clinical roles only */}
-          {hasRole(['admin', 'doctor', 'nurse', 'midwife']) && (
+          {hasRole(['admin', 'doctor', 'nurse', 'pharmacist', 'midwife']) && (
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-6">
                 <div>
