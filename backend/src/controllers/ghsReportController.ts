@@ -260,30 +260,20 @@ export const generateIDSRReport = async (req: AuthRequest, res: Response) => {
         }
       });
       
-      // ✅ FIXED: Use proper relation to get deaths from admissions
-      // Get deaths by finding admissions where the patient had this diagnosis
       const deaths = await prisma.admission.count({
         where: {
           admissionDate: { gte: startDate, lte: endDate },
           dischargeStatus: 'expired',
-          OR: [
-            // Check principal diagnosis relation
-            {
-              Diagnosis: {
-                name: { contains: disease.name, mode: 'insensitive' }
-              }
-            },
-            // Also check secondary diagnoses
-            {
-              AdmissionSecondaryDiagnosis: {
-                some: {
-                  Diagnosis: {
-                    name: { contains: disease.name, mode: 'insensitive' }
-                  }
+          Attendance: {
+            isNot: null,
+            AttendanceDiagnosis: {
+              some: {
+                Diagnosis: {
+                  name: { contains: disease.name, mode: 'insensitive' }
                 }
               }
             }
-          ]
+          }
         }
       });
       

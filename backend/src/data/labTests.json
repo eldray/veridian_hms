@@ -2724,7 +2724,7 @@
   "category": "pathology",
   "subCategory": "cytology",
   "description": "Fine needle aspiration cytology",
-  "specimenType": "aspirate",
+  "specimenType": "fluid",
   "isActive": true,
   "requiresAuthorization": false,
   "tariffCode": "LAB-INVE86D",

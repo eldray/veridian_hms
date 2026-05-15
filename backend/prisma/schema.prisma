@@ -2465,6 +2465,8 @@ enum BodyPart {
   spine
   extremities
   breast
+  eye
+  skeleton 
   other
 }
 
@@ -2522,6 +2524,8 @@ enum ScanCategory {
   mammography
   nuclear
   pet_scan
+  dental_xray
+  nuclear_medicine
   other
 }
 
