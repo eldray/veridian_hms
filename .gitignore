@@ -1,18 +1,11 @@
 ```
 # Dependencies
 node_modules/
-.pnpm-store/
-.npm/
-.yarn/
 
 # Build outputs
 dist/
 build/
 target/
-out/
-lib/
-tmp/
-temp/
 
 # TypeScript/JavaScript
 *.tsbuildinfo
@@ -23,18 +16,7 @@ temp/
 # Environment variables
 .env
 .env.local
-.env.*
-!.env.example
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-Thumbs.db
+*.env.*
 
 # Logs
 *.log
@@ -42,4 +24,30 @@ Thumbs.db
 # Coverage
 coverage/
 .nyc_output/
+istanbul/
+.jest/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (if present)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.htmlcov/
+.pytest_cache/
+.mypy_cache/
+.tox/
 ```
