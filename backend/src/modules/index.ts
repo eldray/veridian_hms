@@ -7,16 +7,20 @@ import { Express } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 // Import module initializers (new modular architecture)
+import { createBackupRoutes } from './backup';
 import { initializeUserModule } from './user';
 import { initializeStaffModule } from './staff';
 import { createPatientRoutes } from './patient';
 import { createAppointmentRoutes } from './appointment';
 import { createBillingRoutes } from './billing';
-import { departmentRoutes } from './department';
-import { AdmissionRoutes } from './admission/AdmissionRoutes';
+import { createDepartmentRoutes } from './department';
+import { createAntenatalRoutes } from './antenatal';
+import { AdmissionRoutes } from './admission';
 import { encounterRoutes } from './encounter';
 import ReferralRoutes from './referral/ReferralRoutes';
 import WorklistRoutes from './worklist/WorklistRoutes';
+import { createBedRoutes } from './bed';
+import { BillRoutes } from './bill';
 
 // Legacy imports (to be migrated)
 // import attendanceRoutes from './attendance';
@@ -47,7 +51,10 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/api/billing', createBillingRoutes(prisma));
   
   // Department module
-  app.use('/api/departments', departmentRoutes);
+  app.use('/api/departments', createDepartmentRoutes(prisma));
+  
+  // Antenatal module (NEW - ANC bookings, visits, delivery, postnatal care)
+  app.use('/api/antenatal', createAntenatalRoutes(prisma));
   
   // Admission module (NEW - Ward/Bed management, admissions, discharges)
   const admissionRoutes = new AdmissionRoutes();
@@ -63,6 +70,15 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // Worklist module (NEW - Clinical queues: vitals, medical, lab, pharmacy, radiology)
   app.use('/api/worklist', WorklistRoutes);
   
+  // Backup module (NEW - Database backup and restore operations)
+  app.use('/api/backup', createBackupRoutes());
+  
+  // Bed module (NEW - Bed management within wards)
+  app.use('/api/beds', createBedRoutes(prisma));
+  
+  // Bill module (NEW - Bill and payment management with line items, waivers, statistics)
+  app.use('/api/bills', BillRoutes);
+  
   // Register other modules here as they are created/migrated
   // app.use('/api/attendance', createAttendanceRoutes(prisma));
   // app.use('/api/inventory', createInventoryRoutes(prisma));
@@ -75,6 +91,9 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('   - Encounter Module: /api/encounters (Clinical encounters)');
   console.log('   - Referral Module: /api/referrals (Patient referrals - NEW)');
   console.log('   - Worklist Module: /api/worklist (Clinical queues - NEW)');
+  console.log('   - Backup Module: /api/backup (Database backup/restore - NEW)');
+  console.log('   - Bed Module: /api/beds (Bed management within wards - NEW)');
+  console.log('   - Bill Module: /api/bills (Bill and payment management - NEW)');
 }
 
 /**
@@ -142,6 +161,32 @@ export const moduleMetadata = [
     endpoints: [
       'GET /', 'GET /:id', 'GET /:id/stats', 'POST /', 'PUT /:id',
       'PATCH /:id/status', 'PUT /:id/head-doctor', 'DELETE /:id', 'GET /statistics'
+    ]
+  },
+  {
+    name: 'Antenatal (NEW)',
+    path: '/api/antenatal',
+    status: 'active',
+    description: 'Complete antenatal care management including ANC bookings, visits, delivery records, and postnatal care.',
+    endpoints: [
+      'GET /', 'GET /:id', 'GET /attendance/:attendanceId', 'GET /patient/:patientId/active',
+      'POST /', 'PUT /:id', 'POST /:id/close', 'DELETE /:id',
+      'GET /bookings/:bookingId/visits', 'GET /visits/:id', 'POST /visits', 'PUT /visits/:id', 'DELETE /visits/:id',
+      'GET /deliveries', 'GET /deliveries/:id', 'POST /deliveries', 'PUT /deliveries/:id', 'DELETE /deliveries/:id',
+      'GET /postnatal', 'GET /postnatal/:id', 'POST /postnatal', 'PUT /postnatal/:id', 'DELETE /postnatal/:id',
+      'GET /stats/anc', 'GET /stats/delivery', 'GET /stats/postnatal'
+    ],
+    features: [
+      'ANC booking with gravida/para tracking',
+      'EDD calculation from LMP',
+      'Risk level assessment (low/moderate/high)',
+      'ANC visit recording with vitals',
+      'IPTp and TT immunization tracking',
+      'Danger signs monitoring',
+      'Delivery record management',
+      'Newborn recording',
+      'Postnatal care tracking',
+      'Comprehensive statistics'
     ]
   },
   {
@@ -218,6 +263,79 @@ export const moduleMetadata = [
       'Radiology worklist (pending scans)',
       'Priority calculation based on vitals',
       'Wait time tracking'
+    ]
+  },
+  {
+    name: 'Backup (NEW)',
+    path: '/api/backup',
+    status: 'active',
+    description: 'Database backup and restore operations using PostgreSQL pg_dump and psql utilities.',
+    endpoints: [
+      'POST / (Create backup)',
+      'POST /restore (Restore from backup file)',
+      'GET / (List all backups)',
+      'GET /download/:filename (Download backup file)',
+      'DELETE /:filename (Delete backup)'
+    ],
+    features: [
+      'Automated SQL dump creation with timestamps',
+      'Database restoration from backup files',
+      'Backup file listing with metadata',
+      'Secure backup download',
+      'Backup deletion management',
+      'PostgreSQL pg_dump integration'
+    ]
+  },
+  {
+    name: 'Bed (NEW)',
+    path: '/api/beds',
+    status: 'active',
+    description: 'Bed management within wards including bed creation, occupancy tracking, and ward bed count synchronization.',
+    endpoints: [
+      'GET / (List all beds with optional filtering)',
+      'GET /:id (Get bed by ID)',
+      'POST / (Create new bed)',
+      'PUT /:id (Update bed details)',
+      'DELETE /:id (Delete bed)'
+    ],
+    features: [
+      'Bed creation with ward assignment',
+      'Bed number uniqueness validation per ward',
+      'Occupancy status tracking',
+      'Automatic ward bed count updates',
+      'Patient assignment tracking',
+      'Ward existence validation',
+      'Protected deletion of occupied beds'
+    ]
+  },
+  {
+    name: 'Bill (NEW)',
+    path: '/api/bills',
+    status: 'active',
+    description: 'Comprehensive billing management with line items, payments, waivers, insurance coverage, and detailed statistics.',
+    endpoints: [
+      'GET / (List all bills with filtering and pagination)',
+      'GET /statistics (Get bill statistics)',
+      'GET /:id (Get bill by ID)',
+      'GET /:id/line-items (Get bill line items)',
+      'POST / (Create new bill)',
+      'PUT /:id (Update bill)',
+      'DELETE /:id (Delete bill)',
+      'POST /:id/payment (Add payment to bill)',
+      'POST /line-items/:lineItemId/void (Void bill line item)',
+      'POST /:billId/apply-waiver (Apply waiver to bill)'
+    ],
+    features: [
+      'Bill generation with line items',
+      'Multiple payment modes (cash, mobile money, card, insurance)',
+      'Partial and full payment tracking',
+      'Line item voiding with reason tracking',
+      'Waiver application and management',
+      'Insurance coverage calculation',
+      'Real-time balance updates',
+      'Attendance integration for outstanding balances',
+      'Comprehensive billing statistics',
+      'Auto-generated bill numbers'
     ]
   }
 ];
