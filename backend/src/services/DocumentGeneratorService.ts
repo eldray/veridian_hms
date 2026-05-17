@@ -977,4 +977,140 @@ export class DocumentGeneratorService {
       orderBy: { generatedAt: 'desc' }
     });
   }
+
+  static async generateCorporateMonthlyBill(billData: any, generatedById?: string): Promise<DocumentGenerationResult> {
+    const {
+      accountId,
+      companyName,
+      month,
+      year,
+      encounters,
+      subtotal,
+      discountAmount,
+      discountPercentage,
+      totalAmount,
+      proformaInvoiceId
+    } = billData;
+
+    const doc = new jsPDF();
+    const hospital = await prisma.hospital.findFirst();
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text(hospital?.name || 'Hospital Name', 105, 20, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(hospital?.address || 'Hospital Address', 105, 30, { align: 'center' });
+    doc.text(`Tel: ${hospital?.phone || 'N/A'} | Email: ${hospital?.email || 'N/A'}`, 105, 38, { align: 'center' });
+
+    // Bill Title
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text('MONTHLY CORPORATE BILL', 105, 55, { align: 'center' });
+
+    // Bill Details
+    doc.setFontSize(10);
+    doc.text(`Company: ${companyName}`, 20, 70);
+    doc.text(`Billing Period: ${month}/${year}`, 20, 78);
+    doc.text(`Generated: ${formatDateTime(new Date())}`, 20, 86);
+    if (proformaInvoiceId) {
+      doc.text(`Proforma Invoice: ${proformaInvoiceId}`, 20, 94);
+    }
+
+    // Encounters Table
+    const tableData = encounters.map((enc: any, idx: number) => [
+      idx + 1,
+      enc.visitDate ? new Date(enc.visitDate).toLocaleDateString() : 'N/A',
+      enc.patientName,
+      enc.diagnosis || 'N/A',
+      `GHS ${enc.totalAmount.toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: 105,
+      head: [['#', 'Date', 'Patient', 'Diagnosis', 'Amount']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] },
+      footStyles: { fillColor: [41, 128, 185] },
+      footerRow: (data: any) => {
+        if (data.section === 'body' && data.cursor.y > 270) {
+          doc.addPage();
+          data.settings.startY = 20;
+          return true;
+        }
+      }
+    });
+
+    // Totals
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
+    if (finalY > 250) {
+      doc.addPage();
+      finalY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.text(`Subtotal: GHS ${subtotal.toFixed(2)}`, 140, finalY);
+    doc.text(`Discount (${discountPercentage}%): -GHS ${discountAmount.toFixed(2)}`, 140, finalY + 8);
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Amount Due: GHS ${totalAmount.toFixed(2)}`, 140, finalY + 18);
+
+    // Footer
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(150, 150, 150);
+    doc.text('Payment is due within 30 days from the date of this invoice.', 105, 280, { align: 'center' });
+    doc.text('Thank you for your business!', 105, 287, { align: 'center' });
+
+    // Generate PDF buffer
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+    const fileName = `corporate_bill_${companyName.replace(/\s+/g, '_')}_${month}_${year}.pdf`;
+
+    // Save file
+    const uploadDir = path.join(process.cwd(), 'uploads', 'documents');
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filePath = `/uploads/documents/${fileName}`;
+    await fs.writeFile(path.join(uploadDir, fileName), pdfBuffer);
+
+    // Get or create template
+    let template = await prisma.documentTemplate.findFirst({
+      where: { code: 'corporate_bill', isActive: true }
+    });
+
+    if (!template) {
+      template = await prisma.documentTemplate.create({
+        data: {
+          name: 'CORPORATE MONTHLY BILL',
+          code: 'corporate_bill',
+          templateType: 'receipt' as DocumentTemplateType,
+          content: 'Corporate monthly billing template',
+          isActive: true,
+          isDefault: true,
+          createdById: generatedById || 'system'
+        }
+      });
+    }
+
+    const document = await prisma.generatedDocument.create({
+      data: {
+        templateId: template.id,
+        entityType: 'CorporateAccount',
+        entityId: accountId,
+        filePath,
+        generatedById: generatedById || 'system',
+        generatedAt: new Date()
+      }
+    });
+
+    console.log(`✅ Corporate bill generated for ${companyName} (${month}/${year})`);
+
+    return {
+      success: true,
+      documentId: document.id,
+      filePath
+    };
+  }
 }

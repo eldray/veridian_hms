@@ -377,6 +377,7 @@ model Attendance {
   attendanceNumber       String            @unique
   patientId              String
   insuranceProviderId    String?
+  corporateAccountId     String?
   bedId                  String?
   wardId                 String?
   attendanceType         AttendanceType
@@ -421,6 +422,7 @@ model Attendance {
   Bed                               Bed?                      @relation(fields: [bedId], references: [id])
   User_Attendance_createdByIdToUser User                      @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider                 InsuranceProvider?        @relation(fields: [insuranceProviderId], references: [id])
+  CorporateAccount                  CorporateAccount?         @relation(fields: [corporateAccountId], references: [id])
   Patient                           Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   User_Attendance_updatedByIdToUser User?                     @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
   Ward                              Ward?                     @relation(fields: [wardId], references: [id])
@@ -445,6 +447,7 @@ model Attendance {
   @@index([dateTime])
   @@index([patientId])
   @@index([paymentMode])
+  @@index([corporateAccountId])
   @@index([status])
   @@index([gdrgCategory])
   @@index([serviceCategory])
@@ -1037,6 +1040,7 @@ model InsuranceClaim {
   patientId           String
   attendanceId        String      @unique
   insuranceProviderId String
+  corporateAccountId  String?
   totalClaimAmount    Float       @default(0)
   approvedAmount      Float?
   rejectedAmount      Float?
@@ -1077,6 +1081,7 @@ model InsuranceClaim {
   InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
   Patient                               Patient           @relation(fields: [patientId], references: [id])
   User_InsuranceClaim_updatedByIdToUser User?             @relation("InsuranceClaim_updatedByIdToUser", fields: [updatedById], references: [id])
+  CorporateAccount                      CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
 
   batch ClaimBatch? @relation(fields: [batchId], references: [id])
   batchId String?   @map("batch_id")
@@ -1085,6 +1090,7 @@ model InsuranceClaim {
   @@index([status])
   @@index([submissionDate])
   @@index([batchId])
+  @@index([corporateAccountId])
 }
 
 model ClaimBatch {
@@ -2255,6 +2261,7 @@ enum PaymentMode {
   cash
   nhis
   private_insurance
+  corporate
 }
 
 enum AttendanceStatus {

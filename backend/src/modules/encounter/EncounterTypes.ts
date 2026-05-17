@@ -8,9 +8,10 @@ import { EncounterCategory, VisitCategory, AttendanceStatus, PaymentMode } from 
 export interface CreateEncounterDTO {
   patientId: string;
   encounterType: 'emergency_acute' | 'antenatal' | 'postnatal' | 'chronic_followup' | 'specialist_consultation' | 'delivery' | 'surgery';
-  paymentMode: 'cash' | 'nhis' | 'private_insurance';
+  paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
   nhisCCC?: string;
   insuranceProviderId?: string;
+  corporateAccountId?: string;
   complaint?: string;
   referredFrom?: string;
 }

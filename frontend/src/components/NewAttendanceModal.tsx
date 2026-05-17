@@ -246,7 +246,8 @@ export default function NewAttendanceModal({
   const paymentModes = [
     { id: 'cash', name: 'Cash', icon: CreditCard, color: 'blue' },
     { id: 'nhis', name: 'NHIS', icon: Shield, color: 'green' },
-    { id: 'private_insurance', name: 'Private Insurance', icon: Building, color: 'purple' }
+    { id: 'private_insurance', name: 'Private Insurance', icon: Building, color: 'purple' },
+    { id: 'corporate', name: 'Corporate', icon: Building, color: 'indigo' }
   ];
 
   const statusOptions: { id: AttendanceStatus; name: string; color: string }[] = [

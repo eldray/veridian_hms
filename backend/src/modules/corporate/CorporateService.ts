@@ -59,4 +59,12 @@ export class CorporateService extends BaseService {
   async getStatistics() {
     return this.corporateRepository.getStatistics();
   }
+
+  async generateMonthlyBill(dto: any) {
+    return this.corporateRepository.generateMonthlyBill(dto);
+  }
+
+  async getMonthlyBills(accountId: string, filters?: any) {
+    return this.corporateRepository.getMonthlyBills(accountId, filters);
+  }
 }

@@ -61,6 +61,25 @@ export class NotificationController extends BaseController {
   };
 
   // ============================================
+  // GET UNREAD COUNT
+  // ============================================
+
+  getUnreadCount = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).user?.id;
+
+      const count = await this.notificationService.getUnreadCount(userId);
+
+      this.handleResponse(res, 200, {
+        success: true,
+        data: { unreadCount: count }
+      });
+    } catch (error) {
+      this.handleError(res, error, 'Error fetching unread count');
+    }
+  };
+
+  // ============================================
   // MARK NOTIFICATION AS READ
   // ============================================
 

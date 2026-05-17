@@ -102,6 +102,16 @@ export class NotificationRepository extends BaseRepository {
   }
 
   // ============================================
+  // GET UNREAD COUNT
+  // ============================================
+
+  async getUnreadCount(userId: string) {
+    return this.prisma.notification.count({
+      where: { userId, isRead: false }
+    });
+  }
+
+  // ============================================
   // MARK AS READ
   // ============================================
 

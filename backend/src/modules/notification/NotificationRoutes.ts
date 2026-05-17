@@ -19,14 +19,17 @@ export const createNotificationRoutes = (prisma: any): Router => {
   // Get user notifications
   router.get('/', controller.getUserNotifications);
 
+  // Get unread count
+  router.get('/unread-count', controller.getUnreadCount);
+
   // Get notification stats
   router.get('/stats', controller.getNotificationStats);
 
   // Mark notification as read
-  router.put('/:id/read', controller.markNotificationAsRead);
+  router.patch('/:id/read', controller.markNotificationAsRead);
 
   // Mark all notifications as read
-  router.put('/read-all', controller.markAllNotificationsAsRead);
+  router.patch('/mark-all-read', controller.markAllNotificationsAsRead);
 
   // Delete notification
   router.delete('/:id', controller.deleteNotification);

@@ -215,7 +215,8 @@ export default function Attendance() {
     const modeMap: Record<PaymentMode, string> = {
       'cash': 'Cash',
       'nhis': 'NHIS',
-      'private_insurance': 'Private Insurance'
+      'private_insurance': 'Private Insurance',
+      'corporate': 'Corporate'
     };
     return modeMap[mode] || 'Cash';
   };
@@ -224,6 +225,7 @@ export default function Attendance() {
     switch (mode) {
       case 'nhis': return <Shield className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />;
       case 'private_insurance': return <Hospital className="w-3.5 h-3.5 text-[var(--icon-blue-text)]" />;
+      case 'corporate': return <Building className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" />;
       default: return <CreditCard className="w-3.5 h-3.5 text-[var(--text-secondary)]" />;
     }
   };
