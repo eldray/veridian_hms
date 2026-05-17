@@ -1,29 +1,29 @@
 import { Router } from 'express';
 import { DocumentController } from './DocumentController';
-import { authenticate, authorize } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 const documentController = new DocumentController();
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(protect);
 
-// Document generation routes
-router.post('/receipt/:billId', authorize(['admin', 'staff']), documentController.generateReceipt);
-router.post('/referral/:referralId', authorize(['admin', 'staff']), documentController.generateReferralLetter);
-router.post('/discharge/:encounterId', authorize(['admin', 'staff']), documentController.generateDischargeSummary);
-router.post('/lab-result/:encounterId', authorize(['admin', 'staff']), documentController.generateLabResult);
-router.post('/prescription/:encounterId', authorize(['admin', 'staff']), documentController.generatePrescription);
-router.post('/statement/:billId', authorize(['admin', 'staff']), documentController.generateBillStatement);
+// Document generation routes - accessible to admin and records staff
+router.post('/receipt/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateReceipt);
+router.post('/referral/:referralId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), documentController.generateReferralLetter);
+router.post('/discharge/:encounterId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), documentController.generateDischargeSummary);
+router.post('/lab-result/:encounterId', requireRole(['admin', 'records', 'lab_tech', 'doctor']), documentController.generateLabResult);
+router.post('/prescription/:encounterId', requireRole(['admin', 'records', 'pharmacist', 'doctor']), documentController.generatePrescription);
+router.post('/statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
 
-// Document retrieval routes
-router.get('/entity/:entityType/:entityId', authorize(['admin', 'staff']), documentController.getDocumentsByEntity);
-router.get('/:id/download', authorize(['admin', 'staff']), documentController.downloadDocument);
+// Document retrieval routes - accessible to most clinical staff
+router.get('/entity/:entityType/:entityId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.getDocumentsByEntity);
+router.get('/:id/download', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.downloadDocument);
 
 // Document template routes
-router.get('/templates', authorize(['admin', 'staff']), documentController.getDocumentTemplates);
-router.post('/templates', authorize(['admin']), documentController.createDocumentTemplate);
-router.put('/templates/:id', authorize(['admin']), documentController.updateDocumentTemplate);
-router.delete('/templates/:id', authorize(['admin']), documentController.deleteDocumentTemplate);
+router.get('/templates', requireRole(['admin', 'records']), documentController.getDocumentTemplates);
+router.post('/templates', requireRole(['admin']), documentController.createDocumentTemplate);
+router.put('/templates/:id', requireRole(['admin']), documentController.updateDocumentTemplate);
+router.delete('/templates/:id', requireRole(['admin']), documentController.deleteDocumentTemplate);
 
 export default router;

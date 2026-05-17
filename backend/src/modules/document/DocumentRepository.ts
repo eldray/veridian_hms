@@ -1,4 +1,4 @@
-import { BaseRepository } from '../base/BaseRepository';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { IDocument, IDocumentTemplate, IDocumentTemplateCreateDTO, IDocumentTemplateUpdateDTO } from './DocumentTypes';
 
 export class DocumentRepository extends BaseRepository<IDocument> {

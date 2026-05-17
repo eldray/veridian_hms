@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import { ReferralController } from './ReferralController';
-import { authenticate, authorize } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 import { body } from 'express-validator';
 
 const router = Router();
@@ -29,24 +29,24 @@ const statusUpdateValidation = [
 ];
 
 // Routes
-router.get('/', authenticate, (req, res) => controller.getReferrals(req, res));
-router.get('/:id', authenticate, (req, res) => controller.getReferralById(req, res));
-router.get('/patient/:patientId', authenticate, (req, res) => controller.getReferralsByPatient(req, res));
-router.get('/stats/summary', authenticate, (req, res) => controller.getReferralStats(req, res));
+router.get('/', protect, (req, res) => controller.getReferrals(req, res));
+router.get('/:id', protect, (req, res) => controller.getReferralById(req, res));
+router.get('/patient/:patientId', protect, (req, res) => controller.getReferralsByPatient(req, res));
+router.get('/stats/summary', protect, (req, res) => controller.getReferralStats(req, res));
 
-router.post('/outgoing', authenticate, authorize(['ADMIN', 'DOCTOR', 'STAFF']), outgoingReferralValidation, (req, res) => 
-  controller.createOutgoingReferral(req as any, res)
+router.post('/outgoing', protect, requireRole(['admin', 'doctor', 'records']), outgoingReferralValidation, (req, res) => 
+  controller.createOutgoingReferral(req, res)
 );
 
-router.post('/incoming', authenticate, authorize(['ADMIN', 'RECEPTIONIST', 'STAFF']), incomingReferralValidation, (req, res) => 
-  controller.createIncomingReferral(req as any, res)
+router.post('/incoming', protect, requireRole(['admin', 'records']), incomingReferralValidation, (req, res) => 
+  controller.createIncomingReferral(req, res)
 );
 
-router.put('/:id/status', authenticate, authorize(['ADMIN', 'DOCTOR']), statusUpdateValidation, (req, res) => 
+router.put('/:id/status', protect, requireRole(['admin', 'doctor']), statusUpdateValidation, (req, res) => 
   controller.updateReferralStatus(req, res)
 );
 
-router.delete('/:id', authenticate, authorize(['ADMIN']), (req, res) => 
+router.delete('/:id', protect, requireRole(['admin']), (req, res) => 
   controller.deleteReferral(req, res)
 );
 

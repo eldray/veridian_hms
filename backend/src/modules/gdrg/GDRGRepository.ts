@@ -1,6 +1,6 @@
 // GDRGRepository.ts - Data access layer for GDRG module
 
-import { BaseRepository } from '../base/BaseRepository';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { PrismaClient, GDRGMDC } from '@prisma/client';
 import { GDRGTariff, GDRGDiagnosisLink, GDRGProcedureLink } from './GDRGTypes';
 

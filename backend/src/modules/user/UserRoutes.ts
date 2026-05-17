@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { UserController } from './UserController';
-import { authMiddleware } from '../../middleware/authMiddleware'; // Assuming middleware exists
+import { protect } from '../../middleware/authMiddleware';
 
 export class UserRoutes {
   private router: Router;
@@ -24,16 +24,16 @@ export class UserRoutes {
     this.router.post('/refresh-token', this.controller.refreshToken);
 
     // Protected routes (authentication required)
-    this.router.post('/change-password', authMiddleware, this.controller.changePassword);
-    this.router.get('/me', authMiddleware, this.controller.getProfile);
-    this.router.put('/me', authMiddleware, this.controller.updateProfile);
+    this.router.post('/change-password', protect, this.controller.changePassword);
+    this.router.get('/me', protect, this.controller.getProfile);
+    this.router.put('/me', protect, this.controller.updateProfile);
 
-    // Admin-only routes
-    this.router.get('/', authMiddleware, this.controller.getAllUsers);
-    this.router.get('/statistics', authMiddleware, this.controller.getStatistics);
-    this.router.post('/:id/suspend', authMiddleware, this.controller.suspendUser);
-    this.router.post('/:id/activate', authMiddleware, this.controller.activateUser);
-    this.router.delete('/:id', authMiddleware, this.controller.deleteUser);
+    // Admin-only routes (you may want to add role checking middleware as well)
+    this.router.get('/', protect, this.controller.getAllUsers);
+    this.router.get('/statistics', protect, this.controller.getStatistics);
+    this.router.post('/:id/suspend', protect, this.controller.suspendUser);
+    this.router.post('/:id/activate', protect, this.controller.activateUser);
+    this.router.delete('/:id', protect, this.controller.deleteUser);
   }
 
   getRouter(): Router {

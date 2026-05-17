@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { BaseService } from '../../utils/baseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { ClinicalReportsRepository } from './ClinicalReportsRepository';
 import { ClinicalReportFilters } from './ClinicalReportsTypes';
 

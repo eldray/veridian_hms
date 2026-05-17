@@ -42,7 +42,7 @@ import { createSettingsRoutes } from './settings';
 import { createStockItemRoutes } from './stockItem';
 import { createStockTransactionRoutes } from './stockTransaction';
 import { createWaiverRoutes } from './waiver';
-import { WardRoutes } from './ward';
+import { createWardRoutes } from './ward';
 import { createAuditRoutes } from './audit';
 import { createCorporateRoutes } from './corporate';
 import { createCommunicationRoutes } from './communication';
@@ -168,7 +168,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/api/waivers', createWaiverRoutes());
 
   // Ward module (NEW - Ward management)
-  app.use('/api/wards', WardRoutes.getRouter());
+  app.use('/api/wards', createWardRoutes(prisma));
 
   // Corporate Accounts & Employees (NEW - Corporate billing)
   app.use('/api/corporate', createCorporateRoutes());
@@ -183,6 +183,32 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // app.use('/api/attendance', createAttendanceRoutes(prisma));
   // app.use('/api/inventory', createInventoryRoutes(prisma));
   // app.use('/api/medical-records', createMedicalRecordRoutes(prisma));
+
+  // In modules/index.ts, around line 85
+
+console.log('📦 Registering Encounter module...');
+try {
+  if (!encounterRoutes) {
+    console.error('❌ encounterRoutes is undefined!');
+  } else {
+    app.use('/api/encounters', encounterRoutes);
+    console.log('✅ Encounter module registered');
+  }
+} catch (error) {
+  console.error('❌ Failed to register Encounter:', error);
+}
+
+console.log('📦 Registering Referral module...');
+try {
+  if (!ReferralRoutes) {
+    console.error('❌ ReferralRoutes is undefined!');
+  } else {
+    app.use('/api/referrals', ReferralRoutes);
+    console.log('✅ Referral module registered');
+  }
+} catch (error) {
+  console.error('❌ Failed to register Referral:', error);
+}
   
   console.log('✅ All modules registered successfully');
   console.log('   - User Module: /api/auth (Unified identity management)');

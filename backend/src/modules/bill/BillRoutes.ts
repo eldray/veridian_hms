@@ -11,12 +11,12 @@ import {
   getBillLineItems,
   applyWaiverToBill
 } from './BillController';
-import { authenticate } from '../../../middleware/authMiddleware';
+import { protect } from '../../middleware/authMiddleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(protect);
 
 // GET /api/bills - List all bills with filtering and pagination
 router.get('/', getBills);

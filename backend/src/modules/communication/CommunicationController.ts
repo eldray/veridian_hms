@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { BaseController } from '../../utils/baseController';
+import { BaseController } from '../../shared/base/BaseController';
 import { CommunicationService } from './CommunicationService';
 import { 
   SendSMSDTO, 

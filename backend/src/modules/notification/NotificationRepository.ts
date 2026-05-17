@@ -1,7 +1,9 @@
 // modules/notification/NotificationRepository.ts
 
 import { PrismaClient, NotificationType, NotificationPriority } from '@prisma/client';
-import { BaseRepository } from '../base/BaseRepository';
+import { BaseService } from '../../shared/base/BaseService';
+import { BaseController } from '../../shared/base/BaseController';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 
 export class NotificationRepository extends BaseRepository {
   constructor(prisma: PrismaClient) {

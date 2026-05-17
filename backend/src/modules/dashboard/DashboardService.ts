@@ -1,4 +1,4 @@
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { PrismaClient } from '@prisma/client';
 import { IDashboardStats } from './DashboardTypes';
 

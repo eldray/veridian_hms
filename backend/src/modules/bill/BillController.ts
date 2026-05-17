@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import { BillService } from '../BillService';
+import { BillService } from './BillService';
 import { AuthRequest } from '../../../middleware/authMiddleware';
 import { CreateBillInput, AddPaymentInput, VoidLineItemInput } from '../BillTypes';
 

@@ -1,6 +1,6 @@
 // GHSReportService.ts - Business logic layer for GHS Report module
 
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { GHSReportRepository } from './GHSReportRepository';
 import { ParsedDateParams, DateRangeParams } from './GHSReportTypes';
 

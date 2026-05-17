@@ -2,8 +2,9 @@
 
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import { BaseController } from '../base/BaseController';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { NotificationService } from './NotificationService';
+import { BaseController } from '../../shared/base/BaseController';
 import { AuthRequest } from '../../types/auth';
 
 export class NotificationController extends BaseController {

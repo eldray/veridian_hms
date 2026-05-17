@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { BaseService } from '../../utils/baseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { CorporateRepository } from './CorporateRepository';
 import { 
   CreateCorporateAccountDTO, 

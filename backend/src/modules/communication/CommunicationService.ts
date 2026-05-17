@@ -1,4 +1,4 @@
-import { BaseService } from '../../utils/baseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { CommunicationRepository } from './CommunicationRepository';
 import { 
   SendSMSDTO, 

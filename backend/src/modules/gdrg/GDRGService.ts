@@ -1,6 +1,6 @@
 // GDRGService.ts - Business logic layer for GDRG module
 
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { GDRGRepository } from './GDRGRepository';
 import { GDRGTariff, CreateGDRGTariffRequest, UpdateGDRGTariffRequest } from './GDRGTypes';
 

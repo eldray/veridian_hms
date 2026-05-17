@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BaseController } from '../../base/BaseController';
+import { BaseController } from '../../shared/base/BaseController';
 import { AuditService } from './AuditService';
 import { AuthRequest } from '../../types/auth.types';
 

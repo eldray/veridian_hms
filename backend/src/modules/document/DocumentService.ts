@@ -1,4 +1,4 @@
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { DocumentRepository } from './DocumentRepository';
 import { IDocument, IDocumentTemplate, IDocumentGenerateDTO, IDocumentTemplateCreateDTO, IDocumentTemplateUpdateDTO } from './DocumentTypes';
 

@@ -110,3 +110,6 @@ export class ClinicalReportsController {
     }
   };
 }
+
+// Add this at the very bottom of ClinicalReportsController.ts
+export const clinicalReportsController = new ClinicalReportsController();

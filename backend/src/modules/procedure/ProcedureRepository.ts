@@ -1,7 +1,7 @@
 // modules/procedure/ProcedureRepository.ts
 
 import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
-import { BaseRepository } from '../base/BaseRepository';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 
 export class ProcedureRepository extends BaseRepository {
   constructor(prisma: PrismaClient) {

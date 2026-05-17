@@ -1,10 +1,9 @@
 // modules/antenatal/AntenatalRoutes.ts
 import { Router } from 'express';
 import { AntenatalController } from './AntenatalController';
-import { authenticate } from '../../middleware/authMiddleware';
+import { protect } from '../../middleware/authMiddleware';
 
 const router = Router();
-// Controller will be instantiated with prisma in the index file
 let controller: AntenatalController;
 
 export function createAntenatalRoutes(prisma: any): Router {
@@ -14,95 +13,95 @@ export function createAntenatalRoutes(prisma: any): Router {
   // ANTENATAL BOOKING ROUTES
   // ============================================
 
-  // Get all antenatal bookings
-  router.get('/', authenticate, controller.getAntenatalBookings);
+  // Get all antenatal bookings (regular method - use .bind)
+  router.get('/', protect, controller.getAntenatalBookings.bind(controller));
 
-  // Get booking by attendance ID
-  router.get('/attendance/:attendanceId', authenticate, controller.getAntenatalByAttendance);
+  // Get booking by attendance ID (regular method - use .bind)
+  router.get('/attendance/:attendanceId', protect, controller.getAntenatalByAttendance.bind(controller));
 
-  // Get booking by ID
-  router.get('/:id', authenticate, controller.getAntenatalBookingById);
+  // Get booking by ID (regular method - use .bind)
+  router.get('/:id', protect, controller.getAntenatalBookingById.bind(controller));
 
-  // Get active booking by patient ID
-  router.get('/patient/:patientId/active', authenticate, controller.getActiveBookingByPatient);
+  // Get active booking by patient ID (regular method - use .bind)
+  router.get('/patient/:patientId/active', protect, controller.getActiveBookingByPatient.bind(controller));
 
-  // Create new antenatal booking
-  router.post('/', authenticate, ...controller.createAntenatalBooking);
+  // Create new antenatal booking (ARRAY - NO .bind)
+  router.post('/', protect, controller.createAntenatalBooking);
 
-  // Update antenatal booking
-  router.put('/:id', authenticate, ...controller.updateAntenatalBooking);
+  // Update antenatal booking (ARRAY - NO .bind)
+  router.put('/:id', protect, controller.updateAntenatalBooking);
 
-  // Close antenatal booking (on delivery)
-  router.post('/:id/close', authenticate, ...controller.closeAntenatalBooking);
+  // Close antenatal booking (ARRAY - NO .bind)
+  router.post('/:id/close', protect, controller.closeAntenatalBooking);
 
-  // Delete antenatal booking
-  router.delete('/:id', authenticate, controller.deleteAntenatalBooking);
+  // Delete antenatal booking (regular method - use .bind)
+  router.delete('/:id', protect, controller.deleteAntenatalBooking.bind(controller));
 
-  // Get ANC statistics
-  router.get('/stats/anc', authenticate, controller.getANCStatistics);
+  // Get ANC statistics (regular method - use .bind)
+  router.get('/stats/anc', protect, controller.getANCStatistics.bind(controller));
 
   // ============================================
   // ANC VISIT ROUTES
   // ============================================
 
-  // Get all visits for a booking
-  router.get('/bookings/:bookingId/visits', authenticate, controller.getANCVisitsByBooking);
+  // Get all visits for a booking (regular method - use .bind)
+  router.get('/bookings/:bookingId/visits', protect, controller.getANCVisitsByBooking.bind(controller));
 
-  // Get single visit by ID
-  router.get('/visits/:id', authenticate, controller.getANCVisitById);
+  // Get single visit by ID (regular method - use .bind)
+  router.get('/visits/:id', protect, controller.getANCVisitById.bind(controller));
 
-  // Record new ANC visit
-  router.post('/visits', authenticate, ...controller.createANCVisit);
+  // Record new ANC visit (ARRAY - NO .bind)
+  router.post('/visits', protect, controller.createANCVisit);
 
-  // Update ANC visit
-  router.put('/visits/:id', authenticate, ...controller.updateANCVisit);
+  // Update ANC visit (ARRAY - NO .bind)
+  router.put('/visits/:id', protect, controller.updateANCVisit);
 
-  // Delete ANC visit
-  router.delete('/visits/:id', authenticate, controller.deleteANCVisit);
+  // Delete ANC visit (regular method - use .bind)
+  router.delete('/visits/:id', protect, controller.deleteANCVisit.bind(controller));
 
   // ============================================
   // DELIVERY RECORD ROUTES
   // ============================================
 
-  // Get all delivery records
-  router.get('/deliveries', authenticate, controller.getDeliveryRecords);
+  // Get all delivery records (regular method - use .bind)
+  router.get('/deliveries', protect, controller.getDeliveryRecords.bind(controller));
 
-  // Get delivery record by ID
-  router.get('/deliveries/:id', authenticate, controller.getDeliveryRecord);
+  // Get delivery record by ID (regular method - use .bind)
+  router.get('/deliveries/:id', protect, controller.getDeliveryRecord.bind(controller));
 
-  // Create delivery record
-  router.post('/deliveries', authenticate, ...controller.createDeliveryRecord);
+  // Create delivery record (ARRAY - NO .bind)
+  router.post('/deliveries', protect, controller.createDeliveryRecord);
 
-  // Update delivery record
-  router.put('/deliveries/:id', authenticate, controller.updateDeliveryRecord);
+  // Update delivery record (regular method - use .bind)
+  router.put('/deliveries/:id', protect, controller.updateDeliveryRecord.bind(controller));
 
-  // Delete delivery record
-  router.delete('/deliveries/:id', authenticate, controller.deleteDeliveryRecord);
+  // Delete delivery record (regular method - use .bind)
+  router.delete('/deliveries/:id', protect, controller.deleteDeliveryRecord.bind(controller));
 
-  // Get delivery statistics
-  router.get('/stats/delivery', authenticate, controller.getDeliveryStatistics);
+  // Get delivery statistics (regular method - use .bind)
+  router.get('/stats/delivery', protect, controller.getDeliveryStatistics.bind(controller));
 
   // ============================================
   // POSTNATAL RECORD ROUTES
   // ============================================
 
-  // Get all postnatal records
-  router.get('/postnatal', authenticate, controller.getPostnatalRecords);
+  // Get all postnatal records (regular method - use .bind)
+  router.get('/postnatal', protect, controller.getPostnatalRecords.bind(controller));
 
-  // Get postnatal record by ID
-  router.get('/postnatal/:id', authenticate, controller.getPostnatalRecord);
+  // Get postnatal record by ID (regular method - use .bind)
+  router.get('/postnatal/:id', protect, controller.getPostnatalRecord.bind(controller));
 
-  // Create postnatal record
-  router.post('/postnatal', authenticate, ...controller.createPostnatalRecord);
+  // Create postnatal record (ARRAY - NO .bind)
+  router.post('/postnatal', protect, controller.createPostnatalRecord);
 
-  // Update postnatal record
-  router.put('/postnatal/:id', authenticate, controller.updatePostnatalRecord);
+  // Update postnatal record (regular method - use .bind)
+  router.put('/postnatal/:id', protect, controller.updatePostnatalRecord.bind(controller));
 
-  // Delete postnatal record
-  router.delete('/postnatal/:id', authenticate, controller.deletePostnatalRecord);
+  // Delete postnatal record (regular method - use .bind)
+  router.delete('/postnatal/:id', protect, controller.deletePostnatalRecord.bind(controller));
 
-  // Get postnatal statistics
-  router.get('/stats/postnatal', authenticate, controller.getPostnatalStatistics);
+  // Get postnatal statistics (regular method - use .bind)
+  router.get('/stats/postnatal', protect, controller.getPostnatalStatistics.bind(controller));
 
   return router;
 }

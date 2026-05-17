@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { BaseRepository } from '../../utils/baseRepository';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { 
   SendSMSDTO, 
   SendWhatsAppDTO,

@@ -1,6 +1,6 @@
 // GHSReportRepository.ts - Data access layer for GHS Report module
 
-import { BaseRepository } from '../base/BaseRepository';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { PrismaClient } from '@prisma/client';
 import { ReportType } from './GHSReportTypes';
 

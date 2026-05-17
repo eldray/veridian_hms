@@ -5,7 +5,9 @@
 
 import { Router } from 'express';
 import { AuthRequest } from '../../middleware/authMiddleware';
-import { clinicalReportsController } from './ClinicalReportsController';
+import { ClinicalReportsController } from './ClinicalReportsController';
+
+const clinicalReportsController = new ClinicalReportsController();
 
 export function createClinicalReportsRoutes(): Router {
   const router = Router();

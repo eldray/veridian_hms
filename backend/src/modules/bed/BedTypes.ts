@@ -38,3 +38,12 @@ export interface BedFilter {
   wardId?: string;
   isOccupied?: boolean;
 }
+
+// Default export for convenience
+export default {
+  Bed,
+  BedWithRelations,
+  CreateBedInput,
+  UpdateBedInput,
+  BedFilter
+};

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { BaseService } from '../../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { AuditRepository } from './AuditRepository';
 import { AuditLogFilters, AuditLogExportFilters } from './AuditTypes';
 

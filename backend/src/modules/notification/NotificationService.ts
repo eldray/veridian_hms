@@ -1,7 +1,7 @@
 // modules/notification/NotificationService.ts
 
 import { PrismaClient, NotificationType, NotificationPriority } from '@prisma/client';
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { NotificationRepository } from './NotificationRepository';
 import { SendBulkNotificationRequest, SendRoleNotificationRequest, SendUserMessageRequest, SendBulkUserMessagesRequest } from './NotificationTypes';
 

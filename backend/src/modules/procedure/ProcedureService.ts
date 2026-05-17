@@ -1,7 +1,7 @@
 // modules/procedure/ProcedureService.ts
 
 import { PrismaClient } from '@prisma/client';
-import { BaseService } from '../base/BaseService';
+import { BaseService } from '../../shared/base/BaseService';
 import { ProcedureRepository } from './ProcedureRepository';
 import { CreateProcedureTemplateRequest, UpdateProcedureTemplateRequest, GetProcedureTemplatesRequest } from './ProcedureTypes';
 

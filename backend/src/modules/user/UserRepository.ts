@@ -3,7 +3,7 @@
  * Data access layer for user identity management
  */
 
-import { PrismaClient, User, UserRole, UserStatus } from '@prisma/client';
+import { PrismaClient, User, UserRole } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import {
   IUser,
@@ -12,6 +12,14 @@ import {
   UserListQueryDTO,
   UserStatisticsDTO,
 } from './UserTypes';
+
+// Define UserStatus locally since it doesn't exist in Prisma
+enum UserStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  SUSPENDED = 'suspended',
+  PENDING_VERIFICATION = 'pending',
+}
 
 export class UserRepository extends BaseRepository<User, string> {
   constructor(prisma: PrismaClient) {
@@ -101,7 +109,7 @@ export class UserRepository extends BaseRepository<User, string> {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
-        status: UserStatus.INACTIVE,
+        isActive: false, // Use isActive instead of status
         deletedAt: new Date(),
       },
     });
@@ -138,9 +146,13 @@ export class UserRepository extends BaseRepository<User, string> {
       where.role = role;
     }
 
-    if (status) {
-      where.status = status;
+    // Convert status to isActive filter
+    if (status === UserStatus.ACTIVE) {
+      where.isActive = true;
+    } else if (status === UserStatus.INACTIVE) {
+      where.isActive = false;
     }
+    // SUSPENDED and PENDING_VERIFICATION would need additional fields
 
     if (search) {
       where.OR = [
@@ -185,47 +197,56 @@ export class UserRepository extends BaseRepository<User, string> {
     const [totalUsers, byRole, byStatus, newUsersThisMonth, activeUsersLast7Days] = await Promise.all([
       this.prisma.user.count({ where: { deletedAt: null } }),
       
-      // Count by role
+      // Count by role - use your actual UserRole enum
       Promise.all([
-        this.prisma.user.count({ where: { role: UserRole.ADMIN, deletedAt: null } }),
-        this.prisma.user.count({ where: { role: UserRole.STAFF, deletedAt: null } }),
-        this.prisma.user.count({ where: { role: UserRole.PATIENT, deletedAt: null } }),
-      ]).then(([admin, staff, patient]) => ({
-        [UserRole.ADMIN]: admin,
-        [UserRole.STAFF]: staff,
-        [UserRole.PATIENT]: patient,
+        this.prisma.user.count({ where: { role: UserRole.admin, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.doctor, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.nurse, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.midwife, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.records, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.lab_tech, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.pharmacist, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.accounts, deletedAt: null } }),
+        this.prisma.user.count({ where: { role: UserRole.sonographer, deletedAt: null } }),
+      ]).then(([admin, doctor, nurse, midwife, records, lab_tech, pharmacist, accounts, sonographer]) => ({
+        admin,
+        doctor,
+        nurse,
+        midwife,
+        records,
+        lab_tech,
+        pharmacist,
+        accounts,
+        sonographer,
       })),
 
-      // Count by status
+      // Count by active status
       Promise.all([
-        this.prisma.user.count({ where: { status: UserStatus.ACTIVE, deletedAt: null } }),
-        this.prisma.user.count({ where: { status: UserStatus.INACTIVE, deletedAt: null } }),
-        this.prisma.user.count({ where: { status: UserStatus.SUSPENDED, deletedAt: null } }),
-        this.prisma.user.count({ where: { status: UserStatus.PENDING_VERIFICATION, deletedAt: null } }),
-      ]).then(([active, inactive, suspended, pending]) => ({
-        [UserStatus.ACTIVE]: active,
-        [UserStatus.INACTIVE]: inactive,
-        [UserStatus.SUSPENDED]: suspended,
-        [UserStatus.PENDING_VERIFICATION]: pending,
+        this.prisma.user.count({ where: { isActive: true, deletedAt: null } }),
+        this.prisma.user.count({ where: { isActive: false, deletedAt: null } }),
+      ]).then(([active, inactive]) => ({
+        active,
+        inactive,
       })),
 
       // New users this month
       this.prisma.user.count({
         where: {
           createdAt: {
-            gte: new Date(new Date().setDate(1)), // First day of current month
+            gte: new Date(new Date().setDate(1)),
           },
           deletedAt: null,
         },
       }),
 
-      // Active users in last 7 days
+      // Active users in last 7 days (based on updatedAt or lastLoginAt)
       this.prisma.user.count({
         where: {
-          lastLoginAt: {
+          updatedAt: {
             gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           },
           deletedAt: null,
+          isActive: true,
         },
       }),
     ]);
