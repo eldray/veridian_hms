@@ -181,9 +181,6 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     }
   },
 
-  // Note: recordVisit is removed because ANC visits are auto-created when attendance is created
-  // To add detailed data, use updateVisit on the existing visit
-
   updateVisit: async (id, data) => {
     set({ isLoading: true, error: null });
     try {

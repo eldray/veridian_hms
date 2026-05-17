@@ -1,4 +1,4 @@
-// src/api/index.ts - COMPLETE FIXED VERSION
+// src/api/index.ts - COMPLETE CONSOLIDATED VERSION
 import api from './api';
 import type { 
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
@@ -8,37 +8,7 @@ import type {
 } from '../types';
 
 // ============================================
-// IMPORT FROM SEPARATE FILES (Antenatal, Documents)
-// ============================================
-import {
-  getAntenatalBookings,
-  getActiveBookingByPatient,
-  getAntenatalBookingById,
-  createAntenatalBooking,
-  closeAntenatalBooking,
-  getANCStatistics,
-  getANCVisitsByBooking,
-  getANCVisitById,
-  updateANCVisit,
-  deleteANCVisit,
-  getDeliveries,
-  getDelivery,
-  createDelivery,
-  updateDelivery,
-  deleteDelivery,
-  getDeliveryStats,
-  getPostnatals,
-  getPostnatal,
-  createPostnatal,
-  updatePostnatal,
-  deletePostnatal,
-  getPostnatalStats
-} from './antenatal';
-
-import { documentApi } from './documentApi';
-
-// ============================================
-// MISSING TYPES - ADDED
+// TYPES
 // ============================================
 
 export interface ReportFilter {
@@ -55,6 +25,10 @@ export interface ReportFilter {
   status?: string;
   paymentMode?: string;
   insuranceProviderId?: string;
+  year?: number;
+  month?: number;
+  page?: number;
+  limit?: number;
   [key: string]: any;
 }
 
@@ -106,6 +80,133 @@ export interface RequisitionItem {
 }
 
 // ============================================
+// ANTENATAL TYPES
+// ============================================
+
+export interface AntenatalBookingData {
+  patientId: string;
+  attendanceId: string;
+  lmp?: string;
+  gravida: number;
+  para: number;
+  bookingWeight?: number;
+  bookingBP?: string;
+  bloodGroup?: string;
+  rhesusStatus?: string;
+  hivStatus?: string;
+  syphilisStatus?: string;
+  hepatitisBStatus?: string;
+  hbBooking?: number;
+  previousCSection?: boolean;
+  previousComplications?: string;
+  riskNotes?: string;
+}
+
+export interface ANCVisitData {
+  attendanceId: string;
+  gestationalAgeWeeks?: number;
+  weight?: number;
+  bloodPressure?: string;
+  fundalHeight?: number;
+  fetalHeartRate?: number;
+  fetalMovements?: boolean;
+  presentation?: string;
+  oedema?: boolean;
+  oedemaGrade?: string;
+  urinalysisProtein?: boolean;
+  urinalysisGlucose?: boolean;
+  urinalysisBlood?: boolean;
+  iptpGiven?: boolean;
+  iptpDoseNumber?: number;
+  iptpDrug?: string;
+  ttGiven?: boolean;
+  ttDoseNumber?: number;
+  ironGiven?: boolean;
+  folateGiven?: boolean;
+  calciumGiven?: boolean;
+  malariaTestDone?: boolean;
+  malariaTestResult?: 'Positive' | 'Negative' | 'Inconclusive';
+  malariaTreatmentGiven?: boolean;
+  malariaTreatmentType?: string;
+  dangerSignsPresent?: boolean;
+  dangerSignsList?: any[];
+  referralMade?: boolean;
+  referredTo?: string;
+  referralReason?: string;
+  nextVisitDate?: string;
+  returnInstructions?: string;
+  notes?: string;
+}
+
+export interface DeliveryRecordData {
+  patientId: string;
+  attendanceId: string;
+  antenatalBookingId?: string;
+  deliveryDate?: string;
+  deliveryType?: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
+  deliveryOutcome?: 'live_birth' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'neonatal_death';
+  placeOfDelivery?: 'hospital' | 'health_centre' | 'clinic' | 'home' | 'en_route';
+  attendant?: string;
+  birthWeight?: number;
+  gestationWeeks?: number;
+  apgarScore1min?: number;
+  apgarScore5min?: number;
+  resusCitationDone?: boolean;
+  numberOfBabies?: number;
+  maternalOutcome?: 'alive' | 'dead_direct_cause' | 'dead_indirect_cause' | 'dead_unknown';
+  maternalComplications?: string[];
+  notes?: string;
+}
+
+export interface PostnatalRecordData {
+  patientId: string;
+  attendanceId: string;
+  antenatalBookingId?: string;
+  deliveryRecordId?: string;
+  examinationDate?: string;
+  dayNumber?: number;
+  maternalCondition?: 'good' | 'fair' | 'poor' | 'critical';
+  breastfeedingStatus?: 'exclusive' | 'mixed' | 'not_breastfeeding';
+  babyCondition?: 'good' | 'fair' | 'poor' | 'critical';
+  familyPlanningDiscussed?: boolean;
+  familyPlanningMethodAccepted?: string;
+  notes?: string;
+}
+
+// ============================================
+// DOCUMENT TYPES
+// ============================================
+
+export interface GeneratedDocument {
+  id: string;
+  documentNumber: string;
+  documentType: string;
+  entityType: string;
+  entityId: string;
+  format: string;
+  filePath: string;
+  fileName: string;
+  createdAt: string;
+  generatedBy: string;
+}
+
+export interface DocumentTemplate {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentGenerationResponse {
+  success: boolean;
+  data: GeneratedDocument;
+  message?: string;
+}
+
+// ============================================
 // GENERIC RESPONSE HANDLER
 // ============================================
 
@@ -132,6 +233,10 @@ const handleResponse = <T>(response: any): T[] => {
   if (response?.labTestTemplates && Array.isArray(response.labTestTemplates)) return response.labTestTemplates as T[];
   if (response?.procedureTemplates && Array.isArray(response.procedureTemplates)) return response.procedureTemplates as T[];
   if (response?.scanTemplates && Array.isArray(response.scanTemplates)) return response.scanTemplates as T[];
+  if (response?.bookings && Array.isArray(response.bookings)) return response.bookings as T[];
+  if (response?.visits && Array.isArray(response.visits)) return response.visits as T[];
+  if (response?.deliveries && Array.isArray(response.deliveries)) return response.deliveries as T[];
+  if (response?.postnatals && Array.isArray(response.postnatals)) return response.postnatals as T[];
   
   console.warn('Unexpected API response:', response);
   return [] as T[];
@@ -160,7 +265,10 @@ const convertISODateToInputFormat = (isoDate: string): string => {
   }
 };
 
-// ───── AUTH & PROFILE ─────
+// ──────────────────────────────────────────────
+// AUTH & PROFILE
+// ──────────────────────────────────────────────
+
 export const login = (username: string, password: string) => 
   api.post('/auth/login', { username, password }).then(r => r.data);
 
@@ -179,7 +287,6 @@ export const getUsers = () =>
 export const getUserStats = () => 
   api.get('/auth/users/stats').then(r => r.data);
 
-// Profile management
 export const getProfile = () => 
   api.get('/auth/profile').then(r => r.data.user || r.data);
 
@@ -189,7 +296,10 @@ export const updateProfile = (data: any) =>
 export const changePassword = (currentPassword: string, newPassword: string) => 
   api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
 
-// ───── SETTINGS (Admin only) ─────
+// ──────────────────────────────────────────────
+// SETTINGS (Admin only)
+// ──────────────────────────────────────────────
+
 export const getHospitalDetails = () => 
   api.get('/settings/hospital').then(r => r.data);
 
@@ -205,7 +315,24 @@ export const updateUser = (userId: string, data: any) =>
 export const deactivateUser = (userId: string) => 
   api.put(`/settings/users/${userId}/deactivate`).then(r => r.data);
 
-// ───── HOSPITAL INFO ─────
+export const getSystemSettings = () => 
+  api.get('/settings').then(r => r.data);
+
+export const updateSystemSettings = (data: any) => 
+  api.put('/settings', data).then(r => r.data);
+
+export const getNHISRates = () => 
+  api.get('/settings/nhis-rates').then(r => r.data);
+
+export const updateNHISRates = (data: any) => 
+  api.put('/settings/nhis-rates', data).then(r => r.data);
+
+
+
+// ──────────────────────────────────────────────
+// HOSPITAL INFO
+// ──────────────────────────────────────────────
+
 export const getHospitals = () => 
   api.get('/hospitals').then(r => handleResponse<HospitalInfo>(r.data));
 
@@ -227,20 +354,10 @@ export const getHospitalNHISSettings = () =>
 export const updateHospitalNHISSettings = (data: any) => 
   api.put('/hospitals/settings/nhis', data).then(r => r.data);
 
-// ───── SETTINGS (SYSTEM) ─────
-export const getSystemSettings = () => 
-  api.get('/settings').then(r => r.data);
+// ──────────────────────────────────────────────
+// GDRG TARIFFS
+// ──────────────────────────────────────────────
 
-export const updateSystemSettings = (data: any) => 
-  api.put('/settings', data).then(r => r.data);
-
-export const getNHISRates = () => 
-  api.get('/settings/nhis-rates').then(r => r.data);
-
-export const updateNHISRates = (data: any) => 
-  api.put('/settings/nhis-rates', data).then(r => r.data);
-
-// ───── GDRG TARIFFS ─────
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
   const response = await api.get('/gdrg', { params: filters });
   const result = response.data;
@@ -282,9 +399,9 @@ export const lookupGDRGByAge = async (params: { gdrgCode: string; patientId?: st
   return response.data?.data || response.data;
 };
 
-// ==========================================
+// ──────────────────────────────────────────────
 // DIAGNOSIS GDRG LINKING
-// ==========================================
+// ──────────────────────────────────────────────
 
 export const getDiagnosesByGDRG = async (gdrgCode: string) => {
   const response = await api.get(`/gdrg/${gdrgCode}/diagnoses`);
@@ -310,9 +427,9 @@ export const getGDRGByDiagnosis = async (diagnosisId: string) => {
   return response.data;
 };
 
-// ==========================================
+// ──────────────────────────────────────────────
 // PROCEDURE GDRG LINKING
-// ==========================================
+// ──────────────────────────────────────────────
 
 export const linkProcedureToGDRG = async (gdrgCode: string, data: { procedureId: string; isPrimary?: boolean; mappedCode?: string }) => {
   const response = await api.post(`/gdrg/${gdrgCode}/procedure`, data);
@@ -334,7 +451,10 @@ export const getGDRGByProcedure = async (procedureId: string) => {
   return response.data;
 };
 
-// ───── INSURANCE PROVIDERS ─────
+// ──────────────────────────────────────────────
+// INSURANCE PROVIDERS
+// ──────────────────────────────────────────────
+
 export const getInsuranceProviders = () => 
   api.get('/insurance-providers').then(r => {
     return handleResponse<InsuranceProvider>(r.data);
@@ -352,9 +472,9 @@ export const updateInsuranceProvider = (id: string, data: any) =>
 export const deleteInsuranceProvider = (id: string) => 
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
-// ======================
-// INSURANCE CLAIM API FUNCTIONS
-// ======================
+// ──────────────────────────────────────────────
+// INSURANCE CLAIMS
+// ──────────────────────────────────────────────
 
 export const generateNHISClaim = (attendanceId: string) => 
   api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
@@ -377,11 +497,9 @@ export const getInsuranceClaim = (id: string) =>
 export const getClaimByAttendanceId = (attendanceId: string) => 
   api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
 
-// ✅ FIX 1: Add the missing updateClaimDraft function (alias for updateInsuranceClaim)
 export const updateClaimDraft = (claimId: string, data: any) => 
   api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
 
-// ✅ FIX 2: Keep updateInsuranceClaim for the store
 export const updateInsuranceClaim = (claimId: string, data: any) => 
   api.patch(`/insurance-claims/${claimId}`, data).then(r => r.data);
 
@@ -400,7 +518,7 @@ export const generateClaimPrint = (claimId: string) =>
 export const getFinalizedClaimsTotal = (filters?: any) => 
   api.get('/insurance-claims/financials/finalized-total', { params: filters }).then(r => r.data);
 
-// BATCH CLAIMS
+// Batch Claims
 export const createClaimBatch = (data: { claimIds: string[]; description?: string; insuranceType?: string }) => 
   api.post('/insurance-claims/batches', data).then(r => r.data);
 
@@ -425,7 +543,10 @@ export const updateBatchStatus = (batchId: string, status: string) =>
 export const deleteClaimBatch = (batchId: string) => 
   api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
 
-// ───── PATIENTS ─────
+// ──────────────────────────────────────────────
+// PATIENTS
+// ──────────────────────────────────────────────
+
 export const getPatient = (id: string) => 
   api.get(`/patients/${id}`).then(r => {
     const patient = r.data;
@@ -485,7 +606,10 @@ export const uploadPatientImageBase64 = (patientId: string, base64Image: string)
 export const deletePatient = (id: string) => 
   api.delete(`/patients/${id}`).then(r => r.data);
 
-// ───── ATTENDANCES ─────
+// ──────────────────────────────────────────────
+// ATTENDANCES
+// ──────────────────────────────────────────────
+
 export const getAttendances = (filters?: any) => 
   api.get('/attendances', { params: filters }).then(r => {
     const attendances = handleResponse<Attendance>(r.data);
@@ -632,10 +756,7 @@ export const removeServiceFromAttendance = async (attendanceId: string, serviceI
 export const assignBedToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/assign-bed`, data).then(r => r.data);
 
-// ============================================
-// VITALS API
-// ============================================
-
+// Vitals
 export const addVitalsToAttendance = async (attendanceId: string, data: any) => {
   const response = await api.post(`/attendances/${attendanceId}/vitals`, data);
   return response.data;
@@ -656,7 +777,7 @@ export const deleteVitals = async (attendanceId: string, vitalsId: string) => {
   return response.data;
 };
 
-// Progress Notes Operations
+// Progress Notes
 export const addProgressNoteToAttendance = (attendanceId: string, data: any) => 
   api.post(`/attendances/${attendanceId}/progress-notes`, data).then(r => r.data);
 
@@ -687,7 +808,10 @@ export const validateNHISClaim = (attendanceId: string) =>
 export const generateNHISClaimFromAttendance = (attendanceId: string) => 
   api.get(`/attendances/${attendanceId}/nhis/generate-claim-data`).then(r => r.data);
 
-// ───── BILLS & PAYMENTS ─────
+// ──────────────────────────────────────────────
+// BILLS & PAYMENTS
+// ──────────────────────────────────────────────
+
 export const getBills = (filters?: any) => 
   api.get('/bills', { params: filters }).then(r => { 
     console.log('📊 API Bills Response:', r.data);
@@ -740,9 +864,9 @@ export const getBillLineItems = (billId: string) =>
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) => 
   api.delete(`/bills/line-items/${lineItemId}/void`, { data }).then(r => r.data);
 
-// ======================
-// WAIVER API FUNCTIONS
-// ======================
+// ──────────────────────────────────────────────
+// WAIVERS
+// ──────────────────────────────────────────────
 
 export const createWaiverRequest = (data: {
   patientId: string;
@@ -794,18 +918,20 @@ export const deleteWaiver = (id: string) =>
 export const applyWaiverToBill = (billId: string, waiverId: string) => 
   api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
 
-// Ward Charges
+// ──────────────────────────────────────────────
+// WARD CHARGES
+// ──────────────────────────────────────────────
+
 export const getWardCharges = (attendanceId: string, params?: any) => 
   api.get(`/attendances/${attendanceId}/ward-charges`, { params }).then(r => r.data);
 
 export const generateDailyWardCharges = (date?: string) => 
   api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
 
-// Receipt Generation
-export const generateReceipt = (billId: string) => 
-  api.post(`/documents/receipt/${billId}`).then(r => r.data);
+// ──────────────────────────────────────────────
+// ADMISSIONS
+// ──────────────────────────────────────────────
 
-// ───── ADMISSIONS ─────
 export const getAdmissions = (filters?: any) => 
   api.get('/admissions', { params: filters }).then(r => handleResponse<Admission>(r.data));
 
@@ -853,7 +979,10 @@ export const updateDailyNote = (admissionId: string, noteId: string, data: any) 
 export const deleteDailyNote = (admissionId: string, noteId: string) => 
   api.delete(`/admissions/${admissionId}/daily-notes/${noteId}`).then(r => r.data);
 
-// ───── WARDS & BEDS ─────
+// ──────────────────────────────────────────────
+// WARDS & BEDS
+// ──────────────────────────────────────────────
+
 export const getWards = (filters?: any) => 
   api.get('/wards', { params: filters }).then(r => handleResponse<Ward>(r.data));
 
@@ -887,7 +1016,10 @@ export const updateBed = (id: string, data: any) =>
 export const deleteBed = (id: string) => 
   api.delete(`/beds/${id}`).then(r => r.data);
 
-// ───── STOCK MANAGEMENT ─────
+// ──────────────────────────────────────────────
+// STOCK MANAGEMENT
+// ──────────────────────────────────────────────
+
 export const getStockItems = (filters?: any) => 
   api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
 
@@ -915,7 +1047,29 @@ export const updateStockLevel = (id: string, data: { quantity: number; transacti
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) => 
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
 
-// ───── STOCK TRANSACTIONS ─────
+// Stock Reports
+export const getStockValueSummary = () => 
+  api.get('/stock-items/reports/value-summary').then(r => r.data);
+
+export const getExpiryReport = (days?: number) => 
+  api.get('/stock-items/reports/expiry', { params: { days } }).then(r => r.data);
+
+export const getMovementSummary = (startDate?: string, endDate?: string) => 
+  api.get('/stock-items/reports/movement-summary', { params: { startDate, endDate } }).then(r => r.data);
+
+export const getUsageReport = (period?: string, limit?: number) => 
+  api.get('/stock-items/reports/usage', { params: { period, limit } }).then(r => r.data);
+
+export const getSupplierReport = () => 
+  api.get('/stock-items/reports/supplier').then(r => r.data);
+
+export const getRequisitionSummary = (startDate?: string, endDate?: string) => 
+  api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// STOCK TRANSACTIONS
+// ──────────────────────────────────────────────
+
 export const getStockTransactions = (filters?: any) => 
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
 
@@ -934,7 +1088,10 @@ export const getStockMovementReport = (filters?: any) =>
 export const getLowStockAlerts = () => 
   api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
 
-// ───── INVOICES ─────
+// ──────────────────────────────────────────────
+// INVOICES
+// ──────────────────────────────────────────────
+
 export const getInvoices = (filters?: any) => 
   api.get('/invoices', { params: filters }).then(r => handleResponse<Invoice>(r.data));
 
@@ -950,7 +1107,10 @@ export const updateInvoice = (id: string, data: any) =>
 export const deleteInvoice = (id: string) => 
   api.delete(`/invoices/${id}`).then(r => r.data);
 
-// ───── REQUISITIONS ─────
+// ──────────────────────────────────────────────
+// REQUISITIONS
+// ──────────────────────────────────────────────
+
 export const getRequisitions = (filters?: any) => 
   api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
 
@@ -977,28 +1137,9 @@ export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'ca
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) => 
   api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
 
-// ───── STOCK REPORTS ─────
-export const getStockValueSummary = () => 
-  api.get('/stock-items/reports/value-summary').then(r => r.data);
-
-export const getExpiryReport = (days?: number) => 
-  api.get('/stock-items/reports/expiry', { params: { days } }).then(r => r.data);
-
-export const getMovementSummary = (startDate?: string, endDate?: string) => 
-  api.get('/stock-items/reports/movement-summary', { params: { startDate, endDate } }).then(r => r.data);
-
-export const getUsageReport = (period?: string, limit?: number) => 
-  api.get('/stock-items/reports/usage', { params: { period, limit } }).then(r => r.data);
-
-export const getSupplierReport = () => 
-  api.get('/stock-items/reports/supplier').then(r => r.data);
-
-export const getRequisitionSummary = (startDate?: string, endDate?: string) => 
-  api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => r.data);
-
-// ============================================
-// REFERRAL API CALLS
-// ============================================
+// ──────────────────────────────────────────────
+// REFERRALS
+// ──────────────────────────────────────────────
 
 export const getReferrals = async (params?: { status?: string; page?: number; limit?: number }) => {
   const response = await api.get('/referrals', { params });
@@ -1056,17 +1197,15 @@ export const getReferralsByPatient = async (patientId: string, params?: { page?:
   return response.data;
 };
 
-export const generateReferralLetter = async (id: string) => {
-  const response = await api.get(`/referrals/${id}/letter`);
-  return response.data;
-};
-
 export const getReferralStats = async (params?: { startDate?: string; endDate?: string }) => {
   const response = await api.get('/referrals/stats', { params });
   return response.data;
 };
 
-// ───── MEDICAL SERVICES ─────
+// ──────────────────────────────────────────────
+// MEDICAL SERVICES (Diagnoses, Lab Tests, Procedures, Scans)
+// ──────────────────────────────────────────────
+
 export const getDiagnoses = (filters?: any) => 
   api.get('/diagnoses', { params: filters }).then(r => {
     if (r.data?.success && Array.isArray(r.data.data)) return r.data.data;
@@ -1102,6 +1241,7 @@ export const getDiagnosisStats = () =>
 export const bulkUpdateDiagnoses = (data: any) => 
   api.post('/diagnoses/bulk-update', data).then(r => r.data);
 
+// Lab Test Templates
 export const getLabTestTemplates = (filters?: any) => 
   api.get('/lab-test-templates', { params: filters }).then(r => handleResponse<LabTestTemplate>(r.data));
 
@@ -1129,6 +1269,7 @@ export const getSpecimenTypes = () =>
 export const bulkUpdateLabTestTemplates = (data: any) => 
   api.post('/lab-test-templates/bulk-update', data).then(r => r.data);
 
+// Procedure Templates
 export const getProcedureTemplates = (filters?: any) => 
   api.get('/procedure-templates', { params: filters }).then(r => handleResponse<ProcedureTemplate>(r.data));
 
@@ -1153,7 +1294,38 @@ export const getProcedureDepartments = () =>
 export const bulkUpdateProcedureTemplates = (data: any) => 
   api.post('/procedure-templates/bulk-update', data).then(r => r.data);
 
-// ───── SERVICE CATALOG ─────
+// Scan Templates
+export const getScanTemplates = (filters?: any) => 
+  api.get('/scan-templates', { params: filters }).then(r => handleResponse<ScanTemplate>(r.data));
+
+export const getScanTemplate = (id: string) => 
+  api.get(`/scan-templates/${id}`).then(r => r.data);
+
+export const createScanTemplate = (data: any) => 
+  api.post('/scan-templates', data).then(r => r.data);
+
+export const updateScanTemplate = (id: string, data: any) => 
+  api.put(`/scan-templates/${id}`, data).then(r => r.data);
+
+export const deleteScanTemplate = (id: string) => 
+  api.delete(`/scan-templates/${id}`).then(r => r.data);
+
+export const getScanCategories = () => 
+  api.get('/scan-templates/categories').then(r => r.data);
+
+export const getScanBodyParts = () => 
+  api.get('/scan-templates/body-parts').then(r => r.data);
+
+export const getScanTypes = () => 
+  api.get('/scan-templates/scan-types').then(r => r.data);
+
+export const bulkUpdateScanTemplates = (data: any) => 
+  api.post('/scan-templates/bulk-update', data).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// SERVICE CATALOG
+// ──────────────────────────────────────────────
+
 export const getServiceCatalog = (filters?: any) => 
   api.get('/service-catalog', { params: filters }).then(r => {
     const services = handleResponse<ServiceCatalog>(r.data);
@@ -1224,36 +1396,11 @@ export const checkServiceCoverage = (data: any) =>
 
 export const calculateServiceCost = (data: any) => 
   api.post('/service-catalog/calculate-cost', data).then(r => r.data);
-  
-// Scan Templates
-export const getScanTemplates = (filters?: any) => 
-  api.get('/scan-templates', { params: filters }).then(r => handleResponse<ScanTemplate>(r.data));
 
-export const getScanTemplate = (id: string) => 
-  api.get(`/scan-templates/${id}`).then(r => r.data);
+// ──────────────────────────────────────────────
+// CONSULTATION TYPES
+// ──────────────────────────────────────────────
 
-export const createScanTemplate = (data: any) => 
-  api.post('/scan-templates', data).then(r => r.data);
-
-export const updateScanTemplate = (id: string, data: any) => 
-  api.put(`/scan-templates/${id}`, data).then(r => r.data);
-
-export const deleteScanTemplate = (id: string) => 
-  api.delete(`/scan-templates/${id}`).then(r => r.data);
-
-export const getScanCategories = () => 
-  api.get('/scan-templates/categories').then(r => r.data);
-
-export const getScanBodyParts = () => 
-  api.get('/scan-templates/body-parts').then(r => r.data);
-
-export const getScanTypes = () => 
-  api.get('/scan-templates/scan-types').then(r => r.data);
-
-export const bulkUpdateScanTemplates = (data: any) => 
-  api.post('/scan-templates/bulk-update', data).then(r => r.data);
-
-// ───── CONSULTATION TYPES ─────
 export const getConsultationTypes = (filters?: any) => 
   api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
 
@@ -1269,163 +1416,9 @@ export const updateConsultationType = (id: string, data: any) =>
 export const deleteConsultationType = (id: string) => 
   api.delete(`/consultation-types/${id}`).then(r => r.data);
 
-// ============================================
-// GHS REPORT API CALLS
-// ============================================
-
-export const getGHSOPDReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/opd', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSIPDReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/ipd', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSDeliveryReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/delivery', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSFormAReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/form-a', { params: filters });
-  return response.data;
-};
-
-export const getGHSMalariaReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/malaria', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSIDSRReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/idsr', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/family-planning', { params: filters });
-  return response.data.data;
-};
-
-export const getMorbidityMortalityReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/ghs/morbidity-mortality', { params: filters });
-  return response.data;
-};
-
-export const getTopDiagnoses = async (filters: ReportFilter, limit: number = 10) => {
-  const response = await api.get('/reports/ghs/top-diagnoses', { 
-    params: { ...filters, limit } 
-  });
-  return response.data?.data || response.data || [];
-};
-
-export const exportGHSReportToCSV = async (submissionId: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${submissionId}/export`, {
-    responseType: 'blob'
-  });
-  return response.data;
-};
-
-export const getGHSReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
-  const response = await api.get('/reports/ghs/submissions', { params: filters });
-  return response.data.data;
-};
-
-export const getGHSReportSubmissionById = async (id: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${id}`);
-  return response.data.data;
-};
-
-// ============================================
-// REGULAR REPORT API CALLS
-// ============================================
-
-export const getDemographicReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/demographic', { params: filters });
-  return response.data.data;
-};
-
-export const getFinancialReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/financial', { params: filters });
-  return response.data.data;
-};
-
-export const getInsuranceClaimsReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/insurance-claims', { params: filters });
-  return response.data.data;
-};
-
-export const getClinicalReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical', { params: filters });
-  return response.data.data;
-};
-
-export const getAttendanceReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/attendance', { params: filters });
-  return response.data.data;
-};
-
-export const getRevenueReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/revenue', { params: filters });
-  return response.data.data;
-};
-
-export const exportReport = async (data: { 
-  reportType: string; 
-  format: string; 
-  filters: ReportFilter;
-  data: any;
-}) => {
-  const response = await api.post('/reports/export', data);
-  return response.data;
-};
-
-// ============================================
-// ============================================
-// CLINICAL REPORTS API CALLS
-// ============================================
-
-export const getClinicalReports = async (filters?: any) => {
-  const response = await api.get('/clinical-reports', { params: filters });
-  return response.data.data || response.data;
-};
-
-export const getLabReportData = async (filters: ReportFilter) => {
-  const response = await api.get('/clinical-reports/lab', { params: filters });
-  return response.data.data || response.data;
-};
-
-export const getScanReportData = async (filters: ReportFilter) => {
-  const response = await api.get('/clinical-reports/scan', { params: filters });
-  return response.data.data || response.data;
-};
-
-export const getProcedureReportData = async (filters: ReportFilter) => {
-  const response = await api.get('/clinical-reports/procedure', { params: filters });
-  return response.data.data || response.data;
-};
-
-export const getMedicationReportData = async (filters: ReportFilter) => {
-  const response = await api.get('/clinical-reports/medication', { params: filters });
-  return response.data.data || response.data;
-};
-
-export const getVitalsReportData = async (filters: ReportFilter) => {
-  const response = await api.get('/clinical-reports/vitals', { params: filters });
-  return response.data.data || response.data;
-};
-
-// Legacy names for backward compatibility
-export const getLabReport = getLabReportData;
-export const getScanReport = getScanReportData;
-export const getProcedureReport = getProcedureReportData;
-export const getMedicationReport = getMedicationReportData;
-export const getVitalsReport = getVitalsReportData;
-
-// ======================
-// DEPARTMENT API FUNCTIONS
-// ======================
+// ──────────────────────────────────────────────
+// DEPARTMENT
+// ──────────────────────────────────────────────
 
 export const getDepartments = (filters?: any) => 
   api.get('/departments', { params: filters }).then(r => r.data?.data || r.data);
@@ -1460,9 +1453,9 @@ export const removeUserFromDepartment = (departmentId: string, data: any) =>
 export const bulkUpdateDepartments = (data: any) => 
   api.post('/departments/bulk-update', data).then(r => r.data);
 
-// ======================
-// APPOINTMENT API FUNCTIONS
-// ======================
+// ──────────────────────────────────────────────
+// APPOINTMENTS
+// ──────────────────────────────────────────────
 
 export const getAppointments = (filters?: any) => 
   api.get('/appointments', { params: filters }).then(r => handleResponse<Appointment>(r.data));
@@ -1489,18 +1482,14 @@ export const getAppointmentStatistics = (filters?: any) =>
   api.get('/appointments/stats', { params: filters }).then(r => r.data);
 
 export const getDoctorSchedule = (doctorId: string, date?: string) => 
-  api.get(`/appointments/schedule`, { 
-    params: { doctorId, date } 
-  }).then(r => r.data);
+  api.get('/appointments/schedule', { params: { doctorId, date } }).then(r => r.data);
 
 export const getAvailableSlots = (doctorId: string, date: string) => 
-  api.get(`/appointments/available-slots`, { 
-    params: { doctorId, date } 
-  }).then(r => r.data);
+  api.get('/appointments/available-slots', { params: { doctorId, date } }).then(r => r.data);
 
-// ======================
-// NOTIFICATION API FUNCTIONS
-// ======================
+// ──────────────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────────────
 
 export const getNotifications = (filters?: any) => 
   api.get('/notifications', { params: filters }).then(r => handleResponse<Notification>(r.data));
@@ -1572,19 +1561,6 @@ export const sendBulkUserMessages = (data: {
 
 export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
 
-// ───── WORKLIST ─────
-export const getWorklists = (filters?: { type?: string; status?: string; departmentId?: string }) =>
-  api.get('/worklists', { params: filters }).then(r => r.data);
-
-export const getWorklist = (id: string) =>
-  api.get(`/worklists/${id}`).then(r => r.data);
-
-export const updateWorklist = (id: string, data: any) =>
-  api.put(`/worklists/${id}`, data).then(r => r.data);
-
-export const completeWorklist = (id: string, data: { results?: any; notes?: string }) =>
-  api.post(`/worklists/${id}/complete`, data).then(r => r.data);
-
 export const triggerLowStockCheck = async () => {
   const response = await api.post('/notifications/trigger/low-stock');
   return response.data;
@@ -1605,9 +1581,9 @@ export const getUnreadCount = async () => {
   return response.data;
 };
 
-// ======================
-// USER API FUNCTIONS WITH DEPARTMENT SUPPORT
-// ======================
+// ──────────────────────────────────────────────
+// USER API WITH DEPARTMENT SUPPORT
+// ──────────────────────────────────────────────
 
 export const getUsersByDepartment = (departmentId: string) => 
   api.get(`/users/department/${departmentId}`).then(r => r.data);
@@ -1615,21 +1591,35 @@ export const getUsersByDepartment = (departmentId: string) =>
 export const updateUserDepartment = (userId: string, departmentId: string) => 
   api.patch(`/users/${userId}/department`, { departmentId }).then(r => r.data);
 
-// ======================
+// ──────────────────────────────────────────────
 // DASHBOARD STATISTICS
-// ======================
+// ──────────────────────────────────────────────
 
 export const getDashboardStats = () => 
   api.get('/dashboard/stats').then(r => r.data);
 
 export const getAppointmentCalendar = (month: string, year: string) => 
-  api.get('/dashboard/appointment-calendar', { 
-    params: { month, year } 
-  }).then(r => r.data);
+  api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
 
-// ======================
+// ──────────────────────────────────────────────
+// WORKLIST
+// ──────────────────────────────────────────────
+
+export const getWorklists = (filters?: { type?: string; status?: string; departmentId?: string }) =>
+  api.get('/worklists', { params: filters }).then(r => r.data);
+
+export const getWorklist = (id: string) =>
+  api.get(`/worklists/${id}`).then(r => r.data);
+
+export const updateWorklist = (id: string, data: any) =>
+  api.put(`/worklists/${id}`, data).then(r => r.data);
+
+export const completeWorklist = (id: string, data: { results?: any; notes?: string }) =>
+  api.post(`/worklists/${id}/complete`, data).then(r => r.data);
+
+// ──────────────────────────────────────────────
 // BACKUP SYSTEM
-// ======================
+// ──────────────────────────────────────────────
 
 export const createBackup = async () => {
   const response = await api.post('/backup/create');
@@ -1664,28 +1654,18 @@ export const downloadBackup = async (filename: string) => {
       }
     });
 
-    console.log('📦 Download response:', {
-      status: response.status,
-      type: response.headers['content-type'],
-      size: response.data?.size || 'unknown'
-    });
-
-    // Validate that response.data is a Blob
     if (!(response.data instanceof Blob)) {
       console.error('❌ Response data is not a Blob:', typeof response.data);
       throw new Error('Invalid response format: expected Blob');
     }
 
-    // Get content-type as string
     const contentType = response.headers['content-type'];
     const contentTypeString = typeof contentType === 'string' ? contentType : 'application/octet-stream';
 
-    // Create proper Blob with correct MIME type
     const blob = new Blob([response.data], {
       type: contentTypeString
     });
 
-    // Create download link and trigger download
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1695,7 +1675,6 @@ export const downloadBackup = async (filename: string) => {
     document.body.appendChild(link);
     link.click();
     
-    // Cleanup
     setTimeout(() => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
@@ -1724,9 +1703,57 @@ export const deleteBackup = async (filename: string) => {
   return response.data;
 };
 
-// ======================
+// ──────────────────────────────────────────────
+// DOCUMENT GENERATION
+// ──────────────────────────────────────────────
+
+export const generateReceipt = (billId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`).then(r => r.data);
+
+export const generateBillStatement = (billId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/bill-statement/${billId}`).then(r => r.data);
+
+export const generateReferralLetter = (referralId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => r.data);
+
+export const generateDischargeSummary = (admissionId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => r.data);
+
+export const generateLabResult = (labTestId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => r.data);
+
+export const generatePrescription = (attendanceId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/prescription/${attendanceId}`).then(r => r.data);
+
+export const getDocumentsByEntity = (entityType: string, entityId: string) => 
+  api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data);
+
+export const downloadDocument = (documentId: string) => 
+  api.get(`/documents/download/${documentId}`, { 
+    responseType: 'blob',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+    }
+  }).then(r => r.data);
+
+export const reprintDocument = (documentId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => r.data);
+
+export const getTemplates = () => 
+  api.get<{ success: boolean; data: DocumentTemplate[] }>(`/documents/templates`).then(r => r.data);
+
+export const createTemplate = (data: any) => 
+  api.post<{ success: boolean; data: DocumentTemplate }>(`/documents/templates`, data).then(r => r.data);
+
+export const updateTemplate = (id: string, data: any) => 
+  api.put<{ success: boolean; data: DocumentTemplate }>(`/documents/templates/${id}`, data).then(r => r.data);
+
+export const deleteTemplate = (id: string) => 
+  api.delete(`/documents/templates/${id}`).then(r => r.data);
+
+// ──────────────────────────────────────────────
 // UPLOAD SYSTEM (Static file serving)
-// ======================
+// ──────────────────────────────────────────────
 
 export const servePatientImages = (filename: string) => 
   `/uploads/patients/${filename}`;
@@ -1737,461 +1764,416 @@ export const serveScanImages = (filename: string) =>
 export const serveDocuments = (filename: string) => 
   `/uploads/documents/${filename}`;
 
-// Export all API functions
+// ──────────────────────────────────────────────
+// GHS REPORTS
+// ──────────────────────────────────────────────
+
+export const getGHSOPDReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/opd', { params });
+  return response.data;
+};
+
+export const getGHSIPDReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/ipd', { params });
+  return response.data;
+};
+
+export const getGHSIDSRReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/idsr', { params });
+  return response.data;
+};
+
+export const getGHSMalariaReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/malaria', { params });
+  return response.data;
+};
+
+export const getGHSFormAReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/form-a', { params });
+  return response.data;
+};
+
+export const getMorbidityMortalityReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/ghs/morbidity-mortality', { params });
+  return response.data;
+};
+
+export const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) => {
+  const response = await api.get('/reports/ghs/top-diagnoses', { params: { ...params, limit } });
+  return response.data;
+};
+
+export const getGHSDeliveryReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/ghs/delivery', { params: filters });
+  return response.data.data;
+};
+
+export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
+  const response = await api.get('/reports/family-planning', { params: filters });
+  return response.data.data;
+};
+
+export const getReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
+  const response = await api.get('/reports/ghs/submissions', { params: filters });
+  return response.data;
+};
+
+export const getReportSubmissionById = async (id: string) => {
+  const response = await api.get(`/reports/ghs/submissions/${id}`);
+  return response.data;
+};
+
+export const exportGHSReportToCSV = async (submissionId: string) => {
+  const response = await api.get(`/reports/ghs/submissions/${submissionId}/export`, {
+    responseType: 'blob'
+  });
+  return response.data;
+};
+
+export const exportReportToCSV = async (reportType: string, filters: ReportFilter) => {
+  // Use the existing export endpoint from your backend
+  const response = await api.get('/reports/export', {
+    params: { reportType, format: 'csv', ...filters },
+    responseType: 'blob'
+  });
+  return response.data; 
+};
+
+// ──────────────────────────────────────────────
+// FINANCIAL & CLINICAL REPORTS
+// ──────────────────────────────────────────────
+
+export const getFinancialReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/financial', { params });
+  return response.data;
+};
+
+export const getInsuranceClaimsReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/insurance-claims', { params });
+  return response.data;
+};
+
+export const getClinicalReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/clinical', { params });
+  return response.data;
+};
+
+export const getAttendanceReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/attendance', { params });
+  return response.data;
+};
+
+export const getRevenueReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/revenue', { params });
+  return response.data;
+};
+
+export const getDemographicReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/demographic', { params });
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// CLINICAL REPORTS (Lab, Scans, Procedures, Medications, Vitals)
+// ──────────────────────────────────────────────
+
+export const getLabReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/lab', { params });
+  return response.data;
+};
+
+export const getScanReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/scans', { params });
+  return response.data;
+};
+
+export const getProcedureReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/procedures', { params });
+  return response.data;
+};
+
+export const getMedicationReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/medications', { params });
+  return response.data;
+};
+
+export const getVitalsReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/vitals', { params });
+  return response.data;
+};
+
+export const getClinicalReports = async (filters?: any) => {
+  const response = await api.get('/clinical-reports', { params: filters });
+  return response.data.data || response.data;
+};
+
+export const getLabReportData = getLabReport;
+export const getScanReportData = getScanReport;
+export const getProcedureReportData = getProcedureReport;
+export const getMedicationReportData = getMedicationReport;
+export const getVitalsReportData = getVitalsReport;
+
+// ──────────────────────────────────────────────
+// EXPORT REPORT
+// ──────────────────────────────────────────────
+
+export const exportReport = async (data: { 
+  reportType: string; 
+  format: string; 
+  filters: ReportFilter;
+  data: any;
+}) => {
+  const response = await api.post('/reports/export', data);
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// ANTENATAL BOOKINGS
+// ──────────────────────────────────────────────
+
+export const getAntenatalBookings = async (filters?: { page?: number; limit?: number; isActive?: boolean; patientId?: string }) => {
+  const response = await api.get('/antenatal/bookings', { params: filters });
+  return response.data;
+};
+
+export const getActiveBookingByPatient = async (patientId: string) => {
+  const response = await api.get(`/antenatal/bookings/patient/${patientId}`);
+  return response.data;
+};
+
+export const getAntenatalBookingById = async (bookingId: string) => {
+  const response = await api.get(`/antenatal/booking/${bookingId}`);
+  return response.data;
+};
+
+export const createAntenatalBooking = async (data: AntenatalBookingData) => {
+  const response = await api.post('/antenatal/booking', data);
+  return response.data;
+};
+
+export const closeAntenatalBooking = async (bookingId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
+  const response = await api.put(`/antenatal/booking/${bookingId}/close`, data);
+  return response.data;
+};
+
+export const getANCStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/stats', { params: filters });
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// ANC VISITS
+// ──────────────────────────────────────────────
+
+export const getANCVisitsByBooking = async (bookingId: string) => {
+  const response = await api.get(`/antenatal/visits/booking/${bookingId}`);
+  return response.data;
+};
+
+export const getANCVisitById = async (id: string) => {
+  const response = await api.get(`/antenatal/visit/${id}`);
+  return response.data;
+};
+
+export const updateANCVisit = async (id: string, data: Partial<ANCVisitData>) => {
+  const response = await api.put(`/antenatal/visit/${id}`, data);
+  return response.data;
+};
+
+export const deleteANCVisit = async (id: string) => {
+  const response = await api.delete(`/antenatal/visit/${id}`);
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// DELIVERY RECORDS
+// ──────────────────────────────────────────────
+
+export const getDeliveries = async (filters?: { patientId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+  const response = await api.get('/antenatal/deliveries', { params: filters });
+  return response.data;
+};
+
+export const getDelivery = async (id: string) => {
+  const response = await api.get(`/antenatal/delivery/${id}`);
+  return response.data;
+};
+
+export const createDelivery = async (data: DeliveryRecordData) => {
+  const response = await api.post('/antenatal/delivery', data);
+  return response.data;
+};
+
+export const updateDelivery = async (id: string, data: Partial<DeliveryRecordData>) => {
+  const response = await api.put(`/antenatal/delivery/${id}`, data);
+  return response.data;
+};
+
+export const deleteDelivery = async (id: string) => {
+  const response = await api.delete(`/antenatal/delivery/${id}`);
+  return response.data;
+};
+
+export const getDeliveryStats = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/delivery/stats', { params: filters });
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// POSTNATAL RECORDS
+// ──────────────────────────────────────────────
+
+export const getPostnatals = async (filters?: { patientId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+  const response = await api.get('/antenatal/postnatals', { params: filters });
+  return response.data;
+};
+
+export const getPostnatal = async (id: string) => {
+  const response = await api.get(`/antenatal/postnatal/${id}`);
+  return response.data;
+};
+
+export const createPostnatal = async (data: PostnatalRecordData) => {
+  const response = await api.post('/antenatal/postnatal', data);
+  return response.data;
+};
+
+export const updatePostnatal = async (id: string, data: Partial<PostnatalRecordData>) => {
+  const response = await api.put(`/antenatal/postnatal/${id}`, data);
+  return response.data;
+};
+
+export const deletePostnatal = async (id: string) => {
+  const response = await api.delete(`/antenatal/postnatal/${id}`);
+  return response.data;
+};
+
+export const getPostnatalStats = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/postnatal/stats', { params: filters });
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// DEFAULT EXPORT
+// ──────────────────────────────────────────────
+
 export default {
   // Auth
-  login,
-  register,
-  verifyToken,
-  logout,
-  getUsers,
-  getUserStats,
-  getProfile,
-  updateProfile,
-  changePassword,
-  
+  login, register, verifyToken, logout, getUsers, getUserStats, getProfile, updateProfile, changePassword,
   // Settings
-  getHospitalDetails,
-  updateHospitalDetails,
-  getAllUsers,
-  updateUser,
-  deactivateUser,
-  
+  getHospitalDetails, updateHospitalDetails, getAllUsers, updateUser, deactivateUser,
+  getSystemSettings, updateSystemSettings, getNHISRates, updateNHISRates,
   // Hospital Info
-  getHospitals,
-  getHospital,
-  createHospital,
-  updateHospital,
-  deleteHospital,
-  getHospitalNHISSettings,
-  updateHospitalNHISSettings,
-  
-  // GDRG Tariffs
-  getGDRGTariffs,
-  getGDRGByCode,
-  createGDRGTariff,
-  updateGDRGTariff,
-  deleteGDRGTariff,
-  lookupGDRGByAge,
-  
-  // Diagnosis GDRG Links
-  getDiagnosesByGDRG,
-  linkDiagnosisToGDRG,
-  unlinkDiagnosisFromGDRG,
-  getGDRGByDiagnosis,
-  
-  // Procedure GDRG Links
-  linkProcedureToGDRG,
-  unlinkProcedureFromGDRG,
-  getProceduresByGDRG,
-  getGDRGByProcedure,
-  
+  getHospitals, getHospital, createHospital, updateHospital, deleteHospital,
+  getHospitalNHISSettings, updateHospitalNHISSettings,
+  // GDRG
+  getGDRGTariffs, getGDRGByCode, createGDRGTariff, updateGDRGTariff, deleteGDRGTariff, lookupGDRGByAge,
+  getDiagnosesByGDRG, linkDiagnosisToGDRG, unlinkDiagnosisFromGDRG, getGDRGByDiagnosis,
+  linkProcedureToGDRG, unlinkProcedureFromGDRG, getProceduresByGDRG, getGDRGByProcedure,
   // Insurance
-  getInsuranceProviders,
-  getInsuranceProvider,
-  createInsuranceProvider,
-  updateInsuranceProvider,
-  deleteInsuranceProvider,
-  
+  getInsuranceProviders, getInsuranceProvider, createInsuranceProvider, updateInsuranceProvider, deleteInsuranceProvider,
   // Insurance Claims
-  getInsuranceClaims,
-  getNHISClaims,
-  getPrivateInsuranceClaims,
-  getInsuranceClaim,
-  getClaimByAttendanceId,
-  generateNHISClaim,
-  generatePrivateInsuranceClaim,
-  updateInsuranceClaim,
-  finalizeClaim,
-  updateClaimStatus,
-  generateClaimXML,
-  generateClaimPrint,
-  getFinalizedClaimsTotal,
-  
-  // Batch Claims
-  createClaimBatch,
-  getClaimBatches,
-  getClaimBatch,
-  addClaimsToBatch,
-  removeClaimsFromBatch,
-  generateBatchXML,
-  updateBatchStatus,
-  deleteClaimBatch,
-  
+  getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getInsuranceClaim, getClaimByAttendanceId,
+  generateNHISClaim, generatePrivateInsuranceClaim, updateInsuranceClaim, updateClaimDraft, finalizeClaim,
+  updateClaimStatus, generateClaimXML, generateClaimPrint, getFinalizedClaimsTotal,
+  createClaimBatch, getClaimBatches, getClaimBatch, addClaimsToBatch, removeClaimsFromBatch,
+  generateBatchXML, updateBatchStatus, deleteClaimBatch,
   // Patients
-  getPatients,
-  getPatient,
-  createPatient,
-  updatePatient,
-  uploadPatientImage,
-  uploadPatientImageBase64,
-  deletePatient,
-  
+  getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
   // Attendances
-  getAttendances,
-  getAttendance,
-  createAttendance,
-  updateAttendance,
-  deleteAttendance,
-  updateAttendanceStatus,
-  
-  // Attendance clinical operations
-  addDiagnosisToAttendance,
-  removeDiagnosisFromAttendance,
-  addLabTestToAttendance,
-  updateLabTestStatus,
-  removeLabTestFromAttendance,
-  addProcedureToAttendance,
-  updateProcedureStatus,
-  removeProcedureFromAttendance,
-  addMedicationToAttendance,
-  updateMedicationStatus,
-  removeMedicationFromAttendance,
-  addScanToAttendance,
-  updateScanStatus,
-  removeScanFromAttendance,
-  addServiceToAttendance,
-  removeServiceFromAttendance,
-  assignBedToAttendance,
-  
-  // Vitals
-  addVitalsToAttendance,
-  getVitalsByAttendance,
-  updateVitals,
-  deleteVitals,
-  
-  // Progress Notes
-  addProgressNoteToAttendance,
-  removeProgressNoteFromAttendance,
-  
-  // Billing
-  getBillingBreakdown,
-  calculateAttendanceBill,
-  getAttendanceStats,
-  validateNHISClaim,
-  generateNHISClaimFromAttendance,
-  
-  // Bills & Payments
-  getBills,
-  getBill,
-  createBill,
-  updateBill,
-  deleteBill,
-  addPaymentToBill,
-  generateBillFromAttendance,
-  generateBillReport,
-  getBillingBreakdownForBill,
-  updateBillStatus,
-  getBillStatistics,
-  
+  getAttendances, getAttendance, createAttendance, updateAttendance, deleteAttendance, updateAttendanceStatus,
+  addDiagnosisToAttendance, removeDiagnosisFromAttendance,
+  addLabTestToAttendance, updateLabTestStatus, removeLabTestFromAttendance,
+  addProcedureToAttendance, updateProcedureStatus, removeProcedureFromAttendance,
+  addMedicationToAttendance, updateMedicationStatus, removeMedicationFromAttendance,
+  addScanToAttendance, updateScanStatus, removeScanFromAttendance,
+  addServiceToAttendance, removeServiceFromAttendance, assignBedToAttendance,
+  addVitalsToAttendance, getVitalsByAttendance, updateVitals, deleteVitals,
+  addProgressNoteToAttendance, removeProgressNoteFromAttendance,
+  getBillingBreakdown, calculateAttendanceBill, getAttendanceStats, validateNHISClaim, generateNHISClaimFromAttendance,
+  // Bills
+  getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromAttendance,
+  generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
+  getBillLineItems, voidBillLineItem,
   // Waivers
-  createWaiverRequest,
-  getWaivers,
-  getWaiverById,
-  updateWaiverStatus,
-  approveWaiver,
-  rejectWaiver,
-  getWaiversByBill,
-  getWaiversByPatient,
-  getWaiverStatistics,
-  deleteWaiver,
-  applyWaiverToBill,
-  
+  createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
+  getWaiversByBill, getWaiversByPatient, getWaiverStatistics, deleteWaiver, applyWaiverToBill,
   // Ward Charges
-  getWardCharges,
-  generateDailyWardCharges,
-  
-  // Receipt
-  generateReceipt,
-  
+  getWardCharges, generateDailyWardCharges,
   // Admissions
-  getAdmissions,
-  getAdmission,
-  createAdmission,
-  updateAdmission,
-  deleteAdmission,
-  dischargePatient,
-  updateAdmissionWithNHISData,
-  addDailyNotesToAdmission,
-  getAdmissionStats,
-  getAdmissionsByPatientId,
-  addSecondaryDiagnosisToAdmission,
-  removeSecondaryDiagnosisFromAdmission,
-  addDailyNoteToAdmission,
-  updateDailyNote,
-  deleteDailyNote,
-  
+  getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission, dischargePatient,
+  updateAdmissionWithNHISData, addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
+  addSecondaryDiagnosisToAdmission, removeSecondaryDiagnosisFromAdmission,
+  addDailyNoteToAdmission, updateDailyNote, deleteDailyNote,
   // Wards & Beds
-  getWards,
-  getWard,
-  createWard,
-  updateWard,
-  deleteWard,
-  getAvailableBeds,
-  getBeds,
-  getBed,
-  createBed,
-  updateBed,
-  deleteBed,
-  
-  // Stock Management
-  getStockItems,
-  getStockItem,
-  createStockItem,
-  updateStockItem,
-  deleteStockItem,
-  getLowStockItems,
-  getStockCategories,
-  updateStockLevel,
-  getStockItemTransactionHistory,
-  getStockValueSummary,
-  getExpiryReport,
-  getMovementSummary,
-  getUsageReport,
-  getSupplierReport,
-  getRequisitionSummary,
-  
-  // Stock Transactions
-  getStockTransactions,
-  getStockTransaction,
-  createStockTransaction,
-  updateStockTransaction,
-  getStockMovementReport,
-  getLowStockAlerts,
-  
-  // Invoices
-  getInvoices,
-  getInvoice,
-  createInvoice,
-  updateInvoice,
-  deleteInvoice,
-  
-  // Requisitions
-  getRequisitions,
-  getRequisition,
-  createRequisition,
-  updateRequisition,
-  deleteRequisition,
-  updateRequisitionStatus,
-  submitRequisition,
-  approveRequisition,
-  fulfillRequisition,
-  cancelRequisition,
-  approveRequisitionItems,
-  
+  getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds,
+  getBeds, getBed, createBed, updateBed, deleteBed,
+  // Stock
+  getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,
+  getStockCategories, updateStockLevel, getStockItemTransactionHistory,
+  getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport, getSupplierReport, getRequisitionSummary,
+  getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction,
+  getStockMovementReport, getLowStockAlerts,
+  // Invoices & Requisitions
+  getInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
+  getRequisitions, getRequisition, createRequisition, updateRequisition, deleteRequisition,
+  updateRequisitionStatus, submitRequisition, approveRequisition, fulfillRequisition, cancelRequisition, approveRequisitionItems,
   // Referrals
-  getReferrals,
-  getReferralById,
-  createOutgoingReferral,
-  createIncomingReferral,
-  updateReferralStatus,
-  updateReferral,
-  deleteReferral,
-  getReferralsByPatient,
-  generateReferralLetter,
-  getReferralStats,
-  
+  getReferrals, getReferralById, createOutgoingReferral, createIncomingReferral, updateReferralStatus,
+  updateReferral, deleteReferral, getReferralsByPatient, getReferralStats,
   // Medical Services
-  getDiagnoses,
-  getDiagnosis,
-  createDiagnosis,
-  updateDiagnosis,
-  deleteDiagnosis,
-  searchDiagnoses,
-  getDiagnosisStats,
-  bulkUpdateDiagnoses,
-  getLabTestTemplates,
-  getLabTestTemplate,
-  createLabTestTemplate,
-  updateLabTestTemplate,
-  deleteLabTestTemplate,
-  getLabTestCategories,
-  getLabTestSubCategories,
-  getSpecimenTypes,
-  bulkUpdateLabTestTemplates,
-  getProcedureTemplates,
-  getProcedureTemplate,
-  createProcedureTemplate,
-  updateProcedureTemplate,
-  deleteProcedureTemplate,
-  getProcedureCategories,
-  getProcedureDepartments,
-  bulkUpdateProcedureTemplates,
-  getScanTemplates,
-  getScanTemplate,
-  createScanTemplate,
-  updateScanTemplate,
-  deleteScanTemplate,
-  getScanCategories,
-  getScanBodyParts,
-  getScanTypes,
-  bulkUpdateScanTemplates,
-  
-  // Service Catalog
-  getServiceCatalog,
-  getServiceCatalogItem,
-  createServiceCatalogItem,
-  updateServiceCatalogItem,
-  deleteServiceCatalogItem,
-  getServiceMetadata,
-  getNHISReadinessReport,
-  getServiceByNHISCode,
-  getServicesByCategory,
-  checkServiceCoverage,
-  calculateServiceCost,
-  
+  getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,
+  getMorbidityGroups, getDiagnosesByMorbidityGroup, getDiagnosisStats, bulkUpdateDiagnoses,
+  getLabTestTemplates, getLabTestTemplate, createLabTestTemplate, updateLabTestTemplate, deleteLabTestTemplate,
+  getLabTestCategories, getLabTestSubCategories, getSpecimenTypes, bulkUpdateLabTestTemplates,
+  getProcedureTemplates, getProcedureTemplate, createProcedureTemplate, updateProcedureTemplate, deleteProcedureTemplate,
+  getProcedureCategories, getProcedureDepartments, bulkUpdateProcedureTemplates,
+  getScanTemplates, getScanTemplate, createScanTemplate, updateScanTemplate, deleteScanTemplate,
+  getScanCategories, getScanBodyParts, getScanTypes, bulkUpdateScanTemplates,
+  getServiceCatalog, getServiceCatalogItem, createServiceCatalogItem, updateServiceCatalogItem, deleteServiceCatalogItem,
+  getServiceMetadata, getNHISReadinessReport, getServiceByNHISCode, getServicesByCategory,
+  checkServiceCoverage, calculateServiceCost,
   // Consultation Types
-  getConsultationTypes,
-  getConsultationType,
-  createConsultationType,
-  updateConsultationType,
-  deleteConsultationType,
-  
+  getConsultationTypes, getConsultationType, createConsultationType, updateConsultationType, deleteConsultationType,
   // Departments
-  getDepartments,
-  getDepartment,
-  createDepartment,
-  updateDepartment,
-  deleteDepartment,
-  getDepartmentStats,
-  getDepartmentUsers,
-  assignUserToDepartment,
-  removeUserFromDepartment,
-  assignDepartmentHead,
-  bulkUpdateDepartments,
-  
+  getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment,
+  getDepartmentStats, getDepartmentUsers, assignUserToDepartment, removeUserFromDepartment,
+  assignDepartmentHead, bulkUpdateDepartments,
   // Appointments
-  getAppointments,
-  getAppointment,
-  createAppointment,
-  updateAppointment,
-  deleteAppointment,
-  updateAppointmentStatus,
-  checkInAppointment,
-  getAppointmentStatistics,
-  getDoctorSchedule,
-  getAvailableSlots,
-  
+  getAppointments, getAppointment, createAppointment, updateAppointment, deleteAppointment,
+  updateAppointmentStatus, checkInAppointment, getAppointmentStatistics, getDoctorSchedule, getAvailableSlots,
   // Notifications
-  getNotifications,
-  getNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-  getNotificationStats,
-  createNotification,
-  sendBulkNotification,
-  sendRoleNotification,
-  sendUserMessage,
-  sendBulkUserMessages,
-  getConversations,
-  triggerLowStockCheck,
-  triggerAppointmentReminders,
-  cleanupOldNotifications,
-  getUnreadCount,
-  
+  getNotifications, getNotification, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
+  getNotificationStats, createNotification, sendBulkNotification, sendRoleNotification, sendUserMessage,
+  sendBulkUserMessages, getConversations, triggerLowStockCheck, triggerAppointmentReminders,
+  cleanupOldNotifications, getUnreadCount,
   // Users
-  getUsersByDepartment,
-  updateUserDepartment,
-  
+  getUsersByDepartment, updateUserDepartment,
   // Dashboard
-  getDashboardStats,
-  getAppointmentCalendar,
-  
-  // Reports
-  getFinancialReport,
-  getInsuranceClaimsReport,
-  getClinicalReport,
-  getAttendanceReport,
-  getRevenueReport,
-  exportReport,
-  getGHSOPDReport,
-  getGHSIPDReport,
-  getGHSDeliveryReport,
-  getGHSFormAReport,
-  getGHSMalariaReport,
-  getGHSIDSRReport,
-  getGHSFamilyPlanningReport,
-  getMorbidityMortalityReport,
-  getDemographicReport,
-  getTopDiagnoses,
-  exportGHSReportToCSV,
-  getGHSReportSubmissions,
-  getGHSReportSubmissionById,
-  getLabReport,
-  getScanReport,
-  getProcedureReport,
-  getMedicationReport,
-  getVitalsReport,
-  
-  // Backup
-  createBackup,
-  restoreBackup,
-  getBackupList,
-  downloadBackup,
-  deleteBackup,
-  
-  // Upload
-  servePatientImages,
-  serveScanImages,
-  serveDocuments,
-
-  // Antenatal (imported from ./antenatal)
-  getAntenatalBookings,
-  getActiveBookingByPatient,
-  getAntenatalBookingById,
-  createAntenatalBooking,
-  closeAntenatalBooking,
-  getANCStatistics,
-  getANCVisitsByBooking,
-  getANCVisitById,
-  updateANCVisit,
-  deleteANCVisit,
-  getDeliveries,
-  getDelivery,
-  createDelivery,
-  updateDelivery,
-  deleteDelivery,
-  getDeliveryStats,
-  getPostnatals,
-  getPostnatal,
-  createPostnatal,
-  updatePostnatal,
-  deletePostnatal,
-  getPostnatalStats,
-
-  // Documents (imported from ./documentApi)
-  generateReceipt: documentApi.generateReceipt,
-  generateBillStatement: documentApi.generateBillStatement,
-  generateReferralLetter: documentApi.generateReferralLetter,
-  generateDischargeSummary: documentApi.generateDischargeSummary,
-  generateLabResult: documentApi.generateLabResult,
-  generatePrescription: documentApi.generatePrescription,
-  getDocumentsByEntity: documentApi.getDocumentsByEntity,
-  downloadDocument: documentApi.downloadDocument,
-  reprintDocument: documentApi.reprintDocument,
-  getTemplates: documentApi.getTemplates,
-  createTemplate: documentApi.createTemplate,
-  updateTemplate: documentApi.updateTemplate,
-  deleteTemplate: documentApi.deleteTemplate,
-
-  // Settings
-  getSystemSettings,
-  updateSystemSettings,
-  getNHISRates,
-  updateNHISRates,
-
+  getDashboardStats, getAppointmentCalendar,
   // Worklist
-  getWorklists,
-  getWorklist,
-  updateWorklist,
-  completeWorklist,
-
-  // Clinical Reports
-  getClinicalReports,
-  getLabReportData,
-  getScanReportData,
-  getProcedureReportData,
-  getMedicationReportData,
-  getVitalsReportData
+  getWorklists, getWorklist, updateWorklist, completeWorklist,
+  // Backup
+  createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup,
+  // Documents
+  generateReceipt, generateBillStatement, generateReferralLetter, generateDischargeSummary,
+  generateLabResult, generatePrescription, getDocumentsByEntity, downloadDocument, reprintDocument,
+  getTemplates, createTemplate, updateTemplate, deleteTemplate,
+  // Reports
+  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
+  getMorbidityMortalityReport, getTopDiagnoses, getGHSDeliveryReport, getGHSFamilyPlanningReport,
+  getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
+  getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getAttendanceReport,
+  getRevenueReport, getDemographicReport, exportReport,
+  getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
+  getClinicalReports, getLabReportData, getScanReportData, getProcedureReportData,
+  getMedicationReportData, getVitalsReportData,   getFamilyPlanningReport, exportReportToCSV,  
+  // Antenatal
+  getAntenatalBookings, getActiveBookingByPatient, getAntenatalBookingById, createAntenatalBooking,
+  closeAntenatalBooking, getANCStatistics,
+  getANCVisitsByBooking, getANCVisitById, updateANCVisit, deleteANCVisit,
+  getDeliveries, getDelivery, createDelivery, updateDelivery, deleteDelivery, getDeliveryStats,
+  getPostnatals, getPostnatal, createPostnatal, updatePostnatal, deletePostnatal, getPostnatalStats,
+  // Upload
+  servePatientImages, serveScanImages, serveDocuments
 };
