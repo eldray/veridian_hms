@@ -164,6 +164,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     notifications, 
     unreadCount, 
     getNotifications, 
+    getUnreadCount,
     deleteNotification,
     markAsRead, 
     markAllAsRead,
@@ -185,24 +186,27 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     loadHospital();
   }, [fetchHospital]);
 
-  // Load notifications on mount
+  // Load notifications on mount and set up real-time updates
   useEffect(() => {
     const loadNotifications = async () => {
       try {
         await getNotifications({ limit: 10 });
+        // Also fetch the latest unread count
+        await getUnreadCount();
       } catch (error) {
         console.error('Error loading notifications:', error);
       }
     };
     loadNotifications();
     
-    // Set up interval to refresh notifications every 30 seconds
+    // Set up interval to refresh notifications and unread count every 30 seconds
     const interval = setInterval(() => {
       getNotifications({ limit: 10 }).catch(console.error);
+      getUnreadCount().catch(console.error);
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [getNotifications]);
+  }, [getNotifications, getUnreadCount]);
 
 
   const handleLogout = () => {
@@ -377,6 +381,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             onClick={async () => {
                               await markAllAsRead();
                               await getNotifications({ limit: 10 });
+                              await getUnreadCount();
                             }}
                             className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
                           >
@@ -412,10 +417,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             {/* Clickable content area */}
                             <div 
                               className="flex-1 min-w-0 cursor-pointer"
-                              onClick={() => {
+                              onClick={async () => {
                                 // Mark as read first if unread
                                 if (!notification.isRead) {
-                                  markAsRead(notification.id);
+                                  await markAsRead(notification.id);
+                                  // Refresh unread count
+                                  await getUnreadCount();
                                 }
                                 
                                 // Close dropdown

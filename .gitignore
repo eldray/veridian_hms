@@ -1,22 +1,26 @@
 ```
 # Dependencies
 node_modules/
+.pnpm-store/
+.npm/
 
 # Build outputs
 dist/
 build/
-target/
+.next/
+out/
+.nuxt/
+public/dist/
 
-# TypeScript/JavaScript
-*.js.map
+# TypeScript
 *.tsbuildinfo
-.nyc_output/
-coverage/
+*.tsx
 
 # Environment variables
 .env
 .env.local
 .env.*
+!.env.example
 
 # IDE files
 .vscode/
@@ -24,62 +28,14 @@ coverage/
 *.swp
 *.swo
 
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-
-# OS generated files
+# OS files
 .DS_Store
 Thumbs.db
 
-# Python (if present)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-htmlcov/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
+# Logs
+*.log
 
-# Go (if present)
-*.out
-
-# Java (if present)
-*.class
-*.jar
-*.war
-*.ear
-hs_err_pid*
-replay_pid*
-
-# C/C++ (if present)
-*.o
-*.a
-*.so
-*.dll
-*.dylib
-*.exe
-
-# Ruby (if present)
-*.gem
-*.rbc
-.bundle/
-.rbenv-gemsets/
-.rbenv-version/
-.gem/
-.gems/
-.installed.cfg
-.lib/
-.lock/
+# Coverage
+coverage/
+.nyc_output/
 ```

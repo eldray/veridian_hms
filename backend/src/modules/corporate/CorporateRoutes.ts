@@ -56,6 +56,21 @@ export class CorporateRoutes {
       this.corporateController.deactivateAccount.bind(this.corporateController)
     );
 
+    // Monthly Billing Routes
+    this.router.post(
+      '/:id/bills',
+      authenticate,
+      authorize(['admin', 'finance_manager']),
+      this.corporateController.generateMonthlyBill.bind(this.corporateController)
+    );
+
+    this.router.get(
+      '/:id/bills',
+      authenticate,
+      authorize(['admin', 'finance_manager', 'receptionist']),
+      this.corporateController.getMonthlyBills.bind(this.corporateController)
+    );
+
     // Corporate Employee Routes
     this.router.get(
       '/:accountId/employees',

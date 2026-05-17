@@ -1076,6 +1076,183 @@ export const getPrivateInsuranceClaims = async (req: AuthRequest, res: Response)
 };
 
 // ==========================================
+// CORPORATE CLAIM FUNCTIONS
+// ==========================================
+
+export const generateCorporateClaim = [
+  body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
+  
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const { attendanceId } = req.body;
+      if (!req.user?.id) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const existingClaim = await tx.insuranceClaim.findFirst({
+          where: { attendanceId, InsuranceProvider: { type: 'corporate' } }
+        });
+        if (existingClaim) return { claim: existingClaim, isExisting: true };
+
+        const attendance = await tx.attendance.findUnique({
+          where: { id: attendanceId },
+          include: {
+            Patient: true,
+            InsuranceProvider: true,
+            CorporateAccount: true,
+            Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } },
+            AttendanceDiagnosis: { include: { Diagnosis: true } },
+            ServiceRendered: { include: { ServiceCatalog: true } },
+            LabTest: { include: { ServiceCatalog: true } },
+            Medication: { include: { ServiceCatalog: true } },
+            Procedure: { include: { ServiceCatalog: true } },
+            Scan: { include: { ServiceCatalog: true } },
+            Admission: true
+          }
+        });
+
+        if (!attendance) throw new Error('Attendance not found');
+        if (!attendance.InsuranceProvider || attendance.InsuranceProvider.type !== 'corporate') {
+          throw new Error('Attendance is not for corporate insurance');
+        }
+        if (!attendance.corporateAccountId) {
+          throw new Error('Corporate account ID is required');
+        }
+
+        // Verify corporate account is active and has credit limit
+        const corporateAccount = await tx.corporateAccount.findUnique({
+          where: { id: attendance.corporateAccountId }
+        });
+
+        if (!corporateAccount || !corporateAccount.isActive) {
+          throw new Error('Corporate account is not active');
+        }
+
+        const claimNumber = `CORP-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const diagnosisCodes = safeMap(attendance.AttendanceDiagnosis, d => d.Diagnosis?.icdCode);
+        const procedureCodes = safeMap(attendance.Procedure, p => p.ServiceCatalog?.code);
+        const labTestCodes = safeMap(attendance.LabTest, lt => lt.ServiceCatalog?.code);
+        const scanCodes = safeMap(attendance.Scan, s => s.ServiceCatalog?.code);
+        const serviceCodes = safeMap(attendance.ServiceRendered, s => s.ServiceCatalog?.code);
+        const medicationCodes = safeMap(attendance.Medication, m => 
+          m.StockItem?.drugCode || m.ServiceCatalog?.code
+        );
+        const totalClaimAmount = attendance.Bill?.totalAmount || 0;
+
+        // Check credit limit
+        const outstandingBalance = await tx.insuranceClaim.aggregate({
+          where: {
+            insuranceProviderId: attendance.insuranceProviderId,
+            corporateAccountId: attendance.corporateAccountId,
+            status: { in: ['submitted', 'approved'] }
+          },
+          _sum: { totalClaimAmount: true }
+        });
+
+        const currentBalance = (outstandingBalance._sum.totalClaimAmount || 0);
+        const projectedBalance = currentBalance + totalClaimAmount;
+
+        if (projectedBalance > (corporateAccount.creditLimit || 0)) {
+          throw new Error(`Claim would exceed corporate credit limit. Current: GHS ${currentBalance.toFixed(2)}, Limit: GHS ${corporateAccount.creditLimit}`);
+        }
+
+        const claim = await tx.insuranceClaim.create({
+          data: {
+            claimNumber,
+            billId: attendance.Bill?.id,
+            patientId: attendance.patientId,
+            attendanceId: attendance.id,
+            insuranceProviderId: attendance.insuranceProviderId,
+            corporateAccountId: attendance.corporateAccountId,
+            totalClaimAmount,
+            status: 'submitted', // Corporate claims auto-submit as they're credit-based
+            createdById: req.user.id,
+            diagnosisCodes,
+            procedureCodes,
+            labTestCodes,
+            scanCodes,
+            serviceCodes,
+            medicationCodes,
+            notes: `Corporate claim - Employee ID: ${attendance.corporateEmployeeId || 'N/A'}. Itemized billing.`
+          }
+        });
+
+        await tx.attendance.update({
+          where: { id: attendanceId },
+          data: { insuranceClaimId: claim.id }
+        });
+
+        return { claim, isExisting: false, creditInfo: { currentBalance, projectedBalance, limit: corporateAccount.creditLimit } };
+      });
+
+      res.status(201).json({
+        success: true,
+        message: result.isExisting ? 'Corporate claim already exists' : 'Corporate claim generated',
+        data: result.claim,
+        creditInfo: result.creditInfo
+      });
+    } catch (error: any) {
+      console.error('Error generating corporate claim:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+];
+
+export const getCorporateClaims = async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, patientId, startDate, endDate, corporateAccountId, page = 1, limit = 50 } = req.query;
+    const where: any = { InsuranceProvider: { type: 'corporate' } };
+    if (status) where.status = status as string;
+    if (patientId) where.patientId = patientId as string;
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId as string;
+    
+    // Add date range filtering based on attendance dateTime
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) {
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: new Date(startDate as string) };
+      }
+      if (endDate) {
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: endDateObj };
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, parseInt(limit as string));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [claims, total] = await Promise.all([
+      prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          InsuranceProvider: { select: { id: true, name: true, type: true } },
+          CorporateAccount: { select: { id: true, companyName: true, companyCode: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } },
+          Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.insuranceClaim.count({ where })
+    ]);
+
+    res.json({ success: true, data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching corporate claims' });
+  }
+};
+
+// ==========================================
 // COMMON CLAIM FUNCTIONS
 // ==========================================
 

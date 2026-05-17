@@ -20,12 +20,20 @@ export class EncounterController {
       'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup',
       'specialist_consultation', 'delivery', 'surgery'
     ]).withMessage('Valid encounter type is required'),
-    body('paymentMode').isIn(['cash', 'nhis', 'private_insurance'])
+    body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate'])
       .withMessage('Valid payment mode is required'),
     body('nhisCCC').optional().custom((value, { req }) => {
       if (req.body.paymentMode === 'nhis') {
         if (!value || !/^\d{5}$/.test(value)) {
           throw new Error('NHIS CCC number must be exactly 5 digits');
+        }
+      }
+      return true;
+    }),
+    body('corporateAccountId').optional().custom((value, { req }) => {
+      if (req.body.paymentMode === 'corporate') {
+        if (!value) {
+          throw new Error('Corporate Account ID is required for corporate payment mode');
         }
       }
       return true;

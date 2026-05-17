@@ -53,6 +53,10 @@ export class NotificationService extends BaseService {
     return this.notificationRepository.getStats(userId);
   }
 
+  async getUnreadCount(userId: string) {
+    return this.notificationRepository.getUnreadCount(userId);
+  }
+
   async markAsRead(notificationId: string, userId: string) {
     const result = await this.notificationRepository.markAsRead(notificationId, userId);
     if (!result) {

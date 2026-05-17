@@ -106,3 +106,45 @@ export interface CorporateStatistics {
   accountsWithDebt: number;
   averageCreditUtilization: number;
 }
+
+export interface GenerateMonthlyBillDTO {
+  accountId: string;
+  month: number; // 1-12
+  year: number;
+  discountPercentage?: number;
+  generatedById: string;
+}
+
+export interface MonthlyBillSummary {
+  accountId: string;
+  companyName: string;
+  month: number;
+  year: number;
+  encounters: CorporateEncounterDetail[];
+  subtotal: number;
+  discountAmount: number;
+  discountPercentage: number;
+  totalAmount: number;
+  proformaInvoiceId?: string;
+  generatedAt: Date;
+}
+
+export interface CorporateEncounterDetail {
+  encounterId: string;
+  attendanceId: string;
+  patientName: string;
+  employeeId?: string;
+  employeeName?: string;
+  visitDate: Date;
+  diagnosis?: string;
+  items: BillItemDetail[];
+  totalAmount: number;
+}
+
+export interface BillItemDetail {
+  itemName: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}

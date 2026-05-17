@@ -140,4 +140,54 @@ export class CorporateController extends BaseController {
       this.handleError(res, error);
     }
   }
+
+  async generateMonthlyBill(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { month, year, discountPercentage } = req.body;
+      const generatedById = (req as any).user?.id;
+
+      if (!month || !year) {
+        throw new Error('Month and year are required');
+      }
+
+      // Generate the bill summary
+      const billSummary = await this.corporateService.generateMonthlyBill({
+        accountId: id,
+        month,
+        year,
+        discountPercentage,
+        generatedById
+      });
+
+      // Generate PDF document
+      const { DocumentGeneratorService } = await import('../../services/DocumentGeneratorService');
+      const pdfResult = await DocumentGeneratorService.generateCorporateMonthlyBill(
+        billSummary,
+        generatedById
+      );
+
+      const response = {
+        ...billSummary,
+        documentId: pdfResult.documentId,
+        filePath: pdfResult.filePath
+      };
+
+      this.handleSuccess(res, 201, 'Monthly bill generated successfully', response);
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  }
+
+  async getMonthlyBills(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const filters = req.query;
+      
+      const bills = await this.corporateService.getMonthlyBills(id, filters);
+      this.handleSuccess(res, 200, 'Monthly bills retrieved successfully', bills);
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  }
 }

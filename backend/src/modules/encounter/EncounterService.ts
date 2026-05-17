@@ -21,6 +21,11 @@ export class EncounterService {
       throw new Error('NHIS CCC number is required for NHIS payments');
     }
 
+    // Validate Corporate Account if payment mode is Corporate
+    if (data.paymentMode === 'corporate' && !data.corporateAccountId) {
+      throw new Error('Corporate Account ID is required for corporate payments');
+    }
+
     // Auto-link NHIS provider if needed
     let insuranceProviderId = data.insuranceProviderId;
     if (data.paymentMode === 'nhis' && !insuranceProviderId) {
@@ -34,9 +39,22 @@ export class EncounterService {
       }
     }
 
-    // For cash payments, ensure no provider is set
-    if (data.paymentMode === 'cash') {
+    // For cash and corporate payments, ensure no insurance provider is set
+    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') {
       insuranceProviderId = null;
+    }
+
+    // Verify corporate account exists if provided
+    if (data.corporateAccountId) {
+      const corporateAccount = await this.prisma.corporateAccount.findUnique({
+        where: { id: data.corporateAccountId }
+      });
+      if (!corporateAccount) {
+        throw new Error('Corporate account not found');
+      }
+      if (!corporateAccount.isActive) {
+        throw new Error('Corporate account is not active');
+      }
     }
 
     // Create the encounter

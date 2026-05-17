@@ -1143,7 +1143,7 @@ export const getAttendanceById = async (req: Request, res: Response) => {
 export const createAttendance = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('attendanceType').isIn(VALID_ATTENDANCE_TYPES).withMessage('Valid attendance type is required'),
-  body('paymentMode').isIn(['cash', 'nhis', 'private_insurance']).withMessage('Valid payment mode is required'),
+  body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Valid payment mode is required'),
   
   // NHIS CCC validation
   body('nhisCCC')
@@ -1223,6 +1223,10 @@ export const createAttendance = [
         return res.status(400).json({ message: 'Insurance provider is required for private insurance attendances' });
       }
 
+      if (req.body.paymentMode === 'corporate' && !req.body.corporateAccountId) {
+        return res.status(400).json({ message: 'Corporate account is required for corporate attendances' });
+      }
+
       const user = (req as any).user;
       if (!user || !user.id) {
         return res.status(401).json({ message: 'User authentication required' });
@@ -1234,6 +1238,7 @@ export const createAttendance = [
 
       // AUTO-SET PROVIDER BASED ON PAYMENT MODE
       let insuranceProviderId = req.body.insuranceProviderId;
+      let corporateAccountId = req.body.corporateAccountId;
       
       if (req.body.paymentMode === 'nhis' && !insuranceProviderId) {
         const nhisProvider = await prisma.insuranceProvider.findFirst({
@@ -1253,6 +1258,25 @@ export const createAttendance = [
       // For cash payments, ensure no provider is set
       if (req.body.paymentMode === 'cash') {
         insuranceProviderId = null;
+      }
+
+      // For corporate payments, validate corporate account
+      if (req.body.paymentMode === 'corporate' && corporateAccountId) {
+        const corporateAccount = await prisma.corporateAccount.findUnique({
+          where: { id: corporateAccountId },
+          include: { employees: true }
+        });
+        
+        if (!corporateAccount || !corporateAccount.isActive) {
+          return res.status(400).json({
+            message: 'Invalid or inactive corporate account'
+          });
+        }
+        
+        // Link to the corporate account's insurance provider if available
+        if (corporateAccount.insuranceProviderId) {
+          insuranceProviderId = corporateAccount.insuranceProviderId;
+        }
       }
 
       // Fetch previous attendances for chronic conditions

@@ -7,6 +7,9 @@ import {
   // Private
   generatePrivateInsuranceClaim,
   getPrivateInsuranceClaims,
+  // Corporate
+  generateCorporateClaim,
+  getCorporateClaims,
   // Common
   getAllInsuranceClaims,  // ✅ ADD THIS IMPORT
   getInsuranceClaim,
@@ -49,6 +52,12 @@ router.get('/nhis', requireAccountsStaff, getNHISClaims);
 // ==========================================
 router.post('/private/generate', requireAccountsStaff, generatePrivateInsuranceClaim);
 router.get('/private', requireAccountsStaff, getPrivateInsuranceClaims);
+
+// ==========================================
+// CORPORATE CLAIMS
+// ==========================================
+router.post('/corporate/generate', requireAccountsStaff, generateCorporateClaim);
+router.get('/corporate', requireAccountsStaff, getCorporateClaims);
 
 // ==========================================
 // COMMON CLAIM OPERATIONS

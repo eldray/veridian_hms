@@ -15,7 +15,7 @@ export type UserRole =
   | 'sonographer';
 
 export type Gender = 'male' | 'female' | 'other';
-export type PaymentMode = 'cash' | 'nhis' | 'private_insurance';
+export type PaymentMode = 'cash' | 'nhis' | 'private_insurance' | 'corporate';
 export type PaymentMethod = 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | 'cheque';
 
 // Attendance
