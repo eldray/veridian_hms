@@ -85,7 +85,7 @@ export interface RequisitionItem {
 
 export interface AntenatalBookingData {
   patientId: string;
-  attendanceId: string;
+  encounterId: string;
   lmp?: string;
   gravida: number;
   para: number;
@@ -103,7 +103,7 @@ export interface AntenatalBookingData {
 }
 
 export interface ANCVisitData {
-  attendanceId: string;
+  encounterId: string;
   gestationalAgeWeeks?: number;
   weight?: number;
   bloodPressure?: string;
@@ -140,7 +140,7 @@ export interface ANCVisitData {
 
 export interface DeliveryRecordData {
   patientId: string;
-  attendanceId: string;
+  encounterId: string;
   antenatalBookingId?: string;
   deliveryDate?: string;
   deliveryType?: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
@@ -160,7 +160,7 @@ export interface DeliveryRecordData {
 
 export interface PostnatalRecordData {
   patientId: string;
-  attendanceId: string;
+  encounterId: string;
   antenatalBookingId?: string;
   deliveryRecordId?: string;
   examinationDate?: string;
@@ -476,14 +476,14 @@ export const deleteInsuranceProvider = (id: string) =>
 // INSURANCE CLAIMS
 // ──────────────────────────────────────────────
 
-export const generateNHISClaim = (attendanceId: string) => 
-  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
+export const generateNHISClaim = (encounterId: string) => 
+  api.post('/insurance-claims/nhis/generate', { encounterId }).then(r => r.data);
 
 export const getNHISClaims = (filters?: any) => 
   api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
 
-export const generatePrivateInsuranceClaim = (attendanceId: string) => 
-  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
+export const generatePrivateInsuranceClaim = (encounterId: string) => 
+  api.post('/insurance-claims/private/generate', { encounterId }).then(r => r.data);
 
 export const getPrivateInsuranceClaims = (filters?: any) => 
   api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
@@ -494,8 +494,8 @@ export const getInsuranceClaims = (filters?: any) =>
 export const getInsuranceClaim = (id: string) => 
   api.get(`/insurance-claims/${id}`).then(r => r.data);
 
-export const getClaimByAttendanceId = (attendanceId: string) => 
-  api.get(`/insurance-claims/attendance/${attendanceId}`).then(r => r.data);
+export const getClaimByEncounterId = (encounterId: string) => 
+  api.get(`/insurance-claims/encounters/${encounterId}`).then(r => r.data);
 
 export const updateClaimDraft = (claimId: string, data: any) => 
   api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
@@ -610,88 +610,88 @@ export const deletePatient = (id: string) =>
 // ATTENDANCES
 // ──────────────────────────────────────────────
 
-export const getAttendances = (filters?: any) => 
-  api.get('/attendances', { params: filters }).then(r => {
-    const attendances = handleResponse<Attendance>(r.data);
+export const getEncounters = (filters?: any) => 
+  api.get('/encounters', { params: filters }).then(r => {
+    const encounters = handleResponse<any>(r.data);
     return { 
-      data: attendances, 
-      attendances: attendances,
+      data: encounters, 
+      encounters: encounters,
       pagination: r.data.pagination 
     };
   });
 
-export const getAttendance = (id: string) => {
+export const getEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
-    return Promise.reject(new Error('Valid Attendance ID is required'));
+    return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.get(`/attendances/${id}`).then(r => {
+  return api.get(`/encounters/${id}`).then(r => {
     const attendance = r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
-export const createAttendance = (data: any) => 
-  api.post('/attendances', data).then(r => {
+export const createEncounter = (data: any) => 
+  api.post('/encounters', data).then(r => {
     const attendance = r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 
-export const updateAttendance = (id: string, data: any) => {
+export const updateEncounter = (id: string, data: any) => {
   if (!id || id === 'undefined' || id === 'null') {
-    return Promise.reject(new Error('Valid Attendance ID is required'));
+    return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.put(`/attendances/${id}`, data).then(r => {
+  return api.put(`/encounters/${id}`, data).then(r => {
     const attendance = r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
-export const deleteAttendance = (id: string) => {
+export const deleteEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
-    return Promise.reject(new Error('Valid Attendance ID is required'));
+    return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.delete(`/attendances/${id}`).then(r => r.data);
+  return api.delete(`/encounters/${id}`).then(r => r.data);
 };
 
-export const updateAttendanceStatus = (id: string, data: any) => {
+export const updateEncounterStatus = (id: string, data: any) => {
   if (!id || id === 'undefined' || id === 'null') {
-    return Promise.reject(new Error('Valid Attendance ID is required'));
+    return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.patch(`/attendances/${id}/status`, data).then(r => {
+  return api.patch(`/encounters/${id}/status`, data).then(r => {
     const attendance = r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
 // Diagnosis Operations
-export const addDiagnosisToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/diagnoses`, data).then(r => r.data);
+export const addDiagnosisToEncounter = (encounterId: string, data: any) => 
+  api.post(`/encounters/${encounterId}/diagnoses`, data).then(r => r.data);
 
-export const removeDiagnosisFromAttendance = (attendanceId: string, diagnosisId: string) => 
-  api.delete(`/attendances/${attendanceId}/diagnoses/${diagnosisId}`).then(r => r.data);
+export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: string) => 
+  api.delete(`/encounters/${encounterId}/diagnoses/${diagnosisId}`).then(r => r.data);
 
 // Lab Test Operations
-export const addLabTestToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/lab-tests`, data).then(r => r.data);
+export const addLabTestToEncounter = (encounterId: string, data: any) => 
+  api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => r.data);
 
-export const updateLabTestStatus = (attendanceId: string, labTestId: string, data: any) => 
-  api.patch(`/attendances/${attendanceId}/lab-tests/${labTestId}`, data).then(r => r.data);
+export const updateLabTestInEncounter = (encounterId: string, labTestId: string, data: any) => 
+  api.patch(`/encounters/${encounterId}/lab-tests/${labTestId}`, data).then(r => r.data);
 
-export const removeLabTestFromAttendance = (attendanceId: string, labTestId: string) => 
-  api.delete(`/attendances/${attendanceId}/lab-tests/${labTestId}`).then(r => r.data);
+export const removeLabTestFromEncounter = (encounterId: string, labTestId: string) => 
+  api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => r.data);
 
 // Procedure Operations
-export const addProcedureToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/procedures`, data).then(r => r.data);
+export const addProcedureToEncounter = (encounterId: string, data: any) => 
+  api.post(`/encounters/${encounterId}/procedures`, data).then(r => r.data);
 
-export const updateProcedureStatus = (attendanceId: string, procedureId: string, data: any) => 
-  api.patch(`/attendances/${attendanceId}/procedures/${procedureId}`, data).then(r => r.data);
+export const updateProcedureStatus = (encounterId: string, procedureId: string, data: any) => 
+  api.patch(`/encounters/${encounterId}/procedures/${procedureId}`, data).then(r => r.data);
 
-export const removeProcedureFromAttendance = (attendanceId: string, procedureId: string) => 
-  api.delete(`/attendances/${attendanceId}/procedures/${procedureId}`).then(r => r.data);
+export const removeProcedureFromEncounter = (encounterId: string, procedureId: string) => 
+  api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => r.data);
 
 // Medication Operations
-export const addMedicationToAttendance = async (attendanceId: string, data: { 
+export const addMedicationToEncounter = async (encounterId: string, data: { 
   stockItemId: string; 
   serviceCatalogId: string; 
   dosage: string; 
@@ -700,12 +700,12 @@ export const addMedicationToAttendance = async (attendanceId: string, data: {
   route?: string; 
   instructions?: string 
 }) => {
-  const response = await api.post(`/attendances/${attendanceId}/medications`, data);
+  const response = await api.post(`/encounters/${encounterId}/medications`, data);
   return response.data;
 };
 
 export const updateMedicationStatus = async (
-  attendanceId: string,
+  encounterId: string,
   medicationId: string,
   data: {
     status: string;
@@ -716,97 +716,97 @@ export const updateMedicationStatus = async (
     batchNumber?: string;
   }
 ) => {
-  const response = await api.patch(`/attendances/${attendanceId}/medications/${medicationId}`, data);
+  const response = await api.patch(`/encounters/${encounterId}/medications/${medicationId}`, data);
   return response;
 };
 
-export const removeMedicationFromAttendance = async (attendanceId: string, medicationId: string) => {
-  const response = await api.delete(`/attendances/${attendanceId}/medications/${medicationId}`);
+export const removeMedicationFromEncounter = async (encounterId: string, medicationId: string) => {
+  const response = await api.delete(`/encounters/${encounterId}/medications/${medicationId}`);
   return response.data;
 };
 
 // Scan Operations
-export const addScanToAttendance = async (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => {
-  const response = await api.post(`/attendances/${attendanceId}/scans`, data);
+export const addScanToEncounter = async (encounterId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => {
+  const response = await api.post(`/encounters/${encounterId}/scans`, data);
   return response.data;
 };
 
-export const updateScanStatus = async (attendanceId: string, scanId: string, data: any) => {
-  const response = await api.patch(`/attendances/${attendanceId}/scans/${scanId}`, data);
+export const updateScanStatus = async (encounterId: string, scanId: string, data: any) => {
+  const response = await api.patch(`/encounters/${encounterId}/scans/${scanId}`, data);
   return response.data;
 };
 
-export const removeScanFromAttendance = async (attendanceId: string, scanId: string) => {
-  const response = await api.delete(`/attendances/${attendanceId}/scans/${scanId}`);
+export const removeScanFromEncounter = async (encounterId: string, scanId: string) => {
+  const response = await api.delete(`/encounters/${encounterId}/scans/${scanId}`);
   return response.data;
 };
 
 // Service Operations
-export const addServiceToAttendance = async (attendanceId: string, data: any) => {
-  const response = await api.post(`/attendances/${attendanceId}/services`, data);
+export const addServiceToEncounter = async (encounterId: string, data: any) => {
+  const response = await api.post(`/encounters/${encounterId}/services`, data);
   return response.data;
 };
 
-export const removeServiceFromAttendance = async (attendanceId: string, serviceId: string) => {
-  const response = await api.delete(`/attendances/${attendanceId}/services/${serviceId}`);
+export const removeServiceFromEncounter = async (encounterId: string, serviceId: string) => {
+  const response = await api.delete(`/encounters/${encounterId}/services/${serviceId}`);
   return response.data;
 };
 
 // Bed Assignment
-export const assignBedToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/assign-bed`, data).then(r => r.data);
+export const assignBedToEncounter = (encounterId: string, data: any) => 
+  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
 
 // Vitals
-export const addVitalsToAttendance = async (attendanceId: string, data: any) => {
-  const response = await api.post(`/attendances/${attendanceId}/vitals`, data);
+export const addVitalsToEncounter = async (encounterId: string, data: any) => {
+  const response = await api.post(`/encounters/${encounterId}/vitals`, data);
   return response.data;
 };
 
-export const getVitalsByAttendance = async (attendanceId: string) => {
-  const response = await api.get(`/attendances/${attendanceId}/vitals`);
+export const getVitalsByEncounter = async (encounterId: string) => {
+  const response = await api.get(`/encounters/${encounterId}/vitals`);
   return response.data;
 };
 
-export const updateVitals = async (attendanceId: string, vitalsId: string, data: any) => {
-  const response = await api.put(`/attendances/${attendanceId}/vitals/${vitalsId}`, data);
+export const updateVitals = async (encounterId: string, vitalsId: string, data: any) => {
+  const response = await api.put(`/encounters/${encounterId}/vitals/${vitalsId}`, data);
   return response.data;
 };
 
-export const deleteVitals = async (attendanceId: string, vitalsId: string) => {
-  const response = await api.delete(`/attendances/${attendanceId}/vitals/${vitalsId}`);
+export const deleteVitals = async (encounterId: string, vitalsId: string) => {
+  const response = await api.delete(`/encounters/${encounterId}/vitals/${vitalsId}`);
   return response.data;
 };
 
 // Progress Notes
-export const addProgressNoteToAttendance = (attendanceId: string, data: any) => 
-  api.post(`/attendances/${attendanceId}/progress-notes`, data).then(r => r.data);
+export const addProgressNoteToEncounter = (encounterId: string, data: any) => 
+  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
 
-export const removeProgressNoteFromAttendance = (attendanceId: string, noteId: string) => 
-  api.delete(`/attendances/${attendanceId}/progress-notes/${noteId}`).then(r => r.data);
+export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) => 
+  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
 
 // Billing Operations
-export const getBillingBreakdown = (attendanceId: string) => 
-  api.get(`/attendances/${attendanceId}/billing-breakdown`).then(r => r.data);
+export const getBillingBreakdown = (encounterId: string) => 
+  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => r.data);
 
-export const calculateAttendanceBill = async (attendanceId: string) => {
-  const response = await api.post(`/attendances/${attendanceId}/calculate-bill`);
+export const calculateEncounterBill = async (encounterId: string) => {
+  const response = await api.post(`/encounters/${encounterId}/calculate-bill`);
   return response.data;
 };
 
-export const getAttendanceStats = async (filters?: any) => {
+export const getEncounterStats = async (filters?: any) => {
   const params = new URLSearchParams();
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
-  const response = await api.get(`/attendances/stats${params.toString() ? `?${params}` : ''}`);
+  const response = await api.get(`/encounters/stats${params.toString() ? `?${params}` : ''}`);
   return response.data;
 };
 
 // NHIS Claim Validation
-export const validateNHISClaim = (attendanceId: string) => 
-  api.get(`/attendances/${attendanceId}/nhis/validate`).then(r => r.data);
+export const validateNHISClaim = (encounterId: string) => 
+  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
 
-export const generateNHISClaimFromAttendance = (attendanceId: string) => 
-  api.get(`/attendances/${attendanceId}/nhis/generate-claim-data`).then(r => r.data);
+export const generateNHISClaimFromEncounter = (encounterId: string) => 
+  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
@@ -842,8 +842,8 @@ export const deleteBill = (id: string) =>
 export const addPaymentToBill = (billId: string, data: any) => 
   api.post(`/bills/${billId}/payments`, data).then(r => r.data);
 
-export const generateBillFromAttendance = (attendanceId: string) => 
-  api.post(`/bills/generate/${attendanceId}`).then(r => r.data);
+export const generateBillFromEncounter = (encounterId: string) => 
+  api.post(`/bills/generate/${encounterId}`).then(r => r.data);
 
 export const generateBillReport = (billId: string) => 
   api.get(`/bills/${billId}/report`).then(r => r.data);
@@ -922,8 +922,8 @@ export const applyWaiverToBill = (billId: string, waiverId: string) =>
 // WARD CHARGES
 // ──────────────────────────────────────────────
 
-export const getWardCharges = (attendanceId: string, params?: any) => 
-  api.get(`/attendances/${attendanceId}/ward-charges`, { params }).then(r => r.data);
+export const getWardCharges = (encounterId: string, params?: any) => 
+  api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => r.data);
 
 export const generateDailyWardCharges = (date?: string) => 
   api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
@@ -1159,7 +1159,7 @@ export const createOutgoingReferral = async (data: {
   referredToDepartment?: string;
   urgency?: string;
   referralNotes?: string;
-  attendanceId?: string;
+  encounterId?: string;
 }) => {
   const response = await api.post('/referrals/outgoing', data);
   return response.data;
@@ -1722,8 +1722,8 @@ export const generateDischargeSummary = (admissionId: string) =>
 export const generateLabResult = (labTestId: string) => 
   api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => r.data);
 
-export const generatePrescription = (attendanceId: string) => 
-  api.post<DocumentGenerationResponse>(`/documents/prescription/${attendanceId}`).then(r => r.data);
+export const generatePrescription = (encounterId: string) => 
+  api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => r.data);
 
 export const getDocumentsByEntity = (entityType: string, entityId: string) => 
   api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data);
@@ -1858,7 +1858,7 @@ export const getClinicalReport = async (params: ReportFilter) => {
   return response.data;
 };
 
-export const getAttendanceReport = async (params: ReportFilter) => {
+export const getEncounterReport = async (params: ReportFilter) => {
   const response = await api.get('/reports/attendance', { params });
   return response.data;
 };
@@ -2073,26 +2073,26 @@ export default {
   // Insurance
   getInsuranceProviders, getInsuranceProvider, createInsuranceProvider, updateInsuranceProvider, deleteInsuranceProvider,
   // Insurance Claims
-  getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getInsuranceClaim, getClaimByAttendanceId,
+  getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getInsuranceClaim, getClaimByEncounterId,
   generateNHISClaim, generatePrivateInsuranceClaim, updateInsuranceClaim, updateClaimDraft, finalizeClaim,
   updateClaimStatus, generateClaimXML, generateClaimPrint, getFinalizedClaimsTotal,
   createClaimBatch, getClaimBatches, getClaimBatch, addClaimsToBatch, removeClaimsFromBatch,
   generateBatchXML, updateBatchStatus, deleteClaimBatch,
   // Patients
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
-  // Attendances
-  getAttendances, getAttendance, createAttendance, updateAttendance, deleteAttendance, updateAttendanceStatus,
-  addDiagnosisToAttendance, removeDiagnosisFromAttendance,
-  addLabTestToAttendance, updateLabTestStatus, removeLabTestFromAttendance,
-  addProcedureToAttendance, updateProcedureStatus, removeProcedureFromAttendance,
-  addMedicationToAttendance, updateMedicationStatus, removeMedicationFromAttendance,
-  addScanToAttendance, updateScanStatus, removeScanFromAttendance,
-  addServiceToAttendance, removeServiceFromAttendance, assignBedToAttendance,
-  addVitalsToAttendance, getVitalsByAttendance, updateVitals, deleteVitals,
-  addProgressNoteToAttendance, removeProgressNoteFromAttendance,
-  getBillingBreakdown, calculateAttendanceBill, getAttendanceStats, validateNHISClaim, generateNHISClaimFromAttendance,
+  // Encounters
+  getEncounters, getEncounter, createEncounter, updateEncounter, deleteEncounter, updateEncounterStatus,
+  addDiagnosisToEncounter, removeDiagnosisFromEncounter,
+  addLabTestToEncounter, updateLabTestInEncounter, removeLabTestFromEncounter,
+  addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
+  addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
+  addScanToEncounter, updateScanStatus, removeScanFromEncounter,
+  addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
+  addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
+  addProgressNoteToEncounter, removeProgressNoteFromEncounter,
+  getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
   // Bills
-  getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromAttendance,
+  getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
   getBillLineItems, voidBillLineItem,
   // Waivers
@@ -2163,7 +2163,7 @@ export default {
   getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
   getMorbidityMortalityReport, getTopDiagnoses, getGHSDeliveryReport, getGHSFamilyPlanningReport,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
-  getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getAttendanceReport,
+  getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
   getClinicalReports, getLabReportData, getScanReportData, getProcedureReportData,

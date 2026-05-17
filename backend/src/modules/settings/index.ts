@@ -1,0 +1,13 @@
+import settingsRoutes from './settings.routes';
+
+export { settingsRoutes };
+
+export default {
+  path: '/settings',
+  routes: settingsRoutes
+};
+
+// Helper function for module registration
+export function createSettingsRoutes() {
+  return settingsRoutes;
+}

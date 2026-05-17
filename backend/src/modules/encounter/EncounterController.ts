@@ -559,6 +559,273 @@ export class EncounterController {
   };
 
   // ============================================
+  // ADD SCAN/RADIOLOGY
+  // ============================================
+  addScan = [
+    body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+    body('priority').optional().isIn(['routine', 'urgent', 'stat'])
+      .withMessage('Valid priority is required'),
+
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { id } = req.params;
+        const { serviceCatalogId, priority = 'routine', notes, clinicalNotes } = req.body;
+        const user = req.user;
+
+        if (!user) {
+          return res.status(401).json({ message: 'User authentication required' });
+        }
+
+        const scan = await this.service.addScan(id, {
+          serviceCatalogId,
+          priority: priority as any,
+          notes,
+          clinicalNotes
+        }, user.id);
+
+        res.json({
+          success: true,
+          data: scan,
+          message: 'Scan added successfully'
+        });
+      } catch (error) {
+        console.error('Error adding scan:', error);
+        res.status(500).json({
+          message: 'Error adding scan',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // UPDATE SCAN STATUS
+  // ============================================
+  updateScanStatus = [
+    body('status').isIn(['pending', 'in_progress', 'completed', 'verified', 'cancelled'])
+      .withMessage('Valid status is required'),
+
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { scanId } = req.params;
+        const { status, results, performedById } = req.body;
+
+        const scan = await this.service.updateScanStatus(scanId, status, results, performedById);
+
+        res.json({
+          success: true,
+          data: scan,
+          message: 'Scan status updated successfully'
+        });
+      } catch (error) {
+        console.error('Error updating scan status:', error);
+        res.status(500).json({
+          message: 'Error updating scan status',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // REMOVE SCAN
+  // ============================================
+  removeScan = async (req: AuthRequest, res: Response) => {
+    try {
+      const { encounterId, scanId } = req.params;
+
+      await this.service.removeScan(encounterId, scanId);
+
+      res.json({
+        success: true,
+        message: 'Scan removed successfully'
+      });
+    } catch (error) {
+      console.error('Error removing scan:', error);
+      res.status(500).json({
+        message: 'Error removing scan',
+        error: (error as Error).message
+      });
+    }
+  };
+
+  // ============================================
+  // ADD PROCEDURE
+  // ============================================
+  addProcedure = [
+    body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+    body('priority').optional().isIn(['routine', 'urgent', 'stat'])
+      .withMessage('Valid priority is required'),
+
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { id } = req.params;
+        const { serviceCatalogId, priority = 'routine', notes, performedById } = req.body;
+        const user = req.user;
+
+        if (!user) {
+          return res.status(401).json({ message: 'User authentication required' });
+        }
+
+        const procedure = await this.service.addProcedure(id, {
+          serviceCatalogId,
+          priority: priority as any,
+          notes,
+          performedById
+        }, user.id);
+
+        res.json({
+          success: true,
+          data: procedure,
+          message: 'Procedure added successfully'
+        });
+      } catch (error) {
+        console.error('Error adding procedure:', error);
+        res.status(500).json({
+          message: 'Error adding procedure',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // UPDATE PROCEDURE STATUS
+  // ============================================
+  updateProcedureStatus = [
+    body('status').isIn(['scheduled', 'in_progress', 'completed', 'cancelled'])
+      .withMessage('Valid status is required'),
+
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { procedureId } = req.params;
+        const { status, performedById } = req.body;
+
+        const procedure = await this.service.updateProcedureStatus(procedureId, status, performedById);
+
+        res.json({
+          success: true,
+          data: procedure,
+          message: 'Procedure status updated successfully'
+        });
+      } catch (error) {
+        console.error('Error updating procedure status:', error);
+        res.status(500).json({
+          message: 'Error updating procedure status',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // REMOVE PROCEDURE
+  // ============================================
+  removeProcedure = async (req: AuthRequest, res: Response) => {
+    try {
+      const { encounterId, procedureId } = req.params;
+
+      await this.service.removeProcedure(encounterId, procedureId);
+
+      res.json({
+        success: true,
+        message: 'Procedure removed successfully'
+      });
+    } catch (error) {
+      console.error('Error removing procedure:', error);
+      res.status(500).json({
+        message: 'Error removing procedure',
+        error: (error as Error).message
+      });
+    }
+  };
+
+  // ============================================
+  // ADD SERVICE TO ENCOUNTER
+  // ============================================
+  addService = [
+    body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
+    body('quantity').optional().isInt({ min: 1 }).withMessage('Valid quantity is required'),
+
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { id } = req.params;
+        const { serviceCatalogId, quantity = 1, notes } = req.body;
+        const user = req.user;
+
+        if (!user) {
+          return res.status(401).json({ message: 'User authentication required' });
+        }
+
+        const encounter = await this.service.addService(id, {
+          serviceCatalogId,
+          quantity,
+          notes
+        }, user.id);
+
+        res.json({
+          success: true,
+          data: encounter,
+          message: 'Service added successfully'
+        });
+      } catch (error) {
+        console.error('Error adding service:', error);
+        res.status(500).json({
+          message: 'Error adding service',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // REMOVE SERVICE FROM ENCOUNTER
+  // ============================================
+  removeService = async (req: AuthRequest, res: Response) => {
+    try {
+      const { encounterId, serviceRenderedId } = req.params;
+
+      await this.service.removeService(encounterId, serviceRenderedId);
+
+      res.json({
+        success: true,
+        message: 'Service removed successfully'
+      });
+    } catch (error) {
+      console.error('Error removing service:', error);
+      res.status(500).json({
+        message: 'Error removing service',
+        error: (error as Error).message
+      });
+    }
+  };
+
+  // ============================================
   // GET WORKLISTS (CLINICAL QUEUES)
   // ============================================
   getVitalsWorklist = async (req: AuthRequest, res: Response) => {
