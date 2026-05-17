@@ -21,6 +21,29 @@ import ReferralRoutes from './referral/ReferralRoutes';
 import WorklistRoutes from './worklist/WorklistRoutes';
 import { createBedRoutes } from './bed';
 import { BillRoutes } from './bill';
+import DiagnosisRoutes from './diagnosis/DiagnosisRoutes';
+import documentRoutes from './document/DocumentRoutes';
+import dashboardRoutes from './dashboard/DashboardRoutes';
+import { createClinicalReportsRoutes } from './clinicalReports';
+import { createReportRoutes } from './report';
+import { createServiceCatalogRoutes } from './serviceCatalog';
+import { createGDRGRoutes } from './gdrg';
+import { createGHSReportRoutes } from './ghsReport';
+import { createHospitalRoutes } from './hospital';
+import { createInsuranceProviderRoutes } from './insuranceProvider';
+import { createInsuranceClaimRoutes } from './insuranceClaim';
+import { createInvoiceRoutes } from './invoice';
+import { createLabTestRoutes } from './labTest';
+import { createNotificationRoutes } from './notification';
+import { createProcedureRoutes } from './procedure';
+import { createRequisitionRoutes } from './requisition';
+import { createScanTemplateRoutes } from './scanTemplate';
+import { createSettingsRoutes } from './settings';
+import { createStockItemRoutes } from './stockItem';
+import { createStockTransactionRoutes } from './stockTransaction';
+import { createWaiverRoutes } from './waiver';
+import { WardRoutes } from './ward';
+import { createAuditRoutes } from './audit';
 
 // Legacy imports (to be migrated)
 // import attendanceRoutes from './attendance';
@@ -78,7 +101,84 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   
   // Bill module (NEW - Bill and payment management with line items, waivers, statistics)
   app.use('/api/bills', BillRoutes);
-  
+
+  // Diagnosis module (NEW - ICD-10 diagnosis management)
+  app.use('/api/diagnoses', DiagnosisRoutes.getRouter());
+
+  // Document module (NEW - Document upload and management)
+  app.use('/api/documents', documentRoutes.getRouter());
+
+  // Dashboard module (NEW - Analytics and statistics dashboard)
+  app.use('/api/dashboard', dashboardRoutes.getRouter());
+
+  // Clinical Reports module (NEW - Lab, Scan, Procedure, Medication, Vitals reports)
+  app.use('/api/clinical-reports', createClinicalReportsRoutes());
+
+  // Report module (NEW - Comprehensive hospital reports: demographic, financial, clinical, etc.)
+  app.use('/api/reports', createReportRoutes());
+
+  // Service Catalog module (NEW - Hospital service items management with NHIS integration)
+  app.use('/api/services', createServiceCatalogRoutes());
+
+  // GDRG module (NEW - Ghana DRG tariff management with NHIS integration)
+  app.use('/api/gdrg', createGDRGRoutes());
+
+  // GHS Report module (NEW - GHS report generation and submission)
+  app.use('/api/ghs-reports', createGHSReportRoutes());
+
+  // Hospital module (NEW - Hospital information and NHIS settings)
+  app.use('/api/hospital', createHospitalRoutes());
+
+  // Insurance Provider module (NEW - Insurance company management)
+  app.use('/api/insurance-providers', createInsuranceProviderRoutes());
+
+  // Insurance Claim module (NEW - Insurance claim processing)
+  app.use('/api/insurance-claims', createInsuranceClaimRoutes());
+
+  // Invoice module (NEW - Supplier invoice management)
+  app.use('/api/invoices', createInvoiceRoutes());
+
+  // Lab Test module (NEW - Lab test template management)
+  app.use('/api/lab-tests', createLabTestRoutes());
+
+  // Notification module (NEW - System notifications and messaging)
+  app.use('/api/notifications', createNotificationRoutes());
+
+  // Procedure module (NEW - Procedure template management)
+  app.use('/api/procedures', createProcedureRoutes());
+
+  // Requisition module (NEW - Stock requisition management)
+  app.use('/api/requisitions', createRequisitionRoutes());
+
+  // Scan Template module (NEW - Scan template management)
+  app.use('/api/scan-templates', createScanTemplateRoutes());
+
+  // Settings module (NEW - System settings management)
+  app.use('/api/settings', createSettingsRoutes());
+
+  // Stock Item module (NEW - Inventory stock item management)
+  app.use('/api/stock-items', createStockItemRoutes());
+
+  // Stock Transaction module (NEW - Stock movement tracking)
+  app.use('/api/stock-transactions', createStockTransactionRoutes());
+
+  // Waiver module (NEW - Financial waiver management)
+  app.use('/api/waivers', createWaiverRoutes());
+
+  // Ward module (NEW - Ward management)
+  app.use('/api/wards', WardRoutes.getRouter());
+
+  // Corporate Accounts & Employees (NEW - Corporate billing)
+  const { createCorporateRoutes } = await import('./corporate');
+  app.use('/api/corporate', createCorporateRoutes());
+
+  // SMS/WhatsApp Communication (NEW - Patient notifications)
+  const { createCommunicationRoutes } = await import('./communication');
+  app.use('/api/communications', createCommunicationRoutes());
+
+  // Audit Logging Module (NEW - Security & Compliance)
+  app.use('/api/audit', createAuditRoutes());
+
   // Register other modules here as they are created/migrated
   // app.use('/api/attendance', createAttendanceRoutes(prisma));
   // app.use('/api/inventory', createInventoryRoutes(prisma));
@@ -87,13 +187,40 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('✅ All modules registered successfully');
   console.log('   - User Module: /api/auth (Unified identity management)');
   console.log('   - Staff Module: /api/staff (All hospital personnel)');
-  console.log('   - Admission Module: /api/admissions (Ward/Bed management)');
-  console.log('   - Encounter Module: /api/encounters (Clinical encounters)');
-  console.log('   - Referral Module: /api/referrals (Patient referrals - NEW)');
-  console.log('   - Worklist Module: /api/worklist (Clinical queues - NEW)');
-  console.log('   - Backup Module: /api/backup (Database backup/restore - NEW)');
-  console.log('   - Bed Module: /api/beds (Bed management within wards - NEW)');
-  console.log('   - Bill Module: /api/bills (Bill and payment management - NEW)');
+  console.log('   - Patient Module: /api/patients');
+  console.log('   - Appointment Module: /api/appointments');
+  console.log('   - Billing Module: /api/billing');
+  console.log('   - Department Module: /api/departments');
+  console.log('   - Antenatal Module: /api/antenatal');
+  console.log('   - Admission Module: /api/admissions');
+  console.log('   - Encounter Module: /api/encounters');
+  console.log('   - Referral Module: /api/referrals');
+  console.log('   - Worklist Module: /api/worklist');
+  console.log('   - Backup Module: /api/backup');
+  console.log('   - Bed Module: /api/beds');
+  console.log('   - Bill Module: /api/bills');
+  console.log('   - Diagnosis Module: /api/diagnoses');
+  console.log('   - Document Module: /api/documents');
+  console.log('   - Dashboard Module: /api/dashboard');
+  console.log('   - Clinical Reports Module: /api/clinical-reports');
+  console.log('   - Report Module: /api/reports');
+  console.log('   - Service Catalog Module: /api/services');
+  console.log('   - GDRG Module: /api/gdrg');
+  console.log('   - GHS Report Module: /api/ghs-reports');
+  console.log('   - Hospital Module: /api/hospital');
+  console.log('   - Insurance Provider Module: /api/insurance-providers');
+  console.log('   - Insurance Claim Module: /api/insurance-claims');
+  console.log('   - Invoice Module: /api/invoices');
+  console.log('   - Lab Test Module: /api/lab-tests');
+  console.log('   - Notification Module: /api/notifications');
+  console.log('   - Procedure Module: /api/procedures');
+  console.log('   - Requisition Module: /api/requisitions');
+  console.log('   - Scan Template Module: /api/scan-templates');
+  console.log('   - Settings Module: /api/settings');
+  console.log('   - Stock Item Module: /api/stock-items');
+  console.log('   - Stock Transaction Module: /api/stock-transactions');
+  console.log('   - Waiver Module: /api/waivers');
+  console.log('   - Ward Module: /api/wards');
 }
 
 /**

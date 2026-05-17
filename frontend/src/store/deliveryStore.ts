@@ -1,6 +1,13 @@
 // src/store/deliveryStore.ts
 import { create } from 'zustand';
-import api from '../api/antenatal'; 
+import { 
+  getDeliveries,
+  getDelivery,
+  createDelivery,
+  updateDelivery,
+  deleteDelivery,
+  getDeliveryStats,
+} from '../api';
 
 export interface DeliveryRecord {
   id: string;
@@ -78,42 +85,6 @@ export interface NewbornRecord {
   createdAt: string;
 }
 
-// src/store/deliveryStore.ts - FIXED
-
-// ✅ FIXED: Use plural '/antenatal/deliveries' for list endpoint
-const getDeliveryRecords = async (filters?: { patientId?: string; startDate?: string; endDate?: string }) => {
-  // Changed from '/antenatal/delivery' to '/antenatal/deliveries'
-  const response = await api.get('/antenatal/deliveries', { params: filters });
-  return response.data;
-};
-
-// These are correct (singular for specific operations)
-const getDeliveryRecord = async (id: string) => {
-  const response = await api.get(`/antenatal/delivery/${id}`);
-  return response.data;
-};
-
-const createDeliveryRecord = async (data: Partial<DeliveryRecord>) => {
-  const response = await api.post('/antenatal/delivery', data);
-  return response.data;
-};
-
-const updateDeliveryRecord = async (id: string, data: Partial<DeliveryRecord>) => {
-  const response = await api.put(`/antenatal/delivery/${id}`, data);
-  return response.data;
-};
-
-const deleteDeliveryRecord = async (id: string) => {
-  const response = await api.delete(`/antenatal/delivery/${id}`);
-  return response.data;
-};
-
-const getDeliveryStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/delivery/stats', { params: filters });
-  return response.data;
-};
-
-
 interface DeliveryState {
   deliveries: DeliveryRecord[];
   currentDelivery: DeliveryRecord | null;
@@ -146,7 +117,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   getDeliveries: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getDeliveryRecords(filters);
+      const response = await getDeliveries(filters);
       let deliveries = [];
       let pagination = null;
       
@@ -169,7 +140,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   getDelivery: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getDeliveryRecord(id);
+      const response = await getDelivery(id);
       const delivery = response.data || response;
       set({ currentDelivery: delivery, currentNewborns: delivery?.Newborn || [], isLoading: false });
       return delivery;
@@ -182,7 +153,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   createDelivery: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await createDeliveryRecord(data);
+      const response = await createDelivery(data);
       const delivery = response.data || response;
       set((state) => ({
         deliveries: [delivery, ...state.deliveries],
@@ -199,7 +170,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   updateDelivery: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await updateDeliveryRecord(id, data);
+      const response = await updateDelivery(id, data);
       const delivery = response.data || response;
       set((state) => ({
         deliveries: state.deliveries.map(d => d.id === id ? delivery : d),
@@ -215,7 +186,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   deleteDelivery: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await deleteDeliveryRecord(id);
+      await deleteDelivery(id);
       set((state) => ({
         deliveries: state.deliveries.filter(d => d.id !== id),
         currentDelivery: state.currentDelivery?.id === id ? null : state.currentDelivery,
@@ -230,7 +201,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   getStats: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getDeliveryStatistics(filters);
+      const response = await getDeliveryStats(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
     } catch (error: unknown) {

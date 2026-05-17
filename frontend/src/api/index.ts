@@ -8,6 +8,36 @@ import type {
 } from '../types';
 
 // ============================================
+// IMPORT FROM SEPARATE FILES (Antenatal, Documents)
+// ============================================
+import {
+  getAntenatalBookings,
+  getActiveBookingByPatient,
+  getAntenatalBookingById,
+  createAntenatalBooking,
+  closeAntenatalBooking,
+  getANCStatistics,
+  getANCVisitsByBooking,
+  getANCVisitById,
+  updateANCVisit,
+  deleteANCVisit,
+  getDeliveries,
+  getDelivery,
+  createDelivery,
+  updateDelivery,
+  deleteDelivery,
+  getDeliveryStats,
+  getPostnatals,
+  getPostnatal,
+  createPostnatal,
+  updatePostnatal,
+  deletePostnatal,
+  getPostnatalStats
+} from './antenatal';
+
+import { documentApi } from './documentApi';
+
+// ============================================
 // MISSING TYPES - ADDED
 // ============================================
 
@@ -138,23 +168,23 @@ export const register = (userData: any) =>
   api.post('/auth/register', userData).then(r => r.data);
 
 export const verifyToken = () => 
-  api.get('/auth/verify').then(r => r.data);
+  api.get('/auth/profile').then(r => r.data.user || r.data);
 
 export const logout = () => 
   api.post('/auth/logout').then(r => r.data);
 
 export const getUsers = () => 
-  api.get('/auth/users').then(r => handleResponse<User>(r.data));
+  api.get('/auth/users').then(r => handleResponse<User>(r.data.users || r.data));
 
 export const getUserStats = () => 
   api.get('/auth/users/stats').then(r => r.data);
 
 // Profile management
 export const getProfile = () => 
-  api.get('/auth/profile').then(r => r.data);
+  api.get('/auth/profile').then(r => r.data.user || r.data);
 
 export const updateProfile = (data: any) => 
-  api.put('/auth/profile', data).then(r => r.data);
+  api.put('/auth/profile', data).then(r => r.data.user || r.data);
 
 export const changePassword = (currentPassword: string, newPassword: string) => 
   api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
@@ -196,6 +226,19 @@ export const getHospitalNHISSettings = () =>
 
 export const updateHospitalNHISSettings = (data: any) => 
   api.put('/hospitals/settings/nhis', data).then(r => r.data);
+
+// ───── SETTINGS (SYSTEM) ─────
+export const getSystemSettings = () => 
+  api.get('/settings').then(r => r.data);
+
+export const updateSystemSettings = (data: any) => 
+  api.put('/settings', data).then(r => r.data);
+
+export const getNHISRates = () => 
+  api.get('/settings/nhis-rates').then(r => r.data);
+
+export const updateNHISRates = (data: any) => 
+  api.put('/settings/nhis-rates', data).then(r => r.data);
 
 // ───── GDRG TARIFFS ─────
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
@@ -1047,6 +1090,12 @@ export const deleteDiagnosis = (id: string) =>
 export const searchDiagnoses = (query: string) => 
   api.get('/diagnoses/search', { params: { query } }).then(r => r.data);
 
+export const getMorbidityGroups = () =>
+  api.get('/diagnoses/morbidity-groups').then(r => r.data);
+
+export const getDiagnosesByMorbidityGroup = (morbidityGroup: string) =>
+  api.get(`/diagnoses/morbidity-group/${morbidityGroup}`).then(r => r.data);
+
 export const getDiagnosisStats = () => 
   api.get('/diagnoses/stats').then(r => r.data);
 
@@ -1333,33 +1382,46 @@ export const exportReport = async (data: {
 };
 
 // ============================================
+// ============================================
 // CLINICAL REPORTS API CALLS
 // ============================================
 
-export const getLabReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/lab', { params: filters });
-  return response.data.data;
+export const getClinicalReports = async (filters?: any) => {
+  const response = await api.get('/clinical-reports', { params: filters });
+  return response.data.data || response.data;
 };
 
-export const getScanReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/scans', { params: filters });
-  return response.data.data;
+export const getLabReportData = async (filters: ReportFilter) => {
+  const response = await api.get('/clinical-reports/lab', { params: filters });
+  return response.data.data || response.data;
 };
 
-export const getProcedureReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/procedures', { params: filters });
-  return response.data.data;
+export const getScanReportData = async (filters: ReportFilter) => {
+  const response = await api.get('/clinical-reports/scan', { params: filters });
+  return response.data.data || response.data;
 };
 
-export const getMedicationReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/medications', { params: filters });
-  return response.data.data;
+export const getProcedureReportData = async (filters: ReportFilter) => {
+  const response = await api.get('/clinical-reports/procedure', { params: filters });
+  return response.data.data || response.data;
 };
 
-export const getVitalsReport = async (filters: ReportFilter) => {
-  const response = await api.get('/reports/clinical/vitals', { params: filters });
-  return response.data.data;
+export const getMedicationReportData = async (filters: ReportFilter) => {
+  const response = await api.get('/clinical-reports/medication', { params: filters });
+  return response.data.data || response.data;
 };
+
+export const getVitalsReportData = async (filters: ReportFilter) => {
+  const response = await api.get('/clinical-reports/vitals', { params: filters });
+  return response.data.data || response.data;
+};
+
+// Legacy names for backward compatibility
+export const getLabReport = getLabReportData;
+export const getScanReport = getScanReportData;
+export const getProcedureReport = getProcedureReportData;
+export const getMedicationReport = getMedicationReportData;
+export const getVitalsReport = getVitalsReportData;
 
 // ======================
 // DEPARTMENT API FUNCTIONS
@@ -1509,6 +1571,19 @@ export const sendBulkUserMessages = (data: {
 }) => api.post('/notifications/messages/bulk', data).then(r => r.data);
 
 export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
+
+// ───── WORKLIST ─────
+export const getWorklists = (filters?: { type?: string; status?: string; departmentId?: string }) =>
+  api.get('/worklists', { params: filters }).then(r => r.data);
+
+export const getWorklist = (id: string) =>
+  api.get(`/worklists/${id}`).then(r => r.data);
+
+export const updateWorklist = (id: string, data: any) =>
+  api.put(`/worklists/${id}`, data).then(r => r.data);
+
+export const completeWorklist = (id: string, data: { results?: any; notes?: string }) =>
+  api.post(`/worklists/${id}/complete`, data).then(r => r.data);
 
 export const triggerLowStockCheck = async () => {
   const response = await api.post('/notifications/trigger/low-stock');
@@ -2059,5 +2134,64 @@ export default {
   // Upload
   servePatientImages,
   serveScanImages,
-  serveDocuments
+  serveDocuments,
+
+  // Antenatal (imported from ./antenatal)
+  getAntenatalBookings,
+  getActiveBookingByPatient,
+  getAntenatalBookingById,
+  createAntenatalBooking,
+  closeAntenatalBooking,
+  getANCStatistics,
+  getANCVisitsByBooking,
+  getANCVisitById,
+  updateANCVisit,
+  deleteANCVisit,
+  getDeliveries,
+  getDelivery,
+  createDelivery,
+  updateDelivery,
+  deleteDelivery,
+  getDeliveryStats,
+  getPostnatals,
+  getPostnatal,
+  createPostnatal,
+  updatePostnatal,
+  deletePostnatal,
+  getPostnatalStats,
+
+  // Documents (imported from ./documentApi)
+  generateReceipt: documentApi.generateReceipt,
+  generateBillStatement: documentApi.generateBillStatement,
+  generateReferralLetter: documentApi.generateReferralLetter,
+  generateDischargeSummary: documentApi.generateDischargeSummary,
+  generateLabResult: documentApi.generateLabResult,
+  generatePrescription: documentApi.generatePrescription,
+  getDocumentsByEntity: documentApi.getDocumentsByEntity,
+  downloadDocument: documentApi.downloadDocument,
+  reprintDocument: documentApi.reprintDocument,
+  getTemplates: documentApi.getTemplates,
+  createTemplate: documentApi.createTemplate,
+  updateTemplate: documentApi.updateTemplate,
+  deleteTemplate: documentApi.deleteTemplate,
+
+  // Settings
+  getSystemSettings,
+  updateSystemSettings,
+  getNHISRates,
+  updateNHISRates,
+
+  // Worklist
+  getWorklists,
+  getWorklist,
+  updateWorklist,
+  completeWorklist,
+
+  // Clinical Reports
+  getClinicalReports,
+  getLabReportData,
+  getScanReportData,
+  getProcedureReportData,
+  getMedicationReportData,
+  getVitalsReportData
 };

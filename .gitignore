@@ -8,33 +8,29 @@ build/
 target/
 
 # TypeScript/JavaScript
-*.tsbuildinfo
 *.js.map
-*.jsx.map
-*.ts.map
+*.tsbuildinfo
+.nyc_output/
+coverage/
 
 # Environment variables
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs
-*.log
-
-# Coverage
-coverage/
-.nyc_output/
-istanbul/
-.jest/
-
-# IDE
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Logs
+*.log
+
+# Temporary files
 *.tmp
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
@@ -44,10 +40,46 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
-*.so
-.coverage
-.htmlcov/
-.pytest_cache/
-.mypy_cache/
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
 .tox/
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+
+# Go (if present)
+*.out
+
+# Java (if present)
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# C/C++ (if present)
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+
+# Ruby (if present)
+*.gem
+*.rbc
+.bundle/
+.rbenv-gemsets/
+.rbenv-version/
+.gem/
+.gems/
+.installed.cfg
+.lib/
+.lock/
 ```

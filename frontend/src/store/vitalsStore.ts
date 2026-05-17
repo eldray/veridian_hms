@@ -1,30 +1,47 @@
 // stores/vitalsStore.ts - FIXED VERSION
+import { create } from 'zustand';
+import {
+  addVitalsToAttendance,
+  getVitalsByAttendance,
+  updateVitals,
+} from '../api';
+
+interface VitalsState {
+  vitals: any[];
+  isLoading: boolean;
+  error: string | null;
+
+  addVitalsToAttendance: (attendanceId: string, data: any) => Promise<void>;
+  getVitalsByAttendance: (attendanceId: string) => Promise<any[]>;
+  updateVitals: (attendanceId: string, vitalsId: string, data: any) => Promise<void>;
+}
+
 export const useVitalsStore = create<VitalsState>((set, get) => ({
   vitals: [],
   isLoading: false,
   error: null,
-  
-  addVitalsToAttendance: async (attendanceId: string, data: any) => {
+
+  addVitalsToAttendance: async (attendanceId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const newVitals = await apiAddVitalsToAttendance(attendanceId, data);
+      const newVitals = await addVitalsToAttendance(attendanceId, data);
       set(state => ({
         vitals: [...state.vitals, newVitals],
         isLoading: false
       }));
     } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to record vitals',
+        error: error.message || 'Failed to record vitals',
         isLoading: false
       });
       throw error;
     }
   },
 
-  getVitalsByAttendance: async (attendanceId: string) => {
+  getVitalsByAttendance: async (attendanceId) => {
     set({ isLoading: true, error: null });
     try {
-      const vitals = await apiGetVitalsByAttendance(attendanceId);
+      const vitals = await getVitalsByAttendance(attendanceId);
       set(state => ({
         vitals: [...state.vitals.filter(v => v.attendanceId !== attendanceId), ...vitals],
         isLoading: false
@@ -32,48 +49,29 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
       return vitals;
     } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to fetch vitals',
+        error: error.message || 'Failed to fetch vitals',
         isLoading: false
       });
       throw error;
     }
   },
 
-  updateVitals: async (attendanceId: string, vitalsId: string, data: any) => {
+  updateVitals: async (attendanceId, vitalsId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedVitals = await apiUpdateVitals(attendanceId, vitalsId, data);
+      const updatedVitals = await updateVitals(attendanceId, vitalsId, data);
       set(state => ({
-        vitals: state.vitals.map(v => 
-          v.id === vitalsId ? updatedVitals : v  // ✅ FIXED: Use id consistently
+        vitals: state.vitals.map(v =>
+          v.id === vitalsId ? updatedVitals : v
         ),
         isLoading: false
       }));
     } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to update vitals',
+        error: error.message || 'Failed to update vitals',
         isLoading: false
       });
       throw error;
     }
   },
-
-  deleteVitals: async (attendanceId: string, vitalsId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await apiDeleteVitals(attendanceId, vitalsId);
-      set(state => ({
-        vitals: state.vitals.filter(v => v.id !== vitalsId), // ✅ FIXED: Use id consistently
-        isLoading: false
-      }));
-    } catch (error: unknown) {
-      set({
-        error: error.response?.data?.message || error.message || 'Failed to delete vitals',
-        isLoading: false
-      });
-      throw error;
-    }
-  },
-
-  clearError: () => set({ error: null }),
 }));

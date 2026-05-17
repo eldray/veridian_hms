@@ -1,8 +1,5 @@
 // src/store/reportsStore.ts - COMPLETE VERSION
 import { create } from 'zustand';
-import api from '../api/api';
-// src/store/reportsStore.ts
-import { create } from 'zustand';
 import {
   getGHSOPDReport,
   getGHSIPDReport,
@@ -26,193 +23,53 @@ import {
   getReportSubmissions,
   getReportById,
   exportReportToCSV,
-} from '../api/reports';
+} from '../api';
 
-// ... rest of your store code (same as before, but using these imported functions)
-// ============================================
-// TYPES
-// ============================================
-
-export interface ReportFilter {
+interface ReportFilter {
   startDate?: string;
   endDate?: string;
-  year?: number;
-  month?: number;
-  page?: number;
-  limit?: number;
+  departmentId?: string;
+  facilityId?: string;
+  [key: string]: any;
 }
 
-// ============================================
-// REPORT API FUNCTIONS
-// ============================================
-
-// GHS Reports
-const getGHSOPDReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/opd', { params });
-  return response.data;
-};
-
-const getGHSIPDReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/ipd', { params });
-  return response.data;
-};
-
-const getGHSIDSRReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/idsr', { params });
-  return response.data;
-};
-
-const getGHSMalariaReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/malaria', { params });
-  return response.data;
-};
-
-const getGHSFormAReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/form-a', { params });
-  return response.data;
-};
-
-const getMorbidityMortalityReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/morbidity-mortality', { params });
-  return response.data;
-};
-
-const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) => {
-  const response = await api.get('/reports/ghs/top-diagnoses', { params: { ...params, limit } });
-  return response.data;
-};
-
-// Report Submissions
-const getReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
-  const response = await api.get('/reports/ghs/submissions', { params: filters });
-  return response.data;
-};
-
-const getReportById = async (id: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${id}`);
-  return response.data;
-};
-
-const exportReportToCSV = async (id: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${id}/export`, { responseType: 'blob' });
-  return response.data;
-};
-
-// ============================================
-// FINANCIAL & CLINICAL REPORTS (from reportRoutes)
-// ============================================
-
-const getFinancialReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/financial', { params });
-  return response.data;
-};
-
-const getInsuranceClaimsReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/insurance-claims', { params });
-  return response.data;
-};
-
-const getClinicalReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/clinical', { params });
-  return response.data;
-};
-
-const getAttendanceReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/attendance', { params });
-  return response.data;
-};
-
-const getRevenueReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/revenue', { params });
-  return response.data;
-};
-
-const getFamilyPlanningReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/family-planning', { params });
-  return response.data;
-};
-
-const getDemographicReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/demographic', { params });
-  return response.data;
-};
-
-// ============================================
-// CLINICAL REPORTS (Lab, Scans, Procedures, Medications, Vitals)
-// ============================================
-
-const getLabReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/lab', { params });
-  return response.data;
-};
-
-const getScanReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/scans', { params });
-  return response.data;
-};
-
-const getProcedureReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/procedures', { params });
-  return response.data;
-};
-
-const getMedicationReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/medications', { params });
-  return response.data;
-};
-
-const getVitalsReportAPI = async (params: ReportFilter) => {
-  const response = await api.get('/reports/vitals', { params });
-  return response.data;
-};
-
-// ============================================
-// STORE STATE
-// ============================================
-
 interface ReportsState {
-  // GHS Reports
-  opdReport: any | null;
-  ipdReport: any | null;
-  idsrReport: any | null;
-  malariaReport: any | null;
-  formAReport: any | null;
-  morbidityMortalityReport: any | null;
-  topDiagnoses: any[] | null;
-  
-  // Financial & Clinical Reports
-  financialReport: any | null;
-  insuranceClaimsReport: any | null;
-  clinicalReport: any | null;
-  attendanceReport: any | null;
-  revenueReport: any | null;
-  familyPlanningReport: any | null;
-  demographicReport: any | null;
-  
-  // Laboratory & Clinical Reports
-  labReport: any | null;
-  scanReport: any | null;
-  procedureReport: any | null;
-  medicationReport: any | null;
-  vitalsReport: any | null;
-  
-  // Report Submissions
-  reportSubmissions: any[] | null;
-  currentSubmission: any | null;
-  
-  // UI State
   isLoading: boolean;
-  isExporting: boolean;
   error: string | null;
+  ghsReports: {
+    opd: any[];
+    ipd: any[];
+    idsr: any[];
+    malaria: any[];
+    formA: any[];
+    morbidityMortality: any[];
+  };
+  clinicalReports: {
+    diagnoses: any[];
+    financial: any[];
+    attendance: any[];
+    revenue: any[];
+    familyPlanning: any[];
+    demographic: any[];
+    lab: any[];
+    scan: any[];
+    procedure: any[];
+    medication: any[];
+    vitals: any[];
+  };
+  submissions: any[];
+  currentReport: any | null;
   
-  // Actions
-  getOPDReport: (filters: ReportFilter) => Promise<void>;
-  getIPDReport: (filters: ReportFilter) => Promise<void>;
-  getIDSRReport: (filters: ReportFilter) => Promise<void>;
-  getMalariaReport: (filters: ReportFilter) => Promise<void>;
-  getFormAReport: (filters: ReportFilter) => Promise<void>;
+  // GHS Reports
+  getGHSOPDReport: (filters: ReportFilter) => Promise<void>;
+  getGHSIPDReport: (filters: ReportFilter) => Promise<void>;
+  getGHSIDSRReport: (filters: ReportFilter) => Promise<void>;
+  getGHSMalariaReport: (filters: ReportFilter) => Promise<void>;
+  getGHSFormAReport: (filters: ReportFilter) => Promise<void>;
   getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
   getTopDiagnoses: (filters: ReportFilter, limit?: number) => Promise<void>;
+  
+  // Clinical Reports
   getFinancialReport: (filters: ReportFilter) => Promise<void>;
   getInsuranceClaimsReport: (filters: ReportFilter) => Promise<void>;
   getClinicalReport: (filters: ReportFilter) => Promise<void>;
@@ -225,105 +82,113 @@ interface ReportsState {
   getProcedureReport: (filters: ReportFilter) => Promise<void>;
   getMedicationReport: (filters: ReportFilter) => Promise<void>;
   getVitalsReport: (filters: ReportFilter) => Promise<void>;
+  
+  // Report Management
   getReportSubmissions: (filters?: any) => Promise<void>;
-  getReportById: (id: string) => Promise<any>;
-  exportReport: (id: string) => Promise<void>;
-  clearReports: () => void;
+  getReportById: (id: string) => Promise<void>;
+  exportReportToCSV: (reportType: string, filters: ReportFilter) => Promise<Blob>;
   clearError: () => void;
+  clearReports: () => void;
 }
 
 export const useReportsStore = create<ReportsState>((set, get) => ({
-  // Initial State
-  opdReport: null,
-  ipdReport: null,
-  idsrReport: null,
-  malariaReport: null,
-  formAReport: null,
-  morbidityMortalityReport: null,
-  topDiagnoses: null,
-  financialReport: null,
-  insuranceClaimsReport: null,
-  clinicalReport: null,
-  attendanceReport: null,
-  revenueReport: null,
-  familyPlanningReport: null,
-  demographicReport: null,
-  labReport: null,
-  scanReport: null,
-  procedureReport: null,
-  medicationReport: null,
-  vitalsReport: null,
-  reportSubmissions: null,
-  currentSubmission: null,
   isLoading: false,
-  isExporting: false,
   error: null,
+  ghsReports: {
+    opd: [],
+    ipd: [],
+    idsr: [],
+    malaria: [],
+    formA: [],
+    morbidityMortality: [],
+  },
+  clinicalReports: {
+    diagnoses: [],
+    financial: [],
+    attendance: [],
+    revenue: [],
+    familyPlanning: [],
+    demographic: [],
+    lab: [],
+    scan: [],
+    procedure: [],
+    medication: [],
+    vitals: [],
+  },
+  submissions: [],
+  currentReport: null,
 
-  // ============================================
-  // GHS REPORT ACTIONS
-  // ============================================
-
-  getOPDReport: async (filters) => {
+  getGHSOPDReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getGHSOPDReport(filters);
-      const reportData = response.data || response;
-      set({ opdReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, opd: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch OPD report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch OPD report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  getIPDReport: async (filters) => {
+  getGHSIPDReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getGHSIPDReport(filters);
-      const reportData = response.data || response;
-      set({ ipdReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, ipd: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch IPD report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch IPD report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  getIDSRReport: async (filters) => {
+  getGHSIDSRReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getGHSIDSRReport(filters);
-      const reportData = response.data || response;
-      set({ idsrReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, idsr: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch IDSR report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch IDSR report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  getMalariaReport: async (filters) => {
+  getGHSMalariaReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getGHSMalariaReport(filters);
-      const reportData = response.data || response;
-      set({ malariaReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, malaria: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Malaria report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Malaria report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  getFormAReport: async (filters) => {
+  getGHSFormAReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getGHSFormAReport(filters);
-      const reportData = response.data || response;
-      set({ formAReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, formA: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Form A report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Form A report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -332,11 +197,13 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getMorbidityMortalityReport(filters);
-      const reportData = response.data || response;
-      set({ morbidityMortalityReport: reportData, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        ghsReports: { ...state.ghsReports, morbidityMortality: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Morbidity/Mortality report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Morbidity/Mortality report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -345,37 +212,28 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getTopDiagnoses(filters, limit);
-      let diagnosesArray = [];
-      
-      if (Array.isArray(response)) {
-        diagnosesArray = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        diagnosesArray = response.data;
-      } else if (response.success && Array.isArray(response.data)) {
-        diagnosesArray = response.data;
-      }
-      
-      set({ topDiagnoses: diagnosesArray, isLoading: false });
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, diagnoses: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Top Diagnoses:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch top diagnoses', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  // ============================================
-  // FINANCIAL REPORT ACTIONS
-  // ============================================
-
   getFinancialReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getFinancialReportAPI(filters);
-      const reportData = response.data || response;
-      set({ financialReport: reportData, isLoading: false });
+      const response = await getFinancialReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, financial: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Financial report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Financial report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -383,12 +241,12 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getInsuranceClaimsReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getInsuranceClaimsReportAPI(filters);
-      const reportData = response.data || response;
-      set({ insuranceClaimsReport: reportData, isLoading: false });
+      const response = await getInsuranceClaimsReport(filters);
+      const data = response.data || response;
+      set({ isLoading: false });
+      return data;
     } catch (error: unknown) {
-      console.error('Failed to fetch Insurance Claims report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Insurance Claims report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -396,12 +254,14 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getClinicalReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getClinicalReportAPI(filters);
-      const reportData = response.data || response;
-      set({ clinicalReport: reportData, isLoading: false });
+      const response = await getClinicalReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, diagnoses: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Clinical report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Clinical report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -409,12 +269,14 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getAttendanceReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getAttendanceReportAPI(filters);
-      const reportData = response.data || response;
-      set({ attendanceReport: reportData, isLoading: false });
+      const response = await getAttendanceReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, attendance: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Attendance report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Attendance report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -422,29 +284,29 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getRevenueReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getRevenueReportAPI(filters);
-      const reportData = response.data || response;
-      set({ revenueReport: reportData, isLoading: false });
+      const response = await getRevenueReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, revenue: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Revenue report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Revenue report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  // ============================================
-  // FAMILY PLANNING & DEMOGRAPHIC REPORTS
-  // ============================================
-
   getFamilyPlanningReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getFamilyPlanningReportAPI(filters);
-      const reportData = response.data || response;
-      set({ familyPlanningReport: reportData, isLoading: false });
+      const response = await getFamilyPlanningReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, familyPlanning: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Family Planning report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Family Planning report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -452,29 +314,29 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getDemographicReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getDemographicReportAPI(filters);
-      const reportData = response.data || response;
-      set({ demographicReport: reportData, isLoading: false });
+      const response = await getDemographicReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, demographic: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Demographic report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Demographic report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  // ============================================
-  // LABORATORY & CLINICAL REPORTS
-  // ============================================
-
   getLabReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getLabReportAPI(filters);
-      const reportData = response.data || response;
-      set({ labReport: reportData, isLoading: false });
+      const response = await getLabReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, lab: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Lab report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Lab report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -482,12 +344,14 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getScanReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getScanReportAPI(filters);
-      const reportData = response.data || response;
-      set({ scanReport: reportData, isLoading: false });
+      const response = await getScanReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, scan: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Scan report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Scan report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -495,12 +359,14 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getProcedureReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getProcedureReportAPI(filters);
-      const reportData = response.data || response;
-      set({ procedureReport: reportData, isLoading: false });
+      const response = await getProcedureReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, procedure: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Procedure report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Procedure report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -508,12 +374,14 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getMedicationReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getMedicationReportAPI(filters);
-      const reportData = response.data || response;
-      set({ medicationReport: reportData, isLoading: false });
+      const response = await getMedicationReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, medication: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Medication report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Medication report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -521,29 +389,26 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
   getVitalsReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getVitalsReportAPI(filters);
-      const reportData = response.data || response;
-      set({ vitalsReport: reportData, isLoading: false });
+      const response = await getVitalsReport(filters);
+      const data = response.data || response;
+      set((state) => ({
+        clinicalReports: { ...state.clinicalReports, vitals: data },
+        isLoading: false,
+      }));
     } catch (error: unknown) {
-      console.error('Failed to fetch Vitals report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch Vitals report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
-
-  // ============================================
-  // REPORT SUBMISSIONS
-  // ============================================
 
   getReportSubmissions: async (filters) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getReportSubmissions(filters);
-      const submissions = response.data || response;
-      set({ reportSubmissions: Array.isArray(submissions) ? submissions : [], isLoading: false });
+      const data = response.data || response;
+      set({ submissions: data, isLoading: false });
     } catch (error: unknown) {
-      console.error('Failed to fetch report submissions:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch submissions', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -552,64 +417,50 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getReportById(id);
-      const submission = response.data || response;
-      set({ currentSubmission: submission, isLoading: false });
-      return submission;
+      const data = response.data || response;
+      set({ currentReport: data, isLoading: false });
     } catch (error: unknown) {
-      console.error('Failed to fetch report:', error);
-      set({ error: error.response?.data?.message || 'Failed to fetch report', isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  exportReport: async (id) => {
-    set({ isExporting: true, error: null });
+  exportReportToCSV: async (reportType, filters) => {
+    set({ isLoading: true, error: null });
     try {
-      const blob = await exportReportToCSV(id);
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `report_${id}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      set({ isExporting: false });
+      const blob = await exportReportToCSV(reportType, filters);
+      set({ isLoading: false });
+      return blob;
     } catch (error: unknown) {
-      console.error('Failed to export report:', error);
-      set({ error: error.response?.data?.message || 'Failed to export report', isExporting: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
-  },
-
-  clearReports: () => {
-    set({
-      opdReport: null,
-      ipdReport: null,
-      idsrReport: null,
-      malariaReport: null,
-      formAReport: null,
-      morbidityMortalityReport: null,
-      topDiagnoses: null,
-      financialReport: null,
-      insuranceClaimsReport: null,
-      clinicalReport: null,
-      attendanceReport: null,
-      revenueReport: null,
-      familyPlanningReport: null,
-      demographicReport: null,
-      labReport: null,
-      scanReport: null,
-      procedureReport: null,
-      medicationReport: null,
-      vitalsReport: null,
-      reportSubmissions: null,
-      currentSubmission: null,
-      error: null,
-    });
   },
 
   clearError: () => set({ error: null }),
+  clearReports: () => set({
+    ghsReports: {
+      opd: [],
+      ipd: [],
+      idsr: [],
+      malaria: [],
+      formA: [],
+      morbidityMortality: [],
+    },
+    clinicalReports: {
+      diagnoses: [],
+      financial: [],
+      attendance: [],
+      revenue: [],
+      familyPlanning: [],
+      demographic: [],
+      lab: [],
+      scan: [],
+      procedure: [],
+      medication: [],
+      vitals: [],
+    },
+    submissions: [],
+    currentReport: null,
+  }),
 }));

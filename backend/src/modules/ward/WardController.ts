@@ -1,0 +1,112 @@
+/**
+ * Ward Controller
+ * HTTP request handlers for Ward operations
+ */
+
+import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { BaseController } from '../../shared/base/BaseController';
+import { WardService } from './WardService';
+import { CreateWardDTO, WardFilters } from './WardTypes';
+
+const prisma = new PrismaClient();
+
+export class WardController extends BaseController {
+  private service: WardService;
+
+  constructor() {
+    super();
+    this.service = new WardService(prisma);
+  }
+
+  /**
+   * GET /wards
+   * Get all wards with optional filters
+   */
+  async getWards = this.asyncHandler(async (req: Request, res: Response) => {
+    const filters: WardFilters = {
+      isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
+      wardType: req.query.wardType as string,
+      hasAvailableBeds: req.query.hasAvailableBeds === 'true'
+    };
+
+    const wards = await this.service.getWards(filters);
+
+    return this.ok(res, wards, 'Wards retrieved successfully');
+  });
+
+  /**
+   * GET /wards/available-beds
+   * Get available beds
+   */
+  async getAvailableBeds = this.asyncHandler(async (req: Request, res: Response) => {
+    const { wardId, wardType } = req.query;
+    
+    const result = await this.service.getAvailableBeds(
+      wardId as string | undefined,
+      wardType as string | undefined
+    );
+
+    return this.ok(res, result, 'Available beds retrieved successfully');
+  });
+
+  /**
+   * GET /wards/:id
+   * Get ward by ID
+   */
+  async getWardById = this.asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
+    const ward = await this.service.getWardById(id);
+
+    return this.ok(res, ward, 'Ward retrieved successfully');
+  });
+
+  /**
+   * POST /wards
+   * Create a new ward
+   */
+  async createWard = this.asyncHandler(async (req: Request, res: Response) => {
+    const data: CreateWardDTO = req.body;
+    const user = req.user as any;
+    
+    const ward = await this.service.createWard(data, user?.id);
+
+    return this.created(res, ward, 'Ward created successfully');
+  });
+
+  /**
+   * PUT /wards/:id
+   * Update ward
+   */
+  async updateWard = this.asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body;
+    
+    const ward = await this.service.updateWard(id, data);
+
+    return this.ok(res, ward, 'Ward updated successfully');
+  });
+
+  /**
+   * DELETE /wards/:id
+   * Delete ward
+   */
+  async deleteWard = this.asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
+    await this.service.deleteWard(id);
+
+    return this.ok(res, null, 'Ward deleted successfully');
+  });
+
+  /**
+   * GET /wards/stats
+   * Get ward statistics
+   */
+  async getStats = this.asyncHandler(async (req: Request, res: Response) => {
+    const stats = await this.service.getStats();
+
+    return this.ok(res, stats, 'Ward statistics retrieved successfully');
+  });
+}

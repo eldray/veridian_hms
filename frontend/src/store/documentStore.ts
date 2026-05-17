@@ -1,19 +1,28 @@
-// src/store/documentStore.ts - Make sure generateBillStatement is included
+// src/store/documentStore.ts
 import { create } from 'zustand';
-import { documentApi } from '../api/documentApi';
+import { 
+  generateReceipt,
+  generateBillStatement,
+  generateReferralLetter,
+  generateDischargeSummary,
+  generateLabResult,
+  generatePrescription,
+  getDocumentsByEntity,
+  downloadDocument,
+  reprintDocument,
+  getTemplates,
+} from '../api';
 import type { GeneratedDocument, DocumentTemplate, DocumentGenerationResponse } from '../types/documents';
 
 interface DocumentState {
-  // State
   documents: GeneratedDocument[];
   templates: DocumentTemplate[];
   isLoading: boolean;
   error: string | null;
-  
-  // Actions
+
   getDocumentsByEntity: (entityType: string, entityId: string) => Promise<GeneratedDocument[]>;
   generateReceipt: (billId: string) => Promise<DocumentGenerationResponse>;
-  generateBillStatement: (billId: string) => Promise<DocumentGenerationResponse>;  // ✅ ADD THIS
+  generateBillStatement: (billId: string) => Promise<DocumentGenerationResponse>;
   generateReferralLetter: (referralId: string) => Promise<DocumentGenerationResponse>;
   generateDischargeSummary: (admissionId: string) => Promise<DocumentGenerationResponse>;
   generateLabResult: (labTestId: string) => Promise<DocumentGenerationResponse>;
@@ -31,121 +40,139 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  getDocumentsByEntity: async (entityType: string, entityId: string) => {
+  getDocumentsByEntity: async (entityType, entityId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.getDocumentsByEntity(entityType, entityId);
-      const documents = response.data;
-      set({ documents, isLoading: false });
-      return documents;
+      const response = await getDocumentsByEntity(entityType, entityId);
+      const docs = response.data || response;
+      set({ documents: docs, isLoading: false });
+      return docs;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to fetch documents';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  generateReceipt: async (billId: string) => {
+  generateReceipt: async (billId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generateReceipt(billId);
-      set({ isLoading: false });
-      return response;
+      const response = await generateReceipt(billId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate receipt';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  // ✅ ADD THIS
-  generateBillStatement: async (billId: string) => {
+  generateBillStatement: async (billId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generateBillStatement(billId);
-      set({ isLoading: false });
-      return response;
+      const response = await generateBillStatement(billId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate bill statement';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  generateReferralLetter: async (referralId: string) => {
+  generateReferralLetter: async (referralId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generateReferralLetter(referralId);
-      set({ isLoading: false });
-      return response;
+      const response = await generateReferralLetter(referralId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate referral letter';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  generateDischargeSummary: async (admissionId: string) => {
+  generateDischargeSummary: async (admissionId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generateDischargeSummary(admissionId);
-      set({ isLoading: false });
-      return response;
+      const response = await generateDischargeSummary(admissionId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate discharge summary';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  generateLabResult: async (labTestId: string) => {
+  generateLabResult: async (labTestId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generateLabResult(labTestId);
-      set({ isLoading: false });
-      return response;
+      const response = await generateLabResult(labTestId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate lab result';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  generatePrescription: async (attendanceId: string) => {
+  generatePrescription: async (attendanceId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.generatePrescription(attendanceId);
-      set({ isLoading: false });
-      return response;
+      const response = await generatePrescription(attendanceId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to generate prescription';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  downloadDocument: async (documentId: string) => {
+  downloadDocument: async (documentId) => {
     set({ isLoading: true, error: null });
     try {
-      const blob = await documentApi.downloadDocument(documentId);
+      const response = await downloadDocument(documentId);
       set({ isLoading: false });
-      return blob;
+      return response.data || response;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to download document';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  reprintDocument: async (documentId: string) => {
+  reprintDocument: async (documentId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.reprintDocument(documentId);
-      set({ isLoading: false });
-      return response;
+      const response = await reprintDocument(documentId);
+      const doc = response.data || response;
+      set((state) => ({
+        documents: [doc, ...state.documents],
+        isLoading: false,
+      }));
+      return doc;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to reprint document';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
@@ -153,13 +180,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   getTemplates: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await documentApi.getTemplates();
-      const templates = response.data;
+      const response = await getTemplates();
+      const templates = response.data || response;
       set({ templates, isLoading: false });
       return templates;
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.message || 'Failed to fetch templates';
-      set({ error: errorMsg, isLoading: false });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
