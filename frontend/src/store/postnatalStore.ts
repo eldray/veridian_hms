@@ -1,6 +1,13 @@
 // src/store/postnatalStore.ts
 import { create } from 'zustand';
-import api from '../api/antenatal';
+import { 
+  getPostnatals,
+  getPostnatal,
+  createPostnatal,
+  updatePostnatal,
+  deletePostnatal,
+  getPostnatalStats,
+} from '../api';
 
 export interface PostnatalRecord {
   id: string;
@@ -9,25 +16,19 @@ export interface PostnatalRecord {
   antenatalBookingId?: string;
   deliveryRecordId?: string;
   examinationDate: string;
-  dayNumber: number; // Day 1, 3, 7, 14, 28, 42, etc.
-  
-  // Maternal assessment
+  dayNumber: number;
   maternalCondition: 'good' | 'fair' | 'poor' | 'critical';
   maternalComplications: string[];
   bloodPressure?: string;
   temperature?: number;
   pulse?: number;
-  fundalHeight?: number; // cm, for involution
+  fundalHeight?: number;
   lochia: 'normal' | 'heavy' | 'foul_smelling' | 'scanty';
   perinealCondition: 'intact' | 'healing' | 'infected' | 'dehisced';
   caesareanWound?: 'healing' | 'infected' | 'dehisced';
-  
-  // Breastfeeding
   breastfeedingStatus: 'exclusive' | 'mixed' | 'not_breastfeeding';
   breastfeedingDifficulties: string[];
   latching: 'good' | 'fair' | 'poor';
-  
-  // Baby assessment
   babyCondition: 'good' | 'fair' | 'poor' | 'critical';
   babyWeight?: number;
   babyTemperature?: number;
@@ -35,65 +36,21 @@ export interface PostnatalRecord {
   jaundice: boolean;
   jaundiceSeverity?: 'mild' | 'moderate' | 'severe';
   cordCondition: 'dry' | 'moist' | 'infected';
-  
-  // Immunizations given
   bcgGiven: boolean;
   opv0Given: boolean;
   hepB0Given: boolean;
-  
-  // Family Planning
   familyPlanningDiscussed: boolean;
   familyPlanningMethodAccepted?: string;
-  
-  // Danger signs
   maternalDangerSigns: string[];
   babyDangerSigns: string[];
-  
-  // Referrals
-  referralMade: boolean;
-  referredTo?: string;
+  referralTo?: string;
   referralReason?: string;
-  
-  // Next visit
-  nextVisitDate?: string;
-  nextVisitType?: 'day_7' | 'day_14' | 'day_28' | 'day_42' | 'other';
-  
   notes?: string;
+  nextVisitDate?: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;
 }
-
-// src/store/postnatalStore.ts - FIXED
-
-// ✅ FIXED: Use plural '/antenatal/postnatals' for list endpoint
-const getPostnatalRecords = async (filters?: { patientId?: string; startDate?: string; endDate?: string }) => {
-  // Changed from '/antenatal/postnatal' to '/antenatal/postnatals'
-  const response = await api.get('/antenatal/postnatals', { params: filters });
-  return response.data;
-};
-
-// These are correct (singular for specific operations)
-const getPostnatalRecord = async (id: string) => {
-  const response = await api.get(`/antenatal/postnatal/${id}`);
-  return response.data;
-};
-
-const createPostnatalRecord = async (data: Partial<PostnatalRecord>) => {
-  const response = await api.post('/antenatal/postnatal', data);
-  return response.data;
-};
-
-const updatePostnatalRecord = async (id: string, data: Partial<PostnatalRecord>) => {
-  const response = await api.put(`/antenatal/postnatal/${id}`, data);
-  return response.data;
-};
-
-const deletePostnatalRecord = async (id: string) => {
-  const response = await api.delete(`/antenatal/postnatal/${id}`);
-  return response.data;
-};
-
 
 interface PostnatalState {
   postnatalRecords: PostnatalRecord[];
@@ -103,14 +60,12 @@ interface PostnatalState {
   error: string | null;
   pagination: any;
   
-  // Actions
-  getPostnatalRecords: (filters?: any) => Promise<void>;
-  getPostnatalRecord: (id: string) => Promise<PostnatalRecord>;
-  createPostnatalRecord: (data: Partial<PostnatalRecord>) => Promise<PostnatalRecord>;
-  updatePostnatalRecord: (id: string, data: Partial<PostnatalRecord>) => Promise<void>;
-  deletePostnatalRecord: (id: string) => Promise<void>;
-  getPostnatalExamination: (attendanceId: string) => Promise<any>;
-  recordPostnatalExamination: (data: any) => Promise<any>;
+  getPostnatals: (filters?: any) => Promise<void>;
+  getPostnatal: (id: string) => Promise<PostnatalRecord>;
+  createPostnatal: (data: Partial<PostnatalRecord>) => Promise<PostnatalRecord>;
+  updatePostnatal: (id: string, data: Partial<PostnatalRecord>) => Promise<void>;
+  deletePostnatal: (id: string) => Promise<void>;
+  getStats: (filters?: any) => Promise<void>;
   clearCurrentPostnatal: () => void;
   clearError: () => void;
 }
@@ -123,10 +78,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
   error: null,
   pagination: null,
 
-  getPostnatalRecords: async (filters = {}) => {
+  getPostnatals: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatalRecords(filters);
+      const response = await getPostnatals(filters);
       let records = [];
       let pagination = null;
       
@@ -144,10 +99,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
     }
   },
 
-  getPostnatalRecord: async (id) => {
+  getPostnatal: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatalRecord(id);
+      const response = await getPostnatal(id);
       const record = response.data || response;
       set({ currentPostnatal: record, isLoading: false });
       return record;
@@ -157,10 +112,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
     }
   },
 
-  createPostnatalRecord: async (data) => {
+  createPostnatal: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await createPostnatalRecord(data);
+      const response = await createPostnatal(data);
       const record = response.data || response;
       set((state) => ({
         postnatalRecords: [record, ...state.postnatalRecords],
@@ -174,10 +129,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
     }
   },
 
-  updatePostnatalRecord: async (id, data) => {
+  updatePostnatal: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await updatePostnatalRecord(id, data);
+      const response = await updatePostnatal(id, data);
       const record = response.data || response;
       set((state) => ({
         postnatalRecords: state.postnatalRecords.map(r => r.id === id ? record : r),
@@ -190,10 +145,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
     }
   },
 
-  deletePostnatalRecord: async (id) => {
+  deletePostnatal: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await deletePostnatalRecord(id);
+      await deletePostnatal(id);
       set((state) => ({
         postnatalRecords: state.postnatalRecords.filter(r => r.id !== id),
         currentPostnatal: state.currentPostnatal?.id === id ? null : state.currentPostnatal,
@@ -205,26 +160,12 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
     }
   },
 
-  getPostnatalExamination: async (attendanceId) => {
+  getStats: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatalExamination(attendanceId);
-      const data = response.data || response;
-      set({ isLoading: false });
-      return data;
-    } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  recordPostnatalExamination: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await recordPostnatalExamination(data);
-      const result = response.data || response;
-      set({ isLoading: false });
-      return result;
+      const response = await getPostnatalStats(filters);
+      const stats = response.data || response;
+      set({ stats, isLoading: false });
     } catch (error: unknown) {
       set({ error: error.message, isLoading: false });
       throw error;

@@ -1,17 +1,17 @@
 // src/store/antenatalStore.ts - FIXED VERSION
 import { create } from 'zustand';
 import {
-  getAntenatalBookings as apiGetBookings,
-  getActiveBookingByPatient as apiGetActiveBooking,
-  getAntenatalBookingById as apiGetBookingById,
-  createAntenatalBooking as apiCreateBooking,
-  closeAntenatalBooking as apiCloseBooking,
-  getANCVisitsByBooking as apiGetANCVisitsByBooking,
-  getANCVisitById as apiGetVisit,
-  updateANCVisit as apiUpdateVisit,
-  deleteANCVisit as apiDeleteVisit,
-  getANCStatistics as apiGetStats,
-} from '../api/antenatal';
+  getAntenatalBookings,
+  getActiveBookingByPatient,
+  getAntenatalBookingById,
+  createAntenatalBooking,
+  closeAntenatalBooking,
+  getANCVisitsByBooking,
+  getANCVisitById,
+  updateANCVisit,
+  deleteANCVisit,
+  getANCStatistics,
+} from '../api';
 
 interface AntenatalState {
   bookings: any[];
@@ -60,7 +60,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getBookings: async (filters = {}) => {
     set({ isLoadingBookings: true, error: null });
     try {
-      const response = await apiGetBookings(filters);
+      const response = await getAntenatalBookings(filters);
       let bookings = [];
       let pagination = null;
       
@@ -81,7 +81,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getBooking: async (patientId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetActiveBooking(patientId);
+      const response = await getActiveBookingByPatient(patientId);
       const booking = response.data || response;
       set({ currentBooking: booking, isLoading: false });
       return booking;
@@ -99,7 +99,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getBookingById: async (bookingId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetBookingById(bookingId);
+      const response = await getAntenatalBookingById(bookingId);
       const booking = response.data || response;
       set({ currentBooking: booking, isLoading: false });
       return booking;
@@ -111,7 +111,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   
   refreshBooking: async (patientId: string) => {
     try {
-      const response = await apiGetActiveBooking(patientId);
+      const response = await getActiveBookingByPatient(patientId);
       const booking = response.data || response;
       set({ currentBooking: booking });
       if (booking?.id) {
@@ -125,7 +125,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   createBooking: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiCreateBooking(data);
+      const response = await createAntenatalBooking(data);
       const booking = response.data || response;
       set((state) => ({
         bookings: [booking, ...state.bookings],
@@ -142,7 +142,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   closeBooking: async (bookingId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiCloseBooking(bookingId, data);
+      const response = await closeAntenatalBooking(bookingId, data);
       const booking = response.data || response;
       set((state) => ({
         bookings: state.bookings.map(b => b.id === bookingId ? booking : b),
@@ -158,7 +158,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getANCVisitsByBooking: async (bookingId: string) => {
     set({ isLoadingVisits: true, error: null });
     try {
-      const response = await apiGetANCVisitsByBooking(bookingId);
+      const response = await getANCVisitsByBooking(bookingId);
       const visits = response.data?.visits || response.data || [];
       set({ currentVisits: visits, isLoadingVisits: false });
       return visits;
@@ -171,7 +171,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getVisit: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetVisit(id);
+      const response = await getANCVisitById(id);
       const visit = response.data || response;
       set({ currentVisit: visit, isLoading: false });
       return visit;
@@ -187,7 +187,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   updateVisit: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiUpdateVisit(id, data);
+      const response = await updateANCVisit(id, data);
       const visit = response.data || response;
       set((state) => ({
         currentVisits: state.currentVisits.map(v => v.id === id ? visit : v),
@@ -203,7 +203,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   deleteVisit: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await apiDeleteVisit(id);
+      await deleteANCVisit(id);
       set((state) => ({
         currentVisits: state.currentVisits.filter(v => v.id !== id),
         currentVisit: state.currentVisit?.id === id ? null : state.currentVisit,
@@ -218,7 +218,7 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
   getStats: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetStats(filters);
+      const response = await getANCStatistics(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
     } catch (error: unknown) {

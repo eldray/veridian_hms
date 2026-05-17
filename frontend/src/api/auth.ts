@@ -13,15 +13,8 @@ export const login = async (username: string, password: string) => {
 };
 
 export const verifyToken = async () => {
-  const response = await api.get('/auth/verify');
-  const { user, token } = response.data;
-
-  // Update token if server sends a fresh one
-  if (token) {
-    localStorage.setItem('auth_token', token);
-  }
-
-  return user;
+  const response = await api.get('/auth/profile');
+  return response.data.user || response.data;
 };
 
 export const logout = async () => {
@@ -42,3 +35,30 @@ export const getDemoUsers = () => [
   { username: 'nurse1', password: 'nurse123', role: 'nurse' as const },
   { username: 'pharma1', password: 'pharma123', role: 'pharmacist' as const },
 ];
+
+// Profile management
+export const getProfile = async () => {
+  const response = await api.get('/auth/profile');
+  return response.data.user || response.data;
+};
+
+export const updateProfile = async (data: any) => {
+  const response = await api.put('/auth/profile', data);
+  return response.data.user || response.data;
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  const response = await api.put('/auth/change-password', { currentPassword, newPassword });
+  return response.data;
+};
+
+// User management (admin)
+export const getUsers = async () => {
+  const response = await api.get('/auth/users');
+  return response.data.users || response.data;
+};
+
+export const getUserStats = async () => {
+  const response = await api.get('/auth/users/stats');
+  return response.data;
+};

@@ -183,6 +183,7 @@ model ServiceCatalog {
   procedures   Procedure[]
   medications  Medication[]
   BillLineItem BillLineItem[]
+  ProformaInvoiceItem ProformaInvoiceItem[]
 
   // ✅ ADD THIS - opposite relation for GDRG procedure linking
   gdrgProcedureLinks GDRGTariffProcedure[]
@@ -238,6 +239,7 @@ model Patient {
   deliveryRecords      DeliveryRecord[]
   abortionRecords      AbortionRecord[]
   postnatalRecords     PostnatalRecord[]
+  proformaInvoices     ProformaInvoice[]
 
   @@index([folderNumber])
   @@index([otherNames])
@@ -445,6 +447,8 @@ model Attendance {
   @@index([status])
   @@index([gdrgCategory])
   @@index([serviceCategory])
+  
+  proformaInvoices ProformaInvoice[]
 }
 
 // ============================================================
@@ -927,6 +931,7 @@ model Bill {
   Payment                     Payment[]
   BillLineItem                BillLineItem[]
   PatientWaiver               PatientWaiver[]
+  ProformaInvoice             ProformaInvoice?
 
   @@index([attendanceId])
   @@index([billDate])
@@ -1183,6 +1188,8 @@ model Admission {
   @@index([wardId])
   @@index([status])
   @@index([admissionDate])
+  
+  proformaInvoices ProformaInvoice[]
 }
 
 model Ward {
@@ -1901,6 +1908,8 @@ model User {
   postnatalRecords         PostnatalRecord[]
   notificationsReceived    Notification[]        @relation("ReceivedNotifications")
   notificationsSent        Notification[]        @relation("SentNotifications")
+  proformaInvoicesCreated  ProformaInvoice[]     @relation("ProformaInvoice_createdByIdToUser")
+  proformaInvoicesApproved ProformaInvoice[]     @relation("ProformaInvoice_approvedByIdToUser")
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
@@ -2650,4 +2659,171 @@ enum AntenatalRisk {
   low
   medium
   high
+}
+
+// ============================================================
+// PROFORMA INVOICES (Estimates for Private Patients)
+// ============================================================
+
+model ProformaInvoice {
+  id                   String              @id @default(cuid())
+  referenceNumber      String              @unique
+  patientId            String
+  attendanceId         String?             @unique
+  admissionId          String?
+  status               ProformaInvoiceStatus @default(DRAFT)
+  subtotal             Float               @default(0)
+  discount             Float               @default(0)
+  taxAmount            Float               @default(0)
+  totalAmount          Float               @default(0)
+  validityDays         Int                 @default(7)
+  expiresAt            DateTime?
+  notes                String?
+  termsAndConditions   String?
+  createdById          String
+  approvedById         String?
+  approvedAt           DateTime?
+  convertedToBillId    String?             @unique
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  Attendance           Attendance?         @relation(fields: [attendanceId], references: [id])
+  Admission            Admission?          @relation(fields: [admissionId], references: [id])
+  Patient              Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_createdBy       User                @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
+  User_approvedBy      User?               @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
+  Bill                 Bill?               @relation(fields: [convertedToBillId], references: [id])
+  items                ProformaInvoiceItem[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([referenceNumber])
+  @@index([createdAt])
+}
+
+model ProformaInvoiceItem {
+  id                    String            @id @default(cuid())
+  proformaInvoiceId     String
+  serviceCatalogId      String?
+  description           String
+  serviceType           ServiceType
+  quantity              Int               @default(1)
+  unitPrice             Float
+  pricingBasis          PaymentMode
+  vatRate               Float             @default(0)
+  vatAmount             Float             @default(0)
+  totalPrice            Float
+  isInsuranceCovered    Boolean           @default(false)
+  insuranceCoverage     Float             @default(0)
+  patientResponsibility Float
+
+  proformaInvoice       ProformaInvoice   @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
+  serviceCatalog        ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
+
+  @@index([proformaInvoiceId])
+}
+
+enum ProformaInvoiceStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  CONVERTED
+  EXPIRED
+}
+
+// ============================================================
+// SMS/WHATSAPP INTEGRATION (Extends Notification)
+// ============================================================
+
+model CommunicationChannel {
+  id          String              @id @default(cuid())
+  name        String              @unique // e.g., "SMS", "WhatsApp"
+  provider    String              // e.g., "Twilio", "Hubtel", "mNotify"
+  apiKey      String?
+  apiSecret   String?
+  senderId    String?             // For SMS: short code, For WhatsApp: business number
+  isActive    Boolean             @default(false)
+  settings    Json?               // Provider-specific configuration
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  templates   CommunicationTemplate[]
+  logs        CommunicationLog[]
+  
+  @@map("communication_channels")
+}
+
+model CommunicationTemplate {
+  id          String              @id @default(cuid())
+  channelId   String
+  name        String              // e.g., "appointment_reminder"
+  type        CommunicationType
+  subject     String?             // For email
+  body        String              // Template with placeholders {{patientName}}, {{date}}, etc.
+  variables   Json?               // List of required variables
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  channel     CommunicationChannel @relation(fields: [channelId], references: [id])
+  logs        CommunicationLog[]
+  
+  @@index([channelId])
+  @@index([type])
+  @@map("communication_templates")
+}
+
+model CommunicationLog {
+  id          String              @id @default(cuid())
+  channelId   String
+  templateId  String?
+  recipient   String              // Phone number or email
+  message     String
+  status      CommunicationStatus @default(PENDING)
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  failedAt    DateTime?
+  failureReason String?
+  metadata    Json?               // Additional data like appointmentId, patientId, etc.
+  cost        Float?              // Cost of sending (for billing)
+  providerMessageId String?       // Message ID from provider
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  channel     CommunicationChannel @relation(fields: [channelId], references: [id])
+  template    CommunicationTemplate? @relation(fields: [templateId], references: [id])
+  
+  @@index([recipient])
+  @@index([status])
+  @@index([createdAt])
+  @@index([channelId])
+  @@map("communication_logs")
+}
+
+enum CommunicationType {
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CONFIRMATION
+  LAB_RESULT_READY
+  PRESCRIPTION_READY
+  PAYMENT_REMINDER
+  BILL_NOTIFICATION
+  WELCOME_MESSAGE
+  GENERAL_NOTIFICATION
+  CUSTOM
+}
+
+enum CommunicationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum CommunicationChannelType {
+  SMS
+  WHATSAPP
+  EMAIL
 }
