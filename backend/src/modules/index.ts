@@ -82,8 +82,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/api/antenatal', createAntenatalRoutes(prisma));
   
   // Admission module (NEW - Ward/Bed management, admissions, discharges)
-  const admissionRoutes = new AdmissionRoutes();
-  app.use('/api/admissions', admissionRoutes.getRouter());
+  app.use('/api/admissions', AdmissionRoutes);
   
   // Encounter module (NEW - Clinical encounters: consultations, antenatal, delivery, postnatal)
   // This replaces the old attendanceController with proper modular architecture
@@ -105,13 +104,13 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/api/bills', BillRoutes);
 
   // Diagnosis module (NEW - ICD-10 diagnosis management)
-  app.use('/api/diagnoses', DiagnosisRoutes.getRouter());
+  app.use('/api/diagnoses', DiagnosisRoutes);
 
   // Document module (NEW - Document upload and management)
-  app.use('/api/documents', documentRoutes.getRouter());
+  app.use('/api/documents', documentRoutes);
 
   // Dashboard module (NEW - Analytics and statistics dashboard)
-  app.use('/api/dashboard', dashboardRoutes.getRouter());
+  app.use('/api/dashboard', dashboardRoutes);
 
   // Clinical Reports module (NEW - Lab, Scan, Procedure, Medication, Vitals reports)
   app.use('/api/clinical-reports', createClinicalReportsRoutes());
@@ -179,37 +178,6 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // Audit Logging Module (NEW - Security & Compliance)
   app.use('/api/audit', createAuditRoutes());
 
-  // Register other modules here as they are created/migrated
-  // app.use('/api/attendance', createAttendanceRoutes(prisma));
-  // app.use('/api/inventory', createInventoryRoutes(prisma));
-  // app.use('/api/medical-records', createMedicalRecordRoutes(prisma));
-
-  // In modules/index.ts, around line 85
-
-console.log('📦 Registering Encounter module...');
-try {
-  if (!encounterRoutes) {
-    console.error('❌ encounterRoutes is undefined!');
-  } else {
-    app.use('/api/encounters', encounterRoutes);
-    console.log('✅ Encounter module registered');
-  }
-} catch (error) {
-  console.error('❌ Failed to register Encounter:', error);
-}
-
-console.log('📦 Registering Referral module...');
-try {
-  if (!ReferralRoutes) {
-    console.error('❌ ReferralRoutes is undefined!');
-  } else {
-    app.use('/api/referrals', ReferralRoutes);
-    console.log('✅ Referral module registered');
-  }
-} catch (error) {
-  console.error('❌ Failed to register Referral:', error);
-}
-  
   console.log('✅ All modules registered successfully');
   console.log('   - User Module: /api/auth (Unified identity management)');
   console.log('   - Staff Module: /api/staff (All hospital personnel)');
