@@ -57,6 +57,26 @@ export interface AddLabOrderDTO {
   clinicalNotes?: string;
 }
 
+export interface AddScanDTO {
+  serviceCatalogId: string;
+  priority?: 'routine' | 'urgent' | 'stat';
+  notes?: string;
+  clinicalNotes?: string;
+}
+
+export interface AddProcedureDTO {
+  serviceCatalogId: string;
+  priority?: 'routine' | 'urgent' | 'stat';
+  notes?: string;
+  performedById?: string;
+}
+
+export interface AddServiceDTO {
+  serviceCatalogId: string;
+  quantity?: number;
+  notes?: string;
+}
+
 export interface EncounterFilters {
   patientId?: string;
   encounterType?: string;

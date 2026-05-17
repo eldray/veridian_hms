@@ -58,6 +58,30 @@ router.put('/lab-orders/:labOrderId/status', authenticate, ...controller.updateL
 // Remove lab order from encounter
 router.delete('/:encounterId/lab-orders/:labOrderId', authenticate, controller.removeLabOrder);
 
+// Add scan/radiology to encounter
+router.post('/:id/scans', authenticate, ...controller.addScan);
+
+// Update scan status
+router.put('/scans/:scanId/status', authenticate, ...controller.updateScanStatus);
+
+// Remove scan from encounter
+router.delete('/:encounterId/scans/:scanId', authenticate, controller.removeScan);
+
+// Add procedure to encounter
+router.post('/:id/procedures', authenticate, ...controller.addProcedure);
+
+// Update procedure status
+router.put('/procedures/:procedureId/status', authenticate, ...controller.updateProcedureStatus);
+
+// Remove procedure from encounter
+router.delete('/:encounterId/procedures/:procedureId', authenticate, controller.removeProcedure);
+
+// Add service to encounter
+router.post('/:id/services', authenticate, ...controller.addService);
+
+// Remove service from encounter
+router.delete('/:encounterId/services/:serviceRenderedId', authenticate, controller.removeService);
+
 // Delete encounter
 router.delete('/:id', authenticate, controller.delete);
 

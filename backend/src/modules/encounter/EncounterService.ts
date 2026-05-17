@@ -1,7 +1,7 @@
 // modules/encounter/EncounterService.ts
 import { PrismaClient } from '@prisma/client';
 import { EncounterRepository } from './EncounterRepository';
-import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabOrderDTO } from './EncounterTypes';
+import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabOrderDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO } from './EncounterTypes';
 
 export class EncounterService {
   private repository: EncounterRepository;
@@ -378,6 +378,235 @@ export class EncounterService {
     return this.prisma.labOrder.delete({
       where: {
         id: labOrderId,
+        attendanceId: encounterId
+      }
+    });
+  }
+
+  // ============================================
+  // ADD SCAN/RADIOLOGY
+  // ============================================
+  async addScan(encounterId: string, data: AddScanDTO, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { status: true }
+    });
+
+    if (!encounter) {
+      throw new Error('Encounter not found');
+    }
+
+    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+      throw new Error(`Cannot add scan to ${encounter.status} encounter`);
+    }
+
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId }
+    });
+
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    if (service.serviceType !== 'scan') {
+      throw new Error('Service is not a scan type');
+    }
+
+    const scanTemplate = await this.prisma.scanTemplate.findFirst({
+      where: { id: service.scanTemplateId || undefined }
+    });
+
+    if (!scanTemplate) {
+      throw new Error('Scan template not found for this service');
+    }
+
+    const scan = await this.prisma.scan.create({
+      data: {
+        attendanceId: encounterId,
+        scanTemplateId: scanTemplate.id,
+        serviceCatalogId: data.serviceCatalogId,
+        priority: data.priority || 'routine',
+        status: 'pending',
+        requestedAt: new Date(),
+        requestedById: userId,
+        notes: data.notes || data.clinicalNotes || null
+      }
+    });
+
+    await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
+
+    return scan;
+  }
+
+  // ============================================
+  // UPDATE SCAN STATUS
+  // ============================================
+  async updateScanStatus(scanId: string, status: string, results?: any, performedById?: string) {
+    const validStatuses = ['pending', 'in_progress', 'completed', 'verified', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    const updateData: any = { status };
+    if (results) updateData.results = results;
+    if (performedById) updateData.performedById = performedById;
+    if (status === 'completed') updateData.completedAt = new Date();
+
+    return this.prisma.scan.update({
+      where: { id: scanId },
+      data: updateData
+    });
+  }
+
+  // ============================================
+  // REMOVE SCAN
+  // ============================================
+  async removeScan(encounterId: string, scanId: string) {
+    return this.prisma.scan.delete({
+      where: {
+        id: scanId,
+        attendanceId: encounterId
+      }
+    });
+  }
+
+  // ============================================
+  // ADD PROCEDURE
+  // ============================================
+  async addProcedure(encounterId: string, data: AddProcedureDTO, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { status: true }
+    });
+
+    if (!encounter) {
+      throw new Error('Encounter not found');
+    }
+
+    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+      throw new Error(`Cannot add procedure to ${encounter.status} encounter`);
+    }
+
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId }
+    });
+
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    if (service.serviceType !== 'procedure') {
+      throw new Error('Service is not a procedure type');
+    }
+
+    const procedure = await this.prisma.procedure.create({
+      data: {
+        attendanceId: encounterId,
+        serviceCatalogId: data.serviceCatalogId,
+        priority: data.priority || 'routine',
+        status: 'scheduled',
+        scheduledAt: new Date(),
+        requestedById: userId,
+        performedById: data.performedById || userId,
+        notes: data.notes || null
+      }
+    });
+
+    await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
+
+    return procedure;
+  }
+
+  // ============================================
+  // UPDATE PROCEDURE STATUS
+  // ============================================
+  async updateProcedureStatus(procedureId: string, status: string, performedById?: string) {
+    const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    const updateData: any = { status };
+    if (performedById) updateData.performedById = performedById;
+    if (status === 'completed') updateData.completedAt = new Date();
+
+    return this.prisma.procedure.update({
+      where: { id: procedureId },
+      data: updateData
+    });
+  }
+
+  // ============================================
+  // REMOVE PROCEDURE
+  // ============================================
+  async removeProcedure(encounterId: string, procedureId: string) {
+    return this.prisma.procedure.delete({
+      where: {
+        id: procedureId,
+        attendanceId: encounterId
+      }
+    });
+  }
+
+  // ============================================
+  // ADD SERVICE TO ENCOUNTER
+  // ============================================
+  async addService(encounterId: string, data: AddServiceDTO, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { status: true }
+    });
+
+    if (!encounter) {
+      throw new Error('Encounter not found');
+    }
+
+    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+      throw new Error(`Cannot add service to ${encounter.status} encounter`);
+    }
+
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId }
+    });
+
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    const existingService = await this.prisma.serviceRendered.findFirst({
+      where: {
+        attendanceId: encounterId,
+        serviceItemId: data.serviceCatalogId
+      }
+    });
+
+    if (existingService) {
+      throw new Error('Service already added to this encounter');
+    }
+
+    await this.prisma.serviceRendered.create({
+      data: {
+        attendanceId: encounterId,
+        serviceItemId: data.serviceCatalogId,
+        quantity: data.quantity || 1,
+        date: new Date(),
+        performedById: userId,
+        notes: data.notes || null
+      }
+    });
+
+    await this.generateBillFromEncounter(encounterId);
+
+    return encounter;
+  }
+
+  // ============================================
+  // REMOVE SERVICE FROM ENCOUNTER
+  // ============================================
+  async removeService(encounterId: string, serviceRenderedId: string) {
+    return this.prisma.serviceRendered.delete({
+      where: {
+        id: serviceRenderedId,
         attendanceId: encounterId
       }
     });

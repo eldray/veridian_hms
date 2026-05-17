@@ -44,6 +44,8 @@ import { createStockTransactionRoutes } from './stockTransaction';
 import { createWaiverRoutes } from './waiver';
 import { WardRoutes } from './ward';
 import { createAuditRoutes } from './audit';
+import { createCorporateRoutes } from './corporate';
+import { createCommunicationRoutes } from './communication';
 
 // Legacy imports (to be migrated)
 // import attendanceRoutes from './attendance';
@@ -169,11 +171,9 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/api/wards', WardRoutes.getRouter());
 
   // Corporate Accounts & Employees (NEW - Corporate billing)
-  const { createCorporateRoutes } = await import('./corporate');
   app.use('/api/corporate', createCorporateRoutes());
 
   // SMS/WhatsApp Communication (NEW - Patient notifications)
-  const { createCommunicationRoutes } = await import('./communication');
   app.use('/api/communications', createCommunicationRoutes());
 
   // Audit Logging Module (NEW - Security & Compliance)

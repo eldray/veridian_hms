@@ -176,13 +176,13 @@ model ServiceCatalog {
   pricing         ServicePricing?
   ServiceRendered ServiceRendered[]
 
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  labTests     LabTest[]
-  scans        Scan[]
-  procedures   Procedure[]
-  medications  Medication[]
-  BillLineItem BillLineItem[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  labTests            LabTest[]
+  scans               Scan[]
+  procedures          Procedure[]
+  medications         Medication[]
+  BillLineItem        BillLineItem[]
   ProformaInvoiceItem ProformaInvoiceItem[]
 
   // ✅ ADD THIS - opposite relation for GDRG procedure linking
@@ -224,6 +224,10 @@ model Patient {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  // NHIS fields for direct lookup
+  nhisNumber          String?
+  phoneNumber         String?
+
   Admission            Admission[]
   Attendance           Attendance[]
   Bed                  Bed?
@@ -240,6 +244,12 @@ model Patient {
   abortionRecords      AbortionRecord[]
   postnatalRecords     PostnatalRecord[]
   proformaInvoices     ProformaInvoice[]
+
+  // PERFORMANCE OPTIMIZATION: Indexes for patient search and NHIS lookups
+  @@index([nhisNumber])
+  @@index([phoneNumber])
+  @@index([dateOfBirth])
+  @@index([gender])
 
   @@index([folderNumber])
   @@index([otherNames])
@@ -373,24 +383,30 @@ model PreAuthorisationRequest {
 // ============================================================
 
 model Attendance {
-  id                     String            @id @default(cuid())
-  attendanceNumber       String            @unique
+  id                     String         @id @default(cuid())
+  attendanceNumber       String         @unique
   patientId              String
   insuranceProviderId    String?
   corporateAccountId     String?
   bedId                  String?
   wardId                 String?
   attendanceType         AttendanceType
-  dateTime               DateTime          @default(now())
+  dateTime               DateTime       @default(now())
   paymentMode            PaymentMode
   nhisCCC                String?
   nhisEligibilityCheckId String?
-  complaints             String            @default("No complaints recorded")
-  medicalNotes           String?
-  encounterCategory      EncounterCategory @default(opd)
-  visitCategory          VisitCategory     @default(general)
-  gdrgCategory           String?
-  serviceCategory        ServiceCategory?
+
+  // NHIS CCC Generation Fields
+  nhisCCCCode        String?
+  nhisCCCGeneratedAt DateTime?
+  nhisCCCValidUntil  DateTime?
+
+  complaints        String            @default("No complaints recorded")
+  medicalNotes      String?
+  encounterCategory EncounterCategory @default(opd)
+  visitCategory     VisitCategory     @default(general)
+  gdrgCategory      String?
+  serviceCategory   ServiceCategory?
 
   // 🆕 NEW CLINICAL FIELDS
   historyPresentingComplaint String? // H.P.C
@@ -443,6 +459,18 @@ model Attendance {
   abortionRecords                   AbortionRecord[]
   postnatalRecords                  PostnatalRecord[]
 
+  proformaInvoices    ProformaInvoice[]
+  CorporateEmployee   CorporateEmployee? @relation(fields: [corporateEmployeeId], references: [id])
+  corporateEmployeeId String?
+
+  // PERFORMANCE OPTIMIZATION: Indexes for frequently queried fields
+  @@index([nhisCCCCode])
+  @@index([nhisEligibilityCheckId])
+  @@index([patientId, dateTime]) // Composite index for patient history
+  @@index([insuranceProviderId])
+  @@index([bedId])
+  @@index([wardId])
+
   @@index([attendanceType])
   @@index([dateTime])
   @@index([patientId])
@@ -451,8 +479,6 @@ model Attendance {
   @@index([status])
   @@index([gdrgCategory])
   @@index([serviceCategory])
-  
-  proformaInvoices ProformaInvoice[]
 }
 
 // ============================================================
@@ -485,6 +511,11 @@ model LabTest {
   LabTestTemplate                  LabTestTemplate @relation(fields: [templateId], references: [id])
   User_LabTest_verifiedByIdToUser  User?           @relation("LabTest_verifiedByIdToUser", fields: [verifiedById], references: [id])
   ServiceCatalog                   ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
+
+  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
+  @@index([attendanceId, status])
+  @@index([templateId])
+  @@index([requestedAt])
 
   @@index([attendanceId])
   @@index([serviceCatalogId])
@@ -521,6 +552,11 @@ model Scan {
   User_Scan_verifiedByIdToUser  User?           @relation("Scan_verifiedByIdToUser", fields: [verifiedById], references: [id])
   ServiceCatalog                ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
+  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
+  @@index([attendanceId, status])
+  @@index([templateId])
+  @@index([requestedAt])
+
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -555,6 +591,11 @@ model Procedure {
   User_Procedure_performedByIdToUser User?             @relation("Procedure_performedByIdToUser", fields: [performedById], references: [id])
   ProcedureTemplate                  ProcedureTemplate @relation(fields: [templateId], references: [id])
   ServiceCatalog                     ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
+
+  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
+  @@index([attendanceId, status])
+  @@index([templateId])
+  @@index([performedAt])
 
   @@index([attendanceId])
   @@index([serviceCatalogId])
@@ -612,6 +653,11 @@ model Medication {
   StockItem                              StockItem?      @relation(fields: [stockItemId], references: [id])
   ServiceCatalog                         ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
+  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
+  @@index([attendanceId, status])
+  @@index([prescribedAt])
+  @@index([stockItemId])
+
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -639,6 +685,10 @@ model Vitals {
   Attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   Patient    Patient    @relation(fields: [patientId], references: [id])
   User       User       @relation(fields: [recordedById], references: [id])
+
+  // PERFORMANCE OPTIMIZATION: Composite index for quick vitals lookup
+  @@index([attendanceId, recordedAt])
+  @@index([patientId, recordedAt])
 
   @@index([attendanceId])
   @@index([patientId])
@@ -1036,7 +1086,7 @@ model Payment {
 model InsuranceClaim {
   id                  String      @id @default(cuid())
   claimNumber         String      @unique
-  billId              String?      // ← Already optional
+  billId              String? // ← Already optional
   patientId           String
   attendanceId        String      @unique
   insuranceProviderId String
@@ -1083,8 +1133,8 @@ model InsuranceClaim {
   User_InsuranceClaim_updatedByIdToUser User?             @relation("InsuranceClaim_updatedByIdToUser", fields: [updatedById], references: [id])
   CorporateAccount                      CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
 
-  batch ClaimBatch? @relation(fields: [batchId], references: [id])
-  batchId String?   @map("batch_id")
+  batch   ClaimBatch? @relation(fields: [batchId], references: [id])
+  batchId String?     @map("batch_id")
 
   @@index([claimNumber])
   @@index([status])
@@ -1190,13 +1240,13 @@ model Admission {
   Bill            Bill[]
   deliveryRecords DeliveryRecord[]
 
+  proformaInvoices ProformaInvoice[]
+
   @@index([admissionNumber])
   @@index([patientId])
   @@index([wardId])
   @@index([status])
   @@index([admissionDate])
-  
-  proformaInvoices ProformaInvoice[]
 }
 
 model Ward {
@@ -1665,9 +1715,11 @@ model Invoice {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  User             User               @relation(fields: [createdById], references: [id])
-  InvoiceItem      InvoiceItem[]
-  StockTransaction StockTransaction[]
+  User               User               @relation(fields: [createdById], references: [id])
+  InvoiceItem        InvoiceItem[]
+  StockTransaction   StockTransaction[]
+  CorporateAccount   CorporateAccount?  @relation(fields: [corporateAccountId], references: [id])
+  corporateAccountId String?
 
   @@index([invoiceDate])
   @@index([invoiceNumber])
@@ -1708,6 +1760,13 @@ model StockTransaction {
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
   StockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  // PERFORMANCE OPTIMIZATION: Indexes for stock queries and reports
+  @@index([stockItemId, transactionDate])
+  @@index([transactionType])
+  @@index([transactionDate])
+  @@index([requisitionId])
+  @@index([invoiceId])
 }
 
 model Requisition {
@@ -1834,9 +1893,24 @@ model Hospital {
   nhisContactEmail        String?
   ghsDistrictCode         String?
   ghaHFCode               String?
-  isActive                Boolean      @default(true)
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
+
+  // NHIS API Configuration for Real-time Eligibility Verification
+  nhisApiBaseUrl             String?   @map("nhis_api_base_url")
+  nhisApiClientId            String?   @map("nhis_api_client_id")
+  nhisApiClientSecret        String?   @map("nhis_api_client_secret")
+  nhisApiTokenEndpoint       String?   @map("nhis_api_token_endpoint")
+  nhisApiEligibilityEndpoint String?   @map("nhis_api_eligibility_endpoint")
+  nhisApiCccEndpoint         String?   @map("nhis_api_ccc_endpoint")
+  nhisApiActive              Boolean   @default(false) @map("nhis_api_active")
+  nhisApiLastTokenRefresh    DateTime? @map("nhis_api_last_token_refresh")
+  nhisApiAccessToken         String?   @map("nhis_api_access_token")
+  nhisApiTokenExpiresAt      DateTime? @map("nhis_api_token_expires_at")
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hospitals")
 }
 
 // ============================================================
@@ -2487,7 +2561,7 @@ enum BodyPart {
   extremities
   breast
   eye
-  skeleton 
+  skeleton
   other
 }
 
@@ -2678,34 +2752,36 @@ enum AntenatalRisk {
 // ============================================================
 
 model ProformaInvoice {
-  id                   String              @id @default(cuid())
-  referenceNumber      String              @unique
-  patientId            String
-  attendanceId         String?             @unique
-  admissionId          String?
-  status               ProformaInvoiceStatus @default(DRAFT)
-  subtotal             Float               @default(0)
-  discount             Float               @default(0)
-  taxAmount            Float               @default(0)
-  totalAmount          Float               @default(0)
-  validityDays         Int                 @default(7)
-  expiresAt            DateTime?
-  notes                String?
-  termsAndConditions   String?
-  createdById          String
-  approvedById         String?
-  approvedAt           DateTime?
-  convertedToBillId    String?             @unique
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  id                 String                @id @default(cuid())
+  referenceNumber    String                @unique
+  patientId          String
+  attendanceId       String?               @unique
+  admissionId        String?
+  status             ProformaInvoiceStatus @default(DRAFT)
+  subtotal           Float                 @default(0)
+  discount           Float                 @default(0)
+  taxAmount          Float                 @default(0)
+  totalAmount        Float                 @default(0)
+  validityDays       Int                   @default(7)
+  expiresAt          DateTime?
+  notes              String?
+  termsAndConditions String?
+  createdById        String
+  approvedById       String?
+  approvedAt         DateTime?
+  convertedToBillId  String?               @unique
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
-  Attendance           Attendance?         @relation(fields: [attendanceId], references: [id])
-  Admission            Admission?          @relation(fields: [admissionId], references: [id])
-  Patient              Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  User_createdBy       User                @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
-  User_approvedBy      User?               @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
-  Bill                 Bill?               @relation(fields: [convertedToBillId], references: [id])
-  items                ProformaInvoiceItem[]
+  Attendance         Attendance?           @relation(fields: [attendanceId], references: [id])
+  Admission          Admission?            @relation(fields: [admissionId], references: [id])
+  Patient            Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_createdBy     User                  @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
+  User_approvedBy    User?                 @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
+  Bill               Bill?                 @relation(fields: [convertedToBillId], references: [id])
+  items              ProformaInvoiceItem[]
+  CorporateAccount   CorporateAccount?     @relation(fields: [corporateAccountId], references: [id])
+  corporateAccountId String?
 
   @@index([patientId])
   @@index([status])
@@ -2714,23 +2790,23 @@ model ProformaInvoice {
 }
 
 model ProformaInvoiceItem {
-  id                    String            @id @default(cuid())
+  id                    String      @id @default(cuid())
   proformaInvoiceId     String
   serviceCatalogId      String?
   description           String
   serviceType           ServiceType
-  quantity              Int               @default(1)
+  quantity              Int         @default(1)
   unitPrice             Float
   pricingBasis          PaymentMode
-  vatRate               Float             @default(0)
-  vatAmount             Float             @default(0)
+  vatRate               Float       @default(0)
+  vatAmount             Float       @default(0)
   totalPrice            Float
-  isInsuranceCovered    Boolean           @default(false)
-  insuranceCoverage     Float             @default(0)
+  isInsuranceCovered    Boolean     @default(false)
+  insuranceCoverage     Float       @default(0)
   patientResponsibility Float
 
-  proformaInvoice       ProformaInvoice   @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
-  serviceCatalog        ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
+  proformaInvoice ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
+  serviceCatalog  ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
   @@index([proformaInvoiceId])
 }
@@ -2749,64 +2825,64 @@ enum ProformaInvoiceStatus {
 // ============================================================
 
 model CommunicationChannel {
-  id          String              @id @default(cuid())
-  name        String              @unique // e.g., "SMS", "WhatsApp"
-  provider    String              // e.g., "Twilio", "Hubtel", "mNotify"
-  apiKey      String?
-  apiSecret   String?
-  senderId    String?             // For SMS: short code, For WhatsApp: business number
-  isActive    Boolean             @default(false)
-  settings    Json?               // Provider-specific configuration
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  
-  templates   CommunicationTemplate[]
-  logs        CommunicationLog[]
-  
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g., "SMS", "WhatsApp"
+  provider  String // e.g., "Twilio", "Hubtel", "mNotify"
+  apiKey    String?
+  apiSecret String?
+  senderId  String? // For SMS: short code, For WhatsApp: business number
+  isActive  Boolean  @default(false)
+  settings  Json? // Provider-specific configuration
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templates CommunicationTemplate[]
+  logs      CommunicationLog[]
+
   @@map("communication_channels")
 }
 
 model CommunicationTemplate {
-  id          String              @id @default(cuid())
-  channelId   String
-  name        String              // e.g., "appointment_reminder"
-  type        CommunicationType
-  subject     String?             // For email
-  body        String              // Template with placeholders {{patientName}}, {{date}}, etc.
-  variables   Json?               // List of required variables
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  
-  channel     CommunicationChannel @relation(fields: [channelId], references: [id])
-  logs        CommunicationLog[]
-  
+  id        String            @id @default(cuid())
+  channelId String
+  name      String // e.g., "appointment_reminder"
+  type      CommunicationType
+  subject   String? // For email
+  body      String // Template with placeholders {{patientName}}, {{date}}, etc.
+  variables Json? // List of required variables
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  channel CommunicationChannel @relation(fields: [channelId], references: [id])
+  logs    CommunicationLog[]
+
   @@index([channelId])
   @@index([type])
   @@map("communication_templates")
 }
 
 model CommunicationLog {
-  id          String              @id @default(cuid())
-  channelId   String
-  templateId  String?
-  recipient   String              // Phone number or email
-  message     String
-  status      CommunicationStatus @default(PENDING)
-  sentAt      DateTime?
-  deliveredAt DateTime?
-  readAt      DateTime?
-  failedAt    DateTime?
-  failureReason String?
-  metadata    Json?               // Additional data like appointmentId, patientId, etc.
-  cost        Float?              // Cost of sending (for billing)
-  providerMessageId String?       // Message ID from provider
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  
-  channel     CommunicationChannel @relation(fields: [channelId], references: [id])
-  template    CommunicationTemplate? @relation(fields: [templateId], references: [id])
-  
+  id                String              @id @default(cuid())
+  channelId         String
+  templateId        String?
+  recipient         String // Phone number or email
+  message           String
+  status            CommunicationStatus @default(PENDING)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  metadata          Json? // Additional data like appointmentId, patientId, etc.
+  cost              Float? // Cost of sending (for billing)
+  providerMessageId String? // Message ID from provider
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  channel  CommunicationChannel   @relation(fields: [channelId], references: [id])
+  template CommunicationTemplate? @relation(fields: [templateId], references: [id])
+
   @@index([recipient])
   @@index([status])
   @@index([createdAt])
@@ -2845,27 +2921,29 @@ enum CommunicationChannelType {
 // ============================================================
 
 model CorporateAccount {
-  id                  String    @id @default(cuid())
+  id                  String   @id @default(cuid())
   companyName         String
-  registrationNumber  String?   @unique
+  registrationNumber  String?  @unique
   taxId               String?
   contactPerson       String
   email               String
   phone               String
   address             String?
-  creditLimit         Float     @default(0)
-  currentBalance      Float     @default(0)
-  paymentTerms        Int       @default(30) // days
-  discountPercentage  Float     @default(0)
-  isActive            Boolean   @default(true)
+  creditLimit         Float    @default(0)
+  currentBalance      Float    @default(0)
+  paymentTerms        Int      @default(30) // days
+  discountPercentage  Float    @default(0)
+  isActive            Boolean  @default(true)
   insuranceProviderId String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
+  insuranceProvider InsuranceProvider?  @relation(fields: [insuranceProviderId], references: [id])
   employees         CorporateEmployee[]
   invoices          Invoice[]
   proformaInvoices  ProformaInvoice[]
+  Attendance        Attendance[]
+  InsuranceClaim    InsuranceClaim[]
 
   @@index([insuranceProviderId])
   @@index([registrationNumber])
@@ -2897,71 +2975,4 @@ model CorporateEmployee {
   @@unique([accountId, employeeId])
   @@index([accountId])
   @@map("corporate_employees")
-}
-
-// Proforma Invoice / Estimate Model
-model ProformaInvoice {
-  id             String              @id @default(cuid())
-  proformaNumber String              @unique
-  patientId      String
-  patient        Patient             @relation(fields: [patientId], references: [id])
-  encounterId    String?
-  encounter      Encounter?          @relation(fields: [encounterId], references: [id])
-  accountId      String?
-  account        CorporateAccount?   @relation(fields: [accountId], references: [id])
-  
-  items          ProformaInvoiceItem[]
-  
-  subtotal       Float               @default(0)
-  taxRate        Float               @default(0)
-  taxAmount      Float               @default(0)
-  discount       Float               @default(0)
-  totalAmount    Float               @default(0)
-  
-  status         ProformaStatus      @default(DRAFT)
-  validUntil     DateTime
-  notes          String?
-  termsAndConditions String?
-  
-  convertedToBillId String?          @unique
-  convertedAt    DateTime?
-  
-  createdBy      String
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@index([patientId])
-  @@index([accountId])
-  @@index([status])
-  @@map("proforma_invoices")
-}
-
-enum ProformaStatus {
-  DRAFT
-  SENT
-  ACCEPTED
-  REJECTED
-  EXPIRED
-  CONVERTED
-}
-
-model ProformaInvoiceItem {
-  id                String            @id @default(cuid())
-  proformaInvoiceId String
-  proformaInvoice   ProformaInvoice   @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
-  
-  serviceCatalogId  String?
-  serviceCatalog    ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
-  
-  description       String
-  quantity          Int               @default(1)
-  unitPrice         Float
-  totalPrice        Float
-  
-  notes             String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  @@index([proformaInvoiceId])
-  @@map("proforma_invoice_items")
 }
