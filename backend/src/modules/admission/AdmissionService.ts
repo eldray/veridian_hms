@@ -1,6 +1,6 @@
 // modules/admission/AdmissionService.ts
 import { AdmissionRepository } from './AdmissionRepository';
-import { NotificationService } from '../../services/NotificationService';
+import { NotificationService } from '../notification/NotificationService';
 
 export class AdmissionService {
   private repository: AdmissionRepository;
