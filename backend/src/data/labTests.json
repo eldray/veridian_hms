@@ -2666,7 +2666,7 @@
   "category": "pathology",
   "subCategory": "hematopathology",
   "description": "Bone marrow aspiration for hematological disorders",
-  "specimenType": "marrow",
+  "specimenType": "tissue",
   "isActive": true,
   "requiresAuthorization": true,
   "tariffCode": "LAB-INVE23D",

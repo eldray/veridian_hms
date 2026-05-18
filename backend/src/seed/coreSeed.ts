@@ -32,14 +32,39 @@ const addSchemaDefaults = (data: any, type: string) => {
 
   switch (type) {
     case 'labTestTemplate':
+      // Map invalid category names to valid LabCategory enum values
+      const labCategoryMap: Record<string, string> = {
+        'pathology': 'pathology',
+        'hematology': 'hematology',
+        'biochemistry': 'biochemistry',
+        'microbiology': 'microbiology',
+        'serology': 'serology',
+        'immunology': 'immunology',
+        'molecular': 'molecular',
+        'neurology': 'neurology',
+        'pulmonology': 'pulmonology',
+        'cardiology': 'cardiology',
+        'gastroenterology': 'gastroenterology',
+      };
+      
+      // Map invalid specimen types to valid SpecimenType enum values
+      const specimenTypeMap: Record<string, string> = {
+        'marrow': 'tissue',
+        'bone marrow': 'tissue',
+        'bone-marrow': 'tissue',
+      };
+      
+      const mappedSpecimenType = specimenTypeMap[data.specimenType] || data.specimenType || 'blood';
+      const mappedCategory = labCategoryMap[data.category] || 'hematology';
+      
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Lab Test',
         investigationCode: data.investigationCode,
-        category: data.category || 'hematology',
+        category: mappedCategory,
         subCategory: data.subCategory || null,
         description: data.description || '',
-        specimenType: data.specimenType || 'blood',
+        specimenType: mappedSpecimenType as any,
         resultTemplate: data.resultTemplate || null,
         normalRangeTemplate: data.normalRangeTemplate || null,
         isNHISCovered: data.isNHISCovered ?? true,
