@@ -259,6 +259,7 @@ model Patient {
   @@index([createdAt])
 }
 
+
 // ============================================================
 // NHIS ELIGIBILITY
 // ============================================================
@@ -1982,10 +1983,8 @@ model User {
   NHISEligibilityCheck                            NHISEligibilityCheck[]
   PreAuthorisationRequest_requested               PreAuthorisationRequest[] @relation("PreAuth_requestedBy")
   PreAuthorisationRequest_updated                 PreAuthorisationRequest[] @relation("PreAuth_updatedBy")
-
-  // ❌ REMOVE ClaimSubmissionBatch relations (model being deleted)
-  // ClaimSubmissionBatch_submitted                  ClaimSubmissionBatch[]    @relation("Batch_submittedBy")
-  // ClaimSubmissionBatch_created                    ClaimSubmissionBatch[]    @relation("Batch_createdBy")
+  
+  refreshTokens                                   RefreshToken[]
 
   // ✅ CORRECT - Opposite relation for ClaimBatch (no fields argument needed)
   claimBatchesCreated ClaimBatch[]
@@ -2008,6 +2007,24 @@ model User {
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
   abortionRecords  AbortionRecord[]
+}
+
+
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 model Notification {

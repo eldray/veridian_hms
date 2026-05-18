@@ -3,8 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
-import { logger } from '../../core/logger';
-import { BaseService } from '../../shared/base/BaseService';
 import {
   LoginRequestDTO,
   RegisterRequestDTO,
@@ -21,56 +19,44 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
 const SALT_ROUNDS = 12;
 
-const prisma = new PrismaClient();  // ✅ Create prisma instance directly
-
-export class AuthService extends BaseService {
+export class AuthService {
   private repository: AuthRepository;
 
-  constructor() {
-    super('AuthService');
+  constructor(prisma: PrismaClient) {
     this.repository = new AuthRepository(prisma);
   }
 
-  /**
-   * User login with username and password
-   */
   async login(data: LoginRequestDTO): Promise<LoginResult> {
     try {
-      this.logger.info(`Login attempt for username: ${data.username}`);
+      console.log(`Login attempt for username: ${data.username}`);
 
-      // Find user by username
       const user = await this.repository.findByUsername(data.username);
       
       if (!user) {
-        this.logger.warn(`Login failed - user not found: ${data.username}`);
+        console.log(`Login failed - user not found: ${data.username}`);
         return { success: false, error: 'Invalid credentials' };
       }
 
-      // Check if user is active
       if (!user.isActive) {
-        this.logger.warn(`Login failed - account inactive: ${data.username}`);
+        console.log(`Login failed - account inactive: ${data.username}`);
         return { success: false, error: 'Account is deactivated' };
       }
 
-      // Verify password
       const isValidPassword = await bcrypt.compare(data.password, user.password);
       
       if (!isValidPassword) {
-        this.logger.warn(`Login failed - invalid password: ${data.username}`);
+        console.log(`Login failed - invalid password: ${data.username}`);
         return { success: false, error: 'Invalid credentials' };
       }
 
-      // Generate tokens
       const tokens = await this.generateTokens(user.id, user.username, user.role);
 
-      // Update last login
       await this.repository.updateLastLogin(user.id);
 
-      // Store refresh token
       await this.repository.storeRefreshToken(
         user.id,
         tokens.refreshToken,
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       );
 
       const response: AuthResponse = {
@@ -92,10 +78,10 @@ export class AuthService extends BaseService {
         tokenType: 'Bearer',
       };
 
-      this.logger.info(`Login successful: ${data.username}`);
+      console.log(`Login successful: ${data.username}`);
       return { success: true, data: response };
     } catch (error) {
-      this.logger.error('Login error', { error, username: data.username });
+      console.error('Login error:', error);
       return { 
         success: false, 
         error: 'Authentication service unavailable' 
@@ -103,33 +89,32 @@ export class AuthService extends BaseService {
     }
   }
 
-  /**
-   * Register new user
-   */
   async register(data: RegisterRequestDTO): Promise<RegisterResult> {
     try {
-      this.logger.info(`Registration attempt for username: ${data.username}`);
+      console.log(`Registration attempt for username: ${data.username}`);
 
-      // Check if username already exists
       const exists = await this.repository.usernameExists(data.username);
       if (exists) {
-        this.logger.warn(`Registration failed - username exists: ${data.username}`);
+        console.log(`Registration failed - username exists: ${data.username}`);
         return { success: false, error: 'Username already registered' };
       }
 
-      // Hash password
       const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
 
-      // Create user
       const user = await this.repository.createUser({
-        ...data,
+        username: data.username,
         passwordHash,
+        fullName: data.fullName,
+        role: data.role,
+        email: data.email,
+        phone: data.phone,
+        licenseNumber: data.licenseNumber,
+        specialization: data.specialization,
+        departmentId: data.departmentId,
       });
 
-      // Generate tokens
       const tokens = await this.generateTokens(user.id, user.username, user.role);
 
-      // Store refresh token
       await this.repository.storeRefreshToken(
         user.id,
         tokens.refreshToken,
@@ -154,10 +139,10 @@ export class AuthService extends BaseService {
         tokenType: 'Bearer',
       };
 
-      this.logger.info(`Registration successful: ${data.username}`);
+      console.log(`Registration successful: ${data.username}`);
       return { success: true, data: response };
     } catch (error) {
-      this.logger.error('Registration error', { error, username: data.username });
+      console.error('Registration error:', error);
       return { 
         success: false, 
         error: 'Registration service unavailable' 
@@ -165,38 +150,30 @@ export class AuthService extends BaseService {
     }
   }
 
-  /**
-   * Refresh access token
-   */
   async refreshToken(refreshToken: string): Promise<LoginResult> {
     try {
-      // Validate refresh token
       const validation = await this.repository.validateRefreshToken(refreshToken);
       
       if (!validation.valid) {
-        this.logger.warn('Refresh token invalid or expired');
+        console.log('Refresh token invalid or expired');
         return { success: false, error: 'Invalid refresh token' };
       }
 
-      // Get user
       const user = await this.repository.findById(validation.userId);
       
       if (!user || !user.isActive) {
-        this.logger.warn('User not found or inactive during refresh');
+        console.log('User not found or inactive during refresh');
         return { success: false, error: 'User not found' };
       }
 
-      // Generate new tokens
       const tokens = await this.generateTokens(user.id, user.username, user.role);
 
-      // Update stored refresh token
       await this.repository.storeRefreshToken(
         user.id,
         tokens.refreshToken,
         new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       );
 
-      // Delete old refresh token
       await this.repository.deleteRefreshToken(refreshToken);
 
       const response: AuthResponse = {
@@ -220,7 +197,7 @@ export class AuthService extends BaseService {
 
       return { success: true, data: response };
     } catch (error) {
-      this.logger.error('Token refresh error', { error });
+      console.error('Token refresh error:', error);
       return { 
         success: false, 
         error: 'Token refresh failed' 
@@ -228,56 +205,42 @@ export class AuthService extends BaseService {
     }
   }
 
-  /**
-   * Change password
-   */
   async changePassword(userId: string, data: ChangePasswordRequestDTO): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get user
       const user = await this.repository.findById(userId);
       
       if (!user) {
         return { success: false, error: 'User not found' };
       }
 
-      // Verify current password
       const isValidPassword = await bcrypt.compare(data.currentPassword, user.password);
       
       if (!isValidPassword) {
         return { success: false, error: 'Current password is incorrect' };
       }
 
-      // Hash new password
       const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
-
-      // Update password
       await this.repository.changePassword(userId, newPasswordHash);
 
-      this.logger.info(`Password changed successfully for user: ${userId}`);
+      console.log(`Password changed successfully for user: ${userId}`);
       return { success: true };
     } catch (error) {
-      this.logger.error('Password change error', { error, userId });
+      console.error('Password change error:', error);
       return { success: false, error: 'Password change failed' };
     }
   }
 
-  /**
-   * Logout (invalidate refresh token)
-   */
   async logout(refreshToken: string): Promise<{ success: boolean }> {
     try {
       await this.repository.deleteRefreshToken(refreshToken);
-      this.logger.info('User logged out successfully');
+      console.log('User logged out successfully');
       return { success: true };
     } catch (error) {
-      this.logger.error('Logout error', { error });
+      console.error('Logout error:', error);
       return { success: false };
     }
   }
 
-  /**
-   * Validate JWT token
-   */
   validateToken(token: string): ValidateTokenResult {
     try {
       const payload = jwt.verify(token, JWT_SECRET) as TokenPayload;
@@ -290,9 +253,6 @@ export class AuthService extends BaseService {
     }
   }
 
-  /**
-   * Generate access and refresh tokens
-   */
   private async generateTokens(userId: string, username: string, role: string): Promise<{
     accessToken: string;
     refreshToken: string;
@@ -312,9 +272,6 @@ export class AuthService extends BaseService {
     return { accessToken, refreshToken };
   }
 
-  /**
-   * Get current user profile
-   */
   async getUserProfile(userId: string) {
     try {
       const user = await this.repository.findById(userId);
@@ -336,20 +293,8 @@ export class AuthService extends BaseService {
         lastLogin: user.updatedAt,
       };
     } catch (error) {
-      this.logger.error('Get user profile error', { error, userId });
+      console.error('Get user profile error:', error);
       throw error;
     }
   }
 }
-
-// Singleton instance
-let authServiceInstance: AuthService | null = null;
-
-export function getAuthService(): AuthService {
-  if (!authServiceInstance) {
-    authServiceInstance = new AuthService();
-  }
-  return authServiceInstance;
-}
-
-export default getAuthService;

@@ -1,8 +1,4 @@
-/**
- * Authentication Module Types
- * Enterprise-grade type definitions for authentication
- */
-
+// modules/auth/AuthTypes.ts
 import { Request } from 'express';
 import { UserRole } from '@prisma/client';
 

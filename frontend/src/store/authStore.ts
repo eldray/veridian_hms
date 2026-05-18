@@ -46,8 +46,12 @@ export const useAuthStore = create<AuthState>()(
           const response = await apiLogin(username, password);
           console.log('✅ Login response received:', response);
           
-          const user = response.user || response;
-          const token = response.token || response.accessToken;
+          // ✅ FIX: The response structure is { success, data: { user, accessToken }, message }
+          const user = response?.data?.user;
+          const token = response?.data?.accessToken;
+
+          console.log('👤 Extracted user:', user);
+          console.log('🔑 Extracted token:', token);
 
           if (!token) {
             console.error('❌ No token received in login response');
@@ -58,7 +62,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('auth_token', token);
           console.log('💾 Token saved to localStorage');
 
-          console.log('🔐 Login successful - User:', user.username, 'Role:', user.role);
+          console.log('🔐 Login successful - User:', user?.username, 'Role:', user?.role);
           set({ 
             user, 
             token,

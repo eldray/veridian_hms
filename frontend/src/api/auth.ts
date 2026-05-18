@@ -2,19 +2,28 @@
 import api from './api';
 
 export const login = async (username: string, password: string) => {
+  console.log('📤 1. Sending login request...');
   const response = await api.post('/auth/login', { username, password });
+  console.log('📥 2. Full response:', response);
+  console.log('📥 3. response.data:', response.data);
   
-  // Handle both response formats: { data: { user, accessToken } } and { user, accessToken }
-  const responseData = response.data.data || response.data;
-  const { user, accessToken, token } = responseData;
+  // ✅ The token is inside response.data.data.accessToken
+  const data = response.data;
+  const user = data?.data?.user;
+  const accessToken = data?.data?.accessToken;
   
-  const finalToken = accessToken || token;
+  console.log('👤 4. Extracted user:', user);
+  console.log('🔑 5. Extracted accessToken:', accessToken);
   
-  if (finalToken) {
-    localStorage.setItem('auth_token', finalToken);
+  if (accessToken) {
+    localStorage.setItem('auth_token', accessToken);
+    console.log('💾 6. Token saved to localStorage');
+  } else {
+    console.error('❌ 7. No token found!');
   }
 
-  return { user, token: finalToken };
+  // ✅ Return in the format the store expects
+  return { user, token: accessToken };
 };
 
 export const verifyToken = async () => {

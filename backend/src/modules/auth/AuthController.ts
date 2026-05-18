@@ -1,12 +1,13 @@
 // modules/auth/AuthController.ts
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthService, getAuthService } from './AuthService';
+import { AuthService } from './AuthService';
 import {
   LoginRequestDTO,
   RegisterRequestDTO,
   ChangePasswordRequestDTO,
   AuthenticatedRequest,
+  TokenPayload,
 } from './AuthTypes';
 
 export class AuthController {
@@ -15,40 +16,58 @@ export class AuthController {
   private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
+    console.log('🏗️ AuthController constructor START');
     this.prisma = prisma;
-    this.authService = getAuthService();
+    this.authService = new AuthService(prisma);
     this.router = Router();
+    console.log('🏗️ Router created');
     this.registerRoutes();
-    console.log('✅ AuthController initialized with routes');
+    console.log('🏗️ registerRoutes completed, router stack length:', this.router.stack?.length);
   }
 
   private registerRoutes(): void {
     console.log('📝 Registering auth routes...');
     
+    // Test route to verify router is working
+    this.router.get('/test', (req: Request, res: Response) => {
+      console.log('✅ TEST ROUTE HIT!');
+      res.json({ success: true, message: 'Auth test route works!', timestamp: new Date().toISOString() });
+    });
+    
     // Public routes
-    this.router.post('/login', this.login);
-    this.router.post('/register', this.register);
-    this.router.post('/refresh-token', this.refreshToken);
-    this.router.post('/forgot-password', this.forgotPassword);
+    this.router.post('/login', this.login.bind(this));
+    this.router.post('/register', this.register.bind(this));
+    this.router.post('/refresh-token', this.refreshToken.bind(this));
+    this.router.post('/forgot-password', this.forgotPassword.bind(this));
     
     // Protected routes
-    this.router.post('/logout', this.authenticate, this.logout);
-    this.router.post('/change-password', this.authenticate, this.changePassword);
-    this.router.get('/profile', this.authenticate, this.getCurrentUser);
-    this.router.post('/verify-token', this.verifyToken);
+    this.router.post('/logout', this.authenticate.bind(this), this.logout.bind(this));
+    this.router.post('/change-password', this.authenticate.bind(this), this.changePassword.bind(this));
+    this.router.get('/profile', this.authenticate.bind(this), this.getCurrentUser.bind(this));
+    this.router.post('/verify-token', this.verifyToken.bind(this));
     
+    console.log('   - GET /test registered');
     console.log('   - POST /login registered');
     console.log('   - POST /register registered');
+    console.log('   - POST /refresh-token registered');
+    console.log('   - POST /forgot-password registered');
+    console.log('   - POST /logout registered');
+    console.log('   - POST /change-password registered');
     console.log('   - GET /profile registered');
+    console.log('   - POST /verify-token registered');
   }
 
   getRouter(): Router {
+    console.log('🔧 getRouter called, returning router with stack length:', this.router.stack?.length);
+    // Log all routes for debugging
+    this.router.stack?.forEach((layer: any) => {
+      if (layer.route) {
+        console.log(`   Route: ${Object.keys(layer.route.methods)} ${layer.route.path}`);
+      }
+    });
     return this.router;
   }
 
-  /**
-   * POST /auth/login
-   */
   private login = async (req: Request, res: Response): Promise<void> => {
     console.log('🔐 Login endpoint hit!', req.body);
     try {
@@ -72,10 +91,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/register
-   */
   private register = async (req: Request, res: Response): Promise<void> => {
+    console.log('📝 Register endpoint hit!', req.body);
     try {
       const dto: RegisterRequestDTO = req.body;
 
@@ -85,6 +102,17 @@ export class AuthController {
           res.status(400).json({ success: false, message: `${field} is required` });
           return;
         }
+      }
+
+      if (dto.password.length < 6) {
+        res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        return;
+      }
+
+      const validRoles = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer'];
+      if (!validRoles.includes(dto.role)) {
+        res.status(400).json({ success: false, message: 'Invalid role' });
+        return;
       }
 
       const result = await this.authService.register(dto);
@@ -100,10 +128,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/refresh-token
-   */
   private refreshToken = async (req: Request, res: Response): Promise<void> => {
+    console.log('🔄 Refresh token endpoint hit!');
     try {
       const { refreshToken } = req.body;
 
@@ -125,10 +151,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/logout
-   */
   private logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    console.log('🚪 Logout endpoint hit!');
     try {
       const { refreshToken } = req.body;
 
@@ -150,10 +174,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/change-password
-   */
   private changePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    console.log('🔑 Change password endpoint hit!');
     try {
       const userId = req.user?.userId;
       
@@ -166,6 +188,11 @@ export class AuthController {
 
       if (!currentPassword || !newPassword) {
         res.status(400).json({ success: false, message: 'Current password and new password are required' });
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
         return;
       }
 
@@ -182,10 +209,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * GET /auth/profile
-   */
   private getCurrentUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    console.log('👤 Get profile endpoint hit!');
     try {
       const userId = req.user?.userId;
       
@@ -207,10 +232,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/verify-token
-   */
   private verifyToken = async (req: Request, res: Response): Promise<void> => {
+    console.log('✅ Verify token endpoint hit!');
     try {
       const { token } = req.body;
 
@@ -232,10 +255,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * POST /auth/forgot-password
-   */
   private forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    console.log('🔐 Forgot password endpoint hit!');
     try {
       const { username } = req.body;
 
@@ -256,10 +277,8 @@ export class AuthController {
     }
   };
 
-  /**
-   * Authentication middleware
-   */
   private authenticate = async (req: AuthenticatedRequest, res: Response, next: any): Promise<void> => {
+    console.log('🔐 Authentication middleware running');
     try {
       const authHeader = req.headers.authorization;
 
@@ -271,7 +290,7 @@ export class AuthController {
       const token = authHeader.substring(7);
       const validation = this.authService.validateToken(token);
 
-      if (!validation.valid) {
+      if (!validation.valid || !validation.payload) {
         res.status(401).json({ success: false, message: 'Invalid or expired token' });
         return;
       }

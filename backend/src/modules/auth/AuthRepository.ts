@@ -1,20 +1,13 @@
-/**
- * Authentication Repository
- * Handles all authentication-related database operations
- */
+// modules/auth/AuthRepository.ts
+import { PrismaClient } from '@prisma/client';
 
-import { PrismaClient, UserRole } from '@prisma/client';
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { LoginRequestDTO, RegisterRequestDTO, AuthResponse } from './AuthTypes';
+export class AuthRepository {
+  private prisma: PrismaClient;
 
-export class AuthRepository extends BaseRepository {
-  constructor(protected readonly prisma: PrismaClient) {
-    super(prisma);
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
   }
 
-  /**
-   * Find user by username
-   */
   async findByUsername(username: string) {
     return this.prisma.user.findUnique({
       where: { username },
@@ -29,9 +22,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Find user by ID
-   */
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
@@ -46,16 +36,13 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Create new user
-   */
-  async createUser(data: RegisterRequestDTO & { passwordHash: string }) {
+  async createUser(data: { username: string; passwordHash: string; fullName: string; role: string; email?: string; phone?: string; licenseNumber?: string; specialization?: string; departmentId?: string }) {
     return this.prisma.user.create({
       data: {
         username: data.username,
         password: data.passwordHash,
         fullName: data.fullName,
-        role: data.role,
+        role: data.role as any,
         email: data.email,
         phone: data.phone,
         licenseNumber: data.licenseNumber,
@@ -74,9 +61,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Update last login timestamp
-   */
   async updateLastLogin(userId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
@@ -84,9 +68,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Store refresh token
-   */
   async storeRefreshToken(userId: string, refreshToken: string, expiresAt: Date): Promise<void> {
     await this.prisma.refreshToken.upsert({
       where: { userId },
@@ -102,9 +83,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Validate refresh token
-   */
   async validateRefreshToken(refreshToken: string): Promise<{ userId: string; valid: boolean }> {
     const tokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -123,9 +101,6 @@ export class AuthRepository extends BaseRepository {
     };
   }
 
-  /**
-   * Delete refresh token
-   */
   async deleteRefreshToken(refreshToken: string): Promise<void> {
     await this.prisma.refreshToken.delete({
       where: { token: refreshToken },
@@ -134,9 +109,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Change password
-   */
   async changePassword(userId: string, newPasswordHash: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
@@ -144,9 +116,6 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Check if username exists
-   */
   async usernameExists(username: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { username },
@@ -154,4 +123,3 @@ export class AuthRepository extends BaseRepository {
     return !!user;
   }
 }
-
