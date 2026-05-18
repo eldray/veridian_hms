@@ -26,7 +26,7 @@ export class EncounterRepository {
         dateTime: new Date(),
       },
       include: {
-        patient: {
+        Patient: {
           select: {
             id: true,
             surname: true,
@@ -180,7 +180,7 @@ export class EncounterRepository {
       where: { id },
       data,
       include: {
-        patient: {
+        Patient: {
           select: {
             surname: true,
             otherNames: true,
