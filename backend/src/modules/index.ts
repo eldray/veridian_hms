@@ -59,14 +59,13 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
 
     // Auth routes MUST be first
     const authRoutes = createAuthRoutes(prisma);
+    app.use('/api/auth', authRoutes);
+    console.log('✅ Auth routes registered at /api/auth');
   // Initialize new modular architecture
-  const userModule = initializeUserModule(prisma);
+  //const userModule = initializeUserModule(prisma);
   // const staffModule = initializeStaffModule(prisma, userModule.service);
   
   // Auth/User module (must be first for authentication)
-  app.use('/api/auth', authRoutes);
-  console.log('✅ Auth routes registered at /api/auth');
-  
   // Staff module (unified management for all hospital personnel)
   // app.use('/api/staff', staffModule.routes.getRouter());
   

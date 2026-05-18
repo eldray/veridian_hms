@@ -1,7 +1,6 @@
 // modules/auth/AuthController.ts
-import { Request, Response, Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { BaseController } from '../../shared/base/BaseController';
 import { AuthService, getAuthService } from './AuthService';
 import {
   LoginRequestDTO,
@@ -10,20 +9,22 @@ import {
   AuthenticatedRequest,
 } from './AuthTypes';
 
-export class AuthController extends BaseController {
+export class AuthController {
+  public router: Router;
   private authService: AuthService;
   private prisma: PrismaClient;
-  protected router: Router;  // ✅ Add this
 
   constructor(prisma: PrismaClient) {
-    super('AuthController');
     this.prisma = prisma;
     this.authService = getAuthService();
-    this.router = Router();  // ✅ Initialize router
+    this.router = Router();
     this.registerRoutes();
+    console.log('✅ AuthController initialized with routes');
   }
 
   private registerRoutes(): void {
+    console.log('📝 Registering auth routes...');
+    
     // Public routes
     this.router.post('/login', this.login);
     this.router.post('/register', this.register);
@@ -35,37 +36,35 @@ export class AuthController extends BaseController {
     this.router.post('/change-password', this.authenticate, this.changePassword);
     this.router.get('/profile', this.authenticate, this.getCurrentUser);
     this.router.post('/verify-token', this.verifyToken);
+    
+    console.log('   - POST /login registered');
+    console.log('   - POST /register registered');
+    console.log('   - GET /profile registered');
   }
 
-  // Add getRouter method
   getRouter(): Router {
     return this.router;
   }
 
   /**
    * POST /auth/login
-   * User login with username and password
    */
   private login = async (req: Request, res: Response): Promise<void> => {
+    console.log('🔐 Login endpoint hit!', req.body);
     try {
-      const dto: LoginRequestDTO = req.body;
+      const { username, password } = req.body;
 
-      if (!dto.username || !dto.password) {
+      if (!username || !password) {
         res.status(400).json({ success: false, message: 'Username and password are required' });
         return;
       }
 
-      if (dto.password.length < 6) {
-        res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
-        return;
-      }
-
-      const result = await this.authService.login(dto);
+      const result = await this.authService.login({ username, password });
 
       if (result.success && result.data) {
         res.status(200).json({ success: true, data: result.data, message: 'Login successful' });
       } else {
-        res.status(401).json({ success: false, message: result.error || 'Login failed' });
+        res.status(401).json({ success: false, message: result.error || 'Invalid credentials' });
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -75,7 +74,6 @@ export class AuthController extends BaseController {
 
   /**
    * POST /auth/register
-   * Register a new user
    */
   private register = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -87,17 +85,6 @@ export class AuthController extends BaseController {
           res.status(400).json({ success: false, message: `${field} is required` });
           return;
         }
-      }
-
-      if (dto.password.length < 6) {
-        res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
-        return;
-      }
-
-      const validRoles = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer'];
-      if (!validRoles.includes(dto.role)) {
-        res.status(400).json({ success: false, message: 'Invalid role' });
-        return;
       }
 
       const result = await this.authService.register(dto);
@@ -175,19 +162,14 @@ export class AuthController extends BaseController {
         return;
       }
 
-      const dto: ChangePasswordRequestDTO = req.body;
+      const { currentPassword, newPassword } = req.body;
 
-      if (!dto.currentPassword || !dto.newPassword) {
+      if (!currentPassword || !newPassword) {
         res.status(400).json({ success: false, message: 'Current password and new password are required' });
         return;
       }
 
-      if (dto.newPassword.length < 6) {
-        res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
-        return;
-      }
-
-      const result = await this.authService.changePassword(userId, dto);
+      const result = await this.authService.changePassword(userId, { currentPassword, newPassword });
 
       if (result.success) {
         res.status(200).json({ success: true, message: 'Password changed successfully' });
@@ -240,7 +222,7 @@ export class AuthController extends BaseController {
       const validation = this.authService.validateToken(token);
 
       if (validation.valid) {
-        res.status(200).json({ success: true, data: { valid: true, payload: validation.payload }, message: 'Token is valid' });
+        res.status(200).json({ success: true, data: { valid: true }, message: 'Token is valid' });
       } else {
         res.status(401).json({ success: false, message: validation.error || 'Token is invalid' });
       }
@@ -266,8 +248,7 @@ export class AuthController extends BaseController {
       
       res.status(200).json({ 
         success: true, 
-        data: { message: 'If an account exists with this username, a reset link will be sent' },
-        message: 'Password reset initiated' 
+        message: 'If an account exists with this username, a reset link will be sent' 
       });
     } catch (error) {
       console.error('Forgot password error:', error);
@@ -276,7 +257,7 @@ export class AuthController extends BaseController {
   };
 
   /**
-   * Middleware to authenticate requests
+   * Authentication middleware
    */
   private authenticate = async (req: AuthenticatedRequest, res: Response, next: any): Promise<void> => {
     try {
@@ -303,15 +284,3 @@ export class AuthController extends BaseController {
     }
   };
 }
-
-// Singleton instance
-let authControllerInstance: AuthController | null = null;
-
-export function getAuthController(prisma: PrismaClient): AuthController {
-  if (!authControllerInstance) {
-    authControllerInstance = new AuthController(prisma);
-  }
-  return authControllerInstance;
-}
-
-export default getAuthController;
