@@ -3,7 +3,10 @@ import api from './api';
 
 export const login = async (username: string, password: string) => {
   const response = await api.post('/auth/login', { username, password });
-  const { user, accessToken, token } = response.data;
+  
+  // Handle both response formats: { data: { user, accessToken } } and { user, accessToken }
+  const responseData = response.data.data || response.data;
+  const { user, accessToken, token } = responseData;
   
   const finalToken = accessToken || token;
   
