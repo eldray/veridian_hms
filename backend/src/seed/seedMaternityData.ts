@@ -1,7 +1,9 @@
-// src/seed/seedMaternityData.ts
-import { PrismaClient, Gender, PaymentMode, AttendanceType, AttendanceStatus, EncounterCategory, VisitCategory, ServiceCategory, RiskLevel, DeliveryMode, DeliveryOutcome, PostnatalComplications, FeedingMethod } from '@prisma/client';
+// src/seed/seedMaternityData.ts - UPDATED with PAT-TEST format
+import { PrismaClient, Gender, PaymentMode, AttendanceType, AttendanceStatus, EncounterCategory, VisitCategory, ServiceCategory, RiskLevel, DeliveryOutcome } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+type DeliveryMode = 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
 
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
   const d = new Date(baseDate);
@@ -9,43 +11,28 @@ const daysAgo = (days: number, baseDate: Date = new Date()) => {
   return d;
 };
 
-const hoursAgo = (hours: number, baseDate: Date = new Date()) => {
-  const d = new Date(baseDate);
-  d.setHours(d.getHours() - hours);
-  return d;
-};
-
 const generateAttendanceNumber = () => `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+
+// Check if maternity test data already exists
+const hasMaternityData = async (): Promise<boolean> => {
+  const count = await prisma.antenatalBooking.count({
+    where: {
+      patient: {
+        folderNumber: { in: ['PAT-TEST-006', 'PAT-TEST-007', 'PAT-TEST-008', 'PAT-TEST-009', 'PAT-TEST-010'] }
+      }
+    }
+  });
+  return count >= 5;
+};
 
 export const seedMaternityData = async (force: boolean = false) => {
   console.log('🤰 Seeding maternity data (Antenatal, Delivery, Postnatal)...');
   
   try {
-    // Check if maternity test data already exists
-    const existingPatients = await prisma.patient.count({
-      where: { folderNumber: { in: ['MAT-TEST-001', 'MAT-TEST-002', 'MAT-TEST-003', 'MAT-TEST-004', 'MAT-TEST-005'] } }
-    });
-    
-    if (existingPatients >= 5 && !force) {
+    const maternityExists = await hasMaternityData();
+    if (maternityExists && !force) {
       console.log('✅ Maternity test data already exists');
       return { success: true, message: 'Maternity data exists', skipped: true };
-    }
-    
-    if (force && existingPatients > 0) {
-      console.log('🗑️ Deleting existing maternity test data...');
-      const testPatients = await prisma.patient.findMany({
-        where: { folderNumber: { in: ['MAT-TEST-001', 'MAT-TEST-002', 'MAT-TEST-003', 'MAT-TEST-004', 'MAT-TEST-005'] } },
-        select: { id: true }
-      });
-      const testPatientIds = testPatients.map(p => p.id);
-      
-      // Delete related data
-      await prisma.postnatalVisit.deleteMany({ where: { attendance: { patientId: { in: testPatientIds } } } });
-      await prisma.deliveryRecord.deleteMany({ where: { patientId: { in: testPatientIds } } });
-      await prisma.aNCVisit.deleteMany({ where: { booking: { patientId: { in: testPatientIds } } } });
-      await prisma.antenatalBooking.deleteMany({ where: { patientId: { in: testPatientIds } } });
-      await prisma.attendance.deleteMany({ where: { patientId: { in: testPatientIds } } });
-      await prisma.patient.deleteMany({ where: { id: { in: testPatientIds } } });
     }
     
     // Get required references
@@ -70,20 +57,20 @@ export const seedMaternityData = async (force: boolean = false) => {
       });
     }
     
-    // Create 5 maternity patients with different scenarios
-    const patientsData = [
+    // Use PAT-TEST-006 to 010 (same format as testSeed.ts)
+    const maternityPatientsData = [
       {
-        folderNumber: 'MAT-TEST-001',
-        surname: 'Osei',
-        otherNames: 'Akosua',
+        folderNumber: 'PAT-TEST-006',
+        surname: 'Mensah',
+        otherNames: 'Grace',
         gender: Gender.female,
         dateOfBirth: new Date('1992-06-15'),
-        contact: '+233244500001',
+        contact: '+233244600001',
         address: '10 Maternity Lane, Accra',
         paymentMode: PaymentMode.nhis,
         insuranceProviderId: nhisProvider?.id,
         insuranceDetails: { memberId: 'NHIS-MAT-001', startDate: '2024-01-01', endDate: '2024-12-31' },
-        scenario: 'primigravida_delivered', // First pregnancy, delivered
+        scenario: 'primigravida_delivered',
         gravida: 1,
         para: 0,
         weeksAtBooking: 12,
@@ -93,17 +80,17 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 2
       },
       {
-        folderNumber: 'MAT-TEST-002',
+        folderNumber: 'PAT-TEST-007',
         surname: 'Amankwah',
         otherNames: 'Frederica',
         gender: Gender.female,
         dateOfBirth: new Date('1988-03-22'),
-        contact: '+233244500002',
+        contact: '+233244600002',
         address: '25 Prenatal Street, Kumasi',
         paymentMode: PaymentMode.nhis,
         insuranceProviderId: nhisProvider?.id,
         insuranceDetails: { memberId: 'NHIS-MAT-002', startDate: '2024-01-01', endDate: '2024-12-31' },
-        scenario: 'multigravida_current', // Multiple pregnancies, currently pregnant
+        scenario: 'multigravida_current',
         gravida: 3,
         para: 2,
         weeksAtBooking: 16,
@@ -112,16 +99,16 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 0
       },
       {
-        folderNumber: 'MAT-TEST-003',
+        folderNumber: 'PAT-TEST-008',
         surname: 'Dapaah',
         otherNames: 'Victoria',
         gender: Gender.female,
         dateOfBirth: new Date('1995-11-08'),
-        contact: '+233244500003',
+        contact: '+233244600003',
         address: '18 ANC Road, Takoradi',
         paymentMode: PaymentMode.cash,
         insuranceDetails: {},
-        scenario: 'high_risk_delivered', // High risk pregnancy, delivered
+        scenario: 'high_risk_delivered',
         gravida: 2,
         para: 1,
         weeksAtBooking: 20,
@@ -132,17 +119,17 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 3
       },
       {
-        folderNumber: 'MAT-TEST-004',
+        folderNumber: 'PAT-TEST-009',
         surname: 'Boateng',
         otherNames: 'Christina',
         gender: Gender.female,
         dateOfBirth: new Date('1990-07-30'),
-        contact: '+233244500004',
+        contact: '+233244600004',
         address: '42 Delivery Ave, Cape Coast',
         paymentMode: PaymentMode.nhis,
         insuranceProviderId: nhisProvider?.id,
         insuranceDetails: { memberId: 'NHIS-MAT-004', startDate: '2024-01-01', endDate: '2024-12-31' },
-        scenario: 'cs_delivery', // Cesarean section
+        scenario: 'cs_delivery',
         gravida: 2,
         para: 1,
         weeksAtBooking: 14,
@@ -152,16 +139,16 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 4
       },
       {
-        folderNumber: 'MAT-TEST-005',
+        folderNumber: 'PAT-TEST-010',
         surname: 'Nyarko',
         otherNames: 'Benedicta',
         gender: Gender.female,
         dateOfBirth: new Date('1993-09-12'),
-        contact: '+233244500005',
+        contact: '+233244600005',
         address: '8 Postnatal Circle, Tema',
         paymentMode: PaymentMode.private_insurance,
         insuranceDetails: { policyNumber: 'PRV-MAT-005', provider: 'Acacia Health' },
-        scenario: 'twins_delivered', // Twin delivery
+        scenario: 'twins_delivered',
         gravida: 1,
         para: 0,
         weeksAtBooking: 10,
@@ -176,115 +163,169 @@ export const seedMaternityData = async (force: boolean = false) => {
     const bookings: any[] = [];
     const deliveries: any[] = [];
     
-    for (const pData of patientsData) {
+    for (const pData of maternityPatientsData) {
       console.log(`\n📋 Creating patient: ${pData.surname} (${pData.folderNumber})`);
       
-      // Create Patient
-      const patient = await prisma.patient.create({
-        data: {
-          folderNumber: pData.folderNumber,
-          surname: pData.surname,
-          otherNames: pData.otherNames,
-          gender: pData.gender,
-          dateOfBirth: pData.dateOfBirth,
-          contact: pData.contact,
-          address: pData.address,
-          paymentMode: pData.paymentMode,
-          insuranceProviderId: pData.insuranceProviderId,
-          insuranceDetails: pData.insuranceDetails,
-          registeredBy: 'System Seed',
-          registeredAt: daysAgo(180),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
+      // Check if patient already exists
+      let patient = await prisma.patient.findUnique({
+        where: { folderNumber: pData.folderNumber }
       });
+      
+      if (!patient) {
+        patient = await prisma.patient.create({
+          data: {
+            folderNumber: pData.folderNumber,
+            surname: pData.surname,
+            otherNames: pData.otherNames,
+            gender: pData.gender,
+            dateOfBirth: pData.dateOfBirth,
+            contact: pData.contact,
+            address: pData.address,
+            paymentMode: pData.paymentMode,
+            insuranceProviderId: pData.insuranceProviderId,
+            insuranceDetails: pData.insuranceDetails,
+            registeredBy: 'System Seed',
+            registeredAt: daysAgo(180),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      }
       patients.push(patient);
       
       // Create Antenatal Booking Attendance
-      const bookingAttendanceDate = daysAgo(pData.scenario.includes('current') ? pData.currentWeeks! * 7 : (pData.deliveryDaysAgo! + (pData.deliveryWeeks! * 7)));
+      const bookingAttendanceDate = pData.scenario.includes('current') 
+        ? daysAgo(pData.currentWeeks! * 7) 
+        : daysAgo(pData.deliveryDaysAgo! + (pData.deliveryWeeks! * 7));
+      
       const bookingAttendance = await prisma.attendance.create({
         data: {
           attendanceNumber: generateAttendanceNumber(),
           patientId: patient.id,
           dateTime: bookingAttendanceDate,
-          attendanceType: AttendanceType.antepartum,
+          attendanceType: AttendanceType.antenatal,
           paymentMode: pData.paymentMode,
           insuranceProviderId: pData.insuranceProviderId,
           complaints: 'Routine antenatal booking visit',
           medicalNotes: `G${pData.gravida}P${pData.para} booking visit at ${pData.weeksAtBooking} weeks`,
-          historyPresentingComplaint: `Patient presents for antenatal booking. Gravida ${pData.gravida}, Para ${pData.para}. LMP calculated EDD: ${pData.edd.toISOString().split('T')[0]}`,
-          physicalExamination: 'General condition good. BP 120/80, PR 78/min, Temp 36.5°C. Fundal height corresponds to dates.',
-          treatmentPlan: 'Routine antenatal care. Start folic acid and iron supplements. Schedule monthly visits.',
+          historyPresentingComplaint: `Patient presents for antenatal booking. Gravida ${pData.gravida}, Para ${pData.para}.`,
+          physicalExamination: 'General condition good. BP 120/80, PR 78/min, Temp 36.5°C.',
+          treatmentPlan: 'Routine antenatal care. Start folic acid and iron supplements.',
           createdById: midwife!.id,
           status: AttendanceStatus.completed,
           encounterCategory: EncounterCategory.opd,
-          visitCategory: VisitCategory.antenatal,
+          visitCategory: VisitCategory.general,
           serviceCategory: ServiceCategory.opd,
-          departmentId: obsGynDept?.id,
           totalBill: 0,
           paidAmount: 0,
           outstandingBalance: 0
         }
       });
       
-      // Create Antenatal Booking
+      // Create Antenatal Booking (using direct IDs, not connect)
       const booking = await prisma.antenatalBooking.create({
         data: {
-          patientId: patient.id,
-          attendanceId: bookingAttendance.id,
+          patient: { connect: { id: patient.id } },
+          attendance: { connect: { id: bookingAttendance.id } },
           gravida: pData.gravida,
           para: pData.para,
-          abortions: 0,
-          lmp: new Date(pData.edd.getTime() - (280 * 24 * 60 * 60 * 1000)), // 280 days before EDD
+          lmp: new Date(pData.edd.getTime() - (280 * 24 * 60 * 60 * 1000)),
           edd: pData.edd,
           bookingDate: bookingAttendanceDate,
-          gestationalAgeAtBooking: pData.weeksAtBooking,
-          riskLevel: (pData.riskLevel as RiskLevel) || RiskLevel.low,
+          gestationalAgeWeeks: pData.weeksAtBooking,
+          gestationalAgeAtBooking: pData.weeksAtBooking,  // ✅ Add this if you added it
+          riskLevel: (pData.riskLevel as any) || 'low',
           riskFactors: pData.riskLevel === 'high' ? ['Advanced maternal age', 'Previous CS'] : [],
-          bloodGroup: 'O+',
-          hivStatus: 'Negative',
-          hbLevel: 11.5,
-          vdrl: 'Non-reactive',
+          bloodGroup: 'O+',        // ✅ Now valid
+          hivStatus: 'Negative',   // ✅ Now valid
+          hbLevel: 11.5,           // ✅ Now valid
+          vdrl: 'Non-reactive',    // ✅ Now valid
           isActive: pData.scenario.includes('current'),
-          isCompleted: pData.scenario.includes('delivered') || pData.scenario.includes('cs') || pData.scenario.includes('twins'),
-          createdBy: midwife!.id,
+          isCompleted: !pData.scenario.includes('current'),
+          createdBy: { connect: { id: midwife!.id } }, 
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          iptpDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
+          ttDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
+          iptp1Date: null,
+          iptp2Date: null,
+          iptp3Date: null,
+          iptp4Date: null,
+          iptp5Date: null,
+          tt1Date: null,
+          tt2Date: null,
+          tt3Date: null,
+          tt4Date: null,
+          tt5Date: null,
+          malariaTested: false,
+          malariaPositive: false,
+          malariaTreatment: null,
+          malariaIPTpGiven: false,
+          hbBooking: null,
+          hb36Weeks: null,
+          anaemiaDiagnosed: false,
+          ironFolateGiven: false,
+          itnGiven: false,
+          itnGivenDate: null
         }
       });
       bookings.push(booking);
-      
-      // Create ANC Visits (simulate monthly visits)
-      const visitCount = pData.scenario.includes('current') ? Math.floor(pData.currentWeeks! / 4) : Math.floor(pData.deliveryWeeks! / 4);
-      for (let i = 1; i <= Math.min(visitCount, 8); i++) {
-        const visitDate = new Date(bookingAttendanceDate);
-        visitDate.setDate(visitDate.getDate() + (i * 28)); // Every 4 weeks
-        
-        const visit = await prisma.aNCVisit.create({
-          data: {
-            bookingId: booking.id,
-            visitNumber: i,
-            visitDate: visitDate,
-            gestationalAgeWeeks: pData.weeksAtBooking + i * 4,
-            weight: 65 + (i * 0.5), // Gradual weight gain
-            bloodPressure: `${110 + i}/70`,
-            fundalHeight: (pData.weeksAtBooking + i * 4) * 0.9, // Approximate
-            fetalHeartRate: 140 + (i % 5),
-            fetalPosition: i > 5 ? 'Cephalic' : 'Variable',
-            iptpGiven: i >= 2,
-            iptpDoseNumber: i >= 2 ? Math.min(i - 1, 3) : 0,
-            ttGiven: i >= 3,
-            ttDoseNumber: i >= 3 ? Math.min(i - 2, 2) : 0,
-            dangerSignsPresent: false,
-            referralMade: false,
-            findings: 'Fetal movements felt. No complications.',
-            advice: 'Continue ANC supplements. Next visit in 4 weeks.',
-            recordedById: midwife!.id,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }
-        });
-      }
+
+      // Create ANC Visits
+const visitCount = pData.scenario.includes('current') ? Math.floor(pData.currentWeeks! / 4) : Math.floor(pData.deliveryWeeks! / 4);
+for (let i = 1; i <= Math.min(visitCount, 8); i++) {
+  const visitDate = new Date(bookingAttendanceDate);
+  visitDate.setDate(visitDate.getDate() + (i * 28));
+  
+  // Create a new attendance for each ANC visit
+  const visitAttendance = await prisma.attendance.create({
+    data: {
+      attendanceNumber: generateAttendanceNumber(),
+      patientId: patient.id,
+      dateTime: visitDate,
+      attendanceType: AttendanceType.antenatal,
+      paymentMode: pData.paymentMode,
+      insuranceProviderId: pData.insuranceProviderId,
+      complaints: `Routine ANC visit - ${pData.weeksAtBooking + i * 4} weeks`,
+      medicalNotes: `ANC follow-up visit`,
+      historyPresentingComplaint: `Patient returns for scheduled antenatal check-up.`,
+      physicalExamination: 'General condition good. Vitals stable.',
+      treatmentPlan: 'Continue supplements. Next visit in 4 weeks.',
+      createdById: midwife!.id,
+      status: AttendanceStatus.completed,
+      encounterCategory: EncounterCategory.opd,
+      visitCategory: VisitCategory.antenatal,
+      serviceCategory: ServiceCategory.opd,
+      totalBill: 0,
+      paidAmount: 0,
+      outstandingBalance: 0
+    }
+  });
+  
+  await prisma.aNCVisit.create({
+    data: {
+      booking: { connect: { id: booking.id } },
+      attendance: { connect: { id: visitAttendance.id } },
+      visitNumber: i,
+      visitDate: visitDate,
+      gestationalAgeWeeks: pData.weeksAtBooking + i * 4,
+      weight: 65 + (i * 0.5),
+      bloodPressure: `${110 + i}/70`,
+      fundalHeight: (pData.weeksAtBooking + i * 4) * 0.9,
+      fetalHeartRate: 140 + (i % 5),
+      presentation: i > 5 ? 'Cephalic' : 'Variable',
+      iptpGiven: i >= 2,
+      iptpDoseNumber: i >= 2 ? Math.min(i - 1, 3) : 0,
+      ttGiven: i >= 3,
+      ttDoseNumber: i >= 3 ? Math.min(i - 2, 2) : 0,
+      dangerSignsPresent: false,
+      referralMade: false,
+      recordedBy: { connect: { id: midwife!.id } },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  });
+}
       
       // Create Delivery Record if not currently pregnant
       if (pData.scenario !== 'multigravida_current') {
@@ -294,20 +335,19 @@ export const seedMaternityData = async (force: boolean = false) => {
             attendanceNumber: generateAttendanceNumber(),
             patientId: patient.id,
             dateTime: deliveryDate,
-            attendanceType: AttendanceType.intrapartum,
+            attendanceType: AttendanceType.delivery,
             paymentMode: pData.paymentMode,
             insuranceProviderId: pData.insuranceProviderId,
             complaints: 'In labour / For delivery',
             medicalNotes: `Term pregnancy, G${pData.gravida}P${pData.para}, admitted for delivery`,
             historyPresentingComplaint: 'Patient presented in active labour with regular contractions.',
-            physicalExamination: 'On admission: Cervix 4cm dilated, membranes intact. Contractions every 3 minutes.',
+            physicalExamination: 'On admission: Cervix 4cm dilated, membranes intact.',
             treatmentPlan: 'Monitor labour progress. Provide analgesia as needed.',
             createdById: midwife!.id,
             status: AttendanceStatus.completed,
-            encounterCategory: EncounterCategory.inpatient,
-            visitCategory: VisitCategory.labor_and_delivery,
-            serviceCategory: ServiceCategory.inpatient,
-            departmentId: obsGynDept?.id,
+            encounterCategory: EncounterCategory.ipd,
+            visitCategory: VisitCategory.general,
+            serviceCategory: ServiceCategory.ipd,
             wardId: maternityWard?.id,
             totalBill: 0,
             paidAmount: 0,
@@ -324,19 +364,18 @@ export const seedMaternityData = async (force: boolean = false) => {
             attendanceId: deliveryAttendance.id,
             antenatalBookingId: booking.id,
             deliveryDate: deliveryDate,
-            gestationalAgeAtDelivery: pData.deliveryWeeks!,
-            deliveryMode: cs ? DeliveryMode.cs : (twins ? DeliveryMode.svd : DeliveryMode.svd),
-            deliveryOutcome: DeliveryOutcome.live_birth,
-            deliveryPlace: 'Hospital',
-            deliveryPosition: 'Lithotomy',
-            perinealStatus: cs ? 'Intact (CS)' : 'Intact',
-            bloodLoss: cs ? 500 : 250,
-            durationOfLabour: cs ? 0 : 8,
-            oxytocinGiven: true,
-            complications: twins ? 'Preterm labour' : null,
-            birthAttendant: midwife!.fullName,
-            anaesthesia: cs ? 'Spinal' : 'None',
-            indicationForCs: cs ? 'Previous CS' : null,
+            deliveryType: cs ? 'caesarean_section' : (twins ? 'multiple' : 'spontaneous_vertex'),
+            deliveryOutcome: 'live_birth',
+            placeOfDelivery: 'hospital',
+            attendant: midwife!.fullName,
+            gestationalAgeWeeks: pData.deliveryWeeks!,
+            birthWeight: twins ? 2400 : 3200,
+            apgarScore1min: 8,
+            apgarScore5min: 9,
+            resusCitationDone: false,
+            maternalOutcome: 'alive',
+            complications: twins ? ['Preterm labour'] : [],
+            notes: cs ? 'Elective caesarean section' : 'Normal spontaneous vaginal delivery',
             createdById: midwife!.id,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -345,105 +384,34 @@ export const seedMaternityData = async (force: boolean = false) => {
         deliveries.push(delivery);
         
         // Create Newborn(s)
-        const babyWeight = twins ? [2.4, 2.3] : [3.2];
-        for (let b = 0; b < babyWeight.length; b++) {
+        const babyWeights = twins ? [2400, 2300] : [3200];
+        for (let b = 0; b < babyWeights.length; b++) {
           await prisma.newborn.create({
             data: {
               deliveryRecordId: delivery.id,
               babyNumber: b + 1,
-              sex: b % 2 === 0 ? 'Male' : 'Female',
-              weight: babyWeight[b],
+              gender: b % 2 === 0 ? Gender.male : Gender.female,
+              birthWeight: babyWeights[b],
               apgarScore1min: 8,
               apgarScore5min: 9,
-              gestationalAge: pData.deliveryWeeks!,
-              headCircumference: 34,
-              length: 50,
-              feedingMethod: FeedingMethod.breastfeeding,
-              immunizationGiven: true,
-              vitaminKGiven: true,
-              eyeProphylaxisGiven: true,
-              congenitalAnomalies: null,
-              resuscitationNeeded: false,
-              newbornCondition: 'Good',
-              dischargeDate: twins ? deliveryDate.getDate() + 5 : deliveryDate.getDate() + 2,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-          });
-        }
-        
-        // Create Postnatal Visits
-        for (let v = 1; v <= pData.postnatalVisits!; v++) {
-          const pnvDate = new Date(deliveryDate);
-          pnvDate.setDate(pnvDate.getDate() + (v === 1 ? 1 : (v === 2 ? 7 : (v === 3 ? 14 : (v === 4 ? 28 : 42)))));
-          
-          const pnvAttendance = await prisma.attendance.create({
-            data: {
-              attendanceNumber: generateAttendanceNumber(),
-              patientId: patient.id,
-              dateTime: pnvDate,
-              attendanceType: AttendanceType.postpartum,
-              paymentMode: pData.paymentMode,
-              insuranceProviderId: pData.insuranceProviderId,
-              complaints: v === 1 ? 'Postnatal check - Day 1' : 'Routine postnatal follow-up',
-              medicalNotes: `Postnatal day ${v === 1 ? 1 : (v === 2 ? 7 : (v === 3 ? 14 : (v === 4 ? 28 : 42)))} visit`,
-              historyPresentingComplaint: 'Mother and baby doing well. Breastfeeding established.',
-              physicalExamination: 'BP stable, uterus involuting well, lochia normal, breasts soft, episiotomy/CS wound healing well.',
-              treatmentPlan: 'Continue breastfeeding. Family planning counseling. Next visit scheduled.',
-              createdById: midwife!.id,
-              status: AttendanceStatus.completed,
-              encounterCategory: EncounterCategory.opd,
-              visitCategory: VisitCategory.postnatal,
-              serviceCategory: ServiceCategory.opd,
-              departmentId: obsGynDept?.id,
-              totalBill: 0,
-              paidAmount: 0,
-              outstandingBalance: 0
-            }
-          });
-          
-          await prisma.postnatalVisit.create({
-            data: {
-              attendanceId: pnvAttendance.id,
-              patientId: patient.id,
-              deliveryRecordId: delivery.id,
-              visitNumber: v,
-              visitDate: pnvDate,
-              maternalCondition: 'Good',
-              bpReading: '120/80',
-              temperature: 36.5,
-              pulseRate: 72,
-              uterineInvolution: 'Normal',
-              lochiaCharacter: 'Normal',
-              breastCondition: 'Normal',
-              woundHealing: 'Well healed',
-              moodAssessment: 'Stable',
-              familyPlanningCounseled: v >= 2,
-              familyPlanningMethod: v >= 3 ? 'Implants' : null,
-              exclusiveBreastfeeding: true,
-              babyCondition: 'Good',
-              babyWeight: babyWeight[0] + (v * 0.1),
-              complications: null,
-              referralMade: false,
-              advice: 'Continue exclusive breastfeeding. Attend immunization clinic.',
-              recordedById: midwife!.id,
-              createdAt: new Date(),
-              updatedAt: new Date()
+              outcome: 'alive',
+              anomalies: [],
+              referredTo: null,
+              createdAt: new Date()
             }
           });
         }
       }
       
-      console.log(`✅ Created: ${pData.scenario.includes('current') ? 'ANC booking + visits' : 'ANC + Delivery + Postnatal visits'}`);
+      console.log(`✅ Created: ${pData.surname}`);
     }
     
     console.log('\n==================================================');
     console.log('✅ MATERNITY DATA SEEDING COMPLETED');
     console.log('==================================================');
-    console.log(`Created: ${patients.length} patients`);
+    console.log(`Created/Updated: ${patients.length} maternity patients (PAT-TEST-006 to 010)`);
     console.log(`Created: ${bookings.length} antenatal bookings`);
     console.log(`Created: ${deliveries.length} delivery records`);
-    console.log('Created: Multiple ANC visits and postnatal visits');
     
     return {
       success: true,

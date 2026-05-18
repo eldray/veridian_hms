@@ -46,7 +46,7 @@ import { createWardRoutes } from './ward';
 import { createAuditRoutes } from './audit';
 import { createCorporateRoutes } from './corporate';
 import { createCommunicationRoutes } from './communication';
-
+import { createAuthRoutes } from './auth/AuthRoutes';
 // Legacy imports (to be migrated)
 // import attendanceRoutes from './attendance';
 // import inventoryRoutes from './inventory';
@@ -56,15 +56,19 @@ import { createCommunicationRoutes } from './communication';
  * Register all module routes with the Express app
  */
 export function registerModules(app: Express, prisma: PrismaClient): void {
+
+    // Auth routes MUST be first
+    const authRoutes = createAuthRoutes(prisma);
   // Initialize new modular architecture
   const userModule = initializeUserModule(prisma);
-  const staffModule = initializeStaffModule(prisma, userModule.service);
+  // const staffModule = initializeStaffModule(prisma, userModule.service);
   
   // Auth/User module (must be first for authentication)
-  app.use('/api/auth', userModule.routes.getRouter());
+  app.use('/api/auth', authRoutes);
+  console.log('✅ Auth routes registered at /api/auth');
   
   // Staff module (unified management for all hospital personnel)
-  app.use('/api/staff', staffModule.routes.getRouter());
+  // app.use('/api/staff', staffModule.routes.getRouter());
   
   // Patient module
   app.use('/api/patients', createPatientRoutes(prisma));

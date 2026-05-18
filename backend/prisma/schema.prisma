@@ -238,7 +238,7 @@ model Patient {
   appointments         Appointment[]
   NHISEligibilityCheck NHISEligibilityCheck[]
   ReferralRecord       ReferralRecord[]
-  AntenatalBooking     AntenatalBooking?
+  antenatalBookings    AntenatalBooking[]
   PatientWaiver        PatientWaiver[]
   deliveryRecords      DeliveryRecord[]
   abortionRecords      AbortionRecord[]
@@ -1335,8 +1335,7 @@ model ReferralRecord {
 
 model AntenatalBooking {
   id                  String  @id @default(cuid())
-  patientId           String  @unique
-  pregnancyNumber     Int     @default(1)
+  patientId           String
   attendanceId        String  @unique
   currentAttendanceId String? @unique
 
@@ -1345,12 +1344,20 @@ model AntenatalBooking {
   lmp                 DateTime?
   edd                 DateTime?
   gestationalAgeWeeks Int?
+  gestationalAgeAtBooking Int?  // ✅ Add this if missing
 
   // Obstetric history
   gravida               Int
   para                  Int
   previousCSection      Boolean @default(false)
   previousComplications String?
+
+  // ✅ ADD THESE FIELDS:
+  bloodGroup            String?   // Blood type (A+, A-, B+, B-, O+, O-, AB+, AB-)
+  hivStatus             String?   // HIV status (Positive, Negative, Unknown)
+  hbLevel               Float?    // Hemoglobin level at booking (g/dL)
+  vdrl                  String?   // VDRL/RPR syphilis test result (Reactive, Non-reactive)
+  // ✅ END ADDED FIELDS
 
   // IPTp Tracking (GHS Form A)
   iptpDoses Json
@@ -1410,6 +1417,11 @@ model AntenatalBooking {
   visits            ANCVisit[]
   postnatalRecords  PostnatalRecord[]
   createdBy         User              @relation(fields: [createdById], references: [id])
+
+  @@index([patientId])
+  @@index([attendanceId])
+  @@index([edd])
+  @@index([isActive])
 }
 
 model ANCVisit {

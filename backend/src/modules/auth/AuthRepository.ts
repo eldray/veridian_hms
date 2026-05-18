@@ -3,13 +3,9 @@
  * Handles all authentication-related database operations
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { 
-  LoginRequestDTO, 
-  RegisterRequestDTO,
-  AuthResponse 
-} from './AuthTypes';
+import { LoginRequestDTO, RegisterRequestDTO, AuthResponse } from './AuthTypes';
 
 export class AuthRepository extends BaseRepository {
   constructor(protected readonly prisma: PrismaClient) {
@@ -17,11 +13,11 @@ export class AuthRepository extends BaseRepository {
   }
 
   /**
-   * Find user by email with role and department
+   * Find user by username
    */
-  async findByEmail(email: string) {
+  async findByUsername(username: string) {
     return this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { username },
       include: {
         department: {
           select: {
@@ -56,11 +52,14 @@ export class AuthRepository extends BaseRepository {
   async createUser(data: RegisterRequestDTO & { passwordHash: string }) {
     return this.prisma.user.create({
       data: {
-        email: data.email.toLowerCase(),
+        username: data.username,
         password: data.passwordHash,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        fullName: data.fullName,
         role: data.role,
+        email: data.email,
+        phone: data.phone,
+        licenseNumber: data.licenseNumber,
+        specialization: data.specialization,
         departmentId: data.departmentId,
         isActive: true,
       },
@@ -81,7 +80,7 @@ export class AuthRepository extends BaseRepository {
   async updateLastLogin(userId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { lastLogin: new Date() },
+      data: { updatedAt: new Date() },
     });
   }
 
@@ -146,12 +145,13 @@ export class AuthRepository extends BaseRepository {
   }
 
   /**
-   * Check if email exists
+   * Check if username exists
    */
-  async emailExists(email: string): Promise<boolean> {
+  async usernameExists(username: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { username },
     });
     return !!user;
   }
 }
+

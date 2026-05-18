@@ -1,12 +1,8 @@
-/**
- * Authentication Service
- * Handles business logic for authentication, authorization, and token management
- */
-
+// modules/auth/AuthService.ts
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
-import { getPrismaClient } from '../../core/database/prisma.client';
 import { logger } from '../../core/logger';
 import { BaseService } from '../../shared/base/BaseService';
 import {
@@ -21,37 +17,38 @@ import {
 } from './AuthTypes';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
 const SALT_ROUNDS = 12;
+
+const prisma = new PrismaClient();  // ✅ Create prisma instance directly
 
 export class AuthService extends BaseService {
   private repository: AuthRepository;
 
   constructor() {
     super('AuthService');
-    const prisma = getPrismaClient();
     this.repository = new AuthRepository(prisma);
   }
 
   /**
-   * User login with email and password
+   * User login with username and password
    */
   async login(data: LoginRequestDTO): Promise<LoginResult> {
     try {
-      this.logger.info(`Login attempt for email: ${data.email}`);
+      this.logger.info(`Login attempt for username: ${data.username}`);
 
-      // Find user
-      const user = await this.repository.findByEmail(data.email);
+      // Find user by username
+      const user = await this.repository.findByUsername(data.username);
       
       if (!user) {
-        this.logger.warn(`Login failed - user not found: ${data.email}`);
+        this.logger.warn(`Login failed - user not found: ${data.username}`);
         return { success: false, error: 'Invalid credentials' };
       }
 
       // Check if user is active
       if (!user.isActive) {
-        this.logger.warn(`Login failed - account inactive: ${data.email}`);
+        this.logger.warn(`Login failed - account inactive: ${data.username}`);
         return { success: false, error: 'Account is deactivated' };
       }
 
@@ -59,12 +56,12 @@ export class AuthService extends BaseService {
       const isValidPassword = await bcrypt.compare(data.password, user.password);
       
       if (!isValidPassword) {
-        this.logger.warn(`Login failed - invalid password: ${data.email}`);
+        this.logger.warn(`Login failed - invalid password: ${data.username}`);
         return { success: false, error: 'Invalid credentials' };
       }
 
       // Generate tokens
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.username, user.role);
 
       // Update last login
       await this.repository.updateLastLogin(user.id);
@@ -79,14 +76,15 @@ export class AuthService extends BaseService {
       const response: AuthResponse = {
         user: {
           id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          username: user.username,
+          fullName: user.fullName,
           role: user.role,
+          email: user.email || undefined,
+          phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
           isActive: user.isActive,
           createdAt: user.createdAt,
-          lastLogin: user.lastLogin || undefined,
+          lastLogin: user.updatedAt || undefined,
         },
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -94,10 +92,10 @@ export class AuthService extends BaseService {
         tokenType: 'Bearer',
       };
 
-      this.logger.info(`Login successful: ${data.email}`);
+      this.logger.info(`Login successful: ${data.username}`);
       return { success: true, data: response };
     } catch (error) {
-      this.logger.error('Login error', { error, email: data.email });
+      this.logger.error('Login error', { error, username: data.username });
       return { 
         success: false, 
         error: 'Authentication service unavailable' 
@@ -110,13 +108,13 @@ export class AuthService extends BaseService {
    */
   async register(data: RegisterRequestDTO): Promise<RegisterResult> {
     try {
-      this.logger.info(`Registration attempt for email: ${data.email}`);
+      this.logger.info(`Registration attempt for username: ${data.username}`);
 
-      // Check if email already exists
-      const exists = await this.repository.emailExists(data.email);
+      // Check if username already exists
+      const exists = await this.repository.usernameExists(data.username);
       if (exists) {
-        this.logger.warn(`Registration failed - email exists: ${data.email}`);
-        return { success: false, error: 'Email already registered' };
+        this.logger.warn(`Registration failed - username exists: ${data.username}`);
+        return { success: false, error: 'Username already registered' };
       }
 
       // Hash password
@@ -129,7 +127,7 @@ export class AuthService extends BaseService {
       });
 
       // Generate tokens
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.username, user.role);
 
       // Store refresh token
       await this.repository.storeRefreshToken(
@@ -141,10 +139,11 @@ export class AuthService extends BaseService {
       const response: AuthResponse = {
         user: {
           id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          username: user.username,
+          fullName: user.fullName,
           role: user.role,
+          email: user.email || undefined,
+          phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
           isActive: user.isActive,
           createdAt: user.createdAt,
@@ -155,10 +154,10 @@ export class AuthService extends BaseService {
         tokenType: 'Bearer',
       };
 
-      this.logger.info(`Registration successful: ${data.email}`);
+      this.logger.info(`Registration successful: ${data.username}`);
       return { success: true, data: response };
     } catch (error) {
-      this.logger.error('Registration error', { error, email: data.email });
+      this.logger.error('Registration error', { error, username: data.username });
       return { 
         success: false, 
         error: 'Registration service unavailable' 
@@ -188,7 +187,7 @@ export class AuthService extends BaseService {
       }
 
       // Generate new tokens
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.username, user.role);
 
       // Update stored refresh token
       await this.repository.storeRefreshToken(
@@ -203,14 +202,15 @@ export class AuthService extends BaseService {
       const response: AuthResponse = {
         user: {
           id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          username: user.username,
+          fullName: user.fullName,
           role: user.role,
+          email: user.email || undefined,
+          phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
           isActive: user.isActive,
           createdAt: user.createdAt,
-          lastLogin: user.lastLogin || undefined,
+          lastLogin: user.updatedAt || undefined,
         },
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -293,11 +293,11 @@ export class AuthService extends BaseService {
   /**
    * Generate access and refresh tokens
    */
-  private async generateTokens(userId: string, email: string, role: string): Promise<{
+  private async generateTokens(userId: string, username: string, role: string): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
-    const payload: TokenPayload = { userId, email, role };
+    const payload: TokenPayload = { userId, username, role: role as any };
 
     const accessToken = jwt.sign(payload, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
@@ -325,14 +325,15 @@ export class AuthService extends BaseService {
 
       return {
         id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        username: user.username,
+        fullName: user.fullName,
         role: user.role,
+        email: user.email,
+        phone: user.phone,
         department: user.department,
         isActive: user.isActive,
         createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
+        lastLogin: user.updatedAt,
       };
     } catch (error) {
       this.logger.error('Get user profile error', { error, userId });

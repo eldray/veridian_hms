@@ -31,7 +31,7 @@ const addSchemaDefaults = (data: any, type: string) => {
   };
 
   switch (type) {
-    case 'labTestTemplate':
+    case 'labTestTemplate': {
       // Map invalid category names to valid LabCategory enum values
       const labCategoryMap: Record<string, string> = {
         'pathology': 'pathology',
@@ -76,8 +76,9 @@ const addSchemaDefaults = (data: any, type: string) => {
         tariffCode: data.tariffCode || `LAB-${data.investigationCode}`,
         isActive: true,
       };
+    }
 
-    case 'scanTemplate':
+    case 'scanTemplate': {
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Scan',
@@ -99,68 +100,69 @@ const addSchemaDefaults = (data: any, type: string) => {
         tariffCode: data.tariffCode || `SCAN-${data.scanCode}`,
         isActive: true,
       };
+    }
 
-      case 'procedureTemplate':
-        // Map invalid category names to valid enum values
-        const categoryMap: Record<string, string> = {
-          // Surgical categories
-          'General Surgery': 'surgical',
-          'Thoracic Surgery': 'surgical',
-          'Vascular Surgery': 'surgical',
-          'Neurosurgery': 'surgical',
-          'Paediatric Surgery': 'pediatric',
-          'Gynaecology': 'obstetric',
-          'Obstetrics': 'obstetric',
-          'Orthopaedics': 'orthopedic',
-          'Reconstructive Surgery': 'surgical',
-          'Plastic Surgery': 'surgical',
-          
-          // Specialty categories
-          'Urology': 'urology',
-          'ENT': 'ent',
-          'Dental': 'dental',
-          'Ophthalmology': 'ophthalmic',
-          'Neurology': 'neurology',
-          'Dermatology': 'dermatology',
-          
-          // Procedure types
-          'Endoscopy': 'diagnostic',
-          'Laparoscopic Surgery': 'laparoscopic',
-          'Laparoscopic': 'laparoscopic',
-          'Laparotomy': 'laparotomy',
-          'Interventional Radiology': 'diagnostic',
-          
-          // Other
-          'Family Planning': 'therapeutic',
-          'Nursing Procedure': 'therapeutic',
-          'Emergency': 'emergency',
-          'Observation': 'therapeutic',
-          'Administrative': 'therapeutic',
-          'Diagnostic': 'diagnostic',
-          'Family Planning': 'therapeutic',
-        };
+    case 'procedureTemplate': {
+      // Map invalid category names to valid enum values
+      const categoryMap: Record<string, string> = {
+        // Surgical categories
+        'General Surgery': 'surgical',
+        'Thoracic Surgery': 'surgical',
+        'Vascular Surgery': 'surgical',
+        'Neurosurgery': 'surgical',
+        'Paediatric Surgery': 'pediatric',
+        'Gynaecology': 'obstetric',
+        'Obstetrics': 'obstetric',
+        'Orthopaedics': 'orthopedic',
+        'Reconstructive Surgery': 'surgical',
+        'Plastic Surgery': 'surgical',
         
-        const mappedCategory = categoryMap[data.category] || 'therapeutic';
+        // Specialty categories
+        'Urology': 'urology',
+        'ENT': 'ent',
+        'Dental': 'dental',
+        'Ophthalmology': 'ophthalmic',
+        'Neurology': 'neurology',
+        'Dermatology': 'dermatology',
         
-        return {
-          ...baseDefaults,
-          name: data.name || 'Unknown Procedure',
-          procedureCode: data.procedureCode,
-          description: data.description || '',
-          category: mappedCategory,  // Use mapped value
-          department: data.department || 'general',
-          duration: data.duration ?? 60,
-          isNHISCovered: data.isNHISCovered ?? true,
-          isPrivateInsExempted: data.isPrivateInsExempted ?? false,
-          nhisRequiresAuth: data.nhisRequiresAuth ?? false,
-          privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
-          vatRate: data.vatRate ?? 0,
-          isTaxable: data.isTaxable ?? true,
-          tariffCode: data.tariffCode || `PROC-${data.procedureCode}`,
-          isActive: true,
-        };
+        // Procedure types
+        'Endoscopy': 'diagnostic',
+        'Laparoscopic Surgery': 'laparoscopic',
+        'Laparoscopic': 'laparoscopic',
+        'Laparotomy': 'laparotomy',
+        'Interventional Radiology': 'diagnostic',
+        
+        // Other
+        'Family Planning': 'therapeutic',
+        'Nursing Procedure': 'therapeutic',
+        'Emergency': 'emergency',
+        'Observation': 'therapeutic',
+        'Administrative': 'therapeutic',
+        'Diagnostic': 'diagnostic',
+      };
+      
+      const mappedCategory = categoryMap[data.category] || 'therapeutic';
+      
+      return {
+        ...baseDefaults,
+        name: data.name || 'Unknown Procedure',
+        procedureCode: data.procedureCode,
+        description: data.description || '',
+        category: mappedCategory,
+        department: data.department || 'general',
+        duration: data.duration ?? 60,
+        isNHISCovered: data.isNHISCovered ?? true,
+        isPrivateInsExempted: data.isPrivateInsExempted ?? false,
+        nhisRequiresAuth: data.nhisRequiresAuth ?? false,
+        privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
+        vatRate: data.vatRate ?? 0,
+        isTaxable: data.isTaxable ?? true,
+        tariffCode: data.tariffCode || `PROC-${data.procedureCode}`,
+        isActive: true,
+      };
+    }
 
-    case 'diagnosis':
+    case 'diagnosis': {
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Diagnosis',
@@ -173,8 +175,9 @@ const addSchemaDefaults = (data: any, type: string) => {
         isNHISCovered: data.isNHISCovered ?? true,
         morbidityGroup: data.morbidityGroup || 'all_other_diseases',
       };
+    }
 
-    case 'stockItem':
+    case 'stockItem': {
       return {
         ...baseDefaults,
         name: data.name?.trim() || 'Unknown Item',
@@ -199,8 +202,9 @@ const addSchemaDefaults = (data: any, type: string) => {
         tariffCode: data.tariffCode || `MED-${data.drugCode}`,
         isActive: true,
       };
+    }
 
-    case 'serviceCatalog':
+    case 'serviceCatalog': {
       return {
         ...baseDefaults,
         name: data.name,
@@ -230,8 +234,9 @@ const addSchemaDefaults = (data: any, type: string) => {
         createdById: data.createdById || null,
         gdrgTariffId: data.gdrgTariffId || null,
       };
+    }
 
-    case 'ward':
+    case 'ward': {
       return {
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -251,9 +256,11 @@ const addSchemaDefaults = (data: any, type: string) => {
         dailyNHISRate: data.dailyNHISRate || data.nhisPrice || data.nhisDailyRate || 0,
         dailyInsuranceRate: data.dailyInsuranceRate || data.insurancePrice || data.insuranceDailyRate || 0,
       };
+    }
 
-    default:
+    default: {
       return { ...data, ...baseDefaults };
+    }
   }
 };
 

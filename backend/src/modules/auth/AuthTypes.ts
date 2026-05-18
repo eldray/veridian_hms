@@ -4,20 +4,24 @@
  */
 
 import { Request } from 'express';
+import { UserRole } from '@prisma/client';
 
 // DTOs
 export interface LoginRequestDTO {
-  email: string;
+  username: string;
   password: string;
   rememberMe?: boolean;
 }
 
 export interface RegisterRequestDTO {
-  email: string;
+  username: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  role: 'ADMIN' | 'DOCTOR' | 'NURSE' | 'RECEPTIONIST';
+  fullName: string;
+  role: UserRole;
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+  specialization?: string;
   departmentId?: string;
 }
 
@@ -31,7 +35,7 @@ export interface ChangePasswordRequestDTO {
 }
 
 export interface ResetPasswordRequestDTO {
-  email: string;
+  username: string;
 }
 
 export interface VerifyTokenRequestDTO {
@@ -42,10 +46,11 @@ export interface VerifyTokenRequestDTO {
 export interface AuthResponse {
   user: {
     id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
+    username: string;
+    fullName: string;
+    role: UserRole;
+    email?: string;
+    phone?: string;
     departmentId?: string;
     isActive: boolean;
     createdAt: Date;
@@ -67,8 +72,8 @@ export interface RefreshTokenResponse {
 // Token Payload
 export interface TokenPayload {
   userId: string;
-  email: string;
-  role: string;
+  username: string;
+  role: UserRole;
   iat?: number;
   exp?: number;
 }
