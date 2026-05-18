@@ -8,6 +8,9 @@ import { GHSIpdReportService } from '../../services/GHSIpdReportService';
 import { GHSMorbidityService } from '../../services/GHSMorbidityService';
 import { GHSMalariaReportService } from '../../services/GHSMalariaReportService';
 import { GHSFormAService } from '../../services/GHSFormAService';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export class GHSReportController {
   private reportService: GHSReportService;
@@ -255,6 +258,140 @@ export class GHSReportController {
       next(error);
     }
   };
+
+  // Add this method to GHSReportController class
+getFamilyPlanningReport = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const dateParams = this.reportService.parseDateParams(req.query as any);
+    const { startDate, endDate, year, month } = dateParams;
+
+    // Find family planning related services
+    const fpServices = await prisma.serviceCatalog.findMany({
+      where: {
+        OR: [
+          { name: { contains: 'family planning', mode: 'insensitive' } },
+          { name: { contains: 'contraceptive', mode: 'insensitive' } },
+          { name: { contains: 'IUD', mode: 'insensitive' } },
+          { name: { contains: 'implant', mode: 'insensitive' } },
+          { name: { contains: 'injectable', mode: 'insensitive' } },
+          { name: { contains: 'oral contraceptive', mode: 'insensitive' } },
+          { name: { contains: 'condom', mode: 'insensitive' } }
+        ],
+        isActive: true
+      },
+      select: { id: true, name: true }
+    });
+
+    const fpServiceIds = fpServices.map(s => s.id);
+
+    const fpAttendances = await prisma.serviceRendered.findMany({
+      where: {
+        serviceItemId: { in: fpServiceIds },
+        date: { gte: startDate, lte: endDate }
+      },
+      include: {
+        Attendance: {
+          include: {
+            Patient: {
+              select: {
+                id: true,
+                surname: true,
+                otherNames: true,
+                dateOfBirth: true,
+                gender: true,
+                folderNumber: true,
+                contact: true
+              }
+            }
+          }
+        },
+        ServiceCatalog: true
+      }
+    });
+
+    // Helper to calculate age
+    const calculateAge = (dateOfBirth: Date, asOfDate: Date): number => {
+      const birthDate = new Date(dateOfBirth);
+      const targetDate = new Date(asOfDate);
+      let age = targetDate.getFullYear() - birthDate.getFullYear();
+      const monthDiff = targetDate.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return Math.max(0, age);
+    };
+
+    // Age groups for women of reproductive age (15-49)
+    const ageGroups = {
+      '15-19 years': 0,
+      '20-34 years': 0,
+      '35-49 years': 0,
+      '50+ years': 0
+    };
+
+    const methodMix: Record<string, number> = {};
+
+    for (const fp of fpAttendances) {
+      const patient = fp.Attendance.Patient;
+      const age = calculateAge(patient.dateOfBirth, fp.date);
+      
+      if (age >= 15 && age <= 19) ageGroups['15-19 years']++;
+      else if (age >= 20 && age <= 34) ageGroups['20-34 years']++;
+      else if (age >= 35 && age <= 49) ageGroups['35-49 years']++;
+      else if (age >= 50) ageGroups['50+ years']++;
+
+      const method = fp.ServiceCatalog.name;
+      methodMix[method] = (methodMix[method] || 0) + 1;
+    }
+
+    const uniqueClients = new Set(fpAttendances.map(f => f.Attendance.patientId)).size;
+
+    const hospital = await prisma.hospital.findFirst();
+
+    const reportData = {
+      reportType: 'FAMILY PLANNING REPORT',
+      facility: {
+        name: hospital?.name || 'General Hospital',
+        district: hospital?.ghsDistrictCode || 'Unknown',
+        ghfCode: hospital?.ghaHFCode || 'Unknown'
+      },
+      period: {
+        startDate,
+        endDate,
+        generated: new Date().toISOString().split('T')[0]
+      },
+      summary: {
+        totalFPClients: uniqueClients,
+        totalFPVisits: fpAttendances.length,
+        newAcceptors: 0,
+        coupleYearProtection: 0
+      },
+      demographicBreakdown: ageGroups,
+      methodMix,
+      generatedAt: new Date()
+    };
+
+    // Save submission (optional - you can skip saving if not needed)
+    // const saved = await this.reportService.createSubmission({
+    //   reportType: 'family_planning',
+    //   reportingYear: year,
+    //   reportingMonth: month,
+    //   periodStart: startDate,
+    //   periodEnd: endDate,
+    //   data: reportData,
+    //   createdById: req.user!.id
+    // });
+
+    res.json({
+      success: true,
+      data: reportData,
+      // submissionId: saved.id
+    });
+  } catch (error) {
+    console.error('Error generating family planning report:', error);
+    next(error);
+  }
+};
 
   getReportSubmissions = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

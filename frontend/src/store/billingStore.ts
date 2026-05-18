@@ -7,7 +7,7 @@ import {
   updateBill as apiUpdateBill,
   deleteBill as apiDeleteBill,
   addPaymentToBill as apiAddPaymentToBill,
-  generateBillFromAttendance as apiGenerateBillFromAttendance,
+  generateBillFromEncounter as apiGenerateBillFromAttendance,
   generateBillReport as apiGenerateBillReport,
   getBillingBreakdownForBill as apiGetBillingBreakdown,
   updateBillStatus as apiUpdateBillStatus,

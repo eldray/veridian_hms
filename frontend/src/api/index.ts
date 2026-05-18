@@ -720,6 +720,21 @@ export const updateMedicationStatus = async (
   return response;
 };
 
+export const dispenseMedication = async (
+  encounterId: string, 
+  medicationId: string, 
+  data: { quantity: number; dispensedById?: string; batchNumber?: string }
+) => {
+  const response = await api.patch(`/encounters/${encounterId}/medications/${medicationId}`, {
+    status: 'dispensed',
+    quantity: data.quantity,
+    dispensedById: data.dispensedById,
+    batchNumber: data.batchNumber,
+    dispensedAt: new Date().toISOString()
+  });
+  return response.data;
+};
+
 export const removeMedicationFromEncounter = async (encounterId: string, medicationId: string) => {
   const response = await api.delete(`/encounters/${encounterId}/medications/${medicationId}`);
   return response.data;
@@ -1770,6 +1785,10 @@ export const serveDocuments = (filename: string) =>
 
 export const getGHSOPDReport = async (params: ReportFilter) => {
   const response = await api.get('/reports/ghs/opd', { params });
+  return response.data;
+};
+export const getFamilyPlanningReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/family-planning', { params });
   return response.data;
 };
 

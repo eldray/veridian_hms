@@ -1,4 +1,5 @@
 // src/store/reportsStore.ts - COMPLETE VERSION
+
 import { create } from 'zustand';
 import {
   getGHSOPDReport,
@@ -11,9 +12,9 @@ import {
   getFinancialReport,
   getInsuranceClaimsReport,
   getClinicalReport,
-  getAttendanceReport,
+  getEncounterReport as getAttendanceReport, // ✅ FIXED: Alias to match store expectations
   getRevenueReport,
-  getFamilyPlanningReport,
+  getGHSFamilyPlanningReport as getFamilyPlanningReport,
   getDemographicReport,
   getLabReport,
   getScanReport,
@@ -21,7 +22,7 @@ import {
   getMedicationReport,
   getVitalsReport,
   getReportSubmissions,
-  getReportById,
+  getReportSubmissionById as getReportById,
   exportReportToCSV,
 } from '../api';
 

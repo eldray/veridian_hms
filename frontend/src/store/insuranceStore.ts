@@ -12,7 +12,7 @@ import {
   // Common Claim Functions
   getInsuranceClaims as apiGetInsuranceClaims,
   getInsuranceClaim as apiGetInsuranceClaim,
-  getClaimByAttendanceId as apiGetClaimByAttendanceId,
+  getClaimByEncounterId as apiGetClaimByAttendanceId,
  // updateClaimDraft as apiUpdateClaimDraft,
   updateInsuranceClaim as apiUpdateInsuranceClaim, 
   finalizeClaim as apiFinalizeClaim,

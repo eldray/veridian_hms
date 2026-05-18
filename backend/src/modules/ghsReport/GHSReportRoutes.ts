@@ -16,6 +16,7 @@ export const createGHSReportRoutes = () => {
   // ==============================================
   router.get('/opd', controller.generateOPDReport);
   router.get('/ipd', controller.generateIPDReport);
+  router.get('/family-planning', controller.getFamilyPlanningReport);
   router.get('/idsr', controller.generateIDSRReport);
   router.get('/malaria', controller.generateMalariaReport);
   router.get('/morbidity-mortality', controller.generateMorbidityMortalityReport);
