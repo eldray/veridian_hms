@@ -1,9 +1,9 @@
 /**
  * Ward Repository
- * Data access layer for Ward entity
+ * Data access layer for Ward entity matching Prisma schema
  */
 
-import { PrismaClient, Ward } from '@prisma/client';
+import { PrismaClient, Ward, PaymentMode } from '@prisma/client';
 import { BaseRepository, FindManyOptions, PaginationResult } from '../../shared/base/BaseRepository';
 import { CreateWardDTO, UpdateWardDTO, WardFilters, Bed } from './WardTypes';
 
@@ -16,7 +16,7 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
    * Find all wards with optional filters
    */
   async findAllWithFilters(filters: WardFilters): Promise<Ward[]> {
-    const { isActive, wardType, hasAvailableBeds } = filters;
+    const { isActive, wardType, hasAvailableBeds, isNHISCovered } = filters;
     
     const where: any = {};
     
@@ -26,6 +26,10 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
     
     if (wardType) {
       where.wardType = wardType;
+    }
+    
+    if (isNHISCovered !== undefined) {
+      where.isNHISCovered = isNHISCovered;
     }
     
     if (hasAvailableBeds) {
@@ -41,11 +45,11 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
   /**
    * Find ward by ID with beds and service catalog
    */
-  async findByIdWithDetails(id: string): Promise<Ward & { 
+  async findByIdWithDetails(id: string): Promise<(Ward & { 
     Bed: Bed[]; 
     ServiceCatalog: any[];
     _count: { Bed: number; Admission: number };
-  } | null> {
+  }) | null> {
     return this.getModel().findUnique({
       where: { id },
       include: {
@@ -54,11 +58,14 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
             id: true,
             bedNumber: true,
             isOccupied: true,
+            currentPatientId: true,
             Patient: {
               select: {
+                id: true,
                 surname: true,
                 otherNames: true,
-                folderNumber: true
+                folderNumber: true,
+                paymentMode: true
               }
             }
           },
@@ -74,7 +81,16 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
             name: true,
             code: true,
             isNHISCovered: true,
-            nhisServiceCode: true
+            nhisServiceCode: true,
+            pricing: {
+              select: {
+                cashPrice: true,
+                nhisPrice: true,
+                insurancePrice: true,
+                corporatePrice: true,
+                vatRate: true
+              }
+            }
           }
         },
         _count: {
@@ -90,9 +106,23 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
   }
 
   /**
-   * Get available beds
+   * Get available beds with rates for different payment modes
    */
-  async getAvailableBeds(wardId?: string): Promise<(Bed & { Ward: { id: string; wardName: string; wardType: string; isActive: boolean } })[]> {
+  async getAvailableBeds(wardId?: string): Promise<(Bed & { 
+    Ward: { 
+      id: string; 
+      wardName: string; 
+      wardType: string; 
+      isActive: boolean;
+      dailyCashRate: number;
+      dailyNHISRate: number;
+      dailyInsuranceRate: number;
+      vatRate: number;
+      isTaxable: boolean;
+      isNHISCovered: boolean;
+      isPrivateInsExempted: boolean;
+    } 
+  })[]> {
     const where: any = {
       isOccupied: false
     };
@@ -109,7 +139,14 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
             id: true,
             wardName: true,
             wardType: true,
-            isActive: true
+            isActive: true,
+            dailyCashRate: true,
+            dailyNHISRate: true,
+            dailyInsuranceRate: true,
+            vatRate: true,
+            isTaxable: true,
+            isNHISCovered: true,
+            isPrivateInsExempted: true
           }
         }
       },
@@ -121,7 +158,7 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
   }
 
   /**
-   * Get ward statistics
+   * Get ward statistics with payment mode analysis
    */
   async getStats(): Promise<{
     totalWards: number;
@@ -130,12 +167,26 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
     occupiedBeds: number;
     availableBeds: number;
     occupancyRate: number;
+    byPaymentMode: {
+      totalNHISCovered: number;
+      totalPrivateInsuranceCovered: number;
+      totalCashOnly: number;
+    };
+    revenueProjection: {
+      dailyAtFullOccupancy: number;
+      monthlyAtFullOccupancy: number;
+    };
   }> {
     const wards = await this.getModel().findMany({
       select: {
         totalBeds: true,
         occupiedBeds: true,
-        isActive: true
+        isActive: true,
+        isNHISCovered: true,
+        isPrivateInsExempted: true,
+        dailyCashRate: true,
+        dailyNHISRate: true,
+        dailyInsuranceRate: true
       }
     });
     
@@ -146,13 +197,31 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
     const availableBeds = totalBeds - occupiedBeds;
     const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
     
+    // Payment mode analysis
+    const totalNHISCovered = wards.filter(w => w.isNHISCovered).length;
+    const totalPrivateInsuranceCovered = wards.filter(w => !w.isPrivateInsExempted).length;
+    const totalCashOnly = wards.filter(w => !w.isNHISCovered && w.isPrivateInsExempted).length;
+    
+    // Revenue projection (using average of all rates)
+    const avgCashRate = wards.reduce((sum, w) => sum + w.dailyCashRate, 0) / (wards.length || 1);
+    const revenueAtFullOccupancy = totalBeds * avgCashRate;
+    
     return {
       totalWards,
       activeWards,
       totalBeds,
       occupiedBeds,
       availableBeds,
-      occupancyRate
+      occupancyRate,
+      byPaymentMode: {
+        totalNHISCovered,
+        totalPrivateInsuranceCovered,
+        totalCashOnly
+      },
+      revenueProjection: {
+        dailyAtFullOccupancy: revenueAtFullOccupancy,
+        monthlyAtFullOccupancy: revenueAtFullOccupancy * 30
+      }
     };
   }
 
@@ -166,5 +235,73 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
         ...(excludeId ? { id: { not: excludeId } } : {})
       }
     });
+  }
+
+  /**
+   * Get wards by NHIS coverage
+   */
+  async findByNHISCoverage(isCovered: boolean): Promise<Ward[]> {
+    return this.getModel().findMany({
+      where: { isNHISCovered: isCovered, isActive: true },
+      orderBy: { wardName: 'asc' }
+    });
+  }
+
+  /**
+   * Get wards by private insurance coverage
+   */
+  async findByPrivateInsuranceCoverage(isExempted: boolean): Promise<Ward[]> {
+    return this.getModel().findMany({
+      where: { isPrivateInsExempted: isExempted, isActive: true },
+      orderBy: { wardName: 'asc' }
+    });
+  }
+
+  /**
+   * Calculate ward charge for a specific payment mode
+   */
+  async calculateWardCharge(
+    wardId: string, 
+    numberOfDays: number, 
+    paymentMode: PaymentMode
+  ): Promise<{ dailyRate: number; subtotal: number; vatAmount: number; totalAmount: number }> {
+    const ward = await this.getModel().findUnique({
+      where: { id: wardId },
+      select: {
+        dailyCashRate: true,
+        dailyNHISRate: true,
+        dailyInsuranceRate: true,
+        vatRate: true,
+        isTaxable: true
+      }
+    });
+
+    if (!ward) {
+      throw new Error('Ward not found');
+    }
+
+    let dailyRate: number;
+    switch (paymentMode) {
+      case 'nhis':
+        dailyRate = ward.dailyNHISRate || ward.dailyCashRate * 0.8;
+        break;
+      case 'private_insurance':
+        dailyRate = ward.dailyInsuranceRate || ward.dailyCashRate * 0.9;
+        break;
+      case 'corporate':
+        // Corporate uses insurance rate or 10% discount
+        dailyRate = ward.dailyInsuranceRate || ward.dailyCashRate * 0.85;
+        break;
+      case 'cash':
+      default:
+        dailyRate = ward.dailyCashRate;
+        break;
+    }
+
+    const subtotal = dailyRate * numberOfDays;
+    const vatAmount = ward.isTaxable ? subtotal * (ward.vatRate / 100) : 0;
+    const totalAmount = subtotal + vatAmount;
+
+    return { dailyRate, subtotal, vatAmount, totalAmount };
   }
 }

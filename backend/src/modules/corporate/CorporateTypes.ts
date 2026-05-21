@@ -1,3 +1,5 @@
+// modules/corporate/CorporateTypes.ts
+
 export interface CreateCorporateAccountDTO {
   companyName: string;
   registrationNumber?: string;
@@ -33,7 +35,7 @@ export interface CreateCorporateEmployeeDTO {
   lastName: string;
   otherNames?: string;
   dateOfBirth?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  gender?: 'male' | 'female' | 'other';
   phone?: string;
   email?: string;
   department?: string;
@@ -47,7 +49,7 @@ export interface UpdateCorporateEmployeeDTO {
   lastName?: string;
   otherNames?: string;
   dateOfBirth?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  gender?: 'male' | 'female' | 'other';
   phone?: string;
   email?: string;
   department?: string;
@@ -147,4 +149,12 @@ export interface BillItemDetail {
   quantity: number;
   unitPrice: number;
   total: number;
+}
+
+export interface GetAccountsFilters {
+  search?: string;
+  insuranceProviderId?: string;
+  isActive?: string;
+  page?: number;
+  limit?: number;
 }

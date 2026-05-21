@@ -360,23 +360,31 @@ for (let i = 1; i <= Math.min(visitCount, 8); i++) {
         
         const delivery = await prisma.deliveryRecord.create({
           data: {
-            patientId: patient.id,
-            attendanceId: deliveryAttendance.id,
-            antenatalBookingId: booking.id,
+            patient: {
+              connect: { id: patient.id }  // ✅ Connect the patient relation
+            },
+            attendance: {
+              connect: { id: deliveryAttendance.id }  // ✅ Connect the attendance relation
+            },
+            antenatalBooking: {
+              connect: { id: booking.id }  // ✅ Connect the antenatal booking relation
+            },
             deliveryDate: deliveryDate,
             deliveryType: cs ? 'caesarean_section' : (twins ? 'multiple' : 'spontaneous_vertex'),
             deliveryOutcome: 'live_birth',
             placeOfDelivery: 'hospital',
             attendant: midwife!.fullName,
-            gestationalAgeWeeks: pData.deliveryWeeks!,
+            gestationWeeks: pData.deliveryWeeks!,
             birthWeight: twins ? 2400 : 3200,
             apgarScore1min: 8,
             apgarScore5min: 9,
             resusCitationDone: false,
             maternalOutcome: 'alive',
             complications: twins ? ['Preterm labour'] : [],
-            notes: cs ? 'Elective caesarean section' : 'Normal spontaneous vaginal delivery',
-            createdById: midwife!.id,
+            // notes: cs ? 'Elective caesarean section' : 'Normal spontaneous vaginal delivery',
+            createdBy: {
+              connect: { id: midwife!.id }  // ✅ Connect the createdBy relation
+            },
             createdAt: new Date(),
             updatedAt: new Date()
           }

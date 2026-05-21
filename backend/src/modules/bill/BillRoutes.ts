@@ -3,15 +3,20 @@ import {
   getBills,
   getBillById,
   createBill,
+  createBillValidation,
   updateBill,
+  updateBillValidation,
   deleteBill,
   addPaymentToBill,
+  addPaymentValidation,
   voidBillLineItem,
+  voidLineItemValidation,
   getBillStatistics,
   getBillLineItems,
-  applyWaiverToBill
+  applyWaiverToBill,
+  applyWaiverValidation
 } from './BillController';
-import { protect } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 const router = Router();
 
@@ -31,21 +36,21 @@ router.get('/:id', getBillById);
 router.get('/:id/line-items', getBillLineItems);
 
 // POST /api/bills - Create a new bill
-router.post('/', createBill);
+router.post('/', createBillValidation, createBill);
 
-// PUT /api/bills/:id - Update a bill
-router.put('/:id', updateBill);
+// PUT /api/bills/:id - Update a bill (Admin/Accounts only)
+router.put('/:id', requireRole(['admin', 'accounts']), updateBillValidation, updateBill);
 
-// DELETE /api/bills/:id - Delete a bill
-router.delete('/:id', deleteBill);
+// DELETE /api/bills/:id - Delete a bill (Admin only)
+router.delete('/:id', requireRole(['admin']), deleteBill);
 
 // POST /api/bills/:id/payment - Add payment to a bill
-router.post('/:id/payment', addPaymentToBill);
+router.post('/:id/payment', addPaymentValidation, addPaymentToBill);
 
-// POST /api/bills/line-items/:lineItemId/void - Void a bill line item
-router.post('/line-items/:lineItemId/void', voidBillLineItem);
+// POST /api/bills/line-items/:lineItemId/void - Void a bill line item (Admin/Accounts only)
+router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), voidLineItemValidation, voidBillLineItem);
 
 // POST /api/bills/:billId/apply-waiver - Apply waiver to a bill
-router.post('/:billId/apply-waiver', applyWaiverToBill);
+router.post('/:billId/apply-waiver', applyWaiverValidation, applyWaiverToBill);
 
 export default router;

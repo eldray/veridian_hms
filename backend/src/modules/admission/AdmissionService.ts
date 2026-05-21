@@ -1,26 +1,28 @@
 // modules/admission/AdmissionService.ts
+import { PrismaClient } from '@prisma/client';
 import { AdmissionRepository } from './AdmissionRepository';
-import { NotificationService } from '../notification/NotificationService';
+import { getCounterService } from '../../services/CounterService';
 
 export class AdmissionService {
   private repository: AdmissionRepository;
+  private prisma: PrismaClient;
 
-  constructor() {
-    this.repository = new AdmissionRepository();
+  constructor(prisma: PrismaClient) {  // ✅ Accept prisma
+    this.prisma = prisma;
+    this.repository = new AdmissionRepository(prisma);
   }
 
-  // Get all admissions with filtering and pagination
   async getAdmissions(where: any, page: number, limit: number) {
     const skip = (page - 1) * limit;
     const { admissions, total } = await this.repository.findAll(where, skip, limit);
 
-    // Transform to include primary diagnosis and full name
     const admissionsWithFullName = admissions.map((admission: any) => ({
       ...admission,
       patient: admission.Patient
         ? {
             ...admission.Patient,
-            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames || ''}`.trim(),
+            age: this.calculateAge(admission.Patient.dateOfBirth),
           }
         : null,
       primaryDiagnosis: admission.Attendance?.AttendanceDiagnosis[0]?.Diagnosis || null,
@@ -37,7 +39,6 @@ export class AdmissionService {
     };
   }
 
-  // Get admission by ID
   async getAdmissionById(id: string) {
     const admission = await this.repository.findById(id);
 
@@ -45,7 +46,6 @@ export class AdmissionService {
       throw new Error('Admission not found');
     }
 
-    // Separate diagnoses by type
     const attendanceDiagnoses = admission.Attendance?.AttendanceDiagnosis || [];
     const primaryDiagnosis = attendanceDiagnoses.find((d: any) => d.diagnosisType === 'primary');
     const additionalDiagnoses = attendanceDiagnoses.filter(
@@ -55,30 +55,32 @@ export class AdmissionService {
       (d: any) => d.diagnosisType === 'provisional'
     );
 
-    // Transform response
-    const admissionWithFullName = {
+    return {
       ...admission,
       patient: admission.Patient
         ? {
             ...admission.Patient,
-            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames || ''}`.trim(),
+            age: this.calculateAge(admission.Patient.dateOfBirth),
           }
         : null,
       primaryDiagnosis,
       additionalDiagnoses,
       provisionalDiagnoses,
-      Attendance: admission.Attendance
-        ? {
-            ...admission.Attendance,
-            AttendanceDiagnosis: undefined,
-          }
-        : null,
     };
-
-    return admissionWithFullName;
   }
 
-  // Create admission
+  private calculateAge(dateOfBirth: Date): number {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
   async createAdmission(data: any, user: any) {
     const {
       patientId,
@@ -89,25 +91,21 @@ export class AdmissionService {
       ...admissionData
     } = data;
 
-    // Validate bed availability
     const bed = await this.repository.findBed(bedId);
     if (!bed) throw new Error('Bed not found');
     if (bed.isOccupied) throw new Error('Bed not available');
     if (bed.wardId !== wardId) throw new Error('Bed does not belong to specified ward');
 
-    // Check if patient already has active admission
     const existingAdmission = await this.repository.findActiveByPatientId(patientId);
     if (existingAdmission) {
       throw new Error('Patient already has an active admission');
     }
 
-    // Handle attendance: either use existing or create new
     let finalAttendanceId = attendanceId;
 
     if (!finalAttendanceId) {
-      // Create a new attendance record for this admission
+      const counterService = getCounterService();
       const attendance = await this.repository.createAttendance({
-        attendanceNumber: `ATT-${Date.now()}`,
         patientId,
         attendanceType: 'general_consultation',
         dateTime: new Date(),
@@ -121,33 +119,21 @@ export class AdmissionService {
       });
       finalAttendanceId = attendance.id;
     } else {
-      // Validate existing attendance
       const attendance = await this.repository.findAttendance(finalAttendanceId);
-
       if (!attendance) throw new Error('Attendance record not found');
-      if (attendance.patientId !== patientId)
-        throw new Error('Attendance does not belong to patient');
-
-      // Update attendance status to 'admitted'
+      if (attendance.patientId !== patientId) throw new Error('Attendance does not belong to patient');
       await this.repository.updateAttendance(finalAttendanceId, { status: 'admitted' });
     }
 
-    // Generate admission number
-    const admissionCount = await this.repository.countForCurrentMonth();
-    const admissionNumber = `ADM-${String(admissionCount + 1).padStart(6, '0')}`;
+    // ✅ Use counter service for admission number
+    const counterService = getCounterService();
+    const admissionNumber = counterService.nextAdmissionNumber();
 
-    // Get primary diagnosis info
     const primaryDiagnosis = await this.repository.findDiagnosis(primaryDiagnosisId);
     if (!primaryDiagnosis) {
       throw new Error('Primary diagnosis not found');
     }
 
-    // We need to use a transaction for the remaining operations
-    // Since we've already made some calls, we'll need to refactor slightly
-    // For now, let's assume the repository handles transactions internally
-    // or we pass the transaction context
-
-    // Create primary diagnosis record in AttendanceDiagnosis
     await this.repository.createAttendanceDiagnosis({
       attendanceId: finalAttendanceId,
       diagnosisId: primaryDiagnosisId,
@@ -155,9 +141,9 @@ export class AdmissionService {
       icdCode: primaryDiagnosis.icdCode,
       createdById: user.id,
       presentOnAdmission: admissionData.presentOnAdmission || 'Y',
+      date: new Date(),
     });
 
-    // Create admission
     const admission = await this.repository.create({
       admissionNumber,
       patientId,
@@ -167,44 +153,27 @@ export class AdmissionService {
       admittingDoctor: admissionData.admittingDoctor,
       reasonForAdmission: admissionData.reasonForAdmission,
       diagnosis: primaryDiagnosis.name,
-      admissionDate: admissionData.admissionDate
-        ? new Date(admissionData.admissionDate)
-        : new Date(),
+      admissionDate: admissionData.admissionDate ? new Date(admissionData.admissionDate) : new Date(),
       admissionTime: admissionData.admissionTime || new Date().toTimeString().slice(0, 5),
       status: 'admitted',
       admissionType: admissionData.admissionType || 'emergency',
       admissionSource: admissionData.admissionSource || 'home',
       createdBy: user.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
-    // Update bed occupancy
     await this.repository.updateBed(bedId, {
       isOccupied: true,
       currentPatientId: patientId,
     });
 
-    // Update ward occupancy
-    await this.repository.updateWard(wardId, {
-      occupiedBeds: { increment: 1 },
-    });
+    await this.repository.updateWard(wardId, { occupiedBeds: { increment: 1 } });
 
-    // Transform response
-    const resultWithFullName = {
-      ...admission,
-      patient: admission.Patient
-        ? {
-            ...admission.Patient,
-            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
-          }
-        : null,
-      primaryDiagnosis: admission.Attendance?.AttendanceDiagnosis[0]?.Diagnosis || null,
-    };
-
-    // Send notifications
-    await NotificationService.sendAdmissionNotifications(admission.id);
+    const createdAdmission = await this.repository.findById(admission.id);
 
     return {
-      admission: resultWithFullName,
+      admission: createdAdmission,
       relationship: attendanceId ? 'Extended from attendance' : 'New attendance created',
     };
   }
@@ -227,7 +196,6 @@ export class AdmissionService {
       throw new Error('Diagnosis not found');
     }
 
-    // Check if diagnosis already exists for this attendance
     const existing = await this.repository.findExistingDiagnosis(
       admission.Attendance.id,
       diagnosisId
@@ -244,6 +212,7 @@ export class AdmissionService {
       icdCode: diagnosis.icdCode,
       presentOnAdmission: presentOnAdmission || 'Y',
       createdById: user?.id,
+      date: new Date(),
     });
 
     return { diagnosis: attendanceDiagnosis };
@@ -262,6 +231,10 @@ export class AdmissionService {
     );
     if (!diagnosisRecord) {
       throw new Error('Diagnosis record not found for this admission');
+    }
+
+    if (diagnosisRecord.diagnosisType === 'primary') {
+      throw new Error('Cannot remove primary diagnosis. Change primary diagnosis first.');
     }
 
     await this.repository.deleteAttendanceDiagnosis(diagnosisRecord.id);
@@ -286,16 +259,14 @@ export class AdmissionService {
       throw new Error('New primary diagnosis not found');
     }
 
-    // Find existing primary diagnosis
-    const existingPrimary = await this.repository.findExistingDiagnosis(
+    // Find existing primary diagnosis record
+    const existingPrimaryRecords = await this.repository.findExistingDiagnosis(
       admission.Attendance.id,
-      admission.Attendance.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')
-        ?.diagnosisId
+      admission.Attendance.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')?.diagnosisId || ''
     );
 
-    if (existingPrimary) {
-      // Change existing primary to additional
-      await this.repository.updateAttendanceDiagnosis(existingPrimary.id, {
+    if (existingPrimaryRecords && existingPrimaryRecords.id) {
+      await this.repository.updateAttendanceDiagnosis(existingPrimaryRecords.id, {
         diagnosisType: 'additional',
       });
     }
@@ -307,12 +278,10 @@ export class AdmissionService {
     );
 
     if (existingNewDiagnosis) {
-      // Change it to primary
       await this.repository.updateAttendanceDiagnosis(existingNewDiagnosis.id, {
         diagnosisType: 'primary',
       });
     } else {
-      // Create new primary diagnosis
       await this.repository.createAttendanceDiagnosis({
         attendanceId: admission.Attendance.id,
         diagnosisId: primaryDiagnosisId,
@@ -320,6 +289,7 @@ export class AdmissionService {
         icdCode: newPrimaryDiagnosis.icdCode,
         presentOnAdmission: presentOnAdmission || 'Y',
         createdById: user?.id,
+        date: new Date(),
       });
     }
 
@@ -342,8 +312,7 @@ export class AdmissionService {
       throw new Error('Patient already discharged');
     }
 
-    const { dischargeDate, dischargeTime, dischargeStatus, dischargeNotes, conditionAtDischarge } =
-      data;
+    const { dischargeDate, dischargeTime, dischargeStatus, conditionAtDischarge } = data;
 
     // Update admission status
     await this.repository.update(id, {
@@ -351,9 +320,7 @@ export class AdmissionService {
       dischargeDate: dischargeDate ? new Date(dischargeDate) : new Date(),
       dischargeTime: dischargeTime || new Date().toTimeString().slice(0, 5),
       dischargeStatus: dischargeStatus || 'stable',
-      dischargeNotes,
-      conditionAtDischarge,
-      dischargedBy: user.id,
+      updatedAt: new Date(),
     });
 
     // Update bed occupancy
@@ -363,24 +330,19 @@ export class AdmissionService {
     });
 
     // Update ward occupancy
-    await this.repository.updateWard(admission.wardId, {
-      occupiedBeds: { decrement: 1 },
-    });
+    await this.repository.updateWard(admission.wardId, { occupiedBeds: { decrement: 1 } });
 
     // Update attendance status
-    if (admission.Attendance) {
-      await this.repository.updateAttendance(admission.Attendance.id, {
+    if (admission.attendanceId) {
+      await this.repository.updateAttendance(admission.attendanceId, {
         status: 'discharged',
       });
     }
 
-    // Send notifications
-    await NotificationService.sendDischargeNotifications(id);
-
     return { message: 'Patient discharged successfully' };
   }
 
-  // Add daily notes
+  // Add daily notes - using existing dailyNotes JSON field
   async addDailyNotes(id: string, data: any, user: any) {
     const { notes, noteType } = data;
 
@@ -389,24 +351,46 @@ export class AdmissionService {
       throw new Error('Admission not found');
     }
 
-    const dailyNote = await this.repository.createDailyNote({
-      admissionId: id,
+    // Get existing notes or initialize empty array
+    const currentNotes = admission.dailyNotes || [];
+    
+    // Create new note
+    const newNote = {
+      id: Date.now().toString(),
       notes,
       noteType: noteType || 'general',
-      createdById: user.id,
+      createdBy: user?.fullName || user?.username || user?.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add to existing notes
+    const updatedNotes = [...currentNotes, newNote];
+
+    // Update admission with new notes
+    await this.repository.update(id, {
+      dailyNotes: updatedNotes,
     });
 
-    return { note: dailyNote };
+    return { note: newNote };
   }
-
   // Get admission stats
   async getAdmissionStats() {
     return this.repository.getStats();
   }
 
-  // Get admissions by patient ID
-  async getAdmissionsByPatientId(patientId: string) {
-    return this.repository.findByPatientId(patientId);
+  // Get admissions by patient ID with pagination
+  async getAdmissionsByPatientId(patientId: string, page: number = 1, limit: number = 10) {
+    const { admissions, total } = await this.repository.findByPatientId(patientId, page, limit);
+    
+    return {
+      admissions,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
   }
 
   // Delete admission
@@ -431,9 +415,27 @@ export class AdmissionService {
       throw new Error('Admission not found');
     }
 
+    // If updating bed, validate availability
+    if (data.bedId && data.bedId !== admission.bedId) {
+      const newBed = await this.repository.findBed(data.bedId);
+      if (!newBed) throw new Error('New bed not found');
+      if (newBed.isOccupied) throw new Error('New bed is not available');
+      
+      // Release old bed
+      await this.repository.updateBed(admission.bedId, {
+        isOccupied: false,
+        currentPatientId: null,
+      });
+      
+      // Occupy new bed
+      await this.repository.updateBed(data.bedId, {
+        isOccupied: true,
+        currentPatientId: admission.patientId,
+      });
+    }
+
     const updatedAdmission = await this.repository.update(id, {
       ...data,
-      updatedBy: user.id,
       updatedAt: new Date(),
     });
 

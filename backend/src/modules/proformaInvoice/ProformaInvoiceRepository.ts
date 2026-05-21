@@ -1,37 +1,99 @@
-import { PrismaClient, ProformaStatus } from '@prisma/client';
-import { BaseRepository } from '../../utils/baseRepository';
+import { PrismaClient, ProformaInvoiceStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export class ProformaInvoiceRepository extends BaseRepository {
-  constructor() {
-    super('ProformaInvoice');
-  }
-
+export class ProformaInvoiceRepository {
   async create(data: any) {
     return prisma.proformaInvoice.create({
       data: {
-        ...data,
+        referenceNumber: data.referenceNumber,
+        patientId: data.patientId,
+        attendanceId: data.attendanceId,
+        admissionId: data.admissionId,
+        corporateAccountId: data.corporateAccountId,
+        status: data.status || 'DRAFT',
+        subtotal: data.subtotal,
+        discount: data.discount || 0,
+        taxAmount: data.taxAmount,
+        totalAmount: data.totalAmount,
+        validityDays: data.validityDays || 7,
+        expiresAt: data.expiresAt,
+        notes: data.notes,
+        termsAndConditions: data.termsAndConditions,
+        createdById: data.createdById,
         items: data.items ? {
           create: data.items.map((item: any) => ({
             serviceCatalogId: item.serviceCatalogId,
             description: item.description,
+            serviceType: item.serviceType,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
+            pricingBasis: item.pricingBasis,
+            vatRate: item.vatRate || 0,
+            vatAmount: item.vatAmount || 0,
             totalPrice: item.totalPrice,
-            notes: item.notes,
+            isInsuranceCovered: item.isInsuranceCovered || false,
+            insuranceCoverage: item.insuranceCoverage || 0,
+            patientResponsibility: item.patientResponsibility || item.totalPrice
           }))
         } : undefined,
       },
       include: {
-        patient: true,
-        account: true,
-        encounter: true,
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true,
+            contact: true
+          }
+        },
+        attendance: {
+          select: {
+            id: true,
+            attendanceNumber: true,
+            dateTime: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNumber: true
+          }
+        },
+        corporateAccount: {
+          select: {
+            id: true,
+            companyName: true
+          }
+        },
         items: {
           include: {
-            serviceCatalog: true,
-          },
+            serviceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                pricing: true
+              }
+            }
+          }
         },
+        createdBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        bill: true
       },
     });
   }
@@ -40,23 +102,71 @@ export class ProformaInvoiceRepository extends BaseRepository {
     return prisma.proformaInvoice.findUnique({
       where: { id },
       include: {
-        patient: true,
-        account: true,
-        encounter: true,
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true,
+            contact: true
+          }
+        },
+        attendance: {
+          select: {
+            id: true,
+            attendanceNumber: true,
+            dateTime: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNumber: true
+          }
+        },
+        corporateAccount: {
+          select: {
+            id: true,
+            companyName: true,
+            companyCode: true
+          }
+        },
         items: {
           include: {
-            serviceCatalog: true,
-          },
+            serviceCatalog: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                pricing: true
+              }
+            }
+          }
         },
+        createdBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        bill: true
       },
     });
   }
 
   async findMany(filters: {
     patientId?: string;
-    accountId?: string;
-    status?: ProformaStatus;
-    encounterId?: string;
+    corporateAccountId?: string;
+    status?: ProformaInvoiceStatus;
+    attendanceId?: string;
     fromDate?: Date;
     toDate?: Date;
     page?: number;
@@ -64,9 +174,9 @@ export class ProformaInvoiceRepository extends BaseRepository {
   }) {
     const {
       patientId,
-      accountId,
+      corporateAccountId,
       status,
-      encounterId,
+      attendanceId,
       fromDate,
       toDate,
       page = 1,
@@ -76,9 +186,9 @@ export class ProformaInvoiceRepository extends BaseRepository {
     const where: any = {};
 
     if (patientId) where.patientId = patientId;
-    if (accountId) where.accountId = accountId;
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
     if (status) where.status = status;
-    if (encounterId) where.encounterId = encounterId;
+    if (attendanceId) where.attendanceId = attendanceId;
     
     if (fromDate || toDate) {
       where.createdAt = {};
@@ -98,19 +208,16 @@ export class ProformaInvoiceRepository extends BaseRepository {
           patient: {
             select: {
               id: true,
-              firstName: true,
-              lastName: true,
+              folderNumber: true,
+              surname: true,
               otherNames: true,
-              phone: true,
-              email: true,
+              contact: true
             },
           },
-          account: {
+          corporateAccount: {
             select: {
               id: true,
-              name: true,
-              email: true,
-              phone: true,
+              companyName: true,
             },
           },
           items: {
@@ -118,6 +225,12 @@ export class ProformaInvoiceRepository extends BaseRepository {
               serviceCatalog: true,
             },
           },
+          createdBy: {
+            select: {
+              id: true,
+              fullName: true,
+            }
+          }
         },
       }),
       prisma.proformaInvoice.count({ where }),
@@ -136,23 +249,36 @@ export class ProformaInvoiceRepository extends BaseRepository {
     return prisma.proformaInvoice.update({
       where: { id },
       data: {
-        ...data,
+        notes: data.notes,
+        termsAndConditions: data.termsAndConditions,
+        discount: data.discount,
+        validityDays: data.validityDays,
+        subtotal: data.subtotal,
+        taxAmount: data.taxAmount,
+        totalAmount: data.totalAmount,
+        expiresAt: data.expiresAt,
         items: data.items ? {
           deleteMany: {},
           create: data.items.map((item: any) => ({
             serviceCatalogId: item.serviceCatalogId,
             description: item.description,
+            serviceType: item.serviceType,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            notes: item.notes,
+            pricingBasis: item.pricingBasis,
+            vatRate: item.vatRate || 0,
+            vatAmount: (item.unitPrice * item.quantity) * (item.vatRate || 0) / 100,
+            totalPrice: item.unitPrice * item.quantity,
+            isInsuranceCovered: item.isInsuranceCovered || false,
+            insuranceCoverage: item.insuranceCoverage || 0,
+            patientResponsibility: item.isInsuranceCovered 
+              ? (item.unitPrice * item.quantity) - (item.insuranceCoverage || 0)
+              : item.unitPrice * item.quantity
           }))
         } : undefined,
       },
       include: {
         patient: true,
-        account: true,
-        encounter: true,
         items: {
           include: {
             serviceCatalog: true,
@@ -162,7 +288,7 @@ export class ProformaInvoiceRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(id: string, status: ProformaStatus, additionalData?: any) {
+  async updateStatus(id: string, status: ProformaInvoiceStatus, additionalData?: any) {
     return prisma.proformaInvoice.update({
       where: { id },
       data: {
@@ -171,7 +297,6 @@ export class ProformaInvoiceRepository extends BaseRepository {
       },
       include: {
         patient: true,
-        account: true,
         items: true,
       },
     });
@@ -181,18 +306,23 @@ export class ProformaInvoiceRepository extends BaseRepository {
     return prisma.proformaInvoice.update({
       where: { id },
       data: {
-        status: ProformaStatus.CONVERTED,
+        status: 'CONVERTED',
         convertedToBillId: billId,
-        convertedAt: new Date(),
       },
       include: {
         patient: true,
-        account: true,
+        corporateAccount: true,
       },
     });
   }
 
   async delete(id: string) {
+    // First delete all items
+    await prisma.proformaInvoiceItem.deleteMany({
+      where: { proformaInvoiceId: id },
+    });
+    
+    // Then delete the invoice
     return prisma.proformaInvoice.delete({
       where: { id },
     });
@@ -200,17 +330,17 @@ export class ProformaInvoiceRepository extends BaseRepository {
 
   async getStatistics(filters: {
     patientId?: string;
-    accountId?: string;
-    status?: ProformaStatus;
+    corporateAccountId?: string;
+    status?: ProformaInvoiceStatus;
     fromDate?: Date;
     toDate?: Date;
   }) {
-    const { patientId, accountId, status, fromDate, toDate } = filters;
+    const { patientId, corporateAccountId, status, fromDate, toDate } = filters;
 
     const where: any = {};
 
     if (patientId) where.patientId = patientId;
-    if (accountId) where.accountId = accountId;
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
     if (status) where.status = status;
     
     if (fromDate || toDate) {
@@ -233,7 +363,7 @@ export class ProformaInvoiceRepository extends BaseRepository {
         _avg: { totalAmount: true },
       }),
       prisma.proformaInvoice.count({
-        where: { ...where, status: ProformaStatus.CONVERTED },
+        where: { ...where, status: 'CONVERTED' },
       }),
     ]);
 
@@ -259,18 +389,18 @@ export class ProformaInvoiceRepository extends BaseRepository {
       orderBy: { createdAt: 'desc' },
       include: {
         patient: true,
-        account: true,
+        corporateAccount: true,
         items: true,
       },
     });
   }
 
-  async findByAccount(accountId: string) {
+  async findByCorporateAccount(corporateAccountId: string) {
     return prisma.proformaInvoice.findMany({
-      where: { accountId },
+      where: { corporateAccountId },
       orderBy: { createdAt: 'desc' },
       include: {
-        account: true,
+        corporateAccount: true,
         patient: true,
         items: true,
       },
@@ -283,18 +413,18 @@ export class ProformaInvoiceRepository extends BaseRepository {
 
     return prisma.proformaInvoice.findMany({
       where: {
-        status: { in: [ProformaStatus.SENT, ProformaStatus.DRAFT] },
-        validUntil: {
+        status: { in: ['SENT', 'DRAFT'] },
+        expiresAt: {
           lte: expiryDate,
           gte: new Date(),
         },
       },
       include: {
         patient: true,
-        account: true,
+        corporateAccount: true,
         items: true,
       },
-      orderBy: { validUntil: 'asc' },
+      orderBy: { expiresAt: 'asc' },
     });
   }
 }

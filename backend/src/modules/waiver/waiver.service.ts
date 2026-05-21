@@ -1,54 +1,118 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, WaiverStatus, WaiverType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 interface WaiverFilters {
   billId?: string;
   patientId?: string;
-  status?: string;
-  startDate?: string;
-  endDate?: string;
+  status?: WaiverStatus;
+  waiverType?: WaiverType;
+  startDate?: Date;
+  endDate?: Date;
   page?: number;
   limit?: number;
+}
+
+interface StatisticsFilters {
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export class WaiverService {
   // Create a new waiver request
   async create(data: any) {
-    const { billId, patientId, amount, reason, requestedBy, notes } = data;
+    const { 
+      billId, 
+      patientId, 
+      waiverType, 
+      amountRequested, 
+      reason, 
+      requestedById, 
+      supportingDocs 
+    } = data;
 
-    // Validate required fields
-    if (!billId || !amount || !reason || !requestedBy) {
-      throw new Error('Bill ID, amount, reason, and requested by are required');
+    // Validate required fields (matches PatientWaiver model)
+    if (!patientId || !amountRequested || !reason || !requestedById) {
+      throw new Error('Patient ID, amount requested, reason, and requested by are required');
     }
 
-    // Get bill to verify it exists
-    const bill = await prisma.bill.findUnique({
-      where: { id: billId },
-      include: { patient: true }
-    });
-
-    if (!bill) {
-      throw new Error('Bill not found');
+    // Validate waiver type
+    const validTypes: WaiverType[] = ['indigent', 'nhis_exempt', 'staff_discount', 'management_discretion', 'other'];
+    const finalWaiverType = waiverType || 'other';
+    if (!validTypes.includes(finalWaiverType)) {
+      throw new Error(`Invalid waiver type. Must be one of: ${validTypes.join(', ')}`);
     }
 
-    // If patientId not provided, use bill's patientId
-    const finalPatientId = patientId || bill.patientId;
+    // Get bill to verify it exists and get patient if not provided
+    let finalPatientId = patientId;
+    let bill = null;
+    
+    if (billId) {
+      bill = await prisma.bill.findUnique({
+        where: { id: billId },
+        include: { patient: true }
+      });
 
-    // Create waiver request
-    const waiver = await prisma.waiver.create({
+      if (!bill) {
+        throw new Error('Bill not found');
+      }
+
+      // If patientId not provided, use bill's patientId
+      if (!finalPatientId) {
+        finalPatientId = bill.patientId;
+      }
+    }
+
+    // Create waiver request using PatientWaiver model
+    const waiver = await prisma.patientWaiver.create({
       data: {
-        billId,
+        billId: billId || null,
         patientId: finalPatientId,
-        amount: parseFloat(amount),
+        waiverType: finalWaiverType,
+        amountRequested: parseFloat(amountRequested),
+        amountApproved: 0,
         reason,
-        requestedBy,
-        notes,
-        status: 'PENDING'
+        status: 'pending',
+        requestedById,
+        supportingDocs: supportingDocs || [],
+        requestedBy: {
+          connect: { id: requestedById }
+        }
       },
       include: {
-        bill: true,
-        patient: true
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true
+          }
+        },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true,
+            paidAmount: true,
+            balance: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        }
       }
     });
 
@@ -57,56 +121,135 @@ export class WaiverService {
 
   // Get all waivers with filters
   async getAll(filters: WaiverFilters) {
-    const { billId, patientId, status, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { 
+      billId, 
+      patientId, 
+      status, 
+      waiverType,
+      startDate, 
+      endDate, 
+      page = 1, 
+      limit = 50 
+    } = filters;
 
     const where: any = {};
 
     if (billId) where.billId = billId;
     if (patientId) where.patientId = patientId;
     if (status) where.status = status;
+    if (waiverType) where.waiverType = waiverType;
 
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
+      if (startDate) where.createdAt.gte = startDate;
+      if (endDate) where.createdAt.lte = endDate;
     }
 
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+    const skip = (pageNum - 1) * limitNum;
+
     const [waivers, total] = await Promise.all([
-      prisma.waiver.findMany({
+      prisma.patientWaiver.findMany({
         where,
         include: {
-          bill: true,
-          patient: true,
-          requestedByUser: true,
-          approvedByUser: true
+          patient: {
+            select: {
+              id: true,
+              folderNumber: true,
+              surname: true,
+              otherNames: true,
+              contact: true
+            }
+          },
+          bill: {
+            select: {
+              id: true,
+              billNumber: true,
+              totalAmount: true,
+              paidAmount: true,
+              balance: true
+            }
+          },
+          requestedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+              role: true
+            }
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+              role: true
+            }
+          }
         },
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit
+        skip,
+        take: limitNum
       }),
-      prisma.waiver.count({ where })
+      prisma.patientWaiver.count({ where })
     ]);
 
     return {
       waivers,
       pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalCount: total,
-        limit
+        limit: limitNum
       }
     };
   }
 
   // Get waiver by ID
   async getById(id: string) {
-    const waiver = await prisma.waiver.findUnique({
+    const waiver = await prisma.patientWaiver.findUnique({
       where: { id },
       include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true,
+            contact: true,
+            paymentMode: true
+          }
+        },
+        bill: {
+          include: {
+            BillLineItem: {
+              take: 10,
+              select: {
+                id: true,
+                description: true,
+                lineTotal: true,
+                serviceType: true
+              }
+            }
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        }
       }
     });
 
@@ -118,8 +261,92 @@ export class WaiverService {
   }
 
   // Approve waiver
-  async approve(id: string, approvedBy: string, notes?: string) {
-    const waiver = await prisma.waiver.findUnique({
+  async approve(id: string, approvedById: string, amountApproved?: number, rejectionReason?: string) {
+    const waiver = await prisma.patientWaiver.findUnique({
+      where: { id },
+      include: { bill: true }
+    });
+
+    if (!waiver) {
+      throw new Error('Waiver not found');
+    }
+
+    if (waiver.status !== 'pending') {
+      throw new Error(`Waiver is already ${waiver.status}`);
+    }
+
+    const finalAmountApproved = amountApproved || waiver.amountRequested;
+    
+    if (finalAmountApproved > waiver.amountRequested) {
+      throw new Error(`Approved amount (${finalAmountApproved}) cannot exceed requested amount (${waiver.amountRequested})`);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedWaiver = await tx.patientWaiver.update({
+        where: { id },
+        data: {
+          status: 'approved',
+          amountApproved: finalAmountApproved,
+          approvedById,
+          approvedAt: new Date(),
+          rejectionReason: null
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              folderNumber: true,
+              surname: true,
+              otherNames: true
+            }
+          },
+          bill: {
+            select: {
+              id: true,
+              billNumber: true,
+              totalAmount: true,
+              paidAmount: true,
+              balance: true
+            }
+          },
+          requestedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true
+            }
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true
+            }
+          }
+        }
+      });
+
+      // Update bill to reflect approved waiver
+      if (waiver.billId && finalAmountApproved > 0) {
+        await tx.bill.update({
+          where: { id: waiver.billId },
+          data: {
+            waiverAmount: waiver.bill?.waiverAmount ? waiver.bill.waiverAmount + finalAmountApproved : finalAmountApproved,
+            patientPayable: (waiver.bill?.totalAmount || 0) - (waiver.bill?.insuranceCovered || 0) - (waiver.bill?.discount || 0) - finalAmountApproved,
+            balance: (waiver.bill?.totalAmount || 0) - (waiver.bill?.paidAmount || 0) - finalAmountApproved
+          }
+        });
+      }
+
+      return updatedWaiver;
+    });
+
+    return result;
+  }
+
+  // Reject waiver
+  async reject(id: string, approvedById: string, rejectionReason: string) {
+    const waiver = await prisma.patientWaiver.findUnique({
       where: { id }
     });
 
@@ -127,96 +354,98 @@ export class WaiverService {
       throw new Error('Waiver not found');
     }
 
-    if (waiver.status !== 'PENDING') {
+    if (waiver.status !== 'pending') {
       throw new Error(`Waiver is already ${waiver.status}`);
     }
 
-    const updatedWaiver = await prisma.waiver.update({
+    if (!rejectionReason) {
+      throw new Error('Rejection reason is required');
+    }
+
+    const updatedWaiver = await prisma.patientWaiver.update({
       where: { id },
       data: {
-        status: 'APPROVED',
-        approvedBy,
+        status: 'rejected',
+        approvedById,
         approvedAt: new Date(),
-        approvalNotes: notes
+        rejectionReason
       },
       include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
-      }
-    });
-
-    // Update bill to reflect waiver
-    if (waiver.billId) {
-      await prisma.bill.update({
-        where: { id: waiver.billId },
-        data: {
-          waivedAmount: {
-            increment: waiver.amount
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true
+          }
+        },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
           }
         }
-      });
-    }
+      }
+    });
 
     return updatedWaiver;
   }
 
-  // Reject waiver
-  async reject(id: string, rejectedBy: string, notes?: string) {
-    const waiver = await prisma.waiver.findUnique({
-      where: { id }
-    });
-
-    if (!waiver) {
-      throw new Error('Waiver not found');
-    }
-
-    if (waiver.status !== 'PENDING') {
-      throw new Error(`Waiver is already ${waiver.status}`);
-    }
-
-    return await prisma.waiver.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        rejectedBy,
-        rejectedAt: new Date(),
-        rejectionNotes: notes
-      },
-      include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
-      }
-    });
-  }
-
   // Get waiver statistics
-  async getStatistics(filters: { startDate?: string; endDate?: string }) {
+  async getStatistics(filters: StatisticsFilters) {
     const { startDate, endDate } = filters;
 
     const where: any = {};
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
+      if (startDate) where.createdAt.gte = startDate;
+      if (endDate) where.createdAt.lte = endDate;
     }
 
-    const [totalWaivers, pendingWaivers, approvedWaivers, rejectedWaivers, totalAmount, approvedAmount] = await Promise.all([
-      prisma.waiver.count({ where }),
-      prisma.waiver.count({ where: { ...where, status: 'PENDING' } }),
-      prisma.waiver.count({ where: { ...where, status: 'APPROVED' } }),
-      prisma.waiver.count({ where: { ...where, status: 'REJECTED' } }),
-      prisma.waiver.aggregate({
+    const [
+      totalWaivers,
+      pendingWaivers,
+      approvedWaivers,
+      rejectedWaivers,
+      totalRequestedAmount,
+      totalApprovedAmount,
+      byWaiverType
+    ] = await Promise.all([
+      prisma.patientWaiver.count({ where }),
+      prisma.patientWaiver.count({ where: { ...where, status: 'pending' } }),
+      prisma.patientWaiver.count({ where: { ...where, status: 'approved' } }),
+      prisma.patientWaiver.count({ where: { ...where, status: 'rejected' } }),
+      prisma.patientWaiver.aggregate({
         where,
-        _sum: { amount: true }
+        _sum: { amountRequested: true }
       }),
-      prisma.waiver.aggregate({
-        where: { ...where, status: 'APPROVED' },
-        _sum: { amount: true }
-      })
+      prisma.patientWaiver.aggregate({
+        where: { ...where, status: 'approved' },
+        _sum: { amountApproved: true }
+      }),
+      // Count by waiver type
+      Promise.all([
+        prisma.patientWaiver.count({ where: { ...where, waiverType: 'indigent' } }),
+        prisma.patientWaiver.count({ where: { ...where, waiverType: 'nhis_exempt' } }),
+        prisma.patientWaiver.count({ where: { ...where, waiverType: 'staff_discount' } }),
+        prisma.patientWaiver.count({ where: { ...where, waiverType: 'management_discretion' } }),
+        prisma.patientWaiver.count({ where: { ...where, waiverType: 'other' } })
+      ])
     ]);
 
     return {
@@ -224,21 +453,59 @@ export class WaiverService {
       pendingWaivers,
       approvedWaivers,
       rejectedWaivers,
-      totalAmount: totalAmount._sum.amount || 0,
-      approvedAmount: approvedAmount._sum.amount || 0,
-      averageWaiver: totalWaivers > 0 ? (totalAmount._sum.amount || 0) / totalWaivers : 0
+      totalRequestedAmount: totalRequestedAmount._sum.amountRequested || 0,
+      totalApprovedAmount: totalApprovedAmount._sum.amountApproved || 0,
+      approvalRate: totalWaivers > 0 ? (approvedWaivers / totalWaivers) * 100 : 0,
+      averageRequestedAmount: totalWaivers > 0 ? (totalRequestedAmount._sum.amountRequested || 0) / totalWaivers : 0,
+      averageApprovedAmount: approvedWaivers > 0 ? (totalApprovedAmount._sum.amountApproved || 0) / approvedWaivers : 0,
+      byWaiverType: {
+        indigent: byWaiverType[0],
+        nhisExempt: byWaiverType[1],
+        staffDiscount: byWaiverType[2],
+        managementDiscretion: byWaiverType[3],
+        other: byWaiverType[4]
+      }
     };
   }
 
   // Get waivers by bill
   async getByBillId(billId: string) {
-    const waivers = await prisma.waiver.findMany({
+    const waivers = await prisma.patientWaiver.findMany({
       where: { billId },
       include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true
+          }
+        },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true,
+            paidAmount: true,
+            balance: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -248,13 +515,42 @@ export class WaiverService {
 
   // Get waivers by patient
   async getByPatientId(patientId: string) {
-    const waivers = await prisma.waiver.findMany({
+    const waivers = await prisma.patientWaiver.findMany({
       where: { patientId },
       include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true
+          }
+        },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true,
+            paidAmount: true,
+            balance: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            role: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -264,7 +560,7 @@ export class WaiverService {
 
   // Update waiver (only for pending waivers)
   async update(id: string, data: any) {
-    const waiver = await prisma.waiver.findUnique({
+    const waiver = await prisma.patientWaiver.findUnique({
       where: { id }
     });
 
@@ -272,31 +568,49 @@ export class WaiverService {
       throw new Error('Waiver not found');
     }
 
-    if (waiver.status !== 'PENDING') {
+    if (waiver.status !== 'pending') {
       throw new Error('Only pending waivers can be updated');
     }
 
-    const { amount, reason, notes } = data;
+    const { amountRequested, reason, supportingDocs } = data;
 
-    return await prisma.waiver.update({
+    return await prisma.patientWaiver.update({
       where: { id },
       data: {
-        amount: amount ? parseFloat(amount) : undefined,
-        reason,
-        notes
+        amountRequested: amountRequested ? parseFloat(amountRequested) : undefined,
+        reason: reason !== undefined ? reason : undefined,
+        supportingDocs: supportingDocs !== undefined ? supportingDocs : undefined
       },
       include: {
-        bill: true,
-        patient: true,
-        requestedByUser: true,
-        approvedByUser: true
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true
+          }
+        },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            totalAmount: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        }
       }
     });
   }
 
   // Delete waiver (only for pending waivers)
   async delete(id: string) {
-    const waiver = await prisma.waiver.findUnique({
+    const waiver = await prisma.patientWaiver.findUnique({
       where: { id }
     });
 
@@ -304,13 +618,15 @@ export class WaiverService {
       throw new Error('Waiver not found');
     }
 
-    if (waiver.status !== 'PENDING') {
+    if (waiver.status !== 'pending') {
       throw new Error('Only pending waivers can be deleted');
     }
 
-    await prisma.waiver.delete({
+    await prisma.patientWaiver.delete({
       where: { id }
     });
+
+    return { message: 'Waiver deleted successfully' };
   }
 }
 

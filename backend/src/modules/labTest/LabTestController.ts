@@ -1,58 +1,57 @@
 // LabTestController.ts - HTTP request handlers for Lab Test module
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { body, validationResult } from 'express-validator';
+import { BaseController } from '../../shared/base/BaseController';
 import { LabTestService } from './LabTestService';
 import { CreateLabTestServiceDTO, UpdateLabTestServiceDTO, BulkUpdateLabTestDTO } from './LabTestTypes';
 import { ServiceCategory } from '@prisma/client';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
-export class LabTestController {
+export class LabTestController extends BaseController {
   private service: LabTestService;
 
-  constructor(service?: LabTestService) {
-    this.service = service || new LabTestService();
+  constructor(prisma: PrismaClient) {  // ✅ Add prisma parameter
+    super();
+    this.service = new LabTestService(prisma);  // ✅ Pass to service
   }
 
   // ============================================
   // GET ALL LAB TEST SERVICES
   // ============================================
-  getLabTestServices = async (req: Request, res: Response) => {
+  getLabTestServices = async (req: AuthRequest, res: Response) => {
     try {
+      let { page = 1, limit = 50 } = req.query;
+      
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
       const query = {
         serviceCategory: req.query.serviceCategory as any,
         subType: req.query.subType as string,
         isActive: req.query.isActive === 'true',
         isNHISCovered: req.query.isNHISCovered === 'true',
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 10000
+        page: pageNum,
+        limit: limitNum
       };
 
       const result = await this.service.getAllLabTestServices(query);
-      res.json(result);
+      this.paginated(res, result.data, result.pagination, 'Lab test services retrieved successfully');
     } catch (error) {
-      console.error('Error fetching lab test services:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching lab test services',
-        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-      });
+      this.error(res, error);
     }
   };
 
   // ============================================
   // GET LAB TEST SERVICE BY ID
   // ============================================
-  getLabTestServiceById = async (req: Request, res: Response) => {
+  getLabTestServiceById = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const result = await this.service.getLabTestServiceById(id);
-      res.json(result);
+      this.ok(res, result.data, 'Lab test service retrieved successfully');
     } catch (error) {
-      console.error('Error fetching lab test service:', error);
-      res.status(404).json({
-        success: false,
-        message: (error as Error).message
-      });
+      this.error(res, error);
     }
   };
 
@@ -68,14 +67,11 @@ export class LabTestController {
     body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
     body('insurancePrice').isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
 
-    async (req: Request, res: Response) => {
+    async (req: AuthRequest, res: Response) => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          return this.badRequest(res, 'Validation failed', errors.array());
         }
 
         const data: CreateLabTestServiceDTO = {
@@ -102,16 +98,16 @@ export class LabTestController {
           isTaxable: req.body.isTaxable
         };
 
-        const createdById = (req as any).user?.id;
+        const createdById = req.user?.id;
+        
+        if (!createdById) {
+          return this.unauthorized(res, 'User authentication required');
+        }
+
         const result = await this.service.createLabTestService(data, createdById);
-        res.status(201).json(result);
+        this.created(res, result.data, 'Lab test service created successfully');
       } catch (error) {
-        console.error('Error creating lab test service:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error creating lab test service',
-          error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-        });
+        this.error(res, error);
       }
     }
   ];
@@ -127,14 +123,11 @@ export class LabTestController {
     body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
     body('insurancePrice').optional().isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
 
-    async (req: Request, res: Response) => {
+    async (req: AuthRequest, res: Response) => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          return this.badRequest(res, 'Validation failed', errors.array());
         }
 
         const { id } = req.params;
@@ -154,14 +147,9 @@ export class LabTestController {
         }
 
         const result = await this.service.updateLabTestService(id, data);
-        res.json(result);
+        this.ok(res, result.data, 'Lab test service updated successfully');
       } catch (error) {
-        console.error('Error updating lab test service:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error updating lab test service',
-          error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-        });
+        this.error(res, error);
       }
     }
   ];
@@ -169,51 +157,37 @@ export class LabTestController {
   // ============================================
   // DELETE LAB TEST SERVICE
   // ============================================
-  deleteLabTestService = async (req: Request, res: Response) => {
+  deleteLabTestService = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const result = await this.service.deleteLabTestService(id);
-      res.json(result);
+      this.ok(res, result, 'Lab test service deleted successfully');
     } catch (error) {
-      console.error('Error deleting lab test service:', error);
-      res.status(404).json({
-        success: false,
-        message: (error as Error).message
-      });
+      this.error(res, error);
     }
   };
 
   // ============================================
   // GET LAB TEST SUB-CATEGORIES
   // ============================================
-  getLabTestSubCategories = async (req: Request, res: Response) => {
+  getLabTestSubCategories = async (req: AuthRequest, res: Response) => {
     try {
       const result = await this.service.getLabTestSubCategories();
-      res.json(result);
+      this.ok(res, result.data, 'Lab test sub-categories retrieved successfully');
     } catch (error) {
-      console.error('Error fetching lab test sub-categories:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching lab test sub-categories',
-        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-      });
+      this.error(res, error);
     }
   };
 
   // ============================================
   // GET LAB TEST METADATA FIELDS
   // ============================================
-  getLabTestMetadataFields = async (req: Request, res: Response) => {
+  getLabTestMetadataFields = async (req: AuthRequest, res: Response) => {
     try {
       const result = await this.service.getLabTestMetadataFields();
-      res.json(result);
+      this.ok(res, result.data, 'Lab test metadata fields retrieved successfully');
     } catch (error) {
-      console.error('Error fetching lab test metadata fields:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching lab test metadata fields',
-        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-      });
+      this.error(res, error);
     }
   };
 
@@ -224,14 +198,11 @@ export class LabTestController {
     body('ids').isArray().withMessage('Service IDs array is required'),
     body('isActive').isBoolean().withMessage('isActive must be a boolean'),
 
-    async (req: Request, res: Response) => {
+    async (req: AuthRequest, res: Response) => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          return this.badRequest(res, 'Validation failed', errors.array());
         }
 
         const data: BulkUpdateLabTestDTO = {
@@ -240,14 +211,9 @@ export class LabTestController {
         };
 
         const result = await this.service.bulkUpdateLabTestServices(data);
-        res.json(result);
+        this.ok(res, result.data, result.message);
       } catch (error) {
-        console.error('Error in bulk update:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error updating lab test services',
-          error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
-        });
+        this.error(res, error);
       }
     }
   ];

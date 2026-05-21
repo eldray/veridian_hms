@@ -1,6 +1,6 @@
-// InvoiceTypes.ts
+// PurchaseInvoiceTypes.ts - Renamed from InvoiceTypes
 
-export interface InvoiceItem {
+export interface PurchaseInvoiceItem {
   id: string;
   invoiceId: string;
   stockItemId: string;
@@ -11,7 +11,7 @@ export interface InvoiceItem {
   createdAt: Date;
 }
 
-export interface Invoice {
+export interface PurchaseInvoice {
   id: string;
   invoiceNumber: string;
   supplierName: string;
@@ -23,7 +23,7 @@ export interface Invoice {
   updatedAt: Date;
 }
 
-export interface CreateInvoiceDTO {
+export interface CreatePurchaseInvoiceDTO {
   invoiceNumber: string;
   supplierName: string;
   invoiceDate: string | Date;
@@ -38,14 +38,14 @@ export interface CreateInvoiceDTO {
   }>;
 }
 
-export interface UpdateInvoiceDTO {
+export interface UpdatePurchaseInvoiceDTO {
   supplierName?: string;
   invoiceDate?: string | Date;
   totalAmount?: number;
   notes?: string | null;
 }
 
-export interface InvoiceWithRelations extends Invoice {
+export interface PurchaseInvoiceWithRelations extends PurchaseInvoice {
   InvoiceItem?: Array<{
     id: string;
     stockItemId: string;
@@ -82,7 +82,7 @@ export interface InvoiceWithRelations extends Invoice {
   };
 }
 
-export interface InvoiceStats {
+export interface PurchaseInvoiceStats {
   totalInvoices: number;
   totalAmount: number;
   recentInvoices: number;

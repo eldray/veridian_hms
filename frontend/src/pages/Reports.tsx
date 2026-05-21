@@ -35,9 +35,35 @@ export default function Reports() {
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
 
-  // Store data
-// Store data - ADD THE MISSING CLINICAL REPORT STATES AND ACTIONS
+// ✅ Correct function names from your store
 const {
+  // GHS Reports
+  getGHSOPDReport,  
+  getGHSIPDReport,      
+  getGHSIDSRReport,     
+  getGHSMalariaReport,  
+  getGHSFormAReport,    
+  getFamilyPlanningReport,
+  getMorbidityMortalityReport,
+  getTopDiagnoses,
+  
+  // Clinical Reports
+  getDemographicReport,
+  getFinancialReport,
+  getInsuranceClaimsReport,
+  getClinicalReport,
+  getAttendanceReport,
+  getRevenueReport,
+  getLabReport,
+  getScanReport,
+  getProcedureReport,
+  getMedicationReport,
+  getVitalsReport,
+  
+  // Export
+  exportReport,
+  
+  // State
   opdReport,
   ipdReport,
   formAReport,
@@ -52,34 +78,12 @@ const {
   clinicalReport,
   attendanceReport,
   revenueReport,
-  // ✅ ADD THESE CLINICAL REPORT STATES
   labReport,
   scanReport,
   procedureReport,
   medicationReport,
   vitalsReport,
-  // Actions
-  getOPDReport,
-  getIPDReport,
-  getFormAReport,
-  getMalariaReport,
-  getIDSRReport,
-  getFamilyPlanningReport,
-  getMorbidityMortalityReport,
-  getTopDiagnoses,
-  getDemographicReport,
-  getFinancialReport,
-  getInsuranceClaimsReport,
-  getClinicalReport,
-  getAttendanceReport,
-  getRevenueReport,
-  // ✅ ADD THESE CLINICAL REPORT ACTIONS
-  getLabReport,
-  getScanReport,
-  getProcedureReport,
-  getMedicationReport,
-  getVitalsReport,
-  exportReport,
+  
   isLoading: storeLoading,
 } = useReportsStore();
 
@@ -143,15 +147,14 @@ const {
     try {
       const filters = { startDate: dateRange.start, endDate: dateRange.end };
       switch (reportType) {
-        case 'opd-attendance': await getOPDReport(filters); break;
+        case 'opd-attendance': await getGHSOPDReport(filters); break;      // Changed
         case 'opd-morbidity': await getMorbidityMortalityReport(filters); break;
         case 'top-diagnoses': await getTopDiagnoses(filters, 10); break;
-        case 'form-a': await getFormAReport(filters); break;
-        case 'ipd': await getIPDReport(filters); break;
-        case 'malaria': await getMalariaReport(filters); break;
-        case 'idsr': await getIDSRReport(filters); break;
+        case 'form-a': await getGHSFormAReport(filters); break;           // Changed
+        case 'ipd': await getGHSIPDReport(filters); break;                // Changed
+        case 'malaria': await getGHSMalariaReport(filters); break;        // Changed
+        case 'idsr': await getGHSIDSRReport(filters); break;              // Changed
         case 'family-planning': await getFamilyPlanningReport(filters); break;
-        case 'morbidity-mortality': await getMorbidityMortalityReport(filters); break;
         case 'demographic': await getDemographicReport(filters); break;
         case 'financial': await getFinancialReport(filters); break;
         case 'insurance': await getInsuranceClaimsReport(filters); break;

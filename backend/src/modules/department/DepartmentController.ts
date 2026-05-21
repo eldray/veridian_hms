@@ -8,6 +8,7 @@ import { body, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
 import { DepartmentService } from './DepartmentService';
 import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters } from './DepartmentTypes';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class DepartmentController {
   private service: DepartmentService;
@@ -16,23 +17,32 @@ export class DepartmentController {
     this.service = new DepartmentService(prisma);
   }
 
-  getAll = async (req: Request, res: Response): Promise<void> => {
+  getAll = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { isActive, hasHead, page, limit } = req.query;
+      const { isActive, hasHead, page = 1, limit = 50 } = req.query;
+
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
 
       const filters: DepartmentFilters = {
         isActive: isActive !== undefined ? isActive === 'true' : undefined,
         hasHead: hasHead !== undefined ? hasHead === 'true' : undefined,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 50
+        page: pageNum,
+        limit: limitNum
       };
 
-      const departments = await this.service.getAllDepartments(filters);
+      const result = await this.service.getAllDepartments(filters);
 
       res.json({
         success: true,
-        data: departments,
-        count: departments.length
+        data: result.departments,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limitNum)
+        },
+        count: result.departments.length
       });
     } catch (error) {
       console.error('Error fetching departments:', error);
@@ -44,7 +54,7 @@ export class DepartmentController {
     }
   };
 
-  getById = async (req: Request, res: Response): Promise<void> => {
+  getById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
 
@@ -81,7 +91,7 @@ export class DepartmentController {
     body('color').optional().isString(),
     body('icon').optional().isString(),
 
-    async (req: Request, res: Response): Promise<void> => {
+    async (req: AuthRequest, res: Response): Promise<void> => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -93,7 +103,7 @@ export class DepartmentController {
         }
 
         const { name, description, headId, color, icon } = req.body;
-        const user = (req as any).user;
+        const user = req.user;
 
         const data: CreateDepartmentDTO = {
           name,
@@ -141,7 +151,7 @@ export class DepartmentController {
     body('icon').optional().isString(),
     body('isActive').optional().isBoolean(),
 
-    async (req: Request, res: Response): Promise<void> => {
+    async (req: AuthRequest, res: Response): Promise<void> => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -153,7 +163,7 @@ export class DepartmentController {
         }
 
         const { id } = req.params;
-        const user = (req as any).user;
+        const user = req.user;
         const updateData: UpdateDepartmentDTO = req.body;
 
         const department = await this.service.updateDepartment(id, updateData, user?.id);
@@ -191,7 +201,7 @@ export class DepartmentController {
     }
   ];
 
-  delete = async (req: Request, res: Response): Promise<void> => {
+  delete = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
 
@@ -223,13 +233,14 @@ export class DepartmentController {
     }
   };
 
-  getStats = async (req: Request, res: Response): Promise<void> => {
+  getStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const stats = await this.service.getStatistics();
 
       res.json({
         success: true,
-        stats
+        data: stats,
+        message: 'Department statistics retrieved successfully'
       });
     } catch (error) {
       console.error('Error fetching department statistics:', error);
@@ -241,7 +252,7 @@ export class DepartmentController {
     }
   };
 
-  getUsers = async (req: Request, res: Response): Promise<void> => {
+  getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
 
@@ -250,7 +261,8 @@ export class DepartmentController {
       res.json({
         success: true,
         data: users,
-        count: users.length
+        count: users.length,
+        message: 'Department users retrieved successfully'
       });
     } catch (error) {
       console.error('Error fetching department users:', error);
@@ -272,7 +284,7 @@ export class DepartmentController {
   assignUser = [
     body('userId').notEmpty().withMessage('User ID is required').isString(),
 
-    async (req: Request, res: Response): Promise<void> => {
+    async (req: AuthRequest, res: Response): Promise<void> => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -285,7 +297,7 @@ export class DepartmentController {
 
         const { id } = req.params;
         const { userId } = req.body;
-        const user = (req as any).user;
+        const user = req.user;
 
         await this.service.assignUserToDepartment(id, userId);
 
@@ -316,7 +328,7 @@ export class DepartmentController {
     }
   ];
 
-  removeUser = async (req: Request, res: Response): Promise<void> => {
+  removeUser = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id, userId } = req.params;
 
@@ -328,7 +340,7 @@ export class DepartmentController {
       });
     } catch (error) {
       console.error('Error removing user from department:', error);
-      if ((error as Error).message === 'User is not assigned') {
+      if ((error as Error).message === 'User not found in this department') {
         res.status(400).json({
           success: false,
           message: (error as Error).message
@@ -347,7 +359,7 @@ export class DepartmentController {
     body('departmentIds').isArray().withMessage('Department IDs must be an array'),
     body('departmentIds.*').isString().withMessage('Each department ID must be a string'),
 
-    async (req: Request, res: Response): Promise<void> => {
+    async (req: AuthRequest, res: Response): Promise<void> => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -359,7 +371,7 @@ export class DepartmentController {
         }
 
         const { departmentIds, ...updateData } = req.body;
-        const user = (req as any).user;
+        const user = req.user;
 
         const count = await this.service.bulkUpdateDepartments(departmentIds, updateData);
 

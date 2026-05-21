@@ -1,44 +1,22 @@
-/**
- * Report Routes
- * Route definitions for report operations
- */
-
+// modules/report/ReportRoutes.ts
 import { Router } from 'express';
-import { AuthRequest } from '../../middleware/authMiddleware';
-import { reportController } from './ReportController';
+import { PrismaClient } from '@prisma/client';
+import { protect, requireRole } from '../../middleware/authMiddleware';
+import { ReportController } from './ReportController';
 
-export function createReportRoutes(): Router {
+export function createReportRoutes(prisma: PrismaClient): Router {
   const router = Router();
+  const controller = new ReportController(prisma);
 
-  // All routes require authentication
-  router.use((req: AuthRequest, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
-    }
-    next();
-  });
+  router.use(protect);
 
-  // Demographic and Clinical Reports
-  router.get('/family-planning', (req: AuthRequest, res) => reportController.getFamilyPlanningReport(req, res));
-  router.get('/demographic', (req: AuthRequest, res) => reportController.getDemographicReport(req, res));
-  router.get('/financial', (req, res) => reportController.getFinancialReport(req, res));
-  router.get('/insurance-claims', (req, res) => reportController.getInsuranceClaimsReport(req, res));
-  router.get('/clinical', (req, res) => reportController.getClinicalReport(req, res));
-  router.get('/morbidity-mortality', (req: AuthRequest, res) => reportController.getMorbidityMortalityReport(req, res));
-  
-  // Attendance and Revenue Reports
-  router.get('/attendance', (req: AuthRequest, res) => reportController.getAttendanceReport(req, res));
-  router.get('/revenue', (req: AuthRequest, res) => reportController.getRevenueReport(req, res));
-  
-  // Clinical Department Reports
-  router.get('/lab', (req: AuthRequest, res) => reportController.getLabReport(req, res));
-  router.get('/scan', (req: AuthRequest, res) => reportController.getScanReport(req, res));
-  router.get('/procedure', (req: AuthRequest, res) => reportController.getProcedureReport(req, res));
-  router.get('/medication', (req: AuthRequest, res) => reportController.getMedicationReport(req, res));
-  router.get('/vitals', (req: AuthRequest, res) => reportController.getVitalsReport(req, res));
-  
-  // Export
-  router.get('/export', (req: AuthRequest, res) => reportController.exportReport(req, res));
+  router.get('/financial', requireRole(['admin', 'accounts']), (req, res) => controller.getFinancialReport(req, res));
+  router.get('/clinical', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), (req, res) => controller.getClinicalReport(req, res));
+  router.get('/revenue', requireRole(['admin', 'accounts']), (req, res) => controller.getRevenueReport(req, res));
+  router.get('/insurance-claims', requireRole(['admin', 'accounts']), (req, res) => controller.getInsuranceClaimsReport(req, res));
+  router.get('/attendance', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), (req, res) => controller.getAttendanceReport(req, res));
+  router.get('/demographic', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), (req, res) => controller.getDemographicReport(req, res));
+  router.get('/export', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.exportReport(req, res));
 
   return router;
 }

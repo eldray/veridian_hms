@@ -1,3 +1,5 @@
+// modules/communication/CommunicationTypes.ts
+
 export interface SendSMSDTO {
   recipient: string;
   message?: string;
@@ -25,9 +27,10 @@ export interface SendBulkMessageDTO {
 
 export interface CommunicationTemplateDTO {
   name: string;
-  content: string;
-  channelType: 'SMS' | 'WHATSAPP' | 'EMAIL';
+  body: string;
+  channelType: 'SMS' | 'WHATSAPP';
   type?: 'APPOINTMENT_REMINDER' | 'APPOINTMENT_CONFIRMATION' | 'LAB_RESULT_READY' | 'PRESCRIPTION_READY' | 'PAYMENT_REMINDER' | 'BILL_NOTIFICATION' | 'WELCOME_MESSAGE' | 'GENERAL_NOTIFICATION' | 'CUSTOM';
+  subject?: string;
   variables?: string[];
   isActive?: boolean;
 }
@@ -60,4 +63,14 @@ export interface CommunicationStats {
   smsCount: number;
   whatsappCount: number;
   deliveryRate: number;
+}
+
+export interface CommunicationHistoryFilters {
+  recipient?: string;
+  status?: string;
+  channelType?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
 }

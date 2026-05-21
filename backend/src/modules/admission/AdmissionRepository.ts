@@ -1,310 +1,415 @@
-// modules/admission/AdmissionRepository.ts
-import { PrismaClient } from '@prisma/client';
+// modules/appointment/AppointmentRepository.ts
 
-const prisma = new PrismaClient();
+import { PrismaClient, AppointmentStatus, UserRole } from '@prisma/client';
+import { CreateAppointmentDTO, UpdateAppointmentDTO, AppointmentFilters } from './AppointmentTypes';
+import { getCounterService } from '../../services/CounterService';
 
-export class AdmissionRepository {
-  // Get all admissions with filtering and pagination
-  async findAll(where: any, skip: number, take: number) {
-    const [admissions, total] = await Promise.all([
-      prisma.admission.findMany({
+export class AppointmentRepository {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  async findAll(filters: AppointmentFilters) {
+    const {
+      clinicianId,
+      patientId,
+      departmentId,
+      status,
+      date,
+      dateFrom,
+      dateTo,
+      page = 1,
+      limit = 50
+    } = filters;
+
+    const where: any = {};
+
+    if (clinicianId) where.clinicianId = clinicianId;
+    if (patientId) where.patientId = patientId;
+    if (departmentId) where.departmentId = departmentId;
+    if (status) where.status = status;
+
+    if (date) {
+      const targetDate = new Date(date);
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      where.appointmentDate = {
+        gte: targetDate,
+        lt: nextDay
+      };
+    }
+
+    if (dateFrom || dateTo) {
+      where.appointmentDate = {
+        ...where.appointmentDate,
+        gte: dateFrom ? new Date(dateFrom) : undefined,
+        lt: dateTo ? new Date(dateTo) : undefined
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [appointments, total] = await Promise.all([
+      this.prisma.appointment.findMany({
         where,
         include: {
-          Patient: {
+          patient: {
             select: {
+              id: true,
               surname: true,
               otherNames: true,
               folderNumber: true,
-              contact: true,
-              paymentMode: true,
-            },
+              contact: true
+            }
           },
-          Ward: {
+          clinician: {
             select: {
-              wardName: true,
-              wardType: true,
-            },
+              id: true,
+              fullName: true,
+              role: true
+            }
           },
-          Bed: {
+          department: {
             select: {
-              bedNumber: true,
-            },
-          },
-          Attendance: {
-            include: {
-              AttendanceDiagnosis: {
-                where: { diagnosisType: 'primary' },
-                include: { Diagnosis: true },
-                take: 1,
-              },
-            },
-          },
+              id: true,
+              name: true
+            }
+          }
         },
-        orderBy: {
-          admissionDate: 'desc',
-        },
+        orderBy: { appointmentDate: 'asc' },
         skip,
-        take,
+        take: limit
       }),
-      prisma.admission.count({ where }),
+      this.prisma.appointment.count({ where })
     ]);
 
-    return { admissions, total };
+    return { appointments, total, page, limit };
   }
 
-  // Find admission by ID
   async findById(id: string) {
-    return prisma.admission.findUnique({
+    return this.prisma.appointment.findUnique({
       where: { id },
       include: {
-        Patient: {
+        patient: {
           select: {
             id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
-            contact: true,
-            gender: true,
-            dateOfBirth: true,
-            paymentMode: true,
-            InsuranceProvider: {
-              select: {
-                name: true,
-                type: true,
-                coveragePercentage: true,
-              },
-            },
-          },
+            contact: true
+          }
         },
-        Ward: {
+        clinician: {
           select: {
             id: true,
-            wardName: true,
-            wardType: true,
-          },
+            fullName: true,
+            role: true,
+            phone: true,
+            email: true
+          }
         },
-        Bed: {
+        department: {
           select: {
             id: true,
-            bedNumber: true,
-            isOccupied: true,
-          },
-        },
-        Attendance: {
-          include: {
-            AttendanceDiagnosis: {
-              include: {
-                Diagnosis: true,
-              },
-              orderBy: {
-                diagnosisType: 'asc',
-              },
-            },
-            Vitals: {
-              orderBy: { recordedAt: 'desc' },
-              take: 5,
-            },
-          },
-        },
-        Bill: {
-          select: {
-            id: true,
-            billNumber: true,
-            totalAmount: true,
-            status: true,
-          },
-        },
+            name: true
+          }
+        }
+      }
+    });
+  }
+
+  async create(data: CreateAppointmentDTO, createdBy: string) {
+    const counterService = getCounterService();
+    const appointmentNumber = `APT-${counterService.nextAppointmentNumber()}`;
+    
+    // Get clinician role
+    const clinician = await this.prisma.user.findUnique({
+      where: { id: data.clinicianId },
+      select: { role: true }
+    });
+    
+    return this.prisma.appointment.create({
+      data: {
+        appointmentNumber,
+        patientId: data.patientId,
+        clinicianId: data.clinicianId,
+        clinicianRole: clinician?.role,
+        departmentId: data.departmentId,
+        title: data.title,
+        description: data.description,
+        appointmentDate: data.appointmentDate,
+        appointmentTime: data.appointmentTime,
+        duration: data.duration || 30,
+        type: data.type,
+        status: 'scheduled',
+        createdBy: createdBy
       },
-    });
-  }
-
-  // Find admission with attendance
-  async findByIdWithAttendance(id: string) {
-    return prisma.admission.findUnique({
-      where: { id },
-      include: { Attendance: true },
-    });
-  }
-
-  // Create admission
-  async create(data: any) {
-    return prisma.admission.create({
-      data,
       include: {
-        Patient: {
+        patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
-            contact: true,
-            paymentMode: true,
-          },
+            contact: true
+          }
         },
-        Ward: {
+        clinician: {
           select: {
-            wardName: true,
-            wardType: true,
-          },
+            id: true,
+            fullName: true,
+            role: true
+          }
         },
-        Bed: {
+        department: {
           select: {
-            bedNumber: true,
-          },
-        },
-        Attendance: {
-          include: {
-            AttendanceDiagnosis: {
-              where: { diagnosisType: 'primary' },
-              include: { Diagnosis: true },
-            },
-          },
-        },
-      },
+            id: true,
+            name: true
+          }
+        }
+      }
     });
   }
 
-  // Update admission
-  async update(id: string, data: any) {
-    return prisma.admission.update({
+  async update(id: string, data: UpdateAppointmentDTO) {
+    const updateData: any = {
+      ...data,
+      updatedAt: new Date()
+    };
+
+    // If changing clinician, update role
+    if (data.clinicianId) {
+      const clinician = await this.prisma.user.findUnique({
+        where: { id: data.clinicianId },
+        select: { role: true }
+      });
+      if (clinician) {
+        updateData.clinicianRole = clinician.role;
+      }
+    }
+
+    if (data.status === 'checked_in') {
+      const existing = await this.prisma.appointment.findUnique({
+        where: { id },
+        select: { checkedIn: true }
+      });
+
+      if (existing && !existing.checkedIn) {
+        updateData.checkedIn = true;
+        updateData.checkedInAt = new Date();
+      }
+    }
+
+    return this.prisma.appointment.update({
       where: { id },
-      data,
+      data: updateData,
+      include: {
+        patient: {
+          select: {
+            id: true,
+            surname: true,
+            otherNames: true,
+            folderNumber: true,
+            contact: true
+          }
+        },
+        clinician: {
+          select: {
+            id: true,
+            fullName: true,
+            role: true
+          }
+        },
+        department: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
     });
   }
 
-  // Delete admission
   async delete(id: string) {
-    return prisma.admission.delete({
-      where: { id },
+    return this.prisma.appointment.delete({
+      where: { id }
     });
   }
 
-  // Find active admission for patient
-  async findActiveByPatientId(patientId: string) {
-    return prisma.admission.findFirst({
-      where: {
-        patientId,
-        status: 'admitted',
-      },
-    });
-  }
+  async getStatistics(dateFrom?: Date) {
+    const whereClause: any = {};
 
-  // Count admissions for numbering
-  async countForCurrentMonth() {
-    return prisma.admission.count({
-      where: {
-        admissionDate: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-          lte: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-        },
-      },
-    });
-  }
+    if (dateFrom) {
+      whereClause.appointmentDate = {
+        gte: new Date(dateFrom)
+      };
+    }
 
-  // Get admission stats
-  async getStats() {
-    const [total, admitted, discharged, todayAdmissions] = await Promise.all([
-      prisma.admission.count(),
-      prisma.admission.count({ where: { status: 'admitted' } }),
-      prisma.admission.count({ where: { status: 'discharged' } }),
-      prisma.admission.count({
-        where: {
-          admissionDate: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
-        },
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [stats, todayStats] = await Promise.all([
+      this.prisma.appointment.groupBy({
+        by: ['status'],
+        where: whereClause,
+        _count: { id: true }
       }),
+      this.prisma.appointment.count({
+        where: {
+          appointmentDate: {
+            gte: today
+          },
+          status: {
+            in: ['scheduled', 'confirmed']
+          }
+        }
+      })
     ]);
 
-    return { total, admitted, discharged, todayAdmissions };
+    const result: any = {
+      scheduled: 0,
+      confirmed: 0,
+      checked_in: 0,
+      in_progress: 0,
+      completed: 0,
+      cancelled: 0,
+      no_show: 0,
+      today: todayStats
+    };
+
+    stats.forEach((stat: any) => {
+      result[stat.status] = stat._count.id;
+    });
+
+    return result;
   }
 
-  // Get admissions by patient ID
-  async findByPatientId(patientId: string) {
-    return prisma.admission.findMany({
-      where: { patientId },
+  async getClinicianSchedule(clinicianId: string, date: Date) {
+    const targetDate = new Date(date);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    return this.prisma.appointment.findMany({
+      where: {
+        clinicianId,
+        appointmentDate: {
+          gte: targetDate,
+          lt: nextDay
+        },
+        status: { notIn: ['cancelled', 'no_show'] }
+      },
       include: {
-        Patient: {
+        patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
-          },
+            contact: true
+          }
         },
-        Ward: {
+        department: {
           select: {
-            wardName: true,
-          },
-        },
-        Bed: {
-          select: {
-            bedNumber: true,
-          },
-        },
+            name: true
+          }
+        }
       },
-      orderBy: {
-        admissionDate: 'desc',
+      orderBy: { appointmentTime: 'asc' }
+    });
+  }
+
+  async getAvailableClinicians(roles: UserRole[] = ['doctor', 'nurse', 'midwife']) {
+    return this.prisma.user.findMany({
+      where: {
+        role: { in: roles },
+        isActive: true
       },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        specialization: true,
+        phone: true,
+        email: true
+      },
+      orderBy: { fullName: 'asc' }
     });
   }
 
-  // Transaction helpers
-  async findBed(bedId: string) {
-    return prisma.bed.findUnique({
-      where: { id: bedId },
-      include: { Ward: true },
+  async findAttendanceByAppointmentId(appointmentId: string) {
+    return this.prisma.attendance.findFirst({
+      where: { appointmentId },
+      include: { Patient: true }
     });
   }
 
-  async findDiagnosis(diagnosisId: string) {
-    return prisma.diagnosis.findUnique({
-      where: { id: diagnosisId },
+  async createAttendanceFromAppointment(appointment: any, userId: string, paymentData: any) {
+    const counterService = getCounterService();
+    
+    return this.prisma.attendance.create({
+      data: {
+        attendanceNumber: counterService.nextAttendanceNumber(),
+        patientId: appointment.patientId,
+        appointmentId: appointment.id,
+        dateTime: new Date(),
+        attendanceType: this.mapAppointmentTypeToAttendanceType(appointment.type),
+        paymentMode: paymentData.paymentMode,
+        insuranceProviderId: paymentData.insuranceProviderId,
+        nhisCCC: paymentData.nhisCCC,
+        corporateAccountId: paymentData.corporateAccountId,
+        status: 'pending',
+        complaints: appointment.title,
+        medicalNotes: appointment.description,
+        createdById: userId,
+        encounterCategory: 'opd',
+        visitCategory: 'general',
+        serviceCategory: 'opd'
+      },
+      include: {
+        Patient: true,
+        appointment: true
+      }
     });
   }
 
-  async findAttendance(attendanceId: string) {
-    return prisma.attendance.findUnique({
-      where: { id: attendanceId },
+  private mapAppointmentTypeToAttendanceType(type: string): string {
+    const mapping: Record<string, string> = {
+      'consultation': 'general_consultation',
+      'antenatal': 'antenatal',
+      'postnatal': 'postnatal',
+      'procedure': 'surgery',
+      'follow_up': 'chronic_followup',
+      'vaccination': 'general_consultation',
+      'lab_test': 'general_consultation',
+      'scan': 'general_consultation',
+      'other': 'general_consultation'
+    };
+    return mapping[type] || 'general_consultation';
+  }
+
+  async validatePatientExists(patientId: string) {
+    return this.prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { id: true, surname: true, otherNames: true }
     });
   }
 
-  async createAttendance(data: any) {
-    return prisma.attendance.create({ data });
-  }
-
-  async updateAttendance(id: string, data: any) {
-    return prisma.attendance.update({ where: { id }, data });
-  }
-
-  async createAttendanceDiagnosis(data: any) {
-    return prisma.attendanceDiagnosis.create({ data });
-  }
-
-  async findExistingDiagnosis(attendanceId: string, diagnosisId: string) {
-    return prisma.attendanceDiagnosis.findFirst({
-      where: { attendanceId, diagnosisId },
+  async validateClinicianExists(clinicianId: string) {
+    return this.prisma.user.findUnique({
+      where: { 
+        id: clinicianId,
+        role: { in: ['doctor', 'nurse', 'midwife'] }
+      },
+      select: { id: true, fullName: true, role: true }
     });
   }
 
-  async deleteAttendanceDiagnosis(id: string) {
-    return prisma.attendanceDiagnosis.delete({ where: { id } });
-  }
-
-  async updateBed(bedId: string, data: any) {
-    return prisma.bed.update({ where: { id: bedId }, data });
-  }
-
-  async updateWard(wardId: string, data: any) {
-    return prisma.ward.update({ where: { id: wardId }, data });
-  }
-
-  async createDailyNote(data: any) {
-    return prisma.admissionNote.create({ data });
-  }
-
-  async findDailyNotes(admissionId: string) {
-    return prisma.admissionNote.findMany({
-      where: { admissionId },
-      orderBy: { createdAt: 'desc' },
+  async validateDepartmentExists(departmentId: string) {
+    return this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true, name: true }
     });
   }
 }

@@ -27,35 +27,51 @@ export default function Login() {
   const navigate = useNavigate();
   const { success, error: toastError, info } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      toastError('Invalid Input', 'Please enter both username and password');
-      return;
-    }
+// In Login.tsx - update handleSubmit
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!username.trim() || !password.trim()) {
+    toastError('Invalid Input', 'Please enter both username and password');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const loggedIn = await login(username, password);
+  setLoading(true);
+  try {
+    console.log('📤 Attempting login...');
+    const loggedIn = await login(username, password);
+    console.log('📥 Login result:', loggedIn);
+    
+    // ✅ Check store state after login
+    const storeState = useAuthStore.getState();
+    console.log('🏪 Store after login:', { 
+      hasUser: !!storeState.user, 
+      hasToken: !!storeState.token,
+      user: storeState.user?.username,
+      isInitialized: storeState.isInitialized
+    });
 
-      if (loggedIn) {
-        success('Welcome back!', `Hello, ${username}!`, 3000);
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 1000);
-      } else {
-        toastError('Access Denied', 'Invalid username or password', 5000);
-      }
-    } catch (err: any) {
-      toastError(
-        'Connection Error',
-        err.message || 'Unable to connect. Please check your network and try again.',
-        5000
-      );
-    } finally {
-      setLoading(false);
+    if (loggedIn) {
+      success('Welcome back!', `Hello, ${username}!`, 3000);
+      
+      // ✅ Small delay to ensure state is persisted
+      setTimeout(() => {
+        console.log('🚀 Navigating to dashboard...');
+        navigate('/dashboard', { replace: true });
+      }, 100);
+    } else {
+      toastError('Access Denied', 'Invalid username or password', 5000);
     }
-  };
+  } catch (err: any) {
+    console.error('❌ Login error:', err);
+    toastError(
+      'Connection Error',
+      err.message || 'Unable to connect. Please check your network and try again.',
+      5000
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fillDemoCredentials = (demoUsername: string, demoPassword: string, role: string) => {
     setUsername(demoUsername);

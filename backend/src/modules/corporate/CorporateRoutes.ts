@@ -1,119 +1,33 @@
+// modules/corporate/CorporateRoutes.ts
 import { Router } from 'express';
 import { CorporateController } from './CorporateController';
-import { protect as authenticate, requireRole as authorize } from '../../middleware/authMiddleware';
-
-export class CorporateRoutes {
-  private router: Router;
-  private corporateController: CorporateController;
-
-  constructor() {
-    this.router = Router();
-    this.corporateController = new CorporateController();
-    this.initializeRoutes();
-  }
-
-  private initializeRoutes(): void {
-    // Corporate Account Routes
-    this.router.post(
-      '/',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.createAccount.bind(this.corporateController)
-    );
-
-    this.router.get(
-      '/',
-      authenticate,
-      authorize(['admin', 'accounts', 'records']),  // Changed from 'receptionist'
-      this.corporateController.getAccounts.bind(this.corporateController)
-    );
-
-    this.router.get(
-      '/statistics',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.getStatistics.bind(this.corporateController)
-    );
-
-    this.router.get(
-      '/:id',
-      authenticate,
-      authorize(['admin', 'accounts', 'records']),  // Changed from 'receptionist'
-      this.corporateController.getAccount.bind(this.corporateController)
-    );
-
-    this.router.put(
-      '/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.updateAccount.bind(this.corporateController)
-    );
-
-    this.router.delete(
-      '/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.deactivateAccount.bind(this.corporateController)
-    );
-
-    // Monthly Billing Routes
-    this.router.post(
-      '/:id/bills',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.generateMonthlyBill.bind(this.corporateController)
-    );
-
-    this.router.get(
-      '/:id/bills',
-      authenticate,
-      authorize(['admin', 'accounts', 'records']),  // Changed from 'receptionist'
-      this.corporateController.getMonthlyBills.bind(this.corporateController)
-    );
-
-    // Corporate Employee Routes
-    this.router.get(
-      '/:accountId/employees',
-      authenticate,
-      authorize(['admin', 'accounts', 'records']),  // Changed from 'receptionist'
-      this.corporateController.getEmployees.bind(this.corporateController)
-    );
-
-    this.router.post(
-      '/:accountId/employees',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.addEmployee.bind(this.corporateController)
-    );
-
-    this.router.get(
-      '/employees/:id',
-      authenticate,
-      authorize(['admin', 'accounts', 'records']),  // Changed from 'receptionist'
-      this.corporateController.getEmployee.bind(this.corporateController)
-    );
-
-    this.router.put(
-      '/employees/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.updateEmployee.bind(this.corporateController)
-    );
-
-    this.router.delete(
-      '/employees/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),  // Changed from 'finance_manager'
-      this.corporateController.removeEmployee.bind(this.corporateController)
-    );
-  }
-
-  getRouter(): Router {
-    return this.router;
-  }
-}
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createCorporateRoutes(): Router {
-  const routes = new CorporateRoutes();
-  return routes.getRouter();
+  const router = Router();
+  const controller = new CorporateController();
+
+  // All routes require authentication
+  router.use(protect);
+
+  // Corporate Account Routes
+  router.post('/', requireRole(['admin', 'accounts']), controller.createAccount);
+  router.get('/', requireRole(['admin', 'accounts', 'records']), controller.getAccounts);
+  router.get('/statistics', requireRole(['admin', 'accounts']), controller.getStatistics);
+  router.get('/:id', requireRole(['admin', 'accounts', 'records']), controller.getAccount);
+  router.put('/:id', requireRole(['admin', 'accounts']), controller.updateAccount);
+  router.delete('/:id', requireRole(['admin', 'accounts']), controller.deactivateAccount);
+
+  // Monthly Billing Routes
+  router.post('/:id/bills', requireRole(['admin', 'accounts']), controller.generateMonthlyBill);
+  router.get('/:id/bills', requireRole(['admin', 'accounts', 'records']), controller.getMonthlyBills);
+
+  // Corporate Employee Routes
+  router.get('/:accountId/employees', requireRole(['admin', 'accounts', 'records']), controller.getEmployees);
+  router.post('/:accountId/employees', requireRole(['admin', 'accounts']), controller.addEmployee);
+  router.get('/employees/:id', requireRole(['admin', 'accounts', 'records']), controller.getEmployee);
+  router.put('/employees/:id', requireRole(['admin', 'accounts']), controller.updateEmployee);
+  router.delete('/employees/:id', requireRole(['admin', 'accounts']), controller.removeEmployee);
+
+  return router;
 }

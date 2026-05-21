@@ -1,5 +1,14 @@
-// src/api/api.ts - FIXED VERSION (REMOVED ID TRANSFORM + BLOB FIX)
 import axios from 'axios';
+
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: Function; reject: Function }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) =>
+    error ? reject(error) : resolve(token)
+  );
+  failedQueue = [];
+};
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -7,118 +16,142 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
     const token = localStorage.getItem('auth_token');
-    
-    console.log('🔐 API Request:', {
-      url: config.url,
-      method: config.method,
-      token: token ? 'present' : 'missing'
-    });
-    
-    // Only add token if it exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
   },
-  (error) => {
-    console.error('❌ Request interceptor error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle errors - FIXED FOR BLOB RESPONSES
 api.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Success:', {
-      url: response.config.url,
-      status: response.status,
-      dataType: typeof response.data,
-      isArray: Array.isArray(response.data),
-      responseType: response.config.responseType
-    });
-    
-    // ✅ FIX: Skip transformation for blob responses (file downloads)
-    if (response.config.responseType === 'blob') {
-      console.log('📦 Blob response detected - skipping transformation');
-      return response;
-    }
-    
-    // Only transform JSON responses
-    if (response.data && typeof response.data === 'object') {
-      console.log('🔄 Processing JSON response data');
-      
-      // Handle different backend response formats
-      let normalizedData = response.data;
-      
-      // Format 1: { data: [], pagination: {} }
-      if (response.data.data !== undefined && Array.isArray(response.data.data)) {
-        normalizedData = response.data.data;
-      }
-      // Format 2: { attendances: [], pagination: {} }
-      else if (response.data.attendances !== undefined && Array.isArray(response.data.attendances)) {
-        normalizedData = response.data.attendances;
-      }
-      // Format 3: { patients: [], pagination: {} }
-      else if (response.data.patients !== undefined && Array.isArray(response.data.patients)) {
-        normalizedData = response.data.patients;
-      }
-      // Format 4: { vitals: [] }
-      else if (response.data.vitals !== undefined && Array.isArray(response.data.vitals)) {
-        normalizedData = response.data.vitals;
-      }
-      // Format 5: Direct array or object
-      else if (Array.isArray(response.data) || typeof response.data === 'object') {
-        normalizedData = response.data;
-      }
-      
-      response.data = normalizedData;
-      
-      console.log('📥 Response processed:', {
-        originalType: Array.isArray(response.data) ? 'array' : 'object',
-        length: Array.isArray(response.data) ? response.data.length : 'N/A'
-      });
-    }
-    
-    return response;
-  },
-  (error) => {
-    console.error('❌ API Error:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      message: error.message,
-      data: error.response?.data
-    });
-    
-    // Log validation errors in detail
-    if (error.response?.status === 400) {
-      console.error('🔍 400 Bad Request Details:', {
-        validationErrors: error.response?.data?.errors,
-        message: error.response?.data?.message,
-        fullResponse: error.response?.data
-      });
-    }
-    
-    const isAuthRoute = error.config?.url?.includes('/auth/');
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-    // Handle 401 errors ONLY for non-auth routes
-    if (error.response?.status === 401 && !isAuthRoute) {
-      console.warn('🚨 401 Unauthorized on protected route - Clearing auth data');
-      
-      // Clear all auth data
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      
-      // Only redirect if we're not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/logout') ||
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/refresh-token'); // ✅ correct URL
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      // Get the stored refresh token
+      const authStorage = localStorage.getItem('auth-storage');
+      let refreshToken: string | null = null;
+      try {
+        if (authStorage) {
+          refreshToken = JSON.parse(authStorage)?.state?.refreshToken || null;
+        }
+      } catch {
+        // ignore parse errors
+      }
+
+      // If no refresh token stored, check if the access token itself is still valid
+      // A 401 on a non-auth endpoint with a valid token = backend permission issue, not expiry
+      if (!refreshToken) {
+        isRefreshing = false;
+
+        // Verify the access token is actually dead before logging out
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          // Genuinely no token at all
+          localStorage.removeItem('auth-storage');
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
+          return Promise.reject(error);
+        }
+
+        // Token exists but got 401 — likely a backend permissions issue on this endpoint
+        // Do NOT logout. Just reject so the component can handle the error gracefully.
+        console.warn(
+          `⚠️ 401 on ${originalRequest.url} — no refresh token available. ` +
+          `Likely a backend role/permission issue. Not logging out.`
+        );
+        return Promise.reject(error);
+      }
+
+      try {
+        // ✅ Correct refresh-token endpoint
+        const { data } = await api.post('/auth/refresh-token', { refreshToken });
+        const newToken =
+          data.data?.accessToken ||
+          data.accessToken ||
+          data.data?.token ||
+          data.token;
+
+        if (!newToken) throw new Error('No token in refresh response');
+
+        const newRefreshToken =
+          data.data?.refreshToken ||
+          data.refreshToken;
+
+        // Update auth_token
+        localStorage.setItem('auth_token', newToken);
+
+        // Update Zustand persisted store
+        try {
+          const stored = localStorage.getItem('auth-storage');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.state) {
+              parsed.state.token = newToken;
+              if (newRefreshToken) {
+                parsed.state.refreshToken = newRefreshToken;
+              }
+              localStorage.setItem('auth-storage', JSON.stringify(parsed));
+            }
+          }
+        } catch {
+          // Non-critical
+        }
+
+        api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+        processQueue(null, newToken);
+        return api(originalRequest);
+      } catch (refreshError: any) {
+        processQueue(refreshError, null);
+
+        // Only clear and redirect if refresh actually returned 401
+        // (not a network error or 404 — don't punish users for backend issues)
+        if (refreshError?.response?.status === 401) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth-storage');
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
+        } else {
+          console.warn(
+            `⚠️ Refresh failed with status ${refreshError?.response?.status} — ` +
+            `not logging out to avoid false session termination`
+          );
+        }
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

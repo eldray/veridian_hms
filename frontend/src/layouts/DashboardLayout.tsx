@@ -124,6 +124,7 @@ const navigationItems = [
   { name: 'Patients', path: '/dashboard/patients', icon: Users, roles: ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts', 'records', 'sonographer'] },
   { name: 'Attendance', path: '/dashboard/attendance', icon: Calendar, roles: ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer'] },
   { name: 'Appointments', path: '/dashboard/appointments', icon: CalendarIcon, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
+  { name: 'Notifications', path: '/dashboard/notifications', icon: BellIcon, roles: ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts', 'records', 'sonographer'] },
   { name: 'Medical Entries', path: '/dashboard/medical-entries', icon: Clipboard, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
   { name: 'Vitals', path: '/dashboard/vitals', icon: HeartPulse, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
   { name: 'Theatre', path: '/dashboard/theatre', icon: Scissors, roles: ['admin', 'doctor', 'nurse', 'midwife', 'sonographer'] },
@@ -163,8 +164,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { 
     notifications, 
     unreadCount, 
-    getNotifications, 
-    getUnreadCount,
+    getNotifications,  
+    getUnreadCount, 
     deleteNotification,
     markAsRead, 
     markAllAsRead,
@@ -190,7 +191,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     const loadNotifications = async () => {
       try {
-        await getNotifications({ limit: 10 });
+        // ✅ Fix: Pass page and limit as separate arguments, not an object
+        await getNotifications(1, 10);
         // Also fetch the latest unread count
         await getUnreadCount();
       } catch (error) {
@@ -201,7 +203,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     
     // Set up interval to refresh notifications and unread count every 30 seconds
     const interval = setInterval(() => {
-      getNotifications({ limit: 10 }).catch(console.error);
+      getNotifications(1, 10).catch(console.error);  // ✅ Fixed
       getUnreadCount().catch(console.error);
     }, 30000);
     
@@ -231,7 +233,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       for (const notification of readNotifications) {
         await deleteNotification(notification.id);
       }
-      await getNotifications({ limit: 10 });
+      await getNotifications(1, 10);
       setShowClearReadConfirm(false);
     } finally {
       setIsDeleting(false);
@@ -244,7 +246,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       for (const notification of notifications) {
         await deleteNotification(notification.id);
       }
-      await getNotifications({ limit: 10 });
+      await getNotifications(1, 10);
       setShowDeleteAllConfirm(false);
     } finally {
       setIsDeleting(false);
@@ -380,7 +382,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                           <button 
                             onClick={async () => {
                               await markAllAsRead();
-                              await getNotifications({ limit: 10 });
+                              await getNotifications(1, 10)
                               await getUnreadCount();
                             }}
                             className="text-xs text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80 font-medium"
@@ -478,7 +480,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     await markAsRead(notification.id);
-                                    await getNotifications({ limit: 10 });
+                                    await getNotifications(1, 10); 
                                   }}
                                   className="p-1 text-[var(--text-tertiary)] hover:text-green-600 transition-colors rounded"
                                   title="Mark as read"
@@ -491,7 +493,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                   e.stopPropagation();
                                   if (window.confirm('Delete this notification?')) {
                                     await deleteNotification(notification.id);
-                                    await getNotifications({ limit: 10 });
+                                    await getNotifications(1, 10); 
                                   }
                                 }}
                                 className="p-1 text-[var(--text-tertiary)] hover:text-red-600 transition-colors rounded"

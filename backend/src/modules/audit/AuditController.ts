@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { AuditService } from './AuditService';
-import { AuthRequest } from '../../types/auth.types';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class AuditController extends BaseController {
   private auditService: AuditService;
@@ -32,23 +32,34 @@ export class AuditController extends BaseController {
         endDate
       } = req.query;
 
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
       const filters = {
         entityType: entityType as string,
         action: action as string,
         userId: userId as string,
         startDate: startDate as string,
-        endDate: endDate as string
+        endDate: endDate as string,
+        page: pageNum,
+        limit: limitNum
       };
 
-      const logs = await this.auditService.getLogs({
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        ...filters
-      });
+      const logs = await this.auditService.getLogs(filters);
 
-      this.handleSuccess(res, logs, 'Audit logs retrieved successfully');
+      res.json({
+        success: true,
+        data: logs.data,
+        pagination: logs.pagination,
+        message: 'Audit logs retrieved successfully'
+      });
     } catch (error) {
-      this.handleError(res, error);
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching audit logs',
+        error: (error as Error).message
+      });
     }
   }
 
@@ -61,14 +72,27 @@ export class AuditController extends BaseController {
       const { entityType, entityId } = req.params;
       const { page = '1', limit = '50' } = req.query;
 
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
       const logs = await this.auditService.getEntityLogs(entityType, entityId, {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
+        page: pageNum,
+        limit: limitNum
       });
 
-      this.handleSuccess(res, logs, `Audit logs for ${entityType} retrieved successfully`);
+      res.json({
+        success: true,
+        data: logs.data,
+        pagination: logs.pagination,
+        message: `Audit logs for ${entityType} retrieved successfully`
+      });
     } catch (error) {
-      this.handleError(res, error);
+      console.error('Error fetching entity audit logs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching entity audit logs',
+        error: (error as Error).message
+      });
     }
   }
 
@@ -81,16 +105,29 @@ export class AuditController extends BaseController {
       const { userId } = req.params;
       const { page = '1', limit = '50', startDate, endDate } = req.query;
 
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
       const logs = await this.auditService.getUserLogs(userId, {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        page: pageNum,
+        limit: limitNum,
         startDate: startDate as string,
         endDate: endDate as string
       });
 
-      this.handleSuccess(res, logs, `Audit logs for user retrieved successfully`);
+      res.json({
+        success: true,
+        data: logs.data,
+        pagination: logs.pagination,
+        message: `Audit logs for user retrieved successfully`
+      });
     } catch (error) {
-      this.handleError(res, error);
+      console.error('Error fetching user audit logs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching user audit logs',
+        error: (error as Error).message
+      });
     }
   }
 
@@ -104,9 +141,17 @@ export class AuditController extends BaseController {
 
       const log = await this.auditService.getLogById(id);
 
-      this.handleSuccess(res, log, 'Audit log retrieved successfully');
+      res.json({
+        success: true,
+        data: log,
+        message: 'Audit log retrieved successfully'
+      });
     } catch (error) {
-      this.handleError(res, error);
+      console.error('Error fetching audit log:', error);
+      res.status(404).json({
+        success: false,
+        message: (error as Error).message
+      });
     }
   }
 
@@ -131,10 +176,19 @@ export class AuditController extends BaseController {
         res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
         res.send(exportData);
       } else {
-        this.handleSuccess(res, exportData, 'Audit logs exported successfully');
+        res.json({
+          success: true,
+          data: exportData,
+          message: 'Audit logs exported successfully'
+        });
       }
     } catch (error) {
-      this.handleError(res, error);
+      console.error('Error exporting audit logs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error exporting audit logs',
+        error: (error as Error).message
+      });
     }
   }
 }

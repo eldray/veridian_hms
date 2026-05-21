@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { waiverService } from './waiver.service';
+import { WaiverStatus, WaiverType } from '@prisma/client';
 
 export class WaiverController {
   // Create a new waiver request
@@ -22,19 +23,21 @@ export class WaiverController {
   // Get all waivers with filters
   async getAll(req: Request, res: Response) {
     try {
-      const { billId, patientId, status, startDate, endDate, page, limit } = req.query;
+      const { billId, patientId, status, waiverType, startDate, endDate, page, limit } = req.query;
       const result = await waiverService.getAll({
         billId: billId as string,
         patientId: patientId as string,
-        status: status as string,
-        startDate: startDate as string,
-        endDate: endDate as string,
+        status: status as WaiverStatus,
+        waiverType: waiverType as WaiverType,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined
       });
       res.json({
         success: true,
-        data: result
+        data: result.waivers,
+        pagination: result.pagination
       });
     } catch (error: any) {
       res.status(500).json({
@@ -65,16 +68,16 @@ export class WaiverController {
   async approve(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { approvedBy, notes } = req.body;
+      const { approvedById, amountApproved, rejectionReason } = req.body;
       
-      if (!approvedBy) {
+      if (!approvedById) {
         return res.status(400).json({
           success: false,
-          message: 'approvedBy is required'
+          message: 'approvedById is required'
         });
       }
 
-      const result = await waiverService.approve(id, approvedBy, notes);
+      const result = await waiverService.approve(id, approvedById, amountApproved, rejectionReason);
       res.json({
         success: true,
         message: 'Waiver approved successfully',
@@ -92,16 +95,23 @@ export class WaiverController {
   async reject(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { rejectedBy, notes } = req.body;
+      const { approvedById, rejectionReason } = req.body;
       
-      if (!rejectedBy) {
+      if (!approvedById) {
         return res.status(400).json({
           success: false,
-          message: 'rejectedBy is required'
+          message: 'approvedById is required'
         });
       }
 
-      const result = await waiverService.reject(id, rejectedBy, notes);
+      if (!rejectionReason) {
+        return res.status(400).json({
+          success: false,
+          message: 'rejectionReason is required'
+        });
+      }
+
+      const result = await waiverService.reject(id, approvedById, rejectionReason);
       res.json({
         success: true,
         message: 'Waiver rejected successfully',
@@ -120,8 +130,8 @@ export class WaiverController {
     try {
       const { startDate, endDate } = req.query;
       const result = await waiverService.getStatistics({
-        startDate: startDate as string,
-        endDate: endDate as string
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
       });
       res.json({
         success: true,

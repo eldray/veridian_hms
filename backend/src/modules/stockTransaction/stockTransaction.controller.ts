@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { stockTransactionService } from './stockTransaction.service';
+import { StockTransactionType } from '@prisma/client';
 
 export class StockTransactionController {
   // Create a new stock transaction
@@ -22,19 +23,19 @@ export class StockTransactionController {
   // Get all stock transactions with filters
   async getAll(req: Request, res: Response) {
     try {
-      const { stockItemId, transactionType, departmentId, startDate, endDate, page, limit } = req.query;
+      const { stockItemId, transactionType, startDate, endDate, page, limit } = req.query;
       const result = await stockTransactionService.getAll({
         stockItemId: stockItemId as string,
-        transactionType: transactionType as string,
-        departmentId: departmentId as string,
-        startDate: startDate as string,
-        endDate: endDate as string,
+        transactionType: transactionType as StockTransactionType,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined
       });
       res.json({
         success: true,
-        data: result
+        data: result.transactions,
+        pagination: result.pagination
       });
     } catch (error: any) {
       res.status(500).json({
@@ -83,10 +84,10 @@ export class StockTransactionController {
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      await stockTransactionService.delete(id);
+      const result = await stockTransactionService.delete(id);
       res.json({
         success: true,
-        message: 'Stock transaction deleted successfully'
+        message: result.message
       });
     } catch (error: any) {
       res.status(400).json({
@@ -99,12 +100,11 @@ export class StockTransactionController {
   // Get movement summary report
   async getMovementSummary(req: Request, res: Response) {
     try {
-      const { startDate, endDate, category, departmentId } = req.query;
+      const { startDate, endDate, category } = req.query;
       const result = await stockTransactionService.getMovementSummary({
-        startDate: startDate as string,
-        endDate: endDate as string,
-        category: category as string,
-        departmentId: departmentId as string
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        category: category as string
       });
       res.json({
         success: true,
@@ -121,10 +121,9 @@ export class StockTransactionController {
   // Get low stock alerts
   async getLowStockAlerts(req: Request, res: Response) {
     try {
-      const { category, departmentId } = req.query;
+      const { category } = req.query;
       const result = await stockTransactionService.getLowStockAlerts({
-        category: category as string,
-        departmentId: departmentId as string
+        category: category as string
       });
       res.json({
         success: true,
@@ -141,12 +140,12 @@ export class StockTransactionController {
   // Get requisition transactions
   async getRequisitionTransactions(req: Request, res: Response) {
     try {
-      const { departmentId, status, startDate, endDate } = req.query;
+      const { requisitionId, status, startDate, endDate } = req.query;
       const result = await stockTransactionService.getRequisitionTransactions({
-        departmentId: departmentId as string,
+        requisitionId: requisitionId as string,
         status: status as string,
-        startDate: startDate as string,
-        endDate: endDate as string
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
       });
       res.json({
         success: true,
@@ -156,6 +155,25 @@ export class StockTransactionController {
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to fetch requisition transactions'
+      });
+    }
+  }
+
+  // Get stock valuation
+  async getStockValuation(req: Request, res: Response) {
+    try {
+      const { category } = req.query;
+      const result = await stockTransactionService.getStockValuation({
+        category: category as string
+      });
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch stock valuation'
       });
     }
   }

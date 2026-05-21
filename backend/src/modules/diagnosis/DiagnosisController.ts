@@ -4,24 +4,28 @@ import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { DiagnosisService } from './DiagnosisService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { PrismaClient } from '@prisma/client';
 
 export class DiagnosisController {
   private service: DiagnosisService;
 
-  constructor() {
-    this.service = new DiagnosisService();
+  constructor(prisma: PrismaClient) {  // ✅ Accept prisma
+    this.service = new DiagnosisService(prisma);  // ✅ Pass to service
   }
 
   // ============================================
-  // GET ALL DIAGNOSES
+  // GET ALL DIAGNOSES WITH PAGINATION
   // ============================================
-  getAll = async (req: Request, res: Response) => {
+  getAll = async (req: AuthRequest, res: Response) => {
     try {
-      const { page = 1, limit = 1000, morbidityGroup, isActive, search, searchField } = req.query;
+      const { page = 1, limit = 50, morbidityGroup, isActive, search, searchField } = req.query;
+
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
 
       const filters = {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        page: pageNum,
+        limit: limitNum,
         morbidityGroup: morbidityGroup as any,
         isActive: isActive === 'true' || isActive === 'false' ? isActive === 'true' : undefined,
         search: search as string,
@@ -232,6 +236,13 @@ export class DiagnosisController {
     try {
       const { q, field = 'all' } = req.query;
 
+      if (!q || (q as string).trim().length < 2) {
+        return res.status(400).json({
+          success: false,
+          message: 'Search query must be at least 2 characters'
+        });
+      }
+
       const diagnoses = await this.service.searchDiagnoses(
         q as string,
         field as any
@@ -243,12 +254,6 @@ export class DiagnosisController {
       });
     } catch (error) {
       console.error('Error searching diagnoses:', error);
-      if ((error as Error).message.includes('at least 2 characters')) {
-        return res.status(400).json({
-          success: false,
-          message: (error as Error).message
-        });
-      }
       res.status(500).json({
         success: false,
         message: 'Error searching diagnoses',
@@ -307,10 +312,13 @@ export class DiagnosisController {
       const { morbidityGroup } = req.params;
       const { page = 1, limit = 50 } = req.query;
 
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
       const result = await this.service.getDiagnosesByMorbidityGroup(
         morbidityGroup,
-        parseInt(page as string),
-        parseInt(limit as string)
+        pageNum,
+        limitNum
       );
 
       res.json({

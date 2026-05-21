@@ -1,56 +1,28 @@
 // modules/admission/AdmissionRoutes.ts
 import { Router } from 'express';
-import {
-  getAdmissions,
-  createAdmission,
-  getAdmissionById,
-  addSecondaryDiagnosis,
-  removeDiagnosis,
-  updatePrimaryDiagnosis,
-  dischargePatient,
-  addDailyNotes,
-  getAdmissionStats,
-  getAdmissionsByPatientId,
-  deleteAdmission,
-  updateAdmission,
-} from './AdmissionController';
+import { PrismaClient } from '@prisma/client';
+import { createAdmissionController } from './AdmissionController';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
-const router = Router();
+export function createAdmissionRoutes(prisma: PrismaClient): Router {
+  const router = Router();
+  const controller = createAdmissionController(prisma);
 
-// GET all admissions with filtering and pagination
-router.get('/', getAdmissions);
+  router.use(protect);
+  router.use(requireRole(['admin', 'doctor', 'nurse']));
 
-// GET admission statistics
-router.get('/stats', getAdmissionStats);
+  router.get('/', controller.getAdmissions);
+  router.get('/stats', controller.getAdmissionStats);
+  router.get('/patient/:patientId', controller.getAdmissionsByPatientId);
+  router.get('/:id', controller.getAdmissionById);
+  router.post('/', controller.createAdmission);
+  router.put('/:id', controller.updateAdmission);
+  router.delete('/:id', controller.deleteAdmission);
+  router.post('/:id/discharge', controller.dischargePatient);
+  router.post('/:id/diagnoses/secondary', controller.addSecondaryDiagnosis);
+  router.delete('/:id/diagnoses/:diagnosisRecordId', controller.removeDiagnosis);
+  router.put('/:id/diagnoses/primary', controller.updatePrimaryDiagnosis);
+  router.post('/:id/notes', controller.addDailyNotes);
 
-// GET admissions by patient ID
-router.get('/patient/:patientId', getAdmissionsByPatientId);
-
-// GET admission by ID
-router.get('/:id', getAdmissionById);
-
-// CREATE new admission
-router.post('/', createAdmission);
-
-// UPDATE admission
-router.put('/:id', updateAdmission);
-
-// DELETE admission
-router.delete('/:id', deleteAdmission);
-
-// ADD secondary diagnosis to admission
-router.post('/:id/diagnoses', addSecondaryDiagnosis);
-
-// REMOVE diagnosis from admission
-router.delete('/:id/diagnoses/:diagnosisRecordId', removeDiagnosis);
-
-// UPDATE primary diagnosis
-router.put('/:id/primary-diagnosis', updatePrimaryDiagnosis);
-
-// DISCHARGE patient
-router.post('/:id/discharge', dischargePatient);
-
-// ADD daily notes
-router.post('/:id/notes', addDailyNotes);
-
-export default router;
+  return router;
+}

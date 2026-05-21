@@ -1,6 +1,6 @@
 // ScanTemplateRepository.ts - Data access layer for scan template module
 
-import { PrismaClient, ServiceCategory } from '@prisma/client';
+import { PrismaClient, ServiceCategory, ServiceType } from '@prisma/client'; 
 import {
   ScanTemplateQueryParams,
   CreateScanTemplateDTO,
@@ -19,7 +19,7 @@ export class ScanTemplateRepository {
     const { isActive, category, bodyPart, scanType, page = 1, limit = 10000 } = params;
     
     const where: any = {
-      serviceType: 'scan'
+      serviceType: ServiceType.scan 
     };
 
     if (isActive !== undefined) {

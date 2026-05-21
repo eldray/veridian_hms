@@ -1,13 +1,10 @@
-/**
- * Appointment Module Types
- * Type definitions for appointment management
- */
+// modules/appointment/AppointmentTypes.ts
 
-import { AppointmentType, AppointmentStatus } from '@prisma/client';
+import { AppointmentType, AppointmentStatus, UserRole } from '@prisma/client';
 
 export interface CreateAppointmentDTO {
   patientId: string;
-  doctorId: string;
+  clinicianId: string;
   departmentId: string;
   title: string;
   description?: string;
@@ -25,10 +22,13 @@ export interface UpdateAppointmentDTO {
   duration?: number;
   title?: string;
   description?: string;
+  checkedIn?: boolean;
+  checkedInAt?: Date;
+  clinicianId?: string;
 }
 
 export interface AppointmentFilters {
-  doctorId?: string;
+  clinicianId?: string;
   patientId?: string;
   departmentId?: string;
   status?: AppointmentStatus;
@@ -41,6 +41,7 @@ export interface AppointmentFilters {
 
 export interface AppointmentSummary {
   id: string;
+  appointmentNumber: string;
   title: string;
   appointmentDate: Date;
   appointmentTime: string;
@@ -52,9 +53,10 @@ export interface AppointmentSummary {
     otherNames: string;
     folderNumber: string;
   };
-  doctor: {
+  clinician: {
     id: string;
     fullName: string;
+    role: UserRole;
   };
   department: {
     id: string;

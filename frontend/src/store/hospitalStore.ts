@@ -71,55 +71,80 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
   pagination: null,
 
   // ✅ FIXED: Single Hospital (Current) - with proper API call
-  fetchHospital: async () => {
-    set({ isLoading: true, error: null });
+// src/store/hospitalStore.ts - FIXED fetchHospital
+
+fetchHospital: async () => {
+  set({ isLoading: true, error: null });
+  try {
+    console.log('🏥 Fetching hospital details...');
+    
+    let hospitalData = null;
+    
     try {
-      console.log('🏥 Fetching hospital details...');
+      // Try getHospitalDetails() first
+      const response = await getHospitalDetails();
+      console.log('📦 getHospitalDetails response:', response);
       
-      // Try multiple endpoints to get hospital data
-      let hospitalData;
+      // Extract data from various response structures
+      hospitalData = response?.data?.hospital || 
+                     response?.hospital || 
+                     response?.data ||
+                     response;
+      
+      if (hospitalData && hospitalData.id) {
+        console.log('✅ Hospital loaded from getHospitalDetails');
+      } else {
+        throw new Error('No valid hospital data');
+      }
+    } catch (firstError) {
+      console.log('First attempt failed, trying getHospitals...', firstError);
       
       try {
-        // First try the main hospital endpoint (if we have a default ID)
-        hospitalData = await getHospitalDetails(); // This should get current hospital
-      } catch (firstError) {
-        console.log('First hospital endpoint failed, trying alternatives...', firstError);
+        const hospitalsResponse = await getHospitals();
+        const hospitals = hospitalsResponse?.data?.hospitals || 
+                         hospitalsResponse?.hospitals || 
+                         hospitalsResponse?.data ||
+                         hospitalsResponse;
         
-        try {
-          // Try getting all hospitals and use the first one
-          const hospitals = await getHospitals();
-          if (hospitals && hospitals.length > 0) {
-            hospitalData = hospitals[0];
-          } else {
-            throw new Error('No hospitals found');
-          }
-        } catch (secondError) {
-          console.log('All hospital endpoints failed, using default data', secondError);
-          hospitalData = DEFAULT_HOSPITAL;
+        if (hospitals && Array.isArray(hospitals) && hospitals.length > 0) {
+          hospitalData = hospitals[0];
+          console.log('✅ Hospital loaded from getHospitals');
+        } else {
+          throw new Error('No hospitals found');
         }
+      } catch (secondError) {
+        console.log('All attempts failed, using default');
+        hospitalData = DEFAULT_HOSPITAL;
       }
-      
-      console.log('✅ Hospital loaded:', {
-        name: hospitalData.name,
-        id: hospitalData.id,
-        type: hospitalData.type
-      });
-      
-      set({ 
-        hospital: hospitalData, 
-        isLoading: false 
-      });
-    } catch (error: unknown) {
-      console.error('❌ All hospital fetch attempts failed, using default:', error);
-      
-      // Use default hospital as fallback
-      set({ 
-        hospital: DEFAULT_HOSPITAL, 
-        error: error.response?.data?.message || 'Failed to fetch hospital',
-        isLoading: false 
-      });
     }
-  },
+    
+    // Ensure hospitalData has required fields
+    const finalHospital = {
+      ...DEFAULT_HOSPITAL,
+      ...hospitalData,
+      id: hospitalData?.id || DEFAULT_HOSPITAL.id,
+      name: hospitalData?.name || DEFAULT_HOSPITAL.name
+    };
+    
+    console.log('✅ Hospital loaded:', {
+      name: finalHospital.name,
+      id: finalHospital.id,
+      type: finalHospital.nhisFacilityType
+    });
+    
+    set({ 
+      hospital: finalHospital, 
+      isLoading: false 
+    });
+  } catch (error: unknown) {
+    console.error('❌ Hospital fetch failed:', error);
+    set({ 
+      hospital: DEFAULT_HOSPITAL, 
+      error: error?.response?.data?.message || 'Failed to fetch hospital',
+      isLoading: false 
+    });
+  }
+},
 
   // Get specific hospital by ID
   getHospital: async (id: string) => {

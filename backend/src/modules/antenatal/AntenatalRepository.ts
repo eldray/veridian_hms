@@ -1,16 +1,15 @@
 // modules/antenatal/AntenatalRepository.ts
 import { PrismaClient } from '@prisma/client';
 import { 
-  AntenatalBooking, 
-  ANCVisit, 
-  DeliveryRecord, 
-  PostnatalRecord,
   CreateAntenatalBookingInput,
   UpdateAntenatalBookingInput,
   CreateANCVisitInput,
   UpdateANCVisitInput,
   CreateDeliveryRecordInput,
-  CreatePostnatalRecordInput
+  CreatePostnatalRecordInput,
+  AntenatalBookingFilters,
+  DeliveryRecordFilters,
+  PostnatalRecordFilters
 } from './AntenatalTypes';
 
 export class AntenatalRepository {
@@ -23,15 +22,30 @@ export class AntenatalRepository {
   // ===================== ANTENATAL BOOKING =====================
   
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
-    const bookingNumber = `ANC${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    const lmp = new Date(data.lmp);
+    const edd = this.calculateEDD(lmp);
     
     return this.prisma.antenatalBooking.create({
       data: {
-        ...data,
-        bookingNumber,
-        edd: this.calculateEDD(data.lmp),
+        patientId: data.patientId,
+        attendanceId: data.attendanceId,
+        gravida: data.gravida,
+        para: data.para,
+        lmp: lmp,
+        edd: edd,
+        bookingDate: new Date(),
+        gestationalAgeWeeks: data.gestationalAgeWeeks,
+        riskLevel: data.riskLevel || 'low',
+        riskFactors: data.riskFactors || [],
+        bloodGroup: data.bloodGroup,
+        hivStatus: data.hivStatus,
+        hbLevel: data.hbLevel,
+        vdrl: data.vdrl,
         isActive: true,
-        isCompleted: false
+        isCompleted: false,
+        createdBy: data.createdById,
+        iptpDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
+        ttDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null }
       },
       include: { patient: true }
     });
@@ -80,12 +94,7 @@ export class AntenatalRepository {
     return booking;
   }
 
-  async getAllBookings(filters: {
-    isActive?: boolean;
-    patientId?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ bookings: any[]; total: number }> {
+  async getAllBookings(filters: AntenatalBookingFilters): Promise<{ bookings: any[]; total: number }> {
     const { isActive, patientId, page = 1, limit = 50 } = filters;
     const where: any = {};
     
@@ -98,7 +107,15 @@ export class AntenatalRepository {
       this.prisma.antenatalBooking.findMany({
         where,
         include: { 
-          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+          patient: { 
+            select: { 
+              id: true, 
+              surname: true, 
+              otherNames: true, 
+              folderNumber: true, 
+              contact: true 
+            } 
+          },
           _count: { select: { visits: true } }
         },
         orderBy: { bookingDate: 'desc' },
@@ -146,7 +163,37 @@ export class AntenatalRepository {
 
   async createVisit(data: CreateANCVisitInput): Promise<any> {
     return this.prisma.aNCVisit.create({
-      data,
+      data: {
+        bookingId: data.bookingId,
+        attendanceId: data.attendanceId,
+        visitNumber: data.visitNumber,
+        visitDate: data.visitDate,
+        gestationalAgeWeeks: data.gestationalAgeWeeks,
+        weight: data.weight,
+        bloodPressure: data.bloodPressure,
+        fundalHeight: data.fundalHeight,
+        fetalHeartRate: data.fetalHeartRate,
+        fetalMovements: data.fetalMovements,
+        presentation: data.presentation,
+        iptpGiven: data.iptpGiven || false,
+        iptpDoseNumber: data.iptpDoseNumber,
+        iptpDrug: data.iptpDrug,
+        ttGiven: data.ttGiven || false,
+        ttDoseNumber: data.ttDoseNumber,
+        ironGiven: data.ironGiven || false,
+        folateGiven: data.folateGiven || false,
+        calciumGiven: data.calciumGiven || false,
+        malariaTestDone: data.malariaTestDone || false,
+        malariaTestResult: data.malariaTestResult,
+        malariaTreatmentGiven: data.malariaTreatmentGiven || false,
+        dangerSignsPresent: data.dangerSignsPresent || false,
+        dangerSignsList: data.dangerSignsList || [],
+        referralMade: data.referralMade || false,
+        referredTo: data.referredTo,
+        nextVisitDate: data.nextVisitDate,
+        returnInstructions: data.returnInstructions,
+        recordedById: data.recordedById
+      },
       include: { recordedBy: { select: { fullName: true, role: true } } }
     });
   }
@@ -188,7 +235,25 @@ export class AntenatalRepository {
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
     return this.prisma.deliveryRecord.create({
-      data,
+      data: {
+        patientId: data.patientId,
+        attendanceId: data.attendanceId,
+        antenatalBookingId: data.antenatalBookingId,
+        deliveryDate: data.deliveryDate,
+        deliveryType: data.deliveryType,
+        deliveryOutcome: data.deliveryOutcome,
+        placeOfDelivery: data.placeOfDelivery || 'hospital',
+        attendant: data.attendant,
+        birthWeight: data.birthWeight,
+        gestationWeeks: data.gestationWeeks,
+        apgarScore1min: data.apgarScore1min,
+        apgarScore5min: data.apgarScore5min,
+        resusCitationDone: data.resusCitationDone || false,
+        maternalOutcome: data.maternalOutcome || 'alive',
+        complications: data.complications || [],
+        notes: data.notes,
+        createdById: data.createdById
+      },
       include: {
         patient: true,
         attendance: true,
@@ -197,13 +262,7 @@ export class AntenatalRepository {
     });
   }
 
-  async getDeliveryRecords(filters: {
-    patientId?: string;
-    startDate?: Date;
-    endDate?: Date;
-    page?: number;
-    limit?: number;
-  }): Promise<{ records: any[]; total: number }> {
+  async getDeliveryRecords(filters: DeliveryRecordFilters): Promise<{ records: any[]; total: number }> {
     const { patientId, startDate, endDate, page = 1, limit = 50 } = filters;
     const where: any = {};
 
@@ -263,7 +322,23 @@ export class AntenatalRepository {
 
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
     return this.prisma.postnatalRecord.create({
-      data,
+      data: {
+        patientId: data.patientId,
+        attendanceId: data.attendanceId,
+        antenatalBookingId: data.antenatalBookingId,
+        deliveryRecordId: data.deliveryRecordId,
+        examinationDate: data.examinationDate,
+        dayNumber: data.dayNumber || 1,
+        maternalCondition: data.maternalCondition,
+        breastfeedingStatus: data.breastfeedingStatus,
+        babyCondition: data.babyCondition,
+        familyPlanningDiscussed: data.familyPlanningDiscussed || false,
+        familyPlanningMethodAccepted: data.familyPlanningMethodAccepted,
+        notes: data.notes,
+        createdById: data.createdById,
+        maternalComplications: [],
+        babyDangerSigns: []
+      },
       include: {
         patient: true,
         deliveryRecord: true
@@ -271,11 +346,7 @@ export class AntenatalRepository {
     });
   }
 
-  async getPostnatalRecords(filters: {
-    patientId?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ records: any[]; total: number }> {
+  async getPostnatalRecords(filters: PostnatalRecordFilters): Promise<{ records: any[]; total: number }> {
     const { patientId, page = 1, limit = 50 } = filters;
     const where: any = {};
 
@@ -290,7 +361,7 @@ export class AntenatalRepository {
           patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
           deliveryRecord: true
         },
-        orderBy: { registrationDate: 'desc' },
+        orderBy: { examinationDate: 'desc' },
         skip,
         take: limit
       }),
@@ -366,47 +437,36 @@ export class AntenatalRepository {
       if (endDate) where.deliveryDate.lte = endDate;
     }
 
-    const [totalDeliveries, liveBirths, stillbirths, cesareanSections, vaginalDeliveries] = await Promise.all([
+    const [totalDeliveries, liveBirths, stillbirths, cesareanSections] = await Promise.all([
       this.prisma.deliveryRecord.count({ where }),
       this.prisma.deliveryRecord.count({ where: { ...where, deliveryOutcome: 'live_birth' } }),
-      this.prisma.deliveryRecord.count({ where: { ...where, deliveryOutcome: 'stillbirth' } }),
-      this.prisma.deliveryRecord.count({ where: { ...where, deliveryType: 'cesarean_section' } }),
-      this.prisma.deliveryRecord.count({ where: { deliveryType: { in: ['spontaneous_vaginal', 'assisted_vaginal'] } } })
+      this.prisma.deliveryRecord.count({ where: { ...where, deliveryOutcome: { in: ['stillbirth_fresh', 'stillbirth_macerated'] } } }),
+      this.prisma.deliveryRecord.count({ where: { ...where, deliveryType: 'caesarean_section' } })
     ]);
-
-    const complications = await this.prisma.deliveryRecord.count({
-      where: { ...where, complications: { not: null } }
-    });
 
     return {
       totalDeliveries,
       liveBirths,
       stillbirths,
-      cesareanSections,
-      vaginalDeliveries,
-      complications
+      cesareanSections
     };
   }
 
   async getPostnatalStatistics(startDate?: Date, endDate?: Date): Promise<any> {
     const where: any = {};
     if (startDate || endDate) {
-      where.registrationDate = {};
-      if (startDate) where.registrationDate.gte = startDate;
-      if (endDate) where.registrationDate.lte = endDate;
+      where.examinationDate = {};
+      if (startDate) where.examinationDate.gte = startDate;
+      if (endDate) where.examinationDate.lte = endDate;
     }
 
-    const [totalRecords, stableMothers, stableNewborns, exclusiveBreastfeeding] = await Promise.all([
+    const [totalRecords, exclusiveBreastfeeding] = await Promise.all([
       this.prisma.postnatalRecord.count({ where }),
-      this.prisma.postnatalRecord.count({ where: { ...where, maternalCondition: 'stable' } }),
-      this.prisma.postnatalRecord.count({ where: { ...where, newbornCondition: 'stable' } }),
       this.prisma.postnatalRecord.count({ where: { ...where, breastfeedingStatus: 'exclusive' } })
     ]);
 
     return {
       totalRecords,
-      stableMothers,
-      stableNewborns,
       exclusiveBreastfeeding
     };
   }
@@ -414,7 +474,6 @@ export class AntenatalRepository {
   // ===================== HELPER METHODS =====================
 
   private calculateEDD(lmp: Date): Date {
-    // Naegele's rule: LMP + 280 days (40 weeks)
     const edd = new Date(lmp);
     edd.setDate(edd.getDate() + 280);
     return edd;

@@ -62,10 +62,15 @@ interface NHISCCCResponse {
  */
 const getNHISApiConfig = async (): Promise<NHISApiConfig | null> => {
   const hospital = await prisma.hospital.findFirst({
-    where: { nhisApiActive: true }
+    where: { nhisApiActive: true },
   });
 
-  if (!hospital || !hospital.nhisApiBaseUrl || !hospital.nhisApiClientId || !hospital.nhisApiClientSecret) {
+  if (
+    !hospital ||
+    !hospital.nhisApiBaseUrl ||
+    !hospital.nhisApiClientId ||
+    !hospital.nhisApiClientSecret
+  ) {
     return null;
   }
 
@@ -73,40 +78,41 @@ const getNHISApiConfig = async (): Promise<NHISApiConfig | null> => {
     baseUrl: hospital.nhisApiBaseUrl,
     clientId: hospital.nhisApiClientId,
     clientSecret: hospital.nhisApiClientSecret,
-    tokenEndpoint: hospital.nhisApiTokenEndpoint || `${hospital.nhisApiBaseUrl}/oauth/token`,
-    eligibilityEndpoint: hospital.nhisApiEligibilityEndpoint || `${hospital.nhisApiBaseUrl}/api/v1/eligibility`,
-    cccEndpoint: hospital.nhisApiCccEndpoint || `${hospital.nhisApiBaseUrl}/api/v1/ccc/generate`
+    tokenEndpoint:
+      hospital.nhisApiTokenEndpoint ||
+      `${hospital.nhisApiBaseUrl}/oauth/token`,
+    eligibilityEndpoint:
+      hospital.nhisApiEligibilityEndpoint ||
+      `${hospital.nhisApiBaseUrl}/api/v1/eligibility`,
+    cccEndpoint:
+      hospital.nhisApiCccEndpoint ||
+      `${hospital.nhisApiBaseUrl}/api/v1/ccc/generate`,
   };
 };
 
 /**
- * Get or refresh NHIS API access token
- * Implements token caching to avoid unnecessary API calls
+ * Get or refresh NHIS API access token with caching
  */
 export const getNHISAccessToken = async (): Promise<string | null> => {
   const hospital = await prisma.hospital.findFirst({
-    where: { nhisApiActive: true }
+    where: { nhisApiActive: true },
   });
 
-  if (!hospital) {
-    return null;
-  }
+  if (!hospital) return null;
 
-  // Check if we have a valid cached token
+  // Return cached token if still valid (with 5-minute buffer)
   const now = new Date();
   if (hospital.nhisApiAccessToken && hospital.nhisApiTokenExpiresAt) {
-    // Token is still valid (with 5 minute buffer)
-    const expiryWithBuffer = new Date(hospital.nhisApiTokenExpiresAt.getTime() - 5 * 60 * 1000);
+    const expiryWithBuffer = new Date(
+      hospital.nhisApiTokenExpiresAt.getTime() - 5 * 60 * 1000
+    );
     if (now < expiryWithBuffer) {
       return hospital.nhisApiAccessToken;
     }
   }
 
-  // Need to refresh token
   const config = await getNHISApiConfig();
-  if (!config) {
-    return null;
-  }
+  if (!config) return null;
 
   try {
     const response = await axios.post<NHISTokenResponse>(
@@ -114,80 +120,77 @@ export const getNHISAccessToken = async (): Promise<string | null> => {
       {
         grant_type: 'client_credentials',
         client_id: config.clientId,
-        client_secret: config.clientSecret
+        client_secret: config.clientSecret,
       },
       {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10000,
       }
     );
 
     const { access_token, expires_in } = response.data;
-
-    // Cache the token in database
     const expiresAt = new Date(now.getTime() + expires_in * 1000);
+
     await prisma.hospital.updateMany({
       where: { nhisApiActive: true },
       data: {
         nhisApiAccessToken: access_token,
         nhisApiTokenExpiresAt: expiresAt,
-        nhisApiLastTokenRefresh: now
-      }
+        nhisApiLastTokenRefresh: now,
+      },
     });
 
     return access_token;
   } catch (error: any) {
-    console.error('Failed to get NHIS access token:', error.response?.data || error.message);
+    console.error(
+      'Failed to get NHIS access token:',
+      error.response?.data || error.message
+    );
     return null;
   }
 };
 
 // ==========================================
-// ELIGIBILITY VERIFICATION SERVICES
+// ELIGIBILITY VERIFICATION
 // ==========================================
 
 /**
- * Verify patient NHIS eligibility in real-time
- * @param policyNumber - NHIS policy number to verify
- * @returns Eligibility status and patient details
+ * Verify patient NHIS eligibility in real-time.
+ * Uses Patient.nhisNumber (the NHIS membership card number) for lookup,
+ * then updates Patient.nhisExpiryDate and Patient.nhisActive on success.
  */
 export const verifyNHISEligibility = async (
   policyNumber: string
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> => {
+): Promise<{ success: boolean; message: string; data?: any }> => {
   try {
     const config = await getNHISApiConfig();
-    
+
     if (!config) {
       return {
         success: false,
-        message: 'NHIS API is not configured. Please configure NHIS API settings in Hospital Settings.'
+        message:
+          'NHIS API is not configured. Please configure NHIS API settings in Hospital Settings.',
       };
     }
 
     const accessToken = await getNHISAccessToken();
-    
+
     if (!accessToken) {
       return {
         success: false,
-        message: 'Failed to obtain NHIS API access token. Please check your API credentials.'
+        message:
+          'Failed to obtain NHIS API access token. Please check your API credentials.',
       };
     }
 
-    // Call NHIS eligibility API
     const response = await axios.get<NHISEligibilityResponse>(
       `${config.eligibilityEndpoint}/${encodeURIComponent(policyNumber)}`,
       {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
-        timeout: 15000
+        timeout: 15000,
       }
     );
 
@@ -197,39 +200,47 @@ export const verifyNHISEligibility = async (
       return {
         success: false,
         message: result.message || 'Policy not found or inactive',
-        data: null
+        data: null,
       };
     }
 
-    // Update patient record with NHIS details if exists
+    // ✅ ALIGNED: Patient model uses nhisNumber (not nhisPolicyNumber)
+    //             and has nhisExpiryDate + nhisActive (added via migration above)
     const patient = await prisma.patient.findFirst({
-      where: { nhisPolicyNumber: policyNumber }
+      where: { nhisNumber: policyNumber },
     });
 
     if (patient && result.data.isActive) {
       await prisma.patient.update({
         where: { id: patient.id },
         data: {
-          nhisExpiryDate: result.data.expiryDate ? new Date(result.data.expiryDate) : null,
-          nhisActive: true,
-          updatedAt: new Date()
-        }
+          nhisExpiryDate: result.data.expiryDate
+            ? new Date(result.data.expiryDate)
+            : null,
+          nhisActive: result.data.isActive,
+          updatedAt: new Date(),
+        },
       });
     }
 
     return {
       success: true,
-      message: result.data.isEligible ? 'Patient is eligible for NHIS coverage' : 'Patient has NHIS but coverage restrictions apply',
-      data: result.data
+      message: result.data.isEligible
+        ? 'Patient is eligible for NHIS coverage'
+        : 'Patient has NHIS but coverage restrictions apply',
+      data: result.data,
     };
   } catch (error: any) {
-    console.error('NHIS eligibility verification failed:', error.response?.data || error.message);
-    
+    console.error(
+      'NHIS eligibility verification failed:',
+      error.response?.data || error.message
+    );
+
     if (error.response?.status === 404) {
       return {
         success: false,
         message: 'Policy number not found in NHIS database',
-        data: null
+        data: null,
       };
     }
 
@@ -237,95 +248,78 @@ export const verifyNHISEligibility = async (
       return {
         success: false,
         message: 'Invalid NHIS API credentials',
-        data: null
+        data: null,
       };
     }
 
     return {
       success: false,
       message: `NHIS API error: ${error.response?.data?.message || error.message}`,
-      data: null
+      data: null,
     };
   }
 };
 
 /**
- * Generate CCC (Claim Control Code) for an encounter
- * @param policyNumber - Patient's NHIS policy number
- * @param encounterId - Encounter/Attendance ID
- * @param totalAmount - Total bill amount
- * @returns CCC code and details
+ * Generate CCC (Claim Control Code) for an encounter.
+ * Updates Attendance.nhisCCCCode, nhisCCCGeneratedAt, nhisCCCValidUntil on success.
  */
 export const generateCCC = async (
   policyNumber: string,
   encounterId: string,
   totalAmount: number
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> => {
+): Promise<{ success: boolean; message: string; data?: any }> => {
   try {
-    // First verify eligibility
+    // Verify eligibility first
     const eligibilityResult = await verifyNHISEligibility(policyNumber);
-    
+
     if (!eligibilityResult.success || !eligibilityResult.data?.isEligible) {
       return {
         success: false,
-        message: 'Cannot generate CCC: Patient is not eligible for NHIS coverage',
-        data: eligibilityResult.data
+        message:
+          'Cannot generate CCC: Patient is not eligible for NHIS coverage',
+        data: eligibilityResult.data,
       };
     }
 
     const config = await getNHISApiConfig();
-    
     if (!config) {
-      return {
-        success: false,
-        message: 'NHIS API is not configured'
-      };
+      return { success: false, message: 'NHIS API is not configured' };
     }
 
     const accessToken = await getNHISAccessToken();
-    
     if (!accessToken) {
       return {
         success: false,
-        message: 'Failed to obtain NHIS API access token'
+        message: 'Failed to obtain NHIS API access token',
       };
     }
 
-    // Get hospital details
     const hospital = await prisma.hospital.findFirst({
-      where: { nhisApiActive: true }
+      where: { nhisApiActive: true },
     });
 
     if (!hospital) {
-      return {
-        success: false,
-        message: 'Hospital configuration not found'
-      };
+      return { success: false, message: 'Hospital configuration not found' };
     }
 
-    // Prepare CCC generation request
     const cccRequest = {
-      policyNumber: policyNumber,
+      policyNumber,
       facilityCode: hospital.nhisFacilityCode,
-      encounterId: encounterId,
-      totalAmount: totalAmount,
-      generatedAt: new Date().toISOString()
+      encounterId,
+      totalAmount,
+      generatedAt: new Date().toISOString(),
     };
 
-    // Call NHIS CCC generation API
     const response = await axios.post<NHISCCCResponse>(
       config.cccEndpoint,
       cccRequest,
       {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
-        timeout: 15000
+        timeout: 15000,
       }
     );
 
@@ -335,41 +329,43 @@ export const generateCCC = async (
       return {
         success: false,
         message: result.message || 'Failed to generate CCC',
-        data: null
+        data: null,
       };
     }
 
-    // Update encounter/attendance with CCC code
+    // ✅ ALIGNED: Attendance has nhisCCCCode, nhisCCCGeneratedAt, nhisCCCValidUntil
     await prisma.attendance.update({
       where: { id: encounterId },
       data: {
         nhisCCCCode: result.data.cccCode,
         nhisCCCGeneratedAt: new Date(),
-        nhisCCCValidUntil: result.data.validUntil ? new Date(result.data.validUntil) : null,
-        updatedAt: new Date()
-      }
+        nhisCCCValidUntil: result.data.validUntil
+          ? new Date(result.data.validUntil)
+          : null,
+        updatedAt: new Date(),
+      },
     });
 
     return {
       success: true,
       message: 'CCC generated successfully',
-      data: result.data
+      data: result.data,
     };
   } catch (error: any) {
-    console.error('CCC generation failed:', error.response?.data || error.message);
-    
+    console.error(
+      'CCC generation failed:',
+      error.response?.data || error.message
+    );
     return {
       success: false,
       message: `CCC generation error: ${error.response?.data?.message || error.message}`,
-      data: null
+      data: null,
     };
   }
 };
 
 /**
  * Bulk eligibility verification for multiple patients
- * @param policyNumbers - Array of policy numbers to verify
- * @returns Array of eligibility results
  */
 export const bulkVerifyNHISEligibility = async (
   policyNumbers: string[]
@@ -387,24 +383,20 @@ export const bulkVerifyNHISEligibility = async (
 
   for (const policyNumber of policyNumbers) {
     const result = await verifyNHISEligibility(policyNumber);
-    results.push({
-      policyNumber,
-      ...result
-    });
+    results.push({ policyNumber, ...result });
   }
 
-  const successfulCount = results.filter(r => r.success).length;
+  const successfulCount = results.filter((r) => r.success).length;
 
   return {
     success: successfulCount > 0,
     message: `Verified ${successfulCount} of ${policyNumbers.length} policies`,
-    data: results
+    data: results,
   };
 };
 
 /**
  * Test NHIS API connection
- * @returns Connection status
  */
 export const testNHISApiConnection = async (): Promise<{
   success: boolean;
@@ -412,42 +404,35 @@ export const testNHISApiConnection = async (): Promise<{
 }> => {
   try {
     const config = await getNHISApiConfig();
-    
+
     if (!config) {
-      return {
-        success: false,
-        message: 'NHIS API is not configured'
-      };
+      return { success: false, message: 'NHIS API is not configured' };
     }
 
     const accessToken = await getNHISAccessToken();
-    
+
     if (!accessToken) {
       return {
         success: false,
-        message: 'Failed to obtain access token. Check your credentials.'
+        message: 'Failed to obtain access token. Check your credentials.',
       };
     }
 
-    // Simple test request to eligibility endpoint
-    await axios.get(
-      `${config.eligibilityEndpoint}/test`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        timeout: 10000
-      }
-    );
+    // Ping the eligibility endpoint with a test path
+    await axios.get(`${config.eligibilityEndpoint}/test`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 10000,
+    });
 
-    return {
-      success: true,
-      message: 'NHIS API connection successful'
-    };
+    return { success: true, message: 'NHIS API connection successful' };
   } catch (error: any) {
+    // A 404 from the test path still means the API is reachable and auth works
+    if (error.response?.status === 404) {
+      return { success: true, message: 'NHIS API connection successful' };
+    }
     return {
       success: false,
-      message: `Connection failed: ${error.response?.data?.message || error.message}`
+      message: `Connection failed: ${error.response?.data?.message || error.message}`,
     };
   }
 };

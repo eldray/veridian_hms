@@ -6,11 +6,9 @@ import { CreateDiagnosisDTO, UpdateDiagnosisDTO, DiagnosisFilterDTO } from './Di
 
 export class DiagnosisService {
   private repository: DiagnosisRepository;
-  private prisma: PrismaClient;
 
-  constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
-    this.repository = new DiagnosisRepository(this.prisma);
+  constructor(prisma: PrismaClient) {  // ✅ Accept prisma
+    this.repository = new DiagnosisRepository(prisma);  // ✅ Pass to repository
   }
 
   // ============================================
@@ -100,7 +98,7 @@ export class DiagnosisService {
     const hasRelated = await this.repository.hasRelatedRecords(id);
     if (hasRelated) {
       throw new Error(
-        'Cannot delete diagnosis with existing admissions, attendances, service catalog entries, or GDRG tariff associations'
+        'Cannot delete diagnosis with existing service catalog entries or GDRG tariff associations'
       );
     }
 
@@ -118,7 +116,8 @@ export class DiagnosisService {
     const filters: DiagnosisFilterDTO = {
       search: query.trim(),
       searchField: field,
-      limit: 50
+      limit: 50,
+      page: 1
     };
 
     const result = await this.repository.findMany(filters);

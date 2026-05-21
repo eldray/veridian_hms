@@ -1,7 +1,14 @@
-// backend/src/modules/referral/index.ts
-
-export { ReferralTypes, CreateOutgoingReferralDTO, CreateIncomingReferralDTO, UpdateReferralStatusDTO, ReferralFilters, ReferralResponse } from './ReferralTypes';
-export { ReferralRepository } from './ReferralRepository';
-export { ReferralService } from './ReferralService';
+// modules/referral/index.ts
 export { ReferralController } from './ReferralController';
-export { default as ReferralRoutes } from './ReferralRoutes';
+export { ReferralService } from './ReferralService';
+export { ReferralRepository } from './ReferralRepository';
+export { createReferralRoutes, default as ReferralRoutes } from './ReferralRoutes';
+
+export type { 
+  CreateOutgoingReferralDTO,
+  CreateIncomingReferralDTO,
+  UpdateReferralStatusDTO,
+  ReferralFilters,
+  ReferralResponse,
+  ReferralStats
+} from './ReferralTypes';

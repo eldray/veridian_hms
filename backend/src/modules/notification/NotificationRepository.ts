@@ -1,18 +1,18 @@
 // modules/notification/NotificationRepository.ts
 
 import { PrismaClient, NotificationType, NotificationPriority } from '@prisma/client';
-import { BaseService } from '../../shared/base/BaseService';
-import { BaseController } from '../../shared/base/BaseController';
-import { BaseRepository } from '../../shared/base/BaseRepository';
 
-export class NotificationRepository extends BaseRepository {
+export class NotificationRepository {
+  private prisma: PrismaClient;
+
   constructor(prisma: PrismaClient) {
-    super(prisma);
+    this.prisma = prisma;
   }
 
   // ============================================
   // FIND NOTIFICATIONS BY USER
   // ============================================
+
 
   async findByUser(
     userId: string,
@@ -23,24 +23,36 @@ export class NotificationRepository extends BaseRepository {
     } = {}
   ) {
     const { unreadOnly = false, page = 1, limit = 20 } = options;
-
+  
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+  
     const where: any = { userId };
     if (unreadOnly) {
       where.isRead = false;
     }
-
-    const skip = (page - 1) * limit;
-
+  
+    const skip = (pageNum - 1) * limitNum;
+  
     const [notifications, total, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: limitNum,
         include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              role: true
+            }
+          },
           sender: {
             select: {
               id: true,
+              username: true,
               fullName: true,
               role: true
             }
@@ -50,19 +62,19 @@ export class NotificationRepository extends BaseRepository {
       this.prisma.notification.count({ where }),
       this.prisma.notification.count({ where: { userId, isRead: false } })
     ]);
-
+  
     return {
       notifications,
       pagination: {
-        page,
-        limit,
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / limitNum)
       },
       unreadCount
     };
   }
-
+  
   // ============================================
   // GET NOTIFICATION STATS
   // ============================================

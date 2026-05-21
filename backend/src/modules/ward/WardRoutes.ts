@@ -1,6 +1,6 @@
 /**
  * Ward Module Routes
- * Defines all ward-related API endpoints
+ * Defines all ward-related API endpoints with corporate support
  */
 
 import { Router } from 'express';
@@ -23,6 +23,15 @@ export function createWardRoutes(prisma: PrismaClient): Router {
 
   // GET /api/wards/available-beds - Get available beds
   router.get('/available-beds', controller.getAvailableBeds as any);
+
+  // GET /api/wards/corporate-eligible - Get corporate eligible wards
+  router.get('/corporate-eligible', controller.getCorporateEligibleWards as any);
+
+  // GET /api/wards/occupancy-report - Get occupancy report
+  router.get('/occupancy-report', controller.getOccupancyReport as any);
+
+  // POST /api/wards/:id/calculate-charge - Calculate charge
+  router.post('/:id/calculate-charge', controller.calculateCharge as any);
 
   // GET /api/wards/:id - Get ward by ID
   router.get('/:id', controller.getWardById as any);

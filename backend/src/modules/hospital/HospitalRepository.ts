@@ -26,6 +26,12 @@ export class HospitalRepository {
     });
   }
 
+  async getActiveHospital(): Promise<Hospital | null> {
+    return this.prisma.hospital.findFirst({
+      where: { isActive: true }
+    });
+  }
+
   async create(data: {
     name: string;
     address: string;

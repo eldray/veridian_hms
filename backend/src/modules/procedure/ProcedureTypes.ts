@@ -1,6 +1,5 @@
 // modules/procedure/ProcedureTypes.ts
-
-import { ServiceType, ServiceCategory } from '@prisma/client';
+import { ServiceType, ServiceCategory, ProcedureCategory } from '@prisma/client';
 
 // ============================================
 // REQUEST DTOs
@@ -14,31 +13,32 @@ export interface GetProcedureTemplatesRequest {
   limit?: string;
 }
 
-export interface GetProcedureTemplateByIdRequest {
-  id: string;
-}
-
 export interface CreateProcedureTemplateRequest {
   name: string;
   code: string;
+  procedureCode?: string;  // ✅ ADDED - schema field
   description?: string;
-  serviceCategory: ServiceCategory;
-  category?: string;
+  serviceCategory?: ServiceCategory;
+  category?: ProcedureCategory;  // ✅ FIXED - use schema enum
+  department?: string;  // ✅ ADDED - schema field
   nhisServiceCode?: string;
   tariffCode?: string;
   isNHISCovered?: boolean;
-  department?: string;
+  nhisRequiresAuth?: boolean;  // ✅ ADDED - schema field
+  isPrivateInsuranceExempted?: boolean;  // ✅ ADDED - schema field
+  privateInsRequiresAuth?: boolean;  // ✅ ADDED - schema field
+  requiresClinicalNotes?: boolean;  // ✅ ADDED - schema field
   duration?: number;
   requiresAssistant?: boolean;
   anesthesiaType?: string;
   anesthesiaNotes?: string;
   intraOperativeNotes?: string;
   postOperativeNotes?: string;
-  bloodLoss?: string;
+  bloodLoss?: number;
   complications?: string;
   outcome?: string;
   cost?: number;
-  procedureCategory?: string;
+  // Pricing fields
   cashPrice: number;
   nhisPrice?: number;
   insurancePrice: number;
@@ -46,22 +46,35 @@ export interface CreateProcedureTemplateRequest {
   isTaxable?: boolean;
   isActive?: boolean;
   unit?: string;
+  // GDRG Linking - ✅ ADDED
+  gdrgTariffId?: string;
+  // Ward linking - ✅ ADDED
+  wardId?: string;
 }
 
 export interface UpdateProcedureTemplateRequest {
-  id: string;
+  id?: string;
   name?: string;
   code?: string;
+  procedureCode?: string;
+  description?: string;
   serviceCategory?: ServiceCategory;
-  category?: string;
+  category?: ProcedureCategory;
   department?: string;
+  nhisServiceCode?: string;
+  tariffCode?: string;
+  isNHISCovered?: boolean;
+  nhisRequiresAuth?: boolean;
+  isPrivateInsuranceExempted?: boolean;
+  privateInsRequiresAuth?: boolean;
+  requiresClinicalNotes?: boolean;
   duration?: number;
   requiresAssistant?: boolean;
   anesthesiaType?: string;
   anesthesiaNotes?: string;
   intraOperativeNotes?: string;
   postOperativeNotes?: string;
-  bloodLoss?: string;
+  bloodLoss?: number;
   complications?: string;
   outcome?: string;
   cost?: number;
@@ -71,15 +84,19 @@ export interface UpdateProcedureTemplateRequest {
   vatRate?: number;
   isTaxable?: boolean;
   isActive?: boolean;
+  unit?: string;
+  gdrgTariffId?: string;
+  wardId?: string;
 }
 
-export interface DeleteProcedureTemplateRequest {
-  id: string;
-}
-
-export interface BulkUpdateProcedureTemplatesRequest {
-  ids: string[];
+export interface ProcedureFilters {
+  category?: ProcedureCategory;
+  department?: string;
   isActive?: boolean;
+  isNHISCovered?: boolean;
+  hasGDRG?: boolean;  // ✅ ADDED - filter by GDRG linked
+  page?: number;
+  limit?: number;
 }
 
 // ============================================
@@ -87,79 +104,42 @@ export interface BulkUpdateProcedureTemplatesRequest {
 // ============================================
 
 export interface ProcedureTemplateResponse {
-  success: boolean;
-  data?: any;
-  pagination?: {
-    currentPage: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export interface ProcedureCategoriesResponse {
-  success: boolean;
-  data: string[];
-}
-
-export interface ProcedureDepartmentsResponse {
-  success: boolean;
-  data: string[];
-}
-
-export interface BulkUpdateResponse {
-  success: boolean;
-  message: string;
-  count: number;
-}
-
-// ============================================
-// SERVICE INTERFACES
-// ============================================
-
-export interface IProcedureService {
-  getTemplates(filters: GetProcedureTemplatesRequest): Promise<any>;
-  getTemplateById(id: string): Promise<any>;
-  createTemplate(data: CreateProcedureTemplateRequest, userId: string): Promise<any>;
-  updateTemplate(id: string, data: UpdateProcedureTemplateRequest, userId: string): Promise<any>;
-  deleteTemplate(id: string): Promise<void>;
-  getCategories(): Promise<string[]>;
-  getDepartments(): Promise<string[]>;
-  bulkUpdate(ids: string[], isActive: boolean): Promise<number>;
-}
-
-// ============================================
-// PROCEDURE MODEL TYPE
-// ============================================
-
-export interface ProcedureDTO {
   id: string;
   name: string;
   code: string;
+  procedureCode: string | null;
   description: string | null;
-  serviceType: ServiceType;
   serviceCategory: ServiceCategory;
-  subType: string | null;
+  category: ProcedureCategory | null;
+  department: string | null;
   nhisServiceCode: string | null;
   tariffCode: string | null;
   isNHISCovered: boolean;
-  metadata: any;
+  nhisRequiresAuth: boolean;
+  isPrivateInsuranceExempted: boolean;
+  privateInsRequiresAuth: boolean;
+  requiresClinicalNotes: boolean;
+  duration: number | null;
   isActive: boolean;
   unit: string;
-  createdById: string;
-  createdAt: Date;
-  updatedAt: Date;
-  pricing: {
-    id: string;
-    serviceCatalogId: string;
+  // Relations
+  pricing?: {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
     vatRate: number;
     isTaxable: boolean;
-    effectiveDate: Date;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
+  };
+  gdrgTariff?: {
+    id: string;
+    gdrgCode: string;
+    description: string;
+    nhiaTariff: number;
   } | null;
+  ward?: {
+    id: string;
+    wardName: string;
+  } | null;
+  createdAt: Date;
+  updatedAt: Date;
 }

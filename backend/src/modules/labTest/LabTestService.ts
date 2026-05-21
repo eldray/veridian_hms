@@ -11,8 +11,8 @@ import {
 export class LabTestService {
   private repository: LabTestRepository;
 
-  constructor(repository?: LabTestRepository) {
-    this.repository = repository || new LabTestRepository();
+  constructor(prisma: PrismaClient) {  // ✅ Add prisma parameter
+    this.repository = new LabTestRepository(prisma);  // ✅ Pass to repository
   }
 
   // ============================================

@@ -1,19 +1,17 @@
-// backend/src/modules/referral/ReferralRepository.ts
-
+// modules/referral/ReferralRepository.ts
 import { PrismaClient, ReferralType, ReferralStatus, Priority } from '@prisma/client';
 import { 
   CreateOutgoingReferralDTO, 
   CreateIncomingReferralDTO, 
   ReferralFilters 
 } from './ReferralTypes';
-import { BaseService } from '../../shared/base/BaseService';
+import { getCounterService } from '../../services/CounterService'; // ✅ Import counter service
 
-export class ReferralRepository extends BaseService {
+export class ReferralRepository {
   private prisma: PrismaClient;
 
-  constructor() {
-    super('ReferralRepository');
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
   }
 
   async findAll(filters: ReferralFilters) {
@@ -21,6 +19,9 @@ export class ReferralRepository extends BaseService {
       referralType,
       status,
       patientId,
+      patientPaymentMode,
+      corporateAccountId,
+      insuranceProviderId,
       dateFrom,
       dateTo,
       page = 1,
@@ -32,6 +33,18 @@ export class ReferralRepository extends BaseService {
     if (referralType) where.referralType = referralType;
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
+    
+    if (patientPaymentMode) {
+      where.patient = { paymentMode: patientPaymentMode };
+    }
+    
+    if (corporateAccountId) {
+      where.patient = { insuranceProviderId: corporateAccountId };
+    }
+    
+    if (insuranceProviderId) {
+      where.patient = { insuranceProviderId };
+    }
 
     if (dateFrom || dateTo) {
       where.referralDate = {};
@@ -55,7 +68,10 @@ export class ReferralRepository extends BaseService {
               folderNumber: true,
               contact: true,
               dateOfBirth: true,
-              gender: true
+              gender: true,
+              paymentMode: true,
+              nhisNumber: true,
+              insuranceProviderId: true
             }
           },
           attendance: {
@@ -63,7 +79,22 @@ export class ReferralRepository extends BaseService {
               id: true,
               attendanceNumber: true,
               dateTime: true,
-              attendanceType: true
+              attendanceType: true,
+              encounterCategory: true,
+              paymentMode: true,
+              InsuranceProvider: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true
+                }
+              },
+              CorporateAccount: {
+                select: {
+                  id: true,
+                  companyName: true
+                }
+              }
             }
           },
           createdBy: {
@@ -82,7 +113,6 @@ export class ReferralRepository extends BaseService {
       this.prisma.referralRecord.count({ where })
     ]);
 
-    // Add full name to patient objects
     const referralsWithFullName = referrals.map(ref => ({
       ...ref,
       patient: ref.patient ? {
@@ -116,8 +146,12 @@ export class ReferralRepository extends BaseService {
             address: true,
             dateOfBirth: true,
             gender: true,
-            insuranceProvider: {
+            paymentMode: true,
+            nhisNumber: true,
+            insuranceProviderId: true,
+            InsuranceProvider: {
               select: {
+                id: true,
                 name: true,
                 type: true
               }
@@ -131,17 +165,33 @@ export class ReferralRepository extends BaseService {
             dateTime: true,
             attendanceType: true,
             encounterCategory: true,
-            diagnoses: {
+            paymentMode: true,
+            nhisCCC: true,
+            InsuranceProvider: {
+              select: {
+                id: true,
+                name: true,
+                type: true
+              }
+            },
+            CorporateAccount: {
+              select: {
+                id: true,
+                companyName: true
+              }
+            },
+            AttendanceDiagnosis: {
               include: {
-                diagnosis: {
+                Diagnosis: {
                   select: {
                     name: true,
-                    icdCode: true
+                    icdCode: true,
+                    morbidityGroup: true
                   }
                 }
               }
             },
-            vitals: {
+            Vitals: {
               orderBy: { recordedAt: 'desc' },
               take: 1
             }
@@ -171,12 +221,11 @@ export class ReferralRepository extends BaseService {
   }
 
   async createOutgoing(data: CreateOutgoingReferralDTO, createdById: string) {
-    const referralCount = await this.prisma.referralRecord.count();
-    const referralNumber = `REF-${new Date().getFullYear()}-${String(referralCount + 1).padStart(6, '0')}`;
-
+    const counterService = getCounterService(); // ✅ Get counter service instance
+    
     return this.prisma.referralRecord.create({
       data: {
-        referralNumber,
+        referralNumber: counterService.nextReferralNumber(), // ✅ Use counter service
         patientId: data.patientId,
         attendanceId: data.attendanceId,
         referralType: 'outgoing',
@@ -192,18 +241,22 @@ export class ReferralRepository extends BaseService {
       include: {
         patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
             contact: true,
             dateOfBirth: true,
-            gender: true
+            gender: true,
+            paymentMode: true
           }
         },
         attendance: {
           select: {
+            id: true,
             attendanceNumber: true,
-            dateTime: true
+            dateTime: true,
+            paymentMode: true
           }
         },
         createdBy: {
@@ -217,12 +270,11 @@ export class ReferralRepository extends BaseService {
   }
 
   async createIncoming(data: CreateIncomingReferralDTO, createdById: string) {
-    const referralCount = await this.prisma.referralRecord.count();
-    const referralNumber = `REF-${new Date().getFullYear()}-${String(referralCount + 1).padStart(6, '0')}`;
-
+    const counterService = getCounterService(); // ✅ Get counter service instance
+    
     return this.prisma.referralRecord.create({
       data: {
-        referralNumber,
+        referralNumber: counterService.nextReferralNumber(), // ✅ Use counter service
         patientId: data.patientId,
         referralType: 'incoming',
         referralReason: data.referralReason,
@@ -230,19 +282,20 @@ export class ReferralRepository extends BaseService {
         referredFromDoctor: data.referredFromDoctor,
         urgency: data.urgency || 'routine',
         referralNotes: data.referralNotes,
-        referringFacilityContact: data.referringFacilityContact,
         status: 'pending',
         createdById
       },
       include: {
         patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
             contact: true,
             dateOfBirth: true,
-            gender: true
+            gender: true,
+            paymentMode: true
           }
         },
         createdBy: {
@@ -255,7 +308,11 @@ export class ReferralRepository extends BaseService {
     });
   }
 
-  async updateStatus(id: string, status: ReferralStatus, notes?: { acceptanceNotes?: string; rejectedReason?: string }) {
+  async updateStatus(id: string, status: ReferralStatus, notes?: { 
+    acceptanceNotes?: string; 
+    rejectedReason?: string;
+    outcomeNotes?: string;
+  }) {
     const updateData: any = { status };
     
     if (status === 'accepted' && notes?.acceptanceNotes) {
@@ -267,6 +324,10 @@ export class ReferralRepository extends BaseService {
     } else if (status === 'completed') {
       updateData.completedAt = new Date();
     }
+    
+    if (notes?.outcomeNotes) {
+      updateData.outcomeNotes = notes.outcomeNotes;
+    }
 
     return this.prisma.referralRecord.update({
       where: { id },
@@ -274,10 +335,12 @@ export class ReferralRepository extends BaseService {
       include: {
         patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true,
-            contact: true
+            contact: true,
+            paymentMode: true
           }
         }
       }
@@ -296,13 +359,16 @@ export class ReferralRepository extends BaseService {
       include: {
         patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
-            folderNumber: true
+            folderNumber: true,
+            paymentMode: true
           }
         },
         attendance: {
           select: {
+            id: true,
             attendanceNumber: true,
             dateTime: true
           }
@@ -310,5 +376,25 @@ export class ReferralRepository extends BaseService {
       },
       orderBy: { referralDate: 'desc' }
     });
+  }
+
+  async getStats() {
+    const [total, pending, accepted, rejected, completed, urgent] = await Promise.all([
+      this.prisma.referralRecord.count(),
+      this.prisma.referralRecord.count({ where: { status: 'pending' } }),
+      this.prisma.referralRecord.count({ where: { status: 'accepted' } }),
+      this.prisma.referralRecord.count({ where: { status: 'rejected' } }),
+      this.prisma.referralRecord.count({ where: { status: 'completed' } }),
+      this.prisma.referralRecord.count({ where: { urgency: { in: ['urgent', 'stat'] } } })
+    ]);
+
+    return {
+      total,
+      pending,
+      accepted,
+      rejected,
+      completed,
+      urgent
+    };
   }
 }

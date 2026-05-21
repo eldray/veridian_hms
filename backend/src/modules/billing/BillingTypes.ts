@@ -3,7 +3,7 @@
  * Type definitions for billing and invoice management
  */
 
-import { BillStatus, PaymentMode } from '@prisma/client';
+import { BillStatus, PaymentMode, PaymentMethod } from '@prisma/client';
 
 export interface BillItemDTO {
   serviceId: string;
@@ -15,11 +15,13 @@ export interface CreateBillDTO {
   attendanceId: string;
   paymentMode: PaymentMode;
   items: BillItemDTO[];
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
 }
 
 export interface AddPaymentDTO {
   amount: number;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
 }
@@ -53,6 +55,10 @@ export interface BillSummary {
     otherNames: string;
     folderNumber: string;
   };
+  corporateAccount?: {
+    id: string;
+    companyName: string;
+  };
 }
 
 export interface BillingStatistics {
@@ -70,6 +76,10 @@ export interface BillingStatistics {
   };
   byPaymentMode: any[];
   byStatus: any[];
+  corporateSummary?: {
+    totalCorporateBills: number;
+    totalCorporatePaid: number;
+  };
 }
 
 export interface BillResponse {

@@ -1,8 +1,8 @@
-// src/components/settings/BackupRestoreTab.tsx - UPDATED THEME
+// src/components/settings/BackupRestoreTab.tsx - UPDATED WITH DIRECT API CALLS
 import { useState, useEffect } from 'react';
-import { useSettingsStore } from '../../store/settingsStore';
 import { useToast } from '../../store/toastStore';
 import { Download, Upload, RefreshCw, Database, Trash2, Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import api from '../../api/api';
 
 interface BackupFile {
   filename: string;
@@ -12,53 +12,57 @@ interface BackupFile {
 }
 
 export default function BackupRestoreTab() {
-  const { 
-    backups, 
-    createBackup, 
-    restoreBackup, 
-    getBackupList, 
-    downloadBackup, 
-    deleteBackup,
-    isLoading,
-    error,
-    clearError
-  } = useSettingsStore();
-  
   const { success, error: toastError } = useToast();
   
+  const [backups, setBackups] = useState<BackupFile[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deletingBackup, setDeletingBackup] = useState<BackupFile | null>(null);
   const [downloadingBackup, setDownloadingBackup] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
 
-  useEffect(() => {
-    loadBackups();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (error) clearError();
-    };
-  }, [error, clearError]);
-
+  // Load backup list from backend
   const loadBackups = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      await getBackupList();
-    } catch (err) {
-      // Error handled by store
+      const response = await api.get('/backup');
+      const backupList = response.data?.backups || response.data?.data || response.data;
+      
+      if (Array.isArray(backupList)) {
+        setBackups(backupList);
+      } else {
+        setBackups([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to load backups:', err);
+      setError(err.response?.data?.message || 'Failed to load backup list');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Create new backup
   const handleCreateBackup = async () => {
+    setCreatingBackup(true);
+    setError(null);
     try {
-      const result = await createBackup();
-      success('Backup Created', `Backup created: ${result.filename}`);
+      const response = await api.post('/backup');
+      const result = response.data?.data || response.data;
+      
+      success('Backup Created', `Backup created: ${result.filename || 'successfully'}`);
       await loadBackups();
     } catch (err: any) {
+      console.error('Backup failed:', err);
       toastError('Backup Failed', err.response?.data?.message || 'Failed to create backup');
+    } finally {
+      setCreatingBackup(false);
     }
   };
 
+  // Restore backup from file
   const handleRestoreBackup = async () => {
     if (!selectedFile) {
       toastError('No file selected', 'Please select a backup file');
@@ -81,38 +85,66 @@ export default function BackupRestoreTab() {
     if (!confirm('Restoring a backup will overwrite current data. This action cannot be undone. Continue?')) return;
 
     setRestoring(true);
+    setError(null);
+    
+    const formData = new FormData();
+    formData.append('backup', selectedFile);
+    
     try {
-      await restoreBackup(selectedFile);
+      const response = await api.post('/backup/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
       success('Backup Restored', 'Database restored successfully');
       setSelectedFile(null);
       await loadBackups();
     } catch (err: any) {
+      console.error('Restore failed:', err);
       toastError('Restore Failed', err.response?.data?.message || 'Failed to restore backup');
     } finally {
       setRestoring(false);
     }
   };
 
+  // Download backup file
   const handleDownloadBackup = async (backup: BackupFile) => {
     setDownloadingBackup(backup.filename);
+    setError(null);
     try {
-      await downloadBackup(backup.filename);
+      const response = await api.get(`/backup/download/${backup.filename}`, {
+        responseType: 'blob'
+      });
+      
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', backup.filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
       success('Download Complete', `${backup.filename} downloaded successfully`);
     } catch (err: any) {
+      console.error('Download failed:', err);
       toastError('Download Failed', err.response?.data?.message || 'Failed to download backup');
     } finally {
       setDownloadingBackup(null);
     }
   };
 
+  // Delete backup file
   const handleDeleteBackup = async () => {
     if (!deletingBackup) return;
+    
     try {
-      await deleteBackup(deletingBackup.filename);
+      await api.delete(`/backup/${deletingBackup.filename}`);
       success('Backup Deleted', `${deletingBackup.filename} has been deleted`);
       setDeletingBackup(null);
       await loadBackups();
     } catch (err: any) {
+      console.error('Delete failed:', err);
       toastError('Delete Failed', err.response?.data?.message || 'Failed to delete backup');
     }
   };
@@ -134,14 +166,22 @@ export default function BackupRestoreTab() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      return new Date(dateString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
   };
+
+  useEffect(() => {
+    loadBackups();
+  }, []);
 
   const backupList = Array.isArray(backups) ? backups : [];
 
@@ -182,11 +222,11 @@ export default function BackupRestoreTab() {
         <div className="flex flex-col sm:flex-row gap-3">
           <button 
             onClick={handleCreateBackup} 
-            disabled={isLoading || restoring}
+            disabled={creatingBackup || restoring}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium"
           >
-            {isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-            Create Backup
+            {creatingBackup ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            {creatingBackup ? 'Creating...' : 'Create Backup'}
           </button>
           
           <label className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] cursor-pointer text-sm font-medium transition-all">
@@ -202,11 +242,11 @@ export default function BackupRestoreTab() {
           
           <button 
             onClick={handleRestoreBackup} 
-            disabled={isLoading || restoring || !selectedFile}
+            disabled={restoring || creatingBackup || !selectedFile}
             className="px-4 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium"
           >
             {restoring ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : <Upload className="w-4 h-4 inline mr-2" />}
-            Restore Backup
+            {restoring ? 'Restoring...' : 'Restore Backup'}
           </button>
           
           <button 
@@ -249,13 +289,18 @@ export default function BackupRestoreTab() {
           </h4>
         </div>
         <div className="divide-y divide-[var(--border-color)]">
-          {backupList.length === 0 ? (
+          {isLoading && backupList.length === 0 ? (
+            <div className="p-8 text-center">
+              <Loader className="w-8 h-8 animate-spin text-[var(--icon-cyan-text)] mx-auto mb-3" />
+              <p className="text-[var(--text-secondary)] text-sm">Loading backups...</p>
+            </div>
+          ) : backupList.length === 0 ? (
             <div className="p-8 text-center">
               <Database className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
               <p className="text-[var(--text-secondary)] text-sm">No backups found</p>
               <button
                 onClick={handleCreateBackup}
-                disabled={isLoading}
+                disabled={creatingBackup}
                 className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
               >
                 Create Your First Backup
@@ -281,7 +326,7 @@ export default function BackupRestoreTab() {
                 <div className="flex items-center gap-2 ml-4">
                   <button
                     onClick={() => handleDownloadBackup(backup)}
-                    disabled={isLoading || downloadingBackup === backup.filename}
+                    disabled={downloadingBackup === backup.filename}
                     className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)] transition-colors hover:bg-[var(--icon-cyan-bg)]/20 rounded-lg disabled:opacity-50"
                     title="Download Backup"
                   >
@@ -293,8 +338,7 @@ export default function BackupRestoreTab() {
                   </button>
                   <button
                     onClick={() => setDeletingBackup(backup)}
-                    disabled={isLoading}
-                    className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] transition-colors hover:bg-[var(--icon-red-bg)]/20 rounded-lg disabled:opacity-50"
+                    className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] transition-colors hover:bg-[var(--icon-red-bg)]/20 rounded-lg"
                     title="Delete Backup"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -328,17 +372,15 @@ export default function BackupRestoreTab() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeletingBackup(null)}
-                disabled={isLoading}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteBackup}
-                disabled={isLoading}
-                className="px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium"
               >
-                {isLoading ? 'Deleting...' : 'Delete Backup'}
+                Delete Backup
               </button>
             </div>
           </div>

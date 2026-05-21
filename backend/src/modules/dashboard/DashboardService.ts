@@ -1,18 +1,15 @@
-import { BaseService } from '../../shared/base/BaseService';
+// modules/dashboard/DashboardService.ts
 import { PrismaClient } from '@prisma/client';
 import { IDashboardStats } from './DashboardTypes';
 
 const prisma = new PrismaClient();
 
-export class DashboardService extends BaseService<any> {
-  constructor() {
-    super();
-  }
-
+export class DashboardService {
+  
   async getDashboardStats(): Promise<IDashboardStats> {
     const today = new Date();
-    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-    const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
     const [
       totalPatients,
@@ -38,13 +35,10 @@ export class DashboardService extends BaseService<any> {
         }
       }).catch(() => 0),
 
-      // Active Admissions
+      // Active Admissions - patients currently admitted (not discharged)
       prisma.admission.count({
         where: {
-          OR: [
-            { status: 'admitted' },
-            { dischargeDate: null }
-          ]
+          status: 'admitted'
         }
       }).catch(() => 0),
 
@@ -61,7 +55,7 @@ export class DashboardService extends BaseService<any> {
       prisma.insuranceClaim.count({
         where: {
           status: {
-            in: ['draft', 'submitted']
+            in: ['draft', 'submitted', 'pending']
           }
         }
       }).catch(() => 0),
@@ -101,7 +95,7 @@ export class DashboardService extends BaseService<any> {
         }
       }).catch(() => ({ _sum: { paidAmount: 0 } })),
 
-      // Completed Procedures
+      // Completed Procedures today
       prisma.procedure.count({
         where: {
           status: 'completed',
@@ -115,7 +109,7 @@ export class DashboardService extends BaseService<any> {
 
     // Calculate low stock items with null check
     const lowStockItems = Array.isArray(stockItems)
-      ? stockItems.filter((item: any) => item.currentStock <= item.reorderLevel).length
+      ? stockItems.filter((item: any) => (item.currentStock || 0) <= (item.reorderLevel || 0)).length
       : 0;
 
     return {
@@ -128,6 +122,79 @@ export class DashboardService extends BaseService<any> {
       totalRevenue: revenueData?._sum?.paidAmount || 0,
       scheduledAppointments: scheduledAppointments || 0,
       completedProcedures: completedProcedures || 0
+    };
+  }
+
+  // Optional: Add method for weekly/monthly stats
+  async getWeeklyStats(): Promise<any> {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const [revenue, visits, admissions] = await Promise.all([
+      prisma.bill.aggregate({
+        where: {
+          billDate: { gte: startOfWeek, lte: endOfWeek },
+          status: 'paid'
+        },
+        _sum: { paidAmount: true }
+      }).catch(() => ({ _sum: { paidAmount: 0 } })),
+      prisma.attendance.count({
+        where: {
+          dateTime: { gte: startOfWeek, lte: endOfWeek }
+        }
+      }).catch(() => 0),
+      prisma.admission.count({
+        where: {
+          admissionDate: { gte: startOfWeek, lte: endOfWeek }
+        }
+      }).catch(() => 0)
+    ]);
+
+    return {
+      period: { start: startOfWeek, end: endOfWeek },
+      revenue: revenue._sum.paidAmount || 0,
+      visits,
+      admissions
+    };
+  }
+
+  // Optional: Add method for monthly stats
+  async getMonthlyStats(): Promise<any> {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const [revenue, visits, admissions] = await Promise.all([
+      prisma.bill.aggregate({
+        where: {
+          billDate: { gte: startOfMonth, lte: endOfMonth },
+          status: 'paid'
+        },
+        _sum: { paidAmount: true }
+      }).catch(() => ({ _sum: { paidAmount: 0 } })),
+      prisma.attendance.count({
+        where: {
+          dateTime: { gte: startOfMonth, lte: endOfMonth }
+        }
+      }).catch(() => 0),
+      prisma.admission.count({
+        where: {
+          admissionDate: { gte: startOfMonth, lte: endOfMonth }
+        }
+      }).catch(() => 0)
+    ]);
+
+    return {
+      period: { start: startOfMonth, end: endOfMonth },
+      revenue: revenue._sum.paidAmount || 0,
+      visits,
+      admissions
     };
   }
 }

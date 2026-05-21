@@ -19,13 +19,16 @@ export interface CreateEncounterDTO {
 export interface UpdateEncounterDTO {
   status?: AttendanceStatus;
   complaint?: string;
-  notes?: string;
+  medicalNotes?: string;
+  treatmentPlan?: string;
+  followUpDate?: Date;
 }
 
 export interface AddDiagnosisDTO {
   diagnosisId: string;
   diagnosisType: 'primary' | 'additional' | 'provisional';
   notes?: string;
+  presentOnAdmission?: 'Y' | 'N' | 'U';
 }
 
 export interface AddVitalsDTO {
@@ -49,25 +52,26 @@ export interface AddPrescriptionDTO {
   duration: string;
   route?: string;
   instructions?: string;
+  quantity?: number;
 }
 
-export interface AddLabOrderDTO {
-  testId: string;
-  priority: 'routine' | 'urgent' | 'stat';
-  clinicalNotes?: string;
+export interface AddLabTestDTO {
+  templateId: string;
+  priority?: 'routine' | 'urgent' | 'stat';
+  notes?: string;
 }
 
 export interface AddScanDTO {
   serviceCatalogId: string;
   priority?: 'routine' | 'urgent' | 'stat';
   notes?: string;
-  clinicalNotes?: string;
 }
 
 export interface AddProcedureDTO {
   serviceCatalogId: string;
   priority?: 'routine' | 'urgent' | 'stat';
   notes?: string;
+  scheduledDate?: Date;
   performedById?: string;
 }
 
@@ -96,34 +100,38 @@ export interface EncounterWithRelations {
   id: string;
   attendanceNumber: string;
   patientId: string;
-  encounterType: string;
+  attendanceType: string;
   status: AttendanceStatus;
   paymentMode: PaymentMode;
   nhisCCC?: string;
-  complaint?: string;
-  notes?: string;
+  complaints: string;
+  medicalNotes?: string;
+  historyPresentingComplaint?: string;
+  physicalExamination?: string;
+  treatmentPlan?: string;
   dateTime: Date;
   createdAt: Date;
   updatedAt: Date;
   patient?: any;
-  diagnoses?: any[];
-  vitals?: any[];
-  prescriptions?: any[];
-  labOrders?: any[];
-  referrals?: any[];
+  AttendanceDiagnosis?: any[];
+  Vitals?: any[];
+  Medication?: any[];
+  LabTest?: any[];
+  Scan?: any[];
+  Procedure?: any[];
+  ServiceRendered?: any[];
 }
 
 export interface WorklistItem {
   id: string;
   patientId: string;
   patient: {
-    firstName: string;
-    lastName: string;
+    name: string;
     age: number;
     gender: string;
   };
   encounterType: string;
   priority: 'normal' | 'urgent' | 'critical';
-  waitTime: number; // minutes
+  waitTime: number;
   status: string;
 }

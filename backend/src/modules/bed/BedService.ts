@@ -8,8 +8,18 @@ export class BedService {
     this.bedRepository = bedRepository;
   }
 
-  async getAllBeds(filter?: BedFilter): Promise<BedWithRelations[]> {
-    return this.bedRepository.findAll(filter);
+  async getAllBeds(filter?: BedFilter, page: number = 1, limit: number = 50): Promise<{ beds: BedWithRelations[]; pagination: any }> {
+    const result = await this.bedRepository.findAll(filter, page, limit);
+    
+    return {
+      beds: result.beds,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        pages: Math.ceil(result.total / limit)
+      }
+    };
   }
 
   async getBedById(id: string): Promise<BedWithRelations | null> {
@@ -65,5 +75,9 @@ export class BedService {
 
   async deleteBed(id: string): Promise<void> {
     await this.bedRepository.delete(id);
+  }
+
+  async getBedStats(): Promise<{ total: number; occupied: number; available: number }> {
+    return this.bedRepository.getStats();
   }
 }

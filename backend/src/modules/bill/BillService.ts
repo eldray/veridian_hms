@@ -28,7 +28,7 @@ export class BillService {
     return bill;
   }
 
-  async createBill(data: CreateBillInput) {
+  async createBill(data: CreateBillInput, createdBy: string) {
     // Validate items
     if (!data.items || data.items.length === 0) {
       throw new Error('At least one line item is required');
@@ -43,7 +43,7 @@ export class BillService {
       }
     }
 
-    return this.billRepository.create(data);
+    return this.billRepository.create(data, createdBy);
   }
 
   async updateBill(id: string, data: UpdateBillInput) {
@@ -70,7 +70,7 @@ export class BillService {
     return this.billRepository.delete(id);
   }
 
-  async addPayment(billId: string, paymentData: AddPaymentInput) {
+  async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
     const bill = await this.billRepository.findById(billId);
     
     if (!bill) {
@@ -85,7 +85,7 @@ export class BillService {
       throw new Error('Cannot add payment to a fully paid bill');
     }
 
-    return this.billRepository.addPayment(billId, paymentData);
+    return this.billRepository.addPayment(billId, paymentData, receivedById);
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {

@@ -2,7 +2,7 @@
  * Clinical Reports Module Types
  */
 
-export interface ReportFilters {
+export interface ClinicalReportFilters {
   startDate: Date;
   endDate: Date;
 }

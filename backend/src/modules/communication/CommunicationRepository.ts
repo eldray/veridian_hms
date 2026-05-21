@@ -1,25 +1,36 @@
+// modules/communication/CommunicationRepository.ts
 import { PrismaClient } from '@prisma/client';
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { 
-  SendSMSDTO, 
-  SendWhatsAppDTO,
-  SendBulkMessageDTO,
-  CommunicationTemplateDTO
-} from './CommunicationTypes';
 
 const prisma = new PrismaClient();
 
-export class CommunicationRepository extends BaseRepository {
-  async sendSMS(dto: SendSMSDTO) {
+export class CommunicationRepository {
+  
+  async sendSMS(dto: any) {
     const template = dto.templateId ? await prisma.communicationTemplate.findUnique({
       where: { id: dto.templateId }
     }) : null;
 
-    const message = template ? this.parseTemplate(template.content, dto.variables || {}) : dto.message;
+    const message = template ? this.parseTemplate(template.body, dto.variables || {}) : dto.message;
+
+    // Get or create SMS channel
+    let channel = await prisma.communicationChannel.findFirst({
+      where: { name: 'SMS Gateway' }
+    });
+
+    if (!channel) {
+      channel = await prisma.communicationChannel.create({
+        data: {
+          name: 'SMS Gateway',
+          provider: 'Twilio',
+          isActive: true,
+          settings: {}
+        }
+      });
+    }
 
     return prisma.communicationLog.create({
       data: {
-        channelId: (await this.getSMSChannel()).id,
+        channelId: channel.id,
         templateId: dto.templateId,
         recipient: dto.recipient,
         message,
@@ -29,16 +40,32 @@ export class CommunicationRepository extends BaseRepository {
     });
   }
 
-  async sendWhatsApp(dto: SendWhatsAppDTO) {
+  async sendWhatsApp(dto: any) {
     const template = dto.templateId ? await prisma.communicationTemplate.findUnique({
       where: { id: dto.templateId }
     }) : null;
 
-    const message = template ? this.parseTemplate(template.content, dto.variables || {}) : dto.message;
+    const message = template ? this.parseTemplate(template.body, dto.variables || {}) : dto.message;
+
+    // Get or create WhatsApp channel
+    let channel = await prisma.communicationChannel.findFirst({
+      where: { name: 'WhatsApp Business' }
+    });
+
+    if (!channel) {
+      channel = await prisma.communicationChannel.create({
+        data: {
+          name: 'WhatsApp Business',
+          provider: 'Twilio',
+          isActive: true,
+          settings: {}
+        }
+      });
+    }
 
     return prisma.communicationLog.create({
       data: {
-        channelId: (await this.getWhatsAppChannel()).id,
+        channelId: channel.id,
         templateId: dto.templateId,
         recipient: dto.recipient,
         message,
@@ -48,10 +75,14 @@ export class CommunicationRepository extends BaseRepository {
     });
   }
 
-  async sendBulkMessage(dto: SendBulkMessageDTO) {
+  async sendBulkMessage(dto: any) {
     const channel = dto.channelType === 'WHATSAPP' 
-      ? await this.getWhatsAppChannel()
-      : await this.getSMSChannel();
+      ? await prisma.communicationChannel.findFirst({ where: { name: 'WhatsApp Business' } })
+      : await prisma.communicationChannel.findFirst({ where: { name: 'SMS Gateway' } });
+
+    if (!channel) {
+      throw new Error('Communication channel not configured');
+    }
 
     const template = dto.templateId ? await prisma.communicationTemplate.findUnique({
       where: { id: dto.templateId }
@@ -61,20 +92,31 @@ export class CommunicationRepository extends BaseRepository {
       channelId: channel.id,
       templateId: dto.templateId,
       recipient,
-      message: template ? this.parseTemplate(template.content, dto.variables || {}) : dto.message,
+      message: template ? this.parseTemplate(template.body, dto.variables || {}) : dto.message,
       status: 'PENDING' as const,
       metadata: dto.metadata || {}
     }));
 
-    return prisma.communicationLog.createMany({
+    const result = await prisma.communicationLog.createMany({
       data: messages
     });
+
+    return { count: result.count };
   }
 
   async getTemplates(channelType?: string) {
-    const where: any = {};
+    let channelId: string | undefined;
+    
     if (channelType) {
-      where.channelType = channelType;
+      const channel = await prisma.communicationChannel.findFirst({
+        where: { name: channelType === 'WHATSAPP' ? 'WhatsApp Business' : 'SMS Gateway' }
+      });
+      channelId = channel?.id;
+    }
+
+    const where: any = {};
+    if (channelId) {
+      where.channelId = channelId;
     }
 
     return prisma.communicationTemplate.findMany({
@@ -86,16 +128,24 @@ export class CommunicationRepository extends BaseRepository {
     });
   }
 
-  async createTemplate(dto: CommunicationTemplateDTO) {
+  async createTemplate(dto: any) {
     const channel = dto.channelType === 'WHATSAPP'
-      ? await this.getWhatsAppChannel()
-      : await this.getSMSChannel();
+      ? await prisma.communicationChannel.findFirst({ where: { name: 'WhatsApp Business' } })
+      : await prisma.communicationChannel.findFirst({ where: { name: 'SMS Gateway' } });
+
+    if (!channel) {
+      throw new Error(`Communication channel for ${dto.channelType} not configured`);
+    }
 
     return prisma.communicationTemplate.create({
       data: {
-        ...dto,
-        channelId: channel.id,
-        isActive: true
+        name: dto.name,
+        body: dto.body,
+        type: dto.type || 'GENERAL_NOTIFICATION',
+        subject: dto.subject,
+        variables: dto.variables || [],
+        isActive: dto.isActive !== undefined ? dto.isActive : true,
+        channelId: channel.id
       },
       include: {
         channel: true
@@ -103,10 +153,17 @@ export class CommunicationRepository extends BaseRepository {
     });
   }
 
-  async updateTemplate(id: string, dto: CommunicationTemplateDTO) {
+  async updateTemplate(id: string, dto: any) {
     return prisma.communicationTemplate.update({
       where: { id },
-      data: dto
+      data: {
+        name: dto.name,
+        body: dto.body,
+        type: dto.type,
+        subject: dto.subject,
+        variables: dto.variables,
+        isActive: dto.isActive
+      }
     });
   }
 
@@ -130,10 +187,12 @@ export class CommunicationRepository extends BaseRepository {
     }
     
     if (channelType) {
-      const channel = channelType === 'WHATSAPP' 
-        ? await this.getWhatsAppChannel()
-        : await this.getSMSChannel();
-      where.channelId = channel.id;
+      const channel = await prisma.communicationChannel.findFirst({
+        where: { name: channelType === 'WHATSAPP' ? 'WhatsApp Business' : 'SMS Gateway' }
+      });
+      if (channel) {
+        where.channelId = channel.id;
+      }
     }
     
     if (startDate || endDate) {
@@ -178,73 +237,36 @@ export class CommunicationRepository extends BaseRepository {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    const [total, sent, delivered, failed, smsCount, whatsappCount] = await Promise.all([
+    const [total, sent, delivered, failed, pending] = await Promise.all([
       prisma.communicationLog.count({ where }),
       prisma.communicationLog.count({ where: { ...where, status: 'SENT' } }),
       prisma.communicationLog.count({ where: { ...where, status: 'DELIVERED' } }),
       prisma.communicationLog.count({ where: { ...where, status: 'FAILED' } }),
-      prisma.communicationLog.count({ 
-        where: { 
-          ...where, 
-          channel: { type: 'SMS' } 
-        } 
-      }),
-      prisma.communicationLog.count({ 
-        where: { 
-          ...where, 
-          channel: { type: 'WHATSAPP' } 
-        } 
-      })
+      prisma.communicationLog.count({ where: { ...where, status: 'PENDING' } })
     ]);
+
+    // Get counts by channel type
+    const smsChannel = await prisma.communicationChannel.findFirst({ where: { name: 'SMS Gateway' } });
+    const whatsappChannel = await prisma.communicationChannel.findFirst({ where: { name: 'WhatsApp Business' } });
+
+    const smsCount = smsChannel 
+      ? await prisma.communicationLog.count({ where: { ...where, channelId: smsChannel.id } })
+      : 0;
+    
+    const whatsappCount = whatsappChannel
+      ? await prisma.communicationLog.count({ where: { ...where, channelId: whatsappChannel.id } })
+      : 0;
 
     return {
       total,
       sent,
       delivered,
       failed,
-      pending: total - sent - delivered - failed,
+      pending,
       smsCount,
       whatsappCount,
       deliveryRate: total > 0 ? Math.round((delivered / total) * 100) : 0
     };
-  }
-
-  private async getSMSChannel() {
-    let channel = await prisma.communicationChannel.findFirst({
-      where: { type: 'SMS' }
-    });
-
-    if (!channel) {
-      channel = await prisma.communicationChannel.create({
-        data: {
-          name: 'SMS Gateway',
-          type: 'SMS',
-          isEnabled: true,
-          config: {}
-        }
-      });
-    }
-
-    return channel;
-  }
-
-  private async getWhatsAppChannel() {
-    let channel = await prisma.communicationChannel.findFirst({
-      where: { type: 'WHATSAPP' }
-    });
-
-    if (!channel) {
-      channel = await prisma.communicationChannel.create({
-        data: {
-          name: 'WhatsApp Business',
-          type: 'WHATSAPP',
-          isEnabled: true,
-          config: {}
-        }
-      });
-    }
-
-    return channel;
   }
 
   private parseTemplate(template: string, variables: Record<string, any>): string {

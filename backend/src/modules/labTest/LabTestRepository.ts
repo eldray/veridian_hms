@@ -20,7 +20,7 @@ export class LabTestRepository {
       isActive,
       isNHISCovered,
       page = 1,
-      limit = 10000
+      limit = 50
     } = query;
 
     const where: any = {
@@ -44,7 +44,7 @@ export class LabTestRepository {
     }
 
     const pageNum = Math.max(1, parseInt(String(page)));
-    const limitNum = Math.min(10000, Math.max(1, parseInt(String(limit))));
+    const limitNum = Math.min(100, Math.max(1, parseInt(String(limit))));
     const skip = (pageNum - 1) * limitNum;
 
     const [services, total] = await Promise.all([

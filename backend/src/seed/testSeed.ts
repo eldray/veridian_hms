@@ -1537,13 +1537,88 @@ console.log('✅ Test users created/verified');
         userId: pharmacist?.id || admin.id,
         title: 'Medication Dispensed',
         message: 'Medications have been dispensed for Kofi Ofori',
-        type: 'pharmacy',
+        type: 'success',
         priority: 'low',
         actionType: 'medication',
         actionId: att5.id,
         actionUrl: `/attendances/${att5.id}/medications`,
       },
     });
+
+ 
+// ✅ ADD NOTIFICATIONS FOR ADMIN
+if (admin) {
+  // Welcome notification
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      title: '👋 Welcome Admin',
+      message: 'You are logged in as System Administrator. You will see all system-wide notifications here.',
+      type: 'success',
+      priority: 'medium',
+      isRead: false,
+      createdAt: new Date(),
+    },
+  });
+
+  // System status notification
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      title: '✅ System Ready',
+      message: 'All modules are operational. Test data has been seeded successfully.',
+      type: 'info',
+      priority: 'low',
+      isRead: false,
+      createdAt: new Date(),
+    },
+  });
+
+  // Pending tasks notification
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      title: '📋 Pending Tasks',
+      message: 'You have reports to review. Check the reports dashboard.',
+      type: 'system',
+      priority: 'medium',
+      actionType: 'reports',
+      actionUrl: '/dashboard/reports',
+      isRead: false,
+      createdAt: new Date(),
+    },
+  });
+
+  // User activity notification
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      title: '👥 User Activity',
+      message: 'Test users have been created. Review user accounts.',
+      type: 'info',
+      priority: 'low',
+      actionType: 'users',
+      actionUrl: '/dashboard/users',
+      isRead: false,
+      createdAt: new Date(),
+    },
+  });
+
+  // Financial notification
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      title: '💰 Financial Summary',
+      message: `Total bills created: 5. Total claims submitted: 2. Review financial reports.`,
+      type: 'billing',
+      priority: 'medium',
+      actionType: 'financial',
+      actionUrl: '/dashboard/finance',
+      isRead: false,
+      createdAt: new Date(),
+    },
+  });
+}   
     console.log('✅ Notifications created');
 
     console.log('\n🎉 TEST DATA SEEDING COMPLETED!');

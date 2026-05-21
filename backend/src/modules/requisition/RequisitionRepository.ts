@@ -1,5 +1,4 @@
 // RequisitionRepository.ts - Data access layer for requisition module
-
 import { PrismaClient, Prisma } from '@prisma/client';
 import {
   RequisitionQueryParams,
@@ -196,12 +195,10 @@ export class RequisitionRepository {
   }
 
   async delete(id: string) {
-    // Delete requisition items first
     await this.prisma.requisitionItem.deleteMany({
       where: { requisitionId: id }
     });
 
-    // Then delete requisition
     return this.prisma.requisition.delete({
       where: { id }
     });

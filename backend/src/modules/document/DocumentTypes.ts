@@ -1,37 +1,34 @@
+// modules/document/DocumentTypes.ts
 import { Request } from 'express';
 
 export interface IDocument {
-  _id?: string;
-  billId?: string;
-  referralId?: string;
-  encounterId?: string;
-  patientId?: string;
-  documentType: 'receipt' | 'referral_letter' | 'discharge_summary' | 'lab_result' | 'prescription' | 'bill_statement';
-  filePath: string;
-  fileName: string;
-  generatedAt?: Date;
-  generatedBy?: string;
-  status?: 'active' | 'archived';
+  id: string;
+  templateId: string;
+  entityType: string;
+  entityId: string;
+  filePath: string | null;
+  generatedById: string;
+  generatedAt: Date;
 }
 
 export interface IDocumentTemplate {
-  _id?: string;
+  id: string;
   name: string;
   code: string;
   templateType: string;
   content: string;
-  isDefault: boolean;
   isActive: boolean;
-  createdById?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  isDefault: boolean;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface IDocumentGenerateDTO {
   billId?: string;
   referralId?: string;
   encounterId?: string;
-  patientId?: string;
+  admissionId?: string;
   documentType: string;
 }
 
@@ -48,6 +45,6 @@ export interface IDocumentTemplateUpdateDTO extends Partial<IDocumentTemplateCre
 }
 
 export interface IDocumentRequest extends Request {
-  params: { id: string; billId?: string; referralId?: string };
+  params: { id: string; billId?: string; referralId?: string; encounterId?: string };
   body: IDocumentGenerateDTO | IDocumentTemplateCreateDTO;
 }

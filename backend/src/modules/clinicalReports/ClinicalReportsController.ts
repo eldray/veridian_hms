@@ -22,6 +22,13 @@ export class ClinicalReportsController {
     try {
       const { startDate, endDate } = req.query;
 
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'startDate and endDate are required' 
+        });
+      }
+
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
@@ -41,6 +48,14 @@ export class ClinicalReportsController {
   generateScanReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'startDate and endDate are required' 
+        });
+      }
+
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
@@ -60,6 +75,14 @@ export class ClinicalReportsController {
   generateProcedureReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'startDate and endDate are required' 
+        });
+      }
+
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
@@ -79,6 +102,14 @@ export class ClinicalReportsController {
   generateMedicationReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'startDate and endDate are required' 
+        });
+      }
+
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
@@ -98,6 +129,14 @@ export class ClinicalReportsController {
   generateVitalsReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'startDate and endDate are required' 
+        });
+      }
+
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
@@ -111,5 +150,5 @@ export class ClinicalReportsController {
   };
 }
 
-// Add this at the very bottom of ClinicalReportsController.ts
+// Only one export - remove the duplicate if present
 export const clinicalReportsController = new ClinicalReportsController();

@@ -1,7 +1,4 @@
-// stores/stockStore.ts - COMPLETE FIXED VERSION
-import { create } from 'zustand';
-import api from '../api';
-// stores/stockStore.ts - UPDATED IMPORTS
+// stores/stockStore.ts - COMPLETE FIXED VERSION with PurchaseInvoices
 import { create } from 'zustand';
 import api from '../api';
 import { 
@@ -20,12 +17,13 @@ import {
   getRequisitions as apiGetRequisitions,
   createRequisition as apiCreateRequisition,
   deleteRequisition as apiDeleteRequisition,
-  getInvoices as apiGetInvoices,
-  createInvoice as apiCreateInvoice,
-  deleteInvoice as apiDeleteInvoice,
+  // ✅ RENAMED: Invoices → PurchaseInvoices
+  getPurchaseInvoices as apiGetPurchaseInvoices,
+  createPurchaseInvoice as apiCreatePurchaseInvoice,
+  deletePurchaseInvoice as apiDeletePurchaseInvoice,
   updateRequisitionStatus,
   approveRequisitionItems,
-  // ✅ ADD THESE MISSING REPORT API FUNCTIONS
+  // Stock Reports
   getStockValueSummary as apiGetStockValueSummary,
   getExpiryReport as apiGetExpiryReport,
   getMovementSummary as apiGetMovementSummary,
@@ -43,6 +41,7 @@ const extractItems = (response: any, defaultField = 'data'): any[] => {
   if (response?.transactions && Array.isArray(response.transactions)) return response.transactions;
   if (response?.requisitions && Array.isArray(response.requisitions)) return response.requisitions;
   if (response?.invoices && Array.isArray(response.invoices)) return response.invoices;
+  if (response?.purchaseInvoices && Array.isArray(response.purchaseInvoices)) return response.purchaseInvoices;
   if (response?.[defaultField] && Array.isArray(response[defaultField])) return response[defaultField];
   return [];
 };
@@ -105,7 +104,8 @@ interface Requisition {
   RequisitionItem?: any[];
 }
 
-interface Invoice {
+// ✅ RENAMED: Invoice → PurchaseInvoice
+interface PurchaseInvoice {
   id: string;
   invoiceNumber: string;
   supplierName: string;
@@ -131,7 +131,7 @@ interface StockState {
   stockItems: StockItem[];
   transactions: StockTransaction[];
   requisitions: Requisition[];
-  invoices: Invoice[];
+  purchaseInvoices: PurchaseInvoice[];  // ✅ RENAMED
   
   // Current items
   currentStockItem: StockItem | null;
@@ -183,13 +183,12 @@ interface StockState {
   fulfillRequisition: (id: string, data?: any) => Promise<Requisition>;
   cancelRequisition: (id: string) => Promise<Requisition>;
   
-  // ==================== INVOICES ====================
-  getInvoices: (filters?: { supplierName?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => Promise<void>;
-  getInvoice: (id: string) => Promise<Invoice>;
-  createInvoice: (data: any) => Promise<Invoice>;
-  updateInvoice: (id: string, data: any) => Promise<Invoice>;
-  deleteInvoice: (id: string) => Promise<void>;
-
+  // ==================== PURCHASE INVOICES (Supplier Invoices) ====================
+  getPurchaseInvoices: (filters?: { supplierName?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => Promise<void>;
+  getPurchaseInvoice: (id: string) => Promise<PurchaseInvoice>;
+  createPurchaseInvoice: (data: any) => Promise<PurchaseInvoice>;
+  updatePurchaseInvoice: (id: string, data: any) => Promise<PurchaseInvoice>;
+  deletePurchaseInvoice: (id: string) => Promise<void>;
 
   // ==================== STOCK REPORTS ====================
   getStockValueSummary: () => Promise<any>;
@@ -199,7 +198,6 @@ interface StockState {
   getSupplierReport: () => Promise<any>;
   getRequisitionSummary: (startDate?: string, endDate?: string) => Promise<any>;
 
-  
   // ==================== UTILITIES ====================
   getMedicationStockItems: () => StockItem[];
   getLocalLowStockItems: () => StockItem[];
@@ -215,7 +213,7 @@ export const useStockStore = create<StockState>((set, get) => ({
   stockItems: [],
   transactions: [],
   requisitions: [],
-  invoices: [],
+  purchaseInvoices: [],  // ✅ RENAMED
   currentStockItem: null,
   currentTransaction: null,
   isLoading: false,
@@ -230,18 +228,46 @@ export const useStockStore = create<StockState>((set, get) => ({
   getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetStockItems(filters);
-      const stockItems = extractItems(response, 'stockItems');
+      // Request a large limit to get all items
+      const allItems: StockItem[] = [];
+      let currentPage = 1;
+      const limit = 500; // Get 500 items per request
+      let hasMore = true;
+      
+      while (hasMore) {
+        const response = await apiGetStockItems({ 
+          ...filters, 
+          page: currentPage, 
+          limit 
+        });
+        
+        const items = extractItems(response, 'stockItems');
+        allItems.push(...(items as StockItem[]));
+        
+        // Check if we've gotten all items
+        const total = response?.pagination?.total || response?.total || items.length;
+        hasMore = allItems.length < total && items.length === limit;
+        currentPage++;
+        
+        // Safety: Don't make more than 10 requests
+        if (currentPage > 10) break;
+      }
+      
       set({ 
-        stockItems: stockItems as StockItem[],
-        pagination: response?.pagination || null,
+        stockItems: allItems,
+        pagination: {
+          page: 1,
+          limit: allItems.length,
+          total: allItems.length,
+          pages: 1
+        },
         isLoading: false 
       });
     } catch (error: unknown) {
       console.error('Failed to fetch stock items:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock items' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock items' 
       });
       throw error;
     }
@@ -256,7 +282,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock item:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock item' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock item' 
       });
       throw error;
     }
@@ -277,7 +303,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to create stock item:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to create stock item' 
+        error: (error as any).response?.data?.message || 'Failed to create stock item' 
       });
       throw error;
     }
@@ -301,7 +327,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to update stock item:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to update stock item' 
+        error: (error as any).response?.data?.message || 'Failed to update stock item' 
       });
       throw error;
     }
@@ -322,7 +348,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to delete stock item:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to delete stock item' 
+        error: (error as any).response?.data?.message || 'Failed to delete stock item' 
       });
       throw error;
     }
@@ -338,7 +364,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch low stock items:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch low stock items' 
+        error: (error as any).response?.data?.message || 'Failed to fetch low stock items' 
       });
       throw error;
     }
@@ -353,7 +379,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock categories:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock categories' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock categories' 
       });
       throw error;
     }
@@ -373,7 +399,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to update stock level:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to update stock level' 
+        error: (error as any).response?.data?.message || 'Failed to update stock level' 
       });
       throw error;
     }
@@ -396,7 +422,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to bulk update stock:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to bulk update stock' 
+        error: (error as any).response?.data?.message || 'Failed to bulk update stock' 
       });
       throw error;
     }
@@ -418,7 +444,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock transactions:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock transactions' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock transactions' 
       });
       throw error;
     }
@@ -433,7 +459,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock transaction:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock transaction' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock transaction' 
       });
       throw error;
     }
@@ -469,7 +495,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to create stock transaction:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to create stock transaction' 
+        error: (error as any).response?.data?.message || 'Failed to create stock transaction' 
       });
       throw error;
     }
@@ -493,7 +519,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to update stock transaction:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to update stock transaction' 
+        error: (error as any).response?.data?.message || 'Failed to update stock transaction' 
       });
       throw error;
     }
@@ -509,7 +535,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock movement report:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch stock movement report' 
+        error: (error as any).response?.data?.message || 'Failed to fetch stock movement report' 
       });
       throw error;
     }
@@ -518,16 +544,19 @@ export const useStockStore = create<StockState>((set, get) => ({
   getLowStockAlerts: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Use the stock-items endpoint for low stock alerts
-      const alerts = await apiGetLowStockItems();
-      const items = extractItems(alerts, 'lowStockItems');
+      // Use the same endpoint as getLowStockItems
+      const response = await api.get('/stock-items/low-stock', {
+        params: { limit: 5000 }
+      });
+      
+      const items = extractItems(response, 'lowStockItems');
       set({ lowStockAlerts: items as StockItem[], isLoading: false });
       return items as StockItem[];
     } catch (error: unknown) {
       console.error('Failed to fetch low stock alerts:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch low stock alerts' 
+        error: (error as any).response?.data?.message || 'Failed to fetch low stock alerts' 
       });
       throw error;
     }
@@ -550,7 +579,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch stock item transaction history:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch transaction history' 
+        error: (error as any).response?.data?.message || 'Failed to fetch transaction history' 
       });
       throw error;
     }
@@ -561,18 +590,43 @@ export const useStockStore = create<StockState>((set, get) => ({
   getRequisitions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetRequisitions(filters);
-      const requisitions = extractItems(response, 'requisitions');
+      const allRequisitions: Requisition[] = [];
+      let currentPage = 1;
+      const limit = 200;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const response = await apiGetRequisitions({ 
+          ...filters, 
+          page: currentPage, 
+          limit 
+        });
+        
+        const requisitions = extractItems(response, 'requisitions');
+        allRequisitions.push(...(requisitions as Requisition[]));
+        
+        const total = response?.pagination?.total || response?.total || requisitions.length;
+        hasMore = allRequisitions.length < total && requisitions.length === limit;
+        currentPage++;
+        
+        if (currentPage > 10) break;
+      }
+      
       set({ 
-        requisitions: requisitions as Requisition[],
-        pagination: response?.pagination || null,
+        requisitions: allRequisitions,
+        pagination: {
+          page: 1,
+          limit: allRequisitions.length,
+          total: allRequisitions.length,
+          pages: 1
+        },
         isLoading: false 
       });
     } catch (error: unknown) {
       console.error('Failed to fetch requisitions:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch requisitions' 
+        error: (error as any).response?.data?.message || 'Failed to fetch requisitions' 
       });
       throw error;
     }
@@ -589,7 +643,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to fetch requisition:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch requisition' 
+        error: (error as any).response?.data?.message || 'Failed to fetch requisition' 
       });
       throw error;
     }
@@ -610,7 +664,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to create requisition:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to create requisition' 
+        error: (error as any).response?.data?.message || 'Failed to create requisition' 
       });
       throw error;
     }
@@ -631,7 +685,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to update requisition:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to update requisition' 
+        error: (error as any).response?.data?.message || 'Failed to update requisition' 
       });
       throw error;
     }
@@ -650,7 +704,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       console.error('Failed to delete requisition:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to delete requisition' 
+        error: (error as any).response?.data?.message || 'Failed to delete requisition' 
       });
       throw error;
     }
@@ -664,7 +718,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
-      set({ isLoading: false, error: error.response?.data?.message || 'Failed to submit requisition' });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to submit requisition' });
       throw error;
     }
   },
@@ -677,7 +731,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
-      set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition' });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to approve requisition' });
       throw error;
     }
   },
@@ -690,7 +744,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
-      set({ isLoading: false, error: error.response?.data?.message || 'Failed to approve requisition items' });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to approve requisition items' });
       throw error;
     }
   },
@@ -703,7 +757,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
-      set({ isLoading: false, error: error.response?.data?.message || 'Failed to fulfill requisition' });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to fulfill requisition' });
       throw error;
     }
   },
@@ -716,190 +770,215 @@ export const useStockStore = create<StockState>((set, get) => ({
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
-      set({ isLoading: false, error: error.response?.data?.message || 'Failed to cancel requisition' });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to cancel requisition' });
       throw error;
     }
   },
 
-  // ==================== INVOICES ====================
+  // ==================== PURCHASE INVOICES (Supplier Invoices) ====================
 
-  getInvoices: async (filters = {}) => {
+  getPurchaseInvoices: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetInvoices(filters);
-      const invoices = extractItems(response, 'invoices');
+      const allInvoices: PurchaseInvoice[] = [];
+      let currentPage = 1;
+      const limit = 200;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const response = await apiGetPurchaseInvoices({ 
+          ...filters, 
+          page: currentPage, 
+          limit 
+        });
+        
+        const invoices = extractItems(response, 'purchaseInvoices');
+        allInvoices.push(...(invoices as PurchaseInvoice[]));
+        
+        const total = response?.pagination?.total || response?.total || invoices.length;
+        hasMore = allInvoices.length < total && invoices.length === limit;
+        currentPage++;
+        
+        if (currentPage > 10) break;
+      }
+      
       set({ 
-        invoices: invoices as Invoice[],
-        pagination: response?.pagination || null,
+        purchaseInvoices: allInvoices,
+        pagination: {
+          page: 1,
+          limit: allInvoices.length,
+          total: allInvoices.length,
+          pages: 1
+        },
         isLoading: false 
       });
     } catch (error: unknown) {
-      console.error('Failed to fetch invoices:', error);
+      console.error('Failed to fetch purchase invoices:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch invoices' 
+        error: (error as any).response?.data?.message || 'Failed to fetch purchase invoices' 
       });
       throw error;
     }
   },
 
-  getInvoice: async (id: string) => {
+  getPurchaseInvoice: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/invoices/${id}`);
-      const invoice = response.data || response;
+      const response = await api.get(`/purchase-invoices/${id}`);
+      const purchaseInvoice = response.data || response;
       set({ isLoading: false });
-      return invoice;
+      return purchaseInvoice;
     } catch (error: unknown) {
-      console.error('Failed to fetch invoice:', error);
+      console.error('Failed to fetch purchase invoice:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to fetch invoice' 
+        error: (error as any).response?.data?.message || 'Failed to fetch purchase invoice' 
       });
       throw error;
     }
   },
 
-  createInvoice: async (data: any) => {
+  createPurchaseInvoice: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiCreateInvoice(data);
-      const newInvoice = result.invoice || result;
-      const { invoices } = get();
+      const result = await apiCreatePurchaseInvoice(data);
+      const newPurchaseInvoice = result.purchaseInvoice || result;
+      const { purchaseInvoices } = get();
       set({ 
-        invoices: [newInvoice, ...invoices],
+        purchaseInvoices: [newPurchaseInvoice, ...purchaseInvoices],
         isLoading: false 
       });
       // Refresh stock items as invoice may have added stock
       await get().getStockItems();
       await get().getLowStockItems();
-      return newInvoice;
+      return newPurchaseInvoice;
     } catch (error: unknown) {
-      console.error('Failed to create invoice:', error);
+      console.error('Failed to create purchase invoice:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to create invoice' 
+        error: (error as any).response?.data?.message || 'Failed to create purchase invoice' 
       });
       throw error;
     }
   },
 
-  updateInvoice: async (id: string, data: any) => {
+  updatePurchaseInvoice: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.put(`/invoices/${id}`, data);
-      const updatedInvoice = response.data || response;
-      const { invoices } = get();
+      const response = await api.put(`/purchase-invoices/${id}`, data);
+      const updatedPurchaseInvoice = response.data || response;
+      const { purchaseInvoices } = get();
       set({ 
-        invoices: invoices.map(inv => inv.id === id ? updatedInvoice : inv),
+        purchaseInvoices: purchaseInvoices.map(inv => inv.id === id ? updatedPurchaseInvoice : inv),
         isLoading: false 
       });
-      return updatedInvoice;
+      return updatedPurchaseInvoice;
     } catch (error: unknown) {
-      console.error('Failed to update invoice:', error);
+      console.error('Failed to update purchase invoice:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to update invoice' 
+        error: (error as any).response?.data?.message || 'Failed to update purchase invoice' 
       });
       throw error;
     }
   },
 
-  deleteInvoice: async (id: string) => {
+  deletePurchaseInvoice: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiDeleteInvoice(id);
-      const { invoices } = get();
+      await apiDeletePurchaseInvoice(id);
+      const { purchaseInvoices } = get();
       set({ 
-        invoices: invoices.filter(inv => inv.id !== id),
+        purchaseInvoices: purchaseInvoices.filter(inv => inv.id !== id),
         isLoading: false 
       });
       // Refresh stock items as invoice deletion may reverse stock
       await get().getStockItems();
       await get().getLowStockItems();
     } catch (error: unknown) {
-      console.error('Failed to delete invoice:', error);
+      console.error('Failed to delete purchase invoice:', error);
       set({ 
         isLoading: false, 
-        error: error.response?.data?.message || 'Failed to delete invoice' 
+        error: (error as any).response?.data?.message || 'Failed to delete purchase invoice' 
       });
       throw error;
     }
   },
 
+  // ==================== STOCK REPORTS ====================
   
-// STOCK REPORTS
-getStockValueSummary: async () => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetStockValueSummary();
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get stock summary' });
-    throw error;
-  }
-},
+  getStockValueSummary: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetStockValueSummary();
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get stock summary' });
+      throw error;
+    }
+  },
 
-getExpiryReport: async (days = 30) => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetExpiryReport(days);
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get expiry report' });
-    throw error;
-  }
-},
+  getExpiryReport: async (days = 30) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetExpiryReport(days);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get expiry report' });
+      throw error;
+    }
+  },
 
-getMovementSummary: async (startDate?: string, endDate?: string) => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetMovementSummary(startDate, endDate);
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get movement summary' });
-    throw error;
-  }
-},
+  getMovementSummary: async (startDate?: string, endDate?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetMovementSummary(startDate, endDate);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get movement summary' });
+      throw error;
+    }
+  },
 
-getUsageReport: async (period = 'month', limit = 20) => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetUsageReport(period, limit);
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get usage report' });
-    throw error;
-  }
-},
+  getUsageReport: async (period = 'month', limit = 20) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetUsageReport(period, limit);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get usage report' });
+      throw error;
+    }
+  },
 
-getSupplierReport: async () => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetSupplierReport();
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get supplier report' });
-    throw error;
-  }
-},
+  getSupplierReport: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetSupplierReport();
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get supplier report' });
+      throw error;
+    }
+  },
 
-getRequisitionSummary: async (startDate?: string, endDate?: string) => {
-  set({ isLoading: true, error: null });
-  try {
-    const data = await apiGetRequisitionSummary(startDate, endDate);
-    set({ isLoading: false });
-    return data;
-  } catch (error: unknown) {
-    set({ isLoading: false, error: error.response?.data?.message || 'Failed to get requisition summary' });
-    throw error;
-  }
-},
+  getRequisitionSummary: async (startDate?: string, endDate?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetRequisitionSummary(startDate, endDate);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get requisition summary' });
+      throw error;
+    }
+  },
 
   // ==================== UTILITIES ====================
 
@@ -907,11 +986,14 @@ getRequisitionSummary: async (startDate?: string, endDate?: string) => {
     return get().stockItems.filter(item => item.isMedication && item.isActive);
   },
 
+  // ✅ FIXED: Local low stock items now works correctly
   getLocalLowStockItems: () => {
     const { stockItems } = get();
+    // Return ALL items that are below reorder level
     return stockItems.filter(item => item.currentStock <= item.reorderLevel);
   },
 
+  // ✅ FIXED: Get expiring items from ALL stock items
   getExpiringItems: (days = 30) => {
     const { stockItems } = get();
     const targetDate = new Date();
@@ -934,9 +1016,10 @@ getRequisitionSummary: async (startDate?: string, endDate?: string) => {
       get().getLowStockItems(),
       get().getStockCategories(),
       get().getRequisitions(),
-      get().getInvoices()
+      get().getPurchaseInvoices()
     ]);
   },
+
 
   clearCurrentStockItem: () => {
     set({ currentStockItem: null });

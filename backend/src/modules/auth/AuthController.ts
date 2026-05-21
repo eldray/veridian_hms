@@ -259,13 +259,38 @@ export class AuthController {
     console.log('🔐 Forgot password endpoint hit!');
     try {
       const { username } = req.body;
-
+  
       if (!username) {
         res.status(400).json({ success: false, message: 'Username is required' });
         return;
       }
-
-      console.log(`Password reset requested for: ${username}`);
+  
+      const user = await this.prisma.user.findUnique({ where: { username } });
+      
+      if (!user) {
+        // Don't reveal that user doesn't exist for security
+        res.status(200).json({ 
+          success: true, 
+          message: 'If an account exists with this username, a reset link will be sent' 
+        });
+        return;
+      }
+  
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetExpiry = new Date(Date.now() + 3600000); // 1 hour
+      
+      // Store in database (add resetToken and resetExpiry fields to User model)
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken,
+          resetExpiry
+        }
+      });
+      
+      // Send email/SMS with reset link
+      // ...
       
       res.status(200).json({ 
         success: true, 

@@ -1,61 +1,66 @@
 // GDRGRoutes.ts - Route definitions for GDRG module
 
 import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { GDRGController } from './GDRGController';
-import { protect, requireAdmin, requireClinicalStaff, requireAccountsStaff } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export const createGDRGRoutes = () => {
+export const createGDRGRoutes = (prisma: PrismaClient) => {  // ✅ Accept prisma
   const router = Router();
-  const controller = new GDRGController();
+  const controller = new GDRGController(prisma);  
 
   // All routes require authentication
   router.use(protect);
 
   // ============================================
-  // PUBLIC (Authenticated) Routes - Clinical staff can view
+  // Clinical Staff Routes (View only)
   // ============================================
 
-  // Get all GDRG tariffs
-  router.get('/', requireClinicalStaff, controller.getTariffs);
+  // Get all GDRG tariffs with pagination
+  router.get('/', requireRole(['admin', 'doctor', 'accounts', 'records']), controller.getTariffs);
 
   // Get GDRG tariff by code
-  router.get('/:code', requireClinicalStaff, controller.getTariffByCode);
+  router.get('/:code', requireRole(['admin', 'doctor', 'accounts', 'records']), controller.getTariffByCode);
 
-  // Age-based GDRG lookup for NHIS claims (used during claim generation)
-  router.get('/lookup/age', requireAccountsStaff, controller.lookupByAge);
+  // Age-based GDRG lookup for NHIS claims
+  router.get('/lookup/age', requireRole(['admin', 'accounts']), controller.lookupByAge);
+
+  // Get diagnoses by GDRG
+  router.get('/:gdrgCode/diagnoses', requireRole(['admin', 'doctor', 'accounts']), controller.getDiagnosesByGDRG);
+
+  // Get GDRG by diagnosis
+  router.get('/diagnosis/:diagnosisId', requireRole(['admin', 'doctor', 'accounts']), controller.getGDRGByDiagnosis);
+
+  // Get procedures by GDRG
+  router.get('/:gdrgCode/procedures', requireRole(['admin', 'doctor', 'accounts']), controller.getProceduresByGDRG);
+
+  // Get GDRG by procedure
+  router.get('/procedure/:procedureId', requireRole(['admin', 'doctor', 'accounts']), controller.getGDRGByProcedure);
 
   // ============================================
-  // Admin Only Routes
+  // Admin Only Routes (Write operations)
   // ============================================
 
   // Create new GDRG tariff
-  router.post('/', requireAdmin, controller.createTariff);
+  router.post('/', requireRole(['admin']), controller.createTariff);
 
   // Update GDRG tariff
-  router.put('/:code', requireAdmin, controller.updateTariff);
+  router.put('/:code', requireRole(['admin']), controller.updateTariff);
 
   // Delete GDRG tariff
-  router.delete('/:code', requireAdmin, controller.deleteTariff);
+  router.delete('/:code', requireRole(['admin']), controller.deleteTariff);
 
   // Link diagnosis to GDRG tariff
-  router.post('/:gdrgCode/diagnosis', requireAdmin, controller.linkDiagnosis);
+  router.post('/:gdrgCode/diagnosis', requireRole(['admin']), controller.linkDiagnosis);
 
   // Unlink diagnosis from GDRG tariff
-  router.delete('/:gdrgCode/diagnosis/:diagnosisId', requireAdmin, controller.unlinkDiagnosis);
+  router.delete('/:gdrgCode/diagnosis/:diagnosisId', requireRole(['admin']), controller.unlinkDiagnosis);
 
-  // ============================================
-  // Diagnosis Linking Routes
-  // ============================================
-  router.get('/:gdrgCode/diagnoses', requireClinicalStaff, controller.getDiagnosesByGDRG);
-  router.get('/diagnosis/:diagnosisId', requireClinicalStaff, controller.getGDRGByDiagnosis);
+  // Link procedure to GDRG tariff
+  router.post('/:gdrgCode/procedure', requireRole(['admin']), controller.linkProcedure);
 
-  // ============================================
-  // Procedure GDRG Linking Routes (Admin Only)
-  // ============================================
-  router.post('/:gdrgCode/procedure', requireAdmin, controller.linkProcedure);
-  router.delete('/:gdrgCode/procedure/:procedureId', requireAdmin, controller.unlinkProcedure);
-  router.get('/:gdrgCode/procedures', requireClinicalStaff, controller.getProceduresByGDRG);
-  router.get('/procedure/:procedureId', requireClinicalStaff, controller.getGDRGByProcedure);
+  // Unlink procedure from GDRG tariff
+  router.delete('/:gdrgCode/procedure/:procedureId', requireRole(['admin']), controller.unlinkProcedure);
 
   return router;
 };

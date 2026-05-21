@@ -1,5 +1,4 @@
-// src/store/notificationStore.ts - ADD THESE ACTIONS
-
+// src/store/notificationStore.ts
 import { create } from 'zustand';
 import { 
   getNotifications as apiGetNotifications, 
@@ -10,12 +9,14 @@ import {
   getNotificationStats as apiGetNotificationStats,
   createNotification as apiCreateNotification,
   sendBulkNotification as apiSendBulkNotification,
-  // ✅ ADD THESE NEW IMPORTS
   sendRoleNotification as apiSendRoleNotification,
   triggerLowStockCheck as apiTriggerLowStockCheck,
   triggerAppointmentReminders as apiTriggerAppointmentReminders,
   cleanupOldNotifications as apiCleanupOldNotifications,
   getUnreadCount as apiGetUnreadCount,
+  sendUserMessage as apiSendUserMessage,
+  sendBulkUserMessages as apiSendBulkUserMessages,
+  getConversations as apiGetConversations,
 } from '../api';
 import type { Notification, NotificationStats, Pagination } from '../types';
 
@@ -29,8 +30,8 @@ interface NotificationStore {
   pagination: Pagination | null;
   conversations: any[];
   
-  // Existing actions
-  getNotifications: (filters?: any) => Promise<void>;
+  // Actions
+  getNotifications: (page?: number, limit?: number) => Promise<void>;
   getNotification: (id: string) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
@@ -38,11 +39,6 @@ interface NotificationStore {
   getNotificationStats: () => Promise<void>;
   createNotification: (data: any) => Promise<void>;
   sendBulkNotification: (data: any) => Promise<void>;
-    // ... existing actions ...
-  sendUserMessage: (data: any) => Promise<void>;
-  sendBulkUserMessages: (data: any) => Promise<void>;
-  getConversations: () => Promise<void>;
-  // ✅ ADD THESE NEW ACTIONS
   sendRoleNotification: (data: {
     roles: string[];
     title: string;
@@ -54,6 +50,9 @@ interface NotificationStore {
     actionUrl?: string;
     excludeUserId?: string;
   }) => Promise<void>;
+  sendUserMessage: (data: any) => Promise<void>;
+  sendBulkUserMessages: (data: any) => Promise<void>;
+  getConversations: () => Promise<void>;
   triggerLowStockCheck: () => Promise<any>;
   triggerAppointmentReminders: () => Promise<any>;
   cleanupOldNotifications: (daysToKeep?: number) => Promise<any>;
@@ -73,37 +72,62 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   pagination: null,
   conversations: [],
 
-
-  getNotifications: async (filters?: any) => {
+  getNotifications: async (page = 1, limit = 20) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetNotifications(filters);
+      const response = await apiGetNotifications({ page, limit });
       
-      // Handle different response formats
-      let notifications: Notification[] = [];
-      if (response.data && Array.isArray(response.data)) {
-        notifications = response.data;
-      } else if (Array.isArray(response)) {
-        notifications = response;
-      } else if (response.notifications && Array.isArray(response.notifications)) {
-        notifications = response.notifications;
-      } else if (response.data?.notifications) {
-        notifications = response.data.notifications;
+      console.log('RAW response:', response);
+      
+      // ✅ Handle case where response is an array (your current backend)
+      if (Array.isArray(response)) {
+        console.log('Backend returned array - using as notifications list');
+        set({ 
+          notifications: response,
+          unreadCount: response.length,
+          pagination: { page: 1, limit: 20, total: response.length, pages: 1 },
+          isLoading: false 
+        });
+        return;
       }
       
-      const unreadCount = notifications.filter((n: Notification) => !n.isRead).length;
+      // ✅ Handle wrapped response (after backend fix)
+      const responseData = response?.data || response;
+      const notifications = responseData?.notifications || [];
+      const unreadCount = responseData?.unreadCount || 0;
+      const pagination = responseData?.pagination || null;
+      
       set({ 
         notifications, 
-        unreadCount, 
-        pagination: response.pagination || null,
+        unreadCount,
+        pagination,
         isLoading: false 
       });
-    } catch (error: unknown) {
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch notifications', 
-        isLoading: false 
-      });
+    } catch (error: any) {
+      console.error('Get notifications error:', error);
+      set({ error: error.message, isLoading: false });
       throw error;
+    }
+  },
+
+  getUnreadCount: async () => {
+    try {
+      const response = await apiGetUnreadCount();
+      
+      // ✅ Handle array response (current backend)
+      if (Array.isArray(response)) {
+        set({ unreadCount: response.length });
+        return response.length;
+      }
+      
+      // ✅ Handle wrapped response (after backend fix)
+      const responseData = response?.data || response;
+      const count = responseData?.unreadCount || 0;
+      set({ unreadCount: count });
+      return count;
+    } catch (error) {
+      console.error('Failed to get unread count:', error);
+      return 0;
     }
   },
 
@@ -112,47 +136,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const notification = await apiGetNotification(id);
       set({ currentNotification: notification, isLoading: false });
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch notification', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED: Re-throw for component handling
-    }
-  },
-
-  sendUserMessage: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiSendUserMessage(data);
-      set({ isLoading: false });
-      return result;
-    } catch (error: unknown) {
-      set({ error: error.response?.data?.message || 'Failed to send message', isLoading: false });
-      throw error;
-    }
-  },
-
-  sendBulkUserMessages: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiSendBulkUserMessages(data);
-      set({ isLoading: false });
-      return result;
-    } catch (error: unknown) {
-      set({ error: error.response?.data?.message || 'Failed to send messages', isLoading: false });
-      throw error;
-    }
-  },
-
-  getConversations: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await apiGetConversations();
-      const conversations = response.data || response;
-      set({ conversations, isLoading: false });
-    } catch (error: unknown) {
-      set({ error: error.response?.data?.message || 'Failed to fetch conversations', isLoading: false });
       throw error;
     }
   },
@@ -169,7 +157,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: Math.max(0, state.unreadCount - 1),
         isLoading: false
       }));
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to mark notification as read', 
         isLoading: false 
@@ -187,7 +175,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: 0,
         isLoading: false
       }));
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to mark all notifications as read', 
         isLoading: false 
@@ -208,7 +196,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: deletedNotification && !deletedNotification.isRead ? state.unreadCount - 1 : state.unreadCount,
         isLoading: false
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete notification', 
         isLoading: false 
@@ -222,12 +210,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const stats = await apiGetNotificationStats();
       set({ stats, isLoading: false });
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch notification stats', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED: Re-throw for component handling
+      throw error;
     }
   },
 
@@ -241,7 +229,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         isLoading: false 
       }));
       return newNotification;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to create notification', 
         isLoading: false 
@@ -250,14 +238,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
   },
 
-  // ✅ ADDED MISSING FUNCTION
   sendBulkNotification: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiSendBulkNotification(data);
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to send bulk notification', 
         isLoading: false 
@@ -272,11 +259,47 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiSendRoleNotification(data);
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to send role notification', 
         isLoading: false 
       });
+      throw error;
+    }
+  },
+
+  sendUserMessage: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSendUserMessage(data);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to send message', isLoading: false });
+      throw error;
+    }
+  },
+
+  sendBulkUserMessages: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiSendBulkUserMessages(data);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to send messages', isLoading: false });
+      throw error;
+    }
+  },
+
+  getConversations: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetConversations();
+      const conversations = response.data || response;
+      set({ conversations, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to fetch conversations', isLoading: false });
       throw error;
     }
   },
@@ -287,7 +310,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiTriggerLowStockCheck();
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to trigger low stock check', 
         isLoading: false 
@@ -302,7 +325,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiTriggerAppointmentReminders();
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to trigger appointment reminders', 
         isLoading: false 
@@ -317,24 +340,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const result = await apiCleanupOldNotifications(daysToKeep);
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to cleanup notifications', 
         isLoading: false 
       });
       throw error;
-    }
-  },
-
-  getUnreadCount: async () => {
-    try {
-      const result = await apiGetUnreadCount();
-      const count = result.data?.unreadCount || result.unreadCount || 0;
-      set({ unreadCount: count });
-      return count;
-    } catch (error: unknown) {
-      console.error('Failed to get unread count:', error);
-      return 0;
     }
   },
 

@@ -50,13 +50,13 @@ router.put('/:encounterId/medications/:medicationId/dispense', protect, controll
 router.delete('/:encounterId/medications/:medicationId', protect, controller.removeMedication);
 
 // Add lab order to encounter - controller.addLabOrder is an array
-router.post('/:id/lab-orders', protect, controller.addLabOrder);
+router.post('/:id/lab-tests', protect, controller.addLabTest);
 
 // Update lab order status - controller.updateLabOrderStatus is an array
-router.put('/lab-orders/:labOrderId/status', protect, controller.updateLabOrderStatus);
+router.put('/lab-tests/:labTestId/status', protect, controller.updateLabTestStatus);
 
 // Remove lab order from encounter
-router.delete('/:encounterId/lab-orders/:labOrderId', protect, controller.removeLabOrder);
+router.delete('/:encounterId/lab-tests/:labTestId', protect, controller.removeLabTest);
 
 // Add scan/radiology to encounter - controller.addScan is an array
 router.post('/:id/scans', protect, controller.addScan);

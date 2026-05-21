@@ -82,38 +82,6 @@ export interface DiagnosisWithRelations extends DiagnosisResponse {
       isActive: boolean;
     };
   }>;
-  admissionsAsPrincipal?: Array<{
-    id: string;
-    Patient: {
-      id: string;
-      folderNumber: string;
-      surname: string;
-      otherNames: string;
-    };
-    Ward: {
-      id: string;
-      wardName: string;
-    };
-  }>;
-  attendanceDiagnoses?: Array<{
-    id: string;
-    diagnosisType: string;
-    Attendance: {
-      id: string;
-      attendanceNumber: string;
-      Patient: {
-        id: string;
-        folderNumber: string;
-        surname: string;
-        otherNames: string;
-      };
-    };
-    User: {
-      id: string;
-      fullName: string;
-      role: string;
-    };
-  }>;
   ServiceCatalog?: Array<{
     id: string;
     name: string;
@@ -149,9 +117,5 @@ export interface PaginatedResponse<T> {
     limit: number;
     total: number;
     pages: number;
-    currentPage?: number;
-    totalPages?: number;
-    hasNext?: boolean;
-    hasPrev?: boolean;
   };
 }

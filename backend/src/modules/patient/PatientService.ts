@@ -8,12 +8,15 @@ import { BaseService } from '../../shared/base/BaseService';
 import { PatientRepository } from './PatientRepository';
 import { CreatePatientDTO, UpdatePatientDTO, PatientFilters, PatientSummary } from './PatientTypes';
 import { NotFoundError, ValidationError } from '../../utils/errors';
+import { getCounterService } from '../../services/CounterService'; 
 
 export class PatientService extends BaseService {
   private repository: PatientRepository;
+  private prisma: PrismaClient;  // ✅ ADDED - store prisma instance
 
   constructor(prisma: PrismaClient) {
     super('PatientService');
+    this.prisma = prisma;  // ✅ ADDED - store for corporate queries
     this.repository = new PatientRepository(prisma);
   }
 
@@ -34,27 +37,17 @@ export class PatientService extends BaseService {
   }
 
   /**
-   * Generate patient ID
-   */
-  private generatePatientId(): string {
-    const prefix = 'PAT';
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}-${timestamp}${random}`;
-  }
-
-  /**
    * Validate patient data before creation
    */
   private validateCreateData(data: CreatePatientDTO): void {
     const errors: any[] = [];
 
-    if (!data.firstName || data.firstName.trim().length === 0) {
-      errors.push({ field: 'firstName', message: 'First name is required' });
+    if (!data.surname || data.surname.trim().length === 0) {
+      errors.push({ field: 'surname', message: 'Surname is required' });
     }
 
-    if (!data.lastName || data.lastName.trim().length === 0) {
-      errors.push({ field: 'lastName', message: 'Last name is required' });
+    if (!data.otherNames || data.otherNames.trim().length === 0) {
+      errors.push({ field: 'otherNames', message: 'Other names are required' });
     }
 
     if (!data.dateOfBirth) {
@@ -79,8 +72,6 @@ export class PatientService extends BaseService {
    * Check for duplicate patient
    */
   private async checkDuplicates(data: CreatePatientDTO, excludeId?: string): Promise<void> {
-    const conditions: any[] = [];
-
     if (data.nhisNumber) {
       const existingByNHIS = await this.repository.findByNHISNumber(data.nhisNumber);
       if (existingByNHIS && (!excludeId || existingByNHIS.id !== excludeId)) {
@@ -90,22 +81,58 @@ export class PatientService extends BaseService {
       }
     }
 
-    if (data.phone) {
-      const existingByPhone = await this.repository.findByPhone(data.phone);
+    if (data.contact) {
+      const existingByPhone = await this.repository.findByPhone(data.contact);
       if (existingByPhone && (!excludeId || existingByPhone.id !== excludeId)) {
-        throw new ValidationError('A patient with this phone number already exists', [
-          { field: 'phone', message: 'Phone number already registered', code: 'DUPLICATE' }
+        throw new ValidationError('A patient with this contact number already exists', [
+          { field: 'contact', message: 'Contact number already registered', code: 'DUPLICATE' }
         ]);
       }
     }
 
-    if (data.email) {
-      const existingByEmail = await this.repository.findByEmail(data.email);
-      if (existingByEmail && (!excludeId || existingByEmail.id !== excludeId)) {
-        throw new ValidationError('A patient with this email already exists', [
-          { field: 'email', message: 'Email already registered', code: 'DUPLICATE' }
+    // Check folder number uniqueness
+    if (data.folderNumber) {
+      const existingByFolder = await this.repository.findByFolderNumber(data.folderNumber);
+      if (existingByFolder && (!excludeId || existingByFolder.id !== excludeId)) {
+        throw new ValidationError('A patient with this folder number already exists', [
+          { field: 'folderNumber', message: 'Folder number already exists', code: 'DUPLICATE' }
         ]);
       }
+    }
+  }
+
+  /**
+   * Validate corporate account if payment mode is corporate
+   */
+  private async validateCorporateData(data: CreatePatientDTO): Promise<void> {
+    if (data.paymentMode === 'corporate') {
+      if (!data.corporateAccountId && !data.insuranceProviderId) {
+        throw new ValidationError('Corporate account required for corporate payment mode', [
+          { field: 'corporateAccountId', message: 'Corporate account ID is required', code: 'MISSING_CORPORATE' }
+        ]);
+      }
+
+      // Verify corporate account exists
+      const corporateAccount = await this.prisma.corporateAccount.findUnique({
+        where: { id: data.corporateAccountId || data.insuranceProviderId }
+      });
+
+      if (!corporateAccount) {
+        throw new ValidationError('Corporate account not found', [
+          { field: 'corporateAccountId', message: 'Invalid corporate account ID', code: 'INVALID_CORPORATE' }
+        ]);
+      }
+
+      if (!corporateAccount.isActive) {
+        throw new ValidationError('Corporate account is inactive', [
+          { field: 'corporateAccountId', message: 'Corporate account is not active', code: 'INACTIVE_CORPORATE' }
+        ]);
+      }
+
+      this.logInfo('Corporate account validated', { 
+        corporateAccountId: corporateAccount.id,
+        companyName: corporateAccount.companyName 
+      });
     }
   }
 
@@ -113,22 +140,29 @@ export class PatientService extends BaseService {
    * Create a new patient
    */
   async createPatient(data: CreatePatientDTO): Promise<Patient> {
-    this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber });
+    this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     
     this.validateCreateData(data);
     await this.checkDuplicates(data);
+    await this.validateCorporateData(data);
+
+    const counterService = getCounterService();
 
     const patientData = {
       ...data,
-      patientId: this.generatePatientId(),
-      dateOfBirth: new Date(data.dateOfBirth)
+      folderNumber: data.folderNumber || counterService.nextPatientNumber(),
+      dateOfBirth: new Date(data.dateOfBirth),
+      registeredAt: new Date(),
+      registeredBy: 'system',
+      insuranceProviderId: data.paymentMode === 'corporate' ? data.corporateAccountId : data.insuranceProviderId
     };
 
     const patient = await this.repository.create(patientData);
     
     this.logInfo('Patient created successfully', { 
       patientId: patient.id, 
-      patientCode: patient.patientId 
+      folderNumber: patient.folderNumber,
+      paymentMode: patient.paymentMode
     });
 
     return patient;
@@ -165,6 +199,21 @@ export class PatientService extends BaseService {
   }
 
   /**
+   * Get patient by folder number
+   */
+  async getPatientByFolderNumber(folderNumber: string): Promise<Patient> {
+    this.logDebug('Fetching patient by folder number', { folderNumber });
+
+    const patient = await this.repository.findByFolderNumber(folderNumber);
+
+    if (!patient) {
+      throw new NotFoundError('Patient', `Folder:${folderNumber}`);
+    }
+
+    return patient;
+  }
+
+  /**
    * Search patients with filters
    */
   async searchPatients(filters: PatientFilters) {
@@ -176,7 +225,7 @@ export class PatientService extends BaseService {
       data: result.data.map(p => ({
         ...p,
         age: this.calculateAge(p.dateOfBirth),
-        fullName: `${p.firstName} ${p.otherName || ''} ${p.lastName}`.trim()
+        fullName: `${p.surname} ${p.otherNames || ''}`.trim()
       })),
       pagination: {
         page: result.page,
@@ -197,7 +246,7 @@ export class PatientService extends BaseService {
     await this.getPatientById(id);
 
     // Check for duplicates if updating sensitive fields
-    if (data.nhisNumber || data.phone || data.email) {
+    if (data.nhisNumber || data.contact) {
       await this.checkDuplicates(data as CreatePatientDTO, id);
     }
 
@@ -223,8 +272,14 @@ export class PatientService extends BaseService {
     // Verify patient exists
     await this.getPatientById(id);
 
-    // TODO: Check for related records (attendances, bills, etc.)
-    // For now, we'll just delete
+    // Check for related records (attendances, bills, etc.)
+    const hasRelatedRecords = await this.repository.hasRelatedRecords(id);
+    
+    if (hasRelatedRecords) {
+      throw new ValidationError('Cannot delete patient with existing records', [
+        { field: 'id', message: 'Patient has associated records. Consider deactivating instead.', code: 'HAS_RELATIONS' }
+      ]);
+    }
 
     await this.repository.delete(id);
 
@@ -239,24 +294,93 @@ export class PatientService extends BaseService {
     return this.repository.getStats();
   }
 
+/**
+ * Get patient summary list
+ */
+async getPatientSummaries(limit: number = 10): Promise<PatientSummary[]> {
+  const patients = await this.repository.findMany({
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      Attendance: {  // ✅ FIXED: Changed from 'attendances' to 'Attendance'
+        orderBy: { dateTime: 'desc' },
+        take: 1,
+        select: { dateTime: true }
+      }
+    }
+  });
+
+  return patients.map(p => ({
+    id: p.id,
+    folderNumber: p.folderNumber,
+    fullName: `${p.surname} ${p.otherNames || ''}`.trim(),
+    age: this.calculateAge(p.dateOfBirth),
+    gender: p.gender,
+    nhisNumber: p.nhisNumber || undefined,
+    contact: p.contact,
+    registeredAt: p.registeredAt,
+    lastVisit: p.Attendance[0]?.dateTime || undefined  // ✅ FIXED: Changed from 'attendances' to 'Attendance'
+  }));
+}
+
   /**
-   * Get patient summary list
+   * Get patients by corporate account
    */
-  async getPatientSummaries(limit: number = 10): Promise<PatientSummary[]> {
-    const patients = await this.repository.findMany({
-      take: limit,
-      orderBy: { createdAt: 'desc' }
+  async getPatientsByCorporateAccount(corporateAccountId: string, page: number = 1, limit: number = 10) {
+    this.logInfo('Fetching patients by corporate account', { corporateAccountId });
+    
+    const result = await this.repository.search({
+      corporateAccountId,
+      page,
+      limit
     });
 
-    return patients.map(p => ({
-      id: p.id,
-      patientId: p.patientId,
-      fullName: `${p.firstName} ${p.otherName || ''} ${p.lastName}`.trim(),
-      age: this.calculateAge(p.dateOfBirth),
-      gender: p.gender,
-      nhisNumber: p.nhisNumber || undefined,
-      phone: p.phone || undefined,
-      lastVisit: undefined // TODO: Fetch from attendances
-    }));
+    return {
+      data: result.data.map(p => ({
+        ...p,
+        age: this.calculateAge(p.dateOfBirth),
+        fullName: `${p.surname} ${p.otherNames || ''}`.trim()
+      })),
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages
+      }
+    };
+  }
+
+  /**
+   * Get corporate account summary for a patient
+   */
+  async getPatientCorporateSummary(patientId: string): Promise<any> {
+    const patient = await this.getPatientById(patientId, {
+      insuranceProvider: true
+    });
+
+    if (patient.paymentMode !== 'corporate') {
+      return { isCorporate: false, paymentMode: patient.paymentMode };
+    }
+
+    const corporateAccount = await this.prisma.corporateAccount.findUnique({
+      where: { id: patient.insuranceProviderId! },
+      include: {
+        employees: {
+          where: { isActive: true },
+          select: { id: true, employeeId: true, firstName: true, lastName: true }
+        }
+      }
+    });
+
+    return {
+      isCorporate: true,
+      paymentMode: 'corporate',
+      corporateAccount: {
+        id: corporateAccount?.id,
+        companyName: corporateAccount?.companyName,
+        creditLimit: corporateAccount?.creditLimit,
+        currentBalance: corporateAccount?.currentBalance
+      }
+    };
   }
 }

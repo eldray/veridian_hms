@@ -16,14 +16,14 @@ export class DiagnosisRepository {
   async findMany(filters: DiagnosisFilterDTO) {
     const {
       page = 1,
-      limit = 1000,
+      limit = 50,
       morbidityGroup,
       isActive,
       search,
       searchField = 'all'
     } = filters;
 
-    const take = Math.min(limit, 10000);
+    const take = Math.min(limit, 100); // ✅ Max 100 per page
     const skip = (page - 1) * take;
 
     const where: any = {};
@@ -107,51 +107,6 @@ export class DiagnosisRepository {
             }
           }
         },
-        admissionsAsPrincipal: {
-          include: {
-            Patient: {
-              select: {
-                id: true,
-                folderNumber: true,
-                surname: true,
-                otherNames: true
-              }
-            },
-            Ward: {
-              select: {
-                id: true,
-                wardName: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10
-        },
-        attendanceDiagnoses: {
-          include: {
-            Attendance: {
-              include: {
-                Patient: {
-                  select: {
-                    id: true,
-                    folderNumber: true,
-                    surname: true,
-                    otherNames: true
-                  }
-                }
-              }
-            },
-            User: {
-              select: {
-                id: true,
-                fullName: true,
-                role: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10
-        },
         ServiceCatalog: {
           select: {
             id: true,
@@ -186,7 +141,9 @@ export class DiagnosisRepository {
         isChronic: data.isChronic || false,
         isNHISCovered: data.isNHISCovered !== undefined ? data.isNHISCovered : true,
         tariffCode: data.tariffCode || `DIAG-${data.icdCode}`,
-        isActive: true
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       include: {
         gdrgTariffDiagnoses: {
@@ -297,11 +254,10 @@ export class DiagnosisRepository {
       count: total,
       diagnoses,
       pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limitNum),
-        totalDiagnoses: total,
-        hasNext: page < Math.ceil(total / limitNum),
-        hasPrev: page > 1
+        page,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
       }
     };
   }
@@ -357,8 +313,6 @@ export class DiagnosisRepository {
     const diagnosis = await this.prisma.diagnosis.findUnique({
       where: { id },
       include: {
-        admissionsAsPrincipal: { take: 1 },
-        attendanceDiagnoses: { take: 1 },
         ServiceCatalog: { take: 1 },
         gdrgTariffDiagnoses: { take: 1 }
       }
@@ -369,8 +323,6 @@ export class DiagnosisRepository {
     }
 
     return (
-      diagnosis.admissionsAsPrincipal.length > 0 ||
-      diagnosis.attendanceDiagnoses.length > 0 ||
       diagnosis.ServiceCatalog.length > 0 ||
       diagnosis.gdrgTariffDiagnoses.length > 0
     );

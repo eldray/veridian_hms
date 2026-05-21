@@ -2,20 +2,25 @@
 import { Router } from 'express';
 import { HospitalController } from './HospitalController';
 import { body } from 'express-validator';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export const createHospitalRoutes = (controller?: HospitalController): Router => {
   const router = Router();
   const hospitalController = controller || new HospitalController();
 
-  // GET all hospitals
-  router.get('/', hospitalController.getHospitals.bind(hospitalController));
+  // All routes require authentication
+  router.use(protect);
 
-  // GET hospital by ID
-  router.get('/:id', hospitalController.getHospitalById.bind(hospitalController));
+  // GET all hospitals (Admin only)
+  router.get('/', requireRole(['admin']), hospitalController.getHospitals.bind(hospitalController));
 
-  // CREATE hospital
+  // GET hospital by ID (Admin only)
+  router.get('/:id', requireRole(['admin']), hospitalController.getHospitalById.bind(hospitalController));
+
+  // CREATE hospital (Admin only)
   router.post(
     '/',
+    requireRole(['admin']),
     [
       body('name').notEmpty().withMessage('Hospital name is required'),
       body('address').notEmpty().withMessage('Address is required'),
@@ -29,9 +34,10 @@ export const createHospitalRoutes = (controller?: HospitalController): Router =>
     hospitalController.createHospital.bind(hospitalController)
   );
 
-  // UPDATE hospital
+  // UPDATE hospital (Admin only)
   router.put(
     '/:id',
+    requireRole(['admin']),
     [
       body('name').optional().notEmpty().withMessage('Hospital name cannot be empty'),
       body('email').optional().isEmail().withMessage('Valid email is required'),
@@ -43,15 +49,16 @@ export const createHospitalRoutes = (controller?: HospitalController): Router =>
     hospitalController.updateHospital.bind(hospitalController)
   );
 
-  // DELETE hospital
-  router.delete('/:id', hospitalController.deleteHospital.bind(hospitalController));
+  // DELETE hospital (Admin only)
+  router.delete('/:id', requireRole(['admin']), hospitalController.deleteHospital.bind(hospitalController));
 
-  // GET NHIS Settings (Active Hospital)
-  router.get('/nhis/settings', hospitalController.getHospitalNHISSettings.bind(hospitalController));
+  // GET NHIS Settings (Active Hospital) - Admin and Accounts can view
+  router.get('/nhis/settings', requireRole(['admin', 'accounts']), hospitalController.getHospitalNHISSettings.bind(hospitalController));
 
-  // UPDATE NHIS Settings (Active Hospital)
+  // UPDATE NHIS Settings (Active Hospital) - Admin only
   router.put(
     '/nhis/settings',
+    requireRole(['admin']),
     [
       body('nhisFacilityCode').notEmpty().withMessage('NHIS facility code is required'),
       body('nhisFacilityType')

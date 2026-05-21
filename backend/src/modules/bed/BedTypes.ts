@@ -39,11 +39,17 @@ export interface BedFilter {
   isOccupied?: boolean;
 }
 
+export interface BedStats {
+  total: number;
+  occupied: number;
+  available: number;
+}
+
 // Default export for convenience
-export default {
-  Bed,
-  BedWithRelations,
-  CreateBedInput,
-  UpdateBedInput,
-  BedFilter
+// Remove the interfaces from the object since they can't be used as values
+const exportedObject = {
+  // Only include actual values or constants here
+  // If you need to export types, they're already exported above with 'export'
 };
+
+export default exportedObject;

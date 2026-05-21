@@ -1,79 +1,141 @@
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { IDocument, IDocumentTemplate, IDocumentTemplateCreateDTO, IDocumentTemplateUpdateDTO } from './DocumentTypes';
+// modules/document/DocumentRepository.ts
+import { PrismaClient } from '@prisma/client';
 
-export class DocumentRepository extends BaseRepository<IDocument> {
-  constructor() {
-    super('Document');
+const prisma = new PrismaClient();
+
+export class DocumentRepository {
+  
+  // ============================================
+  // DOCUMENT (GeneratedDocument) METHODS
+  // ============================================
+  
+  async createDocument(data: {
+    templateId: string;
+    entityType: string;
+    entityId: string;
+    filePath: string;
+    generatedById: string;
+  }) {
+    return prisma.generatedDocument.create({
+      data: {
+        templateId: data.templateId,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        filePath: data.filePath,
+        generatedById: data.generatedById,
+        generatedAt: new Date()
+      }
+    });
   }
 
-  async findByBillId(billId: string): Promise<IDocument[]> {
-    return this.find({ billId });
+  async findDocumentsByEntity(entityType: string, entityId: string) {
+    return prisma.generatedDocument.findMany({
+      where: {
+        entityType,
+        entityId
+      },
+      include: {
+        template: true,
+        generatedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        }
+      },
+      orderBy: { generatedAt: 'desc' }
+    });
   }
 
-  async findByReferralId(referralId: string): Promise<IDocument[]> {
-    return this.find({ referralId });
+  async findDocumentById(id: string) {
+    return prisma.generatedDocument.findUnique({
+      where: { id },
+      include: {
+        template: true,
+        generatedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        }
+      }
+    });
   }
 
-  async findByEncounterId(encounterId: string): Promise<IDocument[]> {
-    return this.find({ encounterId });
-  }
-
-  async findByPatientId(patientId: string): Promise<IDocument[]> {
-    return this.find({ patientId });
-  }
-
-  async findByDocumentType(documentType: string): Promise<IDocument[]> {
-    return this.find({ documentType });
-  }
-
-  async findTemplates(): Promise<IDocumentTemplate[]> {
-    const result = await this.model?.findMany({
+  // ============================================
+  // TEMPLATE METHODS
+  // ============================================
+  
+  async findAllTemplates() {
+    return prisma.documentTemplate.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' }
     });
-    return result || [];
   }
 
-  async createTemplate(data: IDocumentTemplateCreateDTO & { createdById: string }): Promise<IDocumentTemplate> {
-    const templateData = {
-      ...data,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    if (this.model) {
-      const result = await this.model.create({ data: templateData as any });
-      return result;
-    }
-    throw new Error('Model not found');
+  async findTemplateById(id: string) {
+    return prisma.documentTemplate.findUnique({
+      where: { id }
+    });
   }
 
-  async updateTemplate(id: string, data: IDocumentTemplateUpdateDTO): Promise<IDocumentTemplate> {
-    const updateData = {
-      ...data,
-      updatedAt: new Date()
-    };
-    
-    if (this.model) {
-      const result = await this.model.update({
-        where: { id },
-        data: updateData as any
-      });
-      return result;
-    }
-    throw new Error('Model not found');
+  async findTemplateByCode(code: string) {
+    return prisma.documentTemplate.findFirst({
+      where: { code }
+    });
   }
 
-  async deleteTemplate(id: string): Promise<void> {
-    if (this.model) {
-      await this.model.delete({ where: { id } });
-    } else {
-      throw new Error('Model not found');
-    }
+  async createTemplate(data: {
+    name: string;
+    code: string;
+    templateType: string;
+    content: string;
+    isDefault: boolean;
+    createdById: string;
+  }) {
+    return prisma.documentTemplate.create({
+      data: {
+        name: data.name,
+        code: data.code,
+        templateType: data.templateType as any,
+        content: data.content,
+        isDefault: data.isDefault,
+        isActive: true,
+        createdById: data.createdById
+      }
+    });
   }
 
-  async findByIdAndDelete(id: string): Promise<boolean> {
-    return this.delete(id);
+  async updateTemplate(id: string, data: {
+    name?: string;
+    content?: string;
+    isActive?: boolean;
+    isDefault?: boolean;
+  }) {
+    return prisma.documentTemplate.update({
+      where: { id },
+      data: {
+        ...data,
+        updatedAt: new Date()
+      }
+    });
+  }
+
+  async deleteTemplate(id: string) {
+    return prisma.documentTemplate.delete({
+      where: { id }
+    });
+  }
+
+  async getDefaultTemplate(templateType: string) {
+    return prisma.documentTemplate.findFirst({
+      where: {
+        templateType: templateType as any,
+        isDefault: true,
+        isActive: true
+      }
+    });
   }
 }

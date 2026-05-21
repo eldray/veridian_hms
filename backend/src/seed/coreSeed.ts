@@ -265,7 +265,15 @@ const addSchemaDefaults = (data: any, type: string) => {
 };
 
 // ✅ SAFE SERVICE PRICING CREATION
-const createServicePricing = async (serviceCatalogId: string, pricing: { cashPrice: number; nhisPrice: number; insurancePrice: number }) => {
+const createServicePricing = async (
+  serviceCatalogId: string,
+  pricing: {
+    cashPrice: number;
+    nhisPrice: number;
+    insurancePrice: number;
+    corporatePrice?: number;   // ✅ ADD — optional, defaults to insurancePrice
+  }
+) => {
   try {
     await prisma.servicePricing.upsert({
       where: { serviceCatalogId },
@@ -274,6 +282,7 @@ const createServicePricing = async (serviceCatalogId: string, pricing: { cashPri
         cashPrice: pricing.cashPrice ?? 0,
         nhisPrice: pricing.nhisPrice ?? 0,
         insurancePrice: pricing.insurancePrice ?? 0,
+        corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,  // ✅
         vatRate: 0,
         isTaxable: false,
         effectiveDate: new Date(),
@@ -283,6 +292,7 @@ const createServicePricing = async (serviceCatalogId: string, pricing: { cashPri
         cashPrice: pricing.cashPrice ?? 0,
         nhisPrice: pricing.nhisPrice ?? 0,
         insurancePrice: pricing.insurancePrice ?? 0,
+        corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,  // ✅
         isActive: true,
       },
     });

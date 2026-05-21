@@ -112,10 +112,10 @@ export default function Antenatal() {
 
   const {
     postnatalRecords,
-    getPostnatalRecords,
-    createPostnatalRecord,
-    updatePostnatalRecord,
-    deletePostnatalRecord,
+    getPostnatals,      // ✅ Correct name
+    createPostnatal,    // ✅ Correct name
+    updatePostnatal,    // ✅ Correct name
+    deletePostnatal,    // ✅ Correct name
   } = usePostnatalStore();
 
   // ── Local state ──────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ export default function Antenatal() {
       await Promise.all([
         loadPatients(), getAttendances(), getStockItems(), getDiagnoses(),
         getLabTestTemplates(), getProcedureTemplates(), getScanTemplates(),
-        getDeliveries(), getPostnatalRecords(),
+        getDeliveries(), getPostnatals(),
       ]);
       success('Data loaded', 'Maternal health ready');
     } catch (err: any) {
@@ -236,7 +236,7 @@ export default function Antenatal() {
     if (!selectedPatientId) return;
     getBooking(selectedPatientId).catch(() => {});
     getDeliveries({ patientId: selectedPatientId }).catch(() => {});
-    getPostnatalRecords({ patientId: selectedPatientId }).catch(() => {});
+    getPostnatals({ patientId: selectedPatientId }).catch(() => {});
   }, [selectedPatientId]);
 
   useEffect(() => {
@@ -303,8 +303,8 @@ export default function Antenatal() {
   const handleDeletePostnatal = async (id: string) => {
     if (!window.confirm('Delete this postnatal record?')) return;
     try {
-      await deletePostnatalRecord(id);
-      await getPostnatalRecords({ patientId: selectedPatientId });
+      await deletePostnatal(id);
+      await getPostnatals({ patientId: selectedPatientId });
       success('Deleted', 'Postnatal record removed');
     } catch (err: any) { toastError('Delete failed', err.message); }
   };

@@ -1,6 +1,7 @@
 // modules/encounter/EncounterRepository.ts
 import { PrismaClient, AttendanceStatus, PaymentMode } from '@prisma/client';
-import { CreateEncounterDTO, UpdateEncounterDTO, EncounterFilters, AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabOrderDTO } from './EncounterTypes';
+import { CreateEncounterDTO, UpdateEncounterDTO, EncounterFilters, AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabTestDTO } from './EncounterTypes';
+import { getCounterService } from '../../services/CounterService';
 
 export class EncounterRepository {
   private prisma: PrismaClient;
@@ -13,14 +14,16 @@ export class EncounterRepository {
   // CREATE ENCOUNTER
   // ============================================
   async create(data: CreateEncounterDTO, userId: string) {
+    const counterService = getCounterService(); 
     return this.prisma.attendance.create({
       data: {
+        attendanceNumber:  counterService.nextAttendanceNumber(),
         patientId: data.patientId,
         attendanceType: data.encounterType,
         paymentMode: data.paymentMode,
         nhisCCC: data.nhisCCC,
         insuranceProviderId: data.insuranceProviderId,
-        complaint: data.complaint,
+        complaints: data.complaint || '',
         status: 'pending',
         createdById: userId,
         dateTime: new Date(),
@@ -47,7 +50,7 @@ export class EncounterRepository {
     return this.prisma.attendance.findUnique({
       where: { id },
       include: {
-        patient: {
+        Patient: {
           select: {
             id: true,
             surname: true,
@@ -55,7 +58,7 @@ export class EncounterRepository {
             folderNumber: true,
             dateOfBirth: true,
             gender: true,
-            phone: true
+            contact: true
           }
         },
         AttendanceDiagnosis: {
@@ -63,7 +66,7 @@ export class EncounterRepository {
             Diagnosis: true
           },
           orderBy: {
-            diagnosisType: 'asc'
+            date: 'desc'
           }
         },
         Vitals: {
@@ -82,29 +85,47 @@ export class EncounterRepository {
                 unitOfMeasure: true
               }
             },
-            prescribedBy: {
+            User_Medication_prescribedByIdToUser: {
               select: { fullName: true }
             }
           }
         },
-        LabOrder: {
+        LabTest: {
           include: {
-            LabTest: true,
-            performedBy: {
+            LabTestTemplate: true,
+            User_LabTest_performedByIdToUser: {
               select: { fullName: true }
             }
+          },
+          orderBy: {
+            requestedAt: 'desc'
           }
         },
         ReferralRecord: {
-          include: {
-            referredTo: {
-              select: { name: true }
-            }
+          select: {
+            id: true,
+            referralNumber: true,
+            referralType: true,
+            referralReason: true,
+            referralNotes: true,
+            referredToFacility: true,
+            referredToDoctor: true,
+            referredToDepartment: true,
+            referredFromFacility: true,
+            referredFromDoctor: true,
+            referralDate: true,
+            status: true,
+            outcomeNotes: true,
+            urgency: true
           }
         },
         ServiceRendered: {
           include: {
-            serviceItem: true
+            ServiceCatalog: {  // ← Try this instead of 'serviceItem'
+              include: {
+                pricing: true
+              }
+            }
           }
         }
       }
@@ -146,11 +167,15 @@ export class EncounterRepository {
       this.prisma.attendance.findMany({
         where,
         include: {
-          patient: {
+          Patient: {
             select: {
+              id: true,
               surname: true,
               otherNames: true,
-              folderNumber: true
+              folderNumber: true,
+              dateOfBirth: true,
+              gender: true,
+              contact: true
             }
           }
         },
@@ -182,6 +207,7 @@ export class EncounterRepository {
       include: {
         Patient: {
           select: {
+            id: true,
             surname: true,
             otherNames: true,
             folderNumber: true
@@ -241,15 +267,31 @@ export class EncounterRepository {
   // ADD VITALS TO ENCOUNTER
   // ============================================
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
+    // Get patientId from attendance
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { patientId: true }
+    });
+
+    if (!attendance) {
+      throw new Error('Encounter not found');
+    }
+
+    // Build blood pressure string
+    let bloodPressure = null;
+    if (data.bloodPressureSystolic && data.bloodPressureDiastolic) {
+      bloodPressure = `${data.bloodPressureSystolic}/${data.bloodPressureDiastolic}`;
+    }
+
     return this.prisma.vitals.create({
       data: {
         attendanceId: encounterId,
+        patientId: attendance.patientId,
         temperature: data.temperature,
-        bloodPressureSystolic: data.bloodPressureSystolic,
-        bloodPressureDiastolic: data.bloodPressureDiastolic,
+        bloodPressure: bloodPressure,
         pulse: data.pulse,
-        respiratoryRate: data.respiratoryRate,
-        oxygenSaturation: data.oxygenSaturation,
+        respiration: data.respiratoryRate,
+        spo2: data.oxygenSaturation,
         weight: data.weight,
         height: data.height,
         muac: data.muac,
@@ -258,7 +300,7 @@ export class EncounterRepository {
         recordedAt: new Date()
       },
       include: {
-        recordedBy: {
+        User: {
           select: { fullName: true }
         }
       }
@@ -269,15 +311,26 @@ export class EncounterRepository {
   // ADD PRESCRIPTION TO ENCOUNTER
   // ============================================
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
+    // Get service catalog to get medication name
+    const serviceCatalog = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      include: { StockItem: true }
+    });
+
+    const medicationName = serviceCatalog?.name || serviceCatalog?.StockItem?.name || 'Medication';
+
     return this.prisma.medication.create({
       data: {
         attendanceId: encounterId,
         stockItemId: data.stockItemId,
+        serviceCatalogId: data.serviceCatalogId,
+        name: medicationName,
         dosage: data.dosage,
         frequency: data.frequency,
         duration: data.duration,
         route: data.route,
         instructions: data.instructions,
+        quantity: 1,
         status: 'prescribed',
         prescribedById: userId,
         prescribedAt: new Date()
@@ -296,21 +349,30 @@ export class EncounterRepository {
   }
 
   // ============================================
-  // ADD LAB ORDER TO ENCOUNTER
+  // ADD LAB ORDER TO ENCOUNTER (using LabTest)
   // ============================================
-  async addLabOrder(encounterId: string, data: AddLabOrderDTO, userId: string) {
-    return this.prisma.labOrder.create({
+  async addLabOrder(encounterId: string, data: AddLabTestDTO, userId: string) {
+    // Get the lab test template
+    const labTestTemplate = await this.prisma.labTestTemplate.findUnique({
+      where: { id: data.templateId }
+    });
+
+    if (!labTestTemplate) {
+      throw new Error('Lab test template not found');
+    }
+
+    return this.prisma.labTest.create({
       data: {
         attendanceId: encounterId,
-        testId: data.testId,
-        priority: data.priority,
-        status: 'pending',
-        clinicalNotes: data.clinicalNotes,
-        orderedById: userId,
-        orderedAt: new Date()
+        templateId: labTestTemplate.id,
+        status: 'requested',
+        priority: data.priority || 'routine',
+        requestedAt: new Date(),
+        createdById: userId,
+        notes: data.clinicalNotes
       },
       include: {
-        LabTest: true
+        LabTestTemplate: true
       }
     });
   }
@@ -332,7 +394,7 @@ export class EncounterRepository {
         }
       },
       include: {
-        patient: {
+        Patient: {
           select: {
             id: true,
             surname: true,
@@ -342,20 +404,20 @@ export class EncounterRepository {
           }
         }
       },
-      orderBy: { admittedAt: 'asc' }
+      orderBy: { admissionDate: 'asc' }  // ✅ Changed from admittedAt to admissionDate
     });
 
     return admissions.map(admission => ({
       id: admission.id,
       patientId: admission.patientId,
       patient: {
-        name: `${admission.patient.surname} ${admission.patient.otherNames}`.trim(),
-        age: this.calculateAge(admission.patient.dateOfBirth),
-        gender: admission.patient.gender
+        name: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+        age: this.calculateAge(admission.Patient.dateOfBirth),
+        gender: admission.Patient.gender
       },
       encounterType: 'admission',
       priority: 'normal',
-      waitTime: Math.floor((Date.now() - new Date(admission.admittedAt).getTime()) / 60000),
+      waitTime: Math.floor((Date.now() - new Date(admission.admissionDate).getTime()) / 60000),
       status: 'pending_vitals'
     }));
   }
@@ -374,13 +436,13 @@ export class EncounterRepository {
         },
         attendance: {
           none: {
-            notes: { not: null },
+            medicalNotes: { not: null },
             dateTime: { gte: today }
           }
         }
       },
       include: {
-        patient: {
+        Patient: {
           select: {
             surname: true,
             otherNames: true,
@@ -394,34 +456,34 @@ export class EncounterRepository {
           take: 1
         }
       },
-      orderBy: { admittedAt: 'asc' }
+      orderBy: { admissionDate: 'asc' }  // ✅ Changed from admittedAt to admissionDate
     });
 
     return admissions.map(admission => ({
       id: admission.id,
       patientId: admission.patientId,
       patient: {
-        name: `${admission.patient.surname} ${admission.patient.otherNames}`.trim(),
-        age: this.calculateAge(admission.patient.dateOfBirth),
-        gender: admission.patient.gender
+        name: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+        age: this.calculateAge(admission.Patient.dateOfBirth),
+        gender: admission.Patient.gender
       },
       vitals: admission.vitals[0],
       encounterType: 'consultation',
       priority: 'normal',
-      waitTime: Math.floor((Date.now() - new Date(admission.admittedAt).getTime()) / 60000),
+      waitTime: Math.floor((Date.now() - new Date(admission.admissionDate).getTime()) / 60000),
       status: 'pending_doctor'
     }));
   }
 
   async getLabWorklist() {
-    const pendingOrders = await this.prisma.labOrder.findMany({
+    const pendingLabTests = await this.prisma.labTest.findMany({
       where: {
-        status: 'pending'
+        status: { in: ['requested', 'in_progress'] }
       },
       include: {
-        attendance: {
+        Attendance: {
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -430,22 +492,22 @@ export class EncounterRepository {
             }
           }
         },
-        LabTest: true
+        LabTestTemplate: true
       },
-      orderBy: { orderedAt: 'asc' }
+      orderBy: { requestedAt: 'asc' }
     });
 
-    return pendingOrders.map(order => ({
-      id: order.id,
-      patientId: order.attendance.patientId,
+    return pendingLabTests.map(test => ({
+      id: test.id,
+      patientId: test.Attendance.patientId,
       patient: {
-        name: `${order.attendance.patient.surname} ${order.attendance.patient.otherNames}`.trim(),
-        age: this.calculateAge(order.attendance.patient.dateOfBirth)
+        name: `${test.Attendance.Patient.surname} ${test.Attendance.Patient.otherNames}`.trim(),
+        age: this.calculateAge(test.Attendance.Patient.dateOfBirth)
       },
-      testName: order.LabTest.name,
-      priority: order.priority,
-      waitTime: Math.floor((Date.now() - new Date(order.orderedAt).getTime()) / 60000),
-      status: 'pending_lab'
+      testName: test.LabTestTemplate?.name || 'Unknown Test',
+      priority: test.priority,
+      waitTime: Math.floor((Date.now() - new Date(test.requestedAt).getTime()) / 60000),
+      status: test.status
     }));
   }
 
@@ -455,9 +517,9 @@ export class EncounterRepository {
         status: 'prescribed'
       },
       include: {
-        attendance: {
+        Attendance: {
           include: {
-            patient: {
+            Patient: {
               select: {
                 surname: true,
                 otherNames: true,
@@ -473,15 +535,15 @@ export class EncounterRepository {
 
     return pendingMeds.map(med => ({
       id: med.id,
-      patientId: med.attendance.patientId,
+      patientId: med.Attendance.patientId,
       patient: {
-        name: `${med.attendance.patient.surname} ${med.attendance.patient.otherNames}`.trim(),
-        age: this.calculateAge(med.attendance.patient.dateOfBirth)
+        name: `${med.Attendance.Patient.surname} ${med.Attendance.Patient.otherNames}`.trim(),
+        age: this.calculateAge(med.Attendance.Patient.dateOfBirth)
       },
-      medicationName: med.StockItem.name,
+      medicationName: med.StockItem?.name || med.name,
       dosage: med.dosage,
       waitTime: Math.floor((Date.now() - new Date(med.prescribedAt).getTime()) / 60000),
-      status: 'pending_pharmacy'
+      status: med.status
     }));
   }
 

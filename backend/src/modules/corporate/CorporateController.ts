@@ -1,13 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
+// modules/corporate/CorporateController.ts
+import { Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { CorporateService } from './CorporateService';
+import { AuthRequest } from '../../middleware/authMiddleware';
 import { 
   CreateCorporateAccountDTO, 
   UpdateCorporateAccountDTO,
   CreateCorporateEmployeeDTO,
-  UpdateCorporateEmployeeDTO,
-  CorporateAccountResponse,
-  CorporateEmployeeResponse
+  UpdateCorporateEmployeeDTO
 } from './CorporateTypes';
 
 export class CorporateController extends BaseController {
@@ -16,142 +16,140 @@ export class CorporateController extends BaseController {
   constructor() {
     super();
     this.corporateService = new CorporateService();
-    this.createAccount = this.createAccount.bind(this);
-    this.getAccount = this.getAccount.bind(this);
-    this.getAccounts = this.getAccounts.bind(this);
-    this.updateAccount = this.updateAccount.bind(this);
-    this.deactivateAccount = this.deactivateAccount.bind(this);
-    this.addEmployee = this.addEmployee.bind(this);
-    this.getEmployee = this.getEmployee.bind(this);
-    this.updateEmployee = this.updateEmployee.bind(this);
-    this.removeEmployee = this.removeEmployee.bind(this);
-    this.getEmployees = this.getEmployees.bind(this);
-    this.getStatistics = this.getStatistics.bind(this);
   }
 
-  async createAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  createAccount = async (req: AuthRequest, res: Response) => {
     try {
       const dto: CreateCorporateAccountDTO = req.body;
       const account = await this.corporateService.createAccount(dto);
-      this.handleSuccess(res, 201, 'Corporate account created successfully', account);
-    } catch (error) {
-      this.handleError(res, error);
+      this.created(res, account, 'Corporate account created successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getAccount = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const account = await this.corporateService.getAccount(id);
-      this.handleSuccess(res, 200, 'Corporate account retrieved successfully', account);
-    } catch (error) {
-      this.handleError(res, error);
+      if (!account) {
+        return this.notFound(res, 'Corporate account');
+      }
+      this.ok(res, account, 'Corporate account retrieved successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getAccounts(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getAccounts = async (req: AuthRequest, res: Response) => {
     try {
       const filters = req.query;
-      const accounts = await this.corporateService.getAccounts(filters);
-      this.handleSuccess(res, 200, 'Corporate accounts retrieved successfully', accounts);
-    } catch (error) {
-      this.handleError(res, error);
+      const result = await this.corporateService.getAccounts(filters);
+      this.ok(res, result.data, 'Corporate accounts retrieved successfully', { pagination: result.pagination });
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async updateAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  updateAccount = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const dto: UpdateCorporateAccountDTO = req.body;
       const account = await this.corporateService.updateAccount(id, dto);
-      this.handleSuccess(res, 200, 'Corporate account updated successfully', account);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, account, 'Corporate account updated successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async deactivateAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  deactivateAccount = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const account = await this.corporateService.deactivateAccount(id);
-      this.handleSuccess(res, 200, 'Corporate account deactivated successfully', account);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, account, 'Corporate account deactivated successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async addEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
+  addEmployee = async (req: AuthRequest, res: Response) => {
     try {
       const { accountId } = req.params;
       const dto: CreateCorporateEmployeeDTO = req.body;
       const employee = await this.corporateService.addEmployee(accountId, dto);
-      this.handleSuccess(res, 201, 'Employee added successfully', employee);
-    } catch (error) {
-      this.handleError(res, error);
+      this.created(res, employee, 'Employee added successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getEmployee = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const employee = await this.corporateService.getEmployee(id);
-      this.handleSuccess(res, 200, 'Employee retrieved successfully', employee);
-    } catch (error) {
-      this.handleError(res, error);
+      if (!employee) {
+        return this.notFound(res, 'Employee');
+      }
+      this.ok(res, employee, 'Employee retrieved successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async updateEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
+  updateEmployee = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const dto: UpdateCorporateEmployeeDTO = req.body;
       const employee = await this.corporateService.updateEmployee(id, dto);
-      this.handleSuccess(res, 200, 'Employee updated successfully', employee);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, employee, 'Employee updated successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async removeEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
+  removeEmployee = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const employee = await this.corporateService.removeEmployee(id);
-      this.handleSuccess(res, 200, 'Employee removed successfully', employee);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, employee, 'Employee removed successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getEmployees(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getEmployees = async (req: AuthRequest, res: Response) => {
     try {
       const { accountId } = req.params;
       const employees = await this.corporateService.getEmployees(accountId);
-      this.handleSuccess(res, 200, 'Employees retrieved successfully', employees);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, employees, 'Employees retrieved successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getStatistics(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getStatistics = async (req: AuthRequest, res: Response) => {
     try {
       const stats = await this.corporateService.getStatistics();
-      this.handleSuccess(res, 200, 'Statistics retrieved successfully', stats);
-    } catch (error) {
-      this.handleError(res, error);
+      this.ok(res, stats, 'Statistics retrieved successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async generateMonthlyBill(req: Request, res: Response, next: NextFunction): Promise<void> {
+  generateMonthlyBill = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { month, year, discountPercentage } = req.body;
-      const generatedById = (req as any).user?.id;
+      const generatedById = req.user?.id;
 
       if (!month || !year) {
-        throw new Error('Month and year are required');
+        return this.badRequest(res, 'Month and year are required');
       }
 
-      // Generate the bill summary
+      if (!generatedById) {
+        return this.unauthorized(res, 'User authentication required');
+      }
+
       const billSummary = await this.corporateService.generateMonthlyBill({
         accountId: id,
         month,
@@ -160,34 +158,23 @@ export class CorporateController extends BaseController {
         generatedById
       });
 
-      // Generate PDF document
-      const { DocumentGeneratorService } = await import('../../services/DocumentGeneratorService');
-      const pdfResult = await DocumentGeneratorService.generateCorporateMonthlyBill(
-        billSummary,
-        generatedById
-      );
-
-      const response = {
-        ...billSummary,
-        documentId: pdfResult.documentId,
-        filePath: pdfResult.filePath
-      };
-
-      this.handleSuccess(res, 201, 'Monthly bill generated successfully', response);
-    } catch (error) {
-      this.handleError(res, error);
+      this.created(res, billSummary, 'Monthly bill generated successfully');
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 
-  async getMonthlyBills(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getMonthlyBills = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
       const filters = req.query;
       
-      const bills = await this.corporateService.getMonthlyBills(id, filters);
-      this.handleSuccess(res, 200, 'Monthly bills retrieved successfully', bills);
-    } catch (error) {
-      this.handleError(res, error);
+      const result = await this.corporateService.getMonthlyBills(id, filters);
+      this.ok(res, result.data, 'Monthly bills retrieved successfully', { pagination: result.pagination });
+    } catch (error: any) {
+      this.error(res, error);
     }
-  }
+  };
 }
+
+export default CorporateController;

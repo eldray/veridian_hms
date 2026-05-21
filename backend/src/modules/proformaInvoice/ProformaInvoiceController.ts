@@ -1,27 +1,29 @@
+// modules/proformaInvoice/ProformaInvoiceController.ts
 import { Request, Response } from 'express';
-import { BaseController } from '../../utils/baseController';
-import { ProformaInvoiceService } from './ProformaInvoiceService';
+import { BaseController } from '../../shared/base/BaseController';
+import { ProformaInvoiceService } from './ProformaInvoiceService'; // ✅ Add this import
 import { 
   CreateProformaInvoiceDTO, 
   UpdateProformaInvoiceDTO,
   ProformaInvoiceFilters,
   ConvertToBillDTO
 } from './ProformaInvoiceTypes';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class ProformaInvoiceController extends BaseController {
   private proformaInvoiceService: ProformaInvoiceService;
 
   constructor() {
     super('ProformaInvoice');
-    this.proformaInvoiceService = new ProformaInvoiceService();
+    this.proformaInvoiceService = new ProformaInvoiceService(); // ✅ Now ProformaInvoiceService is defined
   }
 
   /**
-   * @route   POST /api/proforma-invoices
+   * @route   POST /api/estimates
    * @desc    Create a new proforma invoice
    * @access  Private (Billing Staff, Admin)
    */
-  create = async (req: Request, res: Response): Promise<void> => {
+  create = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const data: CreateProformaInvoiceDTO = req.body;
       const userId = req.user?.id;
@@ -39,11 +41,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   GET /api/proforma-invoices
+   * @route   GET /api/estimates
    * @desc    Get all proforma invoices with filters
    * @access  Private (Billing Staff, Admin)
    */
-  getAll = async (req: Request, res: Response): Promise<void> => {
+  getAll = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const filters: ProformaInvoiceFilters = {
         patientId: req.query.patientId as string,
@@ -64,11 +66,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   GET /api/proforma-invoices/:id
+   * @route   GET /api/estimates/:id
    * @desc    Get proforma invoice by ID
    * @access  Private
    */
-  getById = async (req: Request, res: Response): Promise<void> => {
+  getById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const result = await this.proformaInvoiceService.getById(id);
@@ -79,11 +81,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   PUT /api/proforma-invoices/:id
+   * @route   PUT /api/estimates/:id
    * @desc    Update proforma invoice
    * @access  Private (Billing Staff, Admin)
    */
-  update = async (req: Request, res: Response): Promise<void> => {
+  update = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const data: UpdateProformaInvoiceDTO = req.body;
@@ -102,11 +104,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   POST /api/proforma-invoices/:id/send
+   * @route   POST /api/estimates/:id/send
    * @desc    Send proforma invoice to patient/corporate account
    * @access  Private (Billing Staff, Admin)
    */
-  send = async (req: Request, res: Response): Promise<void> => {
+  send = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -124,11 +126,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   POST /api/proforma-invoices/:id/accept
+   * @route   POST /api/estimates/:id/accept
    * @desc    Accept proforma invoice
    * @access  Private
    */
-  accept = async (req: Request, res: Response): Promise<void> => {
+  accept = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -146,11 +148,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   POST /api/proforma-invoices/:id/reject
+   * @route   POST /api/estimates/:id/reject
    * @desc    Reject proforma invoice
    * @access  Private
    */
-  reject = async (req: Request, res: Response): Promise<void> => {
+  reject = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -169,11 +171,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   POST /api/proforma-invoices/:id/convert
+   * @route   POST /api/estimates/:id/convert
    * @desc    Convert proforma invoice to bill
    * @access  Private (Billing Staff, Admin)
    */
-  convertToBill = async (req: Request, res: Response): Promise<void> => {
+  convertToBill = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const data: ConvertToBillDTO = req.body;
@@ -192,11 +194,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   DELETE /api/proforma-invoices/:id
+   * @route   DELETE /api/estimates/:id
    * @desc    Delete proforma invoice (only drafts)
    * @access  Private (Admin)
    */
-  delete = async (req: Request, res: Response): Promise<void> => {
+  delete = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -214,11 +216,11 @@ export class ProformaInvoiceController extends BaseController {
   };
 
   /**
-   * @route   GET /api/proforma-invoices/statistics
+   * @route   GET /api/estimates/statistics
    * @desc    Get proforma invoice statistics
    * @access  Private (Admin, Management)
    */
-  getStatistics = async (req: Request, res: Response): Promise<void> => {
+  getStatistics = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const filters: ProformaInvoiceFilters = {
         patientId: req.query.patientId as string,
@@ -229,6 +231,51 @@ export class ProformaInvoiceController extends BaseController {
       };
 
       const result = await this.proformaInvoiceService.getStatistics(filters);
+      this.handleSuccess(res, result);
+    } catch (error: any) {
+      this.handleError(res, error);
+    }
+  };
+
+  /**
+   * @route   GET /api/estimates/expiring
+   * @desc    Get expiring proforma invoices
+   * @access  Private (Admin, Management)
+   */
+  getExpiring = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 7;
+      const result = await this.proformaInvoiceService.getExpiringSoon(days);
+      this.handleSuccess(res, result);
+    } catch (error: any) {
+      this.handleError(res, error);
+    }
+  };
+
+  /**
+   * @route   GET /api/estimates/patient/:patientId
+   * @desc    Get proforma invoices by patient
+   * @access  Private
+   */
+  getByPatient = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { patientId } = req.params;
+      const result = await this.proformaInvoiceService.getByPatientId(patientId);
+      this.handleSuccess(res, result);
+    } catch (error: any) {
+      this.handleError(res, error);
+    }
+  };
+
+  /**
+   * @route   GET /api/estimates/corporate/:accountId
+   * @desc    Get proforma invoices by corporate account
+   * @access  Private (Admin, Accounts)
+   */
+  getByCorporateAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { accountId } = req.params;
+      const result = await this.proformaInvoiceService.getByCorporateAccountId(accountId);
       this.handleSuccess(res, result);
     } catch (error: any) {
       this.handleError(res, error);

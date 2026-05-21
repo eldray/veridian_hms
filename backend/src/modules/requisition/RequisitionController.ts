@@ -1,7 +1,6 @@
 // RequisitionController.ts - HTTP request handlers for requisition module
-
 import { Request, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import { BaseController } from '../../shared/base/BaseController';
 import { RequisitionService } from './RequisitionService';
 import {
   CreateRequisitionDTO,
@@ -9,11 +8,13 @@ import {
   UpdateRequisitionStatusDTO,
   ApproveRequisitionItemsDTO
 } from './RequisitionTypes';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
-export class RequisitionController {
+export class RequisitionController extends BaseController {
   private service: RequisitionService;
 
   constructor(service: RequisitionService) {
+    super();
     this.service = service;
   }
 
@@ -32,13 +33,9 @@ export class RequisitionController {
 
       const result = await this.service.getAllRequisitions(params);
 
-      res.json(result);
-    } catch (error) {
-      console.error('Error fetching requisitions:', error);
-      res.status(500).json({
-        message: 'Error fetching requisitions',
-        error: (error as Error).message
-      });
+      return this.ok(res, result.requisitions, 'Requisitions fetched successfully', result.pagination);
+    } catch (error: any) {
+      return this.error(res, error);
     }
   };
 
@@ -46,171 +43,92 @@ export class RequisitionController {
   getRequisitionById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-
       const requisition = await this.service.getRequisitionById(id);
-
-      res.json(requisition);
-    } catch (error) {
-      console.error('Error fetching requisition:', error);
-      res.status(404).json({
-        message: (error as Error).message || 'Requisition not found',
-        error: (error as Error).message
-      });
+      return this.ok(res, requisition, 'Requisition fetched successfully');
+    } catch (error: any) {
+      return this.error(res, error);
     }
   };
 
   // CREATE REQUISITION
-  createRequisition = [
-    body('requestingDepartmentId').notEmpty().withMessage('Department ID is required'),
-    body('urgency').isIn(['routine', 'urgent', 'emergency']).withMessage('Valid urgency is required'),
-    body('requisitionItems').isArray({ min: 1 }).withMessage('At least one item is required'),
-    body('requisitionItems.*.stockItemId').notEmpty().withMessage('Stock item ID is required'),
-    body('requisitionItems.*.quantityRequested').isInt({ min: 1 }).withMessage('Quantity must be positive'),
+  createRequisition = async (req: AuthRequest, res: Response) => {
+    try {
+      const data: CreateRequisitionDTO = req.body;
+      const userId = req.user?.id;
 
-    async (req: Request, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const data: CreateRequisitionDTO = req.body;
-        const userId = (req as any).user?.id;
-
-        if (!userId) {
-          return res.status(401).json({ message: 'User not authenticated' });
-        }
-
-        const requisition = await this.service.createRequisition(data, userId);
-
-        res.status(201).json({
-          message: 'Requisition created successfully',
-          requisition
-        });
-      } catch (error) {
-        console.error('Error creating requisition:', error);
-        res.status(500).json({
-          message: 'Error creating requisition',
-          error: (error as Error).message
-        });
+      if (!userId) {
+        return this.unauthorized(res, 'User not authenticated');
       }
+
+      if (!data.requisitionItems || data.requisitionItems.length === 0) {
+        return this.badRequest(res, 'At least one item is required');
+      }
+
+      const requisition = await this.service.createRequisition(data, userId);
+
+      return this.created(res, requisition, 'Requisition created successfully');
+    } catch (error: any) {
+      return this.error(res, error);
     }
-  ];
+  };
 
   // UPDATE REQUISITION STATUS
-  updateRequisitionStatus = [
-    body('status').isIn(['draft', 'submitted', 'approved', 'fulfilled', 'cancelled']).withMessage('Valid status is required'),
-    body('notes').optional().isString(),
-
-    async (req: Request, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const data: UpdateRequisitionStatusDTO = req.body;
-        const userId = (req as any).user?.id;
-
-        const requisition = await this.service.updateRequisitionStatus(id, data, userId);
-
-        res.json({
-          message: `Requisition status updated to ${data.status}`,
-          requisition
-        });
-      } catch (error) {
-        console.error('Error updating requisition status:', error);
-        res.status(500).json({
-          message: 'Error updating requisition status',
-          error: (error as Error).message
-        });
-      }
-    }
-  ];
-
-  // DELETE REQUISITION
-  deleteRequisition = async (req: Request, res: Response) => {
+  updateRequisitionStatus = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const data: UpdateRequisitionStatusDTO = req.body;
+      const userId = req.user?.id;
 
+      const requisition = await this.service.updateRequisitionStatus(id, data, userId);
+
+      return this.ok(res, requisition, `Requisition status updated to ${data.status}`);
+    } catch (error: any) {
+      return this.error(res, error);
+    }
+  };
+
+  // DELETE REQUISITION
+  deleteRequisition = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
       await this.service.deleteRequisition(id);
-
-      res.json({
-        message: 'Requisition deleted successfully'
-      });
-    } catch (error) {
-      console.error('Error deleting requisition:', error);
-      res.status(500).json({
-        message: 'Error deleting requisition',
-        error: (error as Error).message
-      });
+      return this.ok(res, null, 'Requisition deleted successfully');
+    } catch (error: any) {
+      return this.error(res, error);
     }
   };
 
   // APPROVE REQUISITION ITEMS
-  approveRequisitionItems = [
-    body('approvedItems').isArray({ min: 1 }).withMessage('At least one approved item is required'),
-    body('approvedItems.*.requisitionItemId').notEmpty().withMessage('Requisition item ID is required'),
-    body('approvedItems.*.quantityApproved').isInt({ min: 0 }).withMessage('Quantity approved must be non-negative'),
+  approveRequisitionItems = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const data: ApproveRequisitionItemsDTO = req.body;
+      const userId = req.user?.id;
 
-    async (req: Request, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const data: ApproveRequisitionItemsDTO = req.body;
-        const userId = (req as any).user?.id;
-
-        const requisition = await this.service.approveRequisitionItems(id, data, userId);
-
-        res.json({
-          message: 'Requisition items approved successfully',
-          requisition
-        });
-      } catch (error) {
-        console.error('Error approving requisition items:', error);
-        res.status(500).json({
-          message: 'Error approving requisition items',
-          error: (error as Error).message
-        });
+      if (!data.approvedItems || data.approvedItems.length === 0) {
+        return this.badRequest(res, 'At least one approved item is required');
       }
+
+      const requisition = await this.service.approveRequisitionItems(id, data, userId);
+
+      return this.ok(res, requisition, 'Requisition items approved successfully');
+    } catch (error: any) {
+      return this.error(res, error);
     }
-  ];
+  };
 
   // UPDATE REQUISITION (Basic info only)
-  updateRequisition = [
-    body('purpose').optional().isString(),
-    body('urgency').optional().isIn(['routine', 'urgent', 'emergency']),
-    body('notes').optional().isString(),
+  updateRequisition = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const data: UpdateRequisitionDTO = req.body;
+      const userId = req.user?.id;
 
-    async (req: Request, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
+      const requisition = await this.service.updateRequisition(id, data, userId);
 
-        const { id } = req.params;
-        const data: UpdateRequisitionDTO = req.body;
-        const userId = (req as any).user?.id;
-
-        const requisition = await this.service.updateRequisition(id, data, userId);
-
-        res.json({
-          message: 'Requisition updated successfully',
-          requisition
-        });
-      } catch (error) {
-        console.error('Error updating requisition:', error);
-        res.status(500).json({
-          message: 'Error updating requisition',
-          error: (error as Error).message
-        });
-      }
+      return this.ok(res, requisition, 'Requisition updated successfully');
+    } catch (error: any) {
+      return this.error(res, error);
     }
-  ];
+  };
 }

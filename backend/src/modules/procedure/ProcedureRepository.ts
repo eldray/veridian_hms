@@ -1,16 +1,13 @@
 // modules/procedure/ProcedureRepository.ts
+import { PrismaClient, ServiceType, ServiceCategory, ProcedureCategory } from '@prisma/client';
 
-import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
-import { BaseRepository } from '../../shared/base/BaseRepository';
 
-export class ProcedureRepository extends BaseRepository {
+export class ProcedureRepository {
+  private prisma: PrismaClient;
+
   constructor(prisma: PrismaClient) {
-    super(prisma);
+    this.prisma = prisma;
   }
-
-  // ============================================
-  // FIND PROCEDURE TEMPLATES
-  // ============================================
 
   async findTemplates(filters: {
     category?: string;
@@ -30,14 +27,11 @@ export class ProcedureRepository extends BaseRepository {
     }
 
     if (category) {
-      where.serviceCategory = category as ServiceCategory;
+      where.subType = category;
     }
 
     if (department) {
-      where.metadata = {
-        path: ['department'],
-        equals: department
-      };
+      where.department = department;
     }
 
     const skip = (page - 1) * limit;
@@ -48,15 +42,11 @@ export class ProcedureRepository extends BaseRepository {
         include: {
           pricing: true,
           procedures: {
-            select: {
-              id: true,
-              status: true
-            }
+            select: { id: true, status: true },
+            take: 1
           }
         },
-        orderBy: {
-          name: 'asc'
-        },
+        orderBy: { name: 'asc' },
         skip,
         take: limit
       }),
@@ -74,10 +64,6 @@ export class ProcedureRepository extends BaseRepository {
     };
   }
 
-  // ============================================
-  // FIND TEMPLATE BY ID
-  // ============================================
-
   async findTemplateById(id: string) {
     return this.prisma.serviceCatalog.findUnique({
       where: {
@@ -86,6 +72,22 @@ export class ProcedureRepository extends BaseRepository {
       },
       include: {
         pricing: true,
+        gdrgTariff: {  // ✅ ADDED
+          select: {
+            id: true,
+            gdrgCode: true,
+            description: true,
+            nhiaTariff: true,
+            mdc: true
+          }
+        },
+        ward: {  // ✅ ADDED
+          select: {
+            id: true,
+            wardName: true,
+            wardType: true
+          }
+        },
         procedures: {
           include: {
             Attendance: {
@@ -101,18 +103,12 @@ export class ProcedureRepository extends BaseRepository {
               }
             }
           },
-          orderBy: {
-            createdAt: 'desc'
-          },
+          orderBy: { createdAt: 'desc' },
           take: 10
         }
       }
     });
   }
-
-  // ============================================
-  // CREATE TEMPLATE
-  // ============================================
 
   async createTemplate(data: any, userId: string) {
     return this.prisma.serviceCatalog.create({
@@ -121,14 +117,22 @@ export class ProcedureRepository extends BaseRepository {
         code: data.code,
         description: data.description,
         serviceType: ServiceType.procedure,
-        serviceCategory: data.serviceCategory as ServiceCategory,
-        subType: data.category || null,
+        serviceCategory: data.serviceCategory,
+        subType: data.category,
+        department: data.department,  // ✅ ADDED - direct field
         nhisServiceCode: data.nhisServiceCode,
         tariffCode: data.tariffCode,
-        isNHISCovered: data.isNHISCovered !== undefined ? data.isNHISCovered : true,
+        isNHISCovered: data.isNHISCovered,
+        nhisRequiresAuth: data.nhisRequiresAuth,  // ✅ ADDED
+        isPrivateInsuranceExempted: data.isPrivateInsuranceExempted,  // ✅ ADDED
+        privateInsRequiresAuth: data.privateInsRequiresAuth,  // ✅ ADDED
+        requiresClinicalNotes: data.requiresClinicalNotes,  // ✅ ADDED
+        duration: data.duration,  // ✅ ADDED - direct field
+        isActive: data.isActive,
+        unit: data.unit,
+        gdrgTariffId: data.gdrgTariffId,  // ✅ ADDED
+        wardId: data.wardId,  // ✅ ADDED
         metadata: {
-          department: data.department,
-          duration: data.duration || 30,
           requiresAssistant: data.requiresAssistant,
           anesthesiaType: data.anesthesiaType,
           anesthesiaNotes: data.anesthesiaNotes,
@@ -137,19 +141,12 @@ export class ProcedureRepository extends BaseRepository {
           bloodLoss: data.bloodLoss,
           complications: data.complications,
           outcome: data.outcome,
-          cost: data.cost,
-          procedureCategory: data.procedureCategory
+          cost: data.cost
         },
-        isActive: data.isActive !== undefined ? data.isActive : true,
-        unit: data.unit || 'Procedure',
         createdById: userId
       }
     });
   }
-
-  // ============================================
-  // CREATE PRICING
-  // ============================================
 
   async createPricing(data: {
     serviceCatalogId: string;
@@ -163,19 +160,15 @@ export class ProcedureRepository extends BaseRepository {
       data: {
         serviceCatalogId: data.serviceCatalogId,
         cashPrice: data.cashPrice,
-        nhisPrice: data.nhisPrice || 0,
+        nhisPrice: data.nhisPrice,
         insurancePrice: data.insurancePrice,
-        vatRate: data.vatRate || 0,
-        isTaxable: data.isTaxable !== undefined ? data.isTaxable : true,
+        vatRate: data.vatRate,
+        isTaxable: data.isTaxable,
         isActive: true,
         effectiveDate: new Date()
       }
     });
   }
-
-  // ============================================
-  // UPDATE TEMPLATE
-  // ============================================
 
   async updateTemplate(id: string, data: any) {
     return this.prisma.serviceCatalog.update({
@@ -187,10 +180,6 @@ export class ProcedureRepository extends BaseRepository {
     });
   }
 
-  // ============================================
-  // UPDATE PRICING
-  // ============================================
-
   async updatePricing(serviceCatalogId: string, data: any) {
     return this.prisma.servicePricing.update({
       where: { serviceCatalogId },
@@ -201,19 +190,11 @@ export class ProcedureRepository extends BaseRepository {
     });
   }
 
-  // ============================================
-  // DELETE TEMPLATE
-  // ============================================
-
   async deleteTemplate(id: string) {
     return this.prisma.serviceCatalog.delete({
       where: { id }
     });
   }
-
-  // ============================================
-  // DELETE PRICING
-  // ============================================
 
   async deletePricing(serviceCatalogId: string) {
     return this.prisma.servicePricing.delete({
@@ -221,22 +202,23 @@ export class ProcedureRepository extends BaseRepository {
     });
   }
 
-  // ============================================
-  // CHECK IF CODE EXISTS
-  // ============================================
-
   async codeExists(code: string, excludeId?: string) {
     const where: any = { code };
     if (excludeId) {
       where.id = { not: excludeId };
     }
-    const template = await this.prisma.serviceCatalog.findUnique({ where });
+    const template = await this.prisma.serviceCatalog.findFirst({ where });
     return !!template;
   }
 
-  // ============================================
-  // FIND WITH PROCEDURES AND PRICING
-  // ============================================
+  async procedureCodeExists(procedureCode: string, excludeId?: string) {
+    const where: any = { procedureCode };
+    if (excludeId) {
+      where.id = { not: excludeId };
+    }
+    const template = await this.prisma.serviceCatalog.findFirst({ where });
+    return !!template;
+  }
 
   async findWithRelations(id: string) {
     return this.prisma.serviceCatalog.findFirst({
@@ -250,10 +232,6 @@ export class ProcedureRepository extends BaseRepository {
       }
     });
   }
-
-  // ============================================
-  // BULK UPDATE
-  // ============================================
 
   async bulkUpdate(ids: string[], isActive: boolean) {
     const result = await this.prisma.serviceCatalog.updateMany({
@@ -269,35 +247,15 @@ export class ProcedureRepository extends BaseRepository {
     return result.count;
   }
 
-  // ============================================
-  // GET CATEGORIES
-  // ============================================
-
-  async getCategories() {
-    return Object.values(ServiceCategory);
-  }
-
-  // ============================================
-  // GET DEPARTMENTS
-  // ============================================
-
   async getDepartments() {
     const services = await this.prisma.serviceCatalog.findMany({
       where: {
         serviceType: ServiceType.procedure,
-        metadata: {
-          path: ['department'],
-          not: null
-        }
+        department: { not: null }
       },
-      select: { metadata: true }
+      select: { department: true },
+      distinct: ['department']
     });
-
-    const departments = services
-      .map(service => (service.metadata as any)?.department)
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index);
-
-    return departments;
+    return services.map(s => s.department).filter(Boolean);
   }
 }

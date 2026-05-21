@@ -8,7 +8,7 @@ export class BedRepository {
     this.prisma = prisma;
   }
 
-  async findAll(filter?: BedFilter): Promise<BedWithRelations[]> {
+  async findAll(filter?: BedFilter, page: number = 1, limit: number = 50): Promise<{ beds: BedWithRelations[]; total: number }> {
     const where: any = {};
     
     if (filter?.wardId) {
@@ -19,31 +19,40 @@ export class BedRepository {
       where.isOccupied = filter.isOccupied;
     }
 
-    return this.prisma.bed.findMany({
-      where,
-      include: {
-        Ward: {
-          select: {
-            id: true,
-            wardName: true,
-            wardType: true,
-            isPending: true
+    const skip = (page - 1) * limit;
+
+    const [beds, total] = await Promise.all([
+      this.prisma.bed.findMany({
+        where,
+        include: {
+          Ward: {
+            select: {
+              id: true,
+              wardName: true,
+              wardType: true,
+              isPending: true
+            }
+          },
+          Patient: {
+            select: {
+              id: true,
+              folderNumber: true,
+              surname: true,
+              otherNames: true
+            }
           }
         },
-        Patient: {
-          select: {
-            id: true,
-            folderNumber: true,
-            surname: true,
-            otherNames: true
-          }
-        }
-      },
-      orderBy: [
-        { wardId: 'asc' },
-        { bedNumber: 'asc' }
-      ]
-    });
+        orderBy: [
+          { wardId: 'asc' },
+          { bedNumber: 'asc' }
+        ],
+        skip,
+        take: limit
+      }),
+      this.prisma.bed.count({ where })
+    ]);
+
+    return { beds, total };
   }
 
   async findById(id: string): Promise<BedWithRelations | null> {
@@ -175,5 +184,18 @@ export class BedRepository {
       where: { id: wardId }
     });
     return !!ward;
+  }
+
+  async getStats(): Promise<{ total: number; occupied: number; available: number }> {
+    const [total, occupied] = await Promise.all([
+      this.prisma.bed.count(),
+      this.prisma.bed.count({ where: { isOccupied: true } })
+    ]);
+
+    return {
+      total,
+      occupied,
+      available: total - occupied
+    };
   }
 }

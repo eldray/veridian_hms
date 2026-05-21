@@ -9,8 +9,10 @@ import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, Department
 
 export class DepartmentService {
   private repository: DepartmentRepository;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
     this.repository = new DepartmentRepository(prisma);
   }
 
@@ -26,7 +28,7 @@ export class DepartmentService {
     return department;
   }
 
-  async createDepartment(data: CreateDepartmentDTO, userId: string) {
+  async createDepartment(data: CreateDepartmentDTO, userId?: string) {
     // Check for duplicate name
     const existing = await this.repository.findByName(data.name);
     if (existing) {
@@ -35,8 +37,7 @@ export class DepartmentService {
 
     // Validate head user if provided
     if (data.headId) {
-      const prisma = new PrismaClient();
-      const headUser = await prisma.user.findUnique({
+      const headUser = await this.prisma.user.findUnique({
         where: { id: data.headId },
         select: { id: true, fullName: true, role: true }
       });
@@ -49,7 +50,7 @@ export class DepartmentService {
     return this.repository.create(data);
   }
 
-  async updateDepartment(id: string, data: UpdateDepartmentDTO, userId: string) {
+  async updateDepartment(id: string, data: UpdateDepartmentDTO, userId?: string) {
     // Check if department exists
     const existing = await this.repository.findById(id);
     if (!existing) {
@@ -58,16 +59,15 @@ export class DepartmentService {
 
     // Check for duplicate name if name is being updated
     if (data.name && data.name !== existing.name) {
-      const duplicate = await this.repository.findByName(data.name);
-      if (duplicate && duplicate.id !== id) {
+      const duplicate = await this.repository.findByName(data.name, id);
+      if (duplicate) {
         throw new Error('A department with this name already exists');
       }
     }
 
     // Validate head user if provided
     if (data.headId) {
-      const prisma = new PrismaClient();
-      const headUser = await prisma.user.findUnique({
+      const headUser = await this.prisma.user.findUnique({
         where: { id: data.headId },
         select: { id: true, fullName: true, role: true }
       });
@@ -115,8 +115,7 @@ export class DepartmentService {
     }
 
     // Validate user exists
-    const prisma = new PrismaClient();
-    const user = await prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -124,21 +123,28 @@ export class DepartmentService {
       throw new Error('User not found');
     }
 
-    // Check if already assigned
-    try {
-      return await this.repository.addUserToDepartment(departmentId, userId);
-    } catch (error) {
+    // Check if already assigned to this department
+    if (user.departmentId === departmentId) {
       throw new Error('User is already assigned to this department');
     }
+
+    return this.repository.assignUserToDepartment(departmentId, userId);
   }
 
   async removeUserFromDepartment(departmentId: string, userId: string) {
-    try {
-      await this.repository.removeUserFromDepartment(departmentId, userId);
-      return { success: true, message: 'User removed from department' };
-    } catch (error) {
-      throw new Error('User is not assigned to this department');
+    // Validate department exists
+    const department = await this.repository.findById(departmentId);
+    if (!department) {
+      throw new Error('Department not found');
     }
+
+    // Check if user is in this department
+    const isInDepartment = await this.repository.checkUserInDepartment(departmentId, userId);
+    if (!isInDepartment) {
+      throw new Error('User not found in this department');
+    }
+
+    return this.repository.removeUserFromDepartment(departmentId, userId);
   }
 
   async bulkUpdateDepartments(departmentIds: string[], data: UpdateDepartmentDTO) {

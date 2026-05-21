@@ -1,14 +1,12 @@
 // modules/admission/types.ts
-import { Request, Response, NextFunction } from 'express';
-
 export interface AdmissionQueryParams {
   status?: string;
   wardId?: string;
   patientId?: string;
   dateFrom?: string;
   dateTo?: string;
-  page?: string;
-  limit?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface CreateAdmissionBody {
@@ -43,7 +41,6 @@ export interface DischargePatientBody {
   dischargeDate?: string;
   dischargeTime?: string;
   dischargeStatus?: string;
-  dischargeNotes?: string;
   conditionAtDischarge?: string;
 }
 
@@ -52,12 +49,22 @@ export interface AddDailyNotesBody {
   noteType?: string;
 }
 
-export interface AdmissionRequest extends Request {
-  params: {
-    id: string;
-  };
-  query: AdmissionQueryParams;
-  body: any;
+export interface UpdateAdmissionBody {
+  wardId?: string;
+  bedId?: string;
+  admittingDoctor?: string;
+  reasonForAdmission?: string;
+  diagnosis?: string;
 }
 
-export interface AdmissionResponse extends Response {}
+export interface AdmissionResponse {
+  success: boolean;
+  data?: any;
+  message?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}

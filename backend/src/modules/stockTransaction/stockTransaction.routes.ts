@@ -6,6 +6,7 @@ const router = Router();
 // Stock Transaction CRUD routes
 router.post('/', stockTransactionController.create.bind(stockTransactionController));
 router.get('/', stockTransactionController.getAll.bind(stockTransactionController));
+router.get('/valuation', stockTransactionController.getStockValuation.bind(stockTransactionController));
 router.get('/:id', stockTransactionController.getById.bind(stockTransactionController));
 router.put('/:id', stockTransactionController.update.bind(stockTransactionController));
 router.delete('/:id', stockTransactionController.delete.bind(stockTransactionController));

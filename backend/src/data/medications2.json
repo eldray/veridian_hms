@@ -7,7 +7,7 @@
     "unitOfMeasure": "bottle",
     "drugCode": "PARA-INF1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 25.00,
     "sellingPrice": 30.00,
     "insurancePrice": 25.00,
@@ -27,7 +27,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "IMMUNCAP1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.20,
     "sellingPrice": 1.44,
     "insurancePrice": 1.20,
@@ -47,7 +47,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "MAG-OX1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.90,
     "sellingPrice": 1.08,
     "insurancePrice": 0.90,
@@ -67,7 +67,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "OMEGA3-1K1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.00,
     "sellingPrice": 2.40,
     "insurancePrice": 2.00,
@@ -87,7 +87,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "PROBIO-10B1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.50,
     "sellingPrice": 4.20,
     "insurancePrice": 3.50,
@@ -107,7 +107,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "COQ10-1001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.00,
     "sellingPrice": 4.80,
     "insurancePrice": 4.00,
@@ -127,7 +127,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "GINK-1201",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.50,
     "sellingPrice": 3.00,
     "insurancePrice": 2.50,
@@ -147,7 +147,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "MILKTH-1501",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.80,
     "sellingPrice": 2.16,
     "insurancePrice": 1.80,
@@ -167,7 +167,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "TURM-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.00,
     "sellingPrice": 1.20,
     "insurancePrice": 1.00,
@@ -187,7 +187,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "ECHIN-4001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.20,
     "sellingPrice": 1.44,
     "insurancePrice": 1.20,
@@ -207,7 +207,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "GARLIC-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.90,
     "sellingPrice": 1.08,
     "insurancePrice": 0.90,
@@ -227,7 +227,7 @@
     "unitOfMeasure": "sachet",
     "drugCode": "COLLAGEN-10G1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 5.00,
     "sellingPrice": 6.00,
     "insurancePrice": 5.00,
@@ -247,7 +247,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "MELAT-3MG1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.10,
     "sellingPrice": 1.32,
     "insurancePrice": 1.10,
@@ -267,7 +267,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "5HTP-1001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.20,
     "sellingPrice": 2.64,
     "insurancePrice": 2.20,
@@ -287,7 +287,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "ASHW-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.00,
     "sellingPrice": 3.60,
     "insurancePrice": 3.00,
@@ -307,7 +307,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "VALER-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.50,
     "sellingPrice": 1.80,
     "insurancePrice": 1.50,
@@ -327,7 +327,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "STJW-3001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.80,
     "sellingPrice": 3.36,
     "insurancePrice": 2.80,
@@ -347,7 +347,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "GLUC-CHON1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.50,
     "sellingPrice": 5.40,
     "insurancePrice": 4.50,
@@ -367,7 +367,7 @@
     "unitOfMeasure": "powder",
     "drugCode": "MSM-1K1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 6.00,
     "sellingPrice": 7.20,
     "insurancePrice": 6.00,
@@ -387,7 +387,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "HYAL-1001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.20,
     "sellingPrice": 3.84,
     "insurancePrice": 3.20,
@@ -407,7 +407,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "L-THEAN1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.10,
     "sellingPrice": 2.52,
     "insurancePrice": 2.10,
@@ -427,7 +427,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "RHOD-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.20,
     "sellingPrice": 5.04,
     "insurancePrice": 4.20,
@@ -447,7 +447,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "GINS-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.80,
     "sellingPrice": 3.36,
     "insurancePrice": 2.80,
@@ -467,7 +467,7 @@
     "unitOfMeasure": "powder",
     "drugCode": "MACA-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.50,
     "sellingPrice": 4.20,
     "insurancePrice": 3.50,
@@ -487,7 +487,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "SAWPAL-3201",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.90,
     "sellingPrice": 3.48,
     "insurancePrice": 2.90,
@@ -507,7 +507,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "CRAN-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.60,
     "sellingPrice": 1.92,
     "insurancePrice": 1.60,
@@ -527,7 +527,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "EPO-13001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.80,
     "sellingPrice": 4.56,
     "insurancePrice": 3.80,
@@ -547,7 +547,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "IRON-BIS1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.95,
     "sellingPrice": 1.14,
     "insurancePrice": 0.95,
@@ -567,7 +567,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "VITB12-1K1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.55,
     "sellingPrice": 0.66,
     "insurancePrice": 0.55,
@@ -587,7 +587,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "VITE-4001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.75,
     "sellingPrice": 0.90,
     "insurancePrice": 0.75,
@@ -607,7 +607,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "SELEN-2001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.65,
     "sellingPrice": 0.78,
     "insurancePrice": 0.65,
@@ -627,7 +627,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "CHROM-2001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.85,
     "sellingPrice": 1.02,
     "insurancePrice": 0.85,
@@ -647,7 +647,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "POT-CIT1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.05,
     "sellingPrice": 1.26,
     "insurancePrice": 1.05,
@@ -667,7 +667,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "LUT-20MG1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.30,
     "sellingPrice": 2.76,
     "insurancePrice": 2.30,
@@ -687,7 +687,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "BILB-1601",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.10,
     "sellingPrice": 3.72,
     "insurancePrice": 3.10,
@@ -707,7 +707,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "ALA-6001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.50,
     "sellingPrice": 5.40,
     "insurancePrice": 4.50,
@@ -727,7 +727,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "NAC-6001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.70,
     "sellingPrice": 3.24,
     "insurancePrice": 2.70,
@@ -747,7 +747,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "QUERC-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.90,
     "sellingPrice": 2.28,
     "insurancePrice": 1.90,
@@ -767,7 +767,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "RESV-2501",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 5.20,
     "sellingPrice": 6.24,
     "insurancePrice": 5.20,
@@ -787,7 +787,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "PYCN-501",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 6.50,
     "sellingPrice": 7.80,
     "insurancePrice": 6.50,
@@ -807,7 +807,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "GSE-1001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.40,
     "sellingPrice": 2.88,
     "insurancePrice": 2.40,
@@ -827,7 +827,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "POME-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 3.00,
     "sellingPrice": 3.60,
     "insurancePrice": 3.00,
@@ -847,7 +847,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "GREEN-TEA1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 1.80,
     "sellingPrice": 2.16,
     "insurancePrice": 1.80,
@@ -867,7 +867,7 @@
     "unitOfMeasure": "capsule",
     "drugCode": "CRAN-DMAN1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 2.20,
     "sellingPrice": 2.64,
     "insurancePrice": 2.20,
@@ -887,7 +887,7 @@
     "unitOfMeasure": "powder",
     "drugCode": "D-MANN1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.00,
     "sellingPrice": 4.80,
     "insurancePrice": 4.00,
@@ -907,7 +907,7 @@
     "unitOfMeasure": "bottle",
     "drugCode": "L-CARN-1K1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 8.00,
     "sellingPrice": 9.60,
     "insurancePrice": 8.00,
@@ -927,7 +927,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "BIOTIN-5K1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.60,
     "sellingPrice": 0.72,
     "insurancePrice": 0.60,
@@ -947,7 +947,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "L-LYS-5001",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 0.70,
     "sellingPrice": 0.84,
     "insurancePrice": 0.70,
@@ -967,7 +967,7 @@
     "unitOfMeasure": "tablet",
     "drugCode": "PROST-SUP1",
     "reorderLevel": 50,
-    "currentStock": 0,
+  
     "unitPrice": 4.80,
     "sellingPrice": 5.76,
     "insurancePrice": 4.80,

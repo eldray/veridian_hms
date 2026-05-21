@@ -37,6 +37,7 @@ export class AuditRepository {
             select: {
               id: true,
               fullName: true,
+              username: true,
               email: true,
               role: true
             }
@@ -80,6 +81,7 @@ export class AuditRepository {
             select: {
               id: true,
               fullName: true,
+              username: true,
               email: true,
               role: true
             }
@@ -128,6 +130,7 @@ export class AuditRepository {
             select: {
               id: true,
               fullName: true,
+              username: true,
               email: true,
               role: true
             }
@@ -159,6 +162,7 @@ export class AuditRepository {
           select: {
             id: true,
             fullName: true,
+            username: true,
             email: true,
             role: true
           }
@@ -190,7 +194,9 @@ export class AuditRepository {
           select: {
             id: true,
             fullName: true,
-            email: true
+            username: true,
+            email: true,
+            role: true
           }
         }
       }
@@ -212,7 +218,10 @@ export class AuditRepository {
     metadata?: any;
   }) {
     return this.prisma.auditLog.create({
-      data
+      data: {
+        ...data,
+        timestamp: new Date()
+      }
     });
   }
 }

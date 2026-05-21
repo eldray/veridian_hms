@@ -1,17 +1,17 @@
-import { BaseService } from '../../shared/base/BaseService';
+// modules/communication/CommunicationService.ts
 import { CommunicationRepository } from './CommunicationRepository';
 import { 
   SendSMSDTO, 
   SendWhatsAppDTO,
   SendBulkMessageDTO,
-  CommunicationTemplateDTO
+  CommunicationTemplateDTO,
+  CommunicationHistoryFilters
 } from './CommunicationTypes';
 
-export class CommunicationService extends BaseService {
+export class CommunicationService {
   private communicationRepository: CommunicationRepository;
 
   constructor() {
-    super();
     this.communicationRepository = new CommunicationRepository();
   }
 
@@ -24,6 +24,12 @@ export class CommunicationService extends BaseService {
   }
 
   async sendBulkMessage(dto: SendBulkMessageDTO) {
+    if (!dto.recipients || dto.recipients.length === 0) {
+      throw new Error('At least one recipient is required for bulk messaging');
+    }
+    if (!dto.message && !dto.templateId) {
+      throw new Error('Either message or templateId is required');
+    }
     return this.communicationRepository.sendBulkMessage(dto);
   }
 
@@ -32,6 +38,9 @@ export class CommunicationService extends BaseService {
   }
 
   async createTemplate(dto: CommunicationTemplateDTO) {
+    if (!dto.name || !dto.body) {
+      throw new Error('Name and body are required for template');
+    }
     return this.communicationRepository.createTemplate(dto);
   }
 
@@ -43,7 +52,7 @@ export class CommunicationService extends BaseService {
     return this.communicationRepository.deleteTemplate(id);
   }
 
-  async getMessageHistory(filters: any) {
+  async getMessageHistory(filters: CommunicationHistoryFilters) {
     return this.communicationRepository.getMessageHistory(filters);
   }
 

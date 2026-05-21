@@ -3,7 +3,7 @@
  * Type definitions for department operations
  */
 
-import { Department, User } from '@prisma/client';
+import { Department } from '@prisma/client';
 
 export interface CreateDepartmentDTO {
   name: string;
@@ -29,9 +29,27 @@ export interface DepartmentFilters {
   limit?: number;
 }
 
+export interface DepartmentUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  phone: string | null;
+  isActive: boolean;
+  specialization: string | null;
+  createdAt: Date;
+}
+
 export interface DepartmentWithRelations extends Department {
-  head?: User | null;
-  users?: User[];
+  head?: {
+    id: string;
+    fullName: string;
+    role: string;
+    email: string | null;
+    phone: string | null;
+    specialization: string | null;
+  } | null;
+  users?: DepartmentUser[];
   _count?: {
     users: number;
     appointments: number;
@@ -54,4 +72,10 @@ export interface DepartmentResponse {
   message?: string;
   count?: number;
   stats?: DepartmentStats;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }

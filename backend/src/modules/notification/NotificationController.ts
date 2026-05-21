@@ -2,16 +2,15 @@
 
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { NotificationService } from './NotificationService';
 import { BaseController } from '../../shared/base/BaseController';
-import { AuthRequest } from '../../types/auth';
+import { NotificationService } from './NotificationService';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class NotificationController extends BaseController {
   private notificationService: NotificationService;
 
   constructor(prisma: any) {
-    super(prisma);
+    super(); // BaseController doesn't accept prisma parameter
     this.notificationService = new NotificationService(prisma);
   }
 
@@ -19,26 +18,35 @@ export class NotificationController extends BaseController {
   // GET USER NOTIFICATIONS
   // ============================================
 
-  getUserNotifications = async (req: Request, res: Response) => {
+  getUserNotifications = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
+      
       const { unreadOnly, page = 1, limit = 20 } = req.query;
-
+  
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+  
       const result = await this.notificationService.getUserNotifications(
         userId,
         unreadOnly === 'true',
-        parseInt(page as string),
-        parseInt(limit as string)
+        pageNum,
+        limitNum
       );
-
-      this.handleResponse(res, 200, {
-        success: true,
-        data: result.notifications,
-        pagination: result.pagination,
-        unreadCount: result.unreadCount
-      });
+  
+      // ✅ Return proper wrapped response with pagination
+      this.ok(res, {
+        notifications: result.notifications,
+        unreadCount: result.unreadCount,
+        pagination: result.pagination
+      }, 'Notifications retrieved successfully');
+      
     } catch (error) {
-      this.handleError(res, error, 'Error fetching notifications');
+      this.error(res, error);
     }
   };
 
@@ -46,18 +54,18 @@ export class NotificationController extends BaseController {
   // GET NOTIFICATION STATS
   // ============================================
 
-  getNotificationStats = async (req: Request, res: Response) => {
+  getNotificationStats = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const stats = await this.notificationService.getNotificationStats(userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        data: stats
-      });
+      this.ok(res, stats, 'Notification stats retrieved successfully');
     } catch (error) {
-      this.handleError(res, error, 'Error fetching notification stats');
+      this.error(res, error);
     }
   };
 
@@ -65,39 +73,41 @@ export class NotificationController extends BaseController {
   // GET UNREAD COUNT
   // ============================================
 
-  getUnreadCount = async (req: Request, res: Response) => {
+  getUnreadCount = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = (req as AuthRequest).user?.id;
-
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
+  
       const count = await this.notificationService.getUnreadCount(userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        data: { unreadCount: count }
-      });
+      
+      // ✅ Return proper wrapped response
+      this.ok(res, { unreadCount: count }, 'Unread count retrieved successfully');
+      
     } catch (error) {
-      this.handleError(res, error, 'Error fetching unread count');
+      this.error(res, error);
     }
   };
-
+  
   // ============================================
   // MARK NOTIFICATION AS READ
   // ============================================
 
-  markNotificationAsRead = async (req: Request, res: Response) => {
+  markNotificationAsRead = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const notification = await this.notificationService.markAsRead(id, userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: 'Notification marked as read',
-        data: notification
-      });
+      this.ok(res, notification, 'Notification marked as read');
     } catch (error) {
-      this.handleError(res, error, 'Error marking notification as read');
+      this.error(res, error);
     }
   };
 
@@ -105,19 +115,18 @@ export class NotificationController extends BaseController {
   // MARK ALL NOTIFICATIONS AS READ
   // ============================================
 
-  markAllNotificationsAsRead = async (req: Request, res: Response) => {
+  markAllNotificationsAsRead = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const result = await this.notificationService.markAllAsRead(userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `${result.markedCount} notifications marked as read`,
-        data: result
-      });
+      this.ok(res, result, `${result.markedCount} notifications marked as read`);
     } catch (error) {
-      this.handleError(res, error, 'Error marking all notifications as read');
+      this.error(res, error);
     }
   };
 
@@ -125,19 +134,19 @@ export class NotificationController extends BaseController {
   // DELETE NOTIFICATION
   // ============================================
 
-  deleteNotification = async (req: Request, res: Response) => {
+  deleteNotification = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       await this.notificationService.deleteNotification(id, userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: 'Notification deleted successfully'
-      });
+      this.ok(res, null, 'Notification deleted successfully');
     } catch (error) {
-      this.handleError(res, error, 'Error deleting notification');
+      this.error(res, error);
     }
   };
 
@@ -145,14 +154,11 @@ export class NotificationController extends BaseController {
   // SEND BULK NOTIFICATION (Admin only)
   // ============================================
 
-  sendBulkNotification = async (req: Request, res: Response) => {
+  sendBulkNotification = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return this.handleResponse(res, 400, {
-          success: false,
-          errors: errors.array()
-        });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const { userIds, title, message, type, priority, actionType, actionId, actionUrl, metadata } = req.body;
@@ -169,13 +175,9 @@ export class NotificationController extends BaseController {
         metadata
       });
 
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Sent to ${result.successCount} users (${result.failCount} failed)`,
-        data: result
-      });
+      this.ok(res, result, `Sent to ${result.successCount} users (${result.failCount} failed)`);
     } catch (error) {
-      this.handleError(res, error, 'Error sending bulk notification');
+      this.error(res, error);
     }
   };
 
@@ -183,14 +185,11 @@ export class NotificationController extends BaseController {
   // SEND ROLE NOTIFICATION (Admin only)
   // ============================================
 
-  sendRoleNotification = async (req: Request, res: Response) => {
+  sendRoleNotification = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return this.handleResponse(res, 400, {
-          success: false,
-          errors: errors.array()
-        });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const { roles, title, message, type, priority, actionType, actionId, actionUrl, excludeUserId } = req.body;
@@ -207,13 +206,9 @@ export class NotificationController extends BaseController {
         excludeUserId
       });
 
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Sent to ${result.success} users (${result.failed} failed)`,
-        data: result
-      });
+      this.ok(res, result, `Sent to ${result.success} users (${result.failed} failed)`);
     } catch (error) {
-      this.handleError(res, error, 'Error sending role notification');
+      this.error(res, error);
     }
   };
 
@@ -221,18 +216,19 @@ export class NotificationController extends BaseController {
   // SEND USER MESSAGE
   // ============================================
 
-  sendUserMessage = async (req: Request, res: Response) => {
+  sendUserMessage = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return this.handleResponse(res, 400, {
-          success: false,
-          errors: errors.array()
-        });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const { toUserId, title, message, priority, actionUrl } = req.body;
-      const fromUserId = (req as AuthRequest).user?.id;
+      const fromUserId = req.user?.id;
+      
+      if (!fromUserId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const result = await this.notificationService.sendUserMessage(fromUserId, {
         toUserId,
@@ -242,13 +238,9 @@ export class NotificationController extends BaseController {
         actionUrl
       });
 
-      this.handleResponse(res, 200, {
-        success: true,
-        message: 'Message sent successfully',
-        data: result
-      });
+      this.ok(res, result, 'Message sent successfully');
     } catch (error) {
-      this.handleError(res, error, 'Error sending user message');
+      this.error(res, error);
     }
   };
 
@@ -256,18 +248,19 @@ export class NotificationController extends BaseController {
   // SEND BULK USER MESSAGES
   // ============================================
 
-  sendBulkUserMessages = async (req: Request, res: Response) => {
+  sendBulkUserMessages = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return this.handleResponse(res, 400, {
-          success: false,
-          errors: errors.array()
-        });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const { userIds, title, message, priority, actionUrl } = req.body;
-      const fromUserId = (req as AuthRequest).user?.id;
+      const fromUserId = req.user?.id;
+      
+      if (!fromUserId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const result = await this.notificationService.sendBulkUserMessages(fromUserId, {
         userIds,
@@ -277,13 +270,9 @@ export class NotificationController extends BaseController {
         actionUrl
       });
 
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Messages sent to ${result.success} user(s)`,
-        data: result
-      });
+      this.ok(res, result, `Messages sent to ${result.success} user(s)`);
     } catch (error) {
-      this.handleError(res, error, 'Error sending bulk user messages');
+      this.error(res, error);
     }
   };
 
@@ -291,18 +280,18 @@ export class NotificationController extends BaseController {
   // GET CONVERSATIONS
   // ============================================
 
-  getConversations = async (req: Request, res: Response) => {
+  getConversations = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = (req as AuthRequest).user?.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return this.unauthorized(res, 'User authentication required');
+      }
 
       const conversations = await this.notificationService.getConversations(userId);
-
-      this.handleResponse(res, 200, {
-        success: true,
-        data: conversations
-      });
+      this.ok(res, conversations, 'Conversations retrieved successfully');
     } catch (error) {
-      this.handleError(res, error, 'Error fetching conversations');
+      this.error(res, error);
     }
   };
 
@@ -310,18 +299,13 @@ export class NotificationController extends BaseController {
   // CLEANUP OLD NOTIFICATIONS
   // ============================================
 
-  cleanupOldNotifications = async (req: Request, res: Response) => {
+  cleanupOldNotifications = async (req: AuthRequest, res: Response) => {
     try {
       const { daysToKeep = 30 } = req.query;
       const count = await this.notificationService.cleanupOldNotifications(parseInt(daysToKeep as string));
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Cleaned up ${count} old notifications`,
-        data: { deletedCount: count }
-      });
+      this.ok(res, { deletedCount: count }, `Cleaned up ${count} old notifications`);
     } catch (error) {
-      this.handleError(res, error, 'Error cleaning up notifications');
+      this.error(res, error);
     }
   };
 
@@ -329,31 +313,21 @@ export class NotificationController extends BaseController {
   // SYSTEM MAINTENANCE ENDPOINTS
   // ============================================
 
-  triggerLowStockCheck = async (req: Request, res: Response) => {
+  triggerLowStockCheck = async (req: AuthRequest, res: Response) => {
     try {
       const result = await this.notificationService.sendLowStockAlerts();
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Low stock check completed. Sent ${result.sent} notifications for ${result.items.length} low stock items`,
-        data: result
-      });
+      this.ok(res, result, `Low stock check completed. Sent ${result.sent} notifications for ${result.items.length} low stock items`);
     } catch (error) {
-      this.handleError(res, error, 'Error triggering low stock check');
+      this.error(res, error);
     }
   };
 
-  triggerAppointmentReminders = async (req: Request, res: Response) => {
+  triggerAppointmentReminders = async (req: AuthRequest, res: Response) => {
     try {
       const count = await this.notificationService.sendAppointmentReminders();
-
-      this.handleResponse(res, 200, {
-        success: true,
-        message: `Sent ${count} appointment reminders`,
-        data: { remindersSent: count }
-      });
+      this.ok(res, { remindersSent: count }, `Sent ${count} appointment reminders`);
     } catch (error) {
-      this.handleError(res, error, 'Error triggering appointment reminders');
+      this.error(res, error);
     }
   };
 }

@@ -1,4 +1,4 @@
-// Hospital Module Index
+// Hospital Module - Hospital Management
 export { HospitalController } from './HospitalController';
 export { HospitalService } from './HospitalService';
 export { HospitalRepository } from './HospitalRepository';

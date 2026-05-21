@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import NewAttendanceModal from '../components/NewAttendanceModal';
+
 import {
   Plus,
   Search,
@@ -42,6 +44,9 @@ export default function Appointments() {
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [selectedAppointmentForAttendance, setSelectedAppointmentForAttendance] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     patientId: '',
     doctorId: '',
@@ -91,6 +96,24 @@ export default function Appointments() {
       );
     });
 
+    const handleConvertToAttendance = (appointment: any) => {
+      setSelectedAppointmentForAttendance(appointment);
+      setShowAttendanceModal(true);
+    };
+    
+    // Add success handler for attendance creation
+    const handleAttendanceCreated = async (attendanceId: string) => {
+      setShowAttendanceModal(false);
+      setSelectedAppointmentForAttendance(null);
+      success('Converted', 'Appointment converted to attendance successfully');
+      
+      // Update appointment status
+      await updateAppointmentStatus(appointment.id, 'checked_in');
+      
+      // Navigate to the new attendance
+      navigate(`/dashboard/attendance/${attendanceId}`);
+    };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -107,6 +130,18 @@ export default function Appointments() {
       await loadData();
     } catch (err) {
       error('Save Failed', 'Failed to save appointment');
+    }
+  };
+
+  const handleConvertToAttendance = async (id: string) => {
+    try {
+      const response = await api.post(`/appointments/${id}/convert-to-attendance`);
+      if (response.data.success) {
+        success('Converted', 'Appointment converted to attendance');
+        navigate(`/dashboard/attendance/${response.data.data.id}`);
+      }
+    } catch (err) {
+      error('Conversion Failed', 'Could not convert to attendance');
     }
   };
 

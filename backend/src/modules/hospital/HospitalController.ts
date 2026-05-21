@@ -1,172 +1,148 @@
 // HospitalController.ts
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import { BaseController } from '../../shared/base/BaseController';
 import { HospitalService } from './HospitalService';
 import { CreateHospitalDTO, UpdateHospitalDTO } from './HospitalTypes';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
-export class HospitalController {
+export class HospitalController extends BaseController {
   private hospitalService: HospitalService;
 
   constructor(hospitalService?: HospitalService) {
+    super();
     this.hospitalService = hospitalService || new HospitalService();
   }
 
   // GET ALL HOSPITALS
-  getHospitals = async (req: Request, res: Response) => {
+  getHospitals = async (req: AuthRequest, res: Response) => {
     try {
       const hospitals = await this.hospitalService.getAllHospitals();
-      res.json(hospitals);
+      this.ok(res, hospitals, 'Hospitals retrieved successfully');
     } catch (error) {
-      console.error('Error fetching hospitals:', error);
-      res.status(500).json({ 
-        message: 'Error fetching hospitals', 
-        error: error instanceof Error ? error.message : error 
-      });
+      this.error(res, error);
     }
   };
 
   // GET HOSPITAL BY ID
-  getHospitalById = async (req: Request, res: Response) => {
+  getHospitalById = async (req: AuthRequest, res: Response) => {
     try {
       const hospital = await this.hospitalService.getHospitalById(req.params.id);
 
       if (!hospital) {
-        return res.status(404).json({ message: 'Hospital not found' });
+        return this.notFound(res, 'Hospital');
       }
 
-      res.json(hospital);
+      this.ok(res, hospital, 'Hospital retrieved successfully');
     } catch (error) {
-      console.error('Error fetching hospital:', error);
-      res.status(500).json({ 
-        message: 'Error fetching hospital', 
-        error: error instanceof Error ? error.message : error 
-      });
+      this.error(res, error);
     }
   };
 
   // CREATE HOSPITAL
-  createHospital = async (req: Request, res: Response) => {
+  createHospital = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const hospitalData: CreateHospitalDTO = req.body;
 
       const hospital = await this.hospitalService.createHospital(hospitalData);
 
-      res.status(201).json(hospital);
+      this.created(res, hospital, 'Hospital created successfully');
     } catch (error: any) {
       console.error('Error creating hospital:', error);
 
       // Handle duplicate NHIS facility code
       if (error.code === 'P2002' && error.meta?.target?.includes('nhisFacilityCode')) {
-        return res.status(400).json({
-          message: 'NHIS facility code already exists'
-        });
+        return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      res.status(500).json({ 
-        message: 'Error creating hospital', 
-        error: error.message 
-      });
+      this.error(res, error);
     }
   };
 
   // UPDATE HOSPITAL
-  updateHospital = async (req: Request, res: Response) => {
+  updateHospital = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const hospitalData: UpdateHospitalDTO = req.body;
 
       const hospital = await this.hospitalService.updateHospital(req.params.id, hospitalData);
 
-      res.json(hospital);
+      this.ok(res, hospital, 'Hospital updated successfully');
     } catch (error: any) {
       console.error('Error updating hospital:', error);
 
       if (error.code === 'P2025') {
-        return res.status(404).json({ message: 'Hospital not found' });
+        return this.notFound(res, 'Hospital');
       }
 
       if (error.code === 'P2002' && error.meta?.target?.includes('nhisFacilityCode')) {
-        return res.status(400).json({
-          message: 'NHIS facility code already exists'
-        });
+        return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      res.status(500).json({ 
-        message: 'Error updating hospital', 
-        error: error.message 
-      });
+      this.error(res, error);
     }
   };
 
   // DELETE HOSPITAL
-  deleteHospital = async (req: Request, res: Response) => {
+  deleteHospital = async (req: AuthRequest, res: Response) => {
     try {
       const hospital = await this.hospitalService.deleteHospital(req.params.id);
 
-      res.json({
-        message: 'Hospital deleted successfully',
+      this.ok(res, {
         deletedHospital: {
           id: hospital.id,
           name: hospital.name,
           nhisFacilityCode: hospital.nhisFacilityCode
         }
-      });
+      }, 'Hospital deleted successfully');
     } catch (error: any) {
       console.error('Error deleting hospital:', error);
 
       if (error.code === 'P2025') {
-        return res.status(404).json({ message: 'Hospital not found' });
+        return this.notFound(res, 'Hospital');
       }
 
-      res.status(500).json({ 
-        message: 'Error deleting hospital', 
-        error: error.message 
-      });
+      this.error(res, error);
     }
   };
 
   // GET NHIS SETTINGS (Active Hospital)
-  getHospitalNHISSettings = async (req: Request, res: Response) => {
+  getHospitalNHISSettings = async (req: AuthRequest, res: Response) => {
     try {
       const nhisSettings = await this.hospitalService.getHospitalNHISSettings();
 
       if (!nhisSettings) {
-        return res.status(404).json({ message: 'No active hospital found' });
+        return this.notFound(res, 'Active hospital');
       }
 
-      res.json(nhisSettings);
+      this.ok(res, nhisSettings, 'NHIS settings retrieved successfully');
     } catch (error) {
-      console.error('Error fetching hospital NHIS settings:', error);
-      res.status(500).json({ 
-        message: 'Error fetching hospital NHIS settings', 
-        error: error instanceof Error ? error.message : error 
-      });
+      this.error(res, error);
     }
   };
 
   // UPDATE NHIS SETTINGS (Active Hospital)
-  updateHospitalNHISSettings = async (req: Request, res: Response) => {
+  updateHospitalNHISSettings = async (req: AuthRequest, res: Response) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return this.badRequest(res, 'Validation failed', errors.array());
       }
 
       const settingsData: Partial<UpdateHospitalDTO> = req.body;
 
       const hospital = await this.hospitalService.updateActiveHospitalNHISSettings(settingsData);
 
-      res.json({
-        message: 'Hospital NHIS settings updated successfully',
+      this.ok(res, {
         hospital: {
           name: hospital.name,
           nhisFacilityCode: hospital.nhisFacilityCode,
@@ -175,24 +151,19 @@ export class HospitalController {
           nhisAccreditationDate: hospital.nhisAccreditationDate || undefined,
           nhisAccreditationExpiry: hospital.nhisAccreditationExpiry || undefined
         }
-      });
+      }, 'NHIS settings updated successfully');
     } catch (error: any) {
       console.error('Error updating hospital NHIS settings:', error);
 
       if (error.code === 'P2025') {
-        return res.status(404).json({ message: 'No active hospital found' });
+        return this.notFound(res, 'Active hospital');
       }
 
       if (error.code === 'P2002' && error.meta?.target?.includes('nhisFacilityCode')) {
-        return res.status(400).json({
-          message: 'NHIS facility code already exists'
-        });
+        return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      res.status(500).json({ 
-        message: 'Error updating hospital NHIS settings', 
-        error: error.message 
-      });
+      this.error(res, error);
     }
   };
 }

@@ -29,3 +29,13 @@ export interface IBackupListResponse {
   createdAt: Date;
   modifiedAt: Date;
 }
+
+export interface IBackupListResult {
+  backups: IBackupListResponse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}

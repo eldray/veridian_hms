@@ -1,10 +1,6 @@
-/**
- * Patient Repository
- * Data access layer for Patient entity
- */
-
-import { PrismaClient, Patient, Gender } from '@prisma/client';
-import { BaseRepository, FindManyOptions, PaginationResult } from '../../shared/base/BaseRepository';
+// modules/patient/PatientRepository.ts
+import { PrismaClient, Patient } from '@prisma/client';
+import { BaseRepository, PaginationResult } from '../../shared/base/BaseRepository';
 import { CreatePatientDTO, UpdatePatientDTO, PatientFilters } from './PatientTypes';
 
 export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO, UpdatePatientDTO> {
@@ -12,46 +8,45 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
     super(prisma, 'patient');
   }
 
-  /**
-   * Find patient by NHIS number
-   */
   async findByNHISNumber(nhisNumber: string, include?: any): Promise<Patient | null> {
-    return this.getModel().findUnique({
+    return this.getModel().findFirst({
       where: { nhisNumber },
       include
     });
   }
 
-  /**
-   * Find patient by phone number
-   */
   async findByPhone(phone: string, include?: any): Promise<Patient | null> {
     return this.getModel().findFirst({
-      where: { phone },
+      where: { contact: phone },
       include
     });
   }
 
-  /**
-   * Find patient by email
-   */
-  async findByEmail(email: string, include?: any): Promise<Patient | null> {
+  async findByFolderNumber(folderNumber: string, include?: any): Promise<Patient | null> {
     return this.getModel().findUnique({
-      where: { email },
+      where: { folderNumber },
       include
     });
   }
 
-  /**
-   * Search patients with filters
-   */
+  async findByCorporateAccount(corporateAccountId: string, include?: any): Promise<Patient[]> {
+    return this.getModel().findMany({
+      where: { 
+        insuranceProviderId: corporateAccountId,
+        paymentMode: 'corporate'
+      },
+      include
+    });
+  }
+
   async search(filters: PatientFilters): Promise<PaginationResult<Patient>> {
     const { 
       search, 
       nhisNumber, 
       phone, 
-      email, 
       gender, 
+      paymentMode,
+      corporateAccountId,
       dateFrom, 
       dateTo, 
       page = 1, 
@@ -60,13 +55,13 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
 
     const where: any = {};
 
-    // Build search conditions
     if (search) {
       where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { otherName: { contains: search, mode: 'insensitive' } },
-        { patientId: { contains: search, mode: 'insensitive' } }
+        { surname: { contains: search, mode: 'insensitive' } },
+        { otherNames: { contains: search, mode: 'insensitive' } },
+        { folderNumber: { contains: search, mode: 'insensitive' } },
+        { nhisNumber: { contains: search, mode: 'insensitive' } },
+        { contact: { contains: search, mode: 'insensitive' } }
       ];
     }
 
@@ -75,15 +70,20 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
     }
 
     if (phone) {
-      where.phone = { contains: phone, mode: 'insensitive' };
-    }
-
-    if (email) {
-      where.email = { contains: email, mode: 'insensitive' };
+      where.contact = { contains: phone, mode: 'insensitive' };
     }
 
     if (gender) {
       where.gender = gender;
+    }
+
+    if (paymentMode) {
+      where.paymentMode = paymentMode;
+    }
+
+    if (corporateAccountId) {
+      where.insuranceProviderId = corporateAccountId;
+      where.paymentMode = 'corporate';
     }
 
     if (dateFrom || dateTo) {
@@ -96,35 +96,65 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
       where,
       page,
       limit,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        InsuranceProvider: {
+          select: { id: true, name: true, type: true }
+        }
+      }
     });
   }
 
-  /**
-   * Get patient statistics
-   */
   async getStats(): Promise<{
     totalPatients: number;
     maleCount: number;
     femaleCount: number;
+    otherCount: number;
     newThisMonth: number;
+    byPaymentMode: { mode: string; count: number }[];
   }> {
-    const [totalPatients, maleCount, femaleCount, newThisMonth] = await Promise.all([
+    const [totalPatients, maleCount, femaleCount, otherCount, newThisMonth] = await Promise.all([
       this.count(),
-      this.count({ gender: Gender.Male }),
-      this.count({ gender: Gender.Female }),
+      this.count({ gender: 'male' }),
+      this.count({ gender: 'female' }),
+      this.count({ gender: 'other' }),
       this.count({
         createdAt: {
-          gte: new Date(new Date().setDate(1)) // First day of current month
+          gte: new Date(new Date().setDate(1))
         }
       })
     ]);
+
+    const paymentModeStats = await this.prisma.patient.groupBy({
+      by: ['paymentMode'],
+      _count: { id: true },
+      where: { paymentMode: { not: null } }
+    });
+
+    const byPaymentMode = paymentModeStats.map(stat => ({
+      mode: stat.paymentMode as string,
+      count: stat._count.id
+    }));
 
     return {
       totalPatients,
       maleCount,
       femaleCount,
-      newThisMonth
+      otherCount,
+      newThisMonth,
+      byPaymentMode
     };
+  }
+
+  // ✅ FIXED: Use correct relation names (singular, capital letters)
+  async hasRelatedRecords(id: string): Promise<boolean> {
+    const [attendanceCount, billCount, admissionCount, insuranceClaimCount] = await Promise.all([
+      this.prisma.attendance.count({ where: { patientId: id } }),      // ✅ attendance (singular)
+      this.prisma.bill.count({ where: { patientId: id } }),            // ✅ bill (singular)
+      this.prisma.admission.count({ where: { patientId: id } }),       // ✅ admission (singular)
+      this.prisma.insuranceClaim.count({ where: { patientId: id } })   // ✅ insuranceClaim (singular)
+    ]);
+    
+    return attendanceCount > 0 || billCount > 0 || admissionCount > 0 || insuranceClaimCount > 0;
   }
 }

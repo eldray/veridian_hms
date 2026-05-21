@@ -3,8 +3,6 @@
 
 import { PrismaClient, Gender } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
 // ==============================================
 // TYPES
 // ==============================================
@@ -269,9 +267,14 @@ const AGE_GROUPS: GHSAgeGroup[] = [
 // ==============================================
 
 export class GHSMorbidityService {
+  private prisma: PrismaClient;  // ✅ injected instance
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
 
   // ─────────────────────────────────────────────────────────
-  // Age group calculation
+  // Age group calculation — pure function, no prisma needed → static OK
   // ─────────────────────────────────────────────────────────
 
   private static getAgeGroup(dob: Date, referenceDate: Date): GHSAgeGroup {
@@ -294,7 +297,7 @@ export class GHSMorbidityService {
   }
 
   // ─────────────────────────────────────────────────────────
-  // Empty report scaffold
+  // Empty report scaffold — pure functions, no prisma → static OK
   // ─────────────────────────────────────────────────────────
 
   private static emptyBreakdown(): AgeSexBreakdown {
@@ -305,7 +308,7 @@ export class GHSMorbidityService {
 
   private static emptySection(keys: string[]): Record<string, AgeSexBreakdown> {
     const s: Record<string, AgeSexBreakdown> = {};
-    for (const k of keys) s[k] = this.emptyBreakdown();
+    for (const k of keys) s[k] = GHSMorbidityService.emptyBreakdown();
     return s;
   }
 
@@ -313,37 +316,52 @@ export class GHSMorbidityService {
     return {
       period:   { startDate: new Date(), endDate: new Date(), year: 0, month: 0 },
       facility: { name: '', district: '', region: '', ghfCode: '' },
-      communicableImmunizable:    this.emptySection(SECTION_KEYS.communicableImmunizable),
-      communicableNonImmunizable: this.emptySection(SECTION_KEYS.communicableNonImmunizable),
-      nonCommunicable:            this.emptySection(SECTION_KEYS.nonCommunicable),
-      mentalHealth:               this.emptySection(SECTION_KEYS.mentalHealth),
-      specializedConditions:      this.emptySection(SECTION_KEYS.specializedConditions),
-      obstetricsGynaecology:      this.emptySection(SECTION_KEYS.obstetricsGynaecology),
-      reproductiveTract:          this.emptySection(SECTION_KEYS.reproductiveTract),
-      injuries:                   this.emptySection(SECTION_KEYS.injuries),
-      reAttendancesReferrals:     this.emptySection(SECTION_KEYS.reAttendancesReferrals),
+      communicableImmunizable:    GHSMorbidityService.emptySection(SECTION_KEYS.communicableImmunizable),
+      communicableNonImmunizable: GHSMorbidityService.emptySection(SECTION_KEYS.communicableNonImmunizable),
+      nonCommunicable:            GHSMorbidityService.emptySection(SECTION_KEYS.nonCommunicable),
+      mentalHealth:               GHSMorbidityService.emptySection(SECTION_KEYS.mentalHealth),
+      specializedConditions:      GHSMorbidityService.emptySection(SECTION_KEYS.specializedConditions),
+      obstetricsGynaecology:      GHSMorbidityService.emptySection(SECTION_KEYS.obstetricsGynaecology),
+      reproductiveTract:          GHSMorbidityService.emptySection(SECTION_KEYS.reproductiveTract),
+      injuries:                   GHSMorbidityService.emptySection(SECTION_KEYS.injuries),
+      reAttendancesReferrals:     GHSMorbidityService.emptySection(SECTION_KEYS.reAttendancesReferrals),
       topDiagnoses: [],
       totals: { totalAttendances: 0, totalNewCases: 0, totalReAttendances: 0, totalReferrals: 0 }
     };
   }
 
   // ─────────────────────────────────────────────────────────
-  // MAIN: generate full morbidity report
+  // PRIVATE: increment a single cell — pure, no prisma → static OK
   // ─────────────────────────────────────────────────────────
 
-  static async generateMorbidityReport(
+  private static inc(
+    section: Record<string, AgeSexBreakdown>,
+    key: string,
+    ageGroup: GHSAgeGroup,
+    gender: Gender
+  ): void {
+    if (!section[key]?.[ageGroup]) return;
+    if (gender === 'male')        section[key][ageGroup].male++;
+    else if (gender === 'female') section[key][ageGroup].female++;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // MAIN: generate full morbidity report  ← instance method (uses this.prisma)
+  // ─────────────────────────────────────────────────────────
+
+  async generateMorbidityReport(
     startDate: Date,
     endDate: Date
   ): Promise<GHSMorbidityReport> {
-    const report = this.initEmptyReport();
+    const report = GHSMorbidityService.initEmptyReport();
 
     // Facility info
-    const hospital = await prisma.hospital.findFirst();
+    const hospital = await this.prisma.hospital.findFirst();
     report.facility = {
-      name:     hospital?.name             ?? 'Health Facility',
-      district: hospital?.ghsDistrictCode  ?? 'Unknown District',
+      name:     hospital?.name            ?? 'Health Facility',
+      district: hospital?.ghsDistrictCode ?? 'Unknown District',
       region:   'Unknown Region',
-      ghfCode:  hospital?.ghaHFCode        ?? 'Unknown'
+      ghfCode:  hospital?.ghaHFCode       ?? 'Unknown'
     };
     report.period = {
       startDate, endDate,
@@ -352,7 +370,7 @@ export class GHSMorbidityService {
     };
 
     // ── ONE big query — no N+1 ──────────────────────────────
-    const attendances = await prisma.attendance.findMany({
+    const attendances = await this.prisma.attendance.findMany({
       where: {
         dateTime: { gte: startDate, lte: endDate },
         status:   { not: 'cancelled' }
@@ -360,7 +378,6 @@ export class GHSMorbidityService {
       include: {
         Patient: true,
         AttendanceDiagnosis: { include: { Diagnosis: true } },
-        // Load referral records inline — avoids a second query per attendance
         ReferralRecord: { where: { referralType: 'incoming' }, select: { id: true } }
       }
     });
@@ -370,23 +387,17 @@ export class GHSMorbidityService {
     // ── Pre-compute re-attendance set — TWO queries, zero N+1 ──
     //
     // A visit is a RE-ATTENDANCE if the patient has ANY earlier attendance
-    // (before this visit's dateTime) — whether that prior visit was inside
-    // the reporting period or before it.
+    // (before this visit's dateTime) — whether prior to the period or earlier
+    // within it.
     //
-    // The previous code only checked lt: startDate, which completely missed
-    // the case where a patient attends twice within the same reporting period
-    // (e.g. visits on the 3rd and the 17th of the same month — the 17th is
-    // a re-attendance but both dates are ≥ startDate).
-    //
-    // Fix: sort the period's attendances by dateTime, then build a running
-    // "seen this period" set. A visit is a re-attendance when:
-    //   (a) the patient already appears earlier in this period's sorted list, OR
-    //   (b) the patient had any attendance before startDate (prior period)
+    // Strategy:
+    //   (a) Query patients who had any attendance BEFORE startDate (prior period).
+    //   (b) Sort this period's attendances by dateTime and use a running seen-set
+    //       to catch same-period re-attendances.
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
 
-    // Query (b): patients who attended before this reporting period
-    const priorPeriodRows = await prisma.attendance.groupBy({
+    const priorPeriodRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
       where: {
         patientId: { in: patientIds },
@@ -399,81 +410,79 @@ export class GHSMorbidityService {
       priorPeriodRows.filter(p => p._count.id > 0).map(p => p.patientId)
     );
 
-    // Sort this period's attendances chronologically so we can detect
-    // within-period re-attendances with a running seen set
     const sortedAttendances = [...attendances].sort(
       (a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
     );
 
-    // Running set: patientIds we have already counted once this period
-    const seenThisPeriod = new Set<string>();
+    const seenThisPeriod   = new Set<string>();
+    const reAttendanceMap  = new Map<string, boolean>();
 
-    // Build a Map<attendanceId, isReAttendance> for O(1) lookup in the main loop
-    const reAttendanceMap = new Map<string, boolean>();
     for (const att of sortedAttendances) {
       const isReAtt = hadPriorPeriodVisit.has(att.patientId) || seenThisPeriod.has(att.patientId);
       reAttendanceMap.set(att.id, isReAtt);
-      seenThisPeriod.add(att.patientId); // mark as seen after first occurrence
+      seenThisPeriod.add(att.patientId);
     }
 
     // ── Diagnosis count tracking for top-10 ─────────────────
     const diagnosisCounts = new Map<string, {
       diagnosis: any;
-      male: number; female: number;
+      male: number;
+      female: number;
       byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>;
     }>();
 
-    // ── Main loop — iterate sortedAttendances so order matches reAttendanceMap ──
+    // ── Main loop ────────────────────────────────────────────
     for (const attendance of sortedAttendances) {
       const patient = attendance.Patient;
       if (!patient) continue;
 
-      const ageGroup = this.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
+      const ageGroup = GHSMorbidityService.getAgeGroup(patient.dateOfBirth, attendance.dateTime);
       const gender   = patient.gender;
 
       report.totals.totalAttendances++;
 
-      // Re-attendance check — O(1) map lookup, covers both same-period and prior-period cases
       if (reAttendanceMap.get(attendance.id)) {
         report.totals.totalReAttendances++;
-        this.inc(report.reAttendancesReferrals, 're_attendances', ageGroup, gender);
+        GHSMorbidityService.inc(report.reAttendancesReferrals, 're_attendances', ageGroup, gender);
       } else {
         report.totals.totalNewCases++;
       }
 
-      // Referral check — already loaded inline above
       if ((attendance as any).ReferralRecord?.length > 0) {
         report.totals.totalReferrals++;
-        this.inc(report.reAttendancesReferrals, 'referrals', ageGroup, gender);
+        GHSMorbidityService.inc(report.reAttendancesReferrals, 'referrals', ageGroup, gender);
       }
 
-      // Diagnoses
       for (const diag of attendance.AttendanceDiagnosis) {
         const diagnosis = diag.Diagnosis;
         if (!diagnosis?.morbidityGroup) continue;
 
-        const group = diagnosis.morbidityGroup as string;
-
-        // O(1) section lookup — replaces 8 array.includes() calls
+        const group   = diagnosis.morbidityGroup as string;
         const section = MORBIDITY_SECTION_MAP.get(group);
+
         if (section && section !== 'reAttendancesReferrals') {
-          this.inc(report[section] as Record<string, AgeSexBreakdown>, group, ageGroup, gender);
+          GHSMorbidityService.inc(
+            report[section] as Record<string, AgeSexBreakdown>,
+            group, ageGroup, gender
+          );
         }
 
-        // Top-10 tracking
         if (!diagnosisCounts.has(diagnosis.id)) {
           diagnosisCounts.set(diagnosis.id, {
-            diagnosis, male: 0, female: 0,
-            byAgeGroup: Object.fromEntries(AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }])) as Record<GHSAgeGroup, { male: number; female: number }>
+            diagnosis,
+            male: 0,
+            female: 0,
+            byAgeGroup: Object.fromEntries(
+              AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }])
+            ) as Record<GHSAgeGroup, { male: number; female: number }>
           });
         }
         const entry = diagnosisCounts.get(diagnosis.id)!;
-        if (gender === 'male') { entry.male++; entry.byAgeGroup[ageGroup].male++; }
-        else                   { entry.female++; entry.byAgeGroup[ageGroup].female++; }
+        if (gender === 'male')   { entry.male++;   entry.byAgeGroup[ageGroup].male++;   }
+        else                     { entry.female++; entry.byAgeGroup[ageGroup].female++; }
       }
     }
 
-    // Top-10 diagnoses
     report.topDiagnoses = Array.from(diagnosisCounts.values())
       .map(d => ({
         diagnosisId:    d.diagnosis.id,
@@ -500,16 +509,19 @@ export class GHSMorbidityService {
   }
 
   // ─────────────────────────────────────────────────────────
-  // Top diagnoses only — lightweight endpoint for dashboard
+  // Top diagnoses only — lightweight endpoint  ← instance method (uses this.prisma)
   // ─────────────────────────────────────────────────────────
 
-  static async getTopDiagnoses(
+  async getTopDiagnoses(
     startDate: Date,
     endDate: Date,
     limit = 10
   ): Promise<TopDiagnosis[]> {
-    const attendances = await prisma.attendance.findMany({
-      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        dateTime: { gte: startDate, lte: endDate },
+        status:   { not: 'cancelled' }
+      },
       include: {
         Patient: true,
         AttendanceDiagnosis: { include: { Diagnosis: true } }
@@ -517,43 +529,54 @@ export class GHSMorbidityService {
     });
 
     const counts = new Map<string, {
-      diagnosis: any; male: number; female: number;
+      diagnosis: any;
+      male: number;
+      female: number;
       byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>;
     }>();
 
     for (const att of attendances) {
       if (!att.Patient) continue;
-      const ageGroup = this.getAgeGroup(att.Patient.dateOfBirth, att.dateTime);
+      const ageGroup = GHSMorbidityService.getAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender   = att.Patient.gender;
 
       for (const diag of att.AttendanceDiagnosis) {
         if (!diag.Diagnosis) continue;
         const id = diag.Diagnosis.id;
+
         if (!counts.has(id)) {
           counts.set(id, {
-            diagnosis: diag.Diagnosis, male: 0, female: 0,
-            byAgeGroup: Object.fromEntries(AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }])) as Record<GHSAgeGroup, { male: number; female: number }>
+            diagnosis: diag.Diagnosis,
+            male: 0,
+            female: 0,
+            byAgeGroup: Object.fromEntries(
+              AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }])
+            ) as Record<GHSAgeGroup, { male: number; female: number }>
           });
         }
         const e = counts.get(id)!;
-        if (gender === 'male') { e.male++; e.byAgeGroup[ageGroup].male++; }
-        else                   { e.female++; e.byAgeGroup[ageGroup].female++; }
+        if (gender === 'male')   { e.male++;   e.byAgeGroup[ageGroup].male++;   }
+        else                     { e.female++; e.byAgeGroup[ageGroup].female++; }
       }
     }
 
     return Array.from(counts.values())
       .map(d => ({
-        diagnosisId: d.diagnosis.id, diagnosisName: d.diagnosis.name,
-        icdCode: d.diagnosis.icdCode, morbidityGroup: d.diagnosis.morbidityGroup,
-        totalCases: d.male + d.female, male: d.male, female: d.female,
-        byAgeGroup: d.byAgeGroup
+        diagnosisId:    d.diagnosis.id,
+        diagnosisName:  d.diagnosis.name,
+        icdCode:        d.diagnosis.icdCode,
+        morbidityGroup: d.diagnosis.morbidityGroup,
+        totalCases:     d.male + d.female,
+        male:           d.male,
+        female:         d.female,
+        byAgeGroup:     d.byAgeGroup
       }))
       .sort((a, b) => b.totalCases - a.totalCases)
       .slice(0, limit);
   }
 
   // ─────────────────────────────────────────────────────────
-  // CSV export
+  // CSV export — pure function, no DB access → static OK
   // ─────────────────────────────────────────────────────────
 
   static exportToCSV(report: GHSMorbidityReport): string {
@@ -590,15 +613,15 @@ export class GHSMorbidityService {
       rows.push('');
     };
 
-    addSection('SECTION 1: COMMUNICABLE IMMUNIZABLE',    'communicableImmunizable');
-    addSection('SECTION 2: COMMUNICABLE NON-IMMUNIZABLE','communicableNonImmunizable');
-    addSection('SECTION 3: NON-COMMUNICABLE DISEASES',   'nonCommunicable');
-    addSection('SECTION 4: MENTAL HEALTH',               'mentalHealth');
-    addSection('SECTION 5: SPECIALIZED CONDITIONS',      'specializedConditions');
-    addSection('SECTION 6: OBSTETRICS & GYNAECOLOGY',    'obstetricsGynaecology');
-    addSection('SECTION 7: REPRODUCTIVE TRACT',          'reproductiveTract');
-    addSection('SECTION 8: INJURIES',                    'injuries');
-    addSection('SECTION 9: RE-ATTENDANCES & REFERRALS',  'reAttendancesReferrals');
+    addSection('SECTION 1: COMMUNICABLE IMMUNIZABLE',     'communicableImmunizable');
+    addSection('SECTION 2: COMMUNICABLE NON-IMMUNIZABLE', 'communicableNonImmunizable');
+    addSection('SECTION 3: NON-COMMUNICABLE DISEASES',    'nonCommunicable');
+    addSection('SECTION 4: MENTAL HEALTH',                'mentalHealth');
+    addSection('SECTION 5: SPECIALIZED CONDITIONS',       'specializedConditions');
+    addSection('SECTION 6: OBSTETRICS & GYNAECOLOGY',     'obstetricsGynaecology');
+    addSection('SECTION 7: REPRODUCTIVE TRACT',           'reproductiveTract');
+    addSection('SECTION 8: INJURIES',                     'injuries');
+    addSection('SECTION 9: RE-ATTENDANCES & REFERRALS',   'reAttendancesReferrals');
 
     rows.push('"TOP 10 DIAGNOSES"');
     rows.push('"Rank","Diagnosis Name","ICD Code","Morbidity Group","Total Cases","Male","Female"');
@@ -616,20 +639,5 @@ export class GHSMorbidityService {
     rows.push(`"Generated At","${new Date().toISOString()}"`);
 
     return rows.join('\n');
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // PRIVATE: increment a single cell
-  // ─────────────────────────────────────────────────────────
-
-  private static inc(
-    section: Record<string, AgeSexBreakdown>,
-    key: string,
-    ageGroup: GHSAgeGroup,
-    gender: Gender
-  ) {
-    if (!section[key]?.[ageGroup]) return;
-    if (gender === 'male')   section[key][ageGroup].male++;
-    else if (gender === 'female') section[key][ageGroup].female++;
   }
 }

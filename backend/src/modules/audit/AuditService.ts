@@ -20,7 +20,6 @@ export class AuditService extends BaseService {
     try {
       const logs = await this.auditRepository.getLogs(filters);
       return {
-        success: true,
         data: logs.data,
         pagination: logs.pagination
       };
@@ -36,7 +35,6 @@ export class AuditService extends BaseService {
     try {
       const logs = await this.auditRepository.getEntityLogs(entityType, entityId, filters);
       return {
-        success: true,
         data: logs.data,
         pagination: logs.pagination
       };
@@ -52,7 +50,6 @@ export class AuditService extends BaseService {
     try {
       const logs = await this.auditRepository.getUserLogs(userId, filters);
       return {
-        success: true,
         data: logs.data,
         pagination: logs.pagination
       };
@@ -70,10 +67,7 @@ export class AuditService extends BaseService {
       if (!log) {
         throw new Error('Audit log not found');
       }
-      return {
-        success: true,
-        data: log
-      };
+      return log;
     } catch (error: any) {
       throw new Error(`Failed to retrieve audit log: ${error.message}`);
     }
@@ -98,7 +92,7 @@ export class AuditService extends BaseService {
             log.action,
             log.entityType,
             log.entityId,
-            log.performedBy?.fullName || 'System',
+            log.performedBy?.fullName || log.performedBy?.username || 'System',
             log.ipAddress || 'N/A'
           ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
           csvRows.push(row);

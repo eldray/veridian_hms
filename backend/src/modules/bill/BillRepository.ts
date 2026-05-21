@@ -1,4 +1,4 @@
-import { PrismaClient, BillStatus } from '@prisma/client';
+import { PrismaClient, BillStatus, PaymentMode, PaymentMethod } from '@prisma/client';
 import { 
   BillWithRelations, 
   CreateBillInput, 
@@ -31,12 +31,12 @@ export class BillRepository {
     }
     
     if (filters.dateFrom || filters.dateTo) {
-      where.createdAt = {};
+      where.billDate = {};
       if (filters.dateFrom) {
-        where.createdAt.gte = filters.dateFrom;
+        where.billDate.gte = filters.dateFrom;
       }
       if (filters.dateTo) {
-        where.createdAt.lte = filters.dateTo;
+        where.billDate.lte = filters.dateTo;
       }
     }
     
@@ -61,8 +61,8 @@ export class BillRepository {
           Attendance: {
             select: {
               id: true,
-              visitNumber: true,
-              serviceType: true
+              attendanceNumber: true,
+              attendanceType: true
             }
           },
           BillLineItem: {
@@ -73,16 +73,16 @@ export class BillRepository {
                   id: true,
                   name: true,
                   code: true,
-                  serviceType: true,
-                  amount: true
+                  serviceType: true
                 }
               }
             }
-          }
+          },
+          Payment: true
         },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { billDate: 'desc' }
       }),
       prisma.bill.count({ where })
     ]);
@@ -99,14 +99,16 @@ export class BillRepository {
             id: true,
             surname: true,
             otherNames: true,
-            folderNumber: true
+            folderNumber: true,
+            contact: true
           }
         },
         Attendance: {
           select: {
             id: true,
-            visitNumber: true,
-            serviceType: true
+            attendanceNumber: true,
+            attendanceType: true,
+            dateTime: true
           }
         },
         BillLineItem: {
@@ -117,17 +119,17 @@ export class BillRepository {
                 id: true,
                 name: true,
                 code: true,
-                serviceType: true,
-                amount: true
+                serviceType: true
               }
             }
           }
-        }
+        },
+        Payment: true
       }
     });
   }
 
-  async create(data: CreateBillInput) {
+  async create(data: CreateBillInput, createdBy: string) {
     const { patientId, attendanceId, paymentMode = 'cash', items } = data;
     
     const bill = await prisma.bill.create({
@@ -141,18 +143,20 @@ export class BillRepository {
         paidAmount: 0,
         balance: 0,
         patientPayable: 0,
-        insuranceCoveredAmount: 0,
+        insuranceCovered: 0,
         waiverAmount: 0,
         discount: 0,
+        createdById: createdBy,
+        billDate: new Date(),
         BillLineItem: {
           create: items.map(item => ({
             serviceCatalogId: item.serviceCatalogId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             lineTotal: item.quantity * item.unitPrice,
-            insuranceCoveredPercent: item.insuranceCoveredPercent || 0,
             insuranceCoveredAmount: 0,
             patientPayableAmount: item.quantity * item.unitPrice,
+            discount: 0,
             isVoided: false
           }))
         }
@@ -199,7 +203,7 @@ export class BillRepository {
     });
   }
 
-  async addPayment(billId: string, paymentData: AddPaymentInput) {
+  async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
     const { amount, paymentMode, referenceNumber, paidBy, notes } = paymentData;
     
     return prisma.$transaction(async (tx) => {
@@ -232,10 +236,11 @@ export class BillRepository {
           data: {
             billId,
             amount,
-            paymentMode,
-            referenceNumber,
-            paidBy,
-            notes
+            paymentMethod: paymentMode as PaymentMethod,
+            reference: referenceNumber,
+            notes,
+            receivedById,
+            transactionDate: new Date()
           }
         })
       ]);
@@ -245,9 +250,7 @@ export class BillRepository {
         await tx.attendance.update({
           where: { id: bill.attendanceId },
           data: {
-            outstandingBalance: {
-              decrement: amount
-            }
+            outstandingBalance: newBalance
           }
         });
       }
@@ -277,7 +280,7 @@ export class BillRepository {
           isVoided: true,
           voidReason: reason,
           voidedAt: new Date(),
-          voidedByUserId: userId
+          voidedById: userId
         }
       });
       
@@ -289,12 +292,14 @@ export class BillRepository {
       const newTotal = activeLineItems.reduce((sum, item) => sum + item.lineTotal, 0);
       const newPatientPayable = activeLineItems.reduce((sum, item) => sum + item.patientPayableAmount, 0);
       
+      const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      
       const updatedBill = await tx.bill.update({
         where: { id: lineItem.billId },
         data: {
           totalAmount: newTotal,
           patientPayable: newPatientPayable,
-          balance: newPatientPayable - (await tx.bill.findUnique({ where: { id: lineItem.billId } })).paidAmount
+          balance: newPatientPayable - (bill?.paidAmount || 0)
         }
       });
       
@@ -400,24 +405,24 @@ export class BillRepository {
       const newPatientPayable = bill.patientPayable - waiver.amountApproved;
       const newBalance = newPatientPayable - bill.paidAmount;
       
-      const [updatedBill] = await Promise.all([
-        tx.bill.update({
-          where: { id: billId },
-          data: {
-            waiverAmount: newWaiverAmount,
-            patientPayable: newPatientPayable,
-            balance: newBalance,
-            discount: newWaiverAmount,
-            status: newBalance <= 0 ? 'paid' : bill.status
-          }
-        }),
-        bill.attendanceId ? tx.attendance.update({
+      const updatedBill = await tx.bill.update({
+        where: { id: billId },
+        data: {
+          waiverAmount: newWaiverAmount,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newBalance <= 0 ? 'paid' : bill.status
+        }
+      });
+      
+      if (bill.attendanceId) {
+        await tx.attendance.update({
           where: { id: bill.attendanceId },
           data: {
-            outstandingBalance: { decrement: waiver.amountApproved }
+            outstandingBalance: newBalance
           }
-        }) : Promise.resolve()
-      ]);
+        });
+      }
       
       return updatedBill;
     });
@@ -427,7 +432,8 @@ export class BillRepository {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `BILL-${year}${month}-${random}`;
+    return `BILL-${year}${month}${day}-${random}`;
   }
 }

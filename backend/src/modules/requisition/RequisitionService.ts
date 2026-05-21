@@ -1,5 +1,5 @@
 // RequisitionService.ts - Business logic layer for requisition module
-
+import { BaseService } from '../../shared/base/BaseService';
 import { RequisitionRepository } from './RequisitionRepository';
 import {
   CreateRequisitionDTO,
@@ -9,14 +9,16 @@ import {
   RequisitionQueryParams
 } from './RequisitionTypes';
 
-export class RequisitionService {
+export class RequisitionService extends BaseService {
   private repository: RequisitionRepository;
 
   constructor(repository: RequisitionRepository) {
+    super('RequisitionService');
     this.repository = repository;
   }
 
   async getAllRequisitions(params: RequisitionQueryParams) {
+    this.logInfo('Fetching all requisitions', { params });
     const { requisitions, total } = await this.repository.findAll(params);
     const page = params.page || 1;
     const limit = params.limit || 50;
@@ -33,6 +35,7 @@ export class RequisitionService {
   }
 
   async getRequisitionById(id: string) {
+    this.logDebug('Fetching requisition by ID', { id });
     const requisition = await this.repository.findById(id);
     
     if (!requisition) {
@@ -43,16 +46,27 @@ export class RequisitionService {
   }
 
   async createRequisition(data: CreateRequisitionDTO, userId: string) {
-    // Validate requisition items
+    this.logInfo('Creating new requisition', { 
+      departmentId: data.requestingDepartmentId, 
+      urgency: data.urgency,
+      itemCount: data.requisitionItems.length 
+    });
+
     if (!data.requisitionItems || data.requisitionItems.length === 0) {
       throw new Error('At least one item is required');
     }
 
-    // Generate requisition number
     const count = await this.repository.count();
     const requisitionNumber = `REQ-${(count + 1).toString().padStart(6, '0')}`;
 
-    return this.repository.create(data, userId, requisitionNumber);
+    const requisition = await this.repository.create(data, userId, requisitionNumber);
+    
+    this.logInfo('Requisition created successfully', { 
+      requisitionId: requisition.id, 
+      requisitionNumber 
+    });
+
+    return requisition;
   }
 
   async updateRequisitionStatus(
@@ -60,16 +74,24 @@ export class RequisitionService {
     data: UpdateRequisitionStatusDTO,
     userId: string | undefined
   ) {
+    this.logInfo('Updating requisition status', { id, status: data.status });
+    
     const existingRequisition = await this.repository.findById(id);
 
     if (!existingRequisition) {
       throw new Error('Requisition not found');
     }
 
-    return this.repository.updateStatus(id, data.status, userId, data.notes);
+    const requisition = await this.repository.updateStatus(id, data.status, userId, data.notes);
+    
+    this.logInfo('Requisition status updated', { id, status: requisition.status });
+    
+    return requisition;
   }
 
   async deleteRequisition(id: string) {
+    this.logInfo('Deleting requisition', { id });
+    
     const existingRequisition = await this.repository.findById(id);
 
     if (!existingRequisition) {
@@ -80,7 +102,9 @@ export class RequisitionService {
       throw new Error('Only draft requisitions can be deleted');
     }
 
-    return this.repository.delete(id);
+    await this.repository.delete(id);
+    
+    this.logInfo('Requisition deleted successfully', { id });
   }
 
   async approveRequisitionItems(
@@ -88,12 +112,17 @@ export class RequisitionService {
     data: ApproveRequisitionItemsDTO,
     userId: string | undefined
   ) {
-    // Validate approved items
+    this.logInfo('Approving requisition items', { id, itemCount: data.approvedItems.length });
+    
     if (!data.approvedItems || data.approvedItems.length === 0) {
       throw new Error('At least one approved item is required');
     }
 
-    return this.repository.approveItems(id, data.approvedItems, userId);
+    const requisition = await this.repository.approveItems(id, data.approvedItems, userId);
+    
+    this.logInfo('Requisition items approved', { id });
+    
+    return requisition;
   }
 
   async updateRequisition(
@@ -101,6 +130,8 @@ export class RequisitionService {
     data: UpdateRequisitionDTO,
     userId: string | undefined
   ) {
+    this.logInfo('Updating requisition', { id });
+    
     const existingRequisition = await this.repository.findById(id);
 
     if (!existingRequisition) {
@@ -111,6 +142,10 @@ export class RequisitionService {
       throw new Error('Only draft requisitions can be updated');
     }
 
-    return this.repository.update(id, data, existingRequisition);
+    const requisition = await this.repository.update(id, data, existingRequisition);
+    
+    this.logInfo('Requisition updated successfully', { id });
+    
+    return requisition;
   }
 }

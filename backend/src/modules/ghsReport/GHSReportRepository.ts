@@ -6,9 +6,9 @@ import { ReportType } from './GHSReportTypes';
 
 const prisma = new PrismaClient();
 
-export class GHSReportRepository extends BaseRepository<any> {
+export class GHSReportRepository extends BaseRepository<any, any, any> {
   constructor() {
-    super();
+    super(prisma, 'gHSReportSubmission');
   }
 
   async createSubmission(data: {
@@ -120,13 +120,14 @@ export class GHSReportRepository extends BaseRepository<any> {
     });
   }
 
-  async getANCRegistrations(startDate: Date, endDate: Date) {
-    return await prisma.antenatalRegistration.findMany({
+  // ✅ FIXED: Use AntenatalBooking instead of antenatalRegistration
+  async getAntenatalBookings(startDate: Date, endDate: Date) {
+    return await prisma.antenatalBooking.findMany({
       where: {
-        registrationDate: { gte: startDate, lte: endDate }
+        bookingDate: { gte: startDate, lte: endDate }
       },
       include: {
-        Patient: {
+        patient: {
           select: {
             dateOfBirth: true
           }
@@ -135,13 +136,14 @@ export class GHSReportRepository extends BaseRepository<any> {
     });
   }
 
-  async getDeliveries(startDate: Date, endDate: Date) {
-    return await prisma.delivery.findMany({
+  // ✅ FIXED: Use DeliveryRecord instead of delivery
+  async getDeliveryRecords(startDate: Date, endDate: Date) {
+    return await prisma.deliveryRecord.findMany({
       where: {
         deliveryDate: { gte: startDate, lte: endDate }
       },
       include: {
-        Mother: {
+        patient: {
           select: {
             dateOfBirth: true
           }

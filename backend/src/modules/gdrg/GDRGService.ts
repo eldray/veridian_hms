@@ -2,51 +2,70 @@
 
 import { BaseService } from '../../shared/base/BaseService';
 import { GDRGRepository } from './GDRGRepository';
-import { GDRGTariff, CreateGDRGTariffRequest, UpdateGDRGTariffRequest } from './GDRGTypes';
+import { CreateGDRGTariffRequest, UpdateGDRGTariffRequest } from './GDRGTypes';
+import { PrismaClient } from '@prisma/client';
 
-export class GDRGService extends BaseService<GDRGTariff> {
+export class GDRGService extends BaseService {
   private gdrgRepository: GDRGRepository;
 
-  constructor() {
-    super();
-    this.gdrgRepository = new GDRGRepository();
+  constructor(prismaClient: PrismaClient) {
+    super('GDRGService');
+    this.gdrgRepository = new GDRGRepository(prismaClient);
   }
 
-  async getAllTariffs(where?: any, include?: any) {
-    return await this.gdrgRepository.findAll(where, include);
+  async getAllTariffs(where?: any, include?: any, page?: number, limit?: number) {
+    this.logInfo('Fetching all GDRG tariffs', { where, page, limit });
+    
+    if (page && limit) {
+      return await this.gdrgRepository.findAllWithFilters(where, include, page, limit);
+    }
+    const result = await this.gdrgRepository.findAllWithFilters(where, include, 1, 100);
+    return {
+      data: result.data,
+      pagination: result.pagination
+    };
   }
 
   async getTariffByCode(code: string, include?: any) {
+    this.logDebug('Fetching GDRG tariff by code', { code });
     return await this.gdrgRepository.findByCode(code, include);
   }
 
   async createTariff(data: CreateGDRGTariffRequest) {
+    this.logInfo('Creating new GDRG tariff', { gdrgCode: data.gdrgCode });
+    
     // Check for duplicate
     const existing = await this.gdrgRepository.findByCode(data.gdrgCode);
     if (existing) {
       throw new Error('GDRG code already exists');
     }
 
-    return await this.gdrgRepository.create({
+    return await this.gdrgRepository.createTariff({
       ...data,
       isActive: true,
-      effectiveFrom: data.effectiveFrom || new Date()
+      effectiveFrom: data.effectiveFrom || new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
   }
 
   async updateTariff(code: string, data: UpdateGDRGTariffRequest) {
+    this.logInfo('Updating GDRG tariff', { code });
+    
     const existing = await this.gdrgRepository.findByCode(code);
     if (!existing) {
       throw new Error('GDRG tariff not found');
     }
 
-    return await this.gdrgRepository.update(code, {
+    return await this.gdrgRepository.updateTariff(code, {
       ...data,
       updatedAt: new Date()
     });
   }
 
   async deleteTariff(code: string) {
+    this.logInfo('Deleting GDRG tariff', { code });
+    
     const tariff = await this.gdrgRepository.findByCode(code, {
       diagnoses: true,
       ServiceCatalog: true
@@ -64,17 +83,16 @@ export class GDRGService extends BaseService<GDRGTariff> {
       throw new Error('Cannot delete GDRG tariff with associated service catalog items.');
     }
 
-    return await this.gdrgRepository.delete(code);
+    return await this.gdrgRepository.deleteTariff(code);
   }
 
   async lookupByAge(gdrgCode: string, patientId?: string, attendanceDate?: string, ageInYears?: number) {
+    this.logDebug('Looking up GDRG by age', { gdrgCode, patientId, ageInYears });
+    
     let ageInDays: number | undefined;
     let patientInfo: any = null;
 
     if (patientId) {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      
       const patient = await prisma.patient.findUnique({
         where: { id: patientId },
         select: { dateOfBirth: true, folderNumber: true }
@@ -124,7 +142,7 @@ export class GDRGService extends BaseService<GDRGTariff> {
       ];
     }
 
-    const tariff = await this.gdrgRepository.findFirst(where);
+    const tariff = await this.gdrgRepository.findFirstTariff(where);
     const ageSplit = ageInYearsNum !== null && ageInYearsNum < 12 ? 'C' : 'A';
 
     return {
@@ -132,19 +150,19 @@ export class GDRGService extends BaseService<GDRGTariff> {
       patient: patientInfo,
       tariff: tariff || null,
       ageSplit,
+      nhiaTariff: tariff?.nhiaTariff || 0,
       message: tariff ? 'Tariff found' : 'No matching tariff found for this age'
     };
   }
 
   // Diagnosis linking
   async linkDiagnosis(gdrgCode: string, diagnosisId: string, isPrimary: boolean, mappedIcdCode?: string) {
+    this.logInfo('Linking diagnosis to GDRG tariff', { gdrgCode, diagnosisId });
+    
     const tariff = await this.gdrgRepository.findByCode(gdrgCode);
     if (!tariff) {
       throw new Error('GDRG tariff not found');
     }
-
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
 
     const diagnosis = await prisma.diagnosis.findUnique({ where: { id: diagnosisId } });
     if (!diagnosis) {
@@ -174,6 +192,8 @@ export class GDRGService extends BaseService<GDRGTariff> {
   }
 
   async unlinkDiagnosis(gdrgCode: string, diagnosisId: string) {
+    this.logInfo('Unlinking diagnosis from GDRG tariff', { gdrgCode, diagnosisId });
+    
     const tariff = await this.gdrgRepository.findByCode(gdrgCode);
     if (!tariff) {
       throw new Error('GDRG tariff not found');
@@ -184,7 +204,7 @@ export class GDRGService extends BaseService<GDRGTariff> {
 
   async getDiagnosesByGDRG(gdrgCode: string) {
     const links = await this.gdrgRepository.getDiagnosesByGDRG(gdrgCode);
-    return links.map(d => ({
+    return links.map((d: any) => ({
       id: d.id,
       diagnosisId: d.diagnosisId,
       name: d.diagnosis?.name,
@@ -197,7 +217,7 @@ export class GDRGService extends BaseService<GDRGTariff> {
 
   async getGDRGByDiagnosis(diagnosisId: string) {
     const links = await this.gdrgRepository.getGDRGByDiagnosis(diagnosisId);
-    return links.map(l => ({
+    return links.map((l: any) => ({
       id: l.gdrgTariff.id,
       gdrgCode: l.gdrgTariff.gdrgCode,
       description: l.gdrgTariff.description,
@@ -211,13 +231,12 @@ export class GDRGService extends BaseService<GDRGTariff> {
 
   // Procedure linking
   async linkProcedure(gdrgCode: string, procedureId: string, isPrimary: boolean, mappedCode?: string) {
+    this.logInfo('Linking procedure to GDRG tariff', { gdrgCode, procedureId });
+    
     const tariff = await this.gdrgRepository.findByCode(gdrgCode);
     if (!tariff) {
       throw new Error('GDRG tariff not found');
     }
-
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
 
     const procedure = await prisma.serviceCatalog.findFirst({
       where: { id: procedureId, serviceType: 'procedure' }
@@ -248,6 +267,8 @@ export class GDRGService extends BaseService<GDRGTariff> {
   }
 
   async unlinkProcedure(gdrgCode: string, procedureId: string) {
+    this.logInfo('Unlinking procedure from GDRG tariff', { gdrgCode, procedureId });
+    
     const tariff = await this.gdrgRepository.findByCode(gdrgCode);
     if (!tariff) {
       throw new Error('GDRG tariff not found');
@@ -258,7 +279,7 @@ export class GDRGService extends BaseService<GDRGTariff> {
 
   async getProceduresByGDRG(gdrgCode: string) {
     const links = await this.gdrgRepository.getProceduresByGDRG(gdrgCode);
-    return links.map(p => ({
+    return links.map((p: any) => ({
       id: p.procedure.id,
       name: p.procedure.name,
       code: p.procedure.code,
@@ -271,7 +292,7 @@ export class GDRGService extends BaseService<GDRGTariff> {
 
   async getGDRGByProcedure(procedureId: string) {
     const links = await this.gdrgRepository.getGDRGByProcedure(procedureId);
-    return links.map(l => ({
+    return links.map((l: any) => ({
       id: l.gdrgTariff.id,
       gdrgCode: l.gdrgTariff.gdrgCode,
       description: l.gdrgTariff.description,

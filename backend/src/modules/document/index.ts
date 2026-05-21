@@ -1,3 +1,4 @@
+// modules/document/index.ts
 export { DocumentController } from './DocumentController';
 export { DocumentService } from './DocumentService';
 export { DocumentRepository } from './DocumentRepository';

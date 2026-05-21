@@ -1,5 +1,4 @@
-// backend/src/modules/referral/ReferralTypes.ts
-
+// modules/referral/ReferralTypes.ts
 import { ReferralType, ReferralStatus, Priority } from '@prisma/client';
 
 // ==========================================
@@ -15,6 +14,10 @@ export interface CreateOutgoingReferralDTO {
   referredToDepartment?: string;
   urgency?: Priority;
   referralNotes?: string;
+  // ✅ ADDED - Corporate/NHIS fields
+  nhisCCC?: string;  // NHIS claim code
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
 }
 
 export interface CreateIncomingReferralDTO {
@@ -25,18 +28,24 @@ export interface CreateIncomingReferralDTO {
   urgency?: Priority;
   referralNotes?: string;
   referringFacilityContact?: string;
+  // ✅ ADDED
+  outcomeNotes?: string;  // For tracking referral outcome
 }
 
 export interface UpdateReferralStatusDTO {
   status: ReferralStatus;
   acceptanceNotes?: string;
   rejectedReason?: string;
+  outcomeNotes?: string;  // ✅ ADDED - schema field
 }
 
 export interface ReferralFilters {
   referralType?: ReferralType;
   status?: ReferralStatus;
   patientId?: string;
+  patientPaymentMode?: string;  // ✅ ADDED - filter by payment mode (corporate, nhis, cash)
+  corporateAccountId?: string;  // ✅ ADDED - filter by corporate account
+  insuranceProviderId?: string;  // ✅ ADDED - filter by insurance
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -62,6 +71,7 @@ export interface ReferralResponse {
   referralNotes?: string;
   acceptanceNotes?: string;
   rejectedReason?: string;
+  outcomeNotes?: string;  // ✅ ADDED
   referralDate: Date;
   acceptedAt?: Date;
   rejectedAt?: Date;
@@ -75,16 +85,49 @@ export interface ReferralResponse {
     dateOfBirth?: Date;
     gender?: string;
     fullName: string;
+    paymentMode?: string;  // ✅ ADDED - important for corporate
+    nhisNumber?: string;   // ✅ ADDED
+    corporateAccountId?: string;  // ✅ ADDED
   };
   attendance?: {
     id: string;
     attendanceNumber: string;
     dateTime: Date;
     attendanceType: string;
+    encounterCategory?: string;
+    paymentMode?: string;  // ✅ ADDED
+    insuranceProvider?: {  // ✅ ADDED
+      id: string;
+      name: string;
+      type: string;
+    };
+    corporateAccount?: {  // ✅ ADDED
+      id: string;
+      companyName: string;
+    };
   } | null;
   createdBy: {
     id: string;
     fullName: string;
     role: string;
+  };
+}
+
+export interface ReferralStats {
+  total: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  completed: number;
+  urgent: number;
+  byPaymentMode?: {  // ✅ ADDED
+    cash: number;
+    nhis: number;
+    private_insurance: number;
+    corporate: number;
+  };
+  byReferralType?: {
+    outgoing: number;
+    incoming: number;
   };
 }

@@ -4,12 +4,12 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { ClinicalReportFilters } from './ClinicalReportsTypes';
 
-export class ClinicalReportsRepository extends BaseRepository {
+export class ClinicalReportsRepository {
+  private prisma: PrismaClient;
+
   constructor(prisma: PrismaClient) {
-    super(prisma);
+    this.prisma = prisma;
   }
 
   async getLabTests(filters: ClinicalReportFilters) {
@@ -21,9 +21,15 @@ export class ClinicalReportsRepository extends BaseRepository {
         LabTestTemplate: true,
         Attendance: true,
         ServiceCatalog: true,
-        User_LabTest_performedByIdToUser: true,
-        User_LabTest_verifiedByIdToUser: true,
-        User_LabTest_createdByIdToUser: true
+        performedBy: {
+          select: { fullName: true, username: true }
+        },
+        verifiedBy: {
+          select: { fullName: true, username: true }
+        },
+        createdBy: {
+          select: { fullName: true, username: true }
+        }
       }
     });
   }
@@ -37,9 +43,15 @@ export class ClinicalReportsRepository extends BaseRepository {
         ScanTemplate: true,
         Attendance: true,
         ServiceCatalog: true,
-        User_Scan_performedByIdToUser: true,
-        User_Scan_verifiedByIdToUser: true,
-        User_Scan_createdByIdToUser: true
+        performedBy: {
+          select: { fullName: true, username: true }
+        },
+        verifiedBy: {
+          select: { fullName: true, username: true }
+        },
+        createdBy: {
+          select: { fullName: true, username: true }
+        }
       }
     });
   }
@@ -51,9 +63,15 @@ export class ClinicalReportsRepository extends BaseRepository {
       },
       include: {
         ProcedureTemplate: true,
-        User_Procedure_performedByIdToUser: true,
-        User_Procedure_assistantIdToUser: true,
-        User_Procedure_createdByIdToUser: true
+        performedBy: {
+          select: { fullName: true, username: true }
+        },
+        assistant: {
+          select: { fullName: true, username: true }
+        },
+        createdBy: {
+          select: { fullName: true, username: true }
+        }
       }
     });
   }
@@ -61,24 +79,35 @@ export class ClinicalReportsRepository extends BaseRepository {
   async getMedications(filters: ClinicalReportFilters) {
     return this.prisma.medication.findMany({
       where: {
-        prescribedDate: { gte: filters.startDate, lte: filters.endDate }
+        prescribedAt: { gte: filters.startDate, lte: filters.endDate }
       },
       include: {
         Attendance: true,
-        Drug: true,
-        User_Medication_prescribedByIdToUser: true
+        StockItem: true,
+        prescribedBy: {
+          select: { fullName: true, username: true }
+        },
+        dispensedBy: {
+          select: { fullName: true, username: true }
+        },
+        administeredBy: {
+          select: { fullName: true, username: true }
+        }
       }
     });
   }
 
   async getVitals(filters: ClinicalReportFilters) {
-    return this.prisma.vitalSign.findMany({
+    return this.prisma.vitals.findMany({
       where: {
         recordedAt: { gte: filters.startDate, lte: filters.endDate }
       },
       include: {
         Attendance: true,
-        User_VitalSign_recordedByIdToUser: true
+        Patient: true,
+        User: {
+          select: { fullName: true, username: true }
+        }
       }
     });
   }

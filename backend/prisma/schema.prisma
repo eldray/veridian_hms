@@ -120,6 +120,7 @@ model ServicePricing {
   cashPrice        Float
   nhisPrice        Float          @default(0)
   insurancePrice   Float
+  corporatePrice   Float          @default(0)   // ✅ ADD THIS
   vatRate          Float          @default(0)
   isTaxable        Boolean        @default(true)
   effectiveDate    DateTime       @default(now())
@@ -224,8 +225,10 @@ model Patient {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  // NHIS fields for direct lookup
-  nhisNumber          String?
+  // NHIS fields
+  nhisNumber          String?   // membership/card number used for eligibility checks
+  nhisExpiryDate      DateTime? // ✅ ADD - expiry from eligibility API response
+  nhisActive          Boolean   @default(false) // ✅ ADD - live NHIS active status
   phoneNumber         String?
 
   Admission            Admission[]
@@ -390,6 +393,7 @@ model Attendance {
   insuranceProviderId    String?
   corporateAccountId     String?
   bedId                  String?
+  appointmentId          String? @unique 
   wardId                 String?
   attendanceType         AttendanceType
   dateTime               DateTime       @default(now())
@@ -965,6 +969,8 @@ model Bill {
   balance             Float       @default(0)
   status              BillStatus  @default(draft)
   paymentMode         PaymentMode
+  corporateAccountId  String?
+  CorporateAccount    CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
   insuranceProviderId String?
   preAuthNumber       String?
   claimNumber         String?
@@ -1189,6 +1195,7 @@ model WardChargeRecord {
   nhisPrice      Float       @default(0)
   cashPrice      Float       @default(0)
   insurancePrice Float       @default(0)
+  corporatePrice Float @default(0)
   isBilled       Boolean     @default(false)
   billLineItemId String?
   createdAt      DateTime    @default(now())
@@ -1848,39 +1855,40 @@ model Department {
   @@map("departments")
 }
 
-model Appointment {
-  id                String            @id @default(cuid())
-  appointmentNumber String            @unique @default(uuid())
-  patientId         String
-  doctorId          String?
-  departmentId      String?
-  title             String
-  description       String?
-  appointmentDate   DateTime
-  appointmentTime   String
-  duration          Int               @default(30)
-  status            AppointmentStatus @default(scheduled)
-  type              AppointmentType   @default(consultation)
-  isNHIS            Boolean           @default(false)
-  nhisCCC           String?
-  reminderSent      Boolean           @default(false)
-  checkedIn         Boolean           @default(false)
-  checkedInAt       DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String
+  model Appointment {
+    id                String            @id @default(cuid())
+    appointmentNumber String            @unique @default(uuid())
+    patientId         String
+    clinicianId       String?           // Doctor, nurse, or midwife
+    clinicianRole     UserRole?         // Store which role
+    departmentId      String?
+    title             String
+    description       String?
+    appointmentDate   DateTime
+    appointmentTime   String
+    duration          Int               @default(30)
+    status            AppointmentStatus @default(scheduled)
+    type              AppointmentType   @default(consultation)
+    reminderSent      Boolean           @default(false)
+    checkedIn         Boolean           @default(false)
+    checkedInAt       DateTime?
+    createdAt         DateTime          @default(now())
+    updatedAt         DateTime          @updatedAt
+    createdBy         String
 
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  doctor     User?       @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: SetNull)
-  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+    // Relations
+    clinician User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
+    patient   Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+    department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
-  @@index([appointmentDate])
-  @@index([patientId, status])
-  @@index([doctorId, appointmentDate])
-  @@index([departmentId, appointmentDate])
-  @@index([status, appointmentDate])
-  @@map("appointments")
-}
+    @@index([appointmentDate])
+    @@index([patientId, status])
+    @@index([clinicianId, appointmentDate])
+    @@index([departmentId, appointmentDate])
+    @@index([status, appointmentDate])
+    @@map("appointments")
+  }
+
 
 // ============================================================
 // HOSPITAL CONFIGURATION

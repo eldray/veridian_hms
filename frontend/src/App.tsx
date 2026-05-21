@@ -204,13 +204,20 @@ const DashboardLayoutWrapper = () => {
 };
 
 function App() {
-  const { checkAuth, isLoading } = useAuthStore();
+  const { checkAuth, isLoading, user, token, isInitialized } = useAuthStore();
   const [appLoading, setAppLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
       try {
-        await checkAuth();
+        // ✅ Only call checkAuth if we're not already initialized
+        // This prevents overwriting the login state
+        if (!isInitialized) {
+          console.log('🔄 Running initial auth check...');
+          await checkAuth();
+        } else {
+          console.log('✅ Auth already initialized, skipping check');
+        }
       } catch (err) {
         console.error('Auth check failed:', err);
       } finally {
@@ -218,8 +225,9 @@ function App() {
       }
     };
     init();
-  }, [checkAuth]);
+  }, [checkAuth, isInitialized]);
 
+  // ✅ Show loading only during initial app load, not after login
   if (appLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">

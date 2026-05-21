@@ -1,3 +1,5 @@
+// store/appointmentStore.ts
+
 import { create } from 'zustand';
 import { 
   getAppointments, 
@@ -8,19 +10,20 @@ import {
   updateAppointmentStatus,
   checkInAppointment,
   getAppointmentStatistics,
-  getDoctorSchedule,
+  getClinicianSchedule,        // ✅ Changed from getDoctorSchedule
   getAvailableSlots,
-  getAppointmentCalendar // ✅ ADDED MISSING IMPORT
+  getAvailableClinicians,      // ✅ New
+  convertToAttendance          // ✅ New
 } from '../api';
-import { Appointment, AppointmentStatistics, DoctorSchedule } from '../types';
+import { Appointment, AppointmentStatistics, ClinicianSchedule } from '../types';
 
 interface AppointmentStore {
   appointments: Appointment[];
   currentAppointment: Appointment | null;
   statistics: AppointmentStatistics | null;
-  doctorSchedules: Record<string, DoctorSchedule>;
+  clinicianSchedules: Record<string, ClinicianSchedule>;  // ✅ Changed from doctorSchedules
   availableSlots: string[];
-  appointmentCalendar: any[]; // ✅ ADDED MISSING STATE
+  availableClinicians: any[];  // ✅ New
   isLoading: boolean;
   error: string | null;
   
@@ -33,9 +36,10 @@ interface AppointmentStore {
   updateAppointmentStatus: (id: string, status: string) => Promise<void>;
   checkInAppointment: (id: string) => Promise<void>;
   getAppointmentStatistics: (filters?: any) => Promise<void>;
-  getDoctorSchedule: (doctorId: string, date?: string) => Promise<void>;
-  getAvailableSlots: (doctorId: string, date: string) => Promise<void>;
-  getAppointmentCalendar: (month: string, year: string) => Promise<void>; // ✅ ADDED MISSING FUNCTION
+  getClinicianSchedule: (clinicianId: string, date?: string) => Promise<void>;  // ✅ Changed
+  getAvailableSlots: (clinicianId: string, date: string) => Promise<void>;
+  getAvailableClinicians: (roles?: string[]) => Promise<void>;  // ✅ New
+  convertToAttendance: (appointmentId: string, paymentData: any) => Promise<any>;  // ✅ New
   clearError: () => void;
   clearCurrentAppointment: () => void;
 }
@@ -44,9 +48,9 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
   appointments: [],
   currentAppointment: null,
   statistics: null,
-  doctorSchedules: {},
+  clinicianSchedules: {},      // ✅ Changed
   availableSlots: [],
-  appointmentCalendar: [], // ✅ ADDED INITIAL STATE
+  availableClinicians: [],     // ✅ New
   isLoading: false,
   error: null,
 
@@ -55,9 +59,6 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     try {
       const response = await getAppointments(filters);
       
-      console.log('🔍 [AppointmentStore] Raw API response:', response);
-      
-      // Handle the transformed response
       let appointmentsArray: any[] = [];
       
       if (response && response.appointments && Array.isArray(response.appointments)) {
@@ -67,20 +68,17 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       } else if (response && Array.isArray(response.data)) {
         appointmentsArray = response.data;
       } else {
-        console.warn('Unexpected API response structure:', response);
         appointmentsArray = [];
       }
 
-      console.log('📋 [AppointmentStore] Final appointments:', appointmentsArray);
       set({ appointments: appointmentsArray, isLoading: false });
-    } catch (error: unknown) {
-      console.error('❌ [AppointmentStore] Error fetching appointments:', error);
+    } catch (error: any) {
+      console.error('Error fetching appointments:', error);
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointments', 
         isLoading: false,
         appointments: []
       });
-      throw error; // ✅ ADDED ERROR THROWING
     }
   },
 
@@ -89,12 +87,11 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     try {
       const appointment = await getAppointment(id);
       set({ currentAppointment: appointment, isLoading: false });
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointment', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED ERROR THROWING
     }
   },
 
@@ -107,7 +104,7 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
         isLoading: false 
       }));
       return newAppointment;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to create appointment', 
         isLoading: false 
@@ -122,13 +119,13 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const updatedAppointment = await updateAppointment(id, data);
       set(state => ({
         appointments: state.appointments.map(apt => 
-          apt.id === id || apt.id === id ? updatedAppointment : apt // ✅ FIXED ID CHECK
+          apt.id === id ? updatedAppointment : apt
         ),
-        currentAppointment: state.currentAppointment?.id === id || state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment, // ✅ FIXED ID CHECK
+        currentAppointment: state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment,
         isLoading: false
       }));
       return updatedAppointment;
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to update appointment', 
         isLoading: false 
@@ -142,16 +139,15 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     try {
       await deleteAppointment(id);
       set(state => ({
-        appointments: state.appointments.filter(apt => apt.id !== id && apt.id !== id), // ✅ FIXED ID CHECK
-        currentAppointment: state.currentAppointment?.id === id || state.currentAppointment?.id === id ? null : state.currentAppointment, // ✅ FIXED ID CHECK
+        appointments: state.appointments.filter(apt => apt.id !== id),
+        currentAppointment: state.currentAppointment?.id === id ? null : state.currentAppointment,
         isLoading: false
       }));
-    } catch (error: unknown) {
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to delete appointment', 
         isLoading: false 
       });
-      throw error;
     }
   },
 
@@ -161,13 +157,13 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const updatedAppointment = await updateAppointmentStatus(id, status);
       set(state => ({
         appointments: state.appointments.map(apt => 
-          apt.id === id || apt.id === id ? updatedAppointment : apt // ✅ FIXED ID CHECK
+          apt.id === id ? updatedAppointment : apt
         ),
-        currentAppointment: state.currentAppointment?.id === id || state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment, // ✅ FIXED ID CHECK
+        currentAppointment: state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment,
         isLoading: false
       }));
-      return updatedAppointment; // ✅ ADDED RETURN
-    } catch (error: unknown) {
+      return updatedAppointment;
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to update appointment status', 
         isLoading: false 
@@ -182,13 +178,13 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       const updatedAppointment = await checkInAppointment(id);
       set(state => ({
         appointments: state.appointments.map(apt => 
-          apt.id === id || apt.id === id ? updatedAppointment : apt // ✅ FIXED ID CHECK
+          apt.id === id ? updatedAppointment : apt
         ),
-        currentAppointment: state.currentAppointment?.id === id || state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment, // ✅ FIXED ID CHECK
+        currentAppointment: state.currentAppointment?.id === id ? updatedAppointment : state.currentAppointment,
         isLoading: false
       }));
-      return updatedAppointment; // ✅ ADDED RETURN
-    } catch (error: unknown) {
+      return updatedAppointment;
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to check in appointment', 
         isLoading: false 
@@ -202,62 +198,79 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     try {
       const statistics = await getAppointmentStatistics(filters);
       set({ statistics, isLoading: false });
-      return statistics; // ✅ ADDED RETURN
-    } catch (error: unknown) {
+      return statistics;
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch appointment statistics', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED ERROR THROWING
     }
   },
 
-  getDoctorSchedule: async (doctorId: string, date?: string) => {
+  // ✅ Updated: get clinician schedule
+  getClinicianSchedule: async (clinicianId: string, date?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const schedule = await getDoctorSchedule(doctorId, date);
+      const schedule = await getClinicianSchedule(clinicianId, date);
       set(state => ({
-        doctorSchedules: {
-          ...state.doctorSchedules,
-          [doctorId]: schedule
+        clinicianSchedules: {
+          ...state.clinicianSchedules,
+          [clinicianId]: schedule
         },
         isLoading: false
       }));
-      return schedule; // ✅ ADDED RETURN
-    } catch (error: unknown) {
+      return schedule;
+    } catch (error: any) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch doctor schedule', 
+        error: error.response?.data?.message || 'Failed to fetch clinician schedule', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED ERROR THROWING
     }
   },
 
-  getAvailableSlots: async (doctorId: string, date: string) => {
+  getAvailableSlots: async (clinicianId: string, date: string) => {
     set({ isLoading: true, error: null });
     try {
-      const slots = await getAvailableSlots(doctorId, date);
+      const slots = await getAvailableSlots(clinicianId, date);
       set({ availableSlots: slots, isLoading: false });
-      return slots; // ✅ ADDED RETURN
-    } catch (error: unknown) {
+      return slots;
+    } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch available slots', 
         isLoading: false 
       });
-      throw error; // ✅ ADDED ERROR THROWING
     }
   },
 
-  // ✅ ADDED MISSING FUNCTION
-  getAppointmentCalendar: async (month: string, year: string) => {
+  // ✅ New: get available clinicians
+  getAvailableClinicians: async (roles?: string[]) => {
     set({ isLoading: true, error: null });
     try {
-      const calendarData = await getAppointmentCalendar(month, year);
-      set({ appointmentCalendar: calendarData, isLoading: false });
-      return calendarData;
-    } catch (error: unknown) {
+      const clinicians = await getAvailableClinicians(roles);
+      set({ availableClinicians: clinicians, isLoading: false });
+      return clinicians;
+    } catch (error: any) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch appointment calendar', 
+        error: error.response?.data?.message || 'Failed to fetch available clinicians', 
+        isLoading: false 
+      });
+    }
+  },
+
+  // ✅ New: convert appointment to attendance
+  convertToAttendance: async (appointmentId: string, paymentData: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await convertToAttendance(appointmentId, paymentData);
+      
+      // Update appointment status to completed if not already
+      await get().updateAppointmentStatus(appointmentId, 'completed');
+      
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to convert to attendance', 
         isLoading: false 
       });
       throw error;

@@ -84,6 +84,7 @@ export interface RequisitionResponse {
     stockItemId: string;
     quantityRequested: number;
     quantityApproved: number | null;
+    quantityFulfilled: number;
     purpose: string | null;
     notes: string | null;
     StockItem: {

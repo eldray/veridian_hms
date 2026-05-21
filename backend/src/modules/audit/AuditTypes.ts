@@ -31,6 +31,7 @@ export interface AuditLogDTO {
   performedBy?: {
     id: string;
     fullName: string;
+    username: string;
     email: string;
     role: string;
   };

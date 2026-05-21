@@ -13,7 +13,7 @@ export class DepartmentRepository {
     this.prisma = prisma;
   }
 
-  async findAll(filters: DepartmentFilters): Promise<DepartmentWithRelations[]> {
+  async findAll(filters: DepartmentFilters): Promise<{ departments: DepartmentWithRelations[]; total: number }> {
     const { isActive, hasHead, page = 1, limit = 50 } = filters;
 
     const where: any = {};
@@ -27,38 +27,38 @@ export class DepartmentRepository {
       where.headId = null;
     }
 
-    const skip = (page - 1) * limit;
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+    const skip = (pageNum - 1) * limitNum;
 
-    const departments = await this.prisma.department.findMany({
-      where,
-      include: {
-        head: {
-          select: {
-            id: true,
-            fullName: true,
-            role: true,
-            email: true
-          }
-        },
-        _count: {
-          select: {
-            users: true,
-            appointments: {
-              where: {
-                appointmentDate: {
-                  gte: new Date(new Date().setHours(0, 0, 0, 0))
-                }
-              }
+    const [departments, total] = await Promise.all([
+      this.prisma.department.findMany({
+        where,
+        include: {
+          head: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+              email: true,
+              phone: true,
+              specialization: true
+            }
+          },
+          _count: {
+            select: {
+              users: true
             }
           }
-        }
-      },
-      orderBy: { name: 'asc' },
-      skip,
-      take: limit
-    });
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limitNum
+      }),
+      this.prisma.department.count({ where })
+    ]);
 
-    return departments;
+    return { departments, total };
   }
 
   async findById(id: string): Promise<DepartmentWithRelations | null> {
@@ -157,16 +157,17 @@ export class DepartmentRepository {
     });
   }
 
-  async findByName(name: string): Promise<Department | null> {
+  async findByName(name: string, excludeId?: string): Promise<Department | null> {
     return this.prisma.department.findFirst({
       where: {
-        name: { equals: name, mode: 'insensitive' }
+        name: { equals: name, mode: 'insensitive' },
+        ...(excludeId && { id: { not: excludeId } })
       }
     });
   }
 
   async getUserCount(departmentId: string): Promise<number> {
-    const count = await this.prisma.departmentUser.count({
+    const count = await this.prisma.user.count({
       where: { departmentId }
     });
     return count;
@@ -195,7 +196,7 @@ export class DepartmentRepository {
       this.prisma.department.count({ where: { isActive: false } }),
       this.prisma.department.count({ where: { headId: { not: null } } }),
       this.prisma.department.count({ where: { headId: null } }),
-      this.prisma.departmentUser.count()
+      this.prisma.user.count({ where: { departmentId: { not: null } } })
     ]);
 
     return {
@@ -209,45 +210,40 @@ export class DepartmentRepository {
     };
   }
 
-  async addUserToDepartment(departmentId: string, userId: string): Promise<any> {
-    return this.prisma.departmentUser.create({
-      data: {
-        departmentId,
-        userId
-      }
+  async assignUserToDepartment(departmentId: string, userId: string): Promise<any> {
+    // Update the user's departmentId directly
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { departmentId }
     });
   }
 
   async removeUserFromDepartment(departmentId: string, userId: string): Promise<void> {
-    await this.prisma.departmentUser.delete({
-      where: {
-        departmentId_userId: {
-          departmentId,
-          userId
-        }
-      }
+    // Only remove if the user is in this department
+    await this.prisma.user.update({
+      where: { 
+        id: userId,
+        departmentId 
+      },
+      data: { departmentId: null }
     });
   }
 
   async getUsersByDepartment(departmentId: string): Promise<any[]> {
-    const departmentUsers = await this.prisma.departmentUser.findMany({
+    return this.prisma.user.findMany({
       where: { departmentId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            role: true,
-            phone: true,
-            isActive: true,
-            specialization: true
-          }
-        }
-      }
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        phone: true,
+        isActive: true,
+        specialization: true,
+        createdAt: true
+      },
+      orderBy: { fullName: 'asc' }
     });
-
-    return departmentUsers.map(du => du.user);
   }
 
   async bulkUpdate(departmentIds: string[], data: UpdateDepartmentDTO): Promise<number> {
@@ -261,5 +257,15 @@ export class DepartmentRepository {
       }
     });
     return result.count;
+  }
+
+  async checkUserInDepartment(departmentId: string, userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        departmentId
+      }
+    });
+    return !!user;
   }
 }

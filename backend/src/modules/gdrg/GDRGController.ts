@@ -2,19 +2,26 @@
 
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { BaseController } from '../../shared/base/BaseController';
 import { GDRGService } from './GDRGService';
 import { CreateGDRGTariffRequest, UpdateGDRGTariffRequest } from './GDRGTypes';
+import { PrismaClient } from '@prisma/client';
 
-export class GDRGController {
+
+export class GDRGController extends BaseController {
   private gdrgService: GDRGService;
 
-  constructor() {
-    this.gdrgService = new GDRGService();
+  constructor(prisma: PrismaClient) {  // ✅ Accept prisma
+    super();
+    this.gdrgService = new GDRGService(prisma);  // ✅ Pass it down
   }
 
   getTariffs = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { mdc, isActive, search } = req.query;
+      const { mdc, isActive, search, page = 1, limit = 50 } = req.query;
+
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
 
       const where: any = {};
       if (mdc) where.mdc = mdc;
@@ -27,7 +34,7 @@ export class GDRGController {
         ];
       }
 
-      const tariffs = await this.gdrgService.getAllTariffs(where, {
+      const include = {
         diagnoses: {
           include: {
             diagnosis: {
@@ -48,15 +55,13 @@ export class GDRGController {
             serviceType: true
           }
         }
-      });
+      };
 
-      res.json({ 
-        success: true, 
-        data: tariffs, 
-        count: tariffs.length 
-      });
+      const result = await this.gdrgService.getAllTariffs(where, include, pageNum, limitNum);
+
+      this.paginated(res, result.data, result.pagination, 'GDRG tariffs retrieved successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -64,7 +69,7 @@ export class GDRGController {
     try {
       const { code } = req.params;
 
-      const tariff = await this.gdrgService.getTariffByCode(code, {
+      const include = {
         diagnoses: {
           include: {
             diagnosis: {
@@ -92,18 +97,17 @@ export class GDRGController {
             }
           }
         }
-      });
+      };
+
+      const tariff = await this.gdrgService.getTariffByCode(code, include);
 
       if (!tariff) {
-        return res.status(404).json({
-          success: false,
-          message: 'GDRG tariff not found'
-        });
+        return this.notFound(res, 'GDRG tariff');
       }
 
-      res.json({ success: true, data: tariff });
+      this.ok(res, tariff, 'GDRG tariff retrieved successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -112,10 +116,7 @@ export class GDRGController {
       const { gdrgCode, patientId, attendanceDate, ageInYears } = req.query;
 
       if (!gdrgCode) {
-        return res.status(400).json({
-          success: false,
-          message: 'GDRG code is required'
-        });
+        return this.badRequest(res, 'GDRG code is required');
       }
 
       const result = await this.gdrgService.lookupByAge(
@@ -125,9 +126,9 @@ export class GDRGController {
         ageInYears ? parseInt(ageInYears as string) : undefined
       );
 
-      res.json({ success: true, data: result });
+      this.ok(res, result, 'GDRG lookup completed');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -137,27 +138,17 @@ export class GDRGController {
 
       // Validate required fields
       if (!data.gdrgCode || !data.mdc || !data.description || data.nhiaTariff === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing required fields: gdrgCode, mdc, description, nhiaTariff'
-        });
+        return this.badRequest(res, 'Missing required fields: gdrgCode, mdc, description, nhiaTariff');
       }
 
       const tariff = await this.gdrgService.createTariff(data);
 
-      res.status(201).json({
-        success: true,
-        data: tariff,
-        message: 'GDRG tariff created successfully'
-      });
+      this.created(res, tariff, 'GDRG tariff created successfully');
     } catch (error: any) {
-      if ((error as Error).message === 'GDRG code already exists') {
-        return res.status(400).json({
-          success: false,
-          message: 'GDRG code already exists'
-        });
+      if (error.message === 'GDRG code already exists') {
+        return this.badRequest(res, error.message);
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -168,19 +159,12 @@ export class GDRGController {
 
       const tariff = await this.gdrgService.updateTariff(code, data);
 
-      res.json({
-        success: true,
-        data: tariff,
-        message: 'GDRG tariff updated successfully'
-      });
+      this.ok(res, tariff, 'GDRG tariff updated successfully');
     } catch (error: any) {
-      if ((error as Error).message === 'GDRG tariff not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'GDRG tariff not found'
-        });
+      if (error.message === 'GDRG tariff not found') {
+        return this.notFound(res, 'GDRG tariff');
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -190,24 +174,15 @@ export class GDRGController {
 
       await this.gdrgService.deleteTariff(code);
 
-      res.json({
-        success: true,
-        message: 'GDRG tariff deleted successfully'
-      });
+      this.ok(res, null, 'GDRG tariff deleted successfully');
     } catch (error: any) {
-      if ((error as Error).message.includes('Cannot delete')) {
-        return res.status(400).json({
-          success: false,
-          message: (error as Error).message
-        });
+      if (error.message.includes('Cannot delete')) {
+        return this.conflict(res, error.message);
       }
-      if ((error as Error).message === 'GDRG tariff not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'GDRG tariff not found'
-        });
+      if (error.message === 'GDRG tariff not found') {
+        return this.notFound(res, 'GDRG tariff');
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -217,10 +192,7 @@ export class GDRGController {
       const { diagnosisId, isPrimary, mappedIcdCode } = req.body;
 
       if (!diagnosisId) {
-        return res.status(400).json({
-          success: false,
-          message: 'diagnosisId is required'
-        });
+        return this.badRequest(res, 'diagnosisId is required');
       }
 
       const link = await this.gdrgService.linkDiagnosis(
@@ -230,25 +202,15 @@ export class GDRGController {
         mappedIcdCode
       );
 
-      res.json({
-        success: true,
-        data: link,
-        message: 'Diagnosis linked to GDRG tariff successfully'
-      });
+      this.ok(res, link, 'Diagnosis linked to GDRG tariff successfully');
     } catch (error: any) {
-      if ((error as Error).message.includes('not found')) {
-        return res.status(404).json({
-          success: false,
-          message: (error as Error).message
-        });
+      if (error.message.includes('not found')) {
+        return this.notFound(res, error.message);
       }
-      if ((error as Error).message.includes('already linked')) {
-        return res.status(400).json({
-          success: false,
-          message: (error as Error).message
-        });
+      if (error.message.includes('already linked')) {
+        return this.conflict(res, error.message);
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -258,18 +220,12 @@ export class GDRGController {
 
       await this.gdrgService.unlinkDiagnosis(gdrgCode, diagnosisId);
 
-      res.json({
-        success: true,
-        message: 'Diagnosis unlinked from GDRG tariff successfully'
-      });
+      this.ok(res, null, 'Diagnosis unlinked from GDRG tariff successfully');
     } catch (error: any) {
-      if ((error as Error).message === 'GDRG tariff not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'GDRG tariff not found'
-        });
+      if (error.message === 'GDRG tariff not found') {
+        return this.notFound(res, 'GDRG tariff');
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -279,13 +235,9 @@ export class GDRGController {
 
       const diagnoses = await this.gdrgService.getDiagnosesByGDRG(gdrgCode);
 
-      res.json({
-        success: true,
-        data: diagnoses,
-        count: diagnoses.length
-      });
+      this.ok(res, diagnoses, 'Diagnoses retrieved successfully', { count: diagnoses.length });
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -295,9 +247,9 @@ export class GDRGController {
 
       const gdrgs = await this.gdrgService.getGDRGByDiagnosis(diagnosisId);
 
-      res.json({ success: true, data: gdrgs });
+      this.ok(res, gdrgs, 'GDRG tariffs retrieved successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -307,10 +259,7 @@ export class GDRGController {
       const { procedureId, isPrimary, mappedCode } = req.body;
 
       if (!procedureId) {
-        return res.status(400).json({
-          success: false,
-          message: 'procedureId is required'
-        });
+        return this.badRequest(res, 'procedureId is required');
       }
 
       const link = await this.gdrgService.linkProcedure(
@@ -320,25 +269,15 @@ export class GDRGController {
         mappedCode
       );
 
-      res.json({
-        success: true,
-        data: link,
-        message: 'Procedure linked to GDRG tariff successfully'
-      });
+      this.ok(res, link, 'Procedure linked to GDRG tariff successfully');
     } catch (error: any) {
-      if ((error as Error).message.includes('not found')) {
-        return res.status(404).json({
-          success: false,
-          message: (error as Error).message
-        });
+      if (error.message.includes('not found')) {
+        return this.notFound(res, error.message);
       }
-      if ((error as Error).message.includes('already linked')) {
-        return res.status(400).json({
-          success: false,
-          message: (error as Error).message
-        });
+      if (error.message.includes('already linked')) {
+        return this.conflict(res, error.message);
       }
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -348,12 +287,9 @@ export class GDRGController {
 
       await this.gdrgService.unlinkProcedure(gdrgCode, procedureId);
 
-      res.json({
-        success: true,
-        message: 'Procedure unlinked from GDRG tariff successfully'
-      });
+      this.ok(res, null, 'Procedure unlinked from GDRG tariff successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -363,9 +299,9 @@ export class GDRGController {
 
       const procedures = await this.gdrgService.getProceduresByGDRG(gdrgCode);
 
-      res.json({ success: true, data: procedures });
+      this.ok(res, procedures, 'Procedures retrieved successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 
@@ -375,9 +311,9 @@ export class GDRGController {
 
       const gdrgs = await this.gdrgService.getGDRGByProcedure(procedureId);
 
-      res.json({ success: true, data: gdrgs });
+      this.ok(res, gdrgs, 'GDRG tariffs retrieved successfully');
     } catch (error) {
-      next(error);
+      this.error(res, error);
     }
   };
 }

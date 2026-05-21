@@ -1,24 +1,26 @@
+// modules/corporate/CorporateRepository.ts
 import { PrismaClient } from '@prisma/client';
-import { BaseRepository } from '../../shared/base/BaseRepository';
-import { 
-  CreateCorporateAccountDTO, 
-  UpdateCorporateAccountDTO,
-  CreateCorporateEmployeeDTO,
-  UpdateCorporateEmployeeDTO
-} from './CorporateTypes';
 
 const prisma = new PrismaClient();
 
-export class CorporateRepository extends BaseRepository {
-  async createAccount(dto: CreateCorporateAccountDTO) {
+export class CorporateRepository {
+  
+  async createAccount(dto: any) {
     return prisma.corporateAccount.create({
       data: {
-        ...dto,
+        companyName: dto.companyName,
+        registrationNumber: dto.registrationNumber,
+        taxId: dto.taxId,
+        contactPerson: dto.contactPerson,
+        email: dto.email,
+        phone: dto.phone,
+        address: dto.address,
         creditLimit: dto.creditLimit || 0,
         currentBalance: 0,
         paymentTerms: dto.paymentTerms || 30,
         discountPercentage: dto.discountPercentage || 0,
-        isActive: true
+        isActive: true,
+        insuranceProviderId: dto.insuranceProviderId
       },
       include: {
         insuranceProvider: true
@@ -69,7 +71,9 @@ export class CorporateRepository extends BaseRepository {
       where.isActive = isActive === 'true';
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
 
     const [accounts, total] = await Promise.all([
       prisma.corporateAccount.findMany({
@@ -85,7 +89,7 @@ export class CorporateRepository extends BaseRepository {
           }
         },
         skip,
-        take: Number(limit),
+        take: limitNum,
         orderBy: { companyName: 'asc' }
       }),
       prisma.corporateAccount.count({ where })
@@ -94,15 +98,15 @@ export class CorporateRepository extends BaseRepository {
     return {
       data: accounts,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     };
   }
 
-  async updateAccount(id: string, dto: UpdateCorporateAccountDTO) {
+  async updateAccount(id: string, dto: any) {
     return prisma.corporateAccount.update({
       where: { id },
       data: dto,
@@ -119,13 +123,22 @@ export class CorporateRepository extends BaseRepository {
     });
   }
 
-  async addEmployee(accountId: string, dto: CreateCorporateEmployeeDTO) {
+  async addEmployee(accountId: string, dto: any) {
     return prisma.corporateEmployee.create({
       data: {
-        ...dto,
-        accountId,
+        employeeId: dto.employeeId,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        otherNames: dto.otherNames,
+        dateOfBirth: dto.dateOfBirth,
+        gender: dto.gender,
+        phone: dto.phone,
+        email: dto.email,
+        department: dto.department,
+        position: dto.position,
         enrollmentDate: dto.enrollmentDate || new Date(),
-        isActive: true
+        isActive: true,
+        accountId: accountId
       }
     });
   }
@@ -143,7 +156,7 @@ export class CorporateRepository extends BaseRepository {
     });
   }
 
-  async updateEmployee(id: string, dto: UpdateCorporateEmployeeDTO) {
+  async updateEmployee(id: string, dto: any) {
     return prisma.corporateEmployee.update({
       where: { id },
       data: dto
@@ -241,27 +254,23 @@ export class CorporateRepository extends BaseRepository {
     // Get employee IDs for matching
     const employeeIds = account.employees.filter(e => e.isActive).map(e => e.employeeId);
 
-    // Find all completed encounters for corporate patients in the month
+    // Find all completed attendances for corporate patients in the month
     const attendances = await prisma.attendance.findMany({
       where: {
         paymentMode: 'corporate',
         corporateAccountId: accountId,
         status: 'completed',
-        createdAt: {
+        dateTime: {
           gte: startDate,
           lte: endDate
         }
       },
       include: {
         Patient: true,
-        Encounter: {
+        Bill: {
           include: {
-            Bill: {
-              include: {
-                BillLineItem: {
-                  where: { isVoided: false }
-                }
-              }
+            BillLineItem: {
+              where: { isVoided: false }
             }
           }
         }
@@ -270,12 +279,11 @@ export class CorporateRepository extends BaseRepository {
 
     // Build encounter details
     const encounters = attendances.map(attendance => {
-      const encounter = attendance.Encounter;
-      const bill = encounter?.Bill;
+      const bill = attendance.Bill;
       
       const items = bill?.BillLineItem.map(item => ({
         itemName: item.description,
-        category: item.category || 'General',
+        category: 'General',
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         total: item.lineTotal
@@ -284,9 +292,8 @@ export class CorporateRepository extends BaseRepository {
       const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
 
       return {
-        encounterId: encounter?.id || '',
         attendanceId: attendance.id,
-        patientName: `${attendance.Patient.surname} ${attendance.Patient.otherNames}`.trim(),
+        patientName: `${attendance.Patient.surname} ${attendance.Patient.otherNames || ''}`.trim(),
         employeeId: employeeIds.find(id => 
           attendance.Patient.phone?.includes(id) || 
           attendance.Patient.email?.includes(id)
@@ -295,8 +302,8 @@ export class CorporateRepository extends BaseRepository {
           attendance.Patient.phone?.includes(id) || 
           attendance.Patient.email?.includes(id)
         ))?.firstName,
-        visitDate: attendance.createdAt,
-        diagnosis: encounter?.chiefComplaint,
+        visitDate: attendance.dateTime,
+        diagnosis: attendance.complaints,
         items,
         totalAmount
       };
@@ -311,19 +318,21 @@ export class CorporateRepository extends BaseRepository {
     // Create Proforma Invoice for the bill
     const proformaInvoice = await prisma.proformaInvoice.create({
       data: {
-        invoiceNumber: `CORP-${year}-${String(month).padStart(2, '0')}-${Date.now()}`,
-        corporateAccountId: accountId,
-        status: 'PENDING',
+        referenceNumber: `CORP-${year}-${String(month).padStart(2, '0')}-${Date.now()}`,
+        patientId: accountId, // Placeholder - actual patient ID would be needed
+        status: 'DRAFT',
         totalAmount: totalAmount,
-        discountAmount: discountAmount,
-        discountPercentage: discountPct,
-        description: `Monthly billing for ${month}/${year}`,
+        discount: discountAmount,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         createdById: generatedById,
+        notes: `Monthly billing for ${month}/${year}`,
         metadata: {
           billingMonth: month,
           billingYear: year,
           encounterCount: encounters.length,
-          subtotal: subtotal
+          subtotal: subtotal,
+          discountPercentage: discountPct
         }
       }
     });
@@ -345,7 +354,9 @@ export class CorporateRepository extends BaseRepository {
 
   async getMonthlyBills(accountId: string, filters?: any) {
     const { page = 1, limit = 20 } = filters || {};
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
 
     const [invoices, total] = await Promise.all([
       prisma.proformaInvoice.findMany({
@@ -353,7 +364,7 @@ export class CorporateRepository extends BaseRepository {
           corporateAccountId: accountId
         },
         include: {
-          createdBy: {
+          User_createdBy: {
             select: {
               fullName: true,
               username: true
@@ -362,7 +373,7 @@ export class CorporateRepository extends BaseRepository {
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: Number(limit)
+        take: limitNum
       }),
       prisma.proformaInvoice.count({
         where: {
@@ -374,10 +385,10 @@ export class CorporateRepository extends BaseRepository {
     return {
       data: invoices,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     };
   }

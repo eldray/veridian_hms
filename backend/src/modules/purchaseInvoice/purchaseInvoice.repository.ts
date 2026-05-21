@@ -1,8 +1,12 @@
-// InvoiceRepository.ts
 import { PrismaClient, Invoice, InvoiceItem } from '@prisma/client';
-import { CreateInvoiceDTO, UpdateInvoiceDTO, InvoiceWithRelations, InvoiceStats } from './InvoiceTypes';
+import { 
+  CreatePurchaseInvoiceDTO, 
+  UpdatePurchaseInvoiceDTO, 
+  PurchaseInvoiceWithRelations, 
+  PurchaseInvoiceStats 
+} from './purchaseInvoice.types';
 
-export class InvoiceRepository {
+export class PurchaseInvoiceRepository {
   private prisma: PrismaClient;
 
   constructor(prisma?: PrismaClient) {
@@ -15,7 +19,7 @@ export class InvoiceRepository {
     endDate?: Date;
     page?: number;
     limit?: number;
-  }): Promise<{ invoices: InvoiceWithRelations[]; total: number }> {
+  }): Promise<{ invoices: PurchaseInvoiceWithRelations[]; total: number }> {
     const where: any = {};
 
     if (filters.supplierName) {
@@ -31,8 +35,9 @@ export class InvoiceRepository {
       if (filters.endDate) where.invoiceDate.lte = filters.endDate;
     }
 
-    const skip = ((filters.page || 1) - 1) * (filters.limit || 50);
-    const take = Math.min(100, Math.max(1, filters.limit || 50));
+    const page = Math.max(1, filters.page || 1);
+    const limit = Math.min(100, Math.max(1, filters.limit || 50));
+    const skip = (page - 1) * limit;
 
     const [invoices, total] = await Promise.all([
       this.prisma.invoice.findMany({
@@ -68,7 +73,7 @@ export class InvoiceRepository {
         },
         orderBy: { invoiceDate: 'desc' },
         skip,
-        take
+        take: limit
       }),
       this.prisma.invoice.count({ where })
     ]);
@@ -76,7 +81,7 @@ export class InvoiceRepository {
     return { invoices, total };
   }
 
-  async findById(id: string): Promise<InvoiceWithRelations | null> {
+  async findById(id: string): Promise<PurchaseInvoiceWithRelations | null> {
     return this.prisma.invoice.findUnique({
       where: { id },
       include: {
@@ -119,7 +124,7 @@ export class InvoiceRepository {
     });
   }
 
-  async create(data: CreateInvoiceDTO, createdById: string): Promise<InvoiceWithRelations> {
+  async create(data: CreatePurchaseInvoiceDTO, createdById: string): Promise<PurchaseInvoiceWithRelations> {
     const result = await this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
@@ -141,6 +146,7 @@ export class InvoiceRepository {
           throw new Error(`Stock item not found: ${item.stockItemId}`);
         }
 
+        // Create invoice item
         await tx.invoiceItem.create({
           data: {
             invoiceId: invoice.id,
@@ -152,8 +158,23 @@ export class InvoiceRepository {
           }
         });
 
+        // Create stock batch if batch number provided
+        if (item.batchNumber) {
+          await tx.stockBatch.create({
+            data: {
+              stockItemId: item.stockItemId,
+              batchNumber: item.batchNumber,
+              expiryDate: item.expiryDate ? new Date(item.expiryDate) : new Date(),
+              quantity: parseInt(item.quantity as any),
+              costPrice: parseFloat(item.unitCost as any),
+              receivedDate: new Date()
+            }
+          });
+        }
+
         const newStockLevel = stockItem.currentStock + parseInt(item.quantity as any);
 
+        // Create stock transaction
         await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId,
@@ -166,6 +187,7 @@ export class InvoiceRepository {
           }
         });
 
+        // Update stock item
         await tx.stockItem.update({
           where: { id: item.stockItemId },
           data: {
@@ -193,10 +215,10 @@ export class InvoiceRepository {
       });
     });
 
-    return result as InvoiceWithRelations;
+    return result as PurchaseInvoiceWithRelations;
   }
 
-  async update(id: string, data: UpdateInvoiceDTO): Promise<InvoiceWithRelations> {
+  async update(id: string, data: UpdatePurchaseInvoiceDTO): Promise<PurchaseInvoiceWithRelations> {
     const updateData: any = {};
     if (data.supplierName) updateData.supplierName = data.supplierName;
     if (data.invoiceDate) updateData.invoiceDate = new Date(data.invoiceDate);
@@ -238,9 +260,10 @@ export class InvoiceRepository {
       });
 
       if (!invoice) {
-        throw new Error('Invoice not found');
+        throw new Error('Purchase invoice not found');
       }
 
+      // Reverse stock levels
       for (const transaction of invoice.stockTransactions) {
         const stockItem = await tx.stockItem.findUnique({
           where: { id: transaction.stockItemId }
@@ -250,13 +273,25 @@ export class InvoiceRepository {
           const newStockLevel = stockItem.currentStock - transaction.quantity;
           await tx.stockItem.update({
             where: { id: transaction.stockItemId },
-            data: { currentStock: newStockLevel }
+            data: { currentStock: Math.max(0, newStockLevel) }
           });
         }
 
         await tx.stockTransaction.delete({
           where: { id: transaction.id }
         });
+      }
+
+      // Delete stock batches associated with this invoice
+      for (const item of invoice.invoiceItems) {
+        if (item.batchNumber) {
+          await tx.stockBatch.deleteMany({
+            where: {
+              stockItemId: item.stockItemId,
+              batchNumber: item.batchNumber
+            }
+          });
+        }
       }
 
       await tx.invoiceItem.deleteMany({
@@ -293,7 +328,7 @@ export class InvoiceRepository {
   async getStats(filters: {
     startDate?: Date;
     endDate?: Date;
-  }): Promise<InvoiceStats> {
+  }): Promise<PurchaseInvoiceStats> {
     const where: any = {};
     if (filters.startDate || filters.endDate) {
       where.invoiceDate = {};

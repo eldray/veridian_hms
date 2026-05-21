@@ -3,8 +3,9 @@
  * Data access layer for billing management
  */
 
-import { PrismaClient, BillStatus, PaymentMode } from '@prisma/client';
+import { PrismaClient, BillStatus, PaymentMode, PaymentMethod } from '@prisma/client';
 import { CreateBillDTO, AddPaymentDTO, BillFilters } from './BillingTypes';
+import { getCounterService } from '../../services/CounterService';
 
 export class BillingRepository {
   private prisma: PrismaClient;
@@ -74,13 +75,15 @@ export class BillingRepository {
               type: true
             }
           },
-          User_Bill_createdByIdToUser: {
+          CorporateAccount: {
             select: {
               id: true,
-              fullName: true,
-              username: true
+              companyName: true,
+              creditLimit: true,
+              currentBalance: true
             }
-          }
+          },
+          Payment: true
         },
         orderBy: { billDate: 'desc' },
         skip,
@@ -131,18 +134,13 @@ export class BillingRepository {
             coveragePercentage: true
           }
         },
-        User_Bill_createdByIdToUser: {
+        CorporateAccount: {
           select: {
             id: true,
-            fullName: true,
-            username: true
-          }
-        },
-        User_Bill_updatedByIdToUser: {
-          select: {
-            id: true,
-            fullName: true,
-            username: true
+            companyName: true,
+            creditLimit: true,
+            currentBalance: true,
+            discountPercentage: true
           }
         },
         Payment: {
@@ -169,6 +167,13 @@ export class BillingRepository {
             }
           },
           orderBy: { createdAt: 'asc' }
+        },
+        User_Bill_createdByIdToUser: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
         }
       }
     });
@@ -176,46 +181,108 @@ export class BillingRepository {
 
   async create(data: any, items: any[]) {
     return this.prisma.$transaction(async (tx) => {
+      // ✅ VALIDATION FIRST
+      if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
+        if (!data.insuranceProviderId) {
+          throw new Error('Insurance Provider ID is required');
+        }
+        const provider = await tx.insuranceProvider.findUnique({
+          where: { id: data.insuranceProviderId }
+        });
+        if (!provider || !provider.isActive) {
+          throw new Error('Invalid or inactive insurance provider');
+        }
+      }
+  
+      if (data.paymentMode === 'corporate') {
+        if (!data.corporateAccountId) {
+          throw new Error('Corporate Account ID is required');
+        }
+        const corporate = await tx.corporateAccount.findUnique({
+          where: { id: data.corporateAccountId }
+        });
+        if (!corporate || !corporate.isActive) {
+          throw new Error('Invalid or inactive corporate account');
+        }
+      }
+  
       const bill = await tx.bill.create({
         data,
         include: {
-          Patient: {
-            select: {
-              surname: true,
-              otherNames: true,
-              folderNumber: true,
-              contact: true
-            }
-          },
-          Attendance: {
-            select: {
-              attendanceNumber: true,
-              attendanceType: true
-            }
-          },
-          User_Bill_createdByIdToUser: {
-            select: {
-              fullName: true
-            }
-          }
+          Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } },
+          Attendance: { select: { attendanceNumber: true, attendanceType: true } },
+          CorporateAccount: true
         }
       });
-
+  
       for (const item of items) {
-        await tx.billLineItem.create({
-          data: item,
-          include: {
-            serviceCatalog: {
-              select: {
-                name: true,
-                code: true
-              }
-            }
-          }
-        });
+        await tx.billLineItem.create({ data: item });
       }
-
-      return bill;
+  
+      // Recalculate bill totals
+      const lineItems = await tx.billLineItem.findMany({
+        where: { billId: bill.id, isVoided: false }
+      });
+  
+      const totalAmount = lineItems.reduce((sum, i) => sum + i.lineTotal, 0);
+      let patientPayable = totalAmount;
+      let insuranceCovered = 0;
+      let corporateCovered = 0;
+  
+      // ✅ CALCULATE COVERAGE BASED ON PAYMENT MODE
+      if (data.paymentMode === 'nhis' && data.insuranceProviderId) {
+        const provider = await tx.insuranceProvider.findUnique({
+          where: { id: data.insuranceProviderId }
+        });
+        if (provider) {
+          insuranceCovered = totalAmount * (provider.coveragePercentage / 100);
+          patientPayable = totalAmount - insuranceCovered;
+        }
+      } 
+      else if (data.paymentMode === 'private_insurance' && data.insuranceProviderId) {
+        const provider = await tx.insuranceProvider.findUnique({
+          where: { id: data.insuranceProviderId }
+        });
+        if (provider) {
+          insuranceCovered = totalAmount * (provider.coveragePercentage / 100);
+          patientPayable = totalAmount - insuranceCovered;
+        }
+      }
+      else if (data.paymentMode === 'corporate' && data.corporateAccountId) {
+        const corporate = await tx.corporateAccount.findUnique({
+          where: { id: data.corporateAccountId }
+        });
+        if (corporate) {
+          const discount = totalAmount * (corporate.discountPercentage / 100);
+          corporateCovered = totalAmount - discount;
+          patientPayable = 0;
+          
+          await tx.corporateAccount.update({
+            where: { id: data.corporateAccountId },
+            data: { currentBalance: { increment: corporateCovered } }
+          });
+        }
+      }
+  
+      const updatedBill = await tx.bill.update({
+        where: { id: bill.id },
+        data: {
+          totalAmount,
+          patientPayable,
+          balance: patientPayable,
+          subtotal: totalAmount,
+          insuranceCovered,
+          waiverAmount: 0
+        },
+        include: {
+          Patient: true,
+          Attendance: true,
+          BillLineItem: true,
+          CorporateAccount: true
+        }
+      });
+  
+      return updatedBill;
     });
   }
 
@@ -231,7 +298,7 @@ export class BillingRepository {
       let newStatus: BillStatus = bill.status;
       if (newBalance <= 0) {
         newStatus = 'paid';
-      } else if (newPaidAmount > 0) {
+      } else if (newPaidAmount > 0 && newPaidAmount < bill.totalAmount) {
         newStatus = 'partial';
       }
 
@@ -241,8 +308,7 @@ export class BillingRepository {
           paidAmount: newPaidAmount,
           balance: newBalance,
           status: newStatus,
-          updatedAt: new Date(),
-          updatedById: paymentData.userId
+          updatedAt: new Date()
         },
         include: {
           Patient: {
@@ -258,7 +324,8 @@ export class BillingRepository {
               attendanceNumber: true,
               attendanceType: true
             }
-          }
+          },
+          CorporateAccount: true
         }
       });
 
@@ -273,6 +340,14 @@ export class BillingRepository {
           transactionDate: new Date()
         }
       });
+
+      // Update attendance outstanding balance if linked
+      if (bill.attendanceId) {
+        await tx.attendance.update({
+          where: { id: bill.attendanceId },
+          data: { outstandingBalance: newBalance }
+        });
+      }
 
       return { bill: updatedBill, payment };
     });
@@ -298,7 +373,8 @@ export class BillingRepository {
           select: {
             attendanceNumber: true
           }
-        }
+        },
+        CorporateAccount: true
       }
     });
   }
@@ -330,11 +406,11 @@ export class BillingRepository {
 
     const where = { billDate: { gte: startDate } };
 
-    const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus] = await Promise.all([
+    const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus, corporateTotals] = await Promise.all([
       this.prisma.bill.count({ where }),
       this.prisma.bill.aggregate({ where, _sum: { totalAmount: true } }),
       this.prisma.bill.aggregate({ where, _sum: { paidAmount: true } }),
-      this.prisma.bill.count({ where: { ...where, status: { in: ['pending', 'partial'] } } }),
+      this.prisma.bill.count({ where: { ...where, status: { in: ['pending', 'partial'] as BillStatus[] } } }),
       this.prisma.bill.groupBy({
         by: ['paymentMode'],
         where,
@@ -345,6 +421,10 @@ export class BillingRepository {
         by: ['status'],
         where,
         _count: { id: true },
+        _sum: { totalAmount: true, paidAmount: true }
+      }),
+      this.prisma.bill.aggregate({
+        where: { ...where, paymentMode: 'corporate' },
         _sum: { totalAmount: true, paidAmount: true }
       })
     ]);
@@ -359,7 +439,11 @@ export class BillingRepository {
         collectionRate: totalAmount._sum.totalAmount ? ((totalPaid._sum.paidAmount || 0) / totalAmount._sum.totalAmount) * 100 : 0
       },
       byPaymentMode,
-      byStatus
+      byStatus,
+      corporateSummary: {
+        totalCorporateBills: corporateTotals._sum.totalAmount || 0,
+        totalCorporatePaid: corporateTotals._sum.paidAmount || 0
+      }
     };
   }
 
@@ -375,7 +459,17 @@ export class BillingRepository {
 
     const bill = await this.prisma.bill.findUnique({
       where: { id: billId },
-      select: { billNumber: true, status: true, totalAmount: true, paidAmount: true, balance: true }
+      select: { 
+        id: true,
+        billNumber: getCounterService().nextBillNumber(),
+        status: true, 
+        totalAmount: true, 
+        paidAmount: true, 
+        balance: true,
+        paymentMode: true,
+        corporateAccountId: true,
+        insuranceProviderId: true
+      }
     });
 
     return {
@@ -383,28 +477,67 @@ export class BillingRepository {
       lineItems,
       summary: {
         totalItems: lineItems.length,
-        subtotal: lineItems.reduce((sum, i) => sum + i.lineTotal, 0),
-        insuranceCovered: lineItems.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0),
-        patientPayable: lineItems.reduce((sum, i) => sum + i.patientPayableAmount, 0)
+        subtotal: lineItems.reduce((sum, i) => sum + (i.lineTotal || 0), 0),
+        insuranceCovered: lineItems.reduce((sum, i) => sum + (i.insuranceCoveredAmount || 0), 0),
+        patientPayable: lineItems.reduce((sum, i) => sum + (i.patientPayableAmount || 0), 0)
       }
     };
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {
-    return this.prisma.billLineItem.update({
-      where: { id: lineItemId },
-      data: {
-        isVoided: true,
-        voidedAt: new Date(),
-        voidedById: userId,
-        voidReason: reason
+    return this.prisma.$transaction(async (tx) => {
+      const lineItem = await tx.billLineItem.findUnique({
+        where: { id: lineItemId },
+        include: { bill: true }
+      });
+
+      if (!lineItem) {
+        throw new Error('Line item not found');
       }
+
+      if (lineItem.isVoided) {
+        throw new Error('Line item already voided');
+      }
+
+      const updatedLineItem = await tx.billLineItem.update({
+        where: { id: lineItemId },
+        data: {
+          isVoided: true,
+          voidedAt: new Date(),
+          voidedById: userId,
+          voidReason: reason
+        }
+      });
+
+      // Recalculate bill totals
+      const activeLineItems = await tx.billLineItem.findMany({
+        where: { billId: lineItem.billId, isVoided: false }
+      });
+
+      const newTotal = activeLineItems.reduce((sum, i) => sum + i.lineTotal, 0);
+      const newPatientPayable = activeLineItems.reduce((sum, i) => sum + i.patientPayableAmount, 0);
+      const newBalance = newPatientPayable - (lineItem.bill.paidAmount || 0);
+
+      await tx.bill.update({
+        where: { id: lineItem.billId },
+        data: {
+          totalAmount: newTotal,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newBalance <= 0 ? 'paid' : lineItem.bill.status
+        }
+      });
+
+      return updatedLineItem;
     });
   }
 
   async applyWaiver(billId: string, waiverId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
+      const waiver = await tx.patientWaiver.findUnique({ 
+        where: { id: waiverId }, 
+        include: { bill: true } 
+      });
 
       if (!waiver) throw new Error('Waiver not found');
       if (waiver.status !== 'approved') throw new Error('Only approved waivers can be applied');
@@ -423,10 +556,9 @@ export class BillingRepository {
           waiverAmount: newWaiverAmount,
           patientPayable: newPatientPayable,
           balance: newBalance,
-          discount: newWaiverAmount,
           status: newBalance <= 0 ? 'paid' : bill.status
         },
-        include: { Patient: true, Attendance: true }
+        include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
 
       if (updated.attendanceId) {
@@ -438,5 +570,43 @@ export class BillingRepository {
 
       return updated;
     });
+  }
+
+  async getServicePrice(serviceCatalogId: string, paymentMode: string, corporateAccountId?: string): Promise<number> {
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: serviceCatalogId },
+      include: { pricing: true }
+    });
+
+    if (!service || !service.pricing) {
+      return 100; // Default fallback price
+    }
+
+    // Return price based on payment mode
+    switch (paymentMode) {
+      case 'cash':
+        return service.pricing.cashPrice;
+      case 'nhis':
+        return service.pricing.nhisPrice;
+      case 'private_insurance':
+        return service.pricing.insurancePrice;
+        case 'corporate':
+          // First check if there's a specific corporate price
+          if (service.pricing.corporatePrice > 0) {
+            return service.pricing.corporatePrice;
+          }
+          // Then apply discount to cash price
+          if (corporateAccountId) {
+            const corporate = await this.prisma.corporateAccount.findUnique({
+              where: { id: corporateAccountId }
+            });
+            if (corporate && corporate.discountPercentage > 0) {
+              return service.pricing.cashPrice * (1 - corporate.discountPercentage / 100);
+            }
+          }
+          return service.pricing.cashPrice;
+      default:
+        return service.pricing.cashPrice;
+    }
   }
 }

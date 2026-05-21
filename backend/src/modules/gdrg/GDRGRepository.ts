@@ -2,54 +2,71 @@
 
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { PrismaClient, GDRGMDC } from '@prisma/client';
-import { GDRGTariff, GDRGDiagnosisLink, GDRGProcedureLink } from './GDRGTypes';
+import { GDRGTariff } from './GDRGTypes';
 
-const prisma = new PrismaClient();
-
-export class GDRGRepository extends BaseRepository<GDRGTariff> {
-  constructor() {
-    super();
+export class GDRGRepository extends BaseRepository<GDRGTariff, any, any> {
+  constructor(prisma: PrismaClient) {
+    super(prisma, 'gDRGTariff');
   }
 
-  async findAll(where?: any, include?: any) {
-    return await prisma.gDRGTariff.findMany({
-      where,
-      include,
-      orderBy: { gdrgCode: 'asc' }
-    });
+  async findAllWithFilters(where?: any, include?: any, page: number = 1, limit: number = 100) {
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, total] = await Promise.all([
+      this.getModel().findMany({
+        where,
+        include,
+        orderBy: { gdrgCode: 'asc' },
+        skip,
+        take: limitNum
+      }),
+      this.getModel().count({ where })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    };
   }
 
   async findByCode(code: string, include?: any) {
-    return await prisma.gDRGTariff.findUnique({
+    return await this.getModel().findUnique({
       where: { gdrgCode: code },
       include
     });
   }
 
-  async create(data: any) {
-    return await prisma.gDRGTariff.create({ data });
+  async createTariff(data: any) {
+    return await this.getModel().create({ data });
   }
 
-  async update(code: string, data: any) {
-    return await prisma.gDRGTariff.update({
+  async updateTariff(code: string, data: any) {
+    return await this.getModel().update({
       where: { gdrgCode: code },
       data
     });
   }
 
-  async delete(code: string) {
-    return await prisma.gDRGTariff.delete({
+  async deleteTariff(code: string) {
+    return await this.getModel().delete({
       where: { gdrgCode: code }
     });
   }
 
-  async findFirst(where: any) {
-    return await prisma.gDRGTariff.findFirst({ where });
+  async findFirstTariff(where: any) {
+    return await this.getModel().findFirst({ where });
   }
 
   // Diagnosis linking
   async linkDiagnosis(gdrgTariffId: string, diagnosisId: string, isPrimary: boolean, mappedIcdCode: string) {
-    return await prisma.gDRGTariffDiagnosis.create({
+    return await this.prisma.gDRGTariffDiagnosis.create({
       data: {
         gdrgTariffId,
         diagnosisId,
@@ -64,7 +81,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async unlinkDiagnosis(gdrgTariffId: string, diagnosisId: string) {
-    return await prisma.gDRGTariffDiagnosis.delete({
+    return await this.prisma.gDRGTariffDiagnosis.delete({
       where: {
         gdrgTariffId_diagnosisId: {
           gdrgTariffId,
@@ -75,7 +92,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async getDiagnosesByGDRG(gdrgCode: string) {
-    const tariff = await prisma.gDRGTariff.findUnique({
+    const tariff = await this.getModel().findUnique({
       where: { gdrgCode },
       include: {
         diagnoses: {
@@ -97,7 +114,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async getGDRGByDiagnosis(diagnosisId: string) {
-    return await prisma.gDRGTariffDiagnosis.findMany({
+    return await this.prisma.gDRGTariffDiagnosis.findMany({
       where: { diagnosisId },
       include: {
         gdrgTariff: {
@@ -117,7 +134,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
 
   // Procedure linking
   async linkProcedure(gdrgTariffId: string, procedureId: string, isPrimary: boolean, mappedCode: string) {
-    return await prisma.gDRGTariffProcedure.create({
+    return await this.prisma.gDRGTariffProcedure.create({
       data: {
         gdrgTariffId,
         procedureId,
@@ -132,7 +149,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async unlinkProcedure(gdrgTariffId: string, procedureId: string) {
-    return await prisma.gDRGTariffProcedure.delete({
+    return await this.prisma.gDRGTariffProcedure.delete({
       where: {
         gdrgTariffId_procedureId: {
           gdrgTariffId,
@@ -143,7 +160,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async getProceduresByGDRG(gdrgCode: string) {
-    const tariff = await prisma.gDRGTariff.findUnique({
+    const tariff = await this.getModel().findUnique({
       where: { gdrgCode },
       include: {
         procedures: {
@@ -159,7 +176,7 @@ export class GDRGRepository extends BaseRepository<GDRGTariff> {
   }
 
   async getGDRGByProcedure(procedureId: string) {
-    return await prisma.gDRGTariffProcedure.findMany({
+    return await this.prisma.gDRGTariffProcedure.findMany({
       where: { procedureId },
       include: { gdrgTariff: true }
     });

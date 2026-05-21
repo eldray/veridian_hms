@@ -47,6 +47,8 @@ export interface GetGDRGTariffsQuery {
   mdc?: GDRGMDC;
   isActive?: boolean;
   search?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface GetGDRGByCodeParams {
@@ -142,4 +144,10 @@ export interface GDRGResponse {
   data?: any;
   message?: string;
   count?: number;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }

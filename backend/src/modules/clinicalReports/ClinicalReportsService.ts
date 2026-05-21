@@ -4,17 +4,15 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { BaseService } from '../../shared/base/BaseService';
 import { ClinicalReportsRepository } from './ClinicalReportsRepository';
 import { ClinicalReportFilters } from './ClinicalReportsTypes';
 
 const prisma = new PrismaClient();
 
-export class ClinicalReportsService extends BaseService {
+export class ClinicalReportsService {
   private repository: ClinicalReportsRepository;
 
   constructor() {
-    super(prisma);
     this.repository = new ClinicalReportsRepository(prisma);
   }
 
@@ -141,7 +139,7 @@ export class ClinicalReportsService extends BaseService {
     // Group by drug
     const byDrug: Record<string, number> = {};
     for (const med of medications) {
-      const drugName = med.Drug?.name || 'Unknown';
+      const drugName = med.StockItem?.name || med.name || 'Unknown';
       byDrug[drugName] = (byDrug[drugName] || 0) + 1;
     }
 
@@ -149,8 +147,14 @@ export class ClinicalReportsService extends BaseService {
       period: { startDate: filters.startDate, endDate: filters.endDate },
       summary: {
         totalMedications: medications.length,
+        byStatus: {
+          prescribed: medications.filter(m => m.status === 'prescribed').length,
+          dispensed: medications.filter(m => m.status === 'dispensed').length,
+          administered: medications.filter(m => m.status === 'administered').length,
+          cancelled: medications.filter(m => m.status === 'cancelled').length
+        },
         byDrug,
-        totalDosage: medications.reduce((sum, m) => sum + (m.dosage ? 1 : 0), 0)
+        totalQuantity: medications.reduce((sum, m) => sum + (m.quantity || 0), 0)
       },
       topMedications: Object.entries(byDrug)
         .map(([name, count]) => ({ drugName: name, count }))
@@ -164,25 +168,66 @@ export class ClinicalReportsService extends BaseService {
 
     // Calculate averages
     const validTemps = vitals.filter(v => v.temperature).map(v => v.temperature!);
-    const validBP = vitals.filter(v => v.systolicBP && v.diastolicBP);
     const validPulse = vitals.filter(v => v.pulse).map(v => v.pulse!);
-    const validResp = vitals.filter(v => v.respiratoryRate).map(v => v.respiratoryRate!);
+    const validResp = vitals.filter(v => v.respiration).map(v => v.respiration!);
+    const validSpo2 = vitals.filter(v => v.spo2).map(v => v.spo2!);
 
     const avgTemp = validTemps.length > 0 ? validTemps.reduce((a, b) => a + b, 0) / validTemps.length : 0;
     const avgPulse = validPulse.length > 0 ? validPulse.reduce((a, b) => a + b, 0) / validPulse.length : 0;
     const avgResp = validResp.length > 0 ? validResp.reduce((a, b) => a + b, 0) / validResp.length : 0;
+    const avgSpo2 = validSpo2.length > 0 ? validSpo2.reduce((a, b) => a + b, 0) / validSpo2.length : 0;
+
+    // Count abnormal findings
+    const hypertension = vitals.filter(v => {
+      const bp = v.bloodPressure?.split('/').map(Number);
+      return bp && (bp[0] > 140 || bp[1] > 90);
+    }).length;
+
+    const fever = vitals.filter(v => v.temperature && v.temperature > 38).length;
+    const tachycardia = vitals.filter(v => v.pulse && v.pulse > 100).length;
+    const bradycardia = vitals.filter(v => v.pulse && v.pulse < 60).length;
+    const hypoxia = vitals.filter(v => v.spo2 && v.spo2 < 94).length;
 
     return {
       period: { startDate: filters.startDate, endDate: filters.endDate },
       summary: {
         totalVitals: vitals.length,
+        uniquePatients: new Set(vitals.map(v => v.patientId)).size,
         averages: {
           temperature: avgTemp.toFixed(1),
           pulse: Math.round(avgPulse),
-          respiratoryRate: Math.round(avgResp)
+          respiratoryRate: Math.round(avgResp),
+          oxygenSaturation: Math.round(avgSpo2)
         },
-        bloodPressureReadings: validBP.length
-      }
+        abnormalFindings: {
+          hypertension,
+          fever,
+          tachycardia,
+          bradycardia,
+          hypoxia
+        }
+      },
+      monthlyTrends: this.calculateMonthlyTrends(vitals)
     };
+  }
+
+  private calculateMonthlyTrends(vitals: any[]) {
+    const trends: Record<string, { month: string; avgTemp: number; avgPulse: number; count: number }> = {};
+    
+    for (const vital of vitals) {
+      const month = vital.recordedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      if (!trends[month]) {
+        trends[month] = { month, avgTemp: 0, avgPulse: 0, count: 0 };
+      }
+      if (vital.temperature) trends[month].avgTemp += vital.temperature;
+      if (vital.pulse) trends[month].avgPulse += vital.pulse;
+      trends[month].count++;
+    }
+
+    return Object.values(trends).map(t => ({
+      month: t.month,
+      avgTemp: t.count > 0 ? Math.round((t.avgTemp / t.count) * 10) / 10 : 0,
+      avgPulse: t.count > 0 ? Math.round(t.avgPulse / t.count) : 0
+    }));
   }
 }

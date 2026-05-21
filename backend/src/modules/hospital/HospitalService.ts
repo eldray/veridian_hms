@@ -18,7 +18,7 @@ export class HospitalService {
   }
 
   async getActiveHospital() {
-    return this.hospitalRepository.findActive();
+    return this.hospitalRepository.getActiveHospital();
   }
 
   async createHospital(data: CreateHospitalDTO) {

@@ -1,12 +1,15 @@
-// InvoiceService.ts
-import { InvoiceRepository } from './InvoiceRepository';
-import { CreateInvoiceDTO, UpdateInvoiceDTO, InvoiceStats } from './InvoiceTypes';
+import { PurchaseInvoiceRepository } from './purchaseInvoice.repository';
+import { 
+  CreatePurchaseInvoiceDTO, 
+  UpdatePurchaseInvoiceDTO, 
+  PurchaseInvoiceStats 
+} from './purchaseInvoice.types';
 
-export class InvoiceService {
-  private invoiceRepository: InvoiceRepository;
+export class PurchaseInvoiceService {
+  private invoiceRepository: PurchaseInvoiceRepository;
 
-  constructor(invoiceRepository?: InvoiceRepository) {
-    this.invoiceRepository = invoiceRepository || new InvoiceRepository();
+  constructor(invoiceRepository?: PurchaseInvoiceRepository) {
+    this.invoiceRepository = invoiceRepository || new PurchaseInvoiceRepository();
   }
 
   async getAllInvoices(filters: {
@@ -23,7 +26,7 @@ export class InvoiceService {
     return this.invoiceRepository.findById(id);
   }
 
-  async createInvoice(data: CreateInvoiceDTO, createdById: string) {
+  async createInvoice(data: CreatePurchaseInvoiceDTO, createdById: string) {
     // Check for duplicate invoice number
     const existingInvoice = await this.invoiceRepository.findByInvoiceNumber(data.invoiceNumber);
     
@@ -34,7 +37,7 @@ export class InvoiceService {
     return this.invoiceRepository.create(data, createdById);
   }
 
-  async updateInvoice(id: string, data: UpdateInvoiceDTO) {
+  async updateInvoice(id: string, data: UpdatePurchaseInvoiceDTO) {
     return this.invoiceRepository.update(id, data);
   }
 
@@ -49,7 +52,7 @@ export class InvoiceService {
   async getInvoiceStats(filters: {
     startDate?: Date;
     endDate?: Date;
-  }): Promise<InvoiceStats> {
+  }): Promise<PurchaseInvoiceStats> {
     return this.invoiceRepository.getStats(filters);
   }
 }

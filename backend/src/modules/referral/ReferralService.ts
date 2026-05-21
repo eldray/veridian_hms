@@ -1,5 +1,5 @@
-// backend/src/modules/referral/ReferralService.ts
-
+// modules/referral/ReferralService.ts
+import { PrismaClient } from '@prisma/client';
 import { ReferralRepository } from './ReferralRepository';
 import { 
   CreateOutgoingReferralDTO, 
@@ -13,30 +13,42 @@ import { BaseService } from '../../shared/base/BaseService';
 export class ReferralService extends BaseService {
   private repository: ReferralRepository;
 
-  constructor() {
+  constructor(prisma: PrismaClient) {  // ✅ FIXED - pass prisma
     super('ReferralService');
-    this.repository = new ReferralRepository();
+    this.repository = new ReferralRepository(prisma);
   }
 
   async getAllReferrals(filters: ReferralFilters) {
-    this.logger.info('Fetching referrals with filters', { filters });
+    this.logInfo('Fetching referrals with filters', { filters });
     return await this.repository.findAll(filters);
   }
 
   async getReferralById(id: string) {
-    this.logger.info('Fetching referral by ID', { id });
+    this.logInfo('Fetching referral by ID', { id });
     return await this.repository.findById(id);
   }
 
   async createOutgoingReferral(data: CreateOutgoingReferralDTO, userId: string) {
-    this.logger.info('Creating outgoing referral', { patientId: data.patientId, userId });
+    this.logInfo('Creating outgoing referral', { 
+      patientId: data.patientId, 
+      userId,
+      paymentMode: data.corporateAccountId ? 'corporate' : (data.insuranceProviderId ? 'insurance' : 'cash')
+    });
     
-    // Validate patient exists (will throw if not found)
-    // This validation is now handled in repository via Prisma foreign key
+    // ✅ ADDED - Validate corporate account if provided
+    if (data.corporateAccountId) {
+      const corporateAccount = await (this.repository as any).prisma.corporateAccount.findUnique({
+        where: { id: data.corporateAccountId }
+      });
+      if (!corporateAccount || !corporateAccount.isActive) {
+        throw new Error('Invalid or inactive corporate account');
+      }
+      this.logInfo('Corporate account validated for referral', { corporateAccountId: data.corporateAccountId });
+    }
     
     const referral = await this.repository.createOutgoing(data, userId);
     
-    this.logger.info('Outgoing referral created', { 
+    this.logInfo('Outgoing referral created', { 
       referralId: referral.id, 
       referralNumber: referral.referralNumber 
     });
@@ -45,11 +57,11 @@ export class ReferralService extends BaseService {
   }
 
   async createIncomingReferral(data: CreateIncomingReferralDTO, userId: string) {
-    this.logger.info('Creating incoming referral', { patientId: data.patientId, userId });
+    this.logInfo('Creating incoming referral', { patientId: data.patientId, userId });
     
     const referral = await this.repository.createIncoming(data, userId);
     
-    this.logger.info('Incoming referral created', { 
+    this.logInfo('Incoming referral created', { 
       referralId: referral.id, 
       referralNumber: referral.referralNumber 
     });
@@ -58,14 +70,15 @@ export class ReferralService extends BaseService {
   }
 
   async updateReferralStatus(id: string, data: UpdateReferralStatusDTO) {
-    this.logger.info('Updating referral status', { id, status: data.status });
+    this.logInfo('Updating referral status', { id, status: data.status });
     
     const referral = await this.repository.updateStatus(id, data.status, {
       acceptanceNotes: data.acceptanceNotes,
-      rejectedReason: data.rejectedReason
+      rejectedReason: data.rejectedReason,
+      outcomeNotes: data.outcomeNotes  // ✅ ADDED
     });
     
-    this.logger.info('Referral status updated', { 
+    this.logInfo('Referral status updated', { 
       id, 
       status: referral.status 
     });
@@ -74,18 +87,17 @@ export class ReferralService extends BaseService {
   }
 
   async deleteReferral(id: string) {
-    this.logger.info('Deleting referral', { id });
+    this.logInfo('Deleting referral', { id });
     await this.repository.delete(id);
-    this.logger.info('Referral deleted', { id });
+    this.logInfo('Referral deleted', { id });
     return { success: true, message: 'Referral deleted successfully' };
   }
 
   async getReferralsByPatient(patientId: string) {
-    this.logger.info('Fetching referrals for patient', { patientId });
+    this.logInfo('Fetching referrals for patient', { patientId });
     return await this.repository.findByPatient(patientId);
   }
 
-  // Business logic helpers
   async getPendingReferralsCount() {
     const filters: ReferralFilters = { status: 'pending' as ReferralStatus, limit: 1 };
     const result = await this.repository.findAll(filters);
@@ -98,8 +110,12 @@ export class ReferralService extends BaseService {
       limit: 100 
     };
     const result = await this.repository.findAll(filters);
-    
-    // Filter urgent ones in service layer
     return result.data.filter(r => r.urgency === 'urgent' || r.urgency === 'stat');
+  }
+  
+  // ✅ NEW - Get referral statistics
+  async getReferralStats() {
+    this.logInfo('Fetching referral statistics');
+    return await this.repository.getStats();
   }
 }

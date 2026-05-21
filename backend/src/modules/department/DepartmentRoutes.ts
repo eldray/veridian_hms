@@ -6,40 +6,44 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { DepartmentController } from './DepartmentController';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createDepartmentRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new DepartmentController(prisma);
 
-  // Get all departments with filtering
-  router.get('/', controller.getAll as any);
+  // All routes require authentication
+  router.use(protect);
+
+  // Get all departments with filtering and pagination
+  router.get('/', controller.getAll.bind(controller));
 
   // Get department statistics
-  router.get('/statistics', controller.getStats as any);
+  router.get('/statistics', controller.getStats.bind(controller));
 
   // Get department by ID
-  router.get('/:id', controller.getById as any);
+  router.get('/:id', controller.getById.bind(controller));
 
-  // Create new department
-  router.post('/', ...controller.create);
+  // Create new department (Admin only)
+  router.post('/', requireRole(['admin']), controller.create);
 
-  // Update department
-  router.put('/:id', ...controller.update);
+  // Update department (Admin only)
+  router.put('/:id', requireRole(['admin']), controller.update);
 
-  // Delete department
-  router.delete('/:id', controller.delete as any);
+  // Delete department (Admin only)
+  router.delete('/:id', requireRole(['admin']), controller.delete.bind(controller));
 
   // Get department users
-  router.get('/:id/users', controller.getUsers as any);
+  router.get('/:id/users', controller.getUsers.bind(controller));
 
-  // Assign user to department
-  router.post('/:id/users', ...controller.assignUser);
+  // Assign user to department (Admin only)
+  router.post('/:id/users', requireRole(['admin']), controller.assignUser);
 
-  // Remove user from department
-  router.delete('/:id/users/:userId', controller.removeUser as any);
+  // Remove user from department (Admin only)
+  router.delete('/:id/users/:userId', requireRole(['admin']), controller.removeUser.bind(controller));
 
-  // Bulk update departments
-  router.put('/bulk/update', ...controller.bulkUpdate);
+  // Bulk update departments (Admin only)
+  router.put('/bulk/update', requireRole(['admin']), controller.bulkUpdate);
 
   return router;
 }

@@ -17,18 +17,21 @@ export class BillingController {
   }
 
   // ============================================
-  // GET ALL BILLS
+  // GET ALL BILLS WITH PAGINATION
   // ============================================
   getAll = async (req: AuthRequest, res: Response) => {
     try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+
       const filters = {
         patientId: req.query.patientId as string,
         status: req.query.status as any,
         paymentMode: req.query.paymentMode as any,
         dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
         dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 50
+        page,
+        limit
       };
 
       const result = await this.service.getBills(filters);
@@ -47,6 +50,7 @@ export class BillingController {
     } catch (error) {
       console.error('Error fetching bills:', error);
       res.status(500).json({
+        success: false,
         message: 'Error fetching bills',
         error: (error as Error).message
       });
@@ -68,36 +72,43 @@ export class BillingController {
     } catch (error) {
       console.error('Error fetching bill:', error);
       res.status(404).json({
+        success: false,
         message: (error as Error).message
       });
     }
   };
 
   // ============================================
-  // CREATE BILL
+  // CREATE BILL (Supports all 4 payment modes)
   // ============================================
   create = [
     body('patientId').notEmpty().withMessage('Patient ID is required'),
     body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
-    body('paymentMode').isIn(['cash', 'nhis', 'private_insurance']).withMessage('Valid payment mode is required'),
+    body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Valid payment mode is required'),
     body('items').isArray({ min: 1 }).withMessage('At least one bill item is required'),
+    body('corporateAccountId').optional().custom((value, { req }) => {
+      if (req.body.paymentMode === 'corporate' && !value) {
+        throw new Error('Corporate Account ID is required for corporate payment mode');
+      }
+      return true;
+    }),
 
     async (req: AuthRequest, res: Response) => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
+          return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const user = req.user;
         if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
+          return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
-        const { patientId, attendanceId, paymentMode, items } = req.body;
+        const { patientId, attendanceId, paymentMode, items, corporateAccountId } = req.body;
 
         const bill = await this.service.createBill(
-          { patientId, attendanceId, paymentMode, items },
+          { patientId, attendanceId, paymentMode, items, corporateAccountId },
           user.id
         );
 
@@ -109,6 +120,7 @@ export class BillingController {
       } catch (error) {
         console.error('Error creating bill:', error);
         res.status(500).json({
+          success: false,
           message: 'Error creating bill',
           error: (error as Error).message
         });
@@ -127,12 +139,12 @@ export class BillingController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
+          return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const user = req.user;
         if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
+          return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
         const { id } = req.params;
@@ -152,6 +164,7 @@ export class BillingController {
       } catch (error) {
         console.error('Error adding payment:', error);
         res.status(500).json({
+          success: false,
           message: 'Error adding payment',
           error: (error as Error).message
         });
@@ -169,12 +182,12 @@ export class BillingController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
+          return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const user = req.user;
         if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
+          return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
         const { id } = req.params;
@@ -190,6 +203,7 @@ export class BillingController {
       } catch (error) {
         console.error('Error updating bill status:', error);
         res.status(500).json({
+          success: false,
           message: 'Error updating bill status',
           error: (error as Error).message
         });
@@ -198,7 +212,7 @@ export class BillingController {
   ];
 
   // ============================================
-  // GET BILL STATISTICS
+  // GET BILL STATISTICS (with corporate breakdown)
   // ============================================
   getStatistics = async (req: AuthRequest, res: Response) => {
     try {
@@ -212,6 +226,7 @@ export class BillingController {
     } catch (error) {
       console.error('Error fetching bill statistics:', error);
       res.status(500).json({
+        success: false,
         message: 'Error fetching bill statistics',
         error: (error as Error).message
       });
@@ -233,6 +248,7 @@ export class BillingController {
     } catch (error) {
       console.error('Error fetching bill line items:', error);
       res.status(500).json({
+        success: false,
         message: 'Error fetching bill line items',
         error: (error as Error).message
       });
@@ -249,12 +265,12 @@ export class BillingController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
+          return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const user = req.user;
         if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
+          return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
         const { lineItemId } = req.params;
@@ -270,6 +286,7 @@ export class BillingController {
       } catch (error) {
         console.error('Error voiding bill line item:', error);
         res.status(500).json({
+          success: false,
           message: 'Error voiding bill line item',
           error: (error as Error).message
         });
@@ -287,7 +304,7 @@ export class BillingController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
+          return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const { billId } = req.params;
@@ -303,6 +320,7 @@ export class BillingController {
       } catch (error) {
         console.error('Error applying waiver:', error);
         res.status(500).json({
+          success: false,
           message: 'Error applying waiver',
           error: (error as Error).message
         });

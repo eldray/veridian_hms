@@ -1,15 +1,16 @@
-// GHSReportRoutes.ts - Route definitions for GHS Report module
-
+// modules/ghsReport/GHSReportRoutes.ts
 import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { GHSReportController } from './GHSReportController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export const createGHSReportRoutes = () => {
+export const createGHSReportRoutes = (prisma: PrismaClient) => {
   const router = Router();
-  const controller = new GHSReportController();
+  const controller = new GHSReportController(prisma);
 
+  // Apply authentication to all routes
   router.use(protect);
-  router.use(requireRole(['admin', 'doctor', 'accounts']));
+  router.use(requireRole(['admin', 'doctor', 'midwife', 'accounts']));
 
   // ==============================================
   // GENERATE REPORTS
@@ -19,12 +20,13 @@ export const createGHSReportRoutes = () => {
   router.get('/family-planning', controller.getFamilyPlanningReport);
   router.get('/idsr', controller.generateIDSRReport);
   router.get('/malaria', controller.generateMalariaReport);
+  router.get('/delivery', controller.generateDeliveryReport);
   router.get('/morbidity-mortality', controller.generateMorbidityMortalityReport);
   router.get('/top-diagnoses', controller.getTopDiagnoses);
   router.get('/form-a', controller.generateFormAReport);
 
   // ==============================================
-  // REPORT SUBMISSIONS
+  // REPORT SUBMISSIONS (PRESERVED FROM ORIGINAL)
   // ==============================================
   router.get('/submissions', controller.getReportSubmissions);
   router.get('/submissions/:id', controller.getReportById);

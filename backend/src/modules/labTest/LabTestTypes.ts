@@ -56,6 +56,13 @@ export interface BulkUpdateLabTestDTO {
   isActive: boolean;
 }
 
+export interface PaginationResponse {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
 // ============================================
 // RESPONSE TYPES
 // ============================================
@@ -105,13 +112,6 @@ export interface LabTestServiceResponse {
     fullName: string;
     username: string;
   };
-}
-
-export interface PaginationResponse {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
 }
 
 export interface LabTestServicesListResponse {

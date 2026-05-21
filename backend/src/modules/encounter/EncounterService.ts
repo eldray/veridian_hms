@@ -1,7 +1,17 @@
 // modules/encounter/EncounterService.ts
 import { PrismaClient } from '@prisma/client';
 import { EncounterRepository } from './EncounterRepository';
-import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabOrderDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO } from './EncounterTypes';
+import { 
+  CreateEncounterDTO, 
+  UpdateEncounterDTO, 
+  AddDiagnosisDTO, 
+  AddVitalsDTO, 
+  AddPrescriptionDTO, 
+  AddLabTestDTO, 
+  AddScanDTO, 
+  AddProcedureDTO, 
+  AddServiceDTO 
+} from './EncounterTypes';
 
 export class EncounterService {
   private repository: EncounterRepository;
@@ -63,9 +73,6 @@ export class EncounterService {
       userId
     );
 
-    // Generate initial bill if needed
-    await this.generateInitialBill(encounter.id);
-
     return encounter;
   }
 
@@ -91,7 +98,7 @@ export class EncounterService {
   // UPDATE ENCOUNTER STATUS
   // ============================================
   async updateEncounterStatus(id: string, status: string) {
-    const validStatuses = ['pending', 'admitted', 'completed', 'discharged'];
+    const validStatuses = ['pending', 'admitted', 'completed', 'discharged', 'cancelled'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
@@ -103,7 +110,6 @@ export class EncounterService {
   // ADD DIAGNOSIS
   // ============================================
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
-    // Validate attendance allows diagnosis addition
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId },
       select: { status: true }
@@ -113,7 +119,7 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
       throw new Error(`Cannot add diagnosis to ${encounter.status} encounter`);
     }
 
@@ -157,6 +163,10 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
+      throw new Error(`Cannot add vitals to ${encounter.status} encounter`);
+    }
+
     return this.repository.addVitals(encounterId, data, userId);
   }
 
@@ -164,9 +174,22 @@ export class EncounterService {
   // UPDATE VITALS
   // ============================================
   async updateVitals(vitalsId: string, data: Partial<AddVitalsDTO>) {
+    const updateData: any = {};
+    if (data.temperature !== undefined) updateData.temperature = data.temperature;
+    if (data.bloodPressureSystolic !== undefined && data.bloodPressureDiastolic !== undefined) {
+      updateData.bloodPressure = `${data.bloodPressureSystolic}/${data.bloodPressureDiastolic}`;
+    }
+    if (data.pulse !== undefined) updateData.pulse = data.pulse;
+    if (data.respiratoryRate !== undefined) updateData.respiration = data.respiratoryRate;
+    if (data.oxygenSaturation !== undefined) updateData.spo2 = data.oxygenSaturation;
+    if (data.weight !== undefined) updateData.weight = data.weight;
+    if (data.height !== undefined) updateData.height = data.height;
+    if (data.muac !== undefined) updateData.muac = data.muac;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
     return this.prisma.vitals.update({
       where: { id: vitalsId },
-      data
+      data: updateData
     });
   }
 
@@ -192,7 +215,7 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
       throw new Error(`Cannot add prescription to ${encounter.status} encounter`);
     }
 
@@ -214,12 +237,7 @@ export class EncounterService {
       throw new Error('Invalid service catalog item for medication');
     }
 
-    const prescription = await this.repository.addPrescription(encounterId, data, userId);
-
-    // Add to billing
-    await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
-
-    return prescription;
+    return this.repository.addPrescription(encounterId, data, userId);
   }
 
   // ============================================
@@ -321,9 +339,9 @@ export class EncounterService {
   }
 
   // ============================================
-  // ADD LAB ORDER
+  // ADD LAB TEST
   // ============================================
-  async addLabOrder(encounterId: string, data: AddLabOrderDTO, userId: string) {
+  async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId },
       select: { status: true }
@@ -333,58 +351,59 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
-      throw new Error(`Cannot add lab order to ${encounter.status} encounter`);
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
+      throw new Error(`Cannot add lab test to ${encounter.status} encounter`);
     }
 
-    const labOrder = await this.repository.addLabOrder(encounterId, data, userId);
+    const labTest = await this.repository.addLabTest(encounterId, data, userId);
 
     // Add to billing
-    const labTest = await this.prisma.labTest.findUnique({
-      where: { id: data.testId }
+    const labTestTemplate = await this.prisma.labTestTemplate.findUnique({
+      where: { id: data.templateId },
+      include: { ServiceCatalog: true }
     });
 
-    if (labTest?.serviceCatalogId) {
-      await this.addServiceToBill(encounterId, labTest.serviceCatalogId, userId);
+    if (labTestTemplate?.ServiceCatalog) {
+      await this.addServiceToBill(encounterId, labTestTemplate.ServiceCatalog.id, userId);
     }
 
-    return labOrder;
+    return labTest;
   }
 
   // ============================================
-  // UPDATE LAB ORDER STATUS
+  // UPDATE LAB TEST STATUS
   // ============================================
-  async updateLabOrderStatus(labOrderId: string, status: string, results?: any, performedById?: string) {
-    const validStatuses = ['pending', 'collected', 'processing', 'completed', 'verified', 'cancelled'];
+  async updateLabTestStatus(labTestId: string, status: string, results?: any, performedById?: string) {
+    const validStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
 
     const updateData: any = { status };
-    if (results) updateData.results = results;
+    if (results) updateData.result = results;
     if (performedById) updateData.performedById = performedById;
     if (status === 'completed') updateData.completedAt = new Date();
 
-    return this.prisma.labOrder.update({
-      where: { id: labOrderId },
+    return this.prisma.labTest.update({
+      where: { id: labTestId },
       data: updateData
     });
   }
 
   // ============================================
-  // REMOVE LAB ORDER
+  // REMOVE LAB TEST
   // ============================================
-  async removeLabOrder(encounterId: string, labOrderId: string) {
-    return this.prisma.labOrder.delete({
+  async removeLabTest(encounterId: string, labTestId: string) {
+    return this.prisma.labTest.delete({
       where: {
-        id: labOrderId,
+        id: labTestId,
         attendanceId: encounterId
       }
     });
   }
 
   // ============================================
-  // ADD SCAN/RADIOLOGY
+  // ADD SCAN
   // ============================================
   async addScan(encounterId: string, data: AddScanDTO, userId: string) {
     const encounter = await this.prisma.attendance.findUnique({
@@ -396,42 +415,11 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
       throw new Error(`Cannot add scan to ${encounter.status} encounter`);
     }
 
-    const service = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId }
-    });
-
-    if (!service) {
-      throw new Error('Service not found');
-    }
-
-    if (service.serviceType !== 'scan') {
-      throw new Error('Service is not a scan type');
-    }
-
-    const scanTemplate = await this.prisma.scanTemplate.findFirst({
-      where: { id: service.scanTemplateId || undefined }
-    });
-
-    if (!scanTemplate) {
-      throw new Error('Scan template not found for this service');
-    }
-
-    const scan = await this.prisma.scan.create({
-      data: {
-        attendanceId: encounterId,
-        scanTemplateId: scanTemplate.id,
-        serviceCatalogId: data.serviceCatalogId,
-        priority: data.priority || 'routine',
-        status: 'pending',
-        requestedAt: new Date(),
-        requestedById: userId,
-        notes: data.notes || data.clinicalNotes || null
-      }
-    });
+    const scan = await this.repository.addScan(encounterId, data, userId);
 
     await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
 
@@ -441,14 +429,14 @@ export class EncounterService {
   // ============================================
   // UPDATE SCAN STATUS
   // ============================================
-  async updateScanStatus(scanId: string, status: string, results?: any, performedById?: string) {
-    const validStatuses = ['pending', 'in_progress', 'completed', 'verified', 'cancelled'];
+  async updateScanStatus(scanId: string, status: string, results?: string, performedById?: string) {
+    const validStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
 
     const updateData: any = { status };
-    if (results) updateData.results = results;
+    if (results) updateData.result = results;
     if (performedById) updateData.performedById = performedById;
     if (status === 'completed') updateData.completedAt = new Date();
 
@@ -483,34 +471,11 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
       throw new Error(`Cannot add procedure to ${encounter.status} encounter`);
     }
 
-    const service = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId }
-    });
-
-    if (!service) {
-      throw new Error('Service not found');
-    }
-
-    if (service.serviceType !== 'procedure') {
-      throw new Error('Service is not a procedure type');
-    }
-
-    const procedure = await this.prisma.procedure.create({
-      data: {
-        attendanceId: encounterId,
-        serviceCatalogId: data.serviceCatalogId,
-        priority: data.priority || 'routine',
-        status: 'scheduled',
-        scheduledAt: new Date(),
-        requestedById: userId,
-        performedById: data.performedById || userId,
-        notes: data.notes || null
-      }
-    });
+    const procedure = await this.repository.addProcedure(encounterId, data, userId);
 
     await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
 
@@ -561,41 +526,11 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    if (encounter.status === 'completed' || encounter.status === 'discharged') {
+    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
       throw new Error(`Cannot add service to ${encounter.status} encounter`);
     }
 
-    const service = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId }
-    });
-
-    if (!service) {
-      throw new Error('Service not found');
-    }
-
-    const existingService = await this.prisma.serviceRendered.findFirst({
-      where: {
-        attendanceId: encounterId,
-        serviceItemId: data.serviceCatalogId
-      }
-    });
-
-    if (existingService) {
-      throw new Error('Service already added to this encounter');
-    }
-
-    await this.prisma.serviceRendered.create({
-      data: {
-        attendanceId: encounterId,
-        serviceItemId: data.serviceCatalogId,
-        quantity: data.quantity || 1,
-        date: new Date(),
-        performedById: userId,
-        notes: data.notes || null
-      }
-    });
-
-    await this.generateBillFromEncounter(encounterId);
+    await this.repository.addService(encounterId, data, userId);
 
     return encounter;
   }
@@ -613,7 +548,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // GET WORKLISTS (CLINICAL QUEUES)
+  // GET WORKLISTS
   // ============================================
   async getVitalsWorklist() {
     return this.repository.getVitalsWorklist();
@@ -631,6 +566,10 @@ export class EncounterService {
     return this.repository.getPharmacyWorklist();
   }
 
+  async getRadiologyWorklist() {
+    return this.repository.getRadiologyWorklist();
+  }
+
   // ============================================
   // HELPER: Add Service to Bill
   // ============================================
@@ -643,7 +582,7 @@ export class EncounterService {
     });
 
     if (existingService) {
-      return; // Already added
+      return;
     }
 
     await this.prisma.serviceRendered.create({
@@ -655,26 +594,6 @@ export class EncounterService {
         performedById: userId
       }
     });
-
-    // Trigger bill generation
-    await this.generateBillFromEncounter(encounterId);
-  }
-
-  // ============================================
-  // HELPER: Generate Initial Bill
-  // ============================================
-  private async generateInitialBill(encounterId: string) {
-    // Placeholder for billing service integration
-    // In production, call BillingService.generateBillFromAttendance(encounterId)
-    console.log(`Bill generation triggered for encounter ${encounterId}`);
-  }
-
-  // ============================================
-  // HELPER: Generate Bill from Encounter
-  // ============================================
-  private async generateBillFromEncounter(encounterId: string) {
-    // Placeholder for billing service integration
-    console.log(`Bill updated for encounter ${encounterId}`);
   }
 
   // ============================================
@@ -684,9 +603,14 @@ export class EncounterService {
     const encounter = await this.prisma.attendance.findUnique({
       where: { id },
       include: {
-        Medication: true,
-        LabOrder: true,
-        ServiceRendered: true
+        Medication: { take: 1 },
+        LabTest: { take: 1 },
+        Scan: { take: 1 },
+        Procedure: { take: 1 },
+        ServiceRendered: { take: 1 },
+        AttendanceDiagnosis: { take: 1 },
+        Vitals: { take: 1 },
+        Bill: true
       }
     });
 
@@ -694,8 +618,14 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    // Check if encounter has related records
-    if (encounter.Medication.length > 0 || encounter.LabOrder.length > 0 || encounter.ServiceRendered.length > 0) {
+    if (encounter.Medication.length > 0 || 
+        encounter.LabTest.length > 0 || 
+        encounter.Scan.length > 0 || 
+        encounter.Procedure.length > 0 || 
+        encounter.ServiceRendered.length > 0 ||
+        encounter.AttendanceDiagnosis.length > 0 ||
+        encounter.Vitals.length > 0 ||
+        encounter.Bill) {
       throw new Error('Cannot delete encounter with related records. Please remove all services first.');
     }
 

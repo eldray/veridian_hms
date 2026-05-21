@@ -1,8 +1,4 @@
-/**
- * Patient Controller
- * HTTP request handlers for Patient operations
- */
-
+// modules/patient/PatientController.ts
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
@@ -17,120 +13,257 @@ export class PatientController extends BaseController {
   constructor() {
     super();
     this.service = new PatientService(prisma);
+    console.log('✅ PatientController initialized');
   }
 
-  /**
-   * GET /patients
-   * Search and list patients with pagination
-   */
   async searchPatients(req: Request, res: Response) {
-    const filters: PatientFilters = {
-      search: req.query.search as string,
-      nhisNumber: req.query.nhisNumber as string,
-      phone: req.query.phone as string,
-      email: req.query.email as string,
-      gender: req.query.gender as any,
-      dateFrom: req.query.dateFrom as string,
-      dateTo: req.query.dateTo as string,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 10
-    };
+    try {
+      const filters: PatientFilters = {
+        search: req.query.search as string,
+        nhisNumber: req.query.nhisNumber as string,
+        phone: req.query.phone as string,
+        email: req.query.email as string,
+        gender: req.query.gender as any,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10
+      };
 
-    const result = await this.service.searchPatients(filters);
+      const result = await this.service.searchPatients(filters);
 
-    return this.paginated(res, result.data, result.pagination, 'Patients retrieved successfully');
+      return res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        message: 'Patients retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in searchPatients:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching patients'
+      });
+    }
   }
 
-  /**
-   * GET /patients/:id
-   * Get patient by ID
-   */
   async getPatientById(req: Request, res: Response) {
-    const { id } = req.params;
-    
-    const patient = await this.service.getPatientById(id, {
-      attendances: true,
-      admissions: true,
-      appointments: true
-    });
+    try {
+      const { id } = req.params;
+      
+      // ✅ FIXED: Use correct relation names from schema
+      const patient = await this.service.getPatientById(id, {
+        Attendance: true,      // ✅ Singular, capital A (not Attendances)
+        Admission: true,       // ✅ Singular, capital A (not admissions)
+        appointments: true,    // ✅ This is correct (lowercase a)
+        Bill: true,            // ✅ Singular, capital B
+        InsuranceClaim: true,  // ✅ Singular, capital I, capital C
+        InsuranceProvider: true, // ✅ Singular, capital I, capital P
+        Vitals: true,          // ✅ Singular, capital V
+        NHISEligibilityCheck: true,
+        ReferralRecord: true,
+        antenatalBookings: true,
+        PatientWaiver: true,
+        deliveryRecords: true,
+        abortionRecords: true,
+        postnatalRecords: true,
+        proformaInvoices: true
+      });
 
-    const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
-    const fullName = `${patient.firstName} ${patient.otherName || ''} ${patient.lastName}`.trim();
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: 'Patient not found'
+        });
+      }
 
-    return this.ok(res, { ...patient, age, fullName }, 'Patient retrieved successfully');
+      const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
+      const fullName = `${patient.surname} ${patient.otherNames || ''}`.trim();
+
+      return res.json({
+        success: true,
+        data: { ...patient, age, fullName },
+        message: 'Patient retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getPatientById:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching patient'
+      });
+    }
   }
 
-  /**
-   * GET /patients/nhis/:nhisNumber
-   * Get patient by NHIS number
-   */
   async getPatientByNHIS(req: Request, res: Response) {
-    const { nhisNumber } = req.params;
-    
-    const patient = await this.service.getPatientByNHISNumber(nhisNumber);
+    try {
+      const { nhisNumber } = req.params;
+      
+      const patient = await this.service.getPatientByNHISNumber(nhisNumber);
 
-    const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
-    const fullName = `${patient.firstName} ${patient.otherName || ''} ${patient.lastName}`.trim();
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: 'Patient not found'
+        });
+      }
 
-    return this.ok(res, { ...patient, age, fullName }, 'Patient retrieved successfully');
+      const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
+      const fullName = `${patient.surname} ${patient.otherNames || ''}`.trim();
+
+      return res.json({
+        success: true,
+        data: { ...patient, age, fullName },
+        message: 'Patient retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getPatientByNHIS:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching patient by NHIS'
+      });
+    }
   }
 
-  /**
-   * POST /patients
-   * Create a new patient
-   */
   async createPatient(req: Request, res: Response) {
-    const data: CreatePatientDTO = req.body;
-    
-    const patient = await this.service.createPatient(data);
+    try {
+      const data: CreatePatientDTO = req.body;
+      
+      const patient = await this.service.createPatient(data);
 
-    return this.created(res, patient, 'Patient created successfully');
+      return res.status(201).json({
+        success: true,
+        data: patient,
+        message: 'Patient created successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in createPatient:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error creating patient'
+      });
+    }
   }
 
-  /**
-   * PUT /patients/:id
-   * Update patient
-   */
   async updatePatient(req: Request, res: Response) {
-    const { id } = req.params;
-    const data = req.body;
-    
-    const patient = await this.service.updatePatient(id, data);
+    try {
+      const { id } = req.params;
+      const data = req.body;
+      
+      const patient = await this.service.updatePatient(id, data);
 
-    return this.ok(res, patient, 'Patient updated successfully');
+      return res.json({
+        success: true,
+        data: patient,
+        message: 'Patient updated successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in updatePatient:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error updating patient'
+      });
+    }
   }
 
-  /**
-   * DELETE /patients/:id
-   * Delete patient
-   */
   async deletePatient(req: Request, res: Response) {
-    const { id } = req.params;
-    
-    await this.service.deletePatient(id);
+    try {
+      const { id } = req.params;
+      
+      await this.service.deletePatient(id);
 
-    return this.ok(res, null, 'Patient deleted successfully');
+      return res.json({
+        success: true,
+        message: 'Patient deleted successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in deletePatient:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error deleting patient'
+      });
+    }
   }
 
-  /**
-   * GET /patients/stats
-   * Get patient statistics
-   */
   async getStats(req: Request, res: Response) {
-    const stats = await this.service.getPatientStats();
+    try {
+      const stats = await this.service.getPatientStats();
 
-    return this.ok(res, stats, 'Patient statistics retrieved successfully');
+      return res.json({
+        success: true,
+        data: stats,
+        message: 'Patient statistics retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getStats:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching patient statistics'
+      });
+    }
   }
 
-  /**
-   * GET /patients/recent
-   * Get recent patients
-   */
   async getRecentPatients(req: Request, res: Response) {
-    const limit = parseInt(req.query.limit as string) || 10;
-    
-    const patients = await this.service.getPatientSummaries(limit);
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const patients = await this.service.getPatientSummaries(limit);
 
-    return this.ok(res, patients, 'Recent patients retrieved successfully');
+      return res.json({
+        success: true,
+        data: patients,
+        message: 'Recent patients retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getRecentPatients:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching recent patients'
+      });
+    }
+  }
+
+  // ✅ NEW: Get patients by corporate account
+  async getPatientsByCorporateAccount(req: Request, res: Response) {
+    try {
+      const { corporateAccountId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const result = await this.service.getPatientsByCorporateAccount(corporateAccountId, page, limit);
+
+      return res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        message: 'Corporate patients retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getPatientsByCorporateAccount:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching corporate patients'
+      });
+    }
+  }
+
+  // ✅ NEW: Get patient corporate summary
+  async getPatientCorporateSummary(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const summary = await this.service.getPatientCorporateSummary(id);
+
+      return res.json({
+        success: true,
+        data: summary,
+        message: 'Corporate summary retrieved successfully'
+      });
+    } catch (error: any) {
+      console.error('❌ Error in getPatientCorporateSummary:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching corporate summary'
+      });
+    }
   }
 }

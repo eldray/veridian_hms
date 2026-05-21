@@ -1,93 +1,45 @@
+// modules/communication/CommunicationRoutes.ts
 import { Router } from 'express';
 import { CommunicationController } from './CommunicationController';
-import { protect as authenticate, requireRole as authorize } from '../../middleware/authMiddleware';
-
-export class CommunicationRoutes {
-  private router: Router;
-  private communicationController: CommunicationController;
-
-  constructor() {
-    this.router = Router();
-    this.communicationController = new CommunicationController();
-    this.initializeRoutes();
-  }
-
-  private initializeRoutes(): void {
-    // SMS Routes - Allow more staff: doctors, nurses, midwives can also send messages
-    this.router.post(
-      '/sms',
-      authenticate,
-      authorize(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
-      this.communicationController.sendSMS.bind(this.communicationController)
-    );
-
-    // WhatsApp Routes - Allow more staff
-    this.router.post(
-      '/whatsapp',
-      authenticate,
-      authorize(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
-      this.communicationController.sendWhatsApp.bind(this.communicationController)
-    );
-
-    // Bulk Messaging - Keep restricted to admin and accounts
-    this.router.post(
-      '/bulk',
-      authenticate,
-      authorize(['admin', 'accounts']),
-      this.communicationController.sendBulkMessage.bind(this.communicationController)
-    );
-
-    // Template Management - Keep restricted to admin and accounts
-    this.router.get(
-      '/templates',
-      authenticate,
-      authorize(['admin', 'accounts']),
-      this.communicationController.getTemplates.bind(this.communicationController)
-    );
-
-    this.router.post(
-      '/templates',
-      authenticate,
-      authorize(['admin', 'accounts']),
-      this.communicationController.createTemplate.bind(this.communicationController)
-    );
-
-    this.router.put(
-      '/templates/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),
-      this.communicationController.updateTemplate.bind(this.communicationController)
-    );
-
-    this.router.delete(
-      '/templates/:id',
-      authenticate,
-      authorize(['admin', 'accounts']),
-      this.communicationController.deleteTemplate.bind(this.communicationController)
-    );
-
-    // History & Statistics - Allow admin, accounts, and medical staff to view
-    this.router.get(
-      '/history',
-      authenticate,
-      authorize(['admin', 'accounts', 'doctor', 'nurse', 'midwife']),
-      this.communicationController.getMessageHistory.bind(this.communicationController)
-    );
-
-    this.router.get(
-      '/stats',
-      authenticate,
-      authorize(['admin', 'accounts', 'doctor', 'nurse', 'midwife']),
-      this.communicationController.getMessageStats.bind(this.communicationController)
-    );
-  }
-
-  getRouter(): Router {
-    return this.router;
-  }
-}
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createCommunicationRoutes(): Router {
-  const routes = new CommunicationRoutes();
-  return routes.getRouter();
+  const router = Router();
+  const controller = new CommunicationController();
+
+  // All routes require authentication
+  router.use(protect);
+
+  // SMS Routes
+  router.post(
+    '/sms',
+    requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
+    controller.sendSMS
+  );
+
+  // WhatsApp Routes
+  router.post(
+    '/whatsapp',
+    requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
+    controller.sendWhatsApp
+  );
+
+  // Bulk Messaging - restricted to admin and accounts
+  router.post(
+    '/bulk',
+    requireRole(['admin', 'accounts']),
+    controller.sendBulkMessage
+  );
+
+  // Template Management - restricted to admin and accounts
+  router.get('/templates', requireRole(['admin', 'accounts']), controller.getTemplates);
+  router.post('/templates', requireRole(['admin', 'accounts']), controller.createTemplate);
+  router.put('/templates/:id', requireRole(['admin', 'accounts']), controller.updateTemplate);
+  router.delete('/templates/:id', requireRole(['admin', 'accounts']), controller.deleteTemplate);
+
+  // History & Statistics
+  router.get('/history', requireRole(['admin', 'accounts', 'doctor', 'nurse', 'midwife']), controller.getMessageHistory);
+  router.get('/stats', requireRole(['admin', 'accounts', 'doctor', 'nurse', 'midwife']), controller.getMessageStats);
+
+  return router;
 }
