@@ -714,16 +714,19 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
     set({ isLoading: true });
     try {
       const response = await apiGetInsuranceProviders(filters);
+      
+      // ✅ Handle different response structures
       let providers: InsuranceProvider[] = [];
-
+  
       if (Array.isArray(response)) {
         providers = response;
       } else if (response?.data && Array.isArray(response.data)) {
-        providers = response.data;
+        providers = response.data;  // ← Extract from response.data
       } else if (response?.providers && Array.isArray(response.providers)) {
         providers = response.providers;
       }
-
+  
+      console.log('Providers loaded:', providers.length);
       set({ providers, isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch insurance providers:', error);
@@ -763,12 +766,19 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
   updateInsuranceProvider: async (id: string, data: any) => {
     set({ isLoading: true });
     try {
-      const updatedProvider = await apiUpdateInsuranceProvider(id, data);
-      set({
-        providers: get().providers.map(p => p.id === id ? (updatedProvider.data || updatedProvider) : p),
-        currentProvider: updatedProvider.data || updatedProvider,
+      const response = await apiUpdateInsuranceProvider(id, data);
+      
+      // ✅ Extract the provider from the nested response
+      const providerData = response.data || response;
+      
+      // ✅ Ensure we have the updated isActive value
+      console.log(`Provider ${providerData.name} isActive:`, providerData.isActive);
+      
+      set(state => ({
+        providers: state.providers.map(p => p.id === id ? { ...p, ...providerData } : p),
+        currentProvider: { ...state.currentProvider, ...providerData },
         isLoading: false
-      });
+      }));
     } catch (error: unknown) {
       console.error('Failed to update insurance provider:', error);
       set({ isLoading: false });

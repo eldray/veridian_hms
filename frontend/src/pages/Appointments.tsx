@@ -1,12 +1,12 @@
-// src/pages/Appointments.tsx - COMPLETE UPDATED VERSION
+// src/pages/Appointments.tsx - FULLY CORRECTED VERSION
 import { useEffect, useState, useMemo } from 'react';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
 import { usePatientStore } from '../store/patientStore';
+import { useDepartmentStore } from '../store/departmentStore';
 import { useToast } from '../store/toastStore';
-import NewAttendanceModal from '../components/NewAttendanceModal';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import Select from 'react-select';
 
 import {
   Plus,
@@ -23,14 +23,17 @@ import {
   XCircle,
   ArrowLeft,
   ChevronLeft,
-  ChevronRight,
-  CreditCard,
-  Shield,
-  Hospital,
-  Users
+  ChevronRight
 } from 'lucide-react';
 
 type DateFilterType = 'today' | 'tomorrow' | 'week' | 'custom';
+
+interface SelectOption {
+  value: string;
+  label: string;
+  role?: string;
+  folderNumber?: string;
+}
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -43,9 +46,12 @@ export default function Appointments() {
     updateAppointmentStatus,
     checkInAppointment,
     convertToAttendance,
+    getAvailableClinicians,
+    availableClinicians,
     isLoading 
   } = useAppointmentStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
+  const { departments, getDepartments, isLoading: departmentsLoading } = useDepartmentStore();
   const { user, hasRole } = useAuthStore();
   const { success, error } = useToast();
   
@@ -75,7 +81,7 @@ export default function Appointments() {
     corporateAccountId: ''
   });
 
-  // Form data (NO payment fields - scheduling only)
+  // Form data
   const [formData, setFormData] = useState({
     patientId: '',
     clinicianId: '',
@@ -87,6 +93,62 @@ export default function Appointments() {
     duration: 30,
     type: 'consultation'
   });
+
+  // Convert patients to Select options
+  const patientOptions: SelectOption[] = useMemo(() => {
+    return patients.map(patient => ({
+      value: patient.id,
+      label: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+      folderNumber: patient.folderNumber
+    }));
+  }, [patients]);
+
+  // Convert clinicians to Select options
+  const clinicianOptions: SelectOption[] = useMemo(() => {
+    return availableClinicians.map(clinician => ({
+      value: clinician.id,
+      label: `${clinician.fullName} (${clinician.role})`,
+      role: clinician.role
+    }));
+  }, [availableClinicians]);
+
+  // Convert departments to Select options
+  const departmentOptions: SelectOption[] = useMemo(() => {
+    return departments.map(dept => ({
+      value: dept.id,
+      label: dept.name
+    }));
+  }, [departments]);
+
+  // Get selected patient label
+  const selectedPatientLabel = useMemo(() => {
+    const patient = patients.find(p => p.id === formData.patientId);
+    if (!patient) return null;
+    return {
+      value: patient.id,
+      label: `${patient.surname} ${patient.otherNames || ''}`.trim()
+    };
+  }, [patients, formData.patientId]);
+
+  // Get selected clinician label
+  const selectedClinicianLabel = useMemo(() => {
+    const clinician = availableClinicians.find(c => c.id === formData.clinicianId);
+    if (!clinician) return null;
+    return {
+      value: clinician.id,
+      label: `${clinician.fullName} (${clinician.role})`
+    };
+  }, [availableClinicians, formData.clinicianId]);
+
+  // Get selected department label
+  const selectedDepartmentLabel = useMemo(() => {
+    const dept = departments.find(d => d.id === formData.departmentId);
+    if (!dept) return null;
+    return {
+      value: dept.id,
+      label: dept.name
+    };
+  }, [departments, formData.departmentId]);
 
   // Get date range based on filter
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
@@ -124,7 +186,7 @@ export default function Appointments() {
     }
   };
 
-  // Load data
+  // Load all data
   const loadData = async () => {
     try {
       setRefreshing(true);
@@ -140,7 +202,9 @@ export default function Appointments() {
       
       await Promise.all([
         getAppointments(filters),
-        loadPatients()
+        loadPatients(),
+        getDepartments(),
+        getAvailableClinicians(['doctor', 'nurse', 'midwife'])
       ]);
     } catch (err) {
       error('Load Failed', 'Failed to load appointment data');
@@ -201,7 +265,7 @@ export default function Appointments() {
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
-  // Handle convert to attendance with payment modal
+  // Handle convert to attendance
   const handleConvertToAttendance = (appointment: any) => {
     setSelectedAppointmentForAttendance(appointment);
     setPaymentData({
@@ -223,10 +287,7 @@ export default function Appointments() {
       setSelectedAppointmentForAttendance(null);
       success('Converted', 'Appointment converted to attendance successfully');
       
-      // Update appointment status to completed
       await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
-      
-      // Navigate to the new attendance
       navigate(`/dashboard/attendance/${result.attendance?.id || result.id}`);
       await loadData();
     } catch (err: any) {
@@ -331,8 +392,11 @@ export default function Appointments() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'consultation': return 'text-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)]';
+      case 'follow_up': return 'text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]';
       case 'procedure': return 'text-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)]';
       case 'antenatal': return 'text-[var(--icon-pink-text)] bg-[var(--icon-pink-bg)]';
+      case 'postnatal': return 'text-[var(--icon-teal-text)] bg-[var(--icon-teal-bg)]';
+      case 'vaccination': return 'text-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]';
       case 'lab_test': return 'text-[var(--icon-green-text)] bg-[var(--icon-green-bg)]';
       case 'scan': return 'text-[var(--icon-indigo-text)] bg-[var(--icon-indigo-bg)]';
       default: return 'text-[var(--text-secondary)] bg-[var(--bg-main)]';
@@ -369,6 +433,48 @@ export default function Appointments() {
     }
   };
 
+  // Custom styles for react-select
+  const selectStyles = {
+    control: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: 'var(--bg-main)',
+      borderColor: 'var(--border-color)',
+      borderRadius: '0.5rem',
+      padding: '0.125rem',
+      boxShadow: state.isFocused ? '0 0 0 2px var(--icon-blue-text)' : 'none',
+      '&:hover': {
+        borderColor: 'var(--icon-blue-text)'
+      }
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isFocused ? 'var(--bg-main)' : 'var(--bg-card)',
+      color: 'var(--text-primary)',
+      cursor: 'pointer',
+      '&:active': {
+        backgroundColor: 'var(--icon-blue-bg)'
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: 'var(--text-primary)'
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: 'var(--text-primary)'
+    }),
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: 'var(--bg-card)',
+      borderColor: 'var(--border-color)',
+      zIndex: 50
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: 'var(--text-tertiary)'
+    })
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -376,7 +482,7 @@ export default function Appointments() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
+            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all"
           >
             <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
@@ -395,7 +501,7 @@ export default function Appointments() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/dashboard/attendance')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm"
           >
             <User className="w-4 h-4" />
             Attendance
@@ -410,7 +516,7 @@ export default function Appointments() {
           <button
             onClick={loadData}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -447,81 +553,29 @@ export default function Appointments() {
           </div>
           
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => {
-                setDateFilter('today');
-                setShowDatePicker(false);
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'today'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
+            <button onClick={() => { setDateFilter('today'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'today' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
               Today
             </button>
-            <button
-              onClick={() => {
-                setDateFilter('tomorrow');
-                setShowDatePicker(false);
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'tomorrow'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
+            <button onClick={() => { setDateFilter('tomorrow'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'tomorrow' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
               Tomorrow
             </button>
-            <button
-              onClick={() => {
-                setDateFilter('week');
-                setShowDatePicker(false);
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'week'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
+            <button onClick={() => { setDateFilter('week'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'week' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
               Next 7 Days
             </button>
-            <button
-              onClick={() => {
-                setDateFilter('custom');
-                setShowDatePicker(true);
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'custom'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
+            <button onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'custom' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
               Custom
             </button>
           </div>
 
           {showDatePicker && dateFilter === 'custom' && (
             <div className="flex items-center gap-3 ml-auto">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-              />
+              <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]" />
               <span className="text-[var(--text-secondary)]">to</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-              />
+              <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]" />
             </div>
           )}
           
-          <div className="text-xs text-[var(--text-secondary)] ml-auto">
-            Showing: {getDateFilterDisplay()}
-          </div>
+          <div className="text-xs text-[var(--text-secondary)] ml-auto">Showing: {getDateFilterDisplay()}</div>
         </div>
       </div>
 
@@ -530,21 +584,11 @@ export default function Appointments() {
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="flex-1 w-full sm:max-w-sm relative">
             <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by patient or clinician..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            />
+            <input type="text" placeholder="Search by patient or clinician..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm" />
           </div>
 
           <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
               <option value="all">All Status</option>
               <option value="scheduled">Scheduled</option>
               <option value="confirmed">Confirmed</option>
@@ -555,11 +599,7 @@ export default function Appointments() {
               <option value="no_show">No Show</option>
             </select>
 
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            >
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
               <option value="all">All Types</option>
               <option value="consultation">Consultation</option>
               <option value="follow_up">Follow Up</option>
@@ -571,11 +611,7 @@ export default function Appointments() {
               <option value="scan">Scan</option>
             </select>
 
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            >
+            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
               <option value={10}>10 per page</option>
               <option value={20}>20 per page</option>
               <option value={50}>50 per page</option>
@@ -584,7 +620,7 @@ export default function Appointments() {
         </div>
       </div>
 
-      {/* Appointments Table - Production Ready */}
+      {/* Appointments Table */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
@@ -598,16 +634,9 @@ export default function Appointments() {
       ) : filteredAppointments.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
           <Calendar className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
-          <p className="text-[var(--text-secondary)] mb-2">
-            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
-              ? 'No appointments found' 
-              : 'No appointments scheduled yet'}
-          </p>
+          <p className="text-[var(--text-secondary)] mb-2">{searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 'No appointments found' : 'No appointments scheduled yet'}</p>
           <p className="text-[var(--text-tertiary)] text-sm mb-4">Get started by creating your first appointment</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 text-[var(--icon-blue-text)] hover:text-[var(--icon-blue-text)] font-medium text-sm transition-colors"
-          >
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 text-[var(--icon-blue-text)] hover:text-[var(--icon-blue-text)] font-medium text-sm transition-colors">
             <Plus className="w-4 h-4" />
             Schedule First Appointment
           </button>
@@ -656,66 +685,40 @@ export default function Appointments() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm">
-                          <p className="font-medium text-[var(--text-primary)]">
-                            {new Date(apt.appointmentDate).toLocaleDateString()}
-                          </p>
+                          <p className="font-medium text-[var(--text-primary)]">{new Date(apt.appointmentDate).toLocaleDateString()}</p>
                           <p className="text-[var(--text-secondary)] text-xs">{apt.appointmentTime}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(apt.type)}`}>
-                          {apt.type.replace('_', ' ').toUpperCase()}
-                        </span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(apt.type)}`}>{apt.type.replace('_', ' ').toUpperCase()}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(apt.status)}`}>
-                          {apt.status.replace('_', ' ').toUpperCase()}
-                        </span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(apt.status)}`}>{apt.status.replace('_', ' ').toUpperCase()}</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           {apt.status === 'scheduled' && (
-                            <button
-                              onClick={() => handleStatusUpdate(apt.id, 'confirmed')}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors"
-                              title="Confirm"
-                            >
+                            <button onClick={() => handleStatusUpdate(apt.id, 'confirmed')} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors" title="Confirm">
                               <CheckCircle className="w-4 h-4" />
                             </button>
                           )}
                           {apt.status === 'confirmed' && !apt.checkedIn && (
-                            <button
-                              onClick={() => handleCheckIn(apt.id)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors"
-                              title="Check In"
-                            >
+                            <button onClick={() => handleCheckIn(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors" title="Check In">
                               <User className="w-4 h-4" />
                             </button>
                           )}
                           {apt.status === 'checked_in' && (
-                            <button
-                              onClick={() => handleConvertToAttendance(apt)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors"
-                              title="Convert to Attendance"
-                            >
+                            <button onClick={() => handleConvertToAttendance(apt)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors" title="Convert to Attendance">
                               <Calendar className="w-4 h-4" />
                             </button>
                           )}
                           {canEditAppointment(apt) && apt.status !== 'completed' && apt.status !== 'cancelled' && (
-                            <button
-                              onClick={() => handleEdit(apt)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition-colors"
-                              title="Edit"
-                            >
+                            <button onClick={() => handleEdit(apt)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition-colors" title="Edit">
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
                           {canEditAppointment(apt) && (
-                            <button
-                              onClick={() => handleDelete(apt.id)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
-                              title="Delete"
-                            >
+                            <button onClick={() => handleDelete(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -733,18 +736,12 @@ export default function Appointments() {
             <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAppointments.length)} of{' '}
-                  {filteredAppointments.length} appointment records
+                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} appointment records
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-                  >
+                  <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {
@@ -756,27 +753,13 @@ export default function Appointments() {
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
-
                     return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                        }`}
-                      >
+                      <button key={pageNum} onClick={() => goToPage(pageNum)} className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'}`}>
                         {pageNum}
                       </button>
                     );
                   })}
-
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-                  >
+                  <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -786,84 +769,48 @@ export default function Appointments() {
         </>
       )}
 
-      {/* Payment Modal for Convert to Attendance */}
+      {/* Payment Modal */}
       {showPaymentModal && selectedAppointmentForAttendance && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
             <div className="p-6 border-b border-[var(--border-color)]">
               <h3 className="text-lg font-bold text-[var(--text-primary)]">Select Payment Method</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Patient: {getPatientName(findPatient(selectedAppointmentForAttendance))}
-              </p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">Patient: {getPatientName(findPatient(selectedAppointmentForAttendance))}</p>
             </div>
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Payment Mode *</label>
-                <select
-                  value={paymentData.paymentMode}
-                  onChange={(e) => setPaymentData({ ...paymentData, paymentMode: e.target.value })}
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                >
+                <select value={paymentData.paymentMode} onChange={(e) => setPaymentData({ ...paymentData, paymentMode: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
                   <option value="cash">Cash</option>
                   <option value="nhis">NHIS</option>
                   <option value="private_insurance">Private Insurance</option>
                   <option value="corporate">Corporate</option>
                 </select>
               </div>
-
               {paymentData.paymentMode === 'nhis' && (
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">NHIS Number *</label>
-                  <input
-                    type="text"
-                    value={paymentData.nhisCCC}
-                    onChange={(e) => setPaymentData({ ...paymentData, nhisCCC: e.target.value })}
-                    placeholder="Enter NHIS number"
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="text" value={paymentData.nhisCCC} onChange={(e) => setPaymentData({ ...paymentData, nhisCCC: e.target.value })} placeholder="Enter NHIS number" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
               )}
-
               {(paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance') && (
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Insurance Provider</label>
-                  <input
-                    type="text"
-                    value={paymentData.insuranceProviderId}
-                    onChange={(e) => setPaymentData({ ...paymentData, insuranceProviderId: e.target.value })}
-                    placeholder="Provider ID"
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="text" value={paymentData.insuranceProviderId} onChange={(e) => setPaymentData({ ...paymentData, insuranceProviderId: e.target.value })} placeholder="Provider ID" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
               )}
-
               {paymentData.paymentMode === 'corporate' && (
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Corporate Account ID</label>
-                  <input
-                    type="text"
-                    value={paymentData.corporateAccountId}
-                    onChange={(e) => setPaymentData({ ...paymentData, corporateAccountId: e.target.value })}
-                    placeholder="Enter Corporate Account ID"
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="text" value={paymentData.corporateAccountId} onChange={(e) => setPaymentData({ ...paymentData, corporateAccountId: e.target.value })} placeholder="Enter Corporate Account ID" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
               )}
             </div>
             <div className="p-6 border-t border-[var(--border-color)] flex gap-3 justify-end">
-              <button
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setSelectedAppointmentForAttendance(null);
-                }}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
-              >
+              <button onClick={() => { setShowPaymentModal(false); setSelectedAppointmentForAttendance(null); }} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium">
                 Cancel
               </button>
-              <button
-                onClick={confirmConvertToAttendance}
-                className="px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
-              >
+              <button onClick={confirmConvertToAttendance} className="px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium">
                 Confirm & Create Attendance
               </button>
             </div>
@@ -871,22 +818,13 @@ export default function Appointments() {
         </div>
       )}
 
-      {/* Appointment Form Modal (NO payment fields) */}
+      {/* Appointment Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl shadow-lg border border-[var(--border-color)] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                {editingAppointment ? 'Edit Appointment' : 'Schedule New Appointment'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingAppointment(null);
-                  resetForm();
-                }}
-                className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
-              >
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">{editingAppointment ? 'Edit Appointment' : 'Schedule New Appointment'}</h2>
+              <button onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }} className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition">
                 <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
             </div>
@@ -895,99 +833,40 @@ export default function Appointments() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Patient *</label>
-                  <select
-                    required
-                    value={formData.patientId}
-                    onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  >
-                    <option value="">Select Patient</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.surname} {p.otherNames} - {p.folderNumber}
-                      </option>
-                    ))}
-                  </select>
+                  <Select options={patientOptions} value={selectedPatientLabel} onChange={(option: any) => setFormData({ ...formData, patientId: option?.value || '' })} placeholder="Search patient by name or folder number..." isClearable isLoading={patientsLoading} styles={selectStyles} noOptionsMessage={() => "No patients found"} />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Clinician (Doctor/Nurse/Midwife) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.clinicianId}
-                    onChange={(e) => setFormData({ ...formData, clinicianId: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                    placeholder="Clinician ID"
-                  />
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">Enter the ID of the doctor, nurse, or midwife</p>
+                  <Select options={clinicianOptions} value={selectedClinicianLabel} onChange={(option: any) => setFormData({ ...formData, clinicianId: option?.value || '' })} placeholder="Search clinician by name..." isClearable isLoading={false} styles={selectStyles} noOptionsMessage={() => "No clinicians found"} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Department *</label>
-                  <select
-                    required
-                    value={formData.departmentId}
-                    onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  >
-                    <option value="">Select Department</option>
-                    <option value="1">Medical</option>
-                    <option value="2">Surgery</option>
-                    <option value="3">Pediatrics</option>
-                    <option value="4">Obstetrics & Gynecology</option>
-                    <option value="5">Emergency</option>
-                  </select>
+                  <Select options={departmentOptions} value={selectedDepartmentLabel} onChange={(option: any) => setFormData({ ...formData, departmentId: option?.value || '' })} placeholder="Select department..." isClearable isLoading={departmentsLoading} styles={selectStyles} noOptionsMessage={() => "No departments found"} />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                    placeholder="Appointment title"
-                  />
+                  <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" placeholder="Appointment title" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.appointmentDate}
-                    onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="date" required value={formData.appointmentDate} onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Time *</label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.appointmentTime}
-                    onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="time" required value={formData.appointmentTime} onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Type *</label>
-                  <select
-                    required
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  >
+                  <select required value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
                     <option value="consultation">Consultation</option>
                     <option value="follow_up">Follow Up</option>
                     <option value="procedure">Procedure</option>
@@ -999,45 +878,22 @@ export default function Appointments() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Duration (minutes)</label>
-                  <input
-                    type="number"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
+                  <input type="number" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm resize-none"
-                  placeholder="Appointment description or notes"
-                />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm resize-none" placeholder="Appointment description or notes" />
               </div>
 
               <div className="flex gap-3 justify-end pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingAppointment(null);
-                    resetForm();
-                  }}
-                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm"
-                >
+                <button type="button" onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }} className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all font-medium text-sm"
-                >
+                <button type="submit" className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all font-medium text-sm">
                   {editingAppointment ? 'Update' : 'Schedule'} Appointment
                 </button>
               </div>

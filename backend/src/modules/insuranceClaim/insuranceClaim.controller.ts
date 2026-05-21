@@ -202,6 +202,35 @@ export class InsuranceClaimController extends BaseController {
     }
   };
 
+  // modules/insuranceClaim/insuranceClaim.controller.ts
+
+updateInsuranceClaim = async (req: AuthRequest, res: Response) => {
+  try {
+    const { claimId } = req.params;
+    const updateData = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    // Use the existing updateClaimDraft function or create a new one
+    const claim = await insuranceClaimService.updateClaimDraft(claimId, updateData, userId);
+
+    res.json({
+      success: true,
+      data: claim,
+      message: 'Claim updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Error updating claim:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update claim'
+    });
+  }
+};
+
   updateClaimStatus = async (req: AuthRequest, res: Response) => {
     try {
       const { claimId } = req.params;

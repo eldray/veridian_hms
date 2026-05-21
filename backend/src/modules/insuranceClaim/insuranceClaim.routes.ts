@@ -46,6 +46,7 @@ router.get('/attendance/:attendanceId', requireRole(['admin', 'accounts', 'docto
 router.patch('/:claimId/draft', requireRole(['admin', 'accounts']), insuranceClaimController.updateClaimDraft);
 router.patch('/:claimId/finalize', requireRole(['admin', 'accounts']), insuranceClaimController.finalizeClaim);
 router.patch('/:claimId/status', requireRole(['admin', 'accounts']), insuranceClaimController.updateClaimStatus);
+router.patch('/:claimId', requireRole(['admin', 'accounts']), insuranceClaimController.updateInsuranceClaim);
 router.post('/:claimId/generate-xml', requireRole(['admin', 'accounts']), insuranceClaimController.generateClaimXML);
 router.get('/:claimId/print', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.generateClaimPrint);
 router.get('/:id', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getInsuranceClaim);

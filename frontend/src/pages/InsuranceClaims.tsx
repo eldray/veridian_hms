@@ -1,4 +1,4 @@
-// src/pages/InsuranceClaims.tsx - UPDATED WITH SEPARATED STORE FUNCTIONS
+// src/pages/InsuranceClaims.tsx - UPDATED WITH CORPORATE ACCOUNTS TAB
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -23,9 +23,14 @@ import {
   Lock,
   Printer,
   Building,
-  Layers
+  Layers,
+  Users,
+  CreditCard,
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useCorporateStore } from '../store/corporateStore';
 
 export default function InsuranceClaims() {
   const navigate = useNavigate();
@@ -53,19 +58,47 @@ export default function InsuranceClaims() {
     isLoading: claimsLoading
   } = useInsuranceStore();
 
+  const {
+    // Corporate Accounts
+    corporateAccounts,
+    getCorporateAccounts,
+    createCorporateAccount,
+    updateCorporateAccount,
+    deactivateCorporateAccount,
+    getCorporateAccount,
+    isLoading: corporateLoading
+  } = useCorporateStore();
+
   const { attendances, getAttendances, isLoading: attendanceLoading } = useAttendanceStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [activeTab, setActiveTab] = useState<'nhis' | 'private'>('nhis');
+  const [activeTab, setActiveTab] = useState<'nhis' | 'private' | 'corporate'>('nhis');
   const [showPendingAttendances, setShowPendingAttendances] = useState(false);
   const [processingClaims, setProcessingClaims] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  // Corporate Account Form State
+  const [showCorporateForm, setShowCorporateForm] = useState(false);
+  const [editingCorporate, setEditingCorporate] = useState<any>(null);
+  const [corporateFormData, setCorporateFormData] = useState({
+    companyName: '',
+    registrationNumber: '',
+    taxId: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    address: '',
+    creditLimit: 0,
+    paymentTerms: 30,
+    discountPercentage: 0,
+    insuranceProviderId: ''
+  });
 
-  const isLoading = claimsLoading || attendanceLoading;
+  const isLoading = claimsLoading || attendanceLoading || corporateLoading;
 
-  // Get current claims based on active tab
+  // Get current claims/data based on active tab
   const currentClaims = activeTab === 'nhis' ? nhisClaims : privateClaims;
 
   useEffect(() => {
@@ -80,14 +113,20 @@ export default function InsuranceClaims() {
       
       if (activeTab === 'nhis') {
         await getNHISClaims(filters);
-      } else {
+      } else if (activeTab === 'private') {
         await getPrivateInsuranceClaims(filters);
+      } else if (activeTab === 'corporate') {
+        await getCorporateAccounts();
       }
-      await getAttendances();
-      await getFinalizedClaimsTotal({ type: activeTab });
-      success('Data loaded', `${activeTab.toUpperCase()} claims ready`);
+      
+      if (activeTab !== 'corporate') {
+        await getAttendances();
+        await getFinalizedClaimsTotal({ type: activeTab });
+      }
+      
+      success('Data loaded', `${activeTab.toUpperCase()} data ready`);
     } catch {
-      toastError('Load failed', 'Could not fetch claims or visits');
+      toastError('Load failed', 'Could not fetch data');
     }
   };
 
@@ -124,7 +163,7 @@ export default function InsuranceClaims() {
       : (finalizedClaimsTotal?.totalAmount || 0)
   };
 
-  // Filter claims by search and status (client-side filtering for display)
+  // Filter claims by search and status
   const filteredClaims = currentClaims.filter(claim => {
     const matchesSearch =
       claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -132,7 +171,6 @@ export default function InsuranceClaims() {
       claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
     
-    // Client-side date filtering as backup (backend already filters)
     let matchesDate = true;
     if (startDate && claim.Attendance?.dateTime) {
       const claimDate = new Date(claim.Attendance.dateTime);
@@ -147,6 +185,19 @@ export default function InsuranceClaims() {
     }
     
     return matchesSearch && matchesStatus && matchesDate;
+  });
+
+  // Filter corporate accounts
+  const filteredCorporateAccounts = corporateAccounts.filter(account => {
+    const matchesSearch =
+      account.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.phone?.includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' || 
+      (filterStatus === 'active' && account.isActive) ||
+      (filterStatus === 'inactive' && !account.isActive);
+    return matchesSearch && matchesStatus;
   });
 
   const handleGenerateClaim = async (attendanceId: string) => {
@@ -223,6 +274,78 @@ export default function InsuranceClaims() {
     }
   };
 
+  // Corporate Account Handlers
+  const handleCreateCorporateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createCorporateAccount(corporateFormData);
+      success('Corporate Account Created', `${corporateFormData.companyName} added successfully`);
+      setShowCorporateForm(false);
+      resetCorporateForm();
+      await loadData();
+    } catch (error: any) {
+      toastError('Creation Failed', error.message || 'Could not create corporate account');
+    }
+  };
+
+  const handleUpdateCorporateAccount = async (id: string, data: any) => {
+    try {
+      await updateCorporateAccount(id, data);
+      success('Account Updated', 'Corporate account updated successfully');
+      await loadData();
+    } catch (error: any) {
+      toastError('Update Failed', error.message || 'Could not update account');
+    }
+  };
+
+  const handleDeactivateCorporateAccount = async (id: string, isActive: boolean) => {
+    const action = isActive ? 'activate' : 'deactivate';
+    if (!window.confirm(`Are you sure you want to ${action} this corporate account?`)) return;
+    
+    try {
+      await deactivateCorporateAccount(id);
+      success('Status Updated', `Account has been ${action}d`);
+      await loadData();
+    } catch (error: any) {
+      toastError('Update Failed', error.message || 'Could not update status');
+    }
+  };
+
+  const resetCorporateForm = () => {
+    setCorporateFormData({
+      companyName: '',
+      registrationNumber: '',
+      taxId: '',
+      contactPerson: '',
+      email: '',
+      phone: '',
+      address: '',
+      creditLimit: 0,
+      paymentTerms: 30,
+      discountPercentage: 0,
+      insuranceProviderId: ''
+    });
+    setEditingCorporate(null);
+  };
+
+  const handleEditCorporate = (account: any) => {
+    setEditingCorporate(account);
+    setCorporateFormData({
+      companyName: account.companyName,
+      registrationNumber: account.registrationNumber || '',
+      taxId: account.taxId || '',
+      contactPerson: account.contactPerson,
+      email: account.email,
+      phone: account.phone,
+      address: account.address || '',
+      creditLimit: account.creditLimit,
+      paymentTerms: account.paymentTerms,
+      discountPercentage: account.discountPercentage,
+      insuranceProviderId: account.insuranceProviderId || ''
+    });
+    setShowCorporateForm(true);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle className="w-5 h-5 text-[var(--icon-green-text)]" />;
@@ -252,6 +375,12 @@ export default function InsuranceClaims() {
     }
   };
 
+  const getCorporateStatusColor = (isActive: boolean) => {
+    return isActive 
+      ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]'
+      : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]';
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -267,8 +396,8 @@ export default function InsuranceClaims() {
             <FileText className="w-6 h-6 text-[var(--icon-purple-text)]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Insurance Claims</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Manage NHIS and Private Insurance claims</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Insurance & Corporate Management</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Manage NHIS, Private Insurance, and Corporate Accounts</p>
           </div>
         </div>
         
@@ -280,14 +409,19 @@ export default function InsuranceClaims() {
             <Shield className="w-4 h-4" />
             Providers
           </button>
-          <button
-            onClick={() => navigate('/dashboard/insurance-claims/batches')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <Layers className="w-4 h-4" />
-            Batches
-          </button>
-          {eligibleAttendances.length > 0 && (
+          {activeTab === 'corporate' && (
+            <button
+              onClick={() => {
+                resetCorporateForm();
+                setShowCorporateForm(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Add Corporate Account
+            </button>
+          )}
+          {activeTab !== 'corporate' && eligibleAttendances.length > 0 && (
             <button
               onClick={() => setShowPendingAttendances(!showPendingAttendances)}
               className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-sm font-medium"
@@ -351,42 +485,65 @@ export default function InsuranceClaims() {
             </span>
           </div>
         </button>
+        <button
+          onClick={() => {
+            setActiveTab('corporate');
+            setFilterStatus('all');
+            setSearchTerm('');
+            loadData();
+          }}
+          className={`px-6 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'corporate'
+              ? 'text-[var(--icon-cyan-text)] border-b-2 border-[var(--icon-cyan-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Corporate Accounts
+            <span className="ml-1 px-2 py-0.5 bg-[var(--bg-main)] rounded-full text-xs">
+              {corporateAccounts.length}
+            </span>
+          </div>
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--text-primary)]">{currentStats.total}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claims</div>
+      {/* Stats - Only for Claims Tabs */}
+      {activeTab !== 'corporate' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-2xl font-bold text-[var(--text-primary)]">{currentStats.total}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claims</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-2xl font-bold text-[var(--icon-yellow-text)]">{currentStats.draft}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Draft</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-2xl font-bold text-[var(--icon-purple-text)]">{currentStats.submitted}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Submitted</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-2xl font-bold text-[var(--icon-green-text)]">{currentStats.approved}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Approved</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-2xl font-bold text-[var(--icon-blue-text)]">{currentStats.paid}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Paid</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-lg font-bold text-[var(--text-primary)]">GHS {currentStats.totalAmount.toFixed(2)}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claimed</div>
+          </div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="text-lg font-bold text-[var(--icon-green-text)]">GHS {currentStats.approvedAmount.toFixed(2)}</div>
+            <div className="text-xs text-[var(--text-secondary)] mt-1">Approved Total</div>
+          </div>
         </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-yellow-text)]">{currentStats.draft}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Draft</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-purple-text)]">{currentStats.submitted}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Submitted</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-green-text)]">{currentStats.approved}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Approved</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-blue-text)]">{currentStats.paid}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Paid</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-lg font-bold text-[var(--text-primary)]">GHS {currentStats.totalAmount.toFixed(2)}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Claimed</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-lg font-bold text-[var(--icon-green-text)]">GHS {currentStats.approvedAmount.toFixed(2)}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Approved Total</div>
-        </div>
-      </div>
+      )}
 
-      {/* Eligible Attendances */}
-      {showPendingAttendances && eligibleAttendances.length > 0 && (
+      {/* Eligible Attendances - Only for Claims Tabs */}
+      {activeTab !== 'corporate' && showPendingAttendances && eligibleAttendances.length > 0 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
             <PlayCircle className="w-5 h-5 text-[var(--icon-green-text)]" />
@@ -445,31 +602,37 @@ export default function InsuranceClaims() {
           <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
           <input
             type="text"
-            placeholder={`Search ${activeTab === 'nhis' ? 'NHIS' : 'Private'} claims by claim number, patient, or provider...`}
+            placeholder={activeTab === 'corporate' 
+              ? "Search corporate accounts by company name, contact person, email, or phone..." 
+              : `Search ${activeTab === 'nhis' ? 'NHIS' : 'Private'} claims by claim number, patient, or provider...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
           />
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col">
-            <label className="text-xs text-[var(--text-secondary)] mb-1">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-[var(--text-secondary)] mb-1">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            />
-          </div>
+          {activeTab !== 'corporate' && (
+            <>
+              <div className="flex flex-col">
+                <label className="text-xs text-[var(--text-secondary)] mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs text-[var(--text-secondary)] mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+                />
+              </div>
+            </>
+          )}
         </div>
         <button
           onClick={() => {
@@ -488,137 +651,427 @@ export default function InsuranceClaims() {
           className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
         >
           <option value="all">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="submitted">Submitted</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="paid">Paid</option>
+          {activeTab === 'corporate' ? (
+            <>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </>
+          ) : (
+            <>
+              <option value="draft">Draft</option>
+              <option value="submitted">Submitted</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="paid">Paid</option>
+            </>
+          )}
         </select>
       </div>
 
-      {/* Claims List */}
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
-              <div className="h-5 bg-[var(--bg-main)] rounded w-1/3 mb-3"></div>
-              <div className="grid grid-cols-4 gap-3">
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+      {/* Corporate Accounts Table */}
+      {activeTab === 'corporate' && (
+        isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
+                <div className="h-5 bg-[var(--bg-main)] rounded w-1/3 mb-3"></div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : filteredClaims.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
-          <FileText className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
-          <p className="text-[var(--text-secondary)]">No {activeTab === 'nhis' ? 'NHIS' : 'Private Insurance'} claims found</p>
-          {eligibleAttendances.length > 0 && (
-            <p className="text-[var(--text-tertiary)] text-sm mt-1">
-              {eligibleAttendances.length} completed visits ready for claims
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Claim Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Provider</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Claim Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Approved</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Paid</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Submitted</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {filteredClaims.map((claim) => (
-                  <tr key={claim.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3 text-sm">
-                      <span className="font-medium text-[var(--text-primary)]">{claim.claimNumber}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="text-[var(--text-primary)]">{getPatientFullName(claim.patient)}</div>
-                      {claim.Attendance?.attendanceNumber && (
-                        <div className="text-xs text-[var(--text-secondary)]">{claim.Attendance.attendanceNumber}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
-                      {claim.insuranceProvider?.name || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(claim.status)}`}>
-                        {getStatusLabel(claim.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <span className="font-medium text-[var(--text-primary)]">GHS {claim.totalClaimAmount?.toFixed(2)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <span className="text-[var(--text-primary)]">
-                        {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <span className="text-[var(--text-primary)]">
-                        {claim.paidAmount ? `GHS ${claim.paidAmount.toFixed(2)}` : '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
-                      {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {claim.status === 'submitted' && (
-                          <>
-                            <button
-                              onClick={() => handleDownloadXML(claim.id)}
-                              disabled={processingClaims.has(claim.id)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition disabled:opacity-50"
-                              title="Download XML"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handlePrintClaim(claim.id)}
-                              disabled={processingClaims.has(claim.id)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition disabled:opacity-50"
-                              title="Print Claim"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                        <button 
-                          onClick={() => navigate(`/dashboard/insurance-claims/${claim.id}/edit`)}
-                          className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
-                          title={claim.status === 'draft' ? 'Edit Claim' : 'View Claim'}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        {claim.status === 'draft' && (
-                          <button
-                            onClick={() => handleFinalizeClaim(claim.id)}
-                            disabled={processingClaims.has(claim.id)}
-                            className="p-1.5 text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition disabled:opacity-50"
-                            title="Finalize Claim"
-                          >
-                            <Lock className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            ))}
+          </div>
+        ) : filteredCorporateAccounts.length === 0 ? (
+          <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
+            <Users className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
+            <p className="text-[var(--text-secondary)]">No corporate accounts found</p>
+            <button
+              onClick={() => {
+                resetCorporateForm();
+                setShowCorporateForm(true);
+              }}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add First Corporate Account
+            </button>
+          </div>
+        ) : (
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Company</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Contact Person</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Contact</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase">Credit Limit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase">Balance</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase">Discount</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {filteredCorporateAccounts.map((account) => (
+                    <tr key={account.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                      <td className="px-4 py-3">
+                        <div>
+                          <div className="font-medium text-[var(--text-primary)]">{account.companyName}</div>
+                          <div className="text-xs text-[var(--text-secondary)]">{account.registrationNumber || 'No Reg Number'}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                        {account.contactPerson}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-[var(--text-primary)]">{account.phone}</div>
+                        <div className="text-xs text-[var(--text-secondary)]">{account.email}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-[var(--text-primary)]">
+                        GHS {account.creditLimit.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm">
+                        <span className={`font-medium ${account.currentBalance > account.creditLimit ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-primary)]'}`}>
+                          GHS {account.currentBalance.toLocaleString()}
+                        </span>
+                        {account.currentBalance > account.creditLimit && (
+                          <AlertCircle className="w-3 h-3 text-[var(--icon-red-text)] inline ml-1" title="Exceeds credit limit" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-[var(--text-primary)]">
+                        {account.discountPercentage}%
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getCorporateStatusColor(account.isActive)}`}>
+                          {account.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => navigate(`/dashboard/corporate/${account.id}`)}
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
+                            title="View Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleEditCorporate(account)}
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg transition"
+                            title="Edit Account"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeactivateCorporateAccount(account.id, !account.isActive)}
+                            className={`p-1.5 rounded-lg transition ${
+                              account.isActive 
+                                ? 'text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]' 
+                                : 'text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)]'
+                            }`}
+                            title={account.isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {account.isActive ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Claims Table - Only for Claims Tabs */}
+      {activeTab !== 'corporate' && (
+        isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
+                <div className="h-5 bg-[var(--bg-main)] rounded w-1/3 mb-3"></div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                  <div className="h-3 bg-[var(--bg-main)] rounded"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredClaims.length === 0 ? (
+          <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
+            <FileText className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
+            <p className="text-[var(--text-secondary)]">No {activeTab === 'nhis' ? 'NHIS' : 'Private Insurance'} claims found</p>
+            {eligibleAttendances.length > 0 && (
+              <p className="text-[var(--text-tertiary)] text-sm mt-1">
+                {eligibleAttendances.length} completed visits ready for claims
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Claim Number</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Patient</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Provider</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase">Claim Amount</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase">Approved</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-secondary)] uppercase">Paid</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Submitted</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {filteredClaims.map((claim) => (
+                    <tr key={claim.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                      <td className="px-4 py-3 text-sm">
+                        <span className="font-medium text-[var(--text-primary)]">{claim.claimNumber}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="text-[var(--text-primary)]">{getPatientFullName(claim.patient)}</div>
+                        {claim.Attendance?.attendanceNumber && (
+                          <div className="text-xs text-[var(--text-secondary)]">{claim.Attendance.attendanceNumber}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                        {claim.insuranceProvider?.name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(claim.status)}`}>
+                          {getStatusLabel(claim.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className="font-medium text-[var(--text-primary)]">GHS {claim.totalClaimAmount?.toFixed(2)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className="text-[var(--text-primary)]">
+                          {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className="text-[var(--text-primary)]">
+                          {claim.paidAmount ? `GHS ${claim.paidAmount.toFixed(2)}` : '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                        {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {claim.status === 'submitted' && (
+                            <>
+                              <button
+                                onClick={() => handleDownloadXML(claim.id)}
+                                disabled={processingClaims.has(claim.id)}
+                                className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition disabled:opacity-50"
+                                title="Download XML"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handlePrintClaim(claim.id)}
+                                disabled={processingClaims.has(claim.id)}
+                                className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition disabled:opacity-50"
+                                title="Print Claim"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            onClick={() => navigate(`/dashboard/insurance-claims/${claim.id}/edit`)}
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
+                            title={claim.status === 'draft' ? 'Edit Claim' : 'View Claim'}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          {claim.status === 'draft' && (
+                            <button
+                              onClick={() => handleFinalizeClaim(claim.id)}
+                              disabled={processingClaims.has(claim.id)}
+                              className="p-1.5 text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition disabled:opacity-50"
+                              title="Finalize Claim"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Corporate Account Form Modal */}
+      {showCorporateForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl mt-8 mb-8 shadow-xl border border-[var(--border-color)]">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                {editingCorporate ? 'Edit Corporate Account' : 'Add New Corporate Account'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowCorporateForm(false);
+                  resetCorporateForm();
+                }}
+                className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
+              >
+                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateCorporateAccount} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Company Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={corporateFormData.companyName}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, companyName: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Registration Number</label>
+                  <input
+                    type="text"
+                    value={corporateFormData.registrationNumber}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, registrationNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Registration number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Tax ID</label>
+                  <input
+                    type="text"
+                    value={corporateFormData.taxId}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, taxId: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Tax ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Contact Person *</label>
+                  <input
+                    type="text"
+                    required
+                    value={corporateFormData.contactPerson}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, contactPerson: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Contact person name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={corporateFormData.email}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Email address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={corporateFormData.phone}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Address</label>
+                <textarea
+                  value={corporateFormData.address}
+                  onChange={(e) => setCorporateFormData({ ...corporateFormData, address: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                  placeholder="Company address"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Credit Limit (GHS)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={corporateFormData.creditLimit}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, creditLimit: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Payment Terms (days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={corporateFormData.paymentTerms}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, paymentTerms: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={corporateFormData.discountPercentage}
+                    onChange={(e) => setCorporateFormData({ ...corporateFormData, discountPercentage: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCorporateForm(false);
+                    resetCorporateForm();
+                  }}
+                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm disabled:opacity-50"
+                >
+                  {isLoading ? 'Saving...' : (editingCorporate ? 'Update' : 'Create')} Account
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-// src/seed/testSeed.ts
+// src/seed/testSeed.ts - UPDATED with new appointment schema
 import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus, ServiceType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -17,12 +17,14 @@ let patientCounter = 1000;
 let attendanceCounter = 1000;
 let admissionCounter = 1000;
 let claimCounter = 1000;
+let appointmentCounter = 1000;  // ✅ Added for appointments
 
 const generatePatientNumber = () => `PAT-${++patientCounter}`;
 const generateAttendanceNumber = () => `ATT-${++attendanceCounter}`;
 const generateClaimNumber = () => `CLAIM-${++claimCounter}`;
 const generateReferralNumber = () => `REF-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 const generateAdmissionNumber = () => `ADM-${++admissionCounter}`;
+const generateAppointmentNumber = () => `APT-${++appointmentCounter}`;  // ✅ Added
 
 // Date helpers
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
@@ -236,7 +238,6 @@ console.log('✅ Test users created/verified');
     }
 
     // =============== CREATE 10 TEST PATIENTS ===============
-    // Ensure we have patients for all three payment modes: cash, nhis, and private_insurance
     const patientsData = [
       {
         folderNumber: 'PAT-TEST-001',
@@ -274,7 +275,7 @@ console.log('✅ Test users created/verified');
         contact: '+233244333333',
         address: '789 Hospital Road, Takoradi',
         paymentMode: PaymentMode.private_insurance,
-        insuranceProviderId: privateProvider?.id, // Properly selected from the list of private insurance providers
+        insuranceProviderId: privateProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(20),
         insuranceDetails: { policyNumber: 'PRV-87654', provider: privateProvider?.name || 'Acacia Health' },
@@ -306,7 +307,7 @@ console.log('✅ Test users created/verified');
         registeredAt: daysAgo(10),
         insuranceDetails: {},
       },
-      // Maternity patients with ATT- attendance numbers
+      // Maternity patients
       {
         folderNumber: 'PAT-TEST-006',
         surname: 'Mensah',
@@ -371,7 +372,7 @@ console.log('✅ Test users created/verified');
         contact: '+233244600005',
         address: '8 Postnatal Circle, Tema',
         paymentMode: PaymentMode.private_insurance,
-        insuranceProviderId: privateProvider?.id, // Properly selected from the list of private insurance providers
+        insuranceProviderId: privateProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(160),
         insuranceDetails: { policyNumber: 'PRV-MAT-005', provider: privateProvider?.name || 'Acacia Health' },
@@ -1396,7 +1397,6 @@ console.log('✅ Test users created/verified');
         });
       }
 
-      // Find attendance for patient 9 (private insurance)
       const privPatientAttendance = await prisma.attendance.findFirst({
         where: { patientId: patients[9].id },
         orderBy: { dateTime: 'desc' }
@@ -1429,13 +1429,14 @@ console.log('✅ Test users created/verified');
 
     console.log('✅ Admissions created');
 
-    // =============== CREATE APPOINTMENTS ===============
+    // =============== CREATE APPOINTMENTS (UPDATED with clinicianId) ===============
     // Follow-up appointment for Patient 1 (Malaria)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-001`,
+        appointmentNumber: generateAppointmentNumber(),
         patientId: patients[0].id,
-        doctorId: doctor.id,
+        clinicianId: doctor.id,           // ✅ Changed from doctorId
+        clinicianRole: doctor.role,       // ✅ Added clinicianRole
         departmentId: medDept?.id,
         title: 'Malaria Follow-up',
         description: 'Post-treatment review for malaria',
@@ -1451,9 +1452,10 @@ console.log('✅ Test users created/verified');
     // Follow-up appointment for Patient 2 (Hypertension)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-002`,
+        appointmentNumber: generateAppointmentNumber(),
         patientId: patients[1].id,
-        doctorId: doctor.id,
+        clinicianId: doctor.id,           // ✅ Changed from doctorId
+        clinicianRole: doctor.role,       // ✅ Added clinicianRole
         departmentId: medDept?.id,
         title: 'Hypertension Review',
         description: 'Monthly BP check and medication review',
@@ -1468,12 +1470,13 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Future appointment for Patient 3 (Hernia post-op)
+    // Future appointment for Patient 3 (Hernia post-op) - with nurse
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-003`,
+        appointmentNumber: generateAppointmentNumber(),
         patientId: patients[2].id,
-        doctorId: doctor.id,
+        clinicianId: nurse.id,            // ✅ Can be nurse
+        clinicianRole: nurse.role,        // ✅ Added clinicianRole
         departmentId: surgeryDept?.id,
         title: 'Post-operative Review',
         description: 'Follow-up after hernia repair',
@@ -1486,12 +1489,13 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Antenatal appointment for Patient 4
+    // Antenatal appointment for Patient 4 - with midwife
     await prisma.appointment.create({
       data: {
-        appointmentNumber: `APT-${Date.now()}-004`,
+        appointmentNumber: generateAppointmentNumber(),
         patientId: patients[3].id,
-        doctorId: doctor.id,
+        clinicianId: midwife.id,          // ✅ Can be midwife
+        clinicianRole: midwife.role,      // ✅ Added clinicianRole
         departmentId: obsGynDept?.id,
         title: 'Antenatal Visit',
         description: 'Routine ANC at 32 weeks',
@@ -1503,6 +1507,26 @@ console.log('✅ Test users created/verified');
         createdBy: midwife?.id || admin.id,
       },
     });
+
+    // ✅ Additional appointment with nurse for Patient 5
+    await prisma.appointment.create({
+      data: {
+        appointmentNumber: generateAppointmentNumber(),
+        patientId: patients[4].id,
+        clinicianId: nurse.id,            // ✅ Appointment with nurse
+        clinicianRole: nurse.role,
+        departmentId: pediatricsDept?.id,
+        title: 'Vaccination Appointment',
+        description: 'Routine childhood vaccination',
+        appointmentDate: daysAgo(2),
+        appointmentTime: '10:00',
+        duration: 20,
+        status: AppointmentStatus.completed,
+        type: AppointmentType.vaccination,
+        createdBy: admin.id,
+      },
+    });
+
     console.log('✅ Appointments created');
 
     // =============== CREATE NOTIFICATIONS ===============
@@ -1545,80 +1569,74 @@ console.log('✅ Test users created/verified');
       },
     });
 
- 
-// ✅ ADD NOTIFICATIONS FOR ADMIN
-if (admin) {
-  // Welcome notification
-  await prisma.notification.create({
-    data: {
-      userId: admin.id,
-      title: '👋 Welcome Admin',
-      message: 'You are logged in as System Administrator. You will see all system-wide notifications here.',
-      type: 'success',
-      priority: 'medium',
-      isRead: false,
-      createdAt: new Date(),
-    },
-  });
+    // ✅ ADD NOTIFICATIONS FOR ADMIN
+    if (admin) {
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: '👋 Welcome Admin',
+          message: 'You are logged in as System Administrator. You will see all system-wide notifications here.',
+          type: 'success',
+          priority: 'medium',
+          isRead: false,
+          createdAt: new Date(),
+        },
+      });
 
-  // System status notification
-  await prisma.notification.create({
-    data: {
-      userId: admin.id,
-      title: '✅ System Ready',
-      message: 'All modules are operational. Test data has been seeded successfully.',
-      type: 'info',
-      priority: 'low',
-      isRead: false,
-      createdAt: new Date(),
-    },
-  });
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: '✅ System Ready',
+          message: 'All modules are operational. Test data has been seeded successfully.',
+          type: 'info',
+          priority: 'low',
+          isRead: false,
+          createdAt: new Date(),
+        },
+      });
 
-  // Pending tasks notification
-  await prisma.notification.create({
-    data: {
-      userId: admin.id,
-      title: '📋 Pending Tasks',
-      message: 'You have reports to review. Check the reports dashboard.',
-      type: 'system',
-      priority: 'medium',
-      actionType: 'reports',
-      actionUrl: '/dashboard/reports',
-      isRead: false,
-      createdAt: new Date(),
-    },
-  });
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: '📋 Pending Tasks',
+          message: 'You have reports to review. Check the reports dashboard.',
+          type: 'system',
+          priority: 'medium',
+          actionType: 'reports',
+          actionUrl: '/dashboard/reports',
+          isRead: false,
+          createdAt: new Date(),
+        },
+      });
 
-  // User activity notification
-  await prisma.notification.create({
-    data: {
-      userId: admin.id,
-      title: '👥 User Activity',
-      message: 'Test users have been created. Review user accounts.',
-      type: 'info',
-      priority: 'low',
-      actionType: 'users',
-      actionUrl: '/dashboard/users',
-      isRead: false,
-      createdAt: new Date(),
-    },
-  });
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: '👥 User Activity',
+          message: 'Test users have been created. Review user accounts.',
+          type: 'info',
+          priority: 'low',
+          actionType: 'users',
+          actionUrl: '/dashboard/users',
+          isRead: false,
+          createdAt: new Date(),
+        },
+      });
 
-  // Financial notification
-  await prisma.notification.create({
-    data: {
-      userId: admin.id,
-      title: '💰 Financial Summary',
-      message: `Total bills created: 5. Total claims submitted: 2. Review financial reports.`,
-      type: 'billing',
-      priority: 'medium',
-      actionType: 'financial',
-      actionUrl: '/dashboard/finance',
-      isRead: false,
-      createdAt: new Date(),
-    },
-  });
-}   
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: '💰 Financial Summary',
+          message: `Total bills created: 5. Total claims submitted: 2. Review financial reports.`,
+          type: 'billing',
+          priority: 'medium',
+          actionType: 'financial',
+          actionUrl: '/dashboard/finance',
+          isRead: false,
+          createdAt: new Date(),
+        },
+      });
+    }   
     console.log('✅ Notifications created');
 
     console.log('\n🎉 TEST DATA SEEDING COMPLETED!');
@@ -1633,7 +1651,7 @@ if (admin) {
     console.log(`   - Insurance Claims: 3 (NHIS x2, Private x1)`);
     console.log(`   - Referrals: 2`);
     console.log(`   - Admissions: 2 (1 discharged, 1 active)`);
-    console.log(`   - Appointments: 4+`);
+    console.log(`   - Appointments: 5+ (Doctor, Nurse, Midwife appointments)`);
     console.log(`   - Notifications: 3+`);
     console.log(`   - Maternity Records: 5 patients with ANC, Delivery, and PNC data`);
     console.log('\n👨‍⚕️ TEST LOGINS:');

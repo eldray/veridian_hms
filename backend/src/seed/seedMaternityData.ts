@@ -1,4 +1,4 @@
-// src/seed/seedMaternityData.ts - UPDATED with PAT-TEST format
+// src/seed/seedMaternityData.ts - FIXED VERSION
 import { PrismaClient, Gender, PaymentMode, AttendanceType, AttendanceStatus, EncounterCategory, VisitCategory, ServiceCategory, RiskLevel, DeliveryOutcome } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -11,7 +11,8 @@ const daysAgo = (days: number, baseDate: Date = new Date()) => {
   return d;
 };
 
-const generateAttendanceNumber = () => `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+let attendanceCounter = 2000;
+const generateAttendanceNumber = () => `ATT-${++attendanceCounter}`;
 
 // Check if maternity test data already exists
 const hasMaternityData = async (): Promise<boolean> => {
@@ -56,6 +57,9 @@ export const seedMaternityData = async (force: boolean = false) => {
         }
       });
     }
+    
+    // Get admin user for createdBy
+    const admin = await prisma.user.findFirst({ where: { role: 'admin' } });
     
     // Use PAT-TEST-006 to 010 (same format as testSeed.ts)
     const maternityPatientsData = [
@@ -184,7 +188,7 @@ export const seedMaternityData = async (force: boolean = false) => {
             paymentMode: pData.paymentMode,
             insuranceProviderId: pData.insuranceProviderId,
             insuranceDetails: pData.insuranceDetails,
-            registeredBy: 'System Seed',
+            registeredBy: admin?.fullName || 'System Seed',
             registeredAt: daysAgo(180),
             createdAt: new Date(),
             updatedAt: new Date()
@@ -222,31 +226,35 @@ export const seedMaternityData = async (force: boolean = false) => {
         }
       });
       
-      // Create Antenatal Booking (using direct IDs, not connect)
+      // Calculate LMP from EDD (subtract 280 days)
+      const lmpDate = new Date(pData.edd);
+      lmpDate.setDate(lmpDate.getDate() - 280);
+      
+      // Create Antenatal Booking
       const booking = await prisma.antenatalBooking.create({
         data: {
-          patient: { connect: { id: patient.id } },
-          attendance: { connect: { id: bookingAttendance.id } },
+          patientId: patient.id,
+          attendanceId: bookingAttendance.id,
           gravida: pData.gravida,
           para: pData.para,
-          lmp: new Date(pData.edd.getTime() - (280 * 24 * 60 * 60 * 1000)),
+          lmp: lmpDate,
           edd: pData.edd,
           bookingDate: bookingAttendanceDate,
           gestationalAgeWeeks: pData.weeksAtBooking,
-          gestationalAgeAtBooking: pData.weeksAtBooking,  // ✅ Add this if you added it
+          gestationalAgeAtBooking: pData.weeksAtBooking,
           riskLevel: (pData.riskLevel as any) || 'low',
           riskFactors: pData.riskLevel === 'high' ? ['Advanced maternal age', 'Previous CS'] : [],
-          bloodGroup: 'O+',        // ✅ Now valid
-          hivStatus: 'Negative',   // ✅ Now valid
-          hbLevel: 11.5,           // ✅ Now valid
-          vdrl: 'Non-reactive',    // ✅ Now valid
+          bloodGroup: 'O+',
+          hivStatus: 'Negative',
+          hbLevel: 11.5,
+          vdrl: 'Non-reactive',
           isActive: pData.scenario.includes('current'),
           isCompleted: !pData.scenario.includes('current'),
-          createdBy: { connect: { id: midwife!.id } }, 
+          createdById: midwife!.id,
           createdAt: new Date(),
           updatedAt: new Date(),
-          iptpDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
-          ttDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
+          iptpDoses: {},
+          ttDoses: {},
           iptp1Date: null,
           iptp2Date: null,
           iptp3Date: null,
@@ -272,60 +280,59 @@ export const seedMaternityData = async (force: boolean = false) => {
       bookings.push(booking);
 
       // Create ANC Visits
-const visitCount = pData.scenario.includes('current') ? Math.floor(pData.currentWeeks! / 4) : Math.floor(pData.deliveryWeeks! / 4);
-for (let i = 1; i <= Math.min(visitCount, 8); i++) {
-  const visitDate = new Date(bookingAttendanceDate);
-  visitDate.setDate(visitDate.getDate() + (i * 28));
-  
-  // Create a new attendance for each ANC visit
-  const visitAttendance = await prisma.attendance.create({
-    data: {
-      attendanceNumber: generateAttendanceNumber(),
-      patientId: patient.id,
-      dateTime: visitDate,
-      attendanceType: AttendanceType.antenatal,
-      paymentMode: pData.paymentMode,
-      insuranceProviderId: pData.insuranceProviderId,
-      complaints: `Routine ANC visit - ${pData.weeksAtBooking + i * 4} weeks`,
-      medicalNotes: `ANC follow-up visit`,
-      historyPresentingComplaint: `Patient returns for scheduled antenatal check-up.`,
-      physicalExamination: 'General condition good. Vitals stable.',
-      treatmentPlan: 'Continue supplements. Next visit in 4 weeks.',
-      createdById: midwife!.id,
-      status: AttendanceStatus.completed,
-      encounterCategory: EncounterCategory.opd,
-      visitCategory: VisitCategory.antenatal,
-      serviceCategory: ServiceCategory.opd,
-      totalBill: 0,
-      paidAmount: 0,
-      outstandingBalance: 0
-    }
-  });
-  
-  await prisma.aNCVisit.create({
-    data: {
-      booking: { connect: { id: booking.id } },
-      attendance: { connect: { id: visitAttendance.id } },
-      visitNumber: i,
-      visitDate: visitDate,
-      gestationalAgeWeeks: pData.weeksAtBooking + i * 4,
-      weight: 65 + (i * 0.5),
-      bloodPressure: `${110 + i}/70`,
-      fundalHeight: (pData.weeksAtBooking + i * 4) * 0.9,
-      fetalHeartRate: 140 + (i % 5),
-      presentation: i > 5 ? 'Cephalic' : 'Variable',
-      iptpGiven: i >= 2,
-      iptpDoseNumber: i >= 2 ? Math.min(i - 1, 3) : 0,
-      ttGiven: i >= 3,
-      ttDoseNumber: i >= 3 ? Math.min(i - 2, 2) : 0,
-      dangerSignsPresent: false,
-      referralMade: false,
-      recordedBy: { connect: { id: midwife!.id } },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  });
-}
+      const visitCount = pData.scenario.includes('current') ? Math.floor(pData.currentWeeks! / 4) : Math.floor(pData.deliveryWeeks! / 4);
+      for (let i = 1; i <= Math.min(visitCount, 8); i++) {
+        const visitDate = new Date(bookingAttendanceDate);
+        visitDate.setDate(visitDate.getDate() + (i * 28));
+        
+        const visitAttendance = await prisma.attendance.create({
+          data: {
+            attendanceNumber: generateAttendanceNumber(),
+            patientId: patient.id,
+            dateTime: visitDate,
+            attendanceType: AttendanceType.antenatal,
+            paymentMode: pData.paymentMode,
+            insuranceProviderId: pData.insuranceProviderId,
+            complaints: `Routine ANC visit - ${pData.weeksAtBooking + i * 4} weeks`,
+            medicalNotes: `ANC follow-up visit`,
+            historyPresentingComplaint: `Patient returns for scheduled antenatal check-up.`,
+            physicalExamination: 'General condition good. Vitals stable.',
+            treatmentPlan: 'Continue supplements. Next visit in 4 weeks.',
+            createdById: midwife!.id,
+            status: AttendanceStatus.completed,
+            encounterCategory: EncounterCategory.opd,
+            visitCategory: VisitCategory.antenatal,
+            serviceCategory: ServiceCategory.opd,
+            totalBill: 0,
+            paidAmount: 0,
+            outstandingBalance: 0
+          }
+        });
+        
+        await prisma.aNCVisit.create({
+          data: {
+            bookingId: booking.id,
+            attendanceId: visitAttendance.id,
+            visitNumber: i,
+            visitDate: visitDate,
+            gestationalAgeWeeks: pData.weeksAtBooking + i * 4,
+            weight: 65 + (i * 0.5),
+            bloodPressure: `${110 + i}/70`,
+            fundalHeight: (pData.weeksAtBooking + i * 4) * 0.9,
+            fetalHeartRate: 140 + (i % 5),
+            presentation: i > 5 ? 'Cephalic' : 'Variable',
+            iptpGiven: i >= 2,
+            iptpDoseNumber: i >= 2 ? Math.min(i - 1, 3) : 0,
+            ttGiven: i >= 3,
+            ttDoseNumber: i >= 3 ? Math.min(i - 2, 2) : 0,
+            dangerSignsPresent: false,
+            referralMade: false,
+            recordedById: midwife!.id,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      }
       
       // Create Delivery Record if not currently pregnant
       if (pData.scenario !== 'multigravida_current') {
@@ -360,15 +367,9 @@ for (let i = 1; i <= Math.min(visitCount, 8); i++) {
         
         const delivery = await prisma.deliveryRecord.create({
           data: {
-            patient: {
-              connect: { id: patient.id }  // ✅ Connect the patient relation
-            },
-            attendance: {
-              connect: { id: deliveryAttendance.id }  // ✅ Connect the attendance relation
-            },
-            antenatalBooking: {
-              connect: { id: booking.id }  // ✅ Connect the antenatal booking relation
-            },
+            patientId: patient.id,
+            attendanceId: deliveryAttendance.id,
+            antenatalBookingId: booking.id,
             deliveryDate: deliveryDate,
             deliveryType: cs ? 'caesarean_section' : (twins ? 'multiple' : 'spontaneous_vertex'),
             deliveryOutcome: 'live_birth',
@@ -381,27 +382,24 @@ for (let i = 1; i <= Math.min(visitCount, 8); i++) {
             resusCitationDone: false,
             maternalOutcome: 'alive',
             complications: twins ? ['Preterm labour'] : [],
-            // notes: cs ? 'Elective caesarean section' : 'Normal spontaneous vaginal delivery',
-            createdBy: {
-              connect: { id: midwife!.id }  // ✅ Connect the createdBy relation
-            },
+            createdById: midwife!.id,
             createdAt: new Date(),
             updatedAt: new Date()
           }
         });
         deliveries.push(delivery);
         
-        // Create Newborn(s)
+        // Create Newborn(s) - using newbornRecord model
         const babyWeights = twins ? [2400, 2300] : [3200];
         for (let b = 0; b < babyWeights.length; b++) {
-          await prisma.newborn.create({
+          await prisma.newbornRecord.create({
             data: {
               deliveryRecordId: delivery.id,
-              babyNumber: b + 1,
-              gender: b % 2 === 0 ? Gender.male : Gender.female,
               birthWeight: babyWeights[b],
+              gender: b % 2 === 0 ? Gender.male : Gender.female,
               apgarScore1min: 8,
               apgarScore5min: 9,
+              resuscitation: false,
               outcome: 'alive',
               anomalies: [],
               referredTo: null,

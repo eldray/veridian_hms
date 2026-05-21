@@ -120,7 +120,7 @@ model ServicePricing {
   cashPrice        Float
   nhisPrice        Float          @default(0)
   insurancePrice   Float
-  corporatePrice   Float          @default(0)   // ✅ ADD THIS
+  corporatePrice   Float          @default(0) // ✅ ADD THIS
   vatRate          Float          @default(0)
   isTaxable        Boolean        @default(true)
   effectiveDate    DateTime       @default(now())
@@ -226,10 +226,10 @@ model Patient {
   updatedAt           DateTime @updatedAt
 
   // NHIS fields
-  nhisNumber          String?   // membership/card number used for eligibility checks
-  nhisExpiryDate      DateTime? // ✅ ADD - expiry from eligibility API response
-  nhisActive          Boolean   @default(false) // ✅ ADD - live NHIS active status
-  phoneNumber         String?
+  nhisNumber     String? // membership/card number used for eligibility checks
+  nhisExpiryDate DateTime? // ✅ ADD - expiry from eligibility API response
+  nhisActive     Boolean   @default(false) // ✅ ADD - live NHIS active status
+  phoneNumber    String?
 
   Admission            Admission[]
   Attendance           Attendance[]
@@ -253,7 +253,6 @@ model Patient {
   @@index([phoneNumber])
   @@index([dateOfBirth])
   @@index([gender])
-
   @@index([folderNumber])
   @@index([otherNames])
   @@index([paymentMode])
@@ -261,7 +260,6 @@ model Patient {
   @@index([contact])
   @@index([createdAt])
 }
-
 
 // ============================================================
 // NHIS ELIGIBILITY
@@ -393,7 +391,7 @@ model Attendance {
   insuranceProviderId    String?
   corporateAccountId     String?
   bedId                  String?
-  appointmentId          String? @unique 
+  appointmentId          String?        @unique
   wardId                 String?
   attendanceType         AttendanceType
   dateTime               DateTime       @default(now())
@@ -475,7 +473,6 @@ model Attendance {
   @@index([insuranceProviderId])
   @@index([bedId])
   @@index([wardId])
-
   @@index([attendanceType])
   @@index([dateTime])
   @@index([patientId])
@@ -521,7 +518,6 @@ model LabTest {
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([requestedAt])
-
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -561,7 +557,6 @@ model Scan {
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([requestedAt])
-
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -601,7 +596,6 @@ model Procedure {
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([performedAt])
-
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -662,7 +656,6 @@ model Medication {
   @@index([attendanceId, status])
   @@index([prescribedAt])
   @@index([stockItemId])
-
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
@@ -694,7 +687,6 @@ model Vitals {
   // PERFORMANCE OPTIMIZATION: Composite index for quick vitals lookup
   @@index([attendanceId, recordedAt])
   @@index([patientId, recordedAt])
-
   @@index([attendanceId])
   @@index([patientId])
 }
@@ -970,7 +962,6 @@ model Bill {
   status              BillStatus  @default(draft)
   paymentMode         PaymentMode
   corporateAccountId  String?
-  CorporateAccount    CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
   insuranceProviderId String?
   preAuthNumber       String?
   claimNumber         String?
@@ -982,11 +973,13 @@ model Bill {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
+  // Relations
+  CorporateAccount            CorporateAccount?  @relation("CorporateAccountBills", fields: [corporateAccountId], references: [id])
   Admission                   Admission?         @relation(fields: [admissionId], references: [id])
   Attendance                  Attendance         @relation(fields: [attendanceId], references: [id])
-  User_Bill_createdByIdToUser User               @relation("Bill_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider           InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
   Patient                     Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_Bill_createdByIdToUser User               @relation("Bill_createdByIdToUser", fields: [createdById], references: [id])
   User_Bill_updatedByIdToUser User?              @relation("Bill_updatedByIdToUser", fields: [updatedById], references: [id])
   InsuranceClaim              InsuranceClaim[]
   Payment                     Payment[]
@@ -1123,6 +1116,7 @@ model InsuranceClaim {
   medicationCodes  String[]
   gdrgCodes        String[]
   nhisServiceCodes String[]
+  metadata        Json? 
 
   notes       String?
   createdById String
@@ -1195,7 +1189,7 @@ model WardChargeRecord {
   nhisPrice      Float       @default(0)
   cashPrice      Float       @default(0)
   insurancePrice Float       @default(0)
-  corporatePrice Float @default(0)
+  corporatePrice Float       @default(0)
   isBilled       Boolean     @default(false)
   billLineItemId String?
   createdAt      DateTime    @default(now())
@@ -1348,11 +1342,11 @@ model AntenatalBooking {
   currentAttendanceId String? @unique
 
   // Pregnancy dates
-  bookingDate         DateTime
-  lmp                 DateTime?
-  edd                 DateTime?
-  gestationalAgeWeeks Int?
-  gestationalAgeAtBooking Int?  // ✅ Add this if missing
+  bookingDate             DateTime
+  lmp                     DateTime?
+  edd                     DateTime?
+  gestationalAgeWeeks     Int?
+  gestationalAgeAtBooking Int? // ✅ Add this if missing
 
   // Obstetric history
   gravida               Int
@@ -1361,10 +1355,10 @@ model AntenatalBooking {
   previousComplications String?
 
   // ✅ ADD THESE FIELDS:
-  bloodGroup            String?   // Blood type (A+, A-, B+, B-, O+, O-, AB+, AB-)
-  hivStatus             String?   // HIV status (Positive, Negative, Unknown)
-  hbLevel               Float?    // Hemoglobin level at booking (g/dL)
-  vdrl                  String?   // VDRL/RPR syphilis test result (Reactive, Non-reactive)
+  bloodGroup String? // Blood type (A+, A-, B+, B-, O+, O-, AB+, AB-)
+  hivStatus  String? // HIV status (Positive, Negative, Unknown)
+  hbLevel    Float? // Hemoglobin level at booking (g/dL)
+  vdrl       String? // VDRL/RPR syphilis test result (Reactive, Non-reactive)
   // ✅ END ADDED FIELDS
 
   // IPTp Tracking (GHS Form A)
@@ -1855,40 +1849,39 @@ model Department {
   @@map("departments")
 }
 
-  model Appointment {
-    id                String            @id @default(cuid())
-    appointmentNumber String            @unique @default(uuid())
-    patientId         String
-    clinicianId       String?           // Doctor, nurse, or midwife
-    clinicianRole     UserRole?         // Store which role
-    departmentId      String?
-    title             String
-    description       String?
-    appointmentDate   DateTime
-    appointmentTime   String
-    duration          Int               @default(30)
-    status            AppointmentStatus @default(scheduled)
-    type              AppointmentType   @default(consultation)
-    reminderSent      Boolean           @default(false)
-    checkedIn         Boolean           @default(false)
-    checkedInAt       DateTime?
-    createdAt         DateTime          @default(now())
-    updatedAt         DateTime          @updatedAt
-    createdBy         String
+model Appointment {
+  id                String            @id @default(cuid())
+  appointmentNumber String            @unique @default(uuid())
+  patientId         String
+  clinicianId       String? // Doctor, nurse, or midwife
+  clinicianRole     UserRole? // Store which role
+  departmentId      String?
+  title             String
+  description       String?
+  appointmentDate   DateTime
+  appointmentTime   String
+  duration          Int               @default(30)
+  status            AppointmentStatus @default(scheduled)
+  type              AppointmentType   @default(consultation)
+  reminderSent      Boolean           @default(false)
+  checkedIn         Boolean           @default(false)
+  checkedInAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String
 
-    // Relations
-    clinician User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
-    patient   Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-    department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  // Relations
+  clinician  User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
-    @@index([appointmentDate])
-    @@index([patientId, status])
-    @@index([clinicianId, appointmentDate])
-    @@index([departmentId, appointmentDate])
-    @@index([status, appointmentDate])
-    @@map("appointments")
-  }
-
+  @@index([appointmentDate])
+  @@index([patientId, status])
+  @@index([clinicianId, appointmentDate])
+  @@index([departmentId, appointmentDate])
+  @@index([status, appointmentDate])
+  @@map("appointments")
+}
 
 // ============================================================
 // HOSPITAL CONFIGURATION
@@ -1983,7 +1976,7 @@ model User {
   ServiceCatalog                                  ServiceCatalog[]
   ServiceRendered                                 ServiceRendered[]
   Vitals                                          Vitals[]
-  doctorAppointments                              Appointment[]             @relation("DoctorAppointments")
+  clinicianAppointments                           Appointment[]             @relation("ClinicianAppointments")
   AuditLog                                        AuditLog[]
   ReportExecution                                 ReportExecution[]
   DocumentTemplate                                DocumentTemplate[]
@@ -1991,8 +1984,8 @@ model User {
   NHISEligibilityCheck                            NHISEligibilityCheck[]
   PreAuthorisationRequest_requested               PreAuthorisationRequest[] @relation("PreAuth_requestedBy")
   PreAuthorisationRequest_updated                 PreAuthorisationRequest[] @relation("PreAuth_updatedBy")
-  
-  refreshTokens                                   RefreshToken[]
+
+  refreshTokens RefreshToken[]
 
   // ✅ CORRECT - Opposite relation for ClaimBatch (no fields argument needed)
   claimBatchesCreated ClaimBatch[]
@@ -2016,8 +2009,6 @@ model User {
   headedDepartment Department?      @relation("DepartmentHead")
   abortionRecords  AbortionRecord[]
 }
-
-
 
 model RefreshToken {
   id        String   @id @default(cuid())
@@ -2958,29 +2949,29 @@ enum CommunicationChannelType {
 // ============================================================
 
 model CorporateAccount {
-  id                  String   @id @default(cuid())
+  id                  String              @id @default(cuid())
   companyName         String
-  registrationNumber  String?  @unique
+  registrationNumber  String?             @unique
   taxId               String?
   contactPerson       String
   email               String
   phone               String
   address             String?
-  creditLimit         Float    @default(0)
-  currentBalance      Float    @default(0)
-  paymentTerms        Int      @default(30) // days
-  discountPercentage  Float    @default(0)
-  isActive            Boolean  @default(true)
+  creditLimit         Float               @default(0)
+  currentBalance      Float               @default(0)
+  paymentTerms        Int                 @default(30) // days
+  discountPercentage  Float               @default(0)
+  isActive            Boolean             @default(true)
   insuranceProviderId String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  insuranceProvider InsuranceProvider?  @relation(fields: [insuranceProviderId], references: [id])
-  employees         CorporateEmployee[]
-  invoices          Invoice[]
-  proformaInvoices  ProformaInvoice[]
-  Attendance        Attendance[]
-  InsuranceClaim    InsuranceClaim[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  bills               Bill[]              @relation("CorporateAccountBills")
+  insuranceProvider   InsuranceProvider?  @relation(fields: [insuranceProviderId], references: [id])
+  employees           CorporateEmployee[]
+  invoices            Invoice[]
+  proformaInvoices    ProformaInvoice[]
+  Attendance          Attendance[]
+  InsuranceClaim      InsuranceClaim[]
 
   @@index([insuranceProviderId])
   @@index([registrationNumber])

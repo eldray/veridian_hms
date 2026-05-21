@@ -242,20 +242,36 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
     }
   },
 
-  // ✅ New: get available clinicians
-  getAvailableClinicians: async (roles?: string[]) => {
-    set({ isLoading: true, error: null });
-    try {
-      const clinicians = await getAvailableClinicians(roles);
-      set({ availableClinicians: clinicians, isLoading: false });
-      return clinicians;
-    } catch (error: any) {
-      set({ 
-        error: error.response?.data?.message || 'Failed to fetch available clinicians', 
-        isLoading: false 
-      });
+// In appointmentStore.ts - getAvailableClinicians method
+
+getAvailableClinicians: async (roles?: string[]) => {
+  set({ isLoading: true, error: null });
+  try {
+    const response = await getAvailableClinicians(roles);
+    
+    // ✅ Ensure we're setting an array
+    let cliniciansArray: any[] = [];
+    
+    if (Array.isArray(response)) {
+      cliniciansArray = response;
+    } else if (response?.data && Array.isArray(response.data)) {
+      cliniciansArray = response.data;
+    } else if (response?.clinicians && Array.isArray(response.clinicians)) {
+      cliniciansArray = response.clinicians;
+    } else {
+      cliniciansArray = [];
     }
-  },
+    
+    set({ availableClinicians: cliniciansArray, isLoading: false });
+    return cliniciansArray;
+  } catch (error: any) {
+    set({ 
+      error: error.response?.data?.message || 'Failed to fetch available clinicians', 
+      isLoading: false,
+      availableClinicians: []  // ✅ Set empty array on error
+    });
+  }
+},
 
   // ✅ New: convert appointment to attendance
   convertToAttendance: async (appointmentId: string, paymentData: any) => {

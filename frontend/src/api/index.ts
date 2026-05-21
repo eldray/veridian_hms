@@ -503,31 +503,61 @@ export const deleteInsuranceProvider = (id: string) =>
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// INSURANCE CLAIMS
+// CORPORATE ACCOUNTS (UNIFIED - NO DUPLICATES)
 // ──────────────────────────────────────────────
 
-// NHIS Claims
-export const generateNHISClaim = (encounterId: string) => 
-  api.post('/insurance-claims/nhis/generate', { attendanceId: encounterId }).then(r => r.data);
+// ✅ SINGLE DEFINITION - Remove the duplicate at line ~420
+export const getCorporateAccounts = (filters?: any) => 
+  api.get('/corporate', { params: filters }).then(r => handleResponse<any>(r.data));
 
-export const getNHISClaims = (filters?: any) => 
-  api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
+export const getCorporateAccount = (id: string) => 
+  api.get(`/corporate/${id}`).then(r => r.data);
 
-// Private Insurance Claims
-export const generatePrivateInsuranceClaim = (encounterId: string) => 
-  api.post('/insurance-claims/private/generate', { attendanceId: encounterId }).then(r => r.data);
+export const createCorporateAccount = (data: any) => 
+  api.post('/corporate', data).then(r => r.data);
 
-export const getPrivateInsuranceClaims = (filters?: any) => 
-  api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
+export const updateCorporateAccount = (id: string, data: any) => 
+  api.put(`/corporate/${id}`, data).then(r => r.data);
 
-// Corporate Claims
+export const deactivateCorporateAccount = (id: string) => 
+  api.delete(`/corporate/${id}`).then(r => r.data);
+
+export const getCorporateEmployees = (accountId: string) => 
+  api.get(`/corporate/${accountId}/employees`).then(r => r.data);
+
+export const addCorporateEmployee = (accountId: string, data: any) => 
+  api.post(`/corporate/${accountId}/employees`, data).then(r => r.data);
+
+export const updateCorporateEmployee = (id: string, data: any) => 
+  api.put(`/corporate/employees/${id}`, data).then(r => r.data);
+
+export const removeCorporateEmployee = (id: string) => 
+  api.delete(`/corporate/employees/${id}`).then(r => r.data);
+
+export const getCorporateStatistics = () => 
+  api.get('/corporate/statistics').then(r => r.data);
+
+export const generateCorporateMonthlyBill = (accountId: string, data: any) => 
+  api.post(`/corporate/${accountId}/bills`, data).then(r => r.data);
+
+export const getCorporateMonthlyBills = (accountId: string, filters?: any) => 
+  api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// INSURANCE CLAIMS - Corporate Claims (FIXED)
+// ──────────────────────────────────────────────
+
+// ✅ FIX: This was missing - add corporate claim functions
 export const generateCorporateClaim = (encounterId: string) => 
   api.post('/insurance-claims/corporate/generate', { attendanceId: encounterId }).then(r => r.data);
 
 export const getCorporateClaims = (filters?: any) => 
   api.get('/insurance-claims/corporate', { params: filters }).then(r => r.data);
 
-// General Claims
+// ──────────────────────────────────────────────
+// INSURANCE CLAIMS - General (FIXED order)
+// ──────────────────────────────────────────────
+
 export const getInsuranceClaims = (filters?: any) => 
   api.get('/insurance-claims', { params: filters }).then(r => r.data);
 
@@ -558,7 +588,26 @@ export const generateClaimPrint = (claimId: string) =>
 export const getFinalizedClaimsTotal = (filters?: any) => 
   api.get('/insurance-claims/finalized/total', { params: filters }).then(r => r.data);
 
-// Batch Claims
+// ──────────────────────────────────────────────
+// INSURANCE CLAIMS - NHIS & Private
+// ──────────────────────────────────────────────
+
+export const generateNHISClaim = (encounterId: string) => 
+  api.post('/insurance-claims/nhis/generate', { attendanceId: encounterId }).then(r => r.data);
+
+export const getNHISClaims = (filters?: any) => 
+  api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
+
+export const generatePrivateInsuranceClaim = (encounterId: string) => 
+  api.post('/insurance-claims/private/generate', { attendanceId: encounterId }).then(r => r.data);
+
+export const getPrivateInsuranceClaims = (filters?: any) => 
+  api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// CLAIM BATCHES (Keep as is)
+// ──────────────────────────────────────────────
+
 export const createClaimBatch = (data: { claimIds: string[]; description?: string; insuranceType?: string }) => 
   api.post('/insurance-claims/batches', data).then(r => r.data);
 
@@ -582,37 +631,6 @@ export const updateBatchStatus = (batchId: string, status: string) =>
 
 export const deleteClaimBatch = (batchId: string) => 
   api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
-
-// ──────────────────────────────────────────────
-// CORPORATE ACCOUNTS
-// ──────────────────────────────────────────────
-
-export const getCorporateAccounts = (filters?: any) => 
-  api.get('/corporate/accounts', { params: filters }).then(r => r.data);
-
-export const getCorporateAccount = (id: string) => 
-  api.get(`/corporate/accounts/${id}`).then(r => r.data);
-
-export const createCorporateAccount = (data: any) => 
-  api.post('/corporate/accounts', data).then(r => r.data);
-
-export const updateCorporateAccount = (id: string, data: any) => 
-  api.put(`/corporate/accounts/${id}`, data).then(r => r.data);
-
-export const deleteCorporateAccount = (id: string) => 
-  api.delete(`/corporate/accounts/${id}`).then(r => r.data);
-
-export const getCorporateEmployees = (accountId: string) => 
-  api.get(`/corporate/accounts/${accountId}/employees`).then(r => r.data);
-
-export const createCorporateEmployee = (accountId: string, data: any) => 
-  api.post(`/corporate/accounts/${accountId}/employees`, data).then(r => r.data);
-
-export const updateCorporateEmployee = (accountId: string, employeeId: string, data: any) => 
-  api.put(`/corporate/accounts/${accountId}/employees/${employeeId}`, data).then(r => r.data);
-
-export const deleteCorporateEmployee = (accountId: string, employeeId: string) => 
-  api.delete(`/corporate/accounts/${accountId}/employees/${employeeId}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // PATIENTS
@@ -1561,8 +1579,6 @@ export const removeUserFromDepartment = (departmentId: string, data: any) =>
 export const bulkUpdateDepartments = (data: any) => 
   api.post('/departments/bulk-update', data).then(r => r.data);
 
-// api/index.ts - Appointment section
-
 // ──────────────────────────────────────────────
 // APPOINTMENTS
 // ──────────────────────────────────────────────
@@ -2294,8 +2310,7 @@ export default {
   generateBatchXML, updateBatchStatus, deleteClaimBatch,
   
   // Corporate Accounts
-  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deleteCorporateAccount,
-  getCorporateEmployees, createCorporateEmployee, updateCorporateEmployee, deleteCorporateEmployee,
+  getCorporateAccounts, getCorporateAccount, createCorporateAccount,  updateCorporateAccount, deactivateCorporateAccount, getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee,
   
   // Patients
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
@@ -2379,7 +2394,7 @@ export default {
   
   // Appointments
   getAppointments, getAppointment, createAppointment, updateAppointment, deleteAppointment,
-  updateAppointmentStatus, checkInAppointment, getAppointmentStatistics, getDoctorSchedule, getAvailableSlots,
+  updateAppointmentStatus, checkInAppointment, getAppointmentStatistics, getAvailableSlots,
   
   // Notifications
   getNotifications, createNotification, getNotification, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,

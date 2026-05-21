@@ -38,6 +38,9 @@ import StockManagement from './pages/StockManagement';
 import InsuranceProviders from './pages/InsuranceProviders';
 import InsuranceClaims from './pages/InsuranceClaims';
 import EditInsuranceClaim from './pages/EditInsuranceClaim';
+import EditNHISClaim from './pages/insurance-claims/EditNHISClaim';
+import EditPrivateClaim from './pages/insurance-claims/EditPrivateClaim';
+import EditCorporateClaim from './pages/insurance-claims/EditCorporateClaim';
 import ClaimBatches from './pages/ClaimBatches';
 import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
@@ -308,6 +311,9 @@ function App() {
           <Route path="insurance-providers" element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />
           <Route path="insurance-claims" element={<ProtectedRoute><InsuranceClaims /></ProtectedRoute>} />
           <Route path="insurance-claims/:id/edit" element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
+          <Route path="/dashboard/insurance-claims/nhis/:id/edit" element={<EditNHISClaim />} />
+          <Route path="/dashboard/insurance-claims/private/:id/edit" element={<EditPrivateClaim />} />
+          <Route path="/dashboard/insurance-claims/corporate/:id/edit" element={<EditCorporateClaim />} />
           <Route path="insurance-claims/batches" element={<ProtectedRoute><ClaimBatches /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />

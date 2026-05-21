@@ -1,4 +1,4 @@
-// src/pages/InsuranceProviders.tsx - UPDATED WITH SAME THEME
+// src/pages/InsuranceProviders.tsx - UPDATED WITH TOGGLE STATUS
 import { useEffect, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useAuthStore } from '../store/authStore';
@@ -18,7 +18,9 @@ import {
   Phone,
   Mail,
   User,
-  ArrowLeft
+  ArrowLeft,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,6 +41,7 @@ export default function InsuranceProviders() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingProvider, setEditingProvider] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -46,6 +49,7 @@ export default function InsuranceProviders() {
     name: '',
     type: 'private' as 'private' | 'nhis',
     coveragePercentage: 80,
+    isActive: true,
     contactInfo: { 
       phone: '', 
       email: '', 
@@ -75,14 +79,18 @@ export default function InsuranceProviders() {
       provider.contactInfo?.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType = filterType === 'all' || provider.type === filterType;
-    return matchesSearch && matchesType;
+    const matchesStatus = filterStatus === 'all' || 
+      (filterStatus === 'active' && provider.isActive) ||
+      (filterStatus === 'inactive' && !provider.isActive);
+    
+    return matchesSearch && matchesType && matchesStatus;
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingProvider) {
-        await updateInsuranceProvider(editingProvider._id, formData);
+        await updateInsuranceProvider(editingProvider.id, formData);
         success('Provider Updated', `${formData.name} updated successfully`);
       } else {
         await createInsuranceProvider(formData);
@@ -102,6 +110,7 @@ export default function InsuranceProviders() {
       name: '',
       type: 'private',
       coveragePercentage: 80,
+      isActive: true,
       contactInfo: { 
         phone: '', 
         email: '', 
@@ -117,6 +126,7 @@ export default function InsuranceProviders() {
       name: provider.name,
       type: provider.type,
       coveragePercentage: provider.coveragePercentage,
+      isActive: provider.isActive,
       contactInfo: provider.contactInfo || { 
         phone: '', 
         email: '', 
@@ -127,11 +137,31 @@ export default function InsuranceProviders() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this insurance provider? This cannot be undone.')) return;
-
+  const handleToggleStatus = async (provider: any) => {
+    const newStatus = !provider.isActive;
+    const action = newStatus ? 'activate' : 'deactivate';
+    
+    if (!window.confirm(`Are you sure you want to ${action} ${provider.name}?`)) return;
+    
     try {
-      await deleteInsuranceProvider(id);
+      await updateInsuranceProvider(provider.id, { isActive: newStatus });
+      success('Status Updated', `${provider.name} has been ${action}d`);
+      await loadProviders();
+    } catch (error: any) {
+      toastError('Update Failed', error?.message || 'Could not update provider status');
+    }
+  };
+
+  const handleDelete = async (provider: any) => {
+    if (!provider?.id) {
+      toastError('Delete Failed', 'Invalid provider ID');
+      return;
+    }
+    
+    if (!window.confirm(`Delete ${provider.name}? This cannot be undone.`)) return;
+  
+    try {
+      await deleteInsuranceProvider(provider.id);
       success('Provider Deleted', 'Insurance provider removed successfully');
       await loadProviders();
     } catch (error: any) {
@@ -145,7 +175,7 @@ export default function InsuranceProviders() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header - SAME THEME as medical entries */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
@@ -203,6 +233,7 @@ export default function InsuranceProviders() {
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
           />
         </div>
+        
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
@@ -211,6 +242,16 @@ export default function InsuranceProviders() {
           <option value="all">All Types</option>
           <option value="nhis">NHIS</option>
           <option value="private">Private</option>
+        </select>
+
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as any)}
+          className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active Only</option>
+          <option value="inactive">Inactive Only</option>
         </select>
         
         {/* View Mode Toggle */}
@@ -290,6 +331,31 @@ export default function InsuranceProviders() {
                     onChange={(e) => setFormData({ ...formData, coveragePercentage: parseInt(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
+                  <div className="flex items-center gap-4 mt-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        value="true"
+                        checked={formData.isActive === true}
+                        onChange={() => setFormData({ ...formData, isActive: true })}
+                        className="w-4 h-4 text-[var(--icon-green-text)]"
+                      />
+                      <span className="text-sm text-[var(--text-primary)]">Active</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        value="false"
+                        checked={formData.isActive === false}
+                        onChange={() => setFormData({ ...formData, isActive: false })}
+                        className="w-4 h-4 text-[var(--icon-red-text)]"
+                      />
+                      <span className="text-sm text-[var(--text-primary)]">Inactive</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -405,7 +471,7 @@ export default function InsuranceProviders() {
         // Grid View
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredProviders.map((provider) => (
-            <div key={provider._id} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow">
+            <div key={provider.id} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
@@ -426,11 +492,18 @@ export default function InsuranceProviders() {
                     </span>
                   </div>
                 </div>
-                {getProviderStatus(provider) === 'active' ? (
-                  <CheckCircle className="w-5 h-5 text-[var(--icon-green-text)]" title="Active" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-[var(--icon-red-text)]" title="Inactive" />
-                )}
+                {/* Toggle Status Button */}
+                <button
+                  onClick={() => handleToggleStatus(provider)}
+                  className={`p-2 rounded-lg transition-all ${
+                    provider.isActive 
+                      ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
+                      : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white'
+                  }`}
+                  title={provider.isActive ? 'Deactivate' : 'Activate'}
+                >
+                  {provider.isActive ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                </button>
               </div>
 
               <div className="space-y-2 mb-4 text-xs">
@@ -471,7 +544,7 @@ export default function InsuranceProviders() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(provider._id)}
+                    onClick={() => handleDelete(provider)}
                     className="flex-1 py-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition text-xs flex items-center justify-center gap-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -489,28 +562,18 @@ export default function InsuranceProviders() {
             <table className="w-full">
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                    Provider
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                    Type & Coverage
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                    Status
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Provider</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Type & Coverage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
                   {user?.role === 'admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
                 {filteredProviders.map((provider) => (
-                  <tr key={provider._id} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <tr key={provider.id} className="hover:bg-[var(--bg-main)] transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -563,17 +626,20 @@ export default function InsuranceProviders() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {getProviderStatus(provider) === 'active' ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />
-                            <span className="text-[var(--icon-green-text)] text-sm">Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4 h-4 text-[var(--icon-red-text)]" />
-                            <span className="text-[var(--icon-red-text)] text-sm">Inactive</span>
-                          </>
-                        )}
+                        <button
+                          onClick={() => handleToggleStatus(provider)}
+                          className={`p-1.5 rounded-lg transition-all ${
+                            provider.isActive 
+                              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
+                              : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white'
+                          }`}
+                          title={provider.isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          {provider.isActive ? <Power className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className={`text-sm ${provider.isActive ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
+                          {provider.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
                     </td>
                     {user?.role === 'admin' && (
@@ -587,7 +653,7 @@ export default function InsuranceProviders() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(provider._id)}
+                            onClick={() => handleDelete(provider)}
                             className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] p-2 rounded-lg hover:bg-[var(--icon-red-bg)] transition"
                             title="Delete provider"
                           >

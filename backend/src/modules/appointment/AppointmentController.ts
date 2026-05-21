@@ -234,13 +234,14 @@ export class AppointmentController {
     }
   };
 
+
   getAvailableClinicians = async (req: AuthRequest, res: Response) => {
     try {
       const { roles } = req.query;
-      const roleArray = roles ? (roles as string).split(',') as any : ['doctor', 'nurse', 'midwife'];
+      const roleArray = roles ? (roles as string).split(',') as UserRole[] : ['doctor', 'nurse', 'midwife'];
       
       const clinicians = await this.service.getAvailableClinicians(roleArray);
-
+      
       res.json({
         success: true,
         data: clinicians

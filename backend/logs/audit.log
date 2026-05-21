@@ -251,3 +251,88 @@
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-20 23:17:20"}
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-20 23:17:35"}
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-20 23:17:35"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:21:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:21:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:21:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:21:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:22:00"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 01:22:01"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 06:40:21"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 06:40:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 06:40:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:21:50"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:21:50"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:21:58"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:21:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:22:13"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:22:35"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:22:35"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:23:30"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:23:30"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:12"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:12"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:28"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:28"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:24:28"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:24:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:48"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:24:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:48"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:24:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:52"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:52"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:55"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:24:55"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:43"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:44"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:44"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:45"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:50"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:50"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:51"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:32:52"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:37:36"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:37:36"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:37:36"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 07:37:36"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:40:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:40:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:41:16"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:41:16"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:42:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:42:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:42:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:42:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 07:46:12"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 15:24:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 15:24:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:38:33"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:38:34"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:41:02"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:42:18"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:42:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:42:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:42:43"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:46:07"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:46:07"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:47:32"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:47:38"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:47:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:47:46"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:48:10"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:48:13"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:48:15"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:48:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 17:48:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 22:00:10"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 22:00:10"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 22:01:37"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 22:01:37"}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:31","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:31","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:42","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:42","where":{}}

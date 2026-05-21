@@ -1,4 +1,4 @@
-// InsuranceProviderRepository.ts
+// InsuranceProviderRepository.ts - FIXED
 import { PrismaClient, InsuranceProvider, InsuranceType } from '@prisma/client';
 import { ContactInfo, InsuranceProviderWithRelations } from './InsuranceProviderTypes';
 
@@ -9,30 +9,35 @@ export class InsuranceProviderRepository {
     this.prisma = prisma || new PrismaClient();
   }
 
-  async findAll(filters: {
-    isActive?: boolean;
-    type?: InsuranceType;
-  }): Promise<InsuranceProvider[]> {
+  async findAll(filters: { isActive?: boolean; type?: InsuranceType }) {
     const where: any = {};
-
-    if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
-    }
-
+  
+    // ✅ ONLY filter by type if provided
     if (filters.type) {
       where.type = filters.type;
     }
-
+  
+    // ✅ DO NOT filter by isActive here - return ALL providers
+    // Let the frontend handle filtering based on user preference
+  
     return this.prisma.insuranceProvider.findMany({
       where,
       orderBy: { name: 'asc' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        coveragePercentage: true,
+        contactInfo: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         }
       }
@@ -40,20 +45,22 @@ export class InsuranceProviderRepository {
   }
 
   async findById(id: string): Promise<InsuranceProviderWithRelations | null> {
+    // ✅ FIXED: Use correct relation names
     return this.prisma.insuranceProvider.findUnique({
       where: { id },
       include: {
-        patients: {
+        Patient: {
           select: {
             id: true,
             folderNumber: true,
-            fullName: true,
+            surname: true,
+            otherNames: true,
             contact: true
           },
           take: 10,
-          orderBy: { fullName: 'asc' }
+          orderBy: { surname: 'asc' }
         },
-        attendances: {
+        Attendance: {
           select: {
             id: true,
             attendanceNumber: true,
@@ -64,7 +71,7 @@ export class InsuranceProviderRepository {
           take: 10,
           orderBy: { dateTime: 'desc' }
         },
-        bills: {
+        Bill: {
           select: {
             id: true,
             billNumber: true,
@@ -75,7 +82,7 @@ export class InsuranceProviderRepository {
           take: 10,
           orderBy: { billDate: 'desc' }
         },
-        insuranceClaims: {
+        InsuranceClaim: {
           select: {
             id: true,
             claimNumber: true,
@@ -88,10 +95,10 @@ export class InsuranceProviderRepository {
         },
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         }
       }
@@ -120,10 +127,10 @@ export class InsuranceProviderRepository {
       include: {
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         }
       }
@@ -143,10 +150,10 @@ export class InsuranceProviderRepository {
       include: {
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         }
       }
@@ -182,20 +189,20 @@ export class InsuranceProviderRepository {
       include: {
         _count: {
           select: {
-            patients: true,
-            attendances: true,
-            bills: true,
-            insuranceClaims: true
+            Patient: true,
+            Attendance: true,
+            Bill: true,
+            InsuranceClaim: true
           }
         },
-        bills: {
+        Bill: {
           select: {
             status: true,
             totalAmount: true,
             balance: true
           }
         },
-        insuranceClaims: {
+        InsuranceClaim: {
           select: {
             status: true,
             totalClaimAmount: true,
@@ -210,10 +217,10 @@ export class InsuranceProviderRepository {
     const provider = await this.prisma.insuranceProvider.findUnique({
       where: { id },
       include: {
-        patients: { take: 1 },
-        attendances: { take: 1 },
-        bills: { take: 1 },
-        insuranceClaims: { take: 1 }
+        Patient: { take: 1 },
+        Attendance: { take: 1 },
+        Bill: { take: 1 },
+        InsuranceClaim: { take: 1 }
       }
     });
 
@@ -222,10 +229,10 @@ export class InsuranceProviderRepository {
     }
 
     return (
-      provider.patients.length > 0 ||
-      provider.attendances.length > 0 ||
-      provider.bills.length > 0 ||
-      provider.insuranceClaims.length > 0
+      provider.Patient.length > 0 ||
+      provider.Attendance.length > 0 ||
+      provider.Bill.length > 0 ||
+      provider.InsuranceClaim.length > 0
     );
   }
 }
