@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
+// src/pages/Appointments.tsx - COMPLETE UPDATED VERSION
+import { useEffect, useState, useMemo } from 'react';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
+import { usePatientStore } from '../store/patientStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import { useNavigate } from 'react-router-dom';
+import api from '../api';
 
 import {
   Plus,
@@ -18,9 +22,15 @@ import {
   CheckCircle,
   XCircle,
   ArrowLeft,
-  Filter
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  Shield,
+  Hospital,
+  Users
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+
+type DateFilterType = 'today' | 'tomorrow' | 'week' | 'custom';
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -32,49 +42,106 @@ export default function Appointments() {
     deleteAppointment,
     updateAppointmentStatus,
     checkInAppointment,
+    convertToAttendance,
     isLoading 
   } = useAppointmentStore();
-  const { user } = useAuthStore();
+  const { patients, loadPatients } = usePatientStore();
+  const { user, hasRole } = useAuthStore();
   const { success, error } = useToast();
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Modal states
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAppointmentForAttendance, setSelectedAppointmentForAttendance] = useState<any>(null);
+  const [paymentData, setPaymentData] = useState({
+    paymentMode: 'cash',
+    insuranceProviderId: '',
+    nhisCCC: '',
+    corporateAccountId: ''
+  });
 
+  // Form data (NO payment fields - scheduling only)
   const [formData, setFormData] = useState({
     patientId: '',
-    doctorId: '',
+    clinicianId: '',
     departmentId: '',
     title: '',
     description: '',
     appointmentDate: '',
     appointmentTime: '',
     duration: 30,
-    type: 'consultation',
-    isNHIS: false,
-    nhisCCC: ''
+    type: 'consultation'
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Get date range based on filter
+  const getDateRange = (): { startDate: Date; endDate: Date } | null => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    switch (dateFilter) {
+      case 'today':
+        return { startDate: today, endDate: endOfDay };
+      case 'tomorrow':
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const endOfTomorrow = new Date(tomorrow);
+        endOfTomorrow.setHours(23, 59, 59, 999);
+        tomorrow.setHours(0, 0, 0, 0);
+        return { startDate: tomorrow, endDate: endOfTomorrow };
+      case 'week':
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        weekEnd.setHours(23, 59, 59, 999);
+        return { startDate: today, endDate: weekEnd };
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          const start = new Date(customStartDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(customEndDate);
+          end.setHours(23, 59, 59, 999);
+          return { startDate: start, endDate: end };
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
 
+  // Load data
   const loadData = async () => {
     try {
       setRefreshing(true);
+      const dateRange = getDateRange();
       const filters: any = {};
+      
       if (statusFilter !== 'all') filters.status = statusFilter;
       if (typeFilter !== 'all') filters.type = typeFilter;
-      if (dateFilter) filters.date = dateFilter;
+      if (dateRange) {
+        filters.dateFrom = dateRange.startDate.toISOString();
+        filters.dateTo = dateRange.endDate.toISOString();
+      }
       
-      await getAppointments(filters);
-      success('Data loaded', 'Appointments updated');
+      await Promise.all([
+        getAppointments(filters),
+        loadPatients()
+      ]);
     } catch (err) {
       error('Load Failed', 'Failed to load appointment data');
     } finally {
@@ -82,37 +149,90 @@ export default function Appointments() {
     }
   };
 
-  const filteredAppointments = (Array.isArray(appointments) ? appointments : [])
-    .filter(apt => apt && apt.id)
-    .filter(apt => {
-      const patientName = `${apt.patient?.surname || ''} ${apt.patient?.otherNames || ''}`.trim();
-      const doctorName = apt.doctor?.fullName || '';
-      const title = apt.title || '';
-      
-      return (
-        patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+  useEffect(() => {
+    loadData();
+  }, [statusFilter, typeFilter, dateFilter, customStartDate, customEndDate]);
 
-    const handleConvertToAttendance = (appointment: any) => {
-      setSelectedAppointmentForAttendance(appointment);
-      setShowAttendanceModal(true);
-    };
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, typeFilter, dateFilter, customStartDate, customEndDate]);
+
+  // Get patient name helper
+  const getPatientName = (patient: any) => {
+    if (!patient) return 'Unknown Patient';
+    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  };
+
+  // Get patient by ID
+  const findPatient = (appointment: any) => {
+    if (!appointment) return null;
+    const patientId = appointment.patientId || appointment.patient?.id;
+    if (!patientId) return null;
+    return patients.find(p => p.id === patientId);
+  };
+
+  // Filter appointments
+  const filteredAppointments = useMemo(() => {
+    const apts = Array.isArray(appointments) ? appointments : [];
     
-    // Add success handler for attendance creation
-    const handleAttendanceCreated = async (attendanceId: string) => {
-      setShowAttendanceModal(false);
+    return apts.filter(apt => {
+      if (!apt || !apt.id) return false;
+      
+      const patient = findPatient(apt);
+      const patientName = patient ? getPatientName(patient) : '';
+      const clinicianName = apt.clinician?.fullName || '';
+      const title = apt.title || '';
+      const searchLower = searchTerm.toLowerCase();
+      
+      const matchesSearch = searchTerm === '' || 
+        patientName.toLowerCase().includes(searchLower) ||
+        clinicianName.toLowerCase().includes(searchLower) ||
+        title.toLowerCase().includes(searchLower);
+      
+      return matchesSearch;
+    });
+  }, [appointments, patients, searchTerm]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedAppointments = filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
+
+  const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+
+  // Handle convert to attendance with payment modal
+  const handleConvertToAttendance = (appointment: any) => {
+    setSelectedAppointmentForAttendance(appointment);
+    setPaymentData({
+      paymentMode: 'cash',
+      insuranceProviderId: '',
+      nhisCCC: '',
+      corporateAccountId: ''
+    });
+    setShowPaymentModal(true);
+  };
+
+  // Confirm payment and create attendance
+  const confirmConvertToAttendance = async () => {
+    if (!selectedAppointmentForAttendance) return;
+    
+    try {
+      const result = await convertToAttendance(selectedAppointmentForAttendance.id, paymentData);
+      setShowPaymentModal(false);
       setSelectedAppointmentForAttendance(null);
       success('Converted', 'Appointment converted to attendance successfully');
       
-      // Update appointment status
-      await updateAppointmentStatus(appointment.id, 'checked_in');
+      // Update appointment status to completed
+      await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
       
       // Navigate to the new attendance
-      navigate(`/dashboard/attendance/${attendanceId}`);
-    };
+      navigate(`/dashboard/attendance/${result.attendance?.id || result.id}`);
+      await loadData();
+    } catch (err: any) {
+      error('Conversion Failed', err.message || 'Could not convert to attendance');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,20 +248,8 @@ export default function Appointments() {
       setEditingAppointment(null);
       resetForm();
       await loadData();
-    } catch (err) {
-      error('Save Failed', 'Failed to save appointment');
-    }
-  };
-
-  const handleConvertToAttendance = async (id: string) => {
-    try {
-      const response = await api.post(`/appointments/${id}/convert-to-attendance`);
-      if (response.data.success) {
-        success('Converted', 'Appointment converted to attendance');
-        navigate(`/dashboard/attendance/${response.data.data.id}`);
-      }
-    } catch (err) {
-      error('Conversion Failed', 'Could not convert to attendance');
+    } catch (err: any) {
+      error('Save Failed', err.message || 'Failed to save appointment');
     }
   };
 
@@ -149,16 +257,14 @@ export default function Appointments() {
     setEditingAppointment(apt);
     setFormData({
       patientId: apt.patientId,
-      doctorId: apt.doctorId,
+      clinicianId: apt.clinicianId,
       departmentId: apt.departmentId,
       title: apt.title,
       description: apt.description || '',
-      appointmentDate: apt.appointmentDate.split('T')[0],
+      appointmentDate: apt.appointmentDate?.split('T')[0] || '',
       appointmentTime: apt.appointmentTime,
       duration: apt.duration,
-      type: apt.type,
-      isNHIS: apt.isNHIS,
-      nhisCCC: apt.nhisCCC || ''
+      type: apt.type
     });
     setShowForm(true);
   };
@@ -198,29 +304,27 @@ export default function Appointments() {
   const resetForm = () => {
     setFormData({
       patientId: '',
-      doctorId: '',
+      clinicianId: '',
       departmentId: '',
       title: '',
       description: '',
       appointmentDate: '',
       appointmentTime: '',
       duration: 30,
-      type: 'consultation',
-      isNHIS: false,
-      nhisCCC: ''
+      type: 'consultation'
     });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]';
-      case 'confirmed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]';
-      case 'checked_in': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-text)]';
-      case 'in_progress': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]';
-      case 'completed': return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
-      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]';
-      case 'no_show': return 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border-[var(--icon-orange-text)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
+      case 'scheduled': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]';
+      case 'confirmed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
+      case 'checked_in': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
+      case 'in_progress': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
+      case 'completed': return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
+      case 'no_show': return 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
     }
   };
 
@@ -236,7 +340,7 @@ export default function Appointments() {
   };
 
   const canEditAppointment = (apt: any) => {
-    return user?.role === 'admin' || apt.doctorId === user?.id;
+    return hasRole(['admin']) || apt.clinicianId === user?.id;
   };
 
   const stats = {
@@ -250,10 +354,25 @@ export default function Appointments() {
     }).length
   };
 
+  const getDateFilterDisplay = () => {
+    switch (dateFilter) {
+      case 'today': return 'Today';
+      case 'tomorrow': return 'Tomorrow';
+      case 'week': return 'Next 7 Days';
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          const format = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          return `${format(customStartDate)} - ${format(customEndDate)}`;
+        }
+        return 'Custom Range';
+      default: return 'Today';
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
@@ -267,6 +386,9 @@ export default function Appointments() {
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Appointment Management</h1>
             <p className="text-sm text-[var(--text-secondary)]">Schedule and manage patient appointments</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+              {filteredAppointments.length} appointment(s) • {stats.today} today
+            </p>
           </div>
         </div>
         
@@ -296,7 +418,7 @@ export default function Appointments() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
           <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
@@ -316,56 +438,153 @@ export default function Appointments() {
         </div>
       </div>
 
+      {/* Date Filter Bar */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">Show:</span>
+          </div>
+          
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setDateFilter('today');
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'today'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('tomorrow');
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'tomorrow'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Tomorrow
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('week');
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'week'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Next 7 Days
+            </button>
+            <button
+              onClick={() => {
+                setDateFilter('custom');
+                setShowDatePicker(true);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'custom'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              Custom
+            </button>
+          </div>
+
+          {showDatePicker && dateFilter === 'custom' && (
+            <div className="flex items-center gap-3 ml-auto">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+              />
+              <span className="text-[var(--text-secondary)]">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+              />
+            </div>
+          )}
+          
+          <div className="text-xs text-[var(--text-secondary)] ml-auto">
+            Showing: {getDateFilterDisplay()}
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filters */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="lg:col-span-2 relative">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex-1 w-full sm:max-w-sm relative">
             <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by patient, doctor, or title..."
+              placeholder="Search by patient or clinician..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          >
-            <option value="all">All Status</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="checked_in">Checked In</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="consultation">Consultation</option>
-            <option value="procedure">Procedure</option>
-            <option value="antenatal">Antenatal</option>
-            <option value="lab_test">Lab Test</option>
-            <option value="scan">Scan</option>
-          </select>
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="flex-1 px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-            />
+
+          <div className="flex items-center gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            >
+              <option value="all">All Status</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="checked_in">Checked In</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no_show">No Show</option>
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            >
+              <option value="all">All Types</option>
+              <option value="consultation">Consultation</option>
+              <option value="follow_up">Follow Up</option>
+              <option value="procedure">Procedure</option>
+              <option value="antenatal">Antenatal</option>
+              <option value="postnatal">Postnatal</option>
+              <option value="vaccination">Vaccination</option>
+              <option value="lab_test">Lab Test</option>
+              <option value="scan">Scan</option>
+            </select>
+
+            <select
+              value={itemsPerPage}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+            >
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Appointments List */}
+      {/* Appointments Table - Production Ready */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
@@ -380,7 +599,7 @@ export default function Appointments() {
         <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
           <Calendar className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
           <p className="text-[var(--text-secondary)] mb-2">
-            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || dateFilter 
+            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
               ? 'No appointments found' 
               : 'No appointments scheduled yet'}
           </p>
@@ -394,41 +613,71 @@ export default function Appointments() {
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredAppointments.map((apt) => (
-            <div key={apt.id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-md transition-all duration-300">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-[var(--icon-blue-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-5 h-5 text-[var(--icon-blue-text)]" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-[var(--text-primary)]">{apt.title}</h3>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
-                            {apt.status.replace('_', ' ').toUpperCase()}
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(apt.type)}`}>
-                            {apt.type.replace('_', ' ').toUpperCase()}
-                          </span>
-                          {apt.isNHIS && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--icon-green-text)]">
-                              NHIS
-                            </span>
-                          )}
+        <>
+          <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Clinician</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Department</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {paginatedAppointments.map((apt) => {
+                  const patient = findPatient(apt);
+                  const patientName = patient ? getPatientName(patient) : 'Unknown';
+                  
+                  return (
+                    <tr key={apt.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-[var(--text-primary)] text-sm">{patientName}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || 'No Folder'}</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {canEditAppointment(apt) && (
-                        <div className="flex gap-1">
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="text-sm text-[var(--text-primary)]">{apt.clinician?.fullName || '—'}</p>
+                          <p className="text-xs text-[var(--text-secondary)] capitalize">{apt.clinicianRole || '—'}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-[var(--text-primary)]">{apt.department?.name || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          <p className="font-medium text-[var(--text-primary)]">
+                            {new Date(apt.appointmentDate).toLocaleDateString()}
+                          </p>
+                          <p className="text-[var(--text-secondary)] text-xs">{apt.appointmentTime}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(apt.type)}`}>
+                          {apt.type.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(apt.status)}`}>
+                          {apt.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
                           {apt.status === 'scheduled' && (
                             <button
                               onClick={() => handleStatusUpdate(apt.id, 'confirmed')}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] transition-colors hover:bg-[var(--icon-green-bg)] rounded-lg"
+                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors"
                               title="Confirm"
                             >
                               <CheckCircle className="w-4 h-4" />
@@ -437,83 +686,198 @@ export default function Appointments() {
                           {apt.status === 'confirmed' && !apt.checkedIn && (
                             <button
                               onClick={() => handleCheckIn(apt.id)}
-                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] transition-colors hover:bg-[var(--icon-purple-bg)] rounded-lg"
+                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors"
                               title="Check In"
                             >
                               <User className="w-4 h-4" />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleEdit(apt)}
-                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] transition-colors hover:bg-[var(--icon-blue-bg)] rounded-lg"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(apt.id)}
-                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] transition-colors hover:bg-[var(--icon-red-bg)] rounded-lg"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {apt.status === 'checked_in' && (
+                            <button
+                              onClick={() => handleConvertToAttendance(apt)}
+                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors"
+                              title="Convert to Attendance"
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canEditAppointment(apt) && apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                            <button
+                              onClick={() => handleEdit(apt)}
+                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canEditAppointment(apt) && (
+                            <button
+                              onClick={() => handleDelete(apt.id)}
+                              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-[var(--text-secondary)]" />
-                      <div>
-                        <p className="text-[var(--text-secondary)] font-medium">Patient</p>
-                        <p className="text-[var(--text-primary)]">{`${apt.patient?.surname || ''} ${apt.patient?.otherNames || ''}`.trim() || 'N/A'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="w-4 h-4 text-[var(--text-secondary)]" />
-                      <div>
-                        <p className="text-[var(--text-secondary)] font-medium">Doctor</p>
-                        <p className="text-[var(--text-primary)]">{apt.doctor?.fullName || 'N/A'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Building className="w-4 h-4 text-[var(--text-secondary)]" />
-                      <div>
-                        <p className="text-[var(--text-secondary)] font-medium">Department</p>
-                        <p className="text-[var(--text-primary)]">{apt.department?.name || 'N/A'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[var(--text-secondary)]" />
-                      <div>
-                        <p className="text-[var(--text-secondary)] font-medium">Date & Time</p>
-                        <p className="text-[var(--text-primary)]">
-                          {new Date(apt.appointmentDate).toLocaleDateString()} at {apt.appointmentTime}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="text-sm text-[var(--text-secondary)]">
+                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAppointments.length)} of{' '}
+                  {filteredAppointments.length} appointment records
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
 
-                  {apt.description && (
-                    <div className="mt-3">
-                      <p className="text-[var(--text-secondary)] text-sm">{apt.description}</p>
-                    </div>
-                  )}
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
-          ))}
+          )}
+        </>
+      )}
+
+      {/* Payment Modal for Convert to Attendance */}
+      {showPaymentModal && selectedAppointmentForAttendance && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+            <div className="p-6 border-b border-[var(--border-color)]">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Select Payment Method</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
+                Patient: {getPatientName(findPatient(selectedAppointmentForAttendance))}
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Payment Mode *</label>
+                <select
+                  value={paymentData.paymentMode}
+                  onChange={(e) => setPaymentData({ ...paymentData, paymentMode: e.target.value })}
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="nhis">NHIS</option>
+                  <option value="private_insurance">Private Insurance</option>
+                  <option value="corporate">Corporate</option>
+                </select>
+              </div>
+
+              {paymentData.paymentMode === 'nhis' && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">NHIS Number *</label>
+                  <input
+                    type="text"
+                    value={paymentData.nhisCCC}
+                    onChange={(e) => setPaymentData({ ...paymentData, nhisCCC: e.target.value })}
+                    placeholder="Enter NHIS number"
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+              )}
+
+              {(paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance') && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Insurance Provider</label>
+                  <input
+                    type="text"
+                    value={paymentData.insuranceProviderId}
+                    onChange={(e) => setPaymentData({ ...paymentData, insuranceProviderId: e.target.value })}
+                    placeholder="Provider ID"
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+              )}
+
+              {paymentData.paymentMode === 'corporate' && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Corporate Account ID</label>
+                  <input
+                    type="text"
+                    value={paymentData.corporateAccountId}
+                    onChange={(e) => setPaymentData({ ...paymentData, corporateAccountId: e.target.value })}
+                    placeholder="Enter Corporate Account ID"
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-[var(--border-color)] flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setSelectedAppointmentForAttendance(null);
+                }}
+                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmConvertToAttendance}
+                className="px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
+              >
+                Confirm & Create Attendance
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Appointment Form Modal */}
+      {/* Appointment Form Modal (NO payment fields) */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl shadow-lg border border-[var(--border-color)] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                {editingAppointment ? 'Edit Appointment' : 'Create New Appointment'}
+                {editingAppointment ? 'Edit Appointment' : 'Schedule New Appointment'}
               </h2>
               <button
                 onClick={() => {
@@ -530,30 +894,102 @@ export default function Appointments() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                    Title *
-                  </label>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Patient *</label>
+                  <select
+                    required
+                    value={formData.patientId}
+                    onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  >
+                    <option value="">Select Patient</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.surname} {p.otherNames} - {p.folderNumber}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Clinician (Doctor/Nurse/Midwife) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.clinicianId}
+                    onChange={(e) => setFormData({ ...formData, clinicianId: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                    placeholder="Clinician ID"
+                  />
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">Enter the ID of the doctor, nurse, or midwife</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Department *</label>
+                  <select
+                    required
+                    value={formData.departmentId}
+                    onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="1">Medical</option>
+                    <option value="2">Surgery</option>
+                    <option value="3">Pediatrics</option>
+                    <option value="4">Obstetrics & Gynecology</option>
+                    <option value="5">Emergency</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Title *</label>
                   <input
                     type="text"
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
                     placeholder="Appointment title"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.appointmentDate}
+                    onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                    Type *
-                  </label>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Time *</label>
+                  <input
+                    type="time"
+                    required
+                    value={formData.appointmentTime}
+                    onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Type *</label>
                   <select
                     required
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
                   >
                     <option value="consultation">Consultation</option>
+                    <option value="follow_up">Follow Up</option>
                     <option value="procedure">Procedure</option>
                     <option value="antenatal">Antenatal</option>
                     <option value="postnatal">Postnatal</option>
@@ -563,76 +999,28 @@ export default function Appointments() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.appointmentDate}
-                    onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-                  />
-                </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                    Time *
-                  </label>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Duration (minutes)</label>
                   <input
-                    type="time"
-                    required
-                    value={formData.appointmentTime}
-                    onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm resize-none"
+                  className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm resize-none"
                   placeholder="Appointment description or notes"
                 />
               </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isNHIS"
-                  checked={formData.isNHIS}
-                  onChange={(e) => setFormData({ ...formData, isNHIS: e.target.checked })}
-                  className="w-4 h-4 text-[var(--icon-blue-text)] border-[var(--border-color)] rounded focus:ring-[var(--icon-blue-text)]"
-                />
-                <label htmlFor="isNHIS" className="text-sm text-[var(--text-secondary)]">
-                  NHIS Appointment
-                </label>
-              </div>
-
-              {formData.isNHIS && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                    NHIS CCC Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.nhisCCC}
-                    onChange={(e) => setFormData({ ...formData, nhisCCC: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-                    placeholder="Enter CCC number"
-                  />
-                </div>
-              )}
 
               <div className="flex gap-3 justify-end pt-4">
                 <button
@@ -642,15 +1030,15 @@ export default function Appointments() {
                     setEditingAppointment(null);
                     resetForm();
                   }}
-                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all duration-200 font-medium text-sm"
+                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all duration-200 font-medium text-sm"
+                  className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all font-medium text-sm"
                 >
-                  {editingAppointment ? 'Update' : 'Create'} Appointment
+                  {editingAppointment ? 'Update' : 'Schedule'} Appointment
                 </button>
               </div>
             </form>
