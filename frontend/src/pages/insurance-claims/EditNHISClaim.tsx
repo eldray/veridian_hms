@@ -722,15 +722,195 @@ export default function EditNHISClaim() {
       console.error('Error loading GDRG tariffs:', error);
     }
   };
+// In EditNHISClaim.tsx - FIX THE USE EFFECTS
 
-  // Load claim data
-  useEffect(() => {
-    if (id) {
-      loadClaim();
-      getDiagnoses();
-      loadGDRGTariffs();
+// Load claim data (only once when ID changes)
+useEffect(() => {
+  if (id) {
+    loadClaim();
+    getDiagnoses();
+    loadGDRGTariffs();
+  }
+}, [id]);
+
+// Populate form when currentClaim loads (this is where metadata should be)
+useEffect(() => {
+  if (!currentClaim || isInitialized.current) return;
+  isInitialized.current = true;
+
+  const patient = currentClaim.Patient;
+  const attendance = currentClaim.Attendance;
+
+  // Member details
+  const permanentNhisNumber = patient?.nhisNumber;
+  const cccCodeValue = attendance?.nhisCCC;
+  const folderNumberValue = patient?.folderNumber;
+
+  if (permanentNhisNumber) setPatientNhisNumber(permanentNhisNumber);
+  else if (cccCodeValue) setCccCode(cccCodeValue);
+  if (folderNumberValue) setFolderNumber(folderNumberValue);
+  
+  setSurname(patient?.surname || '');
+  setOtherNames(patient?.otherNames || '');
+  setGender(patient?.gender || '');
+  setDateOfBirth(patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '');
+  
+  if (patient?.dateOfBirth) {
+    const birthDate = new Date(patient.dateOfBirth);
+    const today = new Date();
+    let ageYears = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      ageYears--;
     }
-  }, [id]);
+    setAge(`${ageYears} yrs`);
+  }
+
+  // Service information
+  const serviceType = currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD';
+  setPrimaryServiceType(serviceType);
+  setServiceOutcome(currentClaim.serviceOutcome === 'DISC' ? 'DISC' : 'CONT');
+  
+  if (currentClaim.datesOfService?.length) {
+    const dates = [...visitDates];
+    currentClaim.datesOfService.forEach((date: string, i: number) => {
+      if (i < 4) dates[i] = date;
+    });
+    setVisitDates(dates);
+  } else if (attendance?.dateTime) {
+    setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
+  }
+
+  // ✅ LOAD FROM METADATA FIRST (if available)
+  if (currentClaim.metadata) {
+    const metadata = currentClaim.metadata as any;
+    
+    if (metadata.diagnoses && metadata.diagnoses.length > 0) {
+      setDiagnoses(metadata.diagnoses);
+    } else {
+      // Fallback to attendance diagnoses
+      const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
+      const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
+        id: d.id,
+        gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
+        description: d.Diagnosis?.name || '',
+        diagnosis: d.Diagnosis?.name || '',
+        icd10: d.Diagnosis?.icdCode || '',
+        diagnosisId: d.diagnosisId,
+        diagnosisType: d.diagnosisType
+      }));
+      setDiagnoses(mappedDiagnoses);
+    }
+    
+    if (metadata.investigations && metadata.investigations.length > 0) {
+      setInvestigations(metadata.investigations);
+    } else {
+      // Fallback to attendance investigations
+      const labTests = (attendance?.LabTest || []).map((l: any) => ({
+        id: l.id,
+        gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
+        description: l.ServiceCatalog?.name || l.name || '',
+        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
+               l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: l.serviceCatalogId,
+        type: 'lab' as const
+      }));
+      
+      const scans = (attendance?.Scan || []).map((s: any) => ({
+        id: s.id,
+        gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
+        description: s.ServiceCatalog?.name || s.name || '',
+        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
+               s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: s.serviceCatalogId,
+        type: 'scan' as const
+      }));
+      setInvestigations([...labTests, ...scans]);
+    }
+    
+    if (metadata.medicines && metadata.medicines.length > 0) {
+      setMedicines(metadata.medicines);
+    } else {
+      // Fallback to attendance medicines
+      const medications = (attendance?.Medication || []).map((m: any) => ({
+        id: m.id,
+        code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
+        description: m.name,
+        quantity: m.quantity || 1,
+        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
+               m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
+        prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
+        dosage: m.dosage || '',
+        frequency: m.frequency || '',
+        duration: m.duration || '',
+        stockItemId: m.stockItemId,
+        serviceCatalogId: m.serviceCatalogId
+      }));
+      setMedicines(medications);
+    }
+    
+    if (metadata.visitDates) setVisitDates(metadata.visitDates);
+    if (metadata.admissionDate) setAdmissionDate(metadata.admissionDate);
+    if (metadata.dischargeDate) setDischargeDate(metadata.dischargeDate);
+    if (metadata.lengthOfStay) setLengthOfStay(metadata.lengthOfStay);
+  } else {
+    // No metadata - load from attendance (existing logic)
+    const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
+    const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
+      id: d.id,
+      gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
+      description: d.Diagnosis?.name || '',
+      diagnosis: d.Diagnosis?.name || '',
+      icd10: d.Diagnosis?.icdCode || '',
+      diagnosisId: d.diagnosisId,
+      diagnosisType: d.diagnosisType
+    }));
+    setDiagnoses(mappedDiagnoses);
+
+    const labTests = (attendance?.LabTest || []).map((l: any) => ({
+      id: l.id,
+      gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
+      description: l.ServiceCatalog?.name || l.name || '',
+      date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
+             l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+      serviceCatalogId: l.serviceCatalogId,
+      type: 'lab' as const
+    }));
+    
+    const scans = (attendance?.Scan || []).map((s: any) => ({
+      id: s.id,
+      gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
+      description: s.ServiceCatalog?.name || s.name || '',
+      date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
+             s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
+      serviceCatalogId: s.serviceCatalogId,
+      type: 'scan' as const
+    }));
+    setInvestigations([...labTests, ...scans]);
+
+    const medications = (attendance?.Medication || []).map((m: any) => ({
+      id: m.id,
+      code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
+      description: m.name,
+      quantity: m.quantity || 1,
+      date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
+             m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
+      prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
+      dosage: m.dosage || '',
+      frequency: m.frequency || '',
+      duration: m.duration || '',
+      stockItemId: m.stockItemId,
+      serviceCatalogId: m.serviceCatalogId
+    }));
+    setMedicines(medications);
+  }
+
+  // GDRG
+  setPrincipalGDRG(currentClaim.principalGDRG || '');
+  setPreAuthNumber(currentClaim.preAuthNumber || '');
+  setNotes(currentClaim.notes || '');
+  setTypeOfAttendance(currentClaim.typeOfAttendance || 'GEN');
+}, [currentClaim]);
 
   const loadClaim = async () => {
     try {
@@ -989,20 +1169,57 @@ export default function EditNHISClaim() {
         }
       }
       
-      const updateData = {
-        principalGDRG,
-        preAuthNumber,
-        notes,
-        datesOfService: datesOfServiceArray,
-        diagnosisCodes: diagnoses.map(d => d.icd10),
-        labTestCodes: investigations.filter(i => i.type === 'lab').map(i => i.gdrgCode),
-        scanCodes: investigations.filter(i => i.type === 'scan').map(i => i.gdrgCode),
-        medicationCodes: medicines.map(m => m.code),
-        typeOfService: primaryServiceType,
-        serviceOutcome,
-        typeOfAttendance,
-        mdcCode: principalGDRG?.slice(0, 4) || 'OPDC'
-      };
+    const updateData = {
+      principalGDRG,
+      preAuthNumber,
+      notes,
+      datesOfService: visitDates.filter(d => d),
+      diagnosisCodes: diagnoses.map(d => d.icd10),
+      labTestCodes: investigations.filter(i => i.type === 'lab').map(i => i.gdrgCode),
+      scanCodes: investigations.filter(i => i.type === 'scan').map(i => i.gdrgCode),
+      medicationCodes: medicines.map(m => m.code),
+      typeOfService: primaryServiceType,
+      serviceOutcome,
+      typeOfAttendance,
+      mdcCode: principalGDRG?.slice(0, 4) || 'OPDC',
+      
+      // ✅ Save the FULL structured data in metadata
+      metadata: {
+        diagnoses: diagnoses.map(d => ({
+          id: d.id,
+          gdrgCode: d.gdrgCode,
+          description: d.description,
+          diagnosis: d.diagnosis,
+          icd10: d.icd10,
+          diagnosisId: d.diagnosisId,
+          diagnosisType: d.diagnosisType
+        })),
+        investigations: investigations.map(i => ({
+          id: i.id,
+          gdrgCode: i.gdrgCode,
+          description: i.description,
+          date: i.date,
+          serviceCatalogId: i.serviceCatalogId,
+          type: i.type
+        })),
+        medicines: medicines.map(m => ({
+          id: m.id,
+          code: m.code,
+          description: m.description,
+          quantity: m.quantity,
+          date: m.date,
+          prescription: m.prescription,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          duration: m.duration,
+          stockItemId: m.stockItemId
+        })),
+        visitDates: visitDates.filter(d => d),
+        admissionDate,
+        dischargeDate,
+        lengthOfStay
+      }
+    };
       
       await updateInsuranceClaim(id!, updateData);
       success('Saved', 'NHIS claim updated successfully');

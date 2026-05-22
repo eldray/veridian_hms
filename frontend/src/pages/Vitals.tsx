@@ -5,7 +5,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { useWorklistStore } from '../stores/worklistStore';
+import { useWorklistStore } from '../store/worklistStore';
 import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';

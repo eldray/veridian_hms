@@ -209,70 +209,79 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   // === DIAGNOSIS ACTIONS ===
 
-getDiagnoses: async (filters = {}) => {
-  set({ isLoadingDiagnoses: true });
-  try {
-    const limit = 1000; // Increased limit
-    let allDiagnoses: Diagnosis[] = [];
-    let currentPage = 1;
-    let totalPages = 1;
-    let totalCount = 0;
-    
-    // First request to get total count
-    const firstResponse = await apiGetDiagnoses({ ...filters, page: 1, limit });
-    
-    // Handle response structure
-    if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
-      allDiagnoses = [...firstResponse.data];
-      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-      totalPages = firstResponse.pagination?.pages || 1;
-      currentPage = firstResponse.pagination?.currentPage || 1;
-    } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-      allDiagnoses = [...firstResponse.data];
-      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-      totalPages = firstResponse.pagination?.pages || 1;
-    } else if (Array.isArray(firstResponse)) {
-      allDiagnoses = [...firstResponse];
-      totalCount = allDiagnoses.length;
-      totalPages = 1;
-    }
-    
-    // Fetch remaining pages if needed
-    if (currentPage < totalPages) {
-      const remainingPages = [];
-      for (let page = currentPage + 1; page <= totalPages; page++) {
-        remainingPages.push(apiGetDiagnoses({ ...filters, page, limit }));
+  getDiagnoses: async (filters = {}) => {
+    set({ isLoadingDiagnoses: true });
+    try {
+      const limit = 5000;
+      let allDiagnoses: Diagnosis[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      let totalCount = 0;
+      
+      // First request
+      const firstResponse = await apiGetDiagnoses({ ...filters, page: 1, limit });
+      
+      console.log('Diagnoses first response:', firstResponse);
+      
+      // Handle response structure
+      if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
+        allDiagnoses = [...firstResponse.data];
+        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
+        totalPages = firstResponse.pagination?.pages || Math.ceil(totalCount / limit);
+        currentPage = firstResponse.pagination?.currentPage || 1;
+      } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
+        allDiagnoses = [...firstResponse.data];
+        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
+        totalPages = firstResponse.pagination?.pages || Math.ceil(totalCount / limit);
+        currentPage = firstResponse.pagination?.currentPage || 1;
+      } else if (Array.isArray(firstResponse)) {
+        allDiagnoses = [...firstResponse];
+        totalCount = allDiagnoses.length;
+        totalPages = 1;
+      } else if (firstResponse?.diagnoses && Array.isArray(firstResponse.diagnoses)) {
+        allDiagnoses = [...firstResponse.diagnoses];
+        totalCount = firstResponse.total || allDiagnoses.length;
+        totalPages = firstResponse.totalPages || 1;
       }
       
-      const remainingResponses = await Promise.all(remainingPages);
-      
-      for (const response of remainingResponses) {
-        if (response?.success && response?.data && Array.isArray(response.data)) {
-          allDiagnoses = [...allDiagnoses, ...response.data];
-        } else if (response?.data && Array.isArray(response.data)) {
-          allDiagnoses = [...allDiagnoses, ...response.data];
-        } else if (Array.isArray(response)) {
-          allDiagnoses = [...allDiagnoses, ...response];
+      // Fetch remaining pages
+      if (currentPage < totalPages) {
+        const remainingPromises = [];
+        for (let page = currentPage + 1; page <= totalPages; page++) {
+          remainingPromises.push(apiGetDiagnoses({ ...filters, page, limit }));
+        }
+        
+        const remainingResponses = await Promise.all(remainingPromises);
+        
+        for (const response of remainingResponses) {
+          if (response?.success && response?.data && Array.isArray(response.data)) {
+            allDiagnoses = [...allDiagnoses, ...response.data];
+          } else if (response?.data && Array.isArray(response.data)) {
+            allDiagnoses = [...allDiagnoses, ...response.data];
+          } else if (Array.isArray(response)) {
+            allDiagnoses = [...allDiagnoses, ...response];
+          } else if (response?.diagnoses && Array.isArray(response.diagnoses)) {
+            allDiagnoses = [...allDiagnoses, ...response.diagnoses];
+          }
         }
       }
+      
+      console.log(`📊 Diagnoses loaded: ${allDiagnoses.length} records (Total in DB: ${totalCount})`);
+      
+      set({ 
+        diagnoses: allDiagnoses,
+        diagnosesTotalCount: totalCount,
+        isLoadingDiagnoses: false 
+      });
+    } catch (error: unknown) {
+      console.error('Failed to fetch diagnoses:', error);
+      set({
+        errors: { ...get().errors, diagnoses: error.message },
+        isLoadingDiagnoses: false
+      });
+      throw error;
     }
-    
-    console.log(`📊 Diagnoses loaded: ${allDiagnoses.length} records (Total in DB: ${totalCount})`);
-    
-    set({ 
-      diagnoses: allDiagnoses,
-      diagnosesTotalCount: totalCount,
-      isLoadingDiagnoses: false 
-    });
-  } catch (error: unknown) {
-    console.error('Failed to fetch diagnoses:', error);
-    set({
-      errors: { ...get().errors, diagnoses: error.message },
-      isLoadingDiagnoses: false
-    });
-    throw error;
-  }
-},
+  },
 
   getDiagnosis: async (id: string) => {
     set({ isLoading: true });
@@ -373,39 +382,89 @@ getDiagnoses: async (filters = {}) => {
   },
 
   // === LAB TEST TEMPLATES ===
-  getLabTestTemplates: async (filters = {}) => {
-    set({ isLoadingLabTests: true });
-    try {
-      const apiFilters = { ...filters, limit: 10000, page: 1 };
-      const response = await apiGetLabTestTemplates(apiFilters);
-      
-      let labTestsArray = [];
-      let totalCount = 0;
-      
-      // ✅ Handle backend response structure
-      if (response?.success && response?.data && Array.isArray(response.data)) {
-        labTestsArray = response.data;
-        totalCount = response.pagination?.total || labTestsArray.length;
-      } else if (response?.data && Array.isArray(response.data)) {
-        labTestsArray = response.data;
-        totalCount = response.pagination?.total || labTestsArray.length;
-      } else if (Array.isArray(response)) {
-        labTestsArray = response;
-        totalCount = labTestsArray.length;
+
+  // In medicalServicesStore.ts - FIXED getLabTestTemplates
+
+getLabTestTemplates: async (filters = {}) => {
+  set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
+  try {
+    // Match the working pattern from getProcedureTemplates
+    const limit = 5000;
+    let allLabTests: LabTestTemplate[] = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalCount = 0;
+    
+    // First request
+    const firstResponse = await apiGetLabTestTemplates({ ...filters, page: 1, limit });
+    
+    console.log('Lab tests first response:', firstResponse);
+    
+    // Handle response structure - match the pattern that works for procedures
+    if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
+      allLabTests = [...firstResponse.data];
+      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
+      totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+      currentPage = firstResponse.pagination?.currentPage || 1;
+    } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
+      allLabTests = [...firstResponse.data];
+      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
+      totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+      currentPage = firstResponse.pagination?.currentPage || 1;
+    } else if (Array.isArray(firstResponse)) {
+      allLabTests = [...firstResponse];
+      totalCount = allLabTests.length;
+      totalPages = 1;
+    } else if (firstResponse?.items && Array.isArray(firstResponse.items)) {
+      allLabTests = [...firstResponse.items];
+      totalCount = firstResponse.total || allLabTests.length;
+      totalPages = firstResponse.totalPages || 1;
+    } else if (firstResponse?.labTests && Array.isArray(firstResponse.labTests)) {
+      allLabTests = [...firstResponse.labTests];
+      totalCount = firstResponse.total || allLabTests.length;
+      totalPages = firstResponse.totalPages || 1;
+    }
+    
+    // Fetch remaining pages if needed
+    if (currentPage < totalPages) {
+      const remainingPromises = [];
+      for (let page = currentPage + 1; page <= totalPages; page++) {
+        remainingPromises.push(apiGetLabTestTemplates({ ...filters, page, limit }));
       }
       
-      console.log('📊 Lab tests loaded:', labTestsArray.length);
+      const remainingResponses = await Promise.all(remainingPromises);
       
-      set({ 
-        labTestTemplates: labTestsArray,
-        labTestsTotalCount: totalCount,
-        isLoadingLabTests: false 
-      });
-    } catch (error) {
-      console.error('Failed to fetch lab test templates:', error);
-      set({ isLoadingLabTests: false });
+      for (const response of remainingResponses) {
+        if (response?.success && response?.data && Array.isArray(response.data)) {
+          allLabTests = [...allLabTests, ...response.data];
+        } else if (response?.data && Array.isArray(response.data)) {
+          allLabTests = [...allLabTests, ...response.data];
+        } else if (Array.isArray(response)) {
+          allLabTests = [...allLabTests, ...response];
+        } else if (response?.items && Array.isArray(response.items)) {
+          allLabTests = [...allLabTests, ...response.items];
+        } else if (response?.labTests && Array.isArray(response.labTests)) {
+          allLabTests = [...allLabTests, ...response.labTests];
+        }
+      }
     }
-  },
+    
+    console.log(`📊 Lab tests loaded: ${allLabTests.length} records (Total: ${totalCount})`);
+    
+    set({ 
+      labTestTemplates: allLabTests,
+      labTestsTotalCount: totalCount,
+      isLoadingLabTests: false 
+    });
+  } catch (error: unknown) {
+    console.error('Failed to fetch lab test templates:', error);
+    set({
+      errors: { ...get().errors, labTests: error.message },
+      isLoadingLabTests: false
+    });
+    throw error;
+  }
+},
 
   getLabTestTemplate: async (id: string) => {
     set({ isLoading: true });

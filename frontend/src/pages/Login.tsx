@@ -10,292 +10,648 @@ import {
   Eye,
   EyeOff,
   Users,
-  Calendar,
   Stethoscope,
   Shield,
   Activity,
-  ClipboardList
+  Pill,
+  Receipt,
+  LogIn,
+  CheckCircle,
 } from 'lucide-react';
 
-export default function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+// ── Demo accounts ─────────────────────────────────────────────────────────────
 
-  const login = useAuthStore((state) => state.login);
+const DEMO_ACCOUNTS = [
+  {
+    username: 'admin',
+    password: 'admin123',
+    role: 'Administrator',
+    Icon: Shield,
+    iconBg: 'var(--icon-cyan-bg)',
+    iconColor: 'var(--icon-cyan-text)',
+  },
+  {
+    username: 'doctor1',
+    password: 'doctor123',
+    role: 'Doctor',
+    Icon: Stethoscope,
+    iconBg: 'var(--icon-green-bg)',
+    iconColor: 'var(--icon-green-text)',
+  },
+  {
+    username: 'nurse1',
+    password: 'nurse123',
+    role: 'Nurse',
+    Icon: Activity,
+    iconBg: 'var(--icon-yellow-bg)',
+    iconColor: 'var(--icon-yellow-text)',
+  },
+  {
+    username: 'pharma1',
+    password: 'pharma123',
+    role: 'Pharmacist',
+    Icon: Pill,
+    iconBg: 'var(--icon-purple-bg)',
+    iconColor: 'var(--icon-purple-text)',
+  },
+];
+
+// ── Feature cards shown on the left panel ─────────────────────────────────────
+
+const FEATURES = [
+  {
+    Icon: Users,
+    label: 'Patients',
+    desc: 'Full record management',
+    iconBg: 'rgba(96,165,250,0.15)',
+    iconColor: '#93C5FD',
+    border: 'rgba(96,165,250,0.25)',
+  },
+  {
+    Icon: Stethoscope,
+    label: 'Clinical',
+    desc: 'Labs, vitals, entries',
+    iconBg: 'rgba(110,231,183,0.15)',
+    iconColor: '#6EE7B7',
+    border: 'rgba(110,231,183,0.25)',
+  },
+  {
+    Icon: Pill,
+    label: 'Pharmacy',
+    desc: 'Prescribe & dispense',
+    iconBg: 'rgba(196,165,250,0.15)',
+    iconColor: '#C4B5FD',
+    border: 'rgba(196,165,250,0.25)',
+  },
+  {
+    Icon: Receipt,
+    label: 'Billing',
+    desc: 'NHIS & cash payments',
+    iconBg: 'rgba(253,186,116,0.15)',
+    iconColor: '#FDBA74',
+    border: 'rgba(253,186,116,0.25)',
+  },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export default function Login() {
+  const [username, setUsername]         = useState('');
+  const [password, setPassword]         = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]           = useState(false);
+
+  const login    = useAuthStore((state) => state.login);
   const navigate = useNavigate();
   const { success, error: toastError, info } = useToast();
 
-// In Login.tsx - update handleSubmit
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!username.trim() || !password.trim()) {
-    toastError('Invalid Input', 'Please enter both username and password');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    console.log('📤 Attempting login...');
-    const loggedIn = await login(username, password);
-    console.log('📥 Login result:', loggedIn);
-    
-    // ✅ Check store state after login
-    const storeState = useAuthStore.getState();
-    console.log('🏪 Store after login:', { 
-      hasUser: !!storeState.user, 
-      hasToken: !!storeState.token,
-      user: storeState.user?.username,
-      isInitialized: storeState.isInitialized
-    });
-
-    if (loggedIn) {
-      success('Welcome back!', `Hello, ${username}!`, 3000);
-      
-      // ✅ Small delay to ensure state is persisted
-      setTimeout(() => {
-        console.log('🚀 Navigating to dashboard...');
-        navigate('/dashboard', { replace: true });
-      }, 100);
-    } else {
-      toastError('Access Denied', 'Invalid username or password', 5000);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      toastError('Invalid input', 'Please enter both username and password');
+      return;
     }
-  } catch (err: any) {
-    console.error('❌ Login error:', err);
-    toastError(
-      'Connection Error',
-      err.message || 'Unable to connect. Please check your network and try again.',
-      5000
-    );
-  } finally {
-    setLoading(false);
-  }
-};
 
-  const fillDemoCredentials = (demoUsername: string, demoPassword: string, role: string) => {
-    setUsername(demoUsername);
-    setPassword(demoPassword);
-    info('Demo Account Loaded', `${role} credentials ready`, 2000);
+    setLoading(true);
+    try {
+      const loggedIn = await login(username, password);
+
+      const storeState = useAuthStore.getState();
+      console.log('Store after login:', {
+        hasUser:       !!storeState.user,
+        hasToken:      !!storeState.token,
+        user:          storeState.user?.username,
+        isInitialized: storeState.isInitialized,
+      });
+
+      if (loggedIn) {
+        success('Welcome back!', `Hello, ${username}!`, 3000);
+        setTimeout(() => navigate('/dashboard', { replace: true }), 100);
+      } else {
+        toastError('Access denied', 'Invalid username or password', 5000);
+      }
+    } catch (err: any) {
+      toastError(
+        'Connection error',
+        err.message || 'Unable to connect. Please check your network and try again.',
+        5000
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const demoAccounts = [
-    { username: 'admin', password: 'admin123', role: 'System Administrator', icon: Shield },
-    { username: 'doctor1', password: 'doctor123', role: 'Medical Doctor', icon: Stethoscope },
-    { username: 'nurse1', password: 'nurse123', role: 'Registered Nurse', icon: Activity },
-    { username: 'pharma1', password: 'pharma123', role: 'Pharmacist', icon: ClipboardList },
-  ];
+  const fillDemo = (acc: (typeof DEMO_ACCOUNTS)[number]) => {
+    setUsername(acc.username);
+    setPassword(acc.password);
+    info('Demo account loaded', `${acc.role} credentials ready`, 2000);
+  };
+
+  // ── Shared input style ──────────────────────────────────────────────────────
+  const inputBase: React.CSSProperties = {
+    display:     'block',
+    width:       '100%',
+    padding:     '8px 12px 8px 34px',
+    border:      '0.5px solid var(--border-color)',
+    borderRadius: 8,
+    fontSize:    13,
+    color:       'var(--text-primary)',
+    background:  'var(--bg-main)',
+    outline:     'none',
+    boxSizing:   'border-box',
+    fontFamily:  'inherit',
+    transition:  'border-color .15s',
+  };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
-      {/* Background with Medical Theme and Overlay */}
-      <div className="absolute inset-0">
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
+    <div
+      className="min-h-screen"
+      style={{
+        position: 'relative',
+        display:  'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem',
+        background: 'var(--bg-main)',
+      }}
+    >
+      {/* ── Background photo ─────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: 'absolute',
+          inset:    0,
+          backgroundImage:
+            'url("https://images.unsplash.com/photo-1551076805-e1869033e561?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80")',
+          backgroundSize:     'cover',
+          backgroundPosition: 'center',
+          opacity:            0.18,
+        }}
+      />
+      {/* Dark overlay */}
+      <div
+        style={{
+          position: 'absolute',
+          inset:    0,
+          background: 'rgba(10,18,32,0.55)',
+        }}
+      />
+
+      {/* ── Login card ───────────────────────────────────────────────────── */}
+      <div
+        className="relative z-10 w-full rounded-2xl overflow-hidden border"
+        style={{
+          maxWidth:    900,
+          borderColor: 'var(--border-color)',
+          boxShadow:   '0 24px 64px rgba(0,0,0,0.35)',
+          display:     'grid',
+          gridTemplateColumns: '1fr 320px',
+          minHeight:   520,
+        }}
+      >
+
+        {/* ── LEFT: branding panel ─────────────────────────────────────── */}
+        <div
           style={{
-            backgroundImage: 'url("https://images.unsplash.com/photo-1551076805-e1869033e561?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80")'
+            background: 'rgba(10,20,38,0.88)',
+            padding:    '32px 28px',
+            display:    'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            backdropFilter: 'blur(12px)',
           }}
-        />
-        {/* Theme-based overlay */}
-        <div className="absolute inset-0 bg-[var(--icon-cyan-bg)] opacity-20" />
-      </div>
-
-      {/* Main Login Container */}
-      <div className="bg-[var(--bg-card)] rounded-xl shadow-lg w-full max-w-4xl overflow-hidden border border-[var(--border-color)] relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[500px]">
-          {/* Left: Branding & Demo Accounts */}
-          <div className="bg-gradient-to-br from-[var(--icon-cyan-text)] to-[var(--icon-purple-text)] p-6 relative">
-            {/* Background Pattern Overlay */}
-            <div className="absolute inset-0 bg-white/10" />
-            <div className="relative z-10 h-full flex flex-col">
-              {/* Header */}
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 rounded-lg mb-3 border border-white/30">
-                  <Hospital className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-xl font-bold text-white mb-1">Veridian HMS</h1>
-                <p className="text-white/80 text-sm">Hospital Management System</p>
-              </div>
-
-              {/* Features - Compact Layout */}
-              <div className="space-y-2 mb-4 flex-1">
-                {[
-                  { icon: Users, title: 'Patient Management', desc: 'Comprehensive care tracking', bgColor: 'bg-[var(--icon-cyan-bg)]', textColor: 'text-[var(--icon-cyan-text)]' },
-                  { icon: Calendar, title: 'Medical Records', desc: 'Secure digital records', bgColor: 'bg-[var(--icon-green-bg)]', textColor: 'text-[var(--icon-green-text)]' },
-                  { icon: Shield, title: 'HIPAA Compliant', desc: 'Enterprise security', bgColor: 'bg-[var(--icon-purple-bg)]', textColor: 'text-[var(--icon-purple-text)]' }
-                ].map((feat, i) => (
-                  <div 
-                    key={i} 
-                    className="flex items-center space-x-2 p-2 bg-white/10 rounded-lg border border-white/20 backdrop-blur-sm"
-                  >
-                    <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${feat.bgColor} ${feat.textColor}`}>
-                      <feat.icon className="w-4 h-4 text-current" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-xs">{feat.title}</p>
-                      <p className="text-white/80 text-xs">{feat.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Demo Accounts */}
-              <div>
-                <p className="text-white/80 font-medium mb-2 text-center text-xs">Quick Demo Access</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {demoAccounts.map((acc) => {
-                    const Icon = acc.icon;
-                    return (
-                      <button
-                        key={acc.username}
-                        onClick={() => fillDemoCredentials(acc.username, acc.password, acc.role)}
-                        className="bg-white/10 hover:bg-white/20 border border-white/20 p-1 rounded transition-all duration-200 group backdrop-blur-sm"
-                      >
-                        <div className="flex items-center space-x-1">
-                          <div className="w-6 h-6 bg-white/20 rounded flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-3 h-3 text-white" />
-                          </div>
-                          <div className="text-left min-w-0 flex-1">
-                            <p className="text-white text-xs font-semibold truncate">{acc.role.split(' ')[0]}</p>
-                            <p className="text-white/80 text-xs truncate">{acc.username}</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+        >
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width:        40,
+                height:       40,
+                borderRadius: 10,
+                background:   'rgba(96,165,250,0.12)',
+                border:       '0.5px solid rgba(96,165,250,0.3)',
+                display:      'flex',
+                alignItems:   'center',
+                justifyContent: 'center',
+                flexShrink:   0,
+              }}
+            >
+              <Hospital style={{ width: 20, height: 20, color: '#93C5FD' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 500, color: '#E2EAF4', margin: 0 }}>
+                Veridian HMS
+              </p>
+              <p style={{ fontSize: 11, color: '#4F7298', margin: 0 }}>
+                Hospital Management System
+              </p>
             </div>
           </div>
 
-          {/* Right: Login Form */}
-          <div className="p-6 bg-[var(--bg-card)]">
-            <div className="h-full flex flex-col justify-center">
-              <div className="max-w-xs mx-auto w-full">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Welcome Back</h2>
-                  <p className="text-[var(--text-secondary)] text-sm">Sign in to your account</p>
-                </div>
+          {/* Tagline + features */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <p style={{ fontSize: 22, fontWeight: 500, color: '#E2EAF4', lineHeight: 1.35, margin: '0 0 8px' }}>
+                Comprehensive care,<br />all in one platform.
+              </p>
+              <p style={{ fontSize: 13, color: '#7FA0BF', lineHeight: 1.65, margin: 0, maxWidth: 340 }}>
+                Manage patients, clinical records, pharmacy, billing, and more
+                — built for modern healthcare.
+              </p>
+            </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Username */}
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-4 w-4 text-[var(--text-tertiary)]" />
-                      </div>
-                      <input
-                        id="username"
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="block w-full pl-9 pr-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                        placeholder="Enter username"
-                        required
-                        autoComplete="username"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Password */}
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-4 w-4 text-[var(--text-tertiary)]" />
-                      </div>
-                      <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-9 pr-9 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                        placeholder="Enter password"
-                        required
-                        autoComplete="current-password"
-                        disabled={loading}
-                      />
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={loading}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-[var(--text-tertiary)]" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-[var(--text-tertiary)]" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Remember & Forgot */}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center">
-                      <input
-                        id="remember-me"
-                        type="checkbox"
-                        className="h-3 w-3 text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)] border-[var(--border-color)] rounded"
-                        disabled={loading}
-                      />
-                      <label htmlFor="remember-me" className="ml-1 block text-[var(--text-primary)]">Remember me</label>
-                    </div>
-                    <a href="#" className="text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)]/80">
-                      Forgot password?
-                    </a>
-                  </div>
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-[var(--icon-cyan-text)] to-[var(--icon-purple-text)] hover:from-[var(--icon-cyan-text)]/90 hover:to-[var(--icon-purple-text)]/90 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Signing in...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 mr-2" />
-                        Sign In
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {/* Security Notice */}
-                <div className="mt-4 p-3 bg-[var(--icon-cyan-bg)] rounded-lg border border-[var(--icon-cyan-text)]">
-                  <div className="flex items-start space-x-2">
-                    <Shield className="w-4 h-4 text-[var(--icon-cyan-text)] mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium text-[var(--icon-cyan-text)]">Secure Access</p>
-                      <p className="text-xs text-[var(--icon-cyan-text)] mt-0.5">
-                        Protected health information. Unauthorized access prohibited.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-4 text-center">
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    © 2024 Veridian Hospital Management System
+            <div
+              style={{
+                display:             'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap:                 8,
+              }}
+            >
+              {FEATURES.map((f) => (
+                <div
+                  key={f.label}
+                  style={{
+                    padding:      '10px 12px',
+                    borderRadius: 8,
+                    background:   f.iconBg,
+                    border:       `0.5px solid ${f.border}`,
+                  }}
+                >
+                  <f.Icon
+                    style={{ width: 16, height: 16, color: f.iconColor, display: 'block', marginBottom: 5 }}
+                  />
+                  <p style={{ fontSize: 12, fontWeight: 500, color: '#CBD8E8', margin: '0 0 2px' }}>
+                    {f.label}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#4F7298', margin: 0 }}>
+                    {f.desc}
                   </p>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <p style={{ fontSize: 11, color: '#1E3A5A', margin: 0 }}>
+            © 2025 Veridian Health Systems · All rights reserved
+          </p>
+        </div>
+
+        {/* ── RIGHT: form panel ────────────────────────────────────────── */}
+        <div
+          style={{
+            background:    'var(--bg-card)',
+            padding:       '28px 24px',
+            display:       'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div
+              style={{
+                width:        44,
+                height:       44,
+                borderRadius: 12,
+                background:   'var(--icon-cyan-bg)',
+                border:       '0.5px solid var(--border-color)',
+                display:      'flex',
+                alignItems:   'center',
+                justifyContent: 'center',
+                margin:       '0 auto 10px',
+              }}
+            >
+              <Hospital style={{ width: 22, height: 22, color: 'var(--icon-cyan-text)' }} />
+            </div>
+            <p
+              style={{
+                fontSize:   16,
+                fontWeight: 500,
+                color:      'var(--text-primary)',
+                margin:     '0 0 3px',
+              }}
+            >
+              Welcome back
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+              Sign in to your account
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Username */}
+            <div>
+              <label
+                htmlFor="username"
+                style={{
+                  display:    'block',
+                  fontSize:   11,
+                  fontWeight: 500,
+                  color:      'var(--text-secondary)',
+                  marginBottom: 4,
+                }}
+              >
+                Username
+              </label>
+              <div style={{ position: 'relative' }}>
+                <User
+                  style={{
+                    position:  'absolute',
+                    left:      10,
+                    top:       '50%',
+                    transform: 'translateY(-50%)',
+                    width:     14,
+                    height:    14,
+                    color:     'var(--text-tertiary)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  required
+                  autoComplete="username"
+                  disabled={loading}
+                  style={inputBase}
+                  onFocus={(e) => (e.target.style.borderColor = 'var(--icon-cyan-text)')}
+                  onBlur={(e)  => (e.target.style.borderColor = 'var(--border-color)')}
+                />
               </div>
             </div>
+
+            {/* Password */}
+            <div>
+              <label
+                htmlFor="password"
+                style={{
+                  display:    'block',
+                  fontSize:   11,
+                  fontWeight: 500,
+                  color:      'var(--text-secondary)',
+                  marginBottom: 4,
+                }}
+              >
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock
+                  style={{
+                    position:  'absolute',
+                    left:      10,
+                    top:       '50%',
+                    transform: 'translateY(-50%)',
+                    width:     14,
+                    height:    14,
+                    color:     'var(--text-tertiary)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  autoComplete="current-password"
+                  disabled={loading}
+                  style={{ ...inputBase, paddingRight: 36 }}
+                  onFocus={(e) => (e.target.style.borderColor = 'var(--icon-cyan-text)')}
+                  onBlur={(e)  => (e.target.style.borderColor = 'var(--border-color)')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                  style={{
+                    position:   'absolute',
+                    right:      10,
+                    top:        '50%',
+                    transform:  'translateY(-50%)',
+                    background: 'none',
+                    border:     'none',
+                    cursor:     'pointer',
+                    padding:    0,
+                    display:    'flex',
+                    color:      'var(--text-tertiary)',
+                  }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword
+                    ? <EyeOff style={{ width: 14, height: 14 }} />
+                    : <Eye    style={{ width: 14, height: 14 }} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember + forgot */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label
+                style={{
+                  display:    'flex',
+                  alignItems: 'center',
+                  gap:        5,
+                  fontSize:   11,
+                  color:      'var(--text-secondary)',
+                  cursor:     'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  style={{ accentColor: 'var(--icon-cyan-text)' }}
+                  disabled={loading}
+                />
+                Remember me
+              </label>
+              <a
+                href="#"
+                style={{
+                  fontSize: 11,
+                  color:    'var(--icon-cyan-text)',
+                  textDecoration: 'none',
+                }}
+              >
+                Forgot password?
+              </a>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width:          '100%',
+                padding:        '10px 0',
+                borderRadius:   8,
+                border:         'none',
+                background:     loading ? 'var(--text-tertiary)' : 'var(--icon-cyan-text)',
+                color:          '#fff',
+                fontSize:       13,
+                fontWeight:     500,
+                cursor:         loading ? 'not-allowed' : 'pointer',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                gap:            7,
+                transition:     'opacity .15s',
+                opacity:        loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? (
+                <>
+                  <div
+                    style={{
+                      width:       14,
+                      height:      14,
+                      border:      '2px solid rgba(255,255,255,0.4)',
+                      borderTop:   '2px solid #fff',
+                      borderRadius: '50%',
+                      animation:   'spin 0.7s linear infinite',
+                    }}
+                  />
+                  Signing in…
+                </>
+              ) : (
+                <>
+                  <LogIn style={{ width: 14, height: 14 }} />
+                  Sign in
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Demo accounts */}
+          <div
+            style={{
+              marginTop:  18,
+              paddingTop: 16,
+              borderTop:  '0.5px solid var(--border-color)',
+            }}
+          >
+            <p
+              style={{
+                fontSize:      10,
+                fontWeight:    500,
+                color:         'var(--text-tertiary)',
+                textTransform: 'uppercase',
+                letterSpacing: '.06em',
+                textAlign:     'center',
+                marginBottom:  8,
+              }}
+            >
+              Quick demo access
+            </p>
+            <div
+              style={{
+                display:             'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap:                 5,
+              }}
+            >
+              {DEMO_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.username}
+                  type="button"
+                  onClick={() => fillDemo(acc)}
+                  disabled={loading}
+                  style={{
+                    display:    'flex',
+                    alignItems: 'center',
+                    gap:        8,
+                    padding:    '6px 8px',
+                    borderRadius: 7,
+                    border:     '0.5px solid var(--border-color)',
+                    background: 'var(--bg-main)',
+                    cursor:     loading ? 'not-allowed' : 'pointer',
+                    textAlign:  'left',
+                    transition: 'background .15s',
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.background =
+                      'var(--icon-cyan-bg)')
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.background =
+                      'var(--bg-main)')
+                  }
+                >
+                  <div
+                    style={{
+                      width:          22,
+                      height:         22,
+                      borderRadius:   5,
+                      background:     acc.iconBg,
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'center',
+                      flexShrink:     0,
+                    }}
+                  >
+                    <acc.Icon style={{ width: 12, height: 12, color: acc.iconColor }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize:  11,
+                        fontWeight: 500,
+                        color:     'var(--text-primary)',
+                        margin:    0,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {acc.role}
+                    </p>
+                    <p
+                      style={{
+                        fontSize:  10,
+                        color:     'var(--text-tertiary)',
+                        margin:    0,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {acc.username}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Security notice */}
+          <div
+            style={{
+              marginTop:  14,
+              padding:    '9px 11px',
+              borderRadius: 8,
+              border:     '0.5px solid var(--border-color)',
+              background: 'var(--bg-main)',
+              display:    'flex',
+              alignItems: 'center',
+              gap:        8,
+            }}
+          >
+            <CheckCircle
+              style={{ width: 13, height: 13, color: 'var(--icon-green-text)', flexShrink: 0 }}
+            />
+            <p
+              style={{
+                fontSize:   11,
+                color:      'var(--text-secondary)',
+                margin:     0,
+                lineHeight: 1.5,
+              }}
+            >
+              Secure & HIPAA-compliant. Unauthorised access is prohibited.
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Spinner keyframe injected once */}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

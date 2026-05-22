@@ -6,7 +6,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { useWorklistStore } from '../stores/worklistStore';
+import { useWorklistStore } from '../store/worklistStore';
 import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';

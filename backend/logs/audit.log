@@ -336,3 +336,107 @@
 {"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:31","where":{}}
 {"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:42","where":{}}
 {"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 22:51:42","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 23:02:20","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 23:02:20","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 23:03:39","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-21 23:03:39","where":{}}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:33"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:33"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:45"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:45"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:49"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:48:49"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:22"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 23:49:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:23"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 23:49:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:35"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:35"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:39"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 23:49:39"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-21 23:49:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:49:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:57:24"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-21 23:57:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:02:37"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:02:37"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:06:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:06:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:14:20"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 00:14:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 00:14:21"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 00:14:21"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 06:58:43"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 06:58:44"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 06:58:51"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:03:38"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:03:38"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:08"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:08"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:27"}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-22 07:19:40","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-22 07:19:40","where":{}}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:51"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:51"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:19:54"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:29:38"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:46:44"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:46:44"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:50:37"}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-22 07:50:48","where":{}}
+{"level":"info","limit":50,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-05-22 07:50:48","where":{}}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:50:49"}
+{"filters":{"limit":"10000","page":1},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 07:50:49"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 07:52:30"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 07:52:30"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 07:52:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 08:54:32"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 08:54:32"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:40:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:40:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:40:47"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:40:47"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:45:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:45:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:06"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:06"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:10"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:10"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 09:46:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:42:01"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:42:01"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:43:37"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:43:38"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:43:38"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:43:38"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:44:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:44:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:48:34"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:48:34"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:48:34"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:48:34"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:50:14"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:50:14"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 10:50:14"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 10:50:14"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:16:26"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 11:16:26"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:17:20"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 11:17:20"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:17:24"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:17:24"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:17:25"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 11:17:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:17:25"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-05-22 11:17:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:27:54"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:27:54"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:28:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-05-22 11:28:22"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-05-22 11:31:29"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-05-22 11:31:29"}

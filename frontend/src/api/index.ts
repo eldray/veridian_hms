@@ -768,6 +768,12 @@ export const getLabWorklist = () =>
 export const getPharmacyWorklist = () =>
   api.get('/encounters/worklist/pharmacy').then(r => r.data);
 
+export const getScansWorklist = () =>
+  api.get('/encounters/worklist/scans').then(r => r.data);
+
+export const getTheatreWorklist = () =>
+  api.get('/encounters/worklist/theatre').then(r => r.data);
+
 export const getWorklistSummary = () =>
   api.get('/encounters/worklist/summary').then(r => r.data);
 
@@ -1364,15 +1370,19 @@ export const getDiagnosisStats = () =>
 export const bulkUpdateDiagnoses = (data: any) => 
   api.post('/diagnoses/bulk-update', data).then(r => r.data);
 
+// api/index.ts - FIXED Lab Test endpoints
+
 // ============================================
 // LAB TEST TEMPLATES
 // ============================================
 
+// ✅ Fix: Use '/lab-tests' (with hyphen) to match backend
 export const getLabTestTemplates = (filters?: any) => 
   api.get('/lab-tests', { params: filters }).then(r => handleResponse<LabTestTemplate>(r.data));
 
 export const getLabTestTemplate = (id: string) => 
   api.get(`/lab-tests/${id}`).then(r => r.data);
+
 
 export const createLabTestTemplate = (data: any) => 
   api.post('/lab-tests', data).then(r => r.data);
@@ -1394,6 +1404,7 @@ export const getSpecimenTypes = () =>
 
 export const bulkUpdateLabTestTemplates = (data: any) => 
   api.patch('/lab-tests/bulk-update', data).then(r => r.data);
+
 
 // Procedure Templates
 export const getProcedureTemplates = (filters?: any) => 

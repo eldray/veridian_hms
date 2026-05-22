@@ -383,7 +383,7 @@ export class EncounterRepository {
   async getVitalsWorklist() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+  
     const admissions = await this.prisma.admission.findMany({
       where: {
         status: { in: ['admitted', 'checked_in'] },
@@ -404,9 +404,9 @@ export class EncounterRepository {
           }
         }
       },
-      orderBy: { admissionDate: 'asc' }  // ✅ Changed from admittedAt to admissionDate
+      orderBy: { admissionDate: 'asc' }  // ✅ Fixed
     });
-
+  
     return admissions.map(admission => ({
       id: admission.id,
       patientId: admission.patientId,
@@ -419,6 +419,59 @@ export class EncounterRepository {
       priority: 'normal',
       waitTime: Math.floor((Date.now() - new Date(admission.admissionDate).getTime()) / 60000),
       status: 'pending_vitals'
+    }));
+  }
+  
+  async getMedicalWorklist() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+  
+    const admissions = await this.prisma.admission.findMany({
+      where: {
+        status: { in: ['admitted', 'checked_in'] },
+        vitals: {
+          some: {
+            recordedAt: { gte: today }
+          }
+        },
+        attendance: {
+          none: {
+            medicalNotes: { not: null },
+            dateTime: { gte: today }
+          }
+        }
+      },
+      include: {
+        Patient: {
+          select: {
+            surname: true,
+            otherNames: true,
+            dateOfBirth: true,
+            gender: true
+          }
+        },
+        Vitals: {
+          where: { recordedAt: { gte: today } },
+          orderBy: { recordedAt: 'desc' },
+          take: 1
+        }
+      },
+      orderBy: { admissionDate: 'asc' }  // ✅ Fixed
+    });
+  
+    return admissions.map(admission => ({
+      id: admission.id,
+      patientId: admission.patientId,
+      patient: {
+        name: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
+        age: this.calculateAge(admission.Patient.dateOfBirth),
+        gender: admission.Patient.gender
+      },
+      vitals: admission.vitals[0],
+      encounterType: 'consultation',
+      priority: 'normal',
+      waitTime: Math.floor((Date.now() - new Date(admission.admissionDate).getTime()) / 60000),
+      status: 'pending_doctor'
     }));
   }
 

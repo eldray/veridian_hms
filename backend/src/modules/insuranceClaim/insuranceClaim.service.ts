@@ -633,7 +633,11 @@ export const updateClaimDraft = async (
   updateData: any,
   userId: string
 ) => {
-  const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'totalClaimAmount', 'notes', 'preAuthNumber'];
+  const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 
+                   'serviceCodes', 'totalClaimAmount', 'notes', 'preAuthNumber',
+                   'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance',
+                   'mdcCode', 'datesOfService', 'metadata']; // ✅ Add metadata
+  
   const dataToUpdate: any = { updatedById: userId, updatedAt: new Date() };
   
   for (const field of fields) {

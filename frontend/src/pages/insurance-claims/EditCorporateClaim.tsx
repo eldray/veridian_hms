@@ -233,6 +233,7 @@ export default function EditCorporateClaim() {
   const isDraft = currentClaim?.status === 'draft';
   const isFinalized = currentClaim?.status === 'submitted';
 
+  
   // Calculate totals
   useEffect(() => {
     const newTotal = employeeServices.reduce((sum, s) => sum + s.amount, 0);
@@ -259,6 +260,14 @@ export default function EditCorporateClaim() {
       getCorporateAccounts();
     }
   }, [id]);
+
+  // In EditCorporateClaim.tsx
+if (currentClaim.metadata) {
+  const metadata = currentClaim.metadata as any;
+  if (metadata.employeeServices) setEmployeeServices(metadata.employeeServices);
+  if (metadata.diagnoses) setDiagnoses(metadata.diagnoses);
+  if (metadata.discountPercentage) setDiscountPercentage(metadata.discountPercentage);
+}
 
   // Populate form from claim
   useEffect(() => {

@@ -243,6 +243,30 @@ export default function Antenatal() {
     if (currentBooking?.id) getANCVisitsByBooking(currentBooking.id);
   }, [currentBooking]);
 
+  // ── Auto-select tab based on attendance type ──
+useEffect(() => {
+  if (currentAttendance?.attendanceType) {
+    const type = currentAttendance.attendanceType;
+    
+    if (type === 'antenatal') {
+      setActiveTab('anc');
+    } else if (type === 'delivery') {
+      setActiveTab('delivery');
+    } else if (type === 'postnatal') {
+      setActiveTab('postnatal');
+    } else {
+      setActiveTab('clinical'); // Default to clinical for other types
+    }
+  }
+}, [currentAttendance?.attendanceType, selectedAttendanceId]);
+
+// Reset active tab when patient changes
+useEffect(() => {
+  if (!selectedPatientId) {
+    setActiveTab('clinical');
+  }
+}, [selectedPatientId]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleClearSelection = () => { setSelectedPatientId(''); setSelectedAttendanceId(''); };
 
@@ -325,22 +349,29 @@ export default function Antenatal() {
     setShowNewAttendance(false);
     await loadData();
     setSelectedAttendanceId(newId);
-
+  
     setTimeout(async () => {
       if (selectedPatientId) {
         const attendance = await getAttendance(newId);
+        
+        // ✅ Set active tab based on attendance type
         if (attendance?.attendanceType === 'antenatal') {
+          setActiveTab('anc');
           await getBooking(selectedPatientId);
           const booking = await getBooking(selectedPatientId).catch(() => null);
           if (!booking?.isActive || booking?.isCompleted) {
             setModalType('anc_booking');
           }
         } else if (attendance?.attendanceType === 'delivery') {
+          setActiveTab('delivery');
           setEditingDelivery(null);
           setShowDeliveryModal(true);
         } else if (attendance?.attendanceType === 'postnatal') {
+          setActiveTab('postnatal');
           setEditingPostnatal(null);
           setShowPostnatalModal(true);
+        } else {
+          setActiveTab('clinical');
         }
       }
     }, 500);
@@ -514,34 +545,94 @@ export default function Antenatal() {
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="border-b border-[var(--border-color)] px-4 overflow-x-auto">
                 <div className="flex gap-1">
-                  {([
-                    { key: 'clinical',  label: 'Clinical',   icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length + labTestsList.length + medicationsList.length },
-                    { key: 'anc',       label: 'ANC Visits', icon: <Baby className="w-3.5 h-3.5" />,        count: currentVisits.length },
-                    { key: 'delivery',  label: 'Delivery',   icon: <Hospital className="w-3.5 h-3.5" />,    count: deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length },
-                    { key: 'postnatal', label: 'Postnatal',  icon: <Heart className="w-3.5 h-3.5" />,       count: postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length },
-                    { key: 'vitals',    label: 'Vitals',     icon: <Activity className="w-3.5 h-3.5" />,    count: null },
-                  ] as const).map(tab => (
+                    {/* Clinical Tab - ALWAYS shown */}
                     <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`flex items-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
-                        activeTab === tab.key
-                          ? tabAccent[tab.key].active
-                          : `border-transparent text-[var(--text-secondary)] ${tabAccent[tab.key].hover}`
+                      key="clinical"
+                      onClick={() => setActiveTab('clinical')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                        activeTab === 'clinical'
+                          ? tabAccent.clinical.active
+                          : `border-transparent text-[var(--text-secondary)] ${tabAccent.clinical.hover}`
                       }`}
                     >
-                      {tab.icon}
-                      {tab.label}
-                      {tab.count !== null && (
-                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          activeTab === tab.key ? 'bg-current/10' : 'bg-[var(--bg-main)]'
-                        }`}>
-                          {tab.count}
-                        </span>
-                      )}
+                      <Stethoscope className="w-3.5 h-3.5" />
+                      Clinical
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-main)]">
+                        {diagnosesList.length + labTestsList.length + medicationsList.length}
+                      </span>
                     </button>
-                  ))}
-                </div>
+
+                    {/* ANC Tab - ONLY show if attendance type is antenatal */}
+                    {currentAttendance?.attendanceType === 'antenatal' && (
+                      <button
+                        key="anc"
+                        onClick={() => setActiveTab('anc')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                          activeTab === 'anc'
+                            ? tabAccent.anc.active
+                            : `border-transparent text-[var(--text-secondary)] ${tabAccent.anc.hover}`
+                        }`}
+                      >
+                        <Baby className="w-3.5 h-3.5" />
+                        ANC Visits
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-main)]">
+                          {currentVisits.length}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Delivery Tab - ONLY show if attendance type is delivery */}
+                    {currentAttendance?.attendanceType === 'delivery' && (
+                      <button
+                        key="delivery"
+                        onClick={() => setActiveTab('delivery')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                          activeTab === 'delivery'
+                            ? tabAccent.delivery.active
+                            : `border-transparent text-[var(--text-secondary)] ${tabAccent.delivery.hover}`
+                        }`}
+                      >
+                        <Hospital className="w-3.5 h-3.5" />
+                        Delivery
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-main)]">
+                          {deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Postnatal Tab - ONLY show if attendance type is postnatal */}
+                    {currentAttendance?.attendanceType === 'postnatal' && (
+                      <button
+                        key="postnatal"
+                        onClick={() => setActiveTab('postnatal')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                          activeTab === 'postnatal'
+                            ? tabAccent.postnatal.active
+                            : `border-transparent text-[var(--text-secondary)] ${tabAccent.postnatal.hover}`
+                        }`}
+                      >
+                        <Heart className="w-3.5 h-3.5" />
+                        Postnatal
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-main)]">
+                          {postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Vitals Tab - ALWAYS shown */}
+                    <button
+                      key="vitals"
+                      onClick={() => setActiveTab('vitals')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                        activeTab === 'vitals'
+                          ? tabAccent.vitals.active
+                          : `border-transparent text-[var(--text-secondary)] ${tabAccent.vitals.hover}`
+                      }`}
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      Vitals
+                    </button>
+                  </div>
               </div>
 
               {/* ── CLINICAL TAB (TABLE VIEWS) ── (Same as MedicalEntries) */}

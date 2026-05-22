@@ -167,6 +167,37 @@ export class LabTestController extends BaseController {
     }
   };
 
+// ============================================
+// GET LAB TEST CATEGORIES
+// ============================================
+getLabTestCategories = async (req: AuthRequest, res: Response) => {
+  try {
+    // Lab test categories (from Prisma enum or static list)
+    const categories = [
+      'hematology',
+      'biochemistry',
+      'microbiology',
+      'serology',
+      'immunology',
+      'molecular',
+      'pathology',
+      'cytology',
+      'histopathology',
+      'urinalysis',
+      'pulmonology',
+      'neurology',
+      'cardiology',
+      'gastroenterology',
+      'endocrinology',
+      'toxicology'
+    ];
+    
+    this.ok(res, categories, 'Lab test categories retrieved successfully');
+  } catch (error) {
+    this.error(res, error);
+  }
+};
+
   // ============================================
   // GET LAB TEST SUB-CATEGORIES
   // ============================================
@@ -178,6 +209,33 @@ export class LabTestController extends BaseController {
       this.error(res, error);
     }
   };
+
+  // LabTestController.ts - Add this method
+
+// ============================================
+// GET SPECIMEN TYPES
+// ============================================
+getSpecimenTypes = async (req: AuthRequest, res: Response) => {
+  try {
+    const specimenTypes = [
+      'Blood',
+      'Urine',
+      'Stool',
+      'Sputum',
+      'CSF',
+      'Tissue',
+      'Swab',
+      'Fluid',
+      'Hair',
+      'Nail',
+      'Other'
+    ];
+    
+    this.ok(res, specimenTypes, 'Specimen types retrieved successfully');
+  } catch (error) {
+    this.error(res, error);
+  }
+};
 
   // ============================================
   // GET LAB TEST METADATA FIELDS

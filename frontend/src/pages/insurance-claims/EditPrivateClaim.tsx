@@ -373,6 +373,14 @@ export default function EditPrivateClaim() {
     }
   }, [id]);
 
+  // In EditPrivateClaim.tsx
+if (currentClaim.metadata) {
+  const metadata = currentClaim.metadata as any;
+  if (metadata.services) setServices(metadata.services);
+  if (metadata.medicines) setMedicines(metadata.medicines);
+  if (metadata.diagnoses) setDiagnoses(metadata.diagnoses);
+}
+
   // Populate form from claim
   useEffect(() => {
     if (!currentClaim || isInitialized.current) return;

@@ -313,6 +313,29 @@ export class LabTestRepository {
     return { found: true, hasAssociatedTests: false, deleted: true };
   }
 
+// ============================================
+// GET LAB TEST CATEGORIES
+// ============================================
+async getCategories() {
+  const categories = await this.prisma.serviceCatalog.findMany({
+    distinct: ['subType'],
+    select: {
+      subType: true
+    },
+    where: {
+      serviceType: ServiceType.lab_test,
+      subType: {
+        not: null
+      }
+    },
+    orderBy: {
+      subType: 'asc'
+    }
+  });
+
+  return categories.map(item => item.subType).filter(Boolean) as string[];
+}
+
   // ============================================
   // GET LAB TEST SUB-CATEGORIES
   // ============================================

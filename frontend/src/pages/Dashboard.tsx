@@ -1,5 +1,5 @@
-// src/pages/Dashboard.tsx - UPDATED WITH WORKING INSURANCE CLAIMS
-import { useEffect, useState } from 'react';
+// src/pages/Dashboard.tsx
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePatientStore } from '../store/patientStore';
@@ -13,7 +13,7 @@ import {
   getDashboardStats,
   getAppointmentStatistics,
   getFinancialReport,
-  getClinicalReport
+  getClinicalReport,
 } from '../api';
 import {
   RefreshCw,
@@ -21,7 +21,7 @@ import {
   Clock,
   Users,
   Calendar,
-  Bed,
+  BedDouble,
   DollarSign,
   Shield,
   Package,
@@ -35,714 +35,755 @@ import {
   Heart,
   Syringe,
   CreditCard,
-  Hospital
+  Hospital,
 } from 'lucide-react';
-import type { AttendanceStatus, BillStatus, ClaimStatus, Admission, PaymentMode } from '../types';
+import type { PaymentMode } from '../types';
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+const extractArray = (res: any): any[] => {
+  if (!res) return [];
+  if (res.success && Array.isArray(res.data))        return res.data;
+  if (res.data && Array.isArray(res.data))           return res.data;
+  if (Array.isArray(res))                            return res;
+  if (res.claims     && Array.isArray(res.claims))   return res.claims;
+  if (res.bills      && Array.isArray(res.bills))    return res.bills;
+  if (res.patients   && Array.isArray(res.patients)) return res.patients;
+  if (res.attendances && Array.isArray(res.attendances)) return res.attendances;
+  return [];
+};
+
+const getTodayRange = () => {
+  const s = new Date(); s.setHours(0,  0,  0,   0);
+  const e = new Date(); e.setHours(23, 59, 59, 999);
+  return { start: s.toISOString(), end: e.toISOString() };
+};
+
+const fmtTime = (d: string) => {
+  try { return new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
+  catch { return '—'; }
+};
+
+const patientFullName = (att: any) => {
+  if (!att?.Patient) return 'Unknown Patient';
+  return `${att.Patient.surname || ''} ${att.Patient.otherNames || ''}`.trim() || 'Unknown Patient';
+};
+
+// ── status badge ──────────────────────────────────────────────────────────────
+
+const getStatusStyle = (status: string): { bg: string; color: string } => {
+  switch (status) {
+    case 'completed': case 'paid': case 'discharged':
+      return { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' };
+    case 'cancelled': case 'rejected':
+      return { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' };
+    case 'admitted': case 'scheduled':
+      return { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' };
+    case 'pending': case 'draft': case 'submitted':
+      return { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' };
+    case 'active': case 'in_progress':
+      return { bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' };
+    case 'partial':
+      return { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' };
+    default:
+      return { bg: 'var(--bg-main)', color: 'var(--text-secondary)' };
+  }
+};
+
+const paymentModeIcon = (mode: PaymentMode) => {
+  switch (mode) {
+    case 'nhis':             return <Shield    className="w-3 h-3" style={{ color: 'var(--icon-green-text)'  }} />;
+    case 'private_insurance': return <Hospital  className="w-3 h-3" style={{ color: 'var(--icon-cyan-text)'   }} />;
+    default:                  return <CreditCard className="w-3 h-3" style={{ color: 'var(--text-tertiary)'    }} />;
+  }
+};
+
+const paymentModeLabel = (mode: PaymentMode) =>
+  ({ cash: 'Cash', nhis: 'NHIS', private_insurance: 'Insurance' }[mode] ?? 'Cash');
+
+// ── stat card ─────────────────────────────────────────────────────────────────
+
+const StatCard = ({
+  to, label, value, sub, Icon, bg, color, loading,
+}: {
+  to: string; label: string; value: React.ReactNode; sub?: string;
+  Icon: React.ComponentType<any>; bg: string; color: string; loading: boolean;
+}) => (
+  <Link
+    to={to}
+    className="rounded-xl p-4 border transition-all hover:shadow-sm"
+    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+  >
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+        {label}
+      </span>
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center"
+        style={{ background: bg }}
+      >
+        <Icon className="w-4 h-4" style={{ color }} />
+      </div>
+    </div>
+    {loading ? (
+      <div
+        className="h-7 rounded animate-pulse w-16"
+        style={{ background: 'var(--bg-main)' }}
+      />
+    ) : (
+      <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        {value}
+      </p>
+    )}
+    {sub && (
+      <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+        {sub}
+      </p>
+    )}
+  </Link>
+);
+
+// ── main ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances } = useAttendanceStore();
+
+  // ── FIX: get store actions only — read patient/attendance data after load ──
+  const { loadPatients }  = usePatientStore();
+  const { getAttendances } = useAttendanceStore();
   const { success, error: toastError } = useToast();
 
+  const hasRole = useCallback(
+    (roles: string[]) => roles.includes(user?.role ?? ''),
+    [user]
+  );
+
   const [stats, setStats] = useState({
-    totalPatients: 0,
-    todayVisits: 0,
-    activeAdmissions: 0,
-    pendingBills: 0,
-    pendingClaims: 0,
-    lowStockItems: 0,
-    totalRevenue: 0,
+    totalPatients:        0,
+    todayVisits:          0,
+    activeAdmissions:     0,
+    pendingBills:         0,
+    pendingClaims:        0,
+    lowStockItems:        0,
+    totalRevenue:         0,
     scheduledAppointments: 0,
-    completedProcedures: 0
   });
-
   const [recentAttendances, setRecentAttendances] = useState<any[]>([]);
-  const [diagnosisTrends, setDiagnosisTrends] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [diagnosisTrends,   setDiagnosisTrends]   = useState<any[]>([]);
+  const [isLoading,  setIsLoading]  = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [errors,     setErrors]     = useState<string[]>([]);
 
-  // Helper to check if user has role
-  const hasRole = (roles: string[]) => {
-    return roles.includes(user?.role || '');
-  };
-
-  const getTodayRange = () => {
-    const today = new Date();
-    const start = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const end = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-    return { start, end };
-  };
-
-  // Helper to extract array from API response
-  const extractArrayFromResponse = (response: any): any[] => {
-    if (!response) return [];
-    
-    // If response has success and data property
-    if (response.success && Array.isArray(response.data)) {
-      return response.data;
-    }
-    // If response has data property that's an array
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    // If response is directly an array
-    if (Array.isArray(response)) {
-      return response;
-    }
-    // If response has claims property (for insurance claims)
-    if (response.claims && Array.isArray(response.claims)) {
-      return response.claims;
-    }
-    // If response has bills property
-    if (response.bills && Array.isArray(response.bills)) {
-      return response.bills;
-    }
-    // If response has patients property
-    if (response.patients && Array.isArray(response.patients)) {
-      return response.patients;
-    }
-    // If response has attendances property
-    if (response.attendances && Array.isArray(response.attendances)) {
-      return response.attendances;
-    }
-    
-    console.warn('Could not extract array from response:', response);
-    return [];
-  };
-
-  const loadDashboardData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     setRefreshing(true);
     setErrors([]);
 
     const { start: todayStart, end: todayEnd } = getTodayRange();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyAgo = new Date();
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
 
     try {
-      console.log('🔄 Loading dashboard data for role:', user?.role);
+      // ── FIX: await store calls then read the latest state directly ──────────
+      await loadPatients();
+      await getAttendances();
 
-      // Load patients and attendances using stores
-      await Promise.all([
-        loadPatients(),
-        getAttendances()
-      ]);
+      // read current store state AFTER the awaits resolve
+      const latestPatients    = usePatientStore.getState().patients;
+      const latestAttendances = useAttendanceStore.getState().attendances;
 
-      const totalPatients = patients.length;
-      
-      const todayVisits = attendances.filter(att => {
-        const attDate = new Date(att.dateTime || att.createdAt);
-        return attDate >= new Date(todayStart) && attDate <= new Date(todayEnd);
+      const totalPatients = latestPatients.length;
+
+      const todayStart_ms = new Date(todayStart).getTime();
+      const todayEnd_ms   = new Date(todayEnd).getTime();
+
+      const todayVisits = latestAttendances.filter((a) => {
+        const t = new Date(a.dateTime || a.createdAt).getTime();
+        return t >= todayStart_ms && t <= todayEnd_ms;
       }).length;
 
-      const recentAttendancesList = [...attendances]
-        .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime())
-        .slice(0, 10);
+      const sorted = [...latestAttendances]
+        .sort(
+          (a, b) =>
+            new Date(b.dateTime || b.createdAt).getTime() -
+            new Date(a.dateTime || a.createdAt).getTime()
+        )
+        .slice(0, 12);
 
-      console.log('✅ Store data loaded:', {
-        totalPatients,
-        todayVisits, 
-        totalAttendances: attendances.length,
-        recentAttendances: recentAttendancesList.length
-      });
+      // ── API calls ────────────────────────────────────────────────────────────
+      const isAccounts = hasRole(['admin', 'accounts']);
+      const isClinical = hasRole(['admin', 'doctor', 'pharmacist', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
 
-      // Build API calls based on user role
-      const apiCalls: Promise<any>[] = [];
-      
-      apiCalls.push(getAdmissions({ status: 'admitted' }));
-      apiCalls.push(getStockItems());
-      apiCalls.push(getDashboardStats());
-      apiCalls.push(getAppointmentStatistics({ dateFrom: todayStart }));
-
-      const isAccountsStaff = hasRole(['admin', 'accounts']);
-      const isClinicalStaff = hasRole(['admin', 'doctor','pharmacist', 'nurse', 'midwife', 'lab_tech', 'sonographer']);
-      const isAdminOnly = hasRole(['admin']);
-      
-      if (isAccountsStaff) {
-        apiCalls.push(getBills({ status: 'pending,partial' }));
-        apiCalls.push(getInsuranceClaims({ status: 'submitted,pending' }));
-        apiCalls.push(getFinancialReport({
-          period: 'today',
-          dateFrom: todayStart,
-          dateTo: todayEnd
-        }));
-      } else {
-        apiCalls.push(Promise.resolve(null));
-        apiCalls.push(Promise.resolve(null));
-        apiCalls.push(Promise.resolve(null));
-      }
-      
-      if (isClinicalStaff) {
-        apiCalls.push(getClinicalReport({
-          period: '30days',
-          dateFrom: thirtyDaysAgo.toISOString(),
-          dateTo: todayEnd
-        }));
-      } else {
-        apiCalls.push(Promise.resolve(null));
-      }
-
-      const [
-        admissionRes,
-        stockRes,
-        dashboardStatsRes,
-        appointmentStatsRes,
-        billRes,
-        claimRes,
-        financialReportRes,
-        clinicalReportRes
-      ] = await Promise.allSettled(apiCalls);
-
-      console.log('📊 API Results:', {
-        admissions: admissionRes.status,
-        stock: stockRes.status,
-        dashboardStats: dashboardStatsRes.status,
-        appointments: appointmentStatsRes.status,
-        bills: isAccountsStaff ? billRes.status : 'skipped',
-        claims: isAccountsStaff ? claimRes.status : 'skipped',
-        financial: isAccountsStaff ? financialReportRes.status : 'skipped',
-        clinical: isClinicalStaff ? clinicalReportRes.status : 'skipped'
-      });
+      const results = await Promise.allSettled([
+        getAdmissions({ status: 'admitted' }),                                    // 0
+        getStockItems(),                                                           // 1
+        getDashboardStats(),                                                       // 2
+        getAppointmentStatistics({ dateFrom: todayStart }),                        // 3
+        isAccounts ? getBills({ status: 'pending,partial' }) : null,              // 4
+        isAccounts ? getInsuranceClaims({ status: 'submitted,pending' }) : null,  // 5
+        isAccounts ? getFinancialReport({ period: 'today', dateFrom: todayStart, dateTo: todayEnd }) : null, // 6
+        isClinical ? getClinicalReport({ period: '30days', dateFrom: thirtyAgo.toISOString(), dateTo: todayEnd }) : null, // 7
+      ]);
 
       const newErrors: string[] = [];
-      let activeAdmissions = 0;
-      let lowStockItems = 0;
+      let activeAdmissions      = 0;
+      let lowStockItems         = 0;
       let scheduledAppointments = 0;
-      let totalRevenue = 0;
-      let pendingBills = 0;
-      let pendingClaims = 0;
-      let diagnosisTrendsList: any[] = [];
+      let totalRevenue          = 0;
+      let pendingBills          = 0;
+      let pendingClaims         = 0;
+      let diagList: any[]       = [];
 
-      // Process admissions
-      if (admissionRes.status === 'fulfilled') {
-        const admissionsArray = extractArrayFromResponse(admissionRes.value);
-        activeAdmissions = admissionsArray.filter((a: any) => a.status === 'admitted').length;
-      } else {
-        newErrors.push('Admissions');
-      }
+      const ok = (r: PromiseSettledResult<any>) =>
+        r.status === 'fulfilled' && r.value != null ? r.value : null;
 
-      // Process stock
-      if (stockRes.status === 'fulfilled') {
-        const stockItemsArray = extractArrayFromResponse(stockRes.value);
-        lowStockItems = stockItemsArray.filter((item: any) => 
-          (item.currentStock || 0) <= (item.reorderLevel || 0)
+      // admissions
+      const admArr = extractArray(ok(results[0]));
+      activeAdmissions = admArr.filter((a: any) => a.status === 'admitted').length;
+      if (results[0].status === 'rejected') newErrors.push('Admissions');
+
+      // stock
+      const stockArr = extractArray(ok(results[1]));
+      lowStockItems = stockArr.filter(
+        (i: any) => (i.currentStock ?? 0) <= (i.reorderLevel ?? 0)
+      ).length;
+
+      // dashboard stats
+      const ds = ok(results[2]);
+      if (ds) totalRevenue = ds.totalRevenue ?? ds.data?.totalRevenue ?? 0;
+
+      // appointments
+      const ap = ok(results[3]);
+      if (ap) scheduledAppointments = ap.scheduled ?? ap.today ?? ap.data?.scheduled ?? 0;
+      else newErrors.push('Appointments');
+
+      // bills
+      if (isAccounts) {
+        const bArr = extractArray(ok(results[4]));
+        pendingBills = bArr.filter(
+          (b: any) => b.status === 'pending' || b.status === 'partial'
         ).length;
-      } else {
-        newErrors.push('Stock');
+        if (results[4].status === 'rejected') newErrors.push('Bills');
       }
 
-      // Process dashboard stats
-      if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value) {
-        const dashboardData = dashboardStatsRes.value;
-        totalRevenue = dashboardData.totalRevenue || dashboardData.data?.totalRevenue || 0;
-      }
-
-      // Process appointments
-      if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value) {
-        const appointmentData = appointmentStatsRes.value;
-        scheduledAppointments = appointmentData.scheduled || appointmentData.today || appointmentData.data?.scheduled || 0;
-      } else {
-        newErrors.push('Appointments');
-      }
-
-      // Process bills (accounts only) - FIXED
-      if (isAccountsStaff && billRes.status === 'fulfilled' && billRes.value) {
-        const billsArray = extractArrayFromResponse(billRes.value);
-        pendingBills = billsArray.filter((bill: any) => 
-          bill.status === 'pending' || bill.status === 'partial'
+      // claims
+      if (isAccounts) {
+        const cArr = extractArray(ok(results[5]));
+        pendingClaims = cArr.filter(
+          (c: any) => ['submitted', 'pending', 'draft'].includes(c.status)
         ).length;
-        console.log(`💰 Bills loaded: ${billsArray.length} total, ${pendingBills} pending`);
-      } else if (isAccountsStaff && billRes.status === 'rejected') {
-        newErrors.push('Bills');
-        console.warn('⚠️ Failed to load bills data');
+        if (results[5].status === 'rejected') newErrors.push('Claims');
       }
 
-      // Process claims (accounts only) - FIXED
-      if (isAccountsStaff && claimRes.status === 'fulfilled' && claimRes.value) {
-        const claimsArray = extractArrayFromResponse(claimRes.value);
-        // Filter for pending claims (submitted status)
-        pendingClaims = claimsArray.filter((claim: any) => 
-          claim.status === 'submitted' || claim.status === 'pending' || claim.status === 'draft'
-        ).length;
-        console.log(`📋 Claims loaded: ${claimsArray.length} total, ${pendingClaims} pending`);
-      } else if (isAccountsStaff && claimRes.status === 'rejected') {
-        newErrors.push('Claims');
-        console.warn('⚠️ Failed to load claims data');
-      }
-
-      // Process financial report (accounts only)
-      if (isAccountsStaff && financialReportRes.status === 'fulfilled' && financialReportRes.value) {
-        const financialData = financialReportRes.value;
-        const reportRevenue = financialData.totalRevenue || financialData.data?.totalRevenue || 0;
-        if (reportRevenue > 0) {
-          totalRevenue = reportRevenue;
+      // financial
+      if (isAccounts) {
+        const fr = ok(results[6]);
+        if (fr) {
+          const rev = fr.totalRevenue ?? fr.data?.totalRevenue ?? 0;
+          if (rev > 0) totalRevenue = rev;
         }
       }
 
-      // Process clinical report (clinical staff only)
-      if (isClinicalStaff && clinicalReportRes.status === 'fulfilled' && clinicalReportRes.value) {
-        const clinicalData = clinicalReportRes.value;
-        diagnosisTrendsList = clinicalData.diagnosisTrends || clinicalData.topDiagnoses || clinicalData.data?.diagnosisTrends || [];
+      // clinical / diagnosis
+      if (isClinical) {
+        const cr = ok(results[7]);
+        if (cr) {
+          diagList =
+            cr.diagnosisTrends ?? cr.topDiagnoses ?? cr.data?.diagnosisTrends ?? [];
+        }
       }
 
-      // Generate diagnosis trends from recent attendances if clinical report failed
-      if (diagnosisTrendsList.length === 0 && recentAttendancesList.length > 0) {
-        const diagnosisCount: Record<string, number> = {};
-        
-        recentAttendancesList.forEach((attendance: any) => {
-          if (attendance.AttendanceDiagnosis && Array.isArray(attendance.AttendanceDiagnosis)) {
-            attendance.AttendanceDiagnosis.forEach((diag: any) => {
-              const diagnosisName = diag.Diagnosis?.name || diag.icdCode || 'Unknown Diagnosis';
-              diagnosisCount[diagnosisName] = (diagnosisCount[diagnosisName] || 0) + 1;
-            });
-          }
+      // fallback diagnosis from store attendances
+      if (diagList.length === 0 && sorted.length > 0) {
+        const cnt: Record<string, number> = {};
+        sorted.forEach((att: any) => {
+          (att.AttendanceDiagnosis || []).forEach((d: any) => {
+            const n = d.Diagnosis?.name || d.icdCode || 'Unknown';
+            cnt[n] = (cnt[n] || 0) + 1;
+          });
         });
-
-        diagnosisTrendsList = Object.entries(diagnosisCount)
-          .map(([name, count]) => ({ disease: name, patients: count }))
+        diagList = Object.entries(cnt)
+          .map(([disease, patients]) => ({ disease, patients }))
           .sort((a, b) => b.patients - a.patients)
           .slice(0, 5);
       }
 
-      console.log('🎯 Final stats:', {
-        totalPatients,
-        todayVisits,
-        activeAdmissions,
-        pendingBills,
-        pendingClaims,
-        lowStockItems,
-        totalRevenue,
-        scheduledAppointments,
-        recentAttendancesCount: recentAttendancesList.length
-      });
-
-      setStats({
-        totalPatients,
-        todayVisits,
-        activeAdmissions,
-        pendingBills,
-        pendingClaims,
-        lowStockItems,
-        totalRevenue,
-        scheduledAppointments,
-        completedProcedures: 0
-      });
-
-      setRecentAttendances(recentAttendancesList);
-      setDiagnosisTrends(diagnosisTrendsList);
+      setStats({ totalPatients, todayVisits, activeAdmissions, pendingBills, pendingClaims, lowStockItems, totalRevenue, scheduledAppointments });
+      setRecentAttendances(sorted);
+      setDiagnosisTrends(diagList);
       setErrors(newErrors);
-      
+
       if (newErrors.length === 0) {
         success('Dashboard refreshed', 'All data is up to date.');
-      } else if (newErrors.length > 0 && newErrors.length < 4) {
-        toastError('Partial data loaded', `Some data could not be loaded: ${newErrors.join(', ')}`);
+      } else if (newErrors.length < 4) {
+        toastError('Partial data', `Could not load: ${newErrors.join(', ')}`);
       }
-      
     } catch (err) {
-      console.error('💥 Dashboard load error:', err);
+      console.error('Dashboard error:', err);
       toastError('Refresh failed', 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [hasRole, loadPatients, getAttendances, success, toastError]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  // Helper functions
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': 
-      case 'paid': 
-      case 'discharged':
-        return 'bg-green-100 text-green-800 border-green-200';
-      
-      case 'cancelled': 
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
-      
-      case 'admitted': 
-      case 'scheduled':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      
-      case 'pending': 
-      case 'draft':
-      case 'submitted':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      
-      case 'active': 
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      
-      case 'partial':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      
-      default: 
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const getPaymentModeIcon = (mode: PaymentMode) => {
-    switch (mode) {
-      case 'nhis': return <Shield className="w-3.5 h-3.5 text-green-600" />;
-      case 'private_insurance': return <Hospital className="w-3.5 h-3.5 text-blue-600" />;
-      default: return <CreditCard className="w-3.5 h-3.5 text-gray-600" />;
-    }
-  };
-
-  const getPaymentModeLabel = (mode: PaymentMode) => {
-    const modeMap: Record<PaymentMode, string> = {
-      'cash': 'Cash',
-      'nhis': 'NHIS',
-      'private_insurance': 'Insurance'
-    };
-    return modeMap[mode] || 'Cash';
-  };
-
-  const getPatientFullName = (attendance: any) => {
-    if (!attendance.Patient) return 'Unknown Patient';
-    return `${attendance.Patient.surname || ''} ${attendance.Patient.otherNames || ''}`.trim();
-  };
-
-  const formatTime = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    } catch {
-      return '—';
-    }
-  };
-
-  const quickActions = [
-    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', color: 'bg-cyan-100 text-cyan-600 hover:bg-cyan-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist','sonographer'] },
-    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', color: 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife','pharmacist', 'records', 'sonographer'] },
-    { icon: Bed, label: 'Admission', path: '/dashboard/admissions', color: 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white', roles: ['admin', 'doctor', 'nurse', 'midwife'] },
-    { icon: DollarSign, label: 'Billing', path: '/dashboard/billing', color: 'bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white', roles: ['admin', 'accounts'] },
-    { icon: Pill, label: 'Pharmacy', path: '/dashboard/pharmacy', color: 'bg-yellow-100 text-yellow-600 hover:bg-yellow-600 hover:text-white', roles: ['admin', 'pharmacist', 'doctor'] },
-    { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', color: 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white', roles: ['admin', 'accounts', 'records'] },
-  ];
-
-  // Filter quick actions based on user role
-  const filteredQuickActions = quickActions.filter(action => 
-    action.roles.includes(user?.role || '')
-  );
+  useEffect(() => { loadData(); }, []);   // intentionally no loadData dep to run once
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
-          <AlertCircle className="w-16 h-16 text-cyan-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h2>
-          <p className="text-gray-600">Please log in to access the dashboard.</p>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--bg-main)' }}
+      >
+        <div
+          className="text-center p-8 rounded-2xl border"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
+          <AlertCircle className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--icon-cyan-text)' }} />
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Session expired
+          </h2>
+          <p style={{ color: 'var(--text-secondary)' }}>Please log in to access the dashboard.</p>
         </div>
       </div>
     );
   }
 
+  // ── stat card definitions ─────────────────────────────────────────────────
+
+  const statCards = [
+    {
+      to: '/dashboard/patients', label: 'Total Patients',
+      value: stats.totalPatients.toLocaleString(), sub: 'Registered',
+      Icon: Users, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+      show: true,
+    },
+    {
+      to: '/dashboard/attendance', label: "Today's Visits",
+      value: stats.todayVisits, sub: 'Consultations',
+      Icon: Calendar, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+      show: true,
+    },
+    {
+      to: '/dashboard/admissions', label: 'Active Admissions',
+      value: stats.activeAdmissions, sub: 'In-patients',
+      Icon: BedDouble, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+      show: true,
+    },
+    {
+      to: '/dashboard/billing', label: 'Pending Bills',
+      value: stats.pendingBills, sub: 'Unpaid',
+      Icon: FileText, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
+      show: hasRole(['admin', 'accounts']),
+    },
+    {
+      to: '/dashboard/appointments', label: 'Scheduled',
+      value: stats.scheduledAppointments, sub: 'Appointments',
+      Icon: Activity, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+      show: !hasRole(['admin', 'accounts']),
+    },
+    {
+      to: '/dashboard/insurance-claims', label: 'Pending Claims',
+      value: stats.pendingClaims, sub: 'Awaiting process',
+      Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+      show: hasRole(['admin', 'accounts']),
+    },
+    {
+      to: '/dashboard/stock', label: 'Low Stock',
+      value: stats.lowStockItems, sub: 'Need reorder',
+      Icon: Package, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+      show: hasRole(['admin', 'pharmacist']),
+    },
+    {
+      to: '/dashboard/billing', label: "Today's Revenue",
+      value: `₵${stats.totalRevenue.toFixed(2)}`, sub: 'Collected',
+      Icon: DollarSign, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+      show: hasRole(['admin', 'accounts']),
+    },
+  ].filter((s) => s.show);
+
+  // ── quick actions ─────────────────────────────────────────────────────────
+
+  const quickActions = [
+    { icon: UserPlus,  label: 'New Patient', path: '/dashboard/patients',    bg: 'var(--icon-cyan-bg)',    color: 'var(--icon-cyan-text)',    roles: ['admin','doctor','nurse','midwife','records','pharmacist','sonographer'] },
+    { icon: Calendar,  label: 'Attendance',  path: '/dashboard/attendance',  bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', roles: ['admin','doctor','nurse','midwife','pharmacist','records','sonographer'] },
+    { icon: BedDouble, label: 'Admissions',  path: '/dashboard/admissions',  bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)',  roles: ['admin','doctor','nurse','midwife'] },
+    { icon: DollarSign,label: 'Billing',     path: '/dashboard/billing',     bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', roles: ['admin','accounts'] },
+    { icon: Pill,      label: 'Pharmacy',    path: '/dashboard/pharmacy',    bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', roles: ['admin','pharmacist','doctor'] },
+    { icon: BarChart3, label: 'Reports',     path: '/dashboard/reports',     bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)',    roles: ['admin','accounts','records'] },
+  ].filter((a) => a.roles.includes(user.role ?? ''));
+
+  // ── render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-6 p-6">
+    <div
+      className="p-6"
+      style={{
+        height: '100vh',
+        background: 'var(--bg-main)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.25rem',
+        overflow: 'hidden',
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user.fullName}</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Dashboard Overview
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Welcome back, {user.fullName}
+          </p>
         </div>
         <button
-          onClick={loadDashboardData}
+          onClick={loadData}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all disabled:opacity-50"
+          style={{
+            background: 'var(--bg-card)',
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
+          {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
-      {/* Error Summary */}
-      {errors.length > 0 && errors.length < 4 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-yellow-600" />
-              <p className="text-yellow-600 font-medium text-sm">Some data could not be loaded: {errors.join(', ')}</p>
-            </div>
-            <button
-              onClick={loadDashboardData}
-              className="px-3 py-1.5 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition"
-            >
-              Retry
-            </button>
+      {/* Error banner */}
+      {errors.length > 0 && errors.length < 5 && (
+        <div
+          className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0"
+          style={{
+            background: 'var(--icon-yellow-bg)',
+            borderColor: 'var(--border-color)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" style={{ color: 'var(--icon-yellow-text)' }} />
+            <p className="text-sm" style={{ color: 'var(--icon-yellow-text)' }}>
+              Could not load: {errors.join(', ')}
+            </p>
           </div>
+          <button
+            onClick={loadData}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-80"
+            style={{ background: 'var(--icon-yellow-text)' }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-4 gap-6">
-        {/* Left Column - Stats and Health Trends */}
-        <div className="col-span-3 space-y-6">
-          {/* Enhanced Stats Grid */}
-          <div className="grid grid-cols-4 gap-4">
-            {/* Total Patients - All roles */}
-            <Link to="/dashboard/patients" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Total Patients</span>
-                <div className="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
-                  <Users className="w-5 h-5 text-cyan-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.totalPatients.toLocaleString()}</div>
-              )}
-              <div className="flex items-center gap-1 mt-1">
-                <TrendingUp className="w-3 h-3 text-green-500" />
-                <span className="text-xs text-green-600">Active</span>
-              </div>
-            </Link>
-
-            {/* Today's Visits - Clinical roles */}
-            <Link to="/dashboard/attendance" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Today's Visits</span>
-                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-orange-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.todayVisits}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">Consultations</div>
-            </Link>
-
-            {/* Active Admissions - Clinical roles */}
-            <Link to="/dashboard/admissions" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600 font-medium">Active Admissions</span>
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <Bed className="w-5 h-5 text-green-600" />
-                </div>
-              </div>
-              {isLoading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <div className="text-2xl font-bold text-gray-900">{stats.activeAdmissions}</div>
-              )}
-              <div className="text-xs text-gray-500 mt-1">In patients</div>
-            </Link>
-
-            {/* Pending Bills - Accounts only */}
-            {hasRole(['admin', 'accounts']) ? (
-              <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-600 font-medium">Pending Bills</span>
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                  </div>
-                </div>
-                {isLoading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">{stats.pendingBills}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-1">Unpaid</div>
-              </Link>
-            ) : (
-              <Link to="/dashboard/appointments" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-600 font-medium">Scheduled</span>
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Activity className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-                {isLoading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">{stats.scheduledAppointments}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-1">Appointments</div>
-              </Link>
-            )}
-
-            {/* Pending Claims - Accounts only */}
-            {hasRole(['admin', 'accounts']) && (
-              <Link to="/dashboard/insurance-claims" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-600 font-medium">Pending Claims</span>
-                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-yellow-600" />
-                  </div>
-                </div>
-                {isLoading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">{stats.pendingClaims}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-1">Awaiting processing</div>
-              </Link>
-            )}
-
-            {/* Low Stock Items - Pharmacy roles */}
-            {hasRole(['admin', 'pharmacist']) && (
-              <Link to="/dashboard/stock" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-600 font-medium">Low Stock</span>
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Package className="w-5 h-5 text-red-600" />
-                  </div>
-                </div>
-                {isLoading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-1">Need reorder</div>
-              </Link>
-            )}
-
-            {/* Today's Revenue - Accounts only */}
-            {hasRole(['admin', 'accounts']) && (
-              <Link to="/dashboard/billing" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-600 font-medium">Today's Revenue</span>
-                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-emerald-600" />
-                  </div>
-                </div>
-                {isLoading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">GH₵ {stats.totalRevenue.toFixed(2)}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-1">Collected</div>
-              </Link>
-            )}
+      {/* ── main grid — stretches to fill remaining height ── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 320px',
+          gap: '1.25rem',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {/* LEFT column */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '1.25rem', 
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
+        >
+          {/* Stat cards */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${Math.min(statCards.length, 4)}, 1fr)`,
+              gap: '0.75rem',
+              flexShrink: 0,
+            }}
+          >
+            {statCards.map((s) => (
+              <StatCard key={s.label} {...s} loading={isLoading} />
+            ))}
           </div>
 
-          {/* Diagnosis Trends - Clinical roles only */}
+          {/* Diagnosis trends */}
           {hasRole(['admin', 'doctor', 'nurse', 'pharmacist', 'midwife']) && (
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-6">
+            <div
+              className="rounded-xl border"
+              style={{ 
+                background: 'var(--bg-card)', 
+                borderColor: 'var(--border-color)',
+                flexShrink: 0,
+              }}
+            >
+              <div
+                className="flex items-center justify-between px-5 py-3 border-b"
+                style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
+              >
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Diagnosis Trends</h3>
-                  <p className="text-sm text-gray-600">Most common diagnoses (Last 30 days)</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Diagnosis Trends
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    Most common — last 30 days
+                  </p>
                 </div>
-                <Heart className="w-5 h-5 text-red-500" />
+                <Heart className="w-4 h-4" style={{ color: 'var(--icon-red-text)' }} />
               </div>
-              
-              {diagnosisTrends.length === 0 ? (
-                <div className="text-center py-8">
-                  <Syringe className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500">No diagnosis data available</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {diagnosisTrends.map((trend, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <span className="text-blue-600 font-bold text-sm">{idx + 1}</span>
+
+              <div className="p-4">
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map((i) => (
+                      <div
+                        key={i}
+                        className="h-10 rounded-lg animate-pulse"
+                        style={{ background: 'var(--bg-main)' }}
+                      />
+                    ))}
+                  </div>
+                ) : diagnosisTrends.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Syringe className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      No diagnosis data available
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {diagnosisTrends.map((t, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                        style={{ background: 'var(--bg-main)' }}
+                      >
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                          style={{
+                            background: 'var(--icon-cyan-bg)',
+                            color: 'var(--icon-cyan-text)',
+                          }}
+                        >
+                          {i + 1}
                         </div>
-                        <span className="text-sm font-medium text-gray-900 flex-1">{trend.disease}</span>
+                        <span
+                          className="flex-1 text-sm truncate"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {t.disease}
+                        </span>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: 'var(--icon-cyan-text)' }}
+                        >
+                          {t.patients} pts
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-gray-900">{trend.patients} patients</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-900">Quick Actions</h3>
-              <p className="text-sm text-gray-600">Common tasks and frequent operations</p>
+          {/* Quick actions */}
+          <div
+            className="rounded-xl border"
+            style={{ 
+              background: 'var(--bg-card)', 
+              borderColor: 'var(--border-color)',
+              flexShrink: 0,
+              marginTop: 'auto',
+            }}
+          >
+            <div
+              className="px-5 py-3 border-b"
+              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
+            >
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Quick actions
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                Frequent operations
+              </p>
             </div>
-            <div className="grid grid-cols-6 gap-4">
-              {filteredQuickActions.map((action, index) => {
-                const Icon = action.icon;
-                return (
-                  <Link 
-                    key={index} 
-                    to={action.path} 
-                    className={`flex flex-col items-center gap-3 p-4 ${action.color} rounded-xl hover:shadow-lg transition-all duration-200 border border-transparent hover:scale-105`}
-                  >
-                    <Icon className="w-6 h-6" />
-                    <span className="text-xs text-center font-medium">{action.label}</span>
-                  </Link>
-                );
-              })}
+            <div
+              className="p-4"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${Math.min(quickActions.length, 6)}, 1fr)`,
+                gap: '0.75rem',
+              }}
+            >
+              {quickActions.map((a) => (
+                <Link
+                  key={a.path}
+                  to={a.path}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all hover:shadow-sm"
+                  style={{
+                    background: a.bg,
+                    borderColor: 'var(--border-color)',
+                    color: a.color,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.opacity = '.85';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.opacity = '1';
+                  }}
+                >
+                  <a.icon className="w-5 h-5" style={{ color: a.color }} />
+                  <span className="text-xs font-medium text-center leading-tight" style={{ color: a.color }}>
+                    {a.label}
+                  </span>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right Column - Recent Activity */}
-        <div className="col-span-1">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 h-full">
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-900">Today's Activity</h3>
-              <p className="text-sm text-gray-600">Latest patient visits</p>
+        {/* RIGHT column — today's activity */}
+        <div
+          className="rounded-xl border flex flex-col"
+          style={{
+            background: 'var(--bg-card)',
+            borderColor: 'var(--border-color)',
+            height: '100%',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {/* panel header */}
+          <div
+            className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+            style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
+          >
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Today's Activity
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                Latest patient visits
+              </p>
             </div>
+            <div
+              className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+              style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+            >
+              {recentAttendances.length}
+            </div>
+          </div>
 
+          {/* scrollable list */}
+          <div 
+            className="flex-1 overflow-y-auto p-3" 
+            style={{ 
+              minHeight: 0,
+              maxHeight: '100%',
+            }}
+          >
             {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={`skeleton-${i}`} className="p-3 bg-gray-100 rounded-lg animate-pulse">
-                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-                  </div>
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="h-14 rounded-lg animate-pulse"
+                    style={{ background: 'var(--bg-main)' }}
+                  />
                 ))}
               </div>
             ) : recentAttendances.length === 0 ? (
-              <div className="text-center py-8">
-                <Stethoscope className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No visits today</p>
-                <p className="text-gray-400 text-xs mt-1">Patient visits will appear here</p>
+              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                <Stethoscope
+                  className="w-10 h-10 mb-3"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  No visits today
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Patient visits will appear here
+                </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {recentAttendances.map((attendance) => {
-                  const fullName = getPatientFullName(attendance);
-                  const patient = attendance.Patient || {};
-                  
+              <div className="space-y-2">
+                {recentAttendances.map((att) => {
+                  const name    = patientFullName(att);
+                  const patient = att.Patient || {};
+                  const ss      = getStatusStyle(att.status || 'pending');
+
                   return (
-                    <Link 
-                      key={attendance.id} 
-                      to={`/dashboard/attendance/${attendance.id}`}
-                      className="block p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group"
+                    <Link
+                      key={att.id}
+                      to={`/dashboard/attendance/${att.id}`}
+                      className="flex flex-col gap-1.5 p-3 rounded-lg border transition-all"
+                      style={{
+                        background: 'var(--bg-main)',
+                        borderColor: 'var(--border-color)',
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.borderColor =
+                          'var(--icon-cyan-text)';
+                        (e.currentTarget as HTMLAnchorElement).style.background =
+                          'var(--icon-cyan-bg)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.borderColor =
+                          'var(--border-color)';
+                        (e.currentTarget as HTMLAnchorElement).style.background =
+                          'var(--bg-main)';
+                      }}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-gray-900 text-sm truncate flex-1">
-                          {fullName}
+                      {/* name + mode */}
+                      <div className="flex items-center justify-between gap-2">
+                        <p
+                          className="text-xs font-semibold truncate flex-1"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {name}
                         </p>
-                        <div className="flex items-center gap-1 text-xs text-gray-500 ml-2">
-                          {getPaymentModeIcon(attendance.paymentMode)}
-                          <span>{getPaymentModeLabel(attendance.paymentMode)}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {paymentModeIcon(att.paymentMode)}
+                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {paymentModeLabel(att.paymentMode)}
+                          </span>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center gap-4">
-                          <span className="font-medium">{patient.folderNumber || 'No Folder'}</span>
-                          <span>{attendance.attendanceNumber}</span>
+
+                      {/* folder + attendance no + time + status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                            style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
+                          >
+                            {patient.folderNumber || '—'}
+                          </span>
+                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {att.attendanceNumber || '—'}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatTime(attendance.dateTime || attendance.createdAt)}</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                            style={{ background: ss.bg, color: ss.color }}
+                          >
+                            {(att.status || 'pending').charAt(0).toUpperCase() +
+                              (att.status || 'pending').slice(1)}
+                          </span>
+                          <div className="flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" style={{ color: 'var(--text-tertiary)' }} />
+                            <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {fmtTime(att.dateTime || att.createdAt)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Link>
