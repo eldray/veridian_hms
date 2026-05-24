@@ -1,4 +1,4 @@
-// src/pages/Admissions.tsx - COMPLETE REDESIGNED VERSION
+// src/pages/Admissions.tsx - UPDATED FOR NEW ADMISSION DESIGN
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -32,7 +32,11 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Activity,
+  ClipboardList,
+  Pill,
+  Microscope
 } from 'lucide-react';
 
 // Helper: Get consistent ID
@@ -60,6 +64,7 @@ const calculateAge = (dateOfBirth: string): number => {
 };
 
 type DateFilterType = 'today' | 'yesterday' | 'custom';
+type TabType = 'all' | 'active' | 'discharged';
 
 export default function Admissions() {
   const { success, error } = useToast();
@@ -71,6 +76,7 @@ export default function Admissions() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAdmission, setSelectedAdmission] = useState<any>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('all');
   
   // Date filter states
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
@@ -78,9 +84,9 @@ export default function Admissions() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const { admissions, getAdmissions, dischargePatient, getAdmissionStats, admissionStats } = useAdmissionStore();
+  const { admissions, getAdmissions, dischargeAdmission, getAdmissionStats, admissionStats, daycasePatients, getDaycasePatients } = useAdmissionStore();
   const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances, updateAttendance } = useAttendanceStore();
+  const { attendances, getAttendances, updateAttendance, dischargeFromEncounter } = useAttendanceStore();
   const { user, hasRole } = useAuthStore();
 
   // Helper: Get date range based on filter
@@ -123,6 +129,7 @@ export default function Admissions() {
         loadPatients(),
         getAttendances(),
         getAdmissionStats(),
+        getDaycasePatients(),
       ]);
       success('Data Loaded', 'Admissions data refreshed successfully');
     } catch (err: any) {
@@ -141,62 +148,46 @@ export default function Admissions() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, dateFilter, customStartDate, customEndDate]);
+  }, [searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
 
-// Replace the findPatient function with this improved version:
-
-// Find patient for admission - IMPROVED VERSION
-const findPatient = (admission: any) => {
-  if (!admission) return null;
-  
-  // Debug logging to see what we're dealing with
-  console.log('🔍 Finding patient for admission:', {
-    admissionId: admission.id,
-    patientId: admission.patientId,
-    patient: admission.patient,
-    patientsCount: patients.length
-  });
-  
-  // Try multiple ways to get the patient ID
-  let patientId = null;
-  
-  // Method 1: Direct patientId field
-  if (admission.patientId) {
-    patientId = typeof admission.patientId === 'object' 
-      ? getEntityId(admission.patientId) 
-      : admission.patientId;
-  }
-  
-  // Method 2: From patient object
-  if (!patientId && admission.patient) {
-    patientId = getEntityId(admission.patient);
-  }
-  
-  // Method 3: From nested object
-  if (!patientId && admission.Patient) {
-    patientId = getEntityId(admission.Patient);
-  }
-  
-  if (!patientId) {
-    console.warn('⚠️ No patientId found for admission:', admission.id);
+  // Find patient for admission - UPDATED to handle new structure
+  const findPatient = (admission: any) => {
+    if (!admission) return null;
+    
+    // First try to get patient from admission.attendance (new structure)
+    if (admission.attendance?.patient) {
+      return admission.attendance.patient;
+    }
+    
+    // Then try direct patient field
+    if (admission.patient) {
+      return admission.patient;
+    }
+    
+    // Then try Patient (capital P)
+    if (admission.Patient) {
+      return admission.Patient;
+    }
+    
+    // Finally search by patientId in the patients store
+    let patientId = admission.patientId || admission.patient_id;
+    if (!patientId && admission.attendance?.patientId) {
+      patientId = admission.attendance.patientId;
+    }
+    
+    if (patientId) {
+      const foundPatient = patients.find(p => {
+        const pId = getEntityId(p);
+        return pId && String(pId) === String(patientId);
+      });
+      if (foundPatient) return foundPatient;
+    }
+    
+    console.warn('⚠️ No patient found for admission:', admission.id);
     return null;
-  }
-  
-  // Find patient by comparing IDs (convert both to strings for comparison)
-  const foundPatient = patients.find(p => {
-    const pId = getEntityId(p);
-    return pId && String(pId) === String(patientId);
-  });
-  
-  if (!foundPatient) {
-    console.warn(`⚠️ Patient not found for ID: ${patientId} (type: ${typeof patientId})`);
-    console.log('Available patient IDs:', patients.map(p => getEntityId(p)));
-  }
-  
-  return foundPatient;
-};
+  };
 
-  // Filter admissions by search and date
+  // Filter admissions by search, date, and tab
   const filteredAdmissions = useMemo(() => {
     if (!admissions.length) return [];
     
@@ -211,6 +202,11 @@ const findPatient = (admission: any) => {
         }
       }
       
+      // Tab filtering
+      const isDischarged = admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
+      if (activeTab === 'active' && isDischarged) return false;
+      if (activeTab === 'discharged' && !isDischarged) return false;
+      
       // Search filtering
       if (searchQuery) {
         const patient = findPatient(admission);
@@ -220,9 +216,8 @@ const findPatient = (admission: any) => {
           admission.admissionNumber?.toLowerCase().includes(lower) ||
           fullName.toLowerCase().includes(lower) ||
           patient?.folderNumber?.toLowerCase().includes(lower) ||
-          admission.diagnosis?.toLowerCase().includes(lower) ||
-          admission.admittingDoctor?.toLowerCase().includes(lower) ||
-          admission.status?.toLowerCase().includes(lower)
+          admission.attendance?.complaints?.toLowerCase().includes(lower) ||
+          admission.admissionType?.toLowerCase().includes(lower)
         );
       }
       
@@ -232,11 +227,11 @@ const findPatient = (admission: any) => {
     return filtered.sort((a, b) => 
       new Date(b.admissionDate || b.createdAt).getTime() - new Date(a.admissionDate || a.createdAt).getTime()
     );
-  }, [admissions, patients, searchQuery, dateFilter, customStartDate, customEndDate]);
+  }, [admissions, patients, searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
 
   // Separate by status for stats
-  const activeAdmissions = filteredAdmissions.filter(a => a.status === 'admitted');
-  const dischargedAdmissions = filteredAdmissions.filter(a => a.status === 'discharged');
+  const activeAdmissions = filteredAdmissions.filter(a => !a.dischargeDate);
+  const dischargedAdmissions = filteredAdmissions.filter(a => a.dischargeDate);
 
   // Pagination
   const totalPages = Math.ceil(filteredAdmissions.length / itemsPerPage);
@@ -288,15 +283,20 @@ const findPatient = (admission: any) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'admitted': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-      case 'discharged': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
-    }
+  const getStatusColor = (admission: any) => {
+    if (admission.dischargeDate) return 'bg-gray-100 text-gray-700';
+    return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
   };
 
-  // Print Discharge Summary using pdfGenerator
+  // Calculate length of stay
+  const getLengthOfStay = (admission: any) => {
+    const start = new Date(admission.admissionDate || admission.createdAt);
+    const end = admission.dischargeDate ? new Date(admission.dischargeDate) : new Date();
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
+  // Print Discharge Summary using pdfGenerator - UPDATED to use attendance data
   const handlePrintDischargeSummary = async (admission: any) => {
     const patient = findPatient(admission);
     if (!patient) {
@@ -305,23 +305,27 @@ const findPatient = (admission: any) => {
     }
 
     try {
+      // Get primary diagnosis from attendance
+      const attendance = admission.attendance;
+      const primaryDiagnosis = attendance?.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')?.Diagnosis;
+      
       const dischargeData = {
         admission: {
           admissionNumber: admission.admissionNumber,
           admissionDate: admission.admissionDate,
           dischargeDate: admission.dischargeDate || new Date().toISOString(),
           dischargeStatus: admission.dischargeStatus || 'home',
-          lengthOfStay: admission.lengthOfStay || 0,
+          lengthOfStay: getLengthOfStay(admission),
           admissionType: admission.admissionType || 'emergency',
-          dischargeSummary: admission.dischargeSummary || 'Patient discharged successfully.',
-          attendingDoctor: admission.admittingDoctor || 'Unknown',
-          wardName: admission.ward?.wardName || 'General Ward',
-          bedNumber: admission.bed?.bedNumber || 'N/A'
+          dischargeSummary: 'Patient discharged successfully.',
+          attendingDoctor: attendance?.createdBy?.fullName || 'Unknown',
+          wardName: attendance?.ward?.wardName || 'General Ward',
+          bedNumber: attendance?.bed?.bedNumber || 'N/A'
         },
         attendance: {
-          attendanceNumber: admission.attendance?.attendanceNumber || 'N/A',
+          attendanceNumber: attendance?.attendanceNumber || 'N/A',
           dateTime: admission.admissionDate,
-          attendingClinician: admission.admittingDoctor
+          attendingClinician: attendance?.createdBy?.fullName
         },
         patient: {
           fullName: getPatientName(patient),
@@ -332,14 +336,14 @@ const findPatient = (admission: any) => {
           id: patient.id
         },
         clinicalData: {
-          diagnoses: admission.principalDiagnosis ? [{
-            name: admission.principalDiagnosis?.name || admission.diagnosis,
-            icdCode: admission.principalDiagnosis?.icdCode || '',
+          diagnoses: primaryDiagnosis ? [{
+            name: primaryDiagnosis.name,
+            icdCode: primaryDiagnosis.icdCode || '',
             primary: true,
             date: admission.admissionDate
           }] : [],
-          medications: [],
-          procedures: []
+          medications: attendance?.Medication || [],
+          procedures: attendance?.Procedure || []
         }
       };
 
@@ -353,7 +357,7 @@ const findPatient = (admission: any) => {
     }
   };
 
-  // Discharge Handler
+  // Discharge Handler - UPDATED to use new discharge method
   const handleDischargePatient = async (admission: any) => {
     setSelectedAdmission(admission);
     setShowDischargeModal(true);
@@ -363,17 +367,23 @@ const findPatient = (admission: any) => {
     if (!selectedAdmission) return;
     
     const patient = findPatient(selectedAdmission);
+    const attendanceId = selectedAdmission.attendance?.id || selectedAdmission.attendanceId;
     
     try {
       const dischargeData = {
-        dischargeDate: new Date().toISOString().split('T')[0],
-        dischargeTime: new Date().toTimeString().split(' ')[0].substring(0, 5),
+        dischargeDate: new Date().toISOString(),
         dischargeStatus: 'home',
         dischargeSummary: 'Patient discharged successfully',
       };
 
-      await dischargePatient(getEntityId(selectedAdmission)!, dischargeData);
-      await Promise.all([getAdmissions(), getAdmissionStats()]);
+      // Use the appropriate discharge method
+      if (attendanceId) {
+        await dischargeFromEncounter(attendanceId, dischargeData);
+      } else {
+        await dischargeAdmission(selectedAdmission.id, dischargeData);
+      }
+      
+      await Promise.all([getAdmissions(), getAdmissionStats(), getAttendances()]);
       setShowDischargeModal(false);
       setSelectedAdmission(null);
       success('Patient Discharged!', `${getPatientName(patient)} has been successfully discharged.`);
@@ -420,6 +430,13 @@ const findPatient = (admission: any) => {
             <Bed className="w-4 h-4" />
             Ward Management
           </Link>
+          <Link
+            to="/dashboard/encounters/new?type=ipd"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            New Admission
+          </Link>
           <button
             onClick={loadData}
             disabled={refreshing}
@@ -429,6 +446,40 @@ const findPatient = (admission: any) => {
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-1 border border-[var(--border-color)] flex gap-1">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'all'
+              ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+          }`}
+        >
+          All Admissions
+        </button>
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'active'
+              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+          }`}
+        >
+          Active ({activeAdmissions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('discharged')}
+          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'discharged'
+              ? 'bg-gray-100 text-gray-700'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+          }`}
+        >
+          Discharged ({dischargedAdmissions.length})
+        </button>
       </div>
 
       {/* Date Filter Bar */}
@@ -516,7 +567,7 @@ const findPatient = (admission: any) => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by patient name, folder number, admission number, diagnosis..."
+                placeholder="Search by patient name, folder number, admission number..."
                 className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-sm"
               />
             </div>
@@ -538,7 +589,13 @@ const findPatient = (admission: any) => {
 
       {/* Stats Banner */}
       {filteredAdmissions.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+        <div className={`rounded-xl p-4 border ${
+          activeTab === 'active' 
+            ? 'bg-green-50 border-green-200' 
+            : activeTab === 'discharged'
+            ? 'bg-gray-50 border-gray-200'
+            : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
+        }`}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-sm font-semibold text-blue-800">
@@ -552,9 +609,9 @@ const findPatient = (admission: any) => {
             </div>
             <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
               <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
-                Admitted: {activeAdmissions.length}
+                Active: {activeAdmissions.length}
               </span>
-              <span className="bg-cyan-100 px-2 py-1 rounded border border-cyan-200">
+              <span className="bg-gray-100 px-2 py-1 rounded border border-gray-200">
                 Discharged: {dischargedAdmissions.length}
               </span>
             </div>
@@ -562,7 +619,7 @@ const findPatient = (admission: any) => {
         </div>
       )}
 
-      {/* Admissions Table - DEFAULT VIEW */}
+      {/* Admissions Table */}
       {filteredAdmissions.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <Hospital className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
@@ -604,7 +661,7 @@ const findPatient = (admission: any) => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Admission Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Discharge Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Ward / Bed</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Doctor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Length of Stay</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
                 </tr>
@@ -615,8 +672,11 @@ const findPatient = (admission: any) => {
                   const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
                   const admissionDate = admission.admissionDate || admission.createdAt;
                   const dischargeDate = admission.dischargeDate;
-                  const wardName = admission.ward?.wardName || '—';
-                  const bedNumber = admission.bed?.bedNumber || '—';
+                  const attendance = admission.attendance;
+                  const wardName = attendance?.ward?.wardName || admission.ward?.wardName || '—';
+                  const bedNumber = attendance?.bed?.bedNumber || admission.bed?.bedNumber || '—';
+                  const lengthOfStay = getLengthOfStay(admission);
+                  const isDischarged = !!dischargeDate;
                   
                   return (
                     <tr key={admission.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
@@ -674,29 +734,26 @@ const findPatient = (admission: any) => {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-[var(--text-primary)]">
-                          {admission.admittingDoctor || '—'}
+                          {lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(admission.status)}`}>
-                          {admission.status === 'admitted' ? 'ACTIVE' : 'DISCHARGED'}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(admission)}`}>
+                          {isDischarged ? 'DISCHARGED' : 'ACTIVE'}
                         </span>
-                        {admission.lengthOfStay > 0 && (
-                          <span className="text-xs text-[var(--text-secondary)] ml-2">
-                            LOS: {admission.lengthOfStay}d
-                          </span>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          {/* View Medical Records */}
-                          <Link
-                            to={`/dashboard/medical-entries/${admission.attendanceId}`}
-                            className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
-                            title="View Medical Records"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
+                          {/* View Medical Records - Link to attendance */}
+                          {attendance?.id && (
+                            <Link
+                              to={`/dashboard/medical-entries/${attendance.id}`}
+                              className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
+                              title="View Medical Records"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                          )}
                           
                           {/* Print Discharge Summary */}
                           <button
@@ -708,7 +765,7 @@ const findPatient = (admission: any) => {
                           </button>
                           
                           {/* Discharge Button (only for active admissions) */}
-                          {admission.status === 'admitted' && canDischargePatient && (
+                          {!isDischarged && canDischargePatient && (
                             <button
                               onClick={() => handleDischargePatient(admission)}
                               className="p-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"

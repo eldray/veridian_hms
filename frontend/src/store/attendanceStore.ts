@@ -1,6 +1,5 @@
-// src/store/attendanceStore.ts - COMPLETE FIXED VERSION
+// stores/attendanceStore.ts - COMPLETE FIXED VERSION (Single copy)
 import { create } from 'zustand';
-// TO (encounter based names):
 import {
   getEncounters as apiGetAttendances,
   getEncounter as apiGetAttendance,
@@ -52,7 +51,7 @@ interface Attendance {
   nhisCCC?: string;
   complaints: string;
   medicalNotes?: string;
-  encounterCategory: string;
+  encounterCategory: 'opd' | 'ipd' | 'daycase';  // ✅ UPDATED
   visitCategory: string;
   gdrgCategory?: string;
   serviceCategory?: string;
@@ -61,6 +60,8 @@ interface Attendance {
   outstandingBalance: number;
   insuranceProviderId?: string;
   status: string;
+  bedId?: string;      // ✅ ADDED
+  wardId?: string;     // ✅ ADDED
   createdById: string;
   createdBy?: {
     id: string;
@@ -77,7 +78,7 @@ interface Attendance {
   Scan?: any[];
   ServiceRendered?: any[];
   Vitals?: any[];
-  Admission?: any;
+  Admission?: any;  // Optional - only for IPD encounters
 }
 
 interface Pagination {
@@ -101,6 +102,9 @@ interface AttendanceState {
   canAddMedicalEntries: (attendance: Attendance) => boolean;
   canRecordVitals: (attendance: Attendance) => boolean;
   canCompleteAttendance: (attendance: Attendance) => boolean;
+  isIPD: (attendance: Attendance) => boolean;
+  isDaycase: (attendance: Attendance) => boolean;
+  isOPD: (attendance: Attendance) => boolean;
 
   // Core operations
   getAttendances: (filters?: any) => Promise<void>;
@@ -125,7 +129,7 @@ interface AttendanceState {
   updateProcedureStatus: (attendanceId: string, procedureId: string, data: any) => Promise<void>;
   removeProcedure: (attendanceId: string, procedureId: string) => Promise<void>;
   
-  // Medication operations - ✅ REMOVED quantity from prescription
+  // Medication operations
   addMedication: (attendanceId: string, data: { 
     stockItemId: string; 
     serviceCatalogId: string; 
@@ -137,7 +141,6 @@ interface AttendanceState {
   }) => Promise<void>;
   updateMedicationStatus: (attendanceId: string, medicationId: string, data: any) => Promise<void>;
   removeMedication: (attendanceId: string, medicationId: string) => Promise<void>;
-  dispenseMedication?: (attendanceId: string, medicationId: string, data: { quantity: number; dispensedBy?: string; batchNumber?: string }) => Promise<void>;
   
   // Scan operations
   addScan: (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => Promise<void>;
@@ -175,8 +178,11 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   canAddActivities: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
   canModifyActivities: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
   canAddMedicalEntries: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
-  canRecordVitals: (attendance) => attendance?.status === 'pending'|| attendance?.status === 'admitted',
+  canRecordVitals: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
   canCompleteAttendance: (attendance) => attendance?.status === 'pending' || attendance?.status === 'admitted',
+  isIPD: (attendance) => attendance?.encounterCategory === 'ipd',
+  isDaycase: (attendance) => attendance?.encounterCategory === 'daycase',
+  isOPD: (attendance) => attendance?.encounterCategory === 'opd',
   
   // ==========================================
   // CORE OPERATIONS
@@ -202,7 +208,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       }
 
       set({ attendances, pagination, isLoading: false });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error fetching attendances:', error);
       set({ error: error.message || 'Failed to fetch attendances', isLoading: false });
       throw error;
@@ -220,7 +226,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const attendance = response.data || response;
       set({ currentAttendance: attendance, isLoading: false });
       return attendance;
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error fetching attendance:', error);
       set({ error: error.message || 'Failed to fetch attendance', isLoading: false });
       throw error;
@@ -238,7 +244,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       }));
       return newAttendance;
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error creating attendance:', error);
       set({ error: error.message || 'Failed to create attendance', isLoading: false });
       throw error;
@@ -254,7 +260,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: get().currentAttendance?.id === id ? updated : get().currentAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating attendance:', error);
       set({ error: error.message || 'Failed to update attendance', isLoading: false });
       throw error;
@@ -270,7 +276,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: get().currentAttendance?.id === id ? null : get().currentAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error deleting attendance:', error);
       set({ error: error.message || 'Failed to delete attendance', isLoading: false });
       throw error;
@@ -286,7 +292,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: get().currentAttendance?.id === id ? updated : get().currentAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating attendance status:', error);
       set({ error: error.message || 'Failed to update attendance status', isLoading: false });
       throw error;
@@ -315,7 +321,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding diagnosis:', error);
       set({ error: error.message || 'Failed to add diagnosis', isLoading: false });
       throw error;
@@ -332,7 +338,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing diagnosis:', error);
       set({ error: error.message || 'Failed to remove diagnosis', isLoading: false });
       throw error;
@@ -358,7 +364,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding lab test:', error);
       set({ error: error.message || 'Failed to add lab test', isLoading: false });
       throw error;
@@ -374,7 +380,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: updated,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating lab test status:', error);
       set({ error: error.message || 'Failed to update lab test status', isLoading: false });
       throw error;
@@ -391,7 +397,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing lab test:', error);
       set({ error: error.message || 'Failed to remove lab test', isLoading: false });
       throw error;
@@ -417,7 +423,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding procedure:', error);
       set({ error: error.message || 'Failed to add procedure', isLoading: false });
       throw error;
@@ -433,7 +439,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: updated,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating procedure status:', error);
       set({ error: error.message || 'Failed to update procedure status', isLoading: false });
       throw error;
@@ -450,7 +456,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing procedure:', error);
       set({ error: error.message || 'Failed to remove procedure', isLoading: false });
       throw error;
@@ -458,7 +464,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   // ==========================================
-  // MEDICATION OPERATIONS - ✅ FIXED (no quantity in prescription)
+  // MEDICATION OPERATIONS
   // ==========================================
 
   addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions }) => {
@@ -469,7 +475,6 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      // ✅ Don't send quantity - only for dispensing
       const updated = await apiAddMedication(attendanceId, {
         stockItemId,
         serviceCatalogId,
@@ -485,7 +490,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding medication:', error);
       set({ error: error.message || 'Failed to add medication', isLoading: false });
       throw error;
@@ -495,23 +500,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateMedicationStatus: async (attendanceId, medicationId, data) => {
     set({ isLoading: true, error: null });
     try {
-      // ✅ Use the imported apiUpdateMedicationStatus function instead of api.patch
       const response = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
-      
-      // The API returns the updated attendance
       const updatedAttendance = response.data || response;
       
-      // Update the local state
       set((state) => {
-        // Update the attendances array
         const updatedAttendances = state.attendances.map((att) => {
-          if (att.id === attendanceId) {
-            return updatedAttendance;
-          }
+          if (att.id === attendanceId) return updatedAttendance;
           return att;
         });
         
-        // Update currentAttendance if it matches
         const updatedCurrentAttendance = state.currentAttendance?.id === attendanceId
           ? updatedAttendance
           : state.currentAttendance;
@@ -524,11 +521,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         };
       });
       
-      // Find and return the updated medication
       const updatedMedication = updatedAttendance.Medication?.find((m: any) => m.id === medicationId);
       return updatedMedication;
       
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating medication status:', error);
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to update medication status', 
@@ -548,7 +544,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing medication:', error);
       set({ error: error.message || 'Failed to remove medication', isLoading: false });
       throw error;
@@ -574,7 +570,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding scan:', error);
       set({ error: error.message || 'Failed to add scan', isLoading: false });
       throw error;
@@ -585,14 +581,12 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updated = await apiUpdateScanStatus(attendanceId, scanId, data);
-      console.log('✅ Scan status updated, response:', updated); // Debug log
-      
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating scan status:', error);
       set({ error: error.message || 'Failed to update scan status', isLoading: false });
       throw error;
@@ -609,7 +603,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing scan:', error);
       set({ error: error.message || 'Failed to remove scan', isLoading: false });
       throw error;
@@ -635,7 +629,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: updatedAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding vitals:', error);
       set({ error: error.message || 'Failed to add vitals', isLoading: false });
       throw error;
@@ -661,7 +655,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: updatedAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error updating vitals:', error);
       set({ error: error.message || 'Failed to update vitals', isLoading: false });
       throw error;
@@ -678,7 +672,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         currentAttendance: updatedAttendance,
         isLoading: false,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error deleting vitals:', error);
       set({ error: error.message || 'Failed to delete vitals', isLoading: false });
       throw error;
@@ -695,7 +689,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const result = await apiCalculateBill(attendanceId);
       set({ isLoading: false });
       return result;
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error calculating bill:', error);
       set({ error: error.message || 'Failed to calculate bill', isLoading: false });
       throw error;
@@ -707,7 +701,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     try {
       const stats = await apiGetAttendanceStats(filters);
       set({ stats, isLoading: false });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error fetching attendance stats:', error);
       set({ error: error.message || 'Failed to fetch attendance stats', isLoading: false });
       throw error;
@@ -733,7 +727,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding service:', error);
       set({ error: error.message || 'Failed to add service', isLoading: false });
       throw error;
@@ -750,7 +744,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         isLoading: false,
       });
       await get().calculateBill(attendanceId);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error removing service:', error);
       set({ error: error.message || 'Failed to remove service', isLoading: false });
       throw error;

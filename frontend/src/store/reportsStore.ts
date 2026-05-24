@@ -1,6 +1,5 @@
-// src/store/reportsStore.ts - COMPLETE VERSION
+// src/store/reportsStore.ts - COMPLETE FIXED VERSION
 
-// src/store/reportsStore.ts
 import { create } from 'zustand';
 import {
   getGHSOPDReport,
@@ -15,7 +14,7 @@ import {
   getClinicalReport,
   getEncounterReport as getAttendanceReport,
   getRevenueReport,
-  getFamilyPlanningReport,  // ✅ Fixed: No 'GHS' prefix
+  getFamilyPlanningReport,
   getDemographicReport,
   getLabReport,
   getScanReport,
@@ -25,6 +24,8 @@ import {
   getReportSubmissions,
   getReportSubmissionById as getReportById,
   exportReportToCSV,
+  getNhisExpiryReport,      // ✅ ADD THIS IMPORT
+  getNhisClaimsSummary,     // ✅ ADD THIS IMPORT
 } from '../api';
 
 interface ReportFilter {
@@ -51,7 +52,7 @@ interface ReportsState {
     financial: any[];
     attendance: any[];
     revenue: any[];
-    insuranceClaims: any[]; 
+    insuranceClaims: any[];
     familyPlanning: any[];
     demographic: any[];
     lab: any[];
@@ -61,7 +62,10 @@ interface ReportsState {
     vitals: any[];
   };
   submissions: any[];
+  currentSubmission: any | null;
   currentReport: any | null;
+  nhisExpiryReport: any | null;      // ✅ ADDED - moved inside state
+  nhisClaimsSummary: any | null;     // ✅ ADDED - moved inside state
   
   // GHS Reports
   getGHSOPDReport: (filters: ReportFilter) => Promise<void>;
@@ -85,6 +89,10 @@ interface ReportsState {
   getProcedureReport: (filters: ReportFilter) => Promise<void>;
   getMedicationReport: (filters: ReportFilter) => Promise<void>;
   getVitalsReport: (filters: ReportFilter) => Promise<void>;
+  
+  // NHIS Reports
+  getNhisExpiryReport: (params: { daysThreshold?: number; startDate?: string; endDate?: string }) => Promise<void>;
+  getNhisClaimsSummary: (params: { startDate?: string; endDate?: string; expiryStatus?: string }) => Promise<void>;
   
   // Report Management
   getReportSubmissions: (filters?: any) => Promise<void>;
@@ -110,6 +118,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     financial: [],
     attendance: [],
     revenue: [],
+    insuranceClaims: [],
     familyPlanning: [],
     demographic: [],
     lab: [],
@@ -119,8 +128,12 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
     vitals: [],
   },
   submissions: [],
+  currentSubmission: null,
   currentReport: null,
+  nhisExpiryReport: null,      // ✅ ADDED
+  nhisClaimsSummary: null,     // ✅ ADDED
 
+  // ==================== GHS REPORTS ====================
   getGHSOPDReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
@@ -131,7 +144,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -146,7 +159,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -161,7 +174,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -176,7 +189,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -191,7 +204,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -206,7 +219,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -221,11 +234,12 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
 
+  // ==================== CLINICAL REPORTS ====================
   getFinancialReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {
@@ -236,7 +250,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -247,11 +261,11 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const response = await getInsuranceClaimsReport(filters);
       const data = response.data || response;
       set((state) => ({
-        clinicalReports: { ...state.clinicalReports, financial: data }, // or create a dedicated field
+        clinicalReports: { ...state.clinicalReports, insuranceClaims: data },
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -266,7 +280,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -281,7 +295,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -296,7 +310,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -311,7 +325,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -326,7 +340,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -341,7 +355,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -356,7 +370,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -371,7 +385,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -386,7 +400,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -401,46 +415,76 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==================== NHIS REPORTS ====================
+  getNhisExpiryReport: async (params) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getNhisExpiryReport(params);
+      const data = response.data || response;
+      set({ nhisExpiryReport: data, isLoading: false });
+    } catch (error: any) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-getReportSubmissions: async (filters) => {
-  set({ isLoading: true, error: null });
-  try {
-    const response = await getReportSubmissions(filters);
-    const submissions = response.data || response;
-    set({ submissions: Array.isArray(submissions) ? submissions : submissions.data || [], isLoading: false });
-  } catch (error: any) {
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
+  getNhisClaimsSummary: async (params) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getNhisClaimsSummary(params);
+      const data = response.data || response;
+      set({ nhisClaimsSummary: data, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
 
-getReportById: async (id) => {
-  set({ isLoading: true, error: null });
-  try {
-    const response = await getReportSubmissionById(id);
-    const submission = response.data || response;
-    set({ currentSubmission: submission, isLoading: false });
-  } catch (error: any) {
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
+  // ==================== REPORT MANAGEMENT ====================
+  getReportSubmissions: async (filters) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getReportSubmissions(filters);
+      const submissions = response.data || response;
+      set({ submissions: Array.isArray(submissions) ? submissions : submissions.data || [], isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
 
-exportReportToCSV: async (reportType, filters) => {
-  set({ isLoading: true, error: null });
-  try {
-    const blob = await exportReportToCSV(reportType, filters);
-    set({ isLoading: false });
-    return blob;
-  } catch (error: any) {
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
+  getReportById: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getReportById(id);
+      const submission = response.data || response;
+      set({ 
+        currentSubmission: submission,
+        currentReport: submission,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  exportReportToCSV: async (reportType, filters) => {
+    set({ isLoading: true, error: null });
+    try {
+      const blob = await exportReportToCSV(reportType, filters);
+      set({ isLoading: false });
+      return blob;
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
 
   clearError: () => set({ error: null }),
   clearReports: () => set({
@@ -456,7 +500,7 @@ exportReportToCSV: async (reportType, filters) => {
       diagnoses: [],
       financial: [],
       attendance: [],
-      insuranceClaims: [], 
+      insuranceClaims: [],
       revenue: [],
       familyPlanning: [],
       demographic: [],
@@ -467,6 +511,9 @@ exportReportToCSV: async (reportType, filters) => {
       vitals: [],
     },
     submissions: [],
+    currentSubmission: null,
     currentReport: null,
+    nhisExpiryReport: null,
+    nhisClaimsSummary: null,
   }),
 }));

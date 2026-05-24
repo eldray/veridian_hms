@@ -83,23 +83,68 @@ export class AppointmentService {
     return this.repository.getAvailableClinicians(allowedRoles);
   }
 
-  async convertToAttendance(appointmentId: string, userId: string, paymentData: any) {
-    const appointment = await this.repository.findById(appointmentId);
-    if (!appointment) {
-      throw new Error('Appointment not found');
-    }
+// modules/appointment/AppointmentService.ts - Add this method
 
-    if (appointment.status !== 'completed') {
-      throw new Error('Appointment must be completed before converting to attendance');
-    }
+async convertToAttendance(appointmentId: string, paymentData: any, userId: string) {
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { patient: true }
+  });
 
-    const existingAttendance = await this.repository.findAttendanceByAppointmentId(appointmentId);
-    if (existingAttendance) {
-      throw new Error('Attendance already created for this appointment');
-    }
-
-    const attendance = await this.repository.createAttendanceFromAppointment(appointment, userId, paymentData);
-
-    return attendance;
+  if (!appointment) {
+    throw new Error('Appointment not found');
   }
+
+  if (appointment.status === 'completed') {
+    throw new Error('Appointment already converted to attendance');
+  }
+
+  const counterService = getCounterService();
+  const attendanceNumber = counterService.nextAttendanceNumber();
+
+  // Create attendance from appointment
+  const attendance = await this.prisma.attendance.create({
+    data: {
+      attendanceNumber,
+      patientId: appointment.patientId,
+      attendanceType: appointment.type === 'antenatal' ? 'antenatal' : 'general_consultation',
+      dateTime: new Date(),
+      paymentMode: paymentData.paymentMode,
+      nhisCCC: paymentData.nhisCCC,
+      complaints: appointment.title,
+      status: 'pending',
+      createdById: userId,
+      appointmentId: appointment.id,  // ✅ Link back to appointment
+      // Copy over relevant fields
+      medicalNotes: appointment.description
+    }
+  });
+
+  // Update appointment status
+  await this.prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { status: 'completed' }
+  });
+
+  // Create bill
+  const billNumber = counterService.getBillNumberFromAttendance(attendanceNumber);
+  const bill = await this.prisma.bill.create({
+    data: {
+      billNumber,
+      patientId: appointment.patientId,
+      attendanceId: attendance.id,
+      paymentMode: paymentData.paymentMode,
+      status: 'pending',
+      createdById: userId,
+      billDate: new Date(),
+      subtotal: 0,
+      totalAmount: 0,
+      patientPayable: 0,
+      paidAmount: 0,
+      balance: 0
+    }
+  });
+
+  return { attendance, bill };
+}
 }

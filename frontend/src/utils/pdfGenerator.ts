@@ -1,4 +1,4 @@
-// src/utils/pdfGenerator.ts
+// src/utils/pdfGenerator.ts - Updated
 import type { 
   Bill, 
   Patient, 
@@ -24,10 +24,11 @@ import { generatePrescriptionHTML } from './pdfTemplates/prescriptionPDF';
 import { generateCombinedPrescriptionHTML } from './pdfTemplates/combinedPrescriptionPDF'; 
 import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
 import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
+import { generateHandoverHTML } from './pdfTemplates/handoverPDF';  // ✅ NEW
 
-// Add 'referral' to the type
+// Update the type
 export const generatePDF = (
-  type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription' | 'referral' | 'combinedPrescription'| 'scanReport',
+  type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription' | 'referral' | 'combinedPrescription'| 'scanReport' | 'handover',  // ✅ Added 'handover'
   data: any,
   hospital: any
 ): string => {
@@ -52,12 +53,12 @@ export const generatePDF = (
       return generateCombinedPrescriptionHTML(data.medications, data.patient, data.attendance, hospital, data.prescriberName);
     case 'scanReport':
       return generateScanReportHTML(data.scans, data.patient, data.attendance, hospital);
-      default:
+    case 'handover':  // ✅ NEW
+      return generateHandoverHTML(data, hospital);
+    default:
       throw new Error('Invalid PDF type');
   }
 };
-
-
 
 // Open print window function
 export const openPrintWindow = (htmlContent: string, title = 'Document') => {

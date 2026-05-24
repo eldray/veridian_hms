@@ -1,10 +1,19 @@
-// middleware/auditMiddleware.ts - Financial Event Audit Logging
+// middleware/audit.ts - Financial Event Audit Logging
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
-import { AuthRequest } from './authMiddleware';
 import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
+
+// Define AuthRequest locally since the types file doesn't exist
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+    fullName: string;
+    role: string;
+  };
+}
 
 export interface AuditLogOptions {
   entityType: string;
@@ -42,7 +51,7 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
       // Capture new state if requested and response was successful
       let newState: any = null;
       if (options.captureNewState && entityId && options.entityType && body?.success !== false) {
-        captureEntityState(options.entityType, entityId)
+        captureEntityState(options.entityType, entityId!)
           .then(state => {
             createAuditLog({
               entityType: options.entityType,
@@ -50,7 +59,7 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
               action: options.action,
               performedById: req.user?.id,
               ipAddress: req.ip || req.socket.remoteAddress,
-              userAgent: req.headers['user-agent'],
+              // userAgent removed - not in schema
               previousState,
               newState: state,
               metadata: {
@@ -58,7 +67,8 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
                 method: req.method,
                 url: req.originalUrl,
                 responseTime,
-                statusCode: res.statusCode
+                statusCode: res.statusCode,
+                userAgent: req.headers['user-agent'] // Store in metadata instead
               }
             }).catch(err => logger.error('Failed to create audit log with new state', { error: err }));
           })
@@ -71,7 +81,7 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
           action: options.action,
           performedById: req.user?.id,
           ipAddress: req.ip || req.socket.remoteAddress,
-          userAgent: req.headers['user-agent'],
+          // userAgent removed - not in schema
           previousState,
           newState: null,
           metadata: {
@@ -79,7 +89,8 @@ export const auditFinancialEvent = (options: AuditLogOptions) => {
             method: req.method,
             url: req.originalUrl,
             responseTime,
-            statusCode: res.statusCode
+            statusCode: res.statusCode,
+            userAgent: req.headers['user-agent'] // Store in metadata instead
           }
         }).catch(err => logger.error('Failed to create audit log', { error: err }));
       }
@@ -99,7 +110,9 @@ async function captureEntityState(entityType: string, entityId: string): Promise
     'BillLineItem': 'billLineItem',
     'InsuranceClaim': 'insuranceClaim',
     'PatientWaiver': 'patientWaiver',
-    'Attendance': 'attendance'
+    'Attendance': 'attendance',
+    'Admission': 'admission',
+    'Ward': 'ward'
   };
 
   const modelName = modelMap[entityType] || entityType.toLowerCase();
@@ -123,7 +136,6 @@ async function createAuditLog(data: {
   action: AuditAction;
   performedById?: string;
   ipAddress?: string;
-  userAgent?: string;
   previousState?: any;
   newState?: any;
   metadata?: Record<string, any>;
@@ -134,11 +146,11 @@ async function createAuditLog(data: {
         entityType: data.entityType,
         entityId: data.entityId,
         action: data.action,
-        performedById: data.performedById || 'system',
+        performedById: data.performedById || 'system', // Required field
         ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-        previousState: data.previousState,
-        newState: data.newState,
+        // userAgent removed - not in schema
+        previousState: data.previousState || null,
+        newState: data.newState || null,
         metadata: data.metadata || {}
       }
     });
@@ -211,7 +223,7 @@ export const logFinancialMutation = async (
   if (req.method === 'PUT' || req.method === 'DELETE' || req.method === 'PATCH') {
     const possibleId = req.params.id || req.params.billId || req.params.claimId;
     if (possibleId) {
-      entityId = possibleId;
+      entityId = possibleId as string;
       try {
         // Determine entity type from URL
         let entityType = 'Unknown';
@@ -247,11 +259,10 @@ export const logFinancialMutation = async (
 
       createAuditLog({
         entityType,
-        entityId,
+        entityId: entityId!,
         action,
         performedById: req.user?.id,
         ipAddress: req.ip || req.socket.remoteAddress,
-        userAgent: req.headers['user-agent'],
         previousState,
         newState: body?.data,
         metadata: {
@@ -259,7 +270,8 @@ export const logFinancialMutation = async (
           url: req.originalUrl,
           responseTime,
           requestBody: req.body,
-          statusCode: res.statusCode
+          statusCode: res.statusCode,
+          userAgent: req.headers['user-agent'] // Store in metadata
         }
       }).catch(err => logger.error('Failed to create audit log', { error: err }));
     }

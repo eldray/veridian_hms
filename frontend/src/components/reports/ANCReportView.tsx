@@ -1,12 +1,13 @@
-// src/components/reports/ANCReportView.tsx
-// COMPLETE FORM A REPORT - Combines Antenatal, Delivery, and Postnatal
+// src/components/reports/FormAReportView.tsx
+// COMPLETE FORM A REPORT - Matches GHS Monthly Midwives Return format
 
 import React, { useState, useEffect } from 'react';
 import { 
   Download, Printer, FileText, Baby, Heart, Shield, 
   Syringe, Droplet, AlertTriangle, Calendar, User,
   Activity, TrendingUp, CheckCircle, XCircle, Eye,
-  Users, Hospital, Stethoscope, ClipboardList
+  Users, Hospital, Stethoscope, ClipboardList, Building2,
+  Ambulance, Mic, Scissors, Droplets, TestTube
 } from 'lucide-react';
 import { useAntenatalStore } from '../../store/antenatalStore';
 import { useToast } from '../../store/toastStore';
@@ -17,6 +18,14 @@ interface FormAData {
     district: string;
     region: string;
     ghfCode: string;
+    facilityType: 'Basic' | 'Comprehensive';
+    emoncServices: {
+      bloodTransfusion: boolean;
+      pmtct: boolean;
+      eidServices: boolean;
+      conductDelivery: boolean;
+      babyFriendly: boolean;
+    };
   };
   period: {
     startDate: string;
@@ -24,6 +33,7 @@ interface FormAData {
     year: number;
     month: number;
     monthName: string;
+    week?: number;
   };
   antenatal: {
     newRegistrants: number;
@@ -55,6 +65,17 @@ interface FormAData {
     fourthVisits: number;
     mothersBelow150cm: number;
     seenAt36Weeks: number;
+    spDosesGiven: number;
+    bloodGroupTested: number;
+    rhesusNegative: number;
+    syphilisTested: number;
+    syphilisPositive: number;
+    hivTested: number;
+    hivPositive: number;
+    hepatitisTested: number;
+    hepatitisPositive: number;
+    urineTested: number;
+    urineAbnormal: number;
   };
   delivery: {
     totalDeliveries: number;
@@ -75,6 +96,8 @@ interface FormAData {
     homeDeliveries: number;
     skilledAttendant: number;
     tbaAttendant: number;
+    bEmONCReferrals: number;
+    cEmONCReferrals: number;
   };
   postnatal: {
     newMothers: number;
@@ -85,11 +108,12 @@ interface FormAData {
     exclusiveBreastfeeding: number;
     immunizationGiven: number;
     complications: number;
+    pncReferrals: number;
   };
   generatedAt: string;
 }
 
-export const ANCReportView: React.FC = () => {
+export const FormAReportView: React.FC = () => {
   const { ancReport, generateANCReport, isGeneratingReport } = useAntenatalStore();
   const { success, error: toastError } = useToast();
   const [period, setPeriod] = useState<'monthly' | 'quarterly' | 'yearly' | 'custom'>('monthly');
@@ -99,7 +123,14 @@ export const ANCReportView: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [reportData, setReportData] = useState<FormAData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [activeSection, setActiveSection] = useState<'antenatal' | 'delivery' | 'postnatal'>('antenatal');
+  const [facilityType, setFacilityType] = useState<'Basic' | 'Comprehensive'>('Basic');
+  const [emoncServices, setEmoncServices] = useState({
+    bloodTransfusion: false,
+    pmtct: false,
+    eidServices: false,
+    conductDelivery: false,
+    babyFriendly: false
+  });
 
   const handleGenerate = async () => {
     try {
@@ -119,9 +150,12 @@ export const ANCReportView: React.FC = () => {
         };
       }
       
-      // This should call the new Form A endpoint
+      // Add facility type and EMONC services
+      params.facilityType = facilityType;
+      params.emoncServices = emoncServices;
+      
       const result = await generateANCReport(params);
-      setReportData(result);
+      setReportData({ ...result, facility: { ...result.facility, facilityType, emoncServices } });
       setShowPreview(true);
       success('Report Generated', 'GHS Form A report is ready');
     } catch (err: any) {
@@ -137,53 +171,66 @@ export const ANCReportView: React.FC = () => {
     if (!reportData) return;
     
     const rows = [
-      ['GHS FORM A - MATERNAL HEALTH REPORT'],
+      ['GHS FORM A - MONTHLY MIDWIVES RETURN'],
       [''],
-      ['FACILITY INFORMATION'],
+      ['SECTION 1: FACILITY INFORMATION'],
       ['Facility Name:', reportData.facility.name],
       ['District:', reportData.facility.district],
       ['Region:', reportData.facility.region],
       ['GHF Code:', reportData.facility.ghfCode],
-      ['Reporting Period:', `${reportData.period.monthName} ${reportData.period.year}`],
+      ['Facility Type:', reportData.facility.facilityType],
       [''],
-      ['SECTION A: ANTENATAL CARE'],
+      ['EMONC Services:'],
+      ['Blood Transfusion Services', reportData.facility.emoncServices.bloodTransfusion ? 'Yes' : 'No'],
+      ['PMTCT', reportData.facility.emoncServices.pmtct ? 'Yes' : 'No'],
+      ['EID Services', reportData.facility.emoncServices.eidServices ? 'Yes' : 'No'],
+      ['Conduct Delivery', reportData.facility.emoncServices.conductDelivery ? 'Yes' : 'No'],
+      ['Baby Friendly Services', reportData.facility.emoncServices.babyFriendly ? 'Yes' : 'No'],
+      [''],
+      ['SECTION 2: REPORTING PERIOD'],
+      ['Month:', reportData.period.monthName],
+      ['Year:', reportData.period.year],
+      ['Period:', `${reportData.period.startDate} to ${reportData.period.endDate}`],
+      [''],
+      ['SECTION 3: ANTENATAL CARE'],
       ['New Antenatal Registrants', reportData.antenatal.newRegistrants],
       ['Total Antenatal Attendances', reportData.antenatal.totalAttendances],
       ['First ANC Visits (ANC1)', reportData.antenatal.firstVisits],
       ['Fourth ANC Visits (ANC4+)', reportData.antenatal.fourthVisits],
       [''],
-      ['IPTp Coverage (Intermittent Preventive Treatment)'],
+      ['IPTp Coverage:'],
       ['IPTp-1', reportData.antenatal.iptp.dose1],
       ['IPTp-2', reportData.antenatal.iptp.dose2],
       ['IPTp-3', reportData.antenatal.iptp.dose3],
       ['IPTp-4', reportData.antenatal.iptp.dose4],
       ['IPTp-5+', reportData.antenatal.iptp.dose5Plus],
       [''],
-      ['TT Vaccination (Tetanus Toxoid)'],
+      ['TT Vaccination:'],
       ['TT1', reportData.antenatal.ttVaccination.dose1],
       ['TT2', reportData.antenatal.ttVaccination.dose2],
       ['TT3', reportData.antenatal.ttVaccination.dose3],
       ['TT4', reportData.antenatal.ttVaccination.dose4],
       ['TT5', reportData.antenatal.ttVaccination.dose5],
-      ['TT2+ (Protected at birth)', reportData.antenatal.ttVaccination.tt2Plus],
+      ['TT2+ (Protected)', reportData.antenatal.ttVaccination.tt2Plus],
       [''],
-      ['Other ANC Services'],
-      ['ITN/LLIN Distributed', reportData.antenatal.itnDistributed],
-      ['Iron/Folate Given', reportData.antenatal.ironFolateGiven],
-      ['Mothers below 150cm/5ft', reportData.antenatal.mothersBelow150cm],
-      ['Pregnant women seen at 36 weeks', reportData.antenatal.seenAt36Weeks],
+      ['Malaria in Pregnancy:'],
+      ['Tested', reportData.antenatal.malariaTested],
+      ['Positive', reportData.antenatal.malariaPositive],
+      ['Treated', reportData.antenatal.malariaTreated],
       [''],
-      ['Malaria in Pregnancy'],
-      ['Malaria Tested', reportData.antenatal.malariaTested],
-      ['Malaria Positive', reportData.antenatal.malariaPositive],
-      ['Malaria Treated', reportData.antenatal.malariaTreated],
+      ['Lab Tests:'],
+      ['Blood Group Tested', reportData.antenatal.bloodGroupTested],
+      ['Rhesus Negative', reportData.antenatal.rhesusNegative],
+      ['Syphilis Tested', reportData.antenatal.syphilisTested],
+      ['Syphilis Positive', reportData.antenatal.syphilisPositive],
+      ['HIV Tested', reportData.antenatal.hivTested],
+      ['HIV Positive', reportData.antenatal.hivPositive],
+      ['Hepatitis Tested', reportData.antenatal.hepatitisTested],
+      ['Hepatitis Positive', reportData.antenatal.hepatitisPositive],
+      ['Urine Tested', reportData.antenatal.urineTested],
+      ['Urine Abnormal', reportData.antenatal.urineAbnormal],
       [''],
-      ['Complications & Referrals'],
-      ['High Risk Pregnancies', reportData.antenatal.highRisk],
-      ['Anaemia at Booking (Hb<11)', reportData.antenatal.anaemiaAtBooking],
-      ['Referrals Made', reportData.antenatal.referralsMade],
-      [''],
-      ['SECTION B: DELIVERY'],
+      ['SECTION 4: DELIVERY'],
       ['Total Deliveries', reportData.delivery.totalDeliveries],
       ['Spontaneous Vertex', reportData.delivery.spontaneousVertex],
       ['Assisted Breech', reportData.delivery.assistedBreech],
@@ -192,24 +239,19 @@ export const ANCReportView: React.FC = () => {
       ['Caesarean Section', reportData.delivery.caesareanSection],
       ['Multiple Births', reportData.delivery.multiple],
       [''],
-      ['Delivery Outcomes'],
+      ['Delivery Outcomes:'],
       ['Live Births', reportData.delivery.liveBirths],
       ['Fresh Stillbirths', reportData.delivery.stillbirthsFresh],
       ['Macerated Stillbirths', reportData.delivery.stillbirthsMacerated],
       ['Neonatal Deaths', reportData.delivery.neonatalDeaths],
       ['Maternal Deaths', reportData.delivery.maternalDeaths],
-      ['Low Birth Weight (<2.5kg)', reportData.delivery.lowBirthWeight],
+      ['Low Birth Weight', reportData.delivery.lowBirthWeight],
       [''],
-      ['Place of Delivery'],
-      ['Hospital Deliveries', reportData.delivery.hospitalDeliveries],
-      ['Health Centre/Clinic', reportData.delivery.healthCentreDeliveries],
-      ['Home/En Route', reportData.delivery.homeDeliveries],
+      ['Referrals:'],
+      ['bEmONC Referrals', reportData.delivery.bEmONCReferrals],
+      ['cEmONC Referrals', reportData.delivery.cEmONCReferrals],
       [''],
-      ['Birth Attendant'],
-      ['Skilled Attendant', reportData.delivery.skilledAttendant],
-      ['Traditional Birth Attendant', reportData.delivery.tbaAttendant],
-      [''],
-      ['SECTION C: POSTNATAL CARE'],
+      ['SECTION 5: POSTNATAL CARE'],
       ['New Mothers', reportData.postnatal.newMothers],
       ['Total PNC Visits', reportData.postnatal.totalVisits],
       ['PNC within 48 hours', reportData.postnatal.pncWithin48Hours],
@@ -218,6 +260,7 @@ export const ANCReportView: React.FC = () => {
       ['Exclusive Breastfeeding', reportData.postnatal.exclusiveBreastfeeding],
       ['Immunizations Given', reportData.postnatal.immunizationGiven],
       ['Postnatal Complications', reportData.postnatal.complications],
+      ['PNC Referrals', reportData.postnatal.pncReferrals],
       [''],
       ['Generated At:', new Date(reportData.generatedAt).toLocaleString()]
     ];
@@ -248,30 +291,12 @@ export const ANCReportView: React.FC = () => {
     </div>
   );
 
-  const SectionTitle = ({ title, icon: Icon, subtitle }: any) => (
-    <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
-          <Icon className="w-4 h-4 text-pink-600" />
-        </div>
-        <h3 className="font-bold text-lg text-[var(--text-primary)]">{title}</h3>
-      </div>
-      {subtitle && <p className="text-xs text-[var(--text-secondary)] ml-10">{subtitle}</p>}
-    </div>
-  );
-
   const MetricRow = ({ label, value, highlight = false, unit = '' }: any) => (
     <div className={`flex justify-between items-center p-2 rounded ${highlight ? 'bg-pink-50' : 'hover:bg-[var(--bg-main)]'}`}>
       <span className="text-sm text-[var(--text-secondary)]">{label}</span>
       <span className={`font-bold ${highlight ? 'text-pink-600 text-lg' : 'text-[var(--text-primary)]'}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}{unit}
       </span>
-    </div>
-  );
-
-  const TwoColumnGrid = ({ children }: { children: React.ReactNode }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {children}
     </div>
   );
 
@@ -285,10 +310,40 @@ export const ANCReportView: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-[var(--text-primary)]">GHS Form A</h2>
-            <p className="text-sm text-[var(--text-secondary)]">Maternal Health Report (ANC + Delivery + Postnatal)</p>
+            <p className="text-sm text-[var(--text-secondary)]">Monthly Midwives Return - Maternal Health Report</p>
           </div>
         </div>
 
+        {/* Facility Type Selection */}
+        <div className="mb-6 p-4 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+          <h3 className="font-bold mb-3 flex items-center gap-2"><Building2 className="w-4 h-4" /> Facility Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Facility Type</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="Basic" checked={facilityType === 'Basic'} onChange={() => setFacilityType('Basic')} className="w-4 h-4" />
+                  <span>Basic</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="Comprehensive" checked={facilityType === 'Comprehensive'} onChange={() => setFacilityType('Comprehensive')} className="w-4 h-4" />
+                  <span>Comprehensive</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <h4 className="font-medium text-sm mt-4 mb-2">EMONC Services Available:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.bloodTransfusion} onChange={(e) => setEmoncServices({...emoncServices, bloodTransfusion: e.target.checked})} className="w-4 h-4" />Blood Transfusion</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.pmtct} onChange={(e) => setEmoncServices({...emoncServices, pmtct: e.target.checked})} className="w-4 h-4" />PMTCT</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.eidServices} onChange={(e) => setEmoncServices({...emoncServices, eidServices: e.target.checked})} className="w-4 h-4" />EID Services</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.conductDelivery} onChange={(e) => setEmoncServices({...emoncServices, conductDelivery: e.target.checked})} className="w-4 h-4" />Conduct Delivery</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.babyFriendly} onChange={(e) => setEmoncServices({...emoncServices, babyFriendly: e.target.checked})} className="w-4 h-4" />Baby Friendly</label>
+          </div>
+        </div>
+
+        {/* Period Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
             <label className="block text-sm font-medium mb-2">Report Period</label>
@@ -341,7 +396,7 @@ export const ANCReportView: React.FC = () => {
   }
 
   // ============================================
-  // COMPLETE FORM A REPORT DISPLAY
+  // FORM A REPORT DISPLAY - Matches PDF layout
   // ============================================
   
   return (
@@ -353,110 +408,194 @@ export const ANCReportView: React.FC = () => {
         <button onClick={handleExportCSV} className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"><Download className="w-4 h-4" /> Export CSV</button>
       </div>
 
-      {/* Section Tabs */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1 print:hidden">
-        <button onClick={() => setActiveSection('antenatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeSection === 'antenatal' ? 'bg-pink-600 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Antenatal</button>
-        <button onClick={() => setActiveSection('delivery')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeSection === 'delivery' ? 'bg-pink-600 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Delivery</button>
-        <button onClick={() => setActiveSection('postnatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeSection === 'postnatal' ? 'bg-pink-600 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Postnatal</button>
-      </div>
-
-      {/* Report Content - PDF Style */}
-      <div id="form-a-report-content" className="bg-white text-gray-900 rounded-xl shadow-lg overflow-hidden print:shadow-none">
+      {/* Report Content - PDF Style (Matches GHS Form A) */}
+      <div id="form-a-report-content" className="bg-white text-gray-900 rounded-xl shadow-lg overflow-hidden print:shadow-none font-serif">
         
-        {/* Header */}
-        <div className="text-center py-6 px-4 border-b">
-          <h1 className="text-2xl font-bold mb-1">GHANA HEALTH SERVICE</h1>
-          <h2 className="text-xl font-semibold text-gray-700">FORM A: MATERNAL HEALTH REPORT</h2>
-          <div className="mt-3 text-sm">
-            <p className="font-medium">{reportData?.facility.name}</p>
+        {/* Header - GHS Official Format */}
+        <div className="text-center py-6 px-4 border-b-2 border-gray-300">
+          <h1 className="text-2xl font-bold uppercase tracking-wide">GHANA HEALTH SERVICE</h1>
+          <h2 className="text-xl font-semibold text-gray-700 mt-1">MONTHLY MIDWIVES RETURNS</h2>
+          <h3 className="text-lg font-medium text-gray-600 mt-1">FORM A</h3>
+          <div className="mt-4 text-sm">
+            <p className="font-bold">{reportData?.facility.name}</p>
             <p className="text-gray-500">District: {reportData?.facility.district} | Region: {reportData?.facility.region}</p>
-            <p className="text-gray-500 mt-1">GHF Code: {reportData?.facility.ghfCode}</p>
-            <p className="text-gray-500 mt-1">Reporting Period: {reportData?.period.monthName} {reportData?.period.year}</p>
-            <p className="text-xs text-gray-400 mt-1">{reportData?.period.startDate} to {reportData?.period.endDate}</p>
+            <p className="text-gray-500">GHF Code: {reportData?.facility.ghfCode}</p>
+            <p className="text-gray-500">Facility Type: <span className="font-bold">{reportData?.facility.facilityType}</span></p>
+            <p className="text-gray-700 font-medium mt-2">Reporting Period: {reportData?.period.monthName} {reportData?.period.year}</p>
+            <p className="text-xs text-gray-400">{reportData?.period.startDate} to {reportData?.period.endDate}</p>
+          </div>
+        </div>
+
+        {/* EMONC Services Section - From PDF */}
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-600 mb-3">EMONC Services</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.bloodTransfusion ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm">Blood transfusion services</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.pmtct ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm">PMTCT</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.eidServices ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm">EID Services</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.conductDelivery ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm">Conduct Delivery</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.babyFriendly ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm">Baby Friendly Services</span>
+            </div>
           </div>
         </div>
 
         {/* ============================================ */}
-        {/* ANTENATAL SECTION */}
+        {/* SECTION 1: ANTENATAL CARE */}
         {/* ============================================ */}
-        <div className={`p-5 border-b ${activeSection !== 'antenatal' ? 'print:block' : ''}`}>
-          <SectionTitle title="ANTENATAL CARE" icon={Heart} subtitle="ANC services and interventions" />
+        <div className="p-5 border-b border-gray-200">
+          <div className="mb-4">
+            <h3 className="font-bold text-lg text-pink-700 flex items-center gap-2">
+              <Heart className="w-5 h-5" /> SECTION 1: ANTENATAL CARE
+            </h3>
+            <p className="text-xs text-gray-500 ml-7">Services provided to pregnant women during pregnancy</p>
+          </div>
           
-          {/* Summary Cards */}
+          {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="text-center p-3 bg-pink-50 rounded-lg"><div className="text-2xl font-bold text-pink-600">{reportData?.antenatal.newRegistrants}</div><div className="text-xs">New Registrants</div></div>
-            <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.antenatal.totalAttendances}</div><div className="text-xs">Total Attendances</div></div>
-            <div className="text-center p-3 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-600">{reportData?.antenatal.firstVisits}</div><div className="text-xs">First ANC Visits</div></div>
-            <div className="text-center p-3 bg-yellow-50 rounded-lg"><div className="text-2xl font-bold text-yellow-600">{reportData?.antenatal.fourthVisits}</div><div className="text-xs">Fourth ANC Visits</div></div>
+            <div className="text-center p-3 bg-pink-50 rounded-lg">
+              <div className="text-2xl font-bold text-pink-600">{reportData?.antenatal.newRegistrants}</div>
+              <div className="text-xs text-gray-600">New Registrants</div>
+            </div>
+            <div className="text-center p-3 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">{reportData?.antenatal.totalAttendances}</div>
+              <div className="text-xs text-gray-600">Total Attendances</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{reportData?.antenatal.firstVisits}</div>
+              <div className="text-xs text-gray-600">First ANC (ANC1)</div>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-600">{reportData?.antenatal.fourthVisits}</div>
+              <div className="text-xs text-gray-600">Fourth ANC (ANC4+)</div>
+            </div>
           </div>
 
-          <TwoColumnGrid>
+          {/* Two column layout for ANC data */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            
             {/* IPTp Coverage */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3"><Shield className="w-5 h-5 text-blue-600" /><h4 className="font-bold">IPTp Coverage</h4></div>
-              <div className="space-y-2">
-                <MetricRow label="IPTp-1 (First dose)" value={reportData?.antenatal.iptp.dose1} />
-                <MetricRow label="IPTp-2 (Second dose)" value={reportData?.antenatal.iptp.dose2} />
-                <MetricRow label="IPTp-3 (Third dose)" value={reportData?.antenatal.iptp.dose3} highlight />
-                <MetricRow label="IPTp-4 (Fourth dose)" value={reportData?.antenatal.iptp.dose4} />
-                <MetricRow label="IPTp-5+ (Fifth+ dose)" value={reportData?.antenatal.iptp.dose5Plus} />
-              </div>
+              <h4 className="font-bold mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-blue-600" /> IPTp Coverage (SP)</h4>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">IPTp-1</td><td className="py-2 text-right font-bold">{reportData?.antenatal.iptp.dose1}</td></tr>
+                  <tr className="border-b"><td className="py-2">IPTp-2</td><td className="py-2 text-right font-bold">{reportData?.antenatal.iptp.dose2}</td></tr>
+                  <tr className="border-b bg-pink-50"><td className="py-2 font-medium">IPTp-3+ (WHO recommended)</td><td className="py-2 text-right font-bold text-pink-600">{reportData?.antenatal.iptp.dose3}</td></tr>
+                  <tr className="border-b"><td className="py-2">IPTp-4</td><td className="py-2 text-right font-bold">{reportData?.antenatal.iptp.dose4}</td></tr>
+                  <tr><td className="py-2">IPTp-5+</td><td className="py-2 text-right font-bold">{reportData?.antenatal.iptp.dose5Plus}</td></tr>
+                </tbody>
+              </table>
             </div>
 
             {/* TT Vaccination */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3"><Syringe className="w-5 h-5 text-green-600" /><h4 className="font-bold">TT Vaccination</h4></div>
-              <div className="space-y-2">
-                <MetricRow label="TT1" value={reportData?.antenatal.ttVaccination.dose1} />
-                <MetricRow label="TT2" value={reportData?.antenatal.ttVaccination.dose2} />
-                <MetricRow label="TT3" value={reportData?.antenatal.ttVaccination.dose3} />
-                <MetricRow label="TT4" value={reportData?.antenatal.ttVaccination.dose4} />
-                <MetricRow label="TT5" value={reportData?.antenatal.ttVaccination.dose5} />
-                <MetricRow label="TT2+ (Protected at birth)" value={reportData?.antenatal.ttVaccination.tt2Plus} highlight />
-              </div>
+              <h4 className="font-bold mb-3 flex items-center gap-2"><Syringe className="w-4 h-4 text-green-600" /> TT Vaccination</h4>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">TT1</td><td className="py-2 text-right font-bold">{reportData?.antenatal.ttVaccination.dose1}</td></tr>
+                  <tr className="border-b"><td className="py-2">TT2</td><td className="py-2 text-right font-bold">{reportData?.antenatal.ttVaccination.dose2}</td></tr>
+                  <tr className="border-b"><td className="py-2">TT3</td><td className="py-2 text-right font-bold">{reportData?.antenatal.ttVaccination.dose3}</td></tr>
+                  <tr className="border-b"><td className="py-2">TT4</td><td className="py-2 text-right font-bold">{reportData?.antenatal.ttVaccination.dose4}</td></tr>
+                  <tr className="border-b"><td className="py-2">TT5</td><td className="py-2 text-right font-bold">{reportData?.antenatal.ttVaccination.dose5}</td></tr>
+                  <tr className="bg-green-50"><td className="py-2 font-medium">TT2+ (Protected)</td><td className="py-2 text-right font-bold text-green-600">{reportData?.antenatal.ttVaccination.tt2Plus}</td></tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Malaria in Pregnancy */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3"><Droplet className="w-5 h-5 text-red-600" /><h4 className="font-bold">Malaria in Pregnancy</h4></div>
-              <div className="space-y-2">
-                <MetricRow label="Tested for Malaria" value={reportData?.antenatal.malariaTested} />
-                <MetricRow label="Tested Positive" value={reportData?.antenatal.malariaPositive} highlight />
-                <MetricRow label="Treated for Malaria" value={reportData?.antenatal.malariaTreated} />
-                <MetricRow label="Treatment Rate" value={reportData?.antenatal.malariaPositive ? Math.round((reportData.antenatal.malariaTreated / reportData.antenatal.malariaPositive) * 100) : 0} unit="%" />
-              </div>
+              <h4 className="font-bold mb-3 flex items-center gap-2"><Droplet className="w-4 h-4 text-red-600" /> Malaria in Pregnancy</h4>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">Tested for Malaria</td><td className="py-2 text-right font-bold">{reportData?.antenatal.malariaTested}</td></tr>
+                  <tr className="border-b bg-red-50"><td className="py-2 font-medium">Tested Positive</td><td className="py-2 text-right font-bold text-red-600">{reportData?.antenatal.malariaPositive}</td></tr>
+                  <tr><td className="py-2">Treated for Malaria</td><td className="py-2 text-right font-bold">{reportData?.antenatal.malariaTreated}</td></tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Supplements & Preventive */}
+            {/* Laboratory Tests */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3"><Activity className="w-5 h-5 text-purple-600" /><h4 className="font-bold">Supplements & Prevention</h4></div>
-              <div className="space-y-2">
-                <MetricRow label="ITN/LLIN Distributed" value={reportData?.antenatal.itnDistributed} />
-                <MetricRow label="Iron/Folate Given" value={reportData?.antenatal.ironFolateGiven} />
-                <MetricRow label="Mothers below 150cm/5ft" value={reportData?.antenatal.mothersBelow150cm} />
-                <MetricRow label="Seen at 36 weeks" value={reportData?.antenatal.seenAt36Weeks} />
-              </div>
+              <h4 className="font-bold mb-3 flex items-center gap-2"><TestTube className="w-4 h-4 text-purple-600" /> Laboratory Tests</h4>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">Blood Group Tested</td><td className="py-2 text-right font-bold">{reportData?.antenatal.bloodGroupTested || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">Rhesus Negative</td><td className="py-2 text-right font-bold">{reportData?.antenatal.rhesusNegative || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">Syphilis Tested (VDRL)</td><td className="py-2 text-right font-bold">{reportData?.antenatal.syphilisTested || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">Syphilis Positive</td><td className="py-2 text-right font-bold text-red-600">{reportData?.antenatal.syphilisPositive || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">HIV Tested</td><td className="py-2 text-right font-bold">{reportData?.antenatal.hivTested || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">HIV Positive</td><td className="py-2 text-right font-bold text-red-600">{reportData?.antenatal.hivPositive || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">Hepatitis Tested</td><td className="py-2 text-right font-bold">{reportData?.antenatal.hepatitisTested || 0}</td></tr>
+                  <tr className="border-b"><td className="py-2">Hepatitis Positive</td><td className="py-2 text-right font-bold text-red-600">{reportData?.antenatal.hepatitisPositive || 0}</td></tr>
+                  <tr><td className="py-2">Urine Tested</td><td className="py-2 text-right font-bold">{reportData?.antenatal.urineTested || 0}</td></tr>
+                  <tr className="border-t"><td className="py-2">Urine Abnormal</td><td className="py-2 text-right font-bold text-orange-600">{reportData?.antenatal.urineAbnormal || 0}</td></tr>
+                </tbody>
+              </table>
             </div>
-          </TwoColumnGrid>
+          </div>
 
-          {/* Complications & Referrals */}
-          <div className="mt-4 border rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-5 h-5 text-orange-600" /><h4 className="font-bold">Complications & Referrals</h4></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <MetricRow label="High Risk Pregnancies" value={reportData?.antenatal.highRisk} />
-              <MetricRow label="Anaemia at Booking (Hb<11)" value={reportData?.antenatal.anaemiaAtBooking} />
-              <MetricRow label="Referrals Made" value={reportData?.antenatal.referralsMade} />
+          {/* Supplements & Prevention */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="border rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-teal-600">{reportData?.antenatal.itnDistributed}</div>
+              <div className="text-xs text-gray-500">ITN/LLIN Distributed</div>
+            </div>
+            <div className="border rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-teal-600">{reportData?.antenatal.ironFolateGiven}</div>
+              <div className="text-xs text-gray-500">Iron/Folate Given</div>
+            </div>
+            <div className="border rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-orange-600">{reportData?.antenatal.mothersBelow150cm}</div>
+              <div className="text-xs text-gray-500">Mothers &lt;150cm/5ft</div>
+            </div>
+            <div className="border rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-purple-600">{reportData?.antenatal.seenAt36Weeks}</div>
+              <div className="text-xs text-gray-500">Seen at 36 weeks</div>
+            </div>
+          </div>
+
+          {/* Complications */}
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
+              <div className="text-xl font-bold text-red-600">{reportData?.antenatal.highRisk}</div>
+              <div className="text-xs">High Risk Pregnancies</div>
+            </div>
+            <div className="bg-orange-50 rounded-lg p-3 text-center border border-orange-200">
+              <div className="text-xl font-bold text-orange-600">{reportData?.antenatal.anaemiaAtBooking}</div>
+              <div className="text-xs">Anaemia at Booking (Hb&lt;11)</div>
+            </div>
+            <div className="bg-yellow-50 rounded-lg p-3 text-center border border-yellow-200">
+              <div className="text-xl font-bold text-yellow-600">{reportData?.antenatal.referralsMade}</div>
+              <div className="text-xs">Referrals Made</div>
             </div>
           </div>
         </div>
 
         {/* ============================================ */}
-        {/* DELIVERY SECTION */}
+        {/* SECTION 2: DELIVERY */}
         {/* ============================================ */}
-        <div className={`p-5 border-b ${activeSection !== 'delivery' ? 'print:block' : ''}`}>
-          <SectionTitle title="DELIVERY SERVICES" icon={Baby} subtitle="Delivery outcomes and complications" />
+        <div className="p-5 border-b border-gray-200">
+          <div className="mb-4">
+            <h3 className="font-bold text-lg text-blue-700 flex items-center gap-2">
+              <Baby className="w-5 h-5" /> SECTION 2: DELIVERY SERVICES
+            </h3>
+            <p className="text-xs text-gray-500 ml-7">Delivery outcomes and complications</p>
+          </div>
           
-          {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.delivery.totalDeliveries}</div><div className="text-xs">Total Deliveries</div></div>
             <div className="text-center p-3 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-600">{reportData?.delivery.liveBirths}</div><div className="text-xs">Live Births</div></div>
@@ -464,102 +603,107 @@ export const ANCReportView: React.FC = () => {
             <div className="text-center p-3 bg-purple-50 rounded-lg"><div className="text-2xl font-bold text-purple-600">{reportData?.delivery.caesareanSection}</div><div className="text-xs">C-Section</div></div>
           </div>
 
-          <TwoColumnGrid>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Delivery Types */}
             <div className="border rounded-lg p-4">
               <h4 className="font-bold mb-3">Mode of Delivery</h4>
-              <div className="space-y-2">
-                <MetricRow label="Spontaneous Vertex" value={reportData?.delivery.spontaneousVertex} />
-                <MetricRow label="Assisted Breech" value={reportData?.delivery.assistedBreech} />
-                <MetricRow label="Vacuum Extraction" value={reportData?.delivery.vacuum} />
-                <MetricRow label="Forceps" value={reportData?.delivery.forceps} />
-                <MetricRow label="Caesarean Section" value={reportData?.delivery.caesareanSection} highlight />
-                <MetricRow label="Multiple Births" value={reportData?.delivery.multiple} />
-              </div>
-            </div>
-
-            {/* Delivery Outcomes */}
-            <div className="border rounded-lg p-4">
-              <h4 className="font-bold mb-3">Maternal & Neonatal Outcomes</h4>
-              <div className="space-y-2">
-                <MetricRow label="Maternal Deaths" value={reportData?.delivery.maternalDeaths} highlight />
-                <MetricRow label="Neonatal Deaths" value={reportData?.delivery.neonatalDeaths} />
-                <MetricRow label="Low Birth Weight (<2.5kg)" value={reportData?.delivery.lowBirthWeight} />
-              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">Spontaneous Vertex</td><td className="py-2 text-right font-bold">{reportData?.delivery.spontaneousVertex}</td></tr>
+                  <tr className="border-b"><td className="py-2">Assisted Breech</td><td className="py-2 text-right font-bold">{reportData?.delivery.assistedBreech}</td></tr>
+                  <tr className="border-b"><td className="py-2">Vacuum Extraction</td><td className="py-2 text-right font-bold">{reportData?.delivery.vacuum}</td></tr>
+                  <tr className="border-b"><td className="py-2">Forceps</td><td className="py-2 text-right font-bold">{reportData?.delivery.forceps}</td></tr>
+                  <tr className="border-b bg-purple-50"><td className="py-2 font-medium">Caesarean Section</td><td className="py-2 text-right font-bold text-purple-600">{reportData?.delivery.caesareanSection}</td></tr>
+                  <tr><td className="py-2">Multiple Births</td><td className="py-2 text-right font-bold">{reportData?.delivery.multiple}</td></tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Place of Delivery */}
             <div className="border rounded-lg p-4">
               <h4 className="font-bold mb-3">Place of Delivery</h4>
-              <div className="space-y-2">
-                <MetricRow label="Hospital" value={reportData?.delivery.hospitalDeliveries} />
-                <MetricRow label="Health Centre/Clinic" value={reportData?.delivery.healthCentreDeliveries} />
-                <MetricRow label="Home/En Route" value={reportData?.delivery.homeDeliveries} />
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b"><td className="py-2">Hospital</td><td className="py-2 text-right font-bold">{reportData?.delivery.hospitalDeliveries}</td></tr>
+                  <tr className="border-b"><td className="py-2">Health Centre/Clinic</td><td className="py-2 text-right font-bold">{reportData?.delivery.healthCentreDeliveries}</td></tr>
+                  <tr><td className="py-2">Home/En Route</td><td className="py-2 text-right font-bold">{reportData?.delivery.homeDeliveries}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Stillbirths & Referrals */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h4 className="font-bold mb-3">Stillbirth Details</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><span className="text-sm">Fresh Stillbirths:</span><br/><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsFresh}</span></div>
+                <div><span className="text-sm">Macerated Stillbirths:</span><br/><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsMacerated}</span></div>
+              </div>
+              <div className="mt-3 pt-3 border-t">
+                <div className="flex justify-between"><span>Low Birth Weight (&lt;2.5kg):</span><span className="font-bold">{reportData?.delivery.lowBirthWeight}</span></div>
+                <div className="flex justify-between mt-2"><span>Neonatal Deaths:</span><span className="font-bold text-red-600">{reportData?.delivery.neonatalDeaths}</span></div>
+                <div className="flex justify-between mt-2"><span>Maternal Deaths:</span><span className="font-bold text-red-600">{reportData?.delivery.maternalDeaths}</span></div>
               </div>
             </div>
 
-            {/* Birth Attendant */}
-            <div className="border rounded-lg p-4">
-              <h4 className="font-bold mb-3">Birth Attendant</h4>
-              <div className="space-y-2">
-                <MetricRow label="Skilled Attendant (Doctor/Midwife/Nurse)" value={reportData?.delivery.skilledAttendant} />
-                <MetricRow label="Traditional Birth Attendant" value={reportData?.delivery.tbaAttendant} />
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h4 className="font-bold mb-3">Referrals</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between p-2 bg-orange-50 rounded"><span>bEmONC Referrals:</span><span className="font-bold text-orange-600">{reportData?.delivery.bEmONCReferrals || 0}</span></div>
+                <div className="flex justify-between p-2 bg-red-50 rounded"><span>cEmONC Referrals:</span><span className="font-bold text-red-600">{reportData?.delivery.cEmONCReferrals || 0}</span></div>
+                <div className="flex justify-between p-2 bg-yellow-50 rounded"><span>Skilled Attendant:</span><span className="font-bold">{reportData?.delivery.skilledAttendant}</span></div>
+                <div className="flex justify-between p-2 bg-gray-100 rounded"><span>TBA Attendant:</span><span className="font-bold">{reportData?.delivery.tbaAttendant}</span></div>
               </div>
-            </div>
-          </TwoColumnGrid>
-
-          {/* Stillbirth Details */}
-          <div className="mt-4 border rounded-lg p-4 bg-gray-50">
-            <h4 className="font-bold mb-3">Stillbirth Details</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <MetricRow label="Fresh Stillbirths" value={reportData?.delivery.stillbirthsFresh} />
-              <MetricRow label="Macerated Stillbirths" value={reportData?.delivery.stillbirthsMacerated} />
             </div>
           </div>
         </div>
 
         {/* ============================================ */}
-        {/* POSTNATAL SECTION */}
+        {/* SECTION 3: POSTNATAL CARE */}
         {/* ============================================ */}
-        <div className={`p-5 ${activeSection !== 'postnatal' ? 'print:block' : ''}`}>
-          <SectionTitle title="POSTNATAL CARE" icon={Users} subtitle="Postnatal services and follow-up" />
+        <div className="p-5">
+          <div className="mb-4">
+            <h3 className="font-bold text-lg text-green-700 flex items-center gap-2">
+              <Users className="w-5 h-5" /> SECTION 3: POSTNATAL CARE
+            </h3>
+            <p className="text-xs text-gray-500 ml-7">Postnatal services and follow-up</p>
+          </div>
           
-          {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
             <div className="text-center p-3 bg-teal-50 rounded-lg"><div className="text-2xl font-bold text-teal-600">{reportData?.postnatal.newMothers}</div><div className="text-xs">New Mothers</div></div>
             <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.postnatal.totalVisits}</div><div className="text-xs">Total PNC Visits</div></div>
             <div className="text-center p-3 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-600">{reportData?.postnatal.exclusiveBreastfeeding}</div><div className="text-xs">Exclusive BF</div></div>
           </div>
 
-          <TwoColumnGrid>
-            {/* PNC Timing */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="border rounded-lg p-4">
               <h4 className="font-bold mb-3">PNC Timing</h4>
-              <div className="space-y-2">
-                <MetricRow label="PNC within 48 hours" value={reportData?.postnatal.pncWithin48Hours} />
-                <MetricRow label="PNC within 6 weeks" value={reportData?.postnatal.pncWithin6Weeks} />
+              <div className="space-y-3">
+                <div className="flex justify-between p-2 bg-green-50 rounded"><span>PNC within 48 hours:</span><span className="font-bold text-green-600">{reportData?.postnatal.pncWithin48Hours}</span></div>
+                <div className="flex justify-between p-2 bg-blue-50 rounded"><span>PNC within 6 weeks:</span><span className="font-bold text-blue-600">{reportData?.postnatal.pncWithin6Weeks}</span></div>
               </div>
             </div>
-
-            {/* Services */}
             <div className="border rounded-lg p-4">
               <h4 className="font-bold mb-3">Postnatal Services</h4>
-              <div className="space-y-2">
-                <MetricRow label="Family Planning Accepted" value={reportData?.postnatal.familyPlanningAccepted} />
-                <MetricRow label="Immunizations Given" value={reportData?.postnatal.immunizationGiven} />
-                <MetricRow label="Postnatal Complications" value={reportData?.postnatal.complications} highlight />
+              <div className="space-y-3">
+                <div className="flex justify-between"><span>Family Planning Accepted:</span><span className="font-bold">{reportData?.postnatal.familyPlanningAccepted}</span></div>
+                <div className="flex justify-between"><span>Immunizations Given:</span><span className="font-bold">{reportData?.postnatal.immunizationGiven}</span></div>
+                <div className="flex justify-between p-2 bg-red-50 rounded"><span>Postnatal Complications:</span><span className="font-bold text-red-600">{reportData?.postnatal.complications}</span></div>
+                <div className="flex justify-between p-2 bg-orange-50 rounded"><span>PNC Referrals:</span><span className="font-bold text-orange-600">{reportData?.postnatal.pncReferrals || 0}</span></div>
               </div>
             </div>
-          </TwoColumnGrid>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center py-4 px-4 border-t text-xs text-gray-400">
-          Generated on {new Date(reportData?.generatedAt || '').toLocaleString()} | GHS Form A - Maternal Health Report
+        {/* Footer - DHIS2 Data Entry Reference */}
+        <div className="text-center py-4 px-4 border-t-2 border-gray-300 text-xs text-gray-400 bg-gray-50">
+          <p>Data Entry | DHIS2 - Form A (Monthly Midwives Return)</p>
+          <p className="mt-1">Generated on {new Date(reportData?.generatedAt || '').toLocaleString()}</p>
         </div>
       </div>
     </div>
   );
 };
 
-export default ANCReportView;
+export default FormAReportView;

@@ -68,38 +68,57 @@ export class PatientService extends BaseService {
     }
   }
 
-  /**
-   * Check for duplicate patient
-   */
-  private async checkDuplicates(data: CreatePatientDTO, excludeId?: string): Promise<void> {
-    if (data.nhisNumber) {
-      const existingByNHIS = await this.repository.findByNHISNumber(data.nhisNumber);
-      if (existingByNHIS && (!excludeId || existingByNHIS.id !== excludeId)) {
-        throw new ValidationError('A patient with this NHIS number already exists', [
-          { field: 'nhisNumber', message: 'NHIS number already registered', code: 'DUPLICATE' }
-        ]);
-      }
-    }
-
-    if (data.contact) {
-      const existingByPhone = await this.repository.findByPhone(data.contact);
-      if (existingByPhone && (!excludeId || existingByPhone.id !== excludeId)) {
-        throw new ValidationError('A patient with this contact number already exists', [
-          { field: 'contact', message: 'Contact number already registered', code: 'DUPLICATE' }
-        ]);
-      }
-    }
-
-    // Check folder number uniqueness
-    if (data.folderNumber) {
-      const existingByFolder = await this.repository.findByFolderNumber(data.folderNumber);
-      if (existingByFolder && (!excludeId || existingByFolder.id !== excludeId)) {
-        throw new ValidationError('A patient with this folder number already exists', [
-          { field: 'folderNumber', message: 'Folder number already exists', code: 'DUPLICATE' }
-        ]);
-      }
+/**
+ * Check for duplicate patient
+ */
+private async checkDuplicates(data: CreatePatientDTO, excludeId?: string): Promise<void> {
+  // 1. Check NHIS Number (unique)
+  if (data.nhisNumber) {
+    const existingByNHIS = await this.repository.findByNHISNumber(data.nhisNumber);
+    if (existingByNHIS && (!excludeId || existingByNHIS.id !== excludeId)) {
+      throw new ValidationError('A patient with this NHIS number already exists', [
+        { field: 'nhisNumber', message: 'NHIS number already registered', code: 'DUPLICATE' }
+      ]);
     }
   }
+
+  // 2. Check Insurance Number (for private insurance) - unique
+  if (data.insuranceDetails?.insuranceNumber) {
+    const existingByInsuranceNumber = await this.repository.findByInsuranceNumber(
+      data.insuranceDetails.insuranceNumber
+    );
+    if (existingByInsuranceNumber && (!excludeId || existingByInsuranceNumber.id !== excludeId)) {
+      throw new ValidationError('A patient with this insurance number already exists', [
+        { field: 'insuranceNumber', message: 'Insurance number already registered', code: 'DUPLICATE' }
+      ]);
+    }
+  }
+
+  // 3. Check Corporate Employee ID (when linked to corporate account) - unique
+  if (data.corporateEmployeeId) {
+    const existingByCorporateEmployee = await this.repository.findByCorporateEmployeeId(
+      data.corporateEmployeeId
+    );
+    if (existingByCorporateEmployee && (!excludeId || existingByCorporateEmployee.id !== excludeId)) {
+      throw new ValidationError('A patient with this corporate employee ID already exists', [
+        { field: 'corporateEmployeeId', message: 'Corporate employee ID already registered', code: 'DUPLICATE' }
+      ]);
+    }
+  }
+
+  // 4. Check Contact/Phone - NOT unique (family members can share)
+  // Skip contact uniqueness check - multiple patients can have same phone number
+
+  // 5. Check Folder Number - unique
+  if (data.folderNumber) {
+    const existingByFolder = await this.repository.findByFolderNumber(data.folderNumber);
+    if (existingByFolder && (!excludeId || existingByFolder.id !== excludeId)) {
+      throw new ValidationError('A patient with this folder number already exists', [
+        { field: 'folderNumber', message: 'Folder number already exists', code: 'DUPLICATE' }
+      ]);
+    }
+  }
+}
 
   /**
    * Validate corporate account if payment mode is corporate
@@ -241,25 +260,23 @@ export class PatientService extends BaseService {
    */
   async updatePatient(id: string, data: UpdatePatientDTO): Promise<Patient> {
     this.logInfo('Updating patient', { id });
-
+  
     // Verify patient exists
     await this.getPatientById(id);
-
-    // Check for duplicates if updating sensitive fields
-    if (data.nhisNumber || data.contact) {
-      await this.checkDuplicates(data as CreatePatientDTO, id);
-    }
-
+  
+    // ✅ Always check duplicates for unique fields when updating
+    await this.checkDuplicates(data as CreatePatientDTO, id);
+  
     // Handle date conversion
     const updateData = {
       ...data,
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined
     };
-
+  
     const patient = await this.repository.update(id, updateData);
-
+  
     this.logInfo('Patient updated successfully', { id });
-
+  
     return patient;
   }
 

@@ -7,13 +7,16 @@ import { EncounterCategory, VisitCategory, AttendanceStatus, PaymentMode } from 
 
 export interface CreateEncounterDTO {
   patientId: string;
-  encounterType: 'emergency_acute' | 'antenatal' | 'postnatal' | 'chronic_followup' | 'specialist_consultation' | 'delivery' | 'surgery';
+  attendanceType: 'emergency_acute' | 'antenatal' | 'postnatal' | 'chronic_followup' | 'specialist_consultation' | 'delivery' | 'surgery' | 'general_consultation';
   paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
+  encounterCategory?: 'opd' | 'ipd' | 'daycase';  // ✅ NEW
   nhisCCC?: string;
   insuranceProviderId?: string;
   corporateAccountId?: string;
   complaint?: string;
   referredFrom?: string;
+  bedId?: string;      // ✅ NEW - for IPD and daycase
+  wardId?: string;     // ✅ NEW - for IPD and daycase
 }
 
 export interface UpdateEncounterDTO {
@@ -22,6 +25,9 @@ export interface UpdateEncounterDTO {
   medicalNotes?: string;
   treatmentPlan?: string;
   followUpDate?: Date;
+  encounterCategory?: 'opd' | 'ipd' | 'daycase';  // ✅ NEW
+  bedId?: string | null;
+  wardId?: string | null;
 }
 
 export interface AddDiagnosisDTO {
@@ -83,13 +89,37 @@ export interface AddServiceDTO {
 
 export interface EncounterFilters {
   patientId?: string;
-  encounterType?: string;
+  attendanceType?: string;
+  encounterCategory?: 'opd' | 'ipd' | 'daycase';  // ✅ NEW
   status?: AttendanceStatus;
   paymentMode?: PaymentMode;
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;
   limit?: number;
+  hasAdmission?: boolean;  // ✅ NEW - filter for admitted patients
+}
+
+// ============================================
+// ADMISSION DTOs (NEW)
+// ============================================
+
+export interface CreateAdmissionDTO {
+  attendanceId: string;
+  admissionType?: 'emergency' | 'elective' | 'transfer';
+  admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  admissionDate?: Date;
+}
+
+export interface UpdateAdmissionDTO {
+  dischargeDate?: Date;
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  dailyNotes?: any;
+}
+
+export interface AddDailyNoteDTO {
+  notes: string;
+  noteType?: string;
 }
 
 // ============================================
@@ -101,6 +131,7 @@ export interface EncounterWithRelations {
   attendanceNumber: string;
   patientId: string;
   attendanceType: string;
+  encounterCategory: 'opd' | 'ipd' | 'daycase';
   status: AttendanceStatus;
   paymentMode: PaymentMode;
   nhisCCC?: string;
@@ -112,7 +143,12 @@ export interface EncounterWithRelations {
   dateTime: Date;
   createdAt: Date;
   updatedAt: Date;
+  bedId?: string;
+  wardId?: string;
   patient?: any;
+  bed?: any;
+  ward?: any;
+  Admission?: any;
   AttendanceDiagnosis?: any[];
   Vitals?: any[];
   Medication?: any[];
@@ -131,7 +167,10 @@ export interface WorklistItem {
     gender: string;
   };
   encounterType: string;
+  encounterCategory: string;
   priority: 'normal' | 'urgent' | 'critical';
   waitTime: number;
   status: string;
+  bedNumber?: string;
+  wardName?: string;
 }

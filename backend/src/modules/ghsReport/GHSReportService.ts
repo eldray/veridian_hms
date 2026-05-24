@@ -1402,4 +1402,302 @@ export class GHSReportService {
 
     return rows.join('\n');
   }
+
+
+  // modules/ghsReport/GHSReportService.ts - Add this method
+
+// ============================================
+// CONSULTING ROOM REGISTER (Daily/Weekly/Monthly)
+// ============================================
+
+async generateConsultingRoomRegister(
+  startDate: Date, 
+  endDate: Date,
+  periodType: 'daily' | 'weekly' | 'monthly' = 'daily'
+): Promise<ConsultingRoomRegisterReport> {
+  const endDateTime = new Date(endDate);
+  endDateTime.setHours(23, 59, 59, 999);
+  
+  // Get hospital info
+  const hospital = await this.prisma.hospital.findFirst();
+  
+  // Get all attendances in period
+  const attendances = await this.prisma.attendance.findMany({
+    where: {
+      dateTime: { gte: startDate, lte: endDateTime },
+      status: { not: 'cancelled' }
+    },
+    include: {
+      Patient: true,
+      Bill: true,
+      AttendanceDiagnosis: {
+        include: { Diagnosis: true },
+        orderBy: { date: 'asc' }
+      },
+      LabTest: {
+        include: { LabTestTemplate: true },
+        where: { status: { not: 'cancelled' } }
+      },
+      Medication: {
+        include: { StockItem: true },
+        where: { status: { not: 'cancelled' } }
+      },
+      ReferralRecord: true,
+      createdBy: { select: { fullName: true } }
+    },
+    orderBy: { dateTime: 'asc' }
+  });
+  
+  // Track patient history to determine NEW/OLD status within period
+  const priorVisitMap = new Map<string, boolean>();
+  
+  // Get prior visits for all patients in this period
+  const patientIds = [...new Set(attendances.map(a => a.patientId))];
+  const priorVisits = await this.prisma.attendance.groupBy({
+    by: ['patientId'],
+    where: {
+      patientId: { in: patientIds },
+      dateTime: { lt: startDate },
+      status: { not: 'cancelled' }
+    },
+    _count: { id: true }
+  });
+  
+  for (const pv of priorVisits) {
+    if (pv._count.id > 0) {
+      priorVisitMap.set(pv.patientId, true);
+    }
+  }
+  
+  // Track visits within period for NEW/OLD classification
+  const seenInPeriod = new Set<string>();
+  const entries: ConsultingRoomRegisterEntry[] = [];
+  let totalPatients = 0;
+  let newPatients = 0;
+  let oldPatients = 0;
+  let nhisPatients = 0;
+  let cashPatients = 0;
+  let pregnantWomen = 0;
+  let referrals = 0;
+  
+  for (const attendance of attendances) {
+    const patient = attendance.Patient;
+    if (!patient) continue;
+    
+    // Determine if NEW or OLD patient
+    const hadPriorVisit = priorVisitMap.has(patient.id);
+    const seenThisPeriod = seenInPeriod.has(patient.id);
+    const isNewPatient = !hadPriorVisit && !seenThisPeriod;
+    const isOldPatient = !isNewPatient;
+    
+    seenInPeriod.add(patient.id);
+    
+    // Calculate age
+    const age = this.calculateAge(patient.dateOfBirth, attendance.dateTime);
+    const ageGroup = this.getAgeGroup(age);
+    
+    // Get diagnoses
+    const diagnoses = attendance.AttendanceDiagnosis;
+    const principalDiagnosis = diagnoses.find(d => d.diagnosisType === 'primary')?.Diagnosis?.name || '';
+    const provisionalDiagnosis = diagnoses.find(d => d.diagnosisType === 'provisional')?.Diagnosis?.name || '';
+    const additionalDiagnoses = diagnoses.filter(d => d.diagnosisType === 'additional');
+    const newDiagnoses = additionalDiagnoses.filter(d => {
+      // Check if this diagnosis was ever given before to this patient
+      // This would need a separate query, simplified for now
+      return d.diagnosisType === 'additional';
+    });
+    
+    // Get lab tests
+    const labTests = attendance.LabTest;
+    const labTestsRequested = labTests.map(l => l.LabTestTemplate?.name || 'Unknown').join(', ');
+    const labResults = labTests
+      .filter(l => l.status === 'completed' && l.result)
+      .map(l => {
+        const result = l.result as any;
+        return `${l.LabTestTemplate?.name}: ${result?.result || result?.value || 'Done'}`;
+      })
+      .join('; ');
+    
+    // Get medications
+    const medications = attendance.Medication;
+    const drugsPrescribed = medications
+      .filter(m => m.status === 'prescribed')
+      .map(m => m.StockItem?.name || m.name)
+      .join(', ');
+    const drugsGiven = medications
+      .filter(m => m.status === 'dispensed')
+      .map(m => m.StockItem?.name || m.name)
+      .join(', ');
+    
+    // NHIS status
+    const isNHIS = attendance.paymentMode === 'nhis';
+    const isPregnant = attendance.attendanceType === 'antenatal' || 
+                       (attendance.complaints?.toLowerCase().includes('preg') ?? false);
+    
+    // Referrals
+    const hasReferral = attendance.ReferralRecord && attendance.ReferralRecord.length > 0;
+    if (hasReferral) referrals++;
+    
+    // Update totals
+    totalPatients++;
+    if (isNewPatient) newPatients++;
+    if (isOldPatient) oldPatients++;
+    if (isNHIS) nhisPatients++;
+    if (attendance.paymentMode === 'cash') cashPatients++;
+    if (isPregnant) pregnantWomen++;
+    
+    // Create entry matching your CSV format
+    entries.push({
+      date: attendance.dateTime.toISOString().split('T')[0],
+      attendanceNumber: attendance.attendanceNumber,
+      patientNo: patient.folderNumber,
+      nhisNo: patient.nhisNumber || null,
+      patientName: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+      address: patient.address || '',
+      age: age,
+      ageGroup: ageGroup,
+      telephone: patient.contact || patient.phoneNumber || '',
+      sex: patient.gender,
+      patientType: isNewPatient ? 'NEW' : 'OLD',
+      pregnant: isPregnant,
+      isNHIS: isNHIS,
+      provisionalDiagnosis: provisionalDiagnosis,
+      labTestsRequested: labTestsRequested,
+      labResults: labResults,
+      principalDiagnosis: principalDiagnosis,
+      newDiagnosis: newDiagnoses.map(d => d.Diagnosis?.name).filter(Boolean).join(', '),
+      oldDiagnosis: '', // Would need historical data
+      additionalDiagnosis: additionalDiagnoses.map(d => d.Diagnosis?.name).filter(Boolean).join(', '),
+      newAdditionalDiagnosis: newDiagnoses.map(d => d.Diagnosis?.name).filter(Boolean).join(', '),
+      oldAdditionalDiagnosis: '',
+      drugsPrescribed: drugsPrescribed,
+      drugsGiven: drugsGiven,
+      referredTo: attendance.ReferralRecord?.map(r => r.referredToFacility).filter(Boolean).join(', ') || null,
+      referredFrom: attendance.referringFacility || null,
+      clinician: attendance.createdBy?.fullName || 'Unknown',
+      attendanceId: attendance.id
+    });
+  }
+  
+  // Determine period display
+  let periodDisplay = '';
+  if (periodType === 'daily') {
+    periodDisplay = startDate.toLocaleDateString('en-GB');
+  } else if (periodType === 'weekly') {
+    const weekNumber = this.getWeekNumber(startDate);
+    periodDisplay = `Week ${weekNumber}, ${startDate.toLocaleDateString('en-GB')} - ${endDate.toLocaleDateString('en-GB')}`;
+  } else {
+    periodDisplay = startDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
+  
+  return {
+    period: {
+      startDate,
+      endDate,
+      date: periodDisplay,
+      week: periodType === 'weekly' ? this.getWeekNumber(startDate) : undefined,
+      month: periodType === 'monthly' ? startDate.toLocaleString('default', { month: 'long', year: 'numeric' }) : undefined
+    },
+    facility: {
+      name: hospital?.name || 'Health Facility',
+      district: hospital?.ghsDistrictCode || 'Unknown District',
+      ghfCode: hospital?.ghaHFCode || 'Unknown'
+    },
+    summary: {
+      totalPatients,
+      newPatients,
+      oldPatients,
+      nhisPatients,
+      cashPatients,
+      pregnantWomen,
+      referrals
+    },
+    entries,
+    generatedAt: new Date()
+  };
+}
+
+// Helper: Get age group
+private getAgeGroup(age: number): string {
+  if (age < 1) return '<1';
+  if (age < 5) return '1-4';
+  if (age < 10) return '5-9';
+  if (age < 15) return '10-14';
+  if (age < 18) return '15-17';
+  if (age < 20) return '18-19';
+  if (age < 35) return '20-34';
+  if (age < 50) return '35-49';
+  if (age < 60) return '50-59';
+  if (age < 70) return '60-69';
+  return '70+';
+}
+
+// Helper: Get week number
+private getWeekNumber(date: Date): number {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+}
+
+// CSV Export for Consulting Room Register
+static exportConsultingRoomRegisterToCSV(report: ConsultingRoomRegisterReport): string {
+  const rows: string[] = [];
+  
+  // Header
+  rows.push(`"CONSULTING ROOM REGISTER"`);
+  rows.push(`"Facility","${report.facility.name}"`);
+  rows.push(`"District","${report.facility.district}"`);
+  rows.push(`"GHF Code","${report.facility.ghfCode}"`);
+  rows.push(`"Period","${report.period.date}"`);
+  rows.push('');
+  rows.push(`"SUMMARY"`);
+  rows.push(`"Total Patients",${report.summary.totalPatients}`);
+  rows.push(`"New Patients",${report.summary.newPatients}`);
+  rows.push(`"Old Patients",${report.summary.oldPatients}`);
+  rows.push(`"NHIS Patients",${report.summary.nhisPatients}`);
+  rows.push(`"Cash Patients",${report.summary.cashPatients}`);
+  rows.push(`"Pregnant Women",${report.summary.pregnantWomen}`);
+  rows.push(`"Referrals",${report.summary.referrals}`);
+  rows.push('');
+  
+  // Data table header matching your sample CSV
+  const headers = [
+    'Date', 'PatientNo', 'NHISNo', 'Name', 'Address', 'Age', 'Telephone', 'Sex',
+    'ProvDiag', 'LabTests', 'LabResult', 'PnpalDiag', 'NewDiag', 'OldDiag',
+    'AddDiag', 'NewAddDiag', 'OldAddDiag', 'Pregnant', 'IsNHIS',
+    'DrugPresc', 'DrugGiven', 'AttendanceID'
+  ];
+  rows.push(headers.map(h => `"${h}"`).join(','));
+  
+  // Data rows
+  for (const entry of report.entries) {
+    const row = [
+      entry.date,
+      entry.patientNo,
+      entry.nhisNo || '',
+      entry.patientName,
+      entry.address,
+      entry.age,
+      entry.telephone,
+      entry.sex === 'male' ? 'M' : 'F',
+      entry.provisionalDiagnosis,
+      entry.labTestsRequested,
+      entry.labResults,
+      entry.principalDiagnosis,
+      entry.newDiagnosis,
+      entry.oldDiagnosis,
+      entry.additionalDiagnosis,
+      entry.newAdditionalDiagnosis,
+      entry.oldAdditionalDiagnosis,
+      entry.pregnant ? 'Y' : 'N',
+      entry.isNHIS ? 'Y' : 'N',
+      entry.drugsPrescribed,
+      entry.drugsGiven,
+      entry.attendanceId
+    ];
+    rows.push(row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','));
+  }
+  
+  return rows.join('\n');
+}
 }

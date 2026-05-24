@@ -1,107 +1,78 @@
 // modules/encounter/EncounterRoutes.ts
 import { Router } from 'express';
 import { EncounterController } from './EncounterController';
-import { protect } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
+
+// modules/encounter/EncounterRoutes.ts - CORRECT ORDER
 
 const router = Router();
 const controller = new EncounterController();
 
 // ============================================
-// ENCOUNTER ROUTES
+// SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
 // ============================================
 
-// Create encounter - controller.create is an array of middleware
-router.post('/', protect, controller.create);
+// DAYCASE ROUTES - MUST BE BEFORE /:id
+router.get('/daycase', protect, controller.getDaycasePatients);
+router.post('/:id/convert-to-ipd', protect, controller.convertDaycaseToIPD);
 
-// Get all encounters with filters
-router.get('/', protect, controller.getAll);
+// WORKLIST ROUTES
+router.get('/worklist/vitals', protect, controller.getVitalsWorklist);
+router.get('/worklist/medical', protect, controller.getMedicalWorklist);
+router.get('/worklist/lab', protect, controller.getLabWorklist);
+router.get('/worklist/pharmacy', protect, controller.getPharmacyWorklist);
 
-// Get encounter by ID
-router.get('/:id', protect, controller.getById);
-
-// Update encounter status - controller.updateStatus is an array
-router.put('/:id/status', protect, controller.updateStatus);
-
-// Add diagnosis to encounter - controller.addDiagnosis is an array
-router.post('/:id/diagnosis', protect, controller.addDiagnosis);
-
-// Set primary diagnosis - controller.setPrimaryDiagnosis is an array
-router.put('/:id/diagnosis/primary', protect, controller.setPrimaryDiagnosis);
-
-// Remove diagnosis from encounter
-router.delete('/:id/diagnosis/:diagnosisId', protect, controller.removeDiagnosis);
-
-// Add vitals to encounter - controller.addVitals is an array
-router.post('/:id/vitals', protect, controller.addVitals);
-
-// Update vitals - controller.updateVitals is an array
-router.put('/vitals/:vitalsId', protect, controller.updateVitals);
-
-// Delete vitals
-router.delete('/vitals/:vitalsId', protect, controller.deleteVitals);
-
-// Add prescription to encounter - controller.addPrescription is an array
-router.post('/:id/prescriptions', protect, controller.addPrescription);
-
-// Dispense medication - controller.dispenseMedication is an array
-router.put('/:encounterId/medications/:medicationId/dispense', protect, controller.dispenseMedication);
-
-// Remove medication from encounter
-router.delete('/:encounterId/medications/:medicationId', protect, controller.removeMedication);
-
-// Add lab order to encounter - controller.addLabOrder is an array
-router.post('/:id/lab-tests', protect, controller.addLabTest);
-
-// Update lab order status - controller.updateLabOrderStatus is an array
-router.put('/lab-tests/:labTestId/status', protect, controller.updateLabTestStatus);
-
-// Remove lab order from encounter
-router.delete('/:encounterId/lab-tests/:labTestId', protect, controller.removeLabTest);
-
-// Add scan/radiology to encounter - controller.addScan is an array
-router.post('/:id/scans', protect, controller.addScan);
-
-// Update scan status - controller.updateScanStatus is an array
-router.put('/scans/:scanId/status', protect, controller.updateScanStatus);
-
-// Remove scan from encounter
-router.delete('/:encounterId/scans/:scanId', protect, controller.removeScan);
-
-// Add procedure to encounter - controller.addProcedure is an array
-router.post('/:id/procedures', protect, controller.addProcedure);
-
-// Update procedure status - controller.updateProcedureStatus is an array
-router.put('/procedures/:procedureId/status', protect, controller.updateProcedureStatus);
-
-// Remove procedure from encounter
-router.delete('/:encounterId/procedures/:procedureId', protect, controller.removeProcedure);
-
-// Add service to encounter - controller.addService is an array
-router.post('/:id/services', protect, controller.addService);
-
-// Remove service from encounter
-router.delete('/:encounterId/services/:serviceRenderedId', protect, controller.removeService);
-
-// Delete encounter
-router.delete('/:id', protect, controller.delete);
-
-// Get encounter statistics
+// STATS ROUTE
 router.get('/stats', protect, controller.getStats);
 
+// ADMISSION ROUTES
+router.get('/admissions', protect, requireRole(['admin', 'doctor', 'records', 'accounts']), controller.getAllAdmissions);
+router.post('/:id/admissions', protect, controller.createAdmission);
+router.post('/:id/admissions/notes', protect, controller.addDailyNotes);
+
+// DISCHARGE ROUTES
+router.post('/:id/discharge', protect, controller.dischargeEncounter);
+
+// BED OCCUPANCY
+router.get('/bed-occupancy', protect, controller.getBedOccupancy);
+
 // ============================================
-// WORKLIST ROUTES (CLINICAL QUEUES)
+// DYNAMIC ID ROUTES (LAST - catches :id parameters)
 // ============================================
 
-// Vitals worklist - patients waiting for vitals
-router.get('/worklist/vitals', protect, controller.getVitalsWorklist);
+router.post('/', protect, controller.create);
+router.get('/', protect, controller.getAll);
+router.get('/:id', protect, controller.getById);
+router.put('/:id', protect, controller.update);
+router.put('/:id/status', protect, controller.updateStatus);
+router.delete('/:id', protect, controller.delete);
 
-// Medical worklist - patients waiting for doctor consultation
-router.get('/worklist/medical', protect, controller.getMedicalWorklist);
+// CLINICAL ROUTES (these use :id from the URL parameter)
+router.post('/:id/diagnosis', protect, controller.addDiagnosis);
+router.put('/:id/diagnosis/primary', protect, controller.setPrimaryDiagnosis);
+router.delete('/:id/diagnosis/:diagnosisId', protect, controller.removeDiagnosis);
 
-// Lab worklist - pending lab orders
-router.get('/worklist/lab', protect, controller.getLabWorklist);
+router.post('/:id/vitals', protect, controller.addVitals);
+router.put('/vitals/:vitalsId', protect, controller.updateVitals);
+router.delete('/vitals/:vitalsId', protect, controller.deleteVitals);
 
-// Pharmacy worklist - pending prescriptions
-router.get('/worklist/pharmacy', protect, controller.getPharmacyWorklist);
+router.post('/:id/prescriptions', protect, controller.addPrescription);
+router.put('/:encounterId/medications/:medicationId/dispense', protect, controller.dispenseMedication);
+router.delete('/:encounterId/medications/:medicationId', protect, controller.removeMedication);
+
+router.post('/:id/lab-tests', protect, controller.addLabTest);
+router.put('/lab-tests/:labTestId/status', protect, controller.updateLabTestStatus);
+router.delete('/:encounterId/lab-tests/:labTestId', protect, controller.removeLabTest);
+
+router.post('/:id/scans', protect, controller.addScan);
+router.put('/scans/:scanId/status', protect, controller.updateScanStatus);
+router.delete('/:encounterId/scans/:scanId', protect, controller.removeScan);
+
+router.post('/:id/procedures', protect, controller.addProcedure);
+router.put('/procedures/:procedureId/status', protect, controller.updateProcedureStatus);
+router.delete('/:encounterId/procedures/:procedureId', protect, controller.removeProcedure);
+
+router.post('/:id/services', protect, controller.addService);
+router.delete('/:encounterId/services/:serviceRenderedId', protect, controller.removeService);
 
 export default router;

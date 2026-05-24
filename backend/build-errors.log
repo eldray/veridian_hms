@@ -1,0 +1,609 @@
+src/cron/wardChargeCron.ts(372,9): error TS2353: Object literal may only specify known properties, and 'admission' does not exist in type 'WardChargeRecordInclude<DefaultArgs>'.
+src/cron/wardChargeCron.ts(422,42): error TS2551: Property 'admission' does not exist on type '{ id: string; createdAt: Date; paymentMode: PaymentMode; bedId: string; wardId: string; attendanceId: string; admissionId: string | null; cashPrice: number; nhisPrice: number; ... 5 more ...; billLineItemId: string | null; }'. Did you mean 'admissionId'?
+src/cron/wardChargeCron.ts(433,33): error TS2339: Property 'ward' does not exist on type '{ id: string; createdAt: Date; paymentMode: PaymentMode; bedId: string; wardId: string; attendanceId: string; admissionId: string | null; cashPrice: number; nhisPrice: number; ... 5 more ...; billLineItemId: string | null; }'.
+src/cron/wardChargeCron.ts(447,59): error TS2551: Property 'admission' does not exist on type '{ id: string; createdAt: Date; paymentMode: PaymentMode; bedId: string; wardId: string; attendanceId: string; admissionId: string | null; cashPrice: number; nhisPrice: number; ... 5 more ...; billLineItemId: string | null; }'. Did you mean 'admissionId'?
+src/cron/wardChargeCron.ts(448,23): error TS2551: Property 'admission' does not exist on type '{ id: string; createdAt: Date; paymentMode: PaymentMode; bedId: string; wardId: string; attendanceId: string; admissionId: string | null; cashPrice: number; nhisPrice: number; ... 5 more ...; billLineItemId: string | null; }'. Did you mean 'admissionId'?
+src/cron/wardChargeCron.ts(547,11): error TS2353: Object literal may only specify known properties, and 'admission' does not exist in type 'WardChargeRecordInclude<DefaultArgs>'.
+src/middleware/audit.ts(3,29): error TS2307: Cannot find module '../types/auth.types' or its corresponding type declarations.
+src/middleware/audit.ts(49,13): error TS2322: Type '{ entityType: string; entityId: any; action: string; performedById: any; ipAddress: any; userAgent: any; previousState: any; newState: any; metadata: { method: any; path: any; queryParams: any; timestamp: string; }; }' is not assignable to type '(Without<AuditLogCreateInput, AuditLogUncheckedCreateInput> & AuditLogUncheckedCreateInput) | (Without<...> & AuditLogCreateInput)'.
+src/middleware/audit.ts(88,7): error TS2322: Type '{ entityType: string; entityId: string; action: string; performedById: string; ipAddress: string | undefined; newState: any; timestamp: string; }[]' is not assignable to type 'AuditLogCreateManyInput | AuditLogCreateManyInput[]'.
+src/middleware/authMiddleware.ts(42,24): error TS7030: Not all code paths return a value.
+src/middleware/authMiddleware.ts(156,10): error TS7030: Not all code paths return a value.
+src/middleware/concurrency.ts(3,29): error TS2307: Cannot find module '../types/auth.types' or its corresponding type declarations.
+src/middleware/index.ts(1,15): error TS2307: Cannot find module './auth' or its corresponding type declarations.
+src/middleware/index.ts(2,15): error TS2307: Cannot find module './rbac' or its corresponding type declarations.
+src/middleware/index.ts(4,1): error TS2308: Module './transaction' has already exported a member named 'auditLog'. Consider explicitly re-exporting to resolve the ambiguity.
+src/middleware/transaction.ts(3,29): error TS2307: Cannot find module '../types/auth.types' or its corresponding type declarations.
+src/middleware/transaction.ts(12,50): error TS2503: Cannot find namespace 'Prisma'.
+src/middleware/transaction.ts(113,13): error TS2322: Type '{ entityType: string; entityId: any; action: string; performedById: any; ipAddress: any; userAgent: any; previousState: any; newState: any; metadata: { method: any; path: any; timestamp: string; }; }' is not assignable to type '(Without<AuditLogCreateInput, AuditLogUncheckedCreateInput> & AuditLogUncheckedCreateInput) | (Without<...> & AuditLogCreateInput)'.
+src/middleware/transaction.ts(145,50): error TS2503: Cannot find namespace 'Prisma'.
+src/middleware/transaction.ts(147,10): error TS7030: Not all code paths return a value.
+src/middleware/transaction.ts(188,32): error TS2322: Type '{ entityType: string; entityId: any; action: string; performedById: any; ipAddress: any; userAgent: any; timestamp: string; }' is not assignable to type '(Without<AuditLogCreateInput, AuditLogUncheckedCreateInput> & AuditLogUncheckedCreateInput) | (Without<...> & AuditLogCreateInput)'.
+src/middleware/uploadMiddleware.ts(154,18): error TS2349: This expression is not callable.
+src/middleware/uploadMiddleware.ts(160,18): error TS2349: This expression is not callable.
+src/middleware/uploadMiddleware.ts(166,18): error TS2349: This expression is not callable.
+src/middleware/uploadMiddleware.ts(174,16): error TS2349: This expression is not callable.
+src/middleware/uploadMiddleware.ts(181,7): error TS2349: This expression is not callable.
+src/modules/admission/AdmissionController.ts(70,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(114,23): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(143,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(197,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(229,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(266,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(344,22): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionController.ts(378,7): error TS7030: Not all code paths return a value.
+src/modules/admission/AdmissionService.ts(12,47): error TS2554: Expected 0 arguments, but got 1.
+src/modules/admission/AdmissionService.ts(367,30): error TS2488: Type 'string | number | true | JsonObject | JsonArray' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/modules/antenatal/AntenatalController.ts(24,30): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(47,29): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(64,31): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(89,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(114,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(219,21): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(247,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(279,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(320,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(382,23): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(433,5): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalController.ts(484,24): error TS7030: Not all code paths return a value.
+src/modules/antenatal/AntenatalRepository.ts(29,7): error TS2322: Type '{ patientId: string; attendanceId: string; gravida: number; para: number; lmp: Date; edd: Date; bookingDate: Date; gestationalAgeWeeks: any; riskLevel: "low" | "medium" | "high"; ... 9 more ...; ttDoses: { ...; }; }' is not assignable to type '(Without<AntenatalBookingCreateInput, AntenatalBookingUncheckedCreateInput> & AntenatalBookingUncheckedCreateInput) | (Without<...> & AntenatalBookingCreateInput)'.
+src/modules/antenatal/AntenatalRepository.ts(37,35): error TS2339: Property 'gestationalAgeWeeks' does not exist on type 'CreateAntenatalBookingInput'.
+src/modules/antenatal/AntenatalRepository.ts(46,25): error TS2339: Property 'createdById' does not exist on type 'CreateAntenatalBookingInput'.
+src/modules/antenatal/AntenatalRepository.ts(246,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+src/modules/appointment/AppointmentController.ts(79,5): error TS7030: Not all code paths return a value.
+src/modules/appointment/AppointmentController.ts(139,5): error TS7030: Not all code paths return a value.
+src/modules/appointment/AppointmentController.ts(207,26): error TS7030: Not all code paths return a value.
+src/modules/appointment/AppointmentController.ts(241,65): error TS2304: Cannot find name 'UserRole'.
+src/modules/appointment/AppointmentController.ts(265,5): error TS7030: Not all code paths return a value.
+src/modules/appointment/AppointmentRepository.ts(357,9): error TS2322: Type 'string' is not assignable to type 'AttendanceType'.
+src/modules/appointment/AppointmentRepository.ts(372,9): error TS2353: Object literal may only specify known properties, and 'appointment' does not exist in type 'AttendanceInclude<DefaultArgs>'.
+src/modules/audit/AuditController.ts(167,9): error TS2322: Type 'string' is not assignable to type '"csv" | "json" | undefined'.
+src/modules/audit/AuditRepository.ts(221,7): error TS2322: Type '{ timestamp: Date; entityType: string; entityId: string; action: string; performedById: string; ipAddress?: string | null; userAgent?: string | null; previousState?: any; newState?: any; metadata?: any; }' is not assignable to type '(Without<AuditLogCreateInput, AuditLogUncheckedCreateInput> & AuditLogUncheckedCreateInput) | (Without<...> & AuditLogCreateInput)'.
+src/modules/audit/AuditService.ts(12,5): error TS2554: Expected 1 arguments, but got 0.
+src/modules/auth/AuthController.ts(280,33): error TS2339: Property 'randomBytes' does not exist on type 'Crypto'.
+src/modules/auth/AuthController.ts(287,11): error TS2353: Object literal may only specify known properties, and 'resetToken' does not exist in type '(Without<UserUpdateInput, UserUncheckedUpdateInput> & UserUncheckedUpdateInput) | (Without<...> & UserUpdateInput)'.
+src/modules/auth/AuthService.ts(262,29): error TS2769: No overload matches this call.
+  Overload 1 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: null, options?: (SignOptions & { algorithm: "none"; }) | undefined): string', gave the following error.
+  Overload 2 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: Secret | Buffer<ArrayBufferLike> | JsonWebKeyInput | PrivateKeyInput, options?: SignOptions | undefined): string', gave the following error.
+  Overload 3 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: Secret | Buffer<ArrayBufferLike> | JsonWebKeyInput | PrivateKeyInput, callback: SignCallback): void', gave the following error.
+src/modules/auth/AuthService.ts(266,30): error TS2769: No overload matches this call.
+  Overload 1 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: null, options?: (SignOptions & { algorithm: "none"; }) | undefined): string', gave the following error.
+  Overload 2 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: Secret | Buffer<ArrayBufferLike> | JsonWebKeyInput | PrivateKeyInput, options?: SignOptions | undefined): string', gave the following error.
+  Overload 3 of 5, '(payload: string | object | Buffer<ArrayBufferLike>, secretOrPrivateKey: Secret | Buffer<ArrayBufferLike> | JsonWebKeyInput | PrivateKeyInput, callback: SignCallback): void', gave the following error.
+src/modules/auth/index.ts(6,10): error TS2305: Module '"./AuthTypes"' has no exported member 'AuthTypes'.
+src/modules/backup/BackupController.ts(37,19): error TS7030: Not all code paths return a value.
+src/modules/backup/BackupController.ts(95,20): error TS7030: Not all code paths return a value.
+src/modules/backup/BackupController.ts(129,18): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(57,28): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(87,27): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(132,27): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(170,27): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(198,33): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(248,33): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(321,33): error TS7030: Not all code paths return a value.
+src/modules/bill/BillController.ts(363,34): error TS7030: Not all code paths return a value.
+src/modules/bill/BillRepository.ts(94,5): error TS2322: Type '({ Payment: { id: string; createdAt: Date; updatedAt: Date; billId: string; notes: string | null; amount: number; paymentMethod: PaymentMethod; reference: string | null; ... 5 more ...; voidReason: string | null; }[]; Patient: { ...; }; Attendance: { ...; }; BillLineItem: ({ ...; } & { ...; })[]; } & { ...; }) | null' is not assignable to type 'BillWithRelations | null'.
+src/modules/bill/BillRepository.ts(152,11): error TS2322: Type '{ serviceCatalogId: string; quantity: number; unitPrice: number; lineTotal: number; insuranceCoveredAmount: number; patientPayableAmount: number; discount: number; isVoided: false; }[]' is not assignable to type '(Without<BillLineItemCreateWithoutBillInput, BillLineItemUncheckedCreateWithoutBillInput> & BillLineItemUncheckedCreateWithoutBillInput) | (Without<...> & BillLineItemCreateWithoutBillInput) | BillLineItemCreateWithoutBillInput[] | BillLineItemUncheckedCreateWithoutBillInput[] | undefined'.
+src/modules/bill/BillRepository.ts(171,30): error TS2339: Property 'BillLineItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: BillStatus; paymentMode: PaymentMode; insuranceProviderId: string | null; corporateAccountId: string | null; ... 19 more ...; dueDate: Date | null; }'.
+src/modules/bill/BillRepository.ts(171,51): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/bill/BillRepository.ts(171,56): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/billing/BillingController.ts(96,5): error TS7030: Not all code paths return a value.
+src/modules/billing/BillingController.ts(138,5): error TS7030: Not all code paths return a value.
+src/modules/billing/BillingController.ts(181,5): error TS7030: Not all code paths return a value.
+src/modules/billing/BillingController.ts(264,5): error TS7030: Not all code paths return a value.
+src/modules/billing/BillingController.ts(303,5): error TS7030: Not all code paths return a value.
+src/modules/billing/BillingRepository.ts(464,9): error TS2322: Type 'string' is not assignable to type 'boolean | undefined'.
+src/modules/billing/BillingService.ts(37,47): error TS2341: Property 'prisma' is private and only accessible within class 'BillingRepository'.
+src/modules/clinicalReports/ClinicalReportsController.ts(21,23): error TS7030: Not all code paths return a value.
+src/modules/clinicalReports/ClinicalReportsController.ts(48,24): error TS7030: Not all code paths return a value.
+src/modules/clinicalReports/ClinicalReportsController.ts(75,29): error TS7030: Not all code paths return a value.
+src/modules/clinicalReports/ClinicalReportsController.ts(102,30): error TS7030: Not all code paths return a value.
+src/modules/clinicalReports/ClinicalReportsController.ts(129,26): error TS7030: Not all code paths return a value.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(15,30): error TS2304: Cannot find name 'ClinicalReportFilters'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(24,9): error TS2353: Object literal may only specify known properties, and 'performedBy' does not exist in type 'LabTestInclude<DefaultArgs>'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(37,27): error TS2304: Cannot find name 'ClinicalReportFilters'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(46,9): error TS2353: Object literal may only specify known properties, and 'performedBy' does not exist in type 'ScanInclude<DefaultArgs>'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(59,32): error TS2304: Cannot find name 'ClinicalReportFilters'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(66,9): error TS2353: Object literal may only specify known properties, and 'performedBy' does not exist in type 'ProcedureInclude<DefaultArgs>'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(79,33): error TS2304: Cannot find name 'ClinicalReportFilters'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(87,9): error TS2353: Object literal may only specify known properties, and 'prescribedBy' does not exist in type 'MedicationInclude<DefaultArgs>'.
+src/modules/clinicalReports/ClinicalReportsRepository.ts(100,28): error TS2304: Cannot find name 'ClinicalReportFilters'.
+src/modules/clinicalReports/ClinicalReportsRoutes.ts(12,53): error TS2304: Cannot find name 'PrismaClient'.
+src/modules/clinicalReports/ClinicalReportsRoutes.ts(14,67): error TS2554: Expected 0 arguments, but got 1.
+src/modules/clinicalReports/ClinicalReportsService.ts(28,29): error TS2339: Property 'LabTestTemplate' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; result: JsonValue; status: LabTestStatus; createdById: string; attendanceId: string; notes: string | null; ... 9 more ...; priority: Priority; }'.
+src/modules/clinicalReports/ClinicalReportsService.ts(77,25): error TS2339: Property 'ScanTemplate' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; result: string | null; description: string; status: ScanStatus; createdById: string; attendanceId: string; completedAt: Date | null; ... 11 more ...; imageUrls: string[]; }'.
+src/modules/clinicalReports/ClinicalReportsService.ts(113,25): error TS2339: Property 'ProcedureTemplate' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: ProcedureStatus; createdById: string; attendanceId: string; notes: string | null; duration: number | null; ... 12 more ...; bloodLoss: number | null; }'.
+src/modules/clinicalReports/ClinicalReportsService.ts(123,46): error TS2367: This comparison appears to be unintentional because the types 'ProcedureStatus' and '"in_progress"' have no overlap.
+src/modules/clinicalReports/ClinicalReportsService.ts(142,28): error TS2551: Property 'StockItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; name: string; route: string | null; status: MedicationStatus; attendanceId: string; notes: string | null; duration: string | null; ... 15 more ...; administeredDoses: JsonValue; }'. Did you mean 'stockItemId'?
+src/modules/communication/CommunicationRepository.ts(91,41): error TS7006: Parameter 'recipient' implicitly has an 'any' type.
+src/modules/corporate/CorporateController.ts(31,16): error TS7030: Not all code paths return a value.
+src/modules/corporate/CorporateController.ts(86,17): error TS7030: Not all code paths return a value.
+src/modules/corporate/CorporateController.ts(139,25): error TS7030: Not all code paths return a value.
+src/modules/corporate/CorporateRepository.ts(298,30): error TS2339: Property 'phone' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; folderNumber: string; surname: string; otherNames: string; gender: Gender; dateOfBirth: Date; contact: string; address: string; ... 12 more ...; nhisActive: boolean; }'.
+src/modules/corporate/CorporateRepository.ts(299,30): error TS2339: Property 'email' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; folderNumber: string; surname: string; otherNames: string; gender: Gender; dateOfBirth: Date; contact: string; address: string; ... 12 more ...; nhisActive: boolean; }'.
+src/modules/corporate/CorporateRepository.ts(302,30): error TS2339: Property 'phone' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; folderNumber: string; surname: string; otherNames: string; gender: Gender; dateOfBirth: Date; contact: string; address: string; ... 12 more ...; nhisActive: boolean; }'.
+src/modules/corporate/CorporateRepository.ts(303,30): error TS2339: Property 'email' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; folderNumber: string; surname: string; otherNames: string; gender: Gender; dateOfBirth: Date; contact: string; address: string; ... 12 more ...; nhisActive: boolean; }'.
+src/modules/corporate/CorporateRepository.ts(330,9): error TS2353: Object literal may only specify known properties, and 'metadata' does not exist in type '(Without<ProformaInvoiceCreateInput, ProformaInvoiceUncheckedCreateInput> & ProformaInvoiceUncheckedCreateInput) | (Without<...> & ProformaInvoiceCreateInput)'.
+src/modules/department/DepartmentRepository.ts(61,14): error TS2322: Type '({ head: { id: string; fullName: string; role: UserRole; email: string | null; phone: string | null; specialization: string | null; } | null; _count: { users: number; }; } & { id: string; ... 7 more ...; icon: string | null; })[]' is not assignable to type 'DepartmentWithRelations[]'.
+src/modules/department/DepartmentRepository.ts(106,13): error TS2353: Object literal may only specify known properties, and 'doctor' does not exist in type 'AppointmentInclude<DefaultArgs>'.
+src/modules/diagnosis/DiagnosisController.ts(55,13): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisController.ts(89,5): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisController.ts(153,5): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisController.ts(200,12): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisController.ts(235,12): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisController.ts(310,25): error TS7030: Not all code paths return a value.
+src/modules/diagnosis/DiagnosisService.ts(65,33): error TS2339: Property 'prisma' does not exist on type 'DiagnosisService'.
+src/modules/diagnosis/DiagnosisService.ts(89,34): error TS2339: Property 'prisma' does not exist on type 'DiagnosisService'.
+src/modules/diagnosis/DiagnosisService.ts(145,37): error TS2339: Property 'prisma' does not exist on type 'DiagnosisService'.
+src/modules/document/DocumentController.ts(14,21): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(51,28): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(88,30): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(125,23): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(162,26): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(199,27): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(255,22): error TS7030: Not all code paths return a value.
+src/modules/document/DocumentController.ts(269,49): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/modules/document/DocumentController.ts(307,28): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(71,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(183,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(196,46): error TS2551: Property 'updateEncounter' does not exist on type 'EncounterService'. Did you mean 'createEncounter'?
+src/modules/encounter/EncounterController.ts(221,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(261,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(304,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(373,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(387,11): error TS2353: Object literal may only specify known properties, and 'bloodPressure' does not exist in type 'AddVitalsDTO'.
+src/modules/encounter/EncounterController.ts(480,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(499,42): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'AddPrescriptionDTO'.
+src/modules/encounter/EncounterController.ts(526,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(547,11): error TS2554: Expected 4-5 arguments, but got 6.
+src/modules/encounter/EncounterController.ts(598,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(613,45): error TS2339: Property 'addLabOrder' does not exist on type 'EncounterService'.
+src/modules/encounter/EncounterController.ts(647,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(658,45): error TS2551: Property 'updateLabOrderStatus' does not exist on type 'EncounterService'. Did you mean 'updateLabTestStatus'?
+src/modules/encounter/EncounterController.ts(687,26): error TS2339: Property 'removeLabOrder' does not exist on type 'EncounterService'.
+src/modules/encounter/EncounterController.ts(713,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(729,11): error TS2353: Object literal may only specify known properties, and 'templateId' does not exist in type 'AddScanDTO'.
+src/modules/encounter/EncounterController.ts(763,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(773,74): error TS2345: Argument of type '{ result: any; findings: any; impression: any; imageUrls: any; performedById: any; }' is not assignable to parameter of type 'string'.
+src/modules/encounter/EncounterController.ts(826,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(845,11): error TS2353: Object literal may only specify known properties, and 'templateId' does not exist in type 'AddProcedureDTO'.
+src/modules/encounter/EncounterController.ts(886,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterController.ts(900,89): error TS2345: Argument of type '{ performedById: any; notes: any; complications: any; outcome: any; anesthesiaNotes: any; intraOperativeNotes: any; postOperativeNotes: any; bloodLoss: any; duration: any; }' is not assignable to parameter of type 'string'.
+src/modules/encounter/EncounterController.ts(951,5): error TS7030: Not all code paths return a value.
+src/modules/encounter/EncounterRepository.ts(372,21): error TS2339: Property 'clinicalNotes' does not exist on type 'AddLabTestDTO'.
+src/modules/encounter/EncounterRepository.ts(390,9): error TS2353: Object literal may only specify known properties, and 'vitals' does not exist in type 'AdmissionWhereInput'.
+src/modules/encounter/EncounterRepository.ts(414,28): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(414,57): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(415,42): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(416,27): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(425,9): error TS2393: Duplicate function implementation.
+src/modules/encounter/EncounterRepository.ts(432,9): error TS2353: Object literal may only specify known properties, and 'vitals' does not exist in type 'AdmissionWhereInput'.
+src/modules/encounter/EncounterRepository.ts(453,9): error TS2353: Object literal may only specify known properties, and 'Vitals' does not exist in type 'AdmissionInclude<DefaultArgs>'.
+src/modules/encounter/EncounterRepository.ts(466,28): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(466,57): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(467,42): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(468,27): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(470,25): error TS2339: Property 'vitals' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'.
+src/modules/encounter/EncounterRepository.ts(478,9): error TS2393: Duplicate function implementation.
+src/modules/encounter/EncounterRepository.ts(485,9): error TS2353: Object literal may only specify known properties, and 'vitals' does not exist in type 'AdmissionWhereInput'.
+src/modules/encounter/EncounterRepository.ts(506,9): error TS2353: Object literal may only specify known properties, and 'vitals' does not exist in type 'AdmissionInclude<DefaultArgs>'.
+src/modules/encounter/EncounterRepository.ts(519,28): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(519,57): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(520,42): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(521,27): error TS2551: Property 'Patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'. Did you mean 'patientId'?
+src/modules/encounter/EncounterRepository.ts(523,25): error TS2339: Property 'vitals' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: string; diagnosis: string; patientId: string; bedId: string; wardId: string; admissionNumber: string; attendanceId: string | null; ... 12 more ...; lengthOfStay: number; }'.
+src/modules/encounter/EncounterService.ts(54,7): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/modules/encounter/EncounterService.ts(145,9): error TS2353: Object literal may only specify known properties, and 'attendanceId_diagnosisId' does not exist in type 'AttendanceDiagnosisWhereUniqueInput'.
+src/modules/encounter/EncounterService.ts(325,15): error TS2322: Type 'string' is not assignable to type 'MedicationStatus | EnumMedicationStatusFieldUpdateOperationsInput | undefined'.
+src/modules/encounter/EncounterService.ts(358,43): error TS2339: Property 'addLabTest' does not exist on type 'EncounterRepository'.
+src/modules/encounter/EncounterService.ts(367,79): error TS2339: Property 'id' does not exist on type '{ id: string; isActive: boolean; createdAt: Date; updatedAt: Date; name: string; description: string | null; wardId: string | null; serviceCategory: ServiceCategory; ... 21 more ...; gdrgTariffId: string | null; }[]'.
+src/modules/encounter/EncounterService.ts(422,40): error TS2339: Property 'addScan' does not exist on type 'EncounterRepository'.
+src/modules/encounter/EncounterService.ts(478,45): error TS2339: Property 'addProcedure' does not exist on type 'EncounterRepository'.
+src/modules/encounter/EncounterService.ts(533,27): error TS2339: Property 'addService' does not exist on type 'EncounterRepository'.
+src/modules/encounter/EncounterService.ts(570,28): error TS2339: Property 'getRadiologyWorklist' does not exist on type 'EncounterRepository'.
+src/modules/gdrg/GDRGController.ts(68,21): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(114,17): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(135,18): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(155,18): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(171,18): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(189,19): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(217,21): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGController.ts(256,19): error TS7030: Not all code paths return a value.
+src/modules/gdrg/GDRGService.ts(96,29): error TS2304: Cannot find name 'prisma'.
+src/modules/gdrg/GDRGService.ts(167,29): error TS2304: Cannot find name 'prisma'.
+src/modules/gdrg/GDRGService.ts(173,32): error TS2304: Cannot find name 'prisma'.
+src/modules/gdrg/GDRGService.ts(241,29): error TS2304: Cannot find name 'prisma'.
+src/modules/gdrg/GDRGService.ts(248,32): error TS2304: Cannot find name 'prisma'.
+src/modules/ghsReport/GHSReportController.ts(35,11): error TS2322: Type 'OPDReport' is not assignable to type 'JsonNull | InputJsonValue'.
+src/modules/ghsReport/GHSReportController.ts(63,11): error TS2322: Type 'IPDReport' is not assignable to type 'JsonNull | InputJsonValue'.
+src/modules/ghsReport/GHSReportController.ts(91,11): error TS2322: Type 'GHSMorbidityReport' is not assignable to type 'JsonNull | InputJsonValue'.
+src/modules/ghsReport/GHSReportController.ts(120,11): error TS2322: Type 'MalariaReport' is not assignable to type 'JsonNull | InputJsonValue'.
+src/modules/ghsReport/GHSReportController.ts(148,11): error TS2322: Type 'FormAReport' is not assignable to type 'JsonNull | InputJsonValue'.
+src/modules/ghsReport/GHSReportController.ts(263,15): error TS2353: Object literal may only specify known properties, and 'age' does not exist in type 'PatientSelect<DefaultArgs>'.
+src/modules/ghsReport/GHSReportController.ts(338,40): error TS2551: Property 'attendance' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; patientId: string; createdById: string; attendanceId: string; admissionId: string | null; deliveryOutcome: DeliveryOutcome; ... 13 more ...; abortionRecordId: string | null; }'. Did you mean 'attendanceId'?
+src/modules/ghsReport/GHSReportController.ts(339,40): error TS2551: Property 'attendance' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; patientId: string; createdById: string; attendanceId: string; admissionId: string | null; deliveryOutcome: DeliveryOutcome; ... 13 more ...; abortionRecordId: string | null; }'. Did you mean 'attendanceId'?
+src/modules/ghsReport/GHSReportController.ts(340,53): error TS2551: Property 'attendance' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; patientId: string; createdById: string; attendanceId: string; admissionId: string | null; deliveryOutcome: DeliveryOutcome; ... 13 more ...; abortionRecordId: string | null; }'. Did you mean 'attendanceId'?
+src/modules/ghsReport/GHSReportController.ts(341,45): error TS2551: Property 'attendance' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; patientId: string; createdById: string; attendanceId: string; admissionId: string | null; deliveryOutcome: DeliveryOutcome; ... 13 more ...; abortionRecordId: string | null; }'. Did you mean 'attendanceId'?
+src/modules/ghsReport/GHSReportController.ts(612,19): error TS7030: Not all code paths return a value.
+src/modules/ghsReport/GHSReportController.ts(636,23): error TS7030: Not all code paths return a value.
+src/modules/ghsReport/GHSReportService.ts(676,56): error TS18047: 'v.iptpDoseNumber' is possibly 'null'.
+src/modules/ghsReport/GHSReportService.ts(684,52): error TS18047: 'v.ttDoseNumber' is possibly 'null'.
+src/modules/ghsReport/GHSReportService.ts(686,46): error TS2551: Property 'itnGiven' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; attendanceId: string; bookingId: string; visitNumber: number; visitDate: Date; gestationalAgeWeeks: number | null; weight: number | null; ... 27 more ...; urinalysisBlood: boolean | null; }'. Did you mean 'iptpGiven'?
+src/modules/hospital/HospitalController.ts(28,21): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalController.ts(43,20): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalController.ts(68,20): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalController.ts(96,20): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalController.ts(119,29): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalController.ts(134,32): error TS7030: Not all code paths return a value.
+src/modules/hospital/HospitalRepository.ts(51,7): error TS2322: Type '{ name: string; address: string; phone: string; email: string; nhisFacilityCode: string; nhisFacilityType: string; nhisAccreditationNumber?: string | undefined; nhisAccreditationDate?: Date | undefined; ... 4 more ...; isActive: boolean; }' is not assignable to type '(Without<HospitalCreateInput, HospitalUncheckedCreateInput> & HospitalUncheckedCreateInput) | (Without<...> & HospitalCreateInput)'.
+src/modules/hospital/HospitalRepository.ts(72,7): error TS2322: Type 'Partial<{ name: string; address: string; phone: string; email: string; nhisFacilityCode: string; nhisFacilityType: string; nhisAccreditationNumber?: string | undefined; nhisAccreditationDate?: Date | undefined; ... 4 more ...; isActive: boolean; }>' is not assignable to type '(Without<HospitalUpdateInput, HospitalUncheckedUpdateInput> & HospitalUncheckedUpdateInput) | (Without<...> & HospitalUpdateInput)'.
+src/modules/hospital/HospitalRepository.ts(91,7): error TS2322: Type '{ isActive: true; }' is not assignable to type 'HospitalWhereUniqueInput'.
+src/modules/hospital/HospitalRepository.ts(92,7): error TS2322: Type 'Partial<{ name: string; address: string; phone: string; email: string; nhisFacilityCode: string; nhisFacilityType: string; nhisAccreditationNumber?: string | undefined; nhisAccreditationDate?: Date | undefined; nhisAccreditationExpiry?: Date | undefined; nhisContactPerson?: string | undefined; nhisContactPhone?: str...' is not assignable to type '(Without<HospitalUpdateInput, HospitalUncheckedUpdateInput> & HospitalUncheckedUpdateInput) | (Without<...> & HospitalUpdateInput)'.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(13,22): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(175,22): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(190,19): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(207,24): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(234,23): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(268,23): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(310,35): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(352,28): error TS7030: Not all code paths return a value.
+src/modules/insuranceClaim/insuranceClaim.controller.ts(362,136): error TS2554: Expected 2-3 arguments, but got 4.
+src/modules/insuranceClaim/insuranceClaim.service.ts(866,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(871,9): error TS2322: Type '(string | null | undefined)[]' is not assignable to type 'string[] | InsuranceClaimCreatelabTestCodesInput | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(872,9): error TS2322: Type '(string | undefined)[]' is not assignable to type 'string[] | InsuranceClaimCreateprocedureCodesInput | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(873,9): error TS2322: Type '(string | undefined)[]' is not assignable to type 'string[] | InsuranceClaimCreatemedicationCodesInput | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(874,9): error TS2322: Type '(string | null)[]' is not assignable to type 'string[] | InsuranceClaimCreateserviceCodesInput | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(884,9): error TS2322: Type '(string | null | undefined)[]' is not assignable to type 'string[] | InsuranceClaimCreatescanCodesInput | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(1007,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(1152,9): error TS2322: Type 'string | null' is not assignable to type 'string | StringFilter<"InsuranceClaim"> | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(1159,29): error TS18048: 'outstandingBalance._sum' is possibly 'undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(1172,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/modules/insuranceClaim/insuranceClaim.service.ts(1242,68): error TS2353: Object literal may only specify known properties, and 'companyCode' does not exist in type 'CorporateAccountSelect<DefaultArgs>'.
+src/modules/insuranceProvider/InsuranceProviderController.ts(44,30): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderController.ts(70,29): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderController.ts(115,29): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderController.ts(160,29): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderController.ts(194,35): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderController.ts(224,31): error TS7030: Not all code paths return a value.
+src/modules/insuranceProvider/InsuranceProviderRepository.ts(49,5): error TS2322: Type '({ _count: { Patient: number; Attendance: number; Bill: number; InsuranceClaim: number; }; Patient: { id: string; folderNumber: string; surname: string; otherNames: string; contact: string; }[]; Attendance: { ...; }[]; Bill: { ...; }[]; InsuranceClaim: { ...; }[]; } & { ...; }) | null' is not assignable to type 'InsuranceProviderWithRelations | null'.
+src/modules/insuranceProvider/InsuranceProviderRepository.ts(126,7): error TS2322: Type '{ name: string; type: InsuranceType; coveragePercentage: number; contactInfo?: ContactInfo | null | undefined; isActive: boolean; }' is not assignable to type '(Without<InsuranceProviderCreateInput, InsuranceProviderUncheckedCreateInput> & InsuranceProviderUncheckedCreateInput) | (Without<...> & InsuranceProviderCreateInput)'.
+src/modules/insuranceProvider/InsuranceProviderRepository.ts(149,7): error TS2322: Type 'Partial<{ name: string; type: InsuranceType; coveragePercentage: number; contactInfo?: ContactInfo | null | undefined; isActive: boolean; }>' is not assignable to type '(Without<InsuranceProviderUpdateInput, InsuranceProviderUncheckedUpdateInput> & InsuranceProviderUncheckedUpdateInput) | (Without<...> & InsuranceProviderUpdateInput)'.
+src/modules/labTest/LabTestController.ts(14,23): error TS2304: Cannot find name 'PrismaClient'.
+src/modules/labTest/LabTestController.ts(70,5): error TS7030: Not all code paths return a value.
+src/modules/labTest/LabTestController.ts(126,5): error TS7030: Not all code paths return a value.
+src/modules/labTest/LabTestController.ts(259,5): error TS7030: Not all code paths return a value.
+src/modules/labTest/LabTestRepository.ts(125,9): error TS2561: Object literal may only specify known properties, but 'LabTest' does not exist in type 'ServiceCatalogInclude<DefaultArgs>'. Did you mean to write 'labTests'?
+src/modules/labTest/LabTestRepository.ts(184,11): error TS2322: Type 'string' is not assignable to type 'NHISCoverageType | undefined'.
+src/modules/labTest/LabTestRepository.ts(189,42): error TS2339: Property 'specimenType' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(190,53): error TS2339: Property 'preparationInstructions' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(191,44): error TS2339: Property 'turnaroundTime' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(192,41): error TS2339: Property 'normalRange' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(193,43): error TS2339: Property 'containerType' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(194,44): error TS2339: Property 'resultTemplate' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(195,49): error TS2339: Property 'storageRequirements' does not exist on type 'never'.
+src/modules/labTest/LabTestRepository.ts(288,9): error TS2561: Object literal may only specify known properties, but 'LabTest' does not exist in type 'ServiceCatalogInclude<DefaultArgs>'. Did you mean to write 'labTests'?
+src/modules/labTest/LabTestRepository.ts(297,25): error TS2339: Property 'LabTest' does not exist on type '{ id: string; isActive: boolean; createdAt: Date; updatedAt: Date; name: string; description: string | null; wardId: string | null; serviceCategory: ServiceCategory; ... 21 more ...; gdrgTariffId: string | null; }'.
+src/modules/labTest/LabTestRepository.ts(302,27): error TS2339: Property 'pricing' does not exist on type '{ id: string; isActive: boolean; createdAt: Date; updatedAt: Date; name: string; description: string | null; wardId: string | null; serviceCategory: ServiceCategory; ... 21 more ...; gdrgTariffId: string | null; }'.
+src/modules/labTest/LabTestService.ts(14,23): error TS2304: Cannot find name 'PrismaClient'.
+src/modules/notification/NotificationController.ts(21,26): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(57,26): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(76,20): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(98,28): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(118,32): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(137,24): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(157,26): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(188,26): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(219,21): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(251,26): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationController.ts(283,22): error TS7030: Not all code paths return a value.
+src/modules/notification/NotificationService.ts(179,24): error TS2339: Property 'senderId' does not exist on type 'SendRoleNotificationRequest'.
+src/modules/notification/NotificationService.ts(576,73): error TS2353: Object literal may only specify known properties, and 'phone' does not exist in type 'PatientSelect<DefaultArgs>'.
+src/modules/notification/NotificationService.ts(586,46): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(586,84): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(587,42): error TS2551: Property 'department' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'departmentId'?
+src/modules/notification/NotificationService.ts(590,23): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(592,31): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(604,51): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(605,48): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(607,46): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(615,117): error TS2339: Property 'doctor' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(624,25): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(624,55): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(626,59): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(626,89): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(649,25): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(649,49): error TS2339: Property 'doctor' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(650,42): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(651,39): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(652,39): error TS2339: Property 'doctor' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(657,37): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/notification/NotificationService.ts(658,46): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(658,84): error TS2551: Property 'patient' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'. Did you mean 'patientId'?
+src/modules/notification/NotificationService.ts(659,37): error TS2339: Property 'doctorId' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; departmentId: string | null; description: string | null; type: AppointmentType; status: AppointmentStatus; ... 11 more ...; checkedInAt: Date | null; }'.
+src/modules/patient/PatientService.ts(322,18): error TS2339: Property 'Attendance' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; folderNumber: string; surname: string; otherNames: string; gender: Gender; dateOfBirth: Date; contact: string; address: string; ... 12 more ...; nhisActive: boolean; }'.
+src/modules/procedure/ProcedureController.ts(6,29): error TS2307: Cannot find module '../../types/auth' or its corresponding type declarations.
+src/modules/procedure/ProcedureRepository.ts(75,9): error TS2561: Object literal may only specify known properties, but 'gdrgTariff' does not exist in type 'ServiceCatalogInclude<DefaultArgs>'. Did you mean to write 'GDRGTariff'?
+src/modules/procedure/ProcedureRepository.ts(122,9): error TS2353: Object literal may only specify known properties, and 'department' does not exist in type 'Without<ServiceCatalogCreateInput, ServiceCatalogUncheckedCreateInput> & ServiceCatalogUncheckedCreateInput'.
+src/modules/procedure/ProcedureRepository.ts(254,9): error TS2353: Object literal may only specify known properties, and 'department' does not exist in type 'ServiceCatalogWhereInput'.
+src/modules/procedure/ProcedureRepository.ts(256,17): error TS2353: Object literal may only specify known properties, and 'department' does not exist in type 'ServiceCatalogSelect<DefaultArgs>'.
+src/modules/procedure/ProcedureRepository.ts(257,18): error TS2322: Type '"department"' is not assignable to type 'ServiceCatalogScalarFieldEnum'.
+src/modules/procedure/ProcedureRepository.ts(259,32): error TS2339: Property 'department' does not exist on type '{ id: string; isActive: boolean; createdAt: Date; updatedAt: Date; name: string; description: string | null; wardId: string | null; serviceCategory: ServiceCategory; ... 21 more ...; gdrgTariffId: string | null; }'.
+src/modules/procedure/ProcedureService.ts(128,63): error TS2551: Property 'procedureCode' does not exist on type '{ pricing: { id: string; isActive: boolean; createdAt: Date; updatedAt: Date; serviceCatalogId: string; vatRate: number; cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number; isTaxable: boolean; effectiveDate: Date; expiryDate: Date | null; } | null; procedures: { ...; }[]; } & { ...; }'. Did you mean 'procedures'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(17,11): error TS2554: Expected 0 arguments, but got 1.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(32,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(37,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(39,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(62,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(64,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(77,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(79,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(95,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(100,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(102,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(117,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(122,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(124,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(139,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(144,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(146,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(162,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(167,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(169,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(185,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(190,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(192,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(207,14): error TS2551: Property 'handleUnauthorized' does not exist on type 'ProformaInvoiceController'. Did you mean 'unauthorized'?
+src/modules/proformaInvoice/ProformaInvoiceController.ts(212,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(214,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(234,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(236,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(249,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(251,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(264,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(266,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(279,12): error TS2339: Property 'handleSuccess' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceController.ts(281,12): error TS2339: Property 'handleError' does not exist on type 'ProformaInvoiceController'.
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(42,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(105,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(208,11): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(281,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(299,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(313,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(391,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(403,9): error TS2561: Object literal may only specify known properties, but 'corporateAccount' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'CorporateAccount'?
+src/modules/proformaInvoice/ProformaInvoiceRepository.ts(423,9): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'ProformaInvoiceInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/proformaInvoice/ProformaInvoiceRoutes.ts(5,53): error TS2304: Cannot find name 'PrismaClient'.
+src/modules/proformaInvoice/ProformaInvoiceRoutes.ts(7,52): error TS2554: Expected 0 arguments, but got 1.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(401,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(410,36): error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; expiresAt: Date | null; status: ProformaInvoiceStatus; corporateAccountId: string | null; ... 14 more ...; convertedToBillId: string | null; }'.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(410,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(410,55): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(411,34): error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; expiresAt: Date | null; status: ProformaInvoiceStatus; corporateAccountId: string | null; ... 14 more ...; convertedToBillId: string | null; }'.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(411,48): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(411,53): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/proformaInvoice/ProformaInvoiceService.ts(419,33): error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; expiresAt: Date | null; status: ProformaInvoiceStatus; corporateAccountId: string | null; ... 14 more ...; convertedToBillId: string | null; }'.
+src/modules/purchaseInvoice/purchaseInvoice.controller.ts(44,9): error TS2561: Object literal may only specify known properties, but 'pages' does not exist in type '{ page: number; limit: number; total: number; }'. Did you mean to write 'page'?
+src/modules/purchaseInvoice/purchaseInvoice.controller.ts(51,20): error TS7030: Not all code paths return a value.
+src/modules/purchaseInvoice/purchaseInvoice.controller.ts(67,19): error TS7030: Not all code paths return a value.
+src/modules/purchaseInvoice/purchaseInvoice.controller.ts(112,19): error TS7030: Not all code paths return a value.
+src/modules/purchaseInvoice/purchaseInvoice.controller.ts(142,19): error TS7030: Not all code paths return a value.
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(81,14): error TS2322: Type '({ User: { username: string; fullName: string; }; InvoiceItem: ({ StockItem: { name: string; unitOfMeasure: string; drugCode: string; }; } & { id: string; createdAt: Date; stockItemId: string; ... 4 more ...; unitCost: number; })[]; StockTransaction: ({ ...; } & { ...; })[]; } & { ...; })[]' is not assignable to type 'PurchaseInvoiceWithRelations[]'.
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(85,5): error TS2322: Type '({ User: { username: string; fullName: string; }; InvoiceItem: ({ StockItem: { name: string; unitOfMeasure: string; drugCode: string; currentStock: number; costPrice: number; }; } & { id: string; ... 6 more ...; unitCost: number; })[]; StockTransaction: ({ ...; } & { ...; })[]; } & { ...; }) | null' is not assignable to type 'PurchaseInvoiceWithRelations | null'.
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(253,11): error TS2561: Object literal may only specify known properties, but 'invoiceItems' does not exist in type 'InvoiceInclude<DefaultArgs>'. Did you mean to write 'InvoiceItem'?
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(267,41): error TS2339: Property 'stockTransactions' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; corporateAccountId: string | null; createdById: string; notes: string | null; totalAmount: number; invoiceNumber: string; supplierName: string; invoiceDate: Date; }'.
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(286,34): error TS2339: Property 'invoiceItems' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; corporateAccountId: string | null; createdById: string; notes: string | null; totalAmount: number; invoiceNumber: string; supplierName: string; invoiceDate: Date; }'.
+src/modules/purchaseInvoice/purchaseInvoice.repository.ts(317,11): error TS2322: Type 'null' is not assignable to type 'string | NestedStringFilter<"Invoice"> | undefined'.
+src/modules/referral/ReferralController.ts(12,29): error TS2307: Cannot find module '../../types/auth' or its corresponding type declarations.
+src/modules/referral/ReferralRepository.ts(321,16): error TS2367: This comparison appears to be unintentional because the types 'ReferralStatus' and '"rejected"' have no overlap.
+src/modules/referral/ReferralRepository.ts(386,51): error TS2322: Type '"rejected"' is not assignable to type 'ReferralStatus | EnumReferralStatusFilter<"ReferralRecord"> | undefined'.
+src/modules/referral/ReferralRoutes.ts(40,111): error TS7006: Parameter 'req' implicitly has an 'any' type.
+src/modules/referral/ReferralRoutes.ts(40,116): error TS7006: Parameter 'res' implicitly has an 'any' type.
+src/modules/referral/ReferralRoutes.ts(44,101): error TS7006: Parameter 'req' implicitly has an 'any' type.
+src/modules/referral/ReferralRoutes.ts(44,106): error TS7006: Parameter 'res' implicitly has an 'any' type.
+src/modules/referral/ReferralRoutes.ts(48,97): error TS7006: Parameter 'req' implicitly has an 'any' type.
+src/modules/referral/ReferralRoutes.ts(48,102): error TS7006: Parameter 'res' implicitly has an 'any' type.
+src/modules/report/ReportController.ts(413,16): error TS7030: Not all code paths return a value.
+src/modules/report/ReportService.ts(131,46): error TS2339: Property 'corporateAccountId' does not exist on type 'ReportFilters'.
+src/modules/report/ReportService.ts(181,62): error TS2339: Property 'corporateAccountId' does not exist on type 'ReportFilters'.
+src/modules/report/ReportService.ts(309,62): error TS2339: Property 'corporateAccountId' does not exist on type 'ReportFilters'.
+src/modules/report/ReportService.ts(365,46): error TS2339: Property 'corporateAccountId' does not exist on type 'ReportFilters'.
+src/modules/requisition/RequisitionRepository.ts(23,17): error TS2322: Type 'string' is not assignable to type 'RequisitionStatus | EnumRequisitionStatusFilter<"Requisition"> | undefined'.
+src/modules/requisition/RequisitionRepository.ts(24,18): error TS2322: Type 'string' is not assignable to type 'RequisitionUrgency | EnumRequisitionUrgencyFilter<"Requisition"> | undefined'.
+src/modules/requisition/RequisitionRepository.ts(153,7): error TS2322: Type 'string' is not assignable to type 'RequisitionStatus | EnumRequisitionStatusFieldUpdateOperationsInput | undefined'.
+src/modules/requisition/RequisitionRepository.ts(158,18): error TS2339: Property 'approvedById' does not exist on type 'RequisitionUpdateInput'.
+src/modules/requisition/RequisitionRepository.ts(161,18): error TS2339: Property 'fulfilledById' does not exist on type 'RequisitionUpdateInput'.
+src/modules/scanTemplate/ScanTemplateController.ts(72,5): error TS7030: Not all code paths return a value.
+src/modules/scanTemplate/ScanTemplateController.ts(106,5): error TS7030: Not all code paths return a value.
+src/modules/scanTemplate/ScanTemplateRepository.ts(292,11): error TS2322: Type 'null' is not assignable to type 'InputJsonValue | JsonNullValueFilter | FieldRef<"ServiceCatalog", "Json"> | undefined'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(153,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(176,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(231,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(288,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(399,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(509,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(564,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(595,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(646,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(680,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(762,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(852,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(889,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(938,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(970,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(1054,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogController.ts(1119,12): error TS2339: Property 'handleError' does not exist on type 'ServiceCatalogController'.
+src/modules/serviceCatalog/ServiceCatalogRoutes.ts(14,14): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(21,27): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(65,31): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(81,35): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(93,38): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(114,33): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(156,36): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(206,38): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(221,42): error TS7030: Not all code paths return a value.
+src/modules/settings/settings.controller.ts(244,28): error TS7030: Not all code paths return a value.
+src/modules/stockItem/stockItem.service.ts(480,9): error TS2322: Type 'null' is not assignable to type 'string | NestedStringFilter<"StockItem"> | undefined'.
+src/modules/stockItem/stockItem.service.ts(690,35): error TS2339: Property 'costPrice' does not exist on type '{ name: string; category: string; isMedication: boolean; }'.
+src/modules/stockItem/stockItem.service.ts(921,7): error TS2353: Object literal may only specify known properties, and 'requestedBy' does not exist in type 'RequisitionInclude<DefaultArgs>'.
+src/modules/stockItem/stockItem.service.ts(951,24): error TS2339: Property 'departments' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(964,30): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(965,38): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(965,63): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/stockItem/stockItem.service.ts(965,68): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/stockItem/stockItem.service.ts(972,7): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(972,32): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/stockItem/stockItem.service.ts(1002,52): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(1005,18): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(1005,43): error TS7006: Parameter 'itemSum' implicitly has an 'any' type.
+src/modules/stockItem/stockItem.service.ts(1005,52): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/stockItem/stockItem.service.ts(1015,21): error TS2339: Property 'departments' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/stockItem/stockItem.service.ts(1016,22): error TS2551: Property 'requestedBy' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'. Did you mean 'requestedById'?
+src/modules/stockItem/stockItem.service.ts(1017,20): error TS2339: Property 'RequisitionItem' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; status: RequisitionStatus; notes: string | null; urgency: RequisitionUrgency; requestedById: string; ... 7 more ...; fulfilledAt: Date | null; }'.
+src/modules/waiver/waiver.controller.ts(68,9): error TS7030: Not all code paths return a value.
+src/modules/waiver/waiver.controller.ts(95,9): error TS7030: Not all code paths return a value.
+src/modules/waiver/waiver.service.ts(53,20): error TS2561: Object literal may only specify known properties, but 'patient' does not exist in type 'BillInclude<DefaultArgs>'. Did you mean to write 'Patient'?
+src/modules/waiver/waiver.service.ts(68,7): error TS2322: Type '{ billId: any; patientId: any; waiverType: any; amountRequested: number; amountApproved: number; reason: any; status: "pending"; requestedById: any; supportingDocs: any; requestedBy: { connect: { ...; }; }; }' is not assignable to type '(Without<PatientWaiverCreateInput, PatientWaiverUncheckedCreateInput> & PatientWaiverUncheckedCreateInput) | (Without<...> & PatientWaiverCreateInput)'.
+src/modules/ward/WardController.ts(72,22): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/modules/ward/WardRepository.ts(134,5): error TS2322: Type '{ id: string; createdAt: Date; updatedAt: Date; wardId: string; bedNumber: string; isOccupied: boolean; currentPatientId: string | null; }[]' is not assignable to type '(Bed & { Ward: { id: string; wardName: string; wardType: string; isActive: boolean; dailyCashRate: number; dailyNHISRate: number; dailyInsuranceRate: number; vatRate: number; isTaxable: boolean; isNHISCovered: boolean; isPrivateInsExempted: boolean; }; })[]'.
+src/modules/ward/WardRepository.ts(142,13): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type 'WardSelect<DefaultArgs>'.
+src/modules/ward/WardRepository.ts(194,38): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(195,37): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(195,42): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(196,40): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(196,45): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(201,43): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(202,55): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(203,40): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(206,39): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/modules/ward/WardRepository.ts(206,44): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/modules/ward/WardService.ts(35,5): error TS2322: Type '{ availableBeds: number; occupancyRate: number; pricingByPaymentMode: { [x: number]: number; }; id: string; createdAt: Date; updatedAt: Date; isNHISCovered: boolean; tariffCode: string | null; ... 12 more ...; dailyInsuranceRate: number; }[]' is not assignable to type 'WardWithAvailability[]'.
+src/modules/ward/WardService.ts(40,22): error TS2551: Property 'CASH' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'cash'?
+src/modules/ward/WardService.ts(41,22): error TS2551: Property 'NHIS' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'nhis'?
+src/modules/ward/WardService.ts(42,22): error TS2551: Property 'PRIVATE_INSURANCE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'private_insurance'?
+src/modules/ward/WardService.ts(43,22): error TS2551: Property 'CORPORATE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'corporate'?
+src/modules/ward/WardService.ts(60,5): error TS2741: Property 'isActive' is missing in type '{ availableBeds: number; occupancyRate: number; currentAdmissions: number; pricingByPaymentMode: { [PaymentMode.CASH]: number; [PaymentMode.NHIS]: number; [PaymentMode.PRIVATE_INSURANCE]: number; [PaymentMode.CORPORATE]: number; }; id: string; createdAt: Date; updatedAt: Date; isNHISCovered: boolean; ... 16 more ......' but required in type 'WardWithAvailability'.
+src/modules/ward/WardService.ts(66,22): error TS2551: Property 'CASH' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'cash'?
+src/modules/ward/WardService.ts(67,22): error TS2551: Property 'NHIS' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'nhis'?
+src/modules/ward/WardService.ts(68,22): error TS2551: Property 'PRIVATE_INSURANCE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'private_insurance'?
+src/modules/ward/WardService.ts(69,22): error TS2551: Property 'CORPORATE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'corporate'?
+src/modules/ward/WardTypes.ts(95,18): error TS2551: Property 'CASH' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'cash'?
+src/modules/ward/WardTypes.ts(96,18): error TS2551: Property 'NHIS' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'nhis'?
+src/modules/ward/WardTypes.ts(97,18): error TS2551: Property 'PRIVATE_INSURANCE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'private_insurance'?
+src/modules/ward/WardTypes.ts(98,18): error TS2551: Property 'CORPORATE' does not exist on type '{ cash: "cash"; nhis: "nhis"; private_insurance: "private_insurance"; corporate: "corporate"; }'. Did you mean 'corporate'?
+src/scripts/generateFrontendTypes.ts(174,63): error TS18046: 'modelData' is of type 'unknown'.
+src/scripts/generateFrontendTypes.ts(183,5): error TS18046: 'modelData' is of type 'unknown'.
+src/scripts/migrateToPostgres.ts(2,22): error TS2307: Cannot find module 'mongoose' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(6,28): error TS2307: Cannot find module './oldModels/Admission' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(7,29): error TS2307: Cannot find module './oldModels/Attendance' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(8,22): error TS2307: Cannot find module './oldModels/Bed' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(9,23): error TS2307: Cannot find module './oldModels/Bill' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(10,28): error TS2307: Cannot find module './oldModels/Diagnosis' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(11,29): error TS2307: Cannot find module './oldModels/GDRGTariff' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(12,27): error TS2307: Cannot find module './oldModels/Hospital' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(13,33): error TS2307: Cannot find module './oldModels/InsuranceClaim' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(14,36): error TS2307: Cannot find module './oldModels/InsuranceProvider' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(15,34): error TS2307: Cannot find module './oldModels/LabTestTemplate' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(16,26): error TS2307: Cannot find module './oldModels/Patient' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(17,36): error TS2307: Cannot find module './oldModels/ProcedureTemplate' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(18,31): error TS2307: Cannot find module './oldModels/ScanTemplate' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(19,33): error TS2307: Cannot find module './oldModels/ServiceCatalog' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(20,28): error TS2307: Cannot find module './oldModels/StockItem' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(21,35): error TS2307: Cannot find module './oldModels/StockTransaction' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(22,23): error TS2307: Cannot find module './oldModels/User' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(23,25): error TS2307: Cannot find module './oldModels/Vitals' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(24,23): error TS2307: Cannot find module './oldModels/Ward' or its corresponding type declarations.
+src/scripts/migrateToPostgres.ts(58,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(60,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(82,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(84,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(117,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(119,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(126,9): error TS2322: Type 'string | null' is not assignable to type 'InputJsonValue | NullableJsonNullValueInput | undefined'.
+src/scripts/migrateToPostgres.ts(145,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(147,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(167,20): error TS2339: Property 'insuranceDetails' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/scripts/migrateToPostgres.ts(190,20): error TS2339: Property 'additionalInfo' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/scripts/migrateToPostgres.ts(212,20): error TS2339: Property 'billingAddress' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/scripts/migrateToPostgres.ts(227,20): error TS2339: Property 'employer' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/scripts/migrateToPostgres.ts(248,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(250,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(277,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(279,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(280,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(283,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(299,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(301,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(324,7): error TS2322: Type '{ gdrgCode: any; description: any; nhiaTariff: any; effectiveFrom: any; effectiveTo: any; isActive: any; }' is not assignable to type '(Without<GDRGTariffCreateInput, GDRGTariffUncheckedCreateInput> & GDRGTariffUncheckedCreateInput) | (Without<...> & GDRGTariffCreateInput)'.
+src/scripts/migrateToPostgres.ts(344,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(346,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(361,9): error TS2322: Type 'string | null' is not assignable to type 'InputJsonValue | NullableJsonNullValueInput | undefined'.
+src/scripts/migrateToPostgres.ts(375,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(377,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(405,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(407,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(437,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(439,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(471,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(473,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(479,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(480,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(483,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(486,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(489,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(490,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(519,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(521,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(523,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(524,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(540,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(541,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(549,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(566,20): error TS2339: Property 'diagnosisEntry' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/scripts/migrateToPostgres.ts(586,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(587,11): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(601,11): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(604,11): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(607,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(616,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(617,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(619,11): error TS2322: Type 'string | null' is not assignable to type 'InputJsonValue | NullableJsonNullValueInput | undefined'.
+src/scripts/migrateToPostgres.ts(624,11): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(627,11): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(646,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(648,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(650,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(651,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(652,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(653,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(663,9): error TS2322: Type 'string | null' is not assignable to type 'InputJsonValue | NullableJsonNullValueInput | undefined'.
+src/scripts/migrateToPostgres.ts(686,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(688,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(690,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(691,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(692,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(706,9): error TS2322: Type 'number | null' is not assignable to type 'string | null | undefined'.
+src/scripts/migrateToPostgres.ts(731,16): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(733,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(735,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(736,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(737,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(738,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/scripts/migrateToPostgres.ts(748,9): error TS2322: Type 'string | null' is not assignable to type 'string[] | InsuranceClaimCreatediagnosisCodesInput | undefined'.
+src/scripts/migrateToPostgres.ts(749,9): error TS2322: Type 'string | null' is not assignable to type 'string[] | InsuranceClaimCreateprocedureCodesInput | undefined'.
+src/scripts/parseNHISMedicines (copy).ts(394,31): error TS2341: Property 'parseMedicineLine' is private and only accessible within class 'NHISMedicineParser'.
+src/seed/seedData.ts(77,5): error TS2322: Type 'true' is not assignable to type 'never'.
+src/seed/seedData.ts(83,5): error TS2322: Type 'false' is not assignable to type 'never'.
+src/seed/seedMaternityData.ts(2,130): error TS2305: Module '"@prisma/client"' has no exported member 'RiskLevel'.
+src/seed/seedMaternityData.ts(304,42): error TS2339: Property 'antenatal' does not exist on type '{ general: "general"; specialist: "specialist"; emergency: "emergency"; inpatient: "inpatient"; }'.
+src/seed/testSeed.ts(92,48): error TS2561: Object literal may only specify known properties, but 'bill' does not exist in type 'PaymentWhereInput'. Did you mean to write 'Bill'?
+src/seed/testSeed.ts(1376,42): error TS2339: Property 'urgent' does not exist on type '{ elective: "elective"; emergency: "emergency"; transfer: "transfer"; detention_observation: "detention_observation"; }'.
+src/seed/testSeed.ts(1478,22): error TS18047: 'nurse' is possibly 'null'.
+src/seed/testSeed.ts(1479,24): error TS18047: 'nurse' is possibly 'null'.
+src/seed/testSeed.ts(1497,22): error TS18047: 'midwife' is possibly 'null'.
+src/seed/testSeed.ts(1498,24): error TS18047: 'midwife' is possibly 'null'.
+src/seed/testSeed.ts(1516,22): error TS18047: 'nurse' is possibly 'null'.
+src/seed/testSeed.ts(1517,24): error TS18047: 'nurse' is possibly 'null'.
+src/server.ts(68,16): error TS2339: Property 'testData' does not exist on type '{ success: boolean; partial: boolean; errors: string[]; results: { coreData: any; diagnosisLinks: any; procedureLinks: any; testData: any; maternityData: any; errors: string[]; }; status: { coreData: boolean; diagnosisLinks: boolean; procedureLinks: boolean; testData: boolean; maternityData: boolean; }; } | { ...; }'.
+  Property 'testData' does not exist on type '{ success: boolean; partial: boolean; errors: string[]; results: { coreData: any; diagnosisLinks: any; procedureLinks: any; testData: any; maternityData: any; errors: string[]; }; status: { coreData: boolean; diagnosisLinks: boolean; procedureLinks: boolean; testData: boolean; maternityData: boolean; }; }'.
+src/shared/base/BaseController.ts(115,14): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/shared/base/BaseController.ts(117,22): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.

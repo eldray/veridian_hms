@@ -174,6 +174,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   // Initial state
   nhisClaims: [],
   privateClaims: [],
+  corporateClaims: [],
   allClaims: [],
   providers: [],
   batches: [],
@@ -801,7 +802,32 @@ updateInsuranceClaim: async (claimId: string, data: any) => {
       throw error;
     }
   },
-
+  getCorporateClaims: async (filters?: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await getCorporateClaims(filters);
+      const claims = response.data || response;
+      set({ corporateClaims: Array.isArray(claims) ? claims : [], isLoading: false });
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to fetch corporate claims', isLoading: false });
+    }
+  },
+  
+  generateCorporateClaim: async (attendanceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await generateCorporateClaim(attendanceId);
+      const newClaim = response.data || response;
+      set(state => ({ 
+        corporateClaims: [newClaim, ...state.corporateClaims],
+        isLoading: false 
+      }));
+      return newClaim;
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to generate corporate claim', isLoading: false });
+      throw error;
+    }
+  },
   // ==========================================
   // UTILITY FUNCTIONS
   // ==========================================

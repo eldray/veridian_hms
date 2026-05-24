@@ -43,94 +43,94 @@ export class EncounterRepository {
     });
   }
 
-  // ============================================
-  // FIND BY ID WITH RELATIONS
-  // ============================================
-  async findById(id: string) {
-    return this.prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        Patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            dateOfBirth: true,
-            gender: true,
-            contact: true
-          }
+// ============================================
+// FIND BY ID WITH RELATIONS
+// ============================================
+async findById(id: string) {
+  return this.prisma.attendance.findUnique({
+    where: { id },
+    include: {
+      Patient: {
+        select: {
+          id: true,
+          surname: true,
+          otherNames: true,
+          folderNumber: true,
+          dateOfBirth: true,
+          gender: true,
+          contact: true
+        }
+      },
+      AttendanceDiagnosis: {
+        include: {
+          Diagnosis: true
         },
-        AttendanceDiagnosis: {
-          include: {
-            Diagnosis: true
-          },
-          orderBy: {
-            date: 'desc'
-          }
+        orderBy: {
+          date: 'desc'
+        }
+      },
+      Vitals: {
+        orderBy: {
+          recordedAt: 'desc'
         },
-        Vitals: {
-          orderBy: {
-            recordedAt: 'desc'
-          },
-          take: 5
-        },
-        Medication: {
-          include: {
-            StockItem: {
-              select: {
-                id: true,
-                name: true,
-                currentStock: true,
-                unitOfMeasure: true
-              }
-            },
-            User_Medication_prescribedByIdToUser: {
-              select: { fullName: true }
-            }
-          }
-        },
-        LabTest: {
-          include: {
-            LabTestTemplate: true,
-            User_LabTest_performedByIdToUser: {
-              select: { fullName: true }
+        take: 5
+      },
+      Medication: {
+        include: {
+          StockItem: {
+            select: {
+              id: true,
+              name: true,
+              currentStock: true,
+              unitOfMeasure: true
             }
           },
-          orderBy: {
-            requestedAt: 'desc'
+          User_Medication_prescribedByIdToUser: {
+            select: { fullName: true }
+          }
+        }
+      },
+      LabTest: {
+        include: {
+          LabTestTemplate: true,
+          User_LabTest_performedByIdToUser: {
+            select: { fullName: true }
           }
         },
-        ReferralRecord: {
-          select: {
-            id: true,
-            referralNumber: true,
-            referralType: true,
-            referralReason: true,
-            referralNotes: true,
-            referredToFacility: true,
-            referredToDoctor: true,
-            referredToDepartment: true,
-            referredFromFacility: true,
-            referredFromDoctor: true,
-            referralDate: true,
-            status: true,
-            outcomeNotes: true,
-            urgency: true
-          }
-        },
-        ServiceRendered: {
-          include: {
-            ServiceCatalog: {  // ← Try this instead of 'serviceItem'
-              include: {
-                pricing: true
-              }
+        orderBy: {
+          requestedAt: 'desc'
+        }
+      },
+      referral: {  // ✅ FIXED: Changed from 'ReferralRecord' to 'referral'
+        select: {
+          id: true,
+          referralNumber: true,
+          referralType: true,
+          referralReason: true,
+          referralNotes: true,
+          referredToFacility: true,
+          referredToDoctor: true,
+          referredToDepartment: true,
+          referredFromFacility: true,
+          referredFromDoctor: true,
+          referralDate: true,
+          status: true,
+          outcomeNotes: true,
+          urgency: true
+        }
+      },
+      ServiceRendered: {
+        include: {
+          ServiceCatalog: {
+            include: {
+              pricing: true
             }
           }
         }
       }
-    });
-  }
+    }
+  });
+}
 
   // ============================================
   // FIND MANY WITH FILTERS
@@ -425,59 +425,6 @@ export class EncounterRepository {
   async getMedicalWorklist() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-  
-    const admissions = await this.prisma.admission.findMany({
-      where: {
-        status: { in: ['admitted', 'checked_in'] },
-        vitals: {
-          some: {
-            recordedAt: { gte: today }
-          }
-        },
-        attendance: {
-          none: {
-            medicalNotes: { not: null },
-            dateTime: { gte: today }
-          }
-        }
-      },
-      include: {
-        Patient: {
-          select: {
-            surname: true,
-            otherNames: true,
-            dateOfBirth: true,
-            gender: true
-          }
-        },
-        Vitals: {
-          where: { recordedAt: { gte: today } },
-          orderBy: { recordedAt: 'desc' },
-          take: 1
-        }
-      },
-      orderBy: { admissionDate: 'asc' }  // ✅ Fixed
-    });
-  
-    return admissions.map(admission => ({
-      id: admission.id,
-      patientId: admission.patientId,
-      patient: {
-        name: `${admission.Patient.surname} ${admission.Patient.otherNames}`.trim(),
-        age: this.calculateAge(admission.Patient.dateOfBirth),
-        gender: admission.Patient.gender
-      },
-      vitals: admission.vitals[0],
-      encounterType: 'consultation',
-      priority: 'normal',
-      waitTime: Math.floor((Date.now() - new Date(admission.admissionDate).getTime()) / 60000),
-      status: 'pending_doctor'
-    }));
-  }
-
-  async getMedicalWorklist() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     const admissions = await this.prisma.admission.findMany({
       where: {
@@ -509,7 +456,7 @@ export class EncounterRepository {
           take: 1
         }
       },
-      orderBy: { admissionDate: 'asc' }  // ✅ Changed from admittedAt to admissionDate
+      orderBy: { admissionDate: 'asc' } 
     });
 
     return admissions.map(admission => ({

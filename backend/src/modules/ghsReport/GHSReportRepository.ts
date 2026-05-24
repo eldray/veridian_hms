@@ -1,30 +1,63 @@
-// GHSReportRepository.ts - Data access layer for GHS Report module
-
-import { BaseRepository } from '../../shared/base/BaseRepository';
+// modules/ghsReport/GHSReportRepository.ts
 import { PrismaClient } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ReportType } from './GHSReportTypes';
 
-const prisma = new PrismaClient();
+// Define types for GHSReportSubmission
+interface GHSReportSubmission {
+  id: string;
+  reportType: string;
+  reportingYear: number;
+  reportingMonth: number | null;
+  reportingQuarter: number | null;
+  periodStart: Date;
+  periodEnd: Date;
+  data: any;
+  filePath: string | null;
+  submittedToDHIMS2: boolean;
+  dhims2Reference: string | null;
+  submittedAt: Date | null;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-export class GHSReportRepository extends BaseRepository<any, any, any> {
-  constructor() {
+interface CreateGHSReportSubmissionDTO {
+  reportType: string;
+  reportingYear: number;
+  reportingMonth?: number | null;
+  reportingQuarter?: number | null;
+  periodStart: Date;
+  periodEnd: Date;
+  data: any;
+  filePath?: string | null;
+  submittedToDHIMS2?: boolean;
+  dhims2Reference?: string | null;
+  submittedAt?: Date | null;
+  createdById: string;
+}
+
+interface UpdateGHSReportSubmissionDTO {
+  filePath?: string | null;
+  submittedToDHIMS2?: boolean;
+  dhims2Reference?: string | null;
+  submittedAt?: Date | null;
+}
+
+export class GHSReportRepository extends BaseRepository<GHSReportSubmission, CreateGHSReportSubmissionDTO, UpdateGHSReportSubmissionDTO> {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
     super(prisma, 'gHSReportSubmission');
+    this.prisma = prisma;
   }
 
-  async createSubmission(data: {
-    reportType: ReportType;
-    reportingYear: number;
-    reportingMonth: number;
-    periodStart: Date;
-    periodEnd: Date;
-    data: any;
-    createdById: string;
-  }) {
-    return await prisma.gHSReportSubmission.create({ data });
+  async createSubmission(data: CreateGHSReportSubmissionDTO) {
+    return await this.create(data);
   }
 
   async findSubmissions(where?: any) {
-    return await prisma.gHSReportSubmission.findMany({
+    return await this.findMany({
       where,
       include: { 
         createdBy: { 
@@ -39,29 +72,26 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   }
 
   async findSubmissionById(id: string) {
-    return await prisma.gHSReportSubmission.findUnique({
-      where: { id },
-      include: { 
-        createdBy: { 
-          select: { 
-            fullName: true, 
-            username: true 
-          } 
+    return await this.findById(id, { 
+      createdBy: { 
+        select: { 
+          fullName: true, 
+          username: true 
         } 
-      }
+      } 
     });
   }
 
   async getAttendanceCount(where: any) {
-    return await prisma.attendance.count({ where });
+    return await this.prisma.attendance.count({ where });
   }
 
   async getAdmissionCount(where: any) {
-    return await prisma.admission.count({ where });
+    return await this.prisma.admission.count({ where });
   }
 
   async getPatientWithDiagnoses(startDate: Date, endDate: Date) {
-    return await prisma.attendance.findMany({
+    return await this.prisma.attendance.findMany({
       where: {
         dateTime: { gte: startDate, lte: endDate },
         status: { not: 'cancelled' }
@@ -91,7 +121,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   }
 
   async getAdmissionsWithDetails(startDate: Date, endDate: Date) {
-    return await prisma.admission.findMany({
+    return await this.prisma.admission.findMany({
       where: {
         admissionDate: { gte: startDate, lte: endDate }
       },
@@ -120,9 +150,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  // ✅ FIXED: Use AntenatalBooking instead of antenatalRegistration
   async getAntenatalBookings(startDate: Date, endDate: Date) {
-    return await prisma.antenatalBooking.findMany({
+    return await this.prisma.antenatalBooking.findMany({
       where: {
         bookingDate: { gte: startDate, lte: endDate }
       },
@@ -136,9 +165,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  // ✅ FIXED: Use DeliveryRecord instead of delivery
   async getDeliveryRecords(startDate: Date, endDate: Date) {
-    return await prisma.deliveryRecord.findMany({
+    return await this.prisma.deliveryRecord.findMany({
       where: {
         deliveryDate: { gte: startDate, lte: endDate }
       },
@@ -147,7 +175,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
           select: {
             dateOfBirth: true
           }
-        }
+        },
+        Newborn: true
       }
     });
   }

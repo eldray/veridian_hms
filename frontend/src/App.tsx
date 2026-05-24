@@ -17,11 +17,13 @@ import PatientRegistration from './pages/PatientRegistration';
 import Patients from './pages/Patients';
 import Attendance from './pages/Attendance';
 import Admissions from './pages/Admissions';
+import CorporateAccounts from './pages/CorporateAccounts';
 import Billing from './pages/Billing';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Laboratory from './pages/Laboratory';
 import AdmissionDetails from './pages/AdmissionDetails';
+import DispensePatient from './pages/DispensePatient';
 import Pharmacy from './pages/Pharmacy';
 import MedicalEntries from './pages/MedicalEntries';
 import ProcessPayment from './pages/ProcessPayment';
@@ -291,6 +293,7 @@ function App() {
           <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
           <Route path="pharmacy" element={<ProtectedRoute><Pharmacy /></ProtectedRoute>} />
           <Route path="stock" element={<ProtectedRoute><StockManagement /></ProtectedRoute>} />
+          <Route path="/dashboard/dispense/:id" element={<ProtectedRoute><DispensePatient/></ProtectedRoute>} />
           
           {/* Stock Reports - ✅ NEW ROUTE */}
           <Route path="stock/reports" element={<ProtectedRoute><StockReports /></ProtectedRoute>} />
@@ -318,6 +321,10 @@ function App() {
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
           
+          <Route path="/dashboard/corporate-accounts" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+          <Route path="/dashboard/corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+          
+
           {/* User & System routes */}
           <Route path="profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

@@ -405,7 +405,91 @@ export default function MedicalEntries() {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     }
   };
+
+  const handleDetainPatient = async () => {
+    if (!selectedAttendanceId || !currentAttendance || !selectedPatient) {
+      toastError('Error', 'Missing required information');
+      return;
+    }
+    
+    if (currentAttendance.status === 'admitted') {
+      toastError('Already Admitted', 'This patient is already admitted');
+      return;
+    }
+    
+    if (currentAttendance.encounterCategory === 'daycase') {
+      toastError('Already Detained', 'This patient is already under observation');
+      return;
+    }
+    
+    try {
+      // First, check if bed is available (optional - can be skipped for now)
+      // You can add bed selection modal here if needed
+      
+      // Update attendance to Daycase category
+      await updateAttendance(selectedAttendanceId, {
+        encounterCategory: 'daycase',  // Daycase = Observation/Detention
+        status: 'admitted',            // Set status to admitted for bed tracking
+        updatedById: currentUser?.id,
+        updatedAt: new Date().toISOString()
+      });
+      
+      success('Success', 'Patient placed under observation/detention');
+      
+      // Refresh the page data
+      await getAttendance(selectedAttendanceId);
+      await getAttendances();
+      
+    } catch (err: any) {
+      toastError('Detention Failed', err.response?.data?.message || err.message);
+    }
+  };
   
+  // Convert Daycase/Observation to Formal IPD Admission
+  const handleConvertToIPD = async () => {
+    if (!selectedAttendanceId || !currentAttendance || !selectedPatient) {
+      toastError('Error', 'Missing required information');
+      return;
+    }
+    
+    if (currentAttendance.encounterCategory !== 'daycase') {
+      toastError('Not Under Observation', 'This patient is not currently under observation');
+      return;
+    }
+    
+    try {
+      // Convert daycase to IPD
+      await updateAttendance(selectedAttendanceId, {
+        encounterCategory: 'ipd',
+        updatedById: currentUser?.id,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Create formal admission record
+      const admissionData = {
+        attendanceId: selectedAttendanceId,
+        patientId: selectedPatientId,
+        admissionNumber: `ADM-${Date.now()}`,
+        admissionDate: new Date().toISOString(),
+        admittingDoctor: user?.fullName || user?.username || 'Unknown Doctor',
+        diagnosis: presentedComplaints || 'To be determined',
+        admissionType: 'emergency',
+        admissionSource: 'opd'
+      };
+      
+      await createAdmission(admissionData);
+      
+      success('Success', 'Patient converted from observation to formal admission');
+      
+      // Refresh the page data
+      await getAttendance(selectedAttendanceId);
+      await getAdmissions();
+      
+    } catch (err: any) {
+      toastError('Conversion Failed', err.response?.data?.message || err.message);
+    }
+  };
+
   const handleDeleteItem = async (type: string, id: string) => {
     if (!selectedAttendanceId) return;
     try {
@@ -631,21 +715,52 @@ export default function MedicalEntries() {
                   )}
                   
                   {/* ✅ ADMIT BUTTON - Only show if not already admitted or completed */}
-                  {currentAttendance.status !== 'admitted' && currentAttendance.status !== 'completed' && (
+                  {currentAttendance.status !== 'admitted' && 
+                  currentAttendance.status !== 'discharged' && 
+                  currentAttendance.status !== 'completed' && (
+                    <div className="flex items-center gap-2">
+                      {/* DETAIN/OBSERVATION Button - Daycase */}
+                      <button
+                        onClick={() => handleDetainPatient()}
+                        className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all text-sm font-medium"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Detain for Observation
+                      </button>
+                      
+                      {/* ADMIT Button - Formal IPD Admission */}
+                      <button
+                        onClick={handleDirectAdmit}
+                        className="flex items-center gap-2 px-4 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
+                      >
+                        <Hospital className="w-4 h-4" />
+                        Admit Patient
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Convert to IPD Button - Only show when patient is under observation */}
+                  {currentAttendance.encounterCategory === 'daycase' && currentAttendance.status !== 'discharged' && (
                     <button
-                      onClick={handleDirectAdmit}
-                      className="flex items-center gap-2 px-4 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
+                      onClick={handleConvertToIPD}
+                      className="flex items-center gap-2 px-4 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all text-sm font-medium"
                     >
-                      <Hospital className="w-4 h-4" />
-                      Admit Patient
+                      <ArrowRight className="w-4 h-4" />
+                      Convert to IPD Admission
                     </button>
                   )}
                   
-                  {/* Show badge if already admitted */}
+                  {/* Show badges if already admitted or detained */}
                   {currentAttendance.status === 'admitted' && (
                     <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
                       <Hospital className="w-3 h-3 inline mr-1" />
-                      ADMITTED
+                      ADMITTED (IPD)
+                    </span>
+                  )}
+                  {currentAttendance.encounterCategory === 'daycase' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      DETAINED (OBSERVATION)
                     </span>
                   )}
                 </div>

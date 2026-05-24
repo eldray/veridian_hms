@@ -54,7 +54,6 @@ export class PatientController extends BaseController {
       // ✅ FIXED: Use correct relation names from schema
       const patient = await this.service.getPatientById(id, {
         Attendance: true,      // ✅ Singular, capital A (not Attendances)
-        Admission: true,       // ✅ Singular, capital A (not admissions)
         appointments: true,    // ✅ This is correct (lowercase a)
         Bill: true,            // ✅ Singular, capital B
         InsuranceClaim: true,  // ✅ Singular, capital I, capital C

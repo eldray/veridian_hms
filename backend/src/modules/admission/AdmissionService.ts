@@ -1,444 +1,447 @@
 // modules/admission/AdmissionService.ts
 import { PrismaClient } from '@prisma/client';
-import { AdmissionRepository } from './AdmissionRepository';
+import { CreateAdmissionDTO, UpdateAdmissionDTO, AddDailyNoteDTO, AdmissionFilters } from './AdmissionTypes';
 import { getCounterService } from '../../services/CounterService';
 
 export class AdmissionService {
-  private repository: AdmissionRepository;
   private prisma: PrismaClient;
 
-  constructor(prisma: PrismaClient) {  // ✅ Accept prisma
-    this.prisma = prisma;
-    this.repository = new AdmissionRepository(prisma);
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma || new PrismaClient();
   }
 
-  async getAdmissions(where: any, page: number, limit: number) {
-    const skip = (page - 1) * limit;
-    const { admissions, total } = await this.repository.findAll(where, skip, limit);
+  // ============================================
+  // CREATE FORMAL ADMISSION FROM IPD ENCOUNTER
+  // ============================================
+  async createFormalAdmission(data: CreateAdmissionDTO, userId: string) {
+    // Get the encounter
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: data.attendanceId },
+      include: { Admission: true }
+    });
 
-    const admissionsWithFullName = admissions.map((admission: any) => ({
-      ...admission,
-      patient: admission.Patient
-        ? {
-            ...admission.Patient,
-            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames || ''}`.trim(),
-            age: this.calculateAge(admission.Patient.dateOfBirth),
-          }
-        : null,
-      primaryDiagnosis: admission.Attendance?.AttendanceDiagnosis[0]?.Diagnosis || null,
-    }));
-
-    return {
-      admissions: admissionsWithFullName,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async getAdmissionById(id: string) {
-    const admission = await this.repository.findById(id);
-
-    if (!admission) {
-      throw new Error('Admission not found');
+    if (!encounter) {
+      throw new Error('Encounter not found');
     }
 
-    const attendanceDiagnoses = admission.Attendance?.AttendanceDiagnosis || [];
-    const primaryDiagnosis = attendanceDiagnoses.find((d: any) => d.diagnosisType === 'primary');
-    const additionalDiagnoses = attendanceDiagnoses.filter(
-      (d: any) => d.diagnosisType === 'additional'
-    );
-    const provisionalDiagnoses = attendanceDiagnoses.filter(
-      (d: any) => d.diagnosisType === 'provisional'
-    );
-
-    return {
-      ...admission,
-      patient: admission.Patient
-        ? {
-            ...admission.Patient,
-            fullName: `${admission.Patient.surname} ${admission.Patient.otherNames || ''}`.trim(),
-            age: this.calculateAge(admission.Patient.dateOfBirth),
-          }
-        : null,
-      primaryDiagnosis,
-      additionalDiagnoses,
-      provisionalDiagnoses,
-    };
-  }
-
-  private calculateAge(dateOfBirth: Date): number {
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  }
-
-  async createAdmission(data: any, user: any) {
-    const {
-      patientId,
-      wardId,
-      bedId,
-      attendanceId,
-      primaryDiagnosisId,
-      ...admissionData
-    } = data;
-
-    const bed = await this.repository.findBed(bedId);
-    if (!bed) throw new Error('Bed not found');
-    if (bed.isOccupied) throw new Error('Bed not available');
-    if (bed.wardId !== wardId) throw new Error('Bed does not belong to specified ward');
-
-    const existingAdmission = await this.repository.findActiveByPatientId(patientId);
-    if (existingAdmission) {
-      throw new Error('Patient already has an active admission');
+    // Must be IPD category
+    if (encounter.encounterCategory !== 'ipd') {
+      throw new Error('Formal admission can only be created for IPD encounters');
     }
 
-    let finalAttendanceId = attendanceId;
-
-    if (!finalAttendanceId) {
-      const counterService = getCounterService();
-      const attendance = await this.repository.createAttendance({
-        patientId,
-        attendanceType: 'general_consultation',
-        dateTime: new Date(),
-        paymentMode: admissionData.paymentMode || 'nhis',
-        status: 'admitted',
-        encounterCategory: 'ipd',
-        visitCategory: 'inpatient',
-        serviceCategory: 'ipd',
-        complaints: admissionData.reasonForAdmission,
-        createdById: user.id,
-      });
-      finalAttendanceId = attendance.id;
-    } else {
-      const attendance = await this.repository.findAttendance(finalAttendanceId);
-      if (!attendance) throw new Error('Attendance record not found');
-      if (attendance.patientId !== patientId) throw new Error('Attendance does not belong to patient');
-      await this.repository.updateAttendance(finalAttendanceId, { status: 'admitted' });
+    // Check if already admitted
+    if (encounter.Admission) {
+      throw new Error('This encounter already has a formal admission record');
     }
 
-    // ✅ Use counter service for admission number
+    // Check if encounter is active
+    if (encounter.status !== 'admitted') {
+      throw new Error('Cannot create admission for non-admitted encounter');
+    }
+
+    // Generate admission number
     const counterService = getCounterService();
     const admissionNumber = counterService.nextAdmissionNumber();
 
-    const primaryDiagnosis = await this.repository.findDiagnosis(primaryDiagnosisId);
-    if (!primaryDiagnosis) {
-      throw new Error('Primary diagnosis not found');
-    }
-
-    await this.repository.createAttendanceDiagnosis({
-      attendanceId: finalAttendanceId,
-      diagnosisId: primaryDiagnosisId,
-      diagnosisType: 'primary',
-      icdCode: primaryDiagnosis.icdCode,
-      createdById: user.id,
-      presentOnAdmission: admissionData.presentOnAdmission || 'Y',
-      date: new Date(),
+    // Create admission record (lightweight)
+    const admission = await this.prisma.admission.create({
+      data: {
+        attendanceId: data.attendanceId,
+        admissionNumber,
+        admissionType: data.admissionType || 'emergency',
+        admissionSource: data.admissionSource || 'home',
+        admissionDate: data.admissionDate || new Date(),
+      },
+      include: {
+        attendance: {
+          include: {
+            Patient: true,
+            Ward: true,
+            Bed: true,
+            AttendanceDiagnosis: {
+              where: { diagnosisType: 'primary' },
+              include: { Diagnosis: true },
+              take: 1
+            }
+          }
+        }
+      }
     });
 
-    const admission = await this.repository.create({
-      admissionNumber,
-      patientId,
-      wardId,
-      bedId,
-      attendanceId: finalAttendanceId,
-      admittingDoctor: admissionData.admittingDoctor,
-      reasonForAdmission: admissionData.reasonForAdmission,
-      diagnosis: primaryDiagnosis.name,
-      admissionDate: admissionData.admissionDate ? new Date(admissionData.admissionDate) : new Date(),
-      admissionTime: admissionData.admissionTime || new Date().toTimeString().slice(0, 5),
-      status: 'admitted',
-      admissionType: admissionData.admissionType || 'emergency',
-      admissionSource: admissionData.admissionSource || 'home',
-      createdBy: user.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    await this.repository.updateBed(bedId, {
-      isOccupied: true,
-      currentPatientId: patientId,
-    });
-
-    await this.repository.updateWard(wardId, { occupiedBeds: { increment: 1 } });
-
-    const createdAdmission = await this.repository.findById(admission.id);
-
-    return {
-      admission: createdAdmission,
-      relationship: attendanceId ? 'Extended from attendance' : 'New attendance created',
-    };
+    return admission;
   }
 
-  // Add secondary diagnosis
-  async addSecondaryDiagnosis(id: string, data: any, user: any) {
-    const { diagnosisId, diagnosisType, notes, presentOnAdmission } = data;
+// ============================================
+// GET ALL FORMAL ADMISSIONS
+// ============================================
+async getAllAdmissions(filters: AdmissionFilters) {
+  // Build where condition for attendance (lowercase a)
+  const attendanceWhere: any = {
+    encounterCategory: 'ipd',
+    Admission: { isNot: null }
+  };
 
-    const admission = await this.repository.findByIdWithAttendance(id);
-    if (!admission) {
-      throw new Error('Admission not found');
-    }
-
-    if (!admission.Attendance) {
-      throw new Error('Admission has no associated attendance');
-    }
-
-    const diagnosis = await this.repository.findDiagnosis(diagnosisId);
-    if (!diagnosis) {
-      throw new Error('Diagnosis not found');
-    }
-
-    const existing = await this.repository.findExistingDiagnosis(
-      admission.Attendance.id,
-      diagnosisId
-    );
-    if (existing) {
-      throw new Error('Diagnosis already added to this admission');
-    }
-
-    const attendanceDiagnosis = await this.repository.createAttendanceDiagnosis({
-      attendanceId: admission.Attendance.id,
-      diagnosisId,
-      diagnosisType,
-      notes,
-      icdCode: diagnosis.icdCode,
-      presentOnAdmission: presentOnAdmission || 'Y',
-      createdById: user?.id,
-      date: new Date(),
-    });
-
-    return { diagnosis: attendanceDiagnosis };
+  if (filters.status === 'active') {
+    attendanceWhere.status = 'admitted';
+  } else if (filters.status === 'discharged') {
+    attendanceWhere.status = 'discharged';
   }
 
-  // Remove diagnosis
-  async removeDiagnosis(id: string, diagnosisRecordId: string) {
-    const admission = await this.repository.findByIdWithAttendance(id);
-    if (!admission) {
-      throw new Error('Admission not found');
-    }
-
-    const diagnosisRecord = await this.repository.findExistingDiagnosis(
-      admission.Attendance!.id,
-      diagnosisRecordId
-    );
-    if (!diagnosisRecord) {
-      throw new Error('Diagnosis record not found for this admission');
-    }
-
-    if (diagnosisRecord.diagnosisType === 'primary') {
-      throw new Error('Cannot remove primary diagnosis. Change primary diagnosis first.');
-    }
-
-    await this.repository.deleteAttendanceDiagnosis(diagnosisRecord.id);
-    return { message: 'Diagnosis removed successfully' };
+  if (filters.wardId) {
+    attendanceWhere.wardId = filters.wardId;
   }
 
-  // Update primary diagnosis
-  async updatePrimaryDiagnosis(id: string, data: any, user: any) {
-    const { primaryDiagnosisId, presentOnAdmission } = data;
-
-    const admission = await this.repository.findByIdWithAttendance(id);
-    if (!admission) {
-      throw new Error('Admission not found');
-    }
-
-    if (!admission.Attendance) {
-      throw new Error('Admission has no associated attendance');
-    }
-
-    const newPrimaryDiagnosis = await this.repository.findDiagnosis(primaryDiagnosisId);
-    if (!newPrimaryDiagnosis) {
-      throw new Error('New primary diagnosis not found');
-    }
-
-    // Find existing primary diagnosis record
-    const existingPrimaryRecords = await this.repository.findExistingDiagnosis(
-      admission.Attendance.id,
-      admission.Attendance.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')?.diagnosisId || ''
-    );
-
-    if (existingPrimaryRecords && existingPrimaryRecords.id) {
-      await this.repository.updateAttendanceDiagnosis(existingPrimaryRecords.id, {
-        diagnosisType: 'additional',
-      });
-    }
-
-    // Check if new diagnosis already exists
-    const existingNewDiagnosis = await this.repository.findExistingDiagnosis(
-      admission.Attendance.id,
-      primaryDiagnosisId
-    );
-
-    if (existingNewDiagnosis) {
-      await this.repository.updateAttendanceDiagnosis(existingNewDiagnosis.id, {
-        diagnosisType: 'primary',
-      });
-    } else {
-      await this.repository.createAttendanceDiagnosis({
-        attendanceId: admission.Attendance.id,
-        diagnosisId: primaryDiagnosisId,
-        diagnosisType: 'primary',
-        icdCode: newPrimaryDiagnosis.icdCode,
-        presentOnAdmission: presentOnAdmission || 'Y',
-        createdById: user?.id,
-        date: new Date(),
-      });
-    }
-
-    // Update admission diagnosis field
-    await this.repository.update(id, {
-      diagnosis: newPrimaryDiagnosis.name,
-    });
-
-    return { message: 'Primary diagnosis updated successfully' };
+  if (filters.patientId) {
+    attendanceWhere.patientId = filters.patientId;
   }
 
-  // Discharge patient
-  async dischargePatient(id: string, data: any, user: any) {
-    const admission = await this.repository.findById(id);
-    if (!admission) {
-      throw new Error('Admission not found');
+  // Build where for Admission
+  const admissionWhere: any = {};
+
+  if (filters.dateFrom || filters.dateTo) {
+    admissionWhere.admissionDate = {};
+    if (filters.dateFrom) admissionWhere.admissionDate.gte = filters.dateFrom;
+    if (filters.dateTo) admissionWhere.admissionDate.lte = filters.dateTo;
+  }
+
+  const page = filters.page || 1;
+  const limit = Math.min(100, filters.limit || 50);
+  const skip = (page - 1) * limit;
+
+  // ✅ FIXED: Use 'attendance' (lowercase a) - matches Prisma schema
+  const [admissions, total] = await Promise.all([
+    this.prisma.admission.findMany({
+      where: {
+        ...admissionWhere,
+        attendance: attendanceWhere  // ✅ lowercase 'attendance'
+      },
+      include: {
+        attendance: {  // ✅ lowercase 'attendance'
+          include: {
+            Patient: {
+              select: {
+                id: true,
+                surname: true,
+                otherNames: true,
+                folderNumber: true,
+                gender: true,
+                dateOfBirth: true,
+                contact: true
+              }
+            },
+            Ward: true,
+            Bed: true,
+            AttendanceDiagnosis: {
+              where: { diagnosisType: 'primary' },
+              include: { Diagnosis: true },
+              take: 1
+            }
+          }
+        }
+      },
+      orderBy: { admissionDate: 'desc' },
+      skip,
+      take: limit
+    }),
+    this.prisma.admission.count({
+      where: {
+        ...admissionWhere,
+        attendance: attendanceWhere  // ✅ lowercase 'attendance'
+      }
+    })
+  ]);
+
+  return {
+    data: admissions,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit)
     }
+  };
+}
 
-    if (admission.status === 'discharged') {
-      throw new Error('Patient already discharged');
+// ============================================
+// GET ADMISSION BY ID
+// ============================================
+async getAdmissionById(id: string) {
+  const admission = await this.prisma.admission.findUnique({
+    where: { id },
+    include: {
+      attendance: {  // ✅ lowercase 'attendance'
+        include: {
+          Patient: true,
+          Ward: true,
+          Bed: true,
+          AttendanceDiagnosis: {
+            include: { Diagnosis: true },
+            orderBy: { date: 'asc' }
+          },
+          Vitals: {
+            orderBy: { recordedAt: 'desc' },
+            take: 10
+          },
+          Medication: true,
+          LabTest: true,
+          Scan: true,
+          Procedure: true
+        }
+      }
     }
+  });
 
-    const { dischargeDate, dischargeTime, dischargeStatus, conditionAtDischarge } = data;
+  if (!admission) {
+    throw new Error('Admission not found');
+  }
 
-    // Update admission status
-    await this.repository.update(id, {
+  return admission;
+}
+
+// ============================================
+// DISCHARGE ADMISSION
+// ============================================
+async dischargeAdmission(id: string, data: UpdateAdmissionDTO, userId: string) {
+  const admission = await this.prisma.admission.findUnique({
+    where: { id },
+    include: { attendance: true }  // ✅ lowercase 'attendance'
+  });
+
+  if (!admission) {
+    throw new Error('Admission not found');
+  }
+
+  if (admission.dischargeDate) {
+    throw new Error('Patient already discharged');
+  }
+
+  const dischargeDate = data.dischargeDate || new Date();
+
+  // Update admission
+  await this.prisma.admission.update({
+    where: { id },
+    data: {
+      dischargeDate,
+      dischargeStatus: data.dischargeStatus || 'home'
+    }
+  });
+
+  // Update attendance
+  await this.prisma.attendance.update({
+    where: { id: admission.attendanceId },
+    data: {
       status: 'discharged',
-      dischargeDate: dischargeDate ? new Date(dischargeDate) : new Date(),
-      dischargeTime: dischargeTime || new Date().toTimeString().slice(0, 5),
-      dischargeStatus: dischargeStatus || 'stable',
-      updatedAt: new Date(),
-    });
+      bedId: null
+    }
+  });
 
-    // Update bed occupancy
-    await this.repository.updateBed(admission.bedId, {
-      isOccupied: false,
-      currentPatientId: null,
+  // Free the bed
+  if (admission.attendance?.bedId) {  // ✅ lowercase 'attendance'
+    await this.prisma.bed.update({
+      where: { id: admission.attendance.bedId },
+      data: { isOccupied: false, currentPatientId: null }
     });
 
     // Update ward occupancy
-    await this.repository.updateWard(admission.wardId, { occupiedBeds: { decrement: 1 } });
-
-    // Update attendance status
-    if (admission.attendanceId) {
-      await this.repository.updateAttendance(admission.attendanceId, {
-        status: 'discharged',
+    if (admission.attendance.wardId) {
+      await this.prisma.ward.update({
+        where: { id: admission.attendance.wardId },
+        data: { occupiedBeds: { decrement: 1 } }
       });
     }
-
-    return { message: 'Patient discharged successfully' };
   }
 
-  // Add daily notes - using existing dailyNotes JSON field
-  async addDailyNotes(id: string, data: any, user: any) {
-    const { notes, noteType } = data;
+  return { message: 'Admission discharged successfully', dischargeDate };
+}
 
-    const admission = await this.repository.findById(id);
+  // ============================================
+  // ADD DAILY NOTES TO ADMISSION
+  // ============================================
+  async addDailyNotes(id: string, data: AddDailyNoteDTO, userId: string) {
+    const admission = await this.prisma.admission.findUnique({
+      where: { id }
+    });
+
     if (!admission) {
       throw new Error('Admission not found');
     }
 
-    // Get existing notes or initialize empty array
-    const currentNotes = admission.dailyNotes || [];
+    const currentNotes = (admission.dailyNotes as any[]) || [];
     
-    // Create new note
     const newNote = {
       id: Date.now().toString(),
-      notes,
-      noteType: noteType || 'general',
-      createdBy: user?.fullName || user?.username || user?.id,
+      notes: data.notes,
+      noteType: data.noteType || 'general',
+      createdBy: userId,
       createdAt: new Date().toISOString(),
     };
 
-    // Add to existing notes
     const updatedNotes = [...currentNotes, newNote];
 
-    // Update admission with new notes
-    await this.repository.update(id, {
-      dailyNotes: updatedNotes,
+    const updated = await this.prisma.admission.update({
+      where: { id },
+      data: { dailyNotes: updatedNotes }
     });
 
-    return { note: newNote };
-  }
-  // Get admission stats
-  async getAdmissionStats() {
-    return this.repository.getStats();
+    return { note: newNote, admission: updated };
   }
 
-  // Get admissions by patient ID with pagination
-  async getAdmissionsByPatientId(patientId: string, page: number = 1, limit: number = 10) {
-    const { admissions, total } = await this.repository.findByPatientId(patientId, page, limit);
-    
-    return {
-      admissions,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
+// ============================================
+// GET ADMISSION STATS
+// ============================================
+async getAdmissionStats() {
+  const [total, active, discharged] = await Promise.all([
+    this.prisma.admission.count(),
+    this.prisma.admission.count({
+      where: { dischargeDate: null }
+    }),
+    this.prisma.admission.count({
+      where: { dischargeDate: { not: null } }
+    })
+  ]);
+
+  // Get admissions by ward - query admissions with their attendance
+  const admissionsWithWard = await this.prisma.admission.findMany({
+    where: { dischargeDate: null },
+    include: {
+      attendance: {  // ✅ lowercase 'attendance'
+        select: { wardId: true }
+      }
+    }
+  });
+
+  // Count by ward manually
+  const byWardMap = new Map<string, number>();
+  for (const admission of admissionsWithWard) {
+    const wardId = admission.attendance?.wardId;
+    if (wardId) {
+      byWardMap.set(wardId, (byWardMap.get(wardId) || 0) + 1);
+    }
+  }
+
+  const byWard = Array.from(byWardMap.entries()).map(([wardId, count]) => ({
+    wardId,
+    count
+  }));
+
+  // Get length of stay stats
+  const admissionsWithLOS = await this.prisma.admission.findMany({
+    where: { dischargeDate: { not: null } },
+    select: {
+      admissionDate: true,
+      dischargeDate: true
+    }
+  });
+
+  let totalDays = 0;
+  for (const adm of admissionsWithLOS) {
+    if (adm.dischargeDate) {
+      const days = Math.ceil((adm.dischargeDate.getTime() - adm.admissionDate.getTime()) / (1000 * 60 * 60 * 24));
+      totalDays += days;
+    }
+  }
+
+  const averageLOS = admissionsWithLOS.length > 0 ? totalDays / admissionsWithLOS.length : 0;
+
+  return {
+    total,
+    active,
+    discharged,
+    averageLengthOfStay: averageLOS,
+    byWard
+  };
+}
+
+// ============================================
+// DELETE ADMISSION
+// ============================================
+async deleteAdmission(id: string) {
+  const admission = await this.prisma.admission.findUnique({
+    where: { id },
+    include: { attendance: true }  // ✅ lowercase 'attendance'
+  });
+
+  if (!admission) {
+    throw new Error('Admission not found');
+  }
+
+  if (!admission.dischargeDate) {
+    throw new Error('Cannot delete active admission. Discharge patient first.');
+  }
+
+  await this.prisma.admission.delete({
+    where: { id }
+  });
+
+  return { message: 'Admission deleted successfully' };
+}
+
+// ============================================
+// GET DAYCASE PATIENTS (Observation/Detention)
+// ============================================
+async getDaycasePatients(filters: {
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const where: any = {
+    encounterCategory: 'daycase'
+  };
+
+  if (filters.status === 'active') {
+    where.status = 'admitted';
+  } else if (filters.status === 'discharged') {
+    where.status = 'discharged';
+  }
+
+  if (filters.wardId) {
+    where.wardId = filters.wardId;
+  }
+
+  const page = filters.page || 1;
+  const limit = Math.min(100, filters.limit || 50);
+  const skip = (page - 1) * limit;
+
+  const [encounters, total] = await Promise.all([
+    this.prisma.attendance.findMany({
+      where,
+      include: {
+        Patient: {
+          select: {
+            id: true,
+            surname: true,
+            otherNames: true,
+            folderNumber: true,
+            gender: true,
+            dateOfBirth: true,
+            contact: true
+          }
+        },
+        Ward: true,
+        Bed: true,
+        AttendanceDiagnosis: {
+          where: { diagnosisType: 'primary' },
+          include: { Diagnosis: true },
+          take: 1
+        }
       },
-    };
-  }
+      orderBy: { dateTime: 'desc' },
+      skip,
+      take: limit
+    }),
+    this.prisma.attendance.count({ where })
+  ]);
 
-  // Delete admission
-  async deleteAdmission(id: string) {
-    const admission = await this.repository.findById(id);
-    if (!admission) {
-      throw new Error('Admission not found');
+  return {
+    data: encounters,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit)
     }
+  };
+}
 
-    if (admission.status === 'admitted') {
-      throw new Error('Cannot delete an active admission. Discharge patient first.');
-    }
-
-    await this.repository.delete(id);
-    return { message: 'Admission deleted successfully' };
-  }
-
-  // Update admission
-  async updateAdmission(id: string, data: any, user: any) {
-    const admission = await this.repository.findById(id);
-    if (!admission) {
-      throw new Error('Admission not found');
-    }
-
-    // If updating bed, validate availability
-    if (data.bedId && data.bedId !== admission.bedId) {
-      const newBed = await this.repository.findBed(data.bedId);
-      if (!newBed) throw new Error('New bed not found');
-      if (newBed.isOccupied) throw new Error('New bed is not available');
-      
-      // Release old bed
-      await this.repository.updateBed(admission.bedId, {
-        isOccupied: false,
-        currentPatientId: null,
-      });
-      
-      // Occupy new bed
-      await this.repository.updateBed(data.bedId, {
-        isOccupied: true,
-        currentPatientId: admission.patientId,
-      });
-    }
-
-    const updatedAdmission = await this.repository.update(id, {
-      ...data,
-      updatedAt: new Date(),
-    });
-
-    return { admission: updatedAdmission };
-  }
 }

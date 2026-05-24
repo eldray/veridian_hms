@@ -2,7 +2,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express'; // ✅ Added Response, NextFunction
 import { AuthRequest } from './authMiddleware';
 
 // Ensure uploads directory structure exists
@@ -148,33 +148,37 @@ export const uploadSingle = multer({
 }).single('image');
 
 // Error handling middleware for multer
-export const handleUploadError = (error: any, req: Request, res: Response, next: any) => {
+export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction): void => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'File too large. Please upload a smaller file.'
       });
+      return;
     }
     if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Too many files. Please upload fewer files.'
       });
+      return;
     }
     if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Unexpected file field.'
       });
+      return;
     }
   }
 
-  if (error.message.includes('Invalid file type')) {
-    return res.status(400).json({
+  if (error.message && error.message.includes('Invalid file type')) {
+    res.status(400).json({
       success: false,
       message: error.message
     });
+    return;
   }
 
   console.error('Upload error:', error);

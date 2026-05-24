@@ -15,6 +15,73 @@ export class GHSReportController extends BaseController {
     this.reportService = new GHSReportService(prisma);
   }
 
+// modules/ghsReport/GHSReportController.ts - Add this method
+
+generateConsultingRoomRegister = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate, period = 'daily' } = req.query;
+    
+    let start: Date, end: Date;
+    
+    if (startDate && endDate) {
+      start = new Date(startDate as string);
+      end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+    } else if (period === 'weekly') {
+      // Current week (Monday to Sunday)
+      const now = new Date();
+      const day = now.getDay();
+      const diff = day === 0 ? 6 : day - 1; // Adjust for Monday start
+      start = new Date(now);
+      start.setDate(now.getDate() - diff);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else if (period === 'monthly') {
+      // Current month
+      const now = new Date();
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // Default: today
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
+    }
+    
+    const report = await this.reportService.generateConsultingRoomRegister(
+      start, 
+      end, 
+      period as 'daily' | 'weekly' | 'monthly'
+    );
+    
+    const csv = GHSReportService.exportConsultingRoomRegisterToCSV(report);
+    
+    const saved = await this.prisma.gHSReportSubmission.create({
+      data: {
+        reportType: 'opd_attendance',
+        reportingYear: start.getFullYear(),
+        reportingMonth: start.getMonth() + 1,
+        periodStart: start,
+        periodEnd: end,
+        data: report,
+        createdById: req.user!.id
+      }
+    });
+    
+    this.ok(res, {
+      data: report,
+      csv,
+      submissionId: saved.id
+    }, 'Consulting room register generated successfully');
+  } catch (error) {
+    this.error(res, error);
+  }
+};
+
   // ==============================================
   // REPORT GENERATION METHODS
   // ==============================================
@@ -214,43 +281,44 @@ export class GHSReportController extends BaseController {
   };
 
   // ==============================================
-  // DELIVERY REPORT (Preserved from your original)
+  // DELIVERY REPORT - FIXED (using reportService)
   // ==============================================
 
   generateDeliveryReport = async (req: AuthRequest, res: Response) => {
     try {
-      const { dateFrom, dateTo, period, year, month } = req.query;
+      const { startDate, endDate, year, month, period } = req.query;
       
-      let startDate: Date;
-      let endDate = new Date();
-      endDate.setHours(23, 59, 59, 999);
+      let start: Date;
+      let end: Date;
       
-      // Date range logic
-      if (dateFrom && dateTo) {
-        startDate = new Date(dateFrom as string);
-        endDate = new Date(dateTo as string);
-        endDate.setHours(23, 59, 59, 999);
+      // Use parseDateParams for consistency
+      if (startDate && endDate) {
+        start = new Date(startDate as string);
+        end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
       } else if (period === 'month' && year && month) {
-        startDate = new Date(Number(year), Number(month) - 1, 1);
-        endDate = new Date(Number(year), Number(month), 0);
-        endDate.setHours(23, 59, 59, 999);
+        start = new Date(Number(year), Number(month) - 1, 1);
+        end = new Date(Number(year), Number(month), 0);
+        end.setHours(23, 59, 59, 999);
       } else if (period === 'year' && year) {
-        startDate = new Date(Number(year), 0, 1);
-        endDate = new Date(Number(year), 11, 31);
-        endDate.setHours(23, 59, 59, 999);
+        start = new Date(Number(year), 0, 1);
+        end = new Date(Number(year), 11, 31);
+        end.setHours(23, 59, 59, 999);
       } else {
         // Default to current month
-        startDate = new Date();
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
+        start = new Date();
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
       }
       
       // Get all deliveries within date range
       const deliveries = await this.prisma.deliveryRecord.findMany({
         where: {
           deliveryDate: {
-            gte: startDate,
-            lte: endDate
+            gte: start,
+            lte: end
           }
         },
         include: {
@@ -260,7 +328,7 @@ export class GHSReportController extends BaseController {
               surname: true,
               otherNames: true,
               folderNumber: true,
-              age: true,
+              dateOfBirth: true,
               address: true,
               nhisNumber: true
             }
@@ -283,6 +351,7 @@ export class GHSReportController extends BaseController {
               edd: true
             }
           },
+          Newborn: true,
           createdBy: {
             select: {
               fullName: true,
@@ -429,9 +498,9 @@ export class GHSReportController extends BaseController {
           complications: complicationsSummary,
           deliveries: deliveries.slice(0, 100),
           period: {
-            startDate,
-            endDate,
-            totalDays: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+            startDate: start,
+            endDate: end,
+            totalDays: Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
           }
         }
       }, 'Delivery report generated successfully');
@@ -443,12 +512,12 @@ export class GHSReportController extends BaseController {
   };
 
   // ==============================================
-  // FAMILY PLANNING REPORT (Preserved from your original)
+  // FAMILY PLANNING REPORT - FIXED (using reportService)
   // ==============================================
 
   getFamilyPlanningReport = async (req: AuthRequest, res: Response) => {
     try {
-      const { startDate, endDate, year, month } = this.reportService.parseDateParams(req.query);
+      const { startDate, endDate } = this.reportService.parseDateParams(req.query);
       
       // Find family planning related services
       const fpServices = await this.prisma.serviceCatalog.findMany({
@@ -563,7 +632,7 @@ export class GHSReportController extends BaseController {
   };
 
   // ==============================================
-  // REPORT SUBMISSION METHODS (Preserved from your original)
+  // REPORT SUBMISSION METHODS
   // ==============================================
 
   getReportSubmissions = async (req: AuthRequest, res: Response) => {

@@ -1,2 +1,0 @@
-/   for linux/
-"electron": "ELECTRON_DISABLE_SANDBOX=1 NODE_ENV=development electron main.js --no-sandbox",

@@ -10,25 +10,46 @@ import {
   RefreshCw,
   CheckCircle,
   ChevronRight,
+  Building,
+  Briefcase,
+  Users,
+  User,
+  Phone,
+  Mail,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { useToast } from '../store/toastStore';
-import type { PaymentMode, InsuranceDetails, InsuranceProvider } from '../types';
+import type { PaymentMode, InsuranceDetails, InsuranceProvider, CorporateAccount } from '../types';
 import { useState, useEffect } from 'react';
 import NewAttendanceModal from './NewAttendanceModal';
 
 interface PaymentModeTabProps {
   paymentMode?: PaymentMode;
   insuranceDetails?: InsuranceDetails;
+  corporateDetails?: {
+    accountId: string;
+    employeeId?: string;
+    companyName?: string;
+    employeeCode?: string;
+  };
   onPaymentModeChange: (mode?: PaymentMode) => void;
   onInsuranceDetailsChange: (details: InsuranceDetails) => void;
+  onCorporateDetailsChange?: (details: any) => void;
   insuranceProviders: InsuranceProvider[];
+  corporateAccounts?: CorporateAccount[];
   isLoadingProviders?: boolean;
+  isLoadingCorporate?: boolean;
   isOptional?: boolean;
   patientId?: string;
+  patientName?: string;
+  patientContact?: string;
+  patientEmail?: string;
   onRetryProviders?: () => void;
+  onRetryCorporate?: () => void;
+  onAddCorporateEmployee?: (accountId: string, employeeData: any) => Promise<void>;
 }
 
-type ModeKey = 'cash' | 'nhis' | 'private_insurance';
+type ModeKey = 'cash' | 'nhis' | 'private_insurance' | 'corporate';
 
 const MODES: {
   key: ModeKey;
@@ -93,6 +114,22 @@ const MODES: {
     badgeBg: 'var(--icon-purple-bg)',
     badgeText: 'var(--icon-purple-text)',
   },
+  {
+    key: 'corporate',
+    label: 'Corporate',
+    shortLabel: 'Corporate',
+    subtitle: 'Company account',
+    description:
+      'Corporate account billing. Patient is covered under their employer\'s corporate health plan. Requires employee verification.',
+    iconBg: 'var(--icon-indigo-bg)',
+    iconText: 'var(--icon-indigo-text)',
+    activeBg: 'var(--icon-indigo-bg)',
+    activeBorder: 'var(--icon-indigo-text)',
+    ctaBg: 'var(--icon-indigo-text)',
+    ctaHover: 'var(--icon-indigo-text)',
+    badgeBg: 'var(--icon-indigo-bg)',
+    badgeText: 'var(--icon-indigo-text)',
+  },
 ];
 
 const ModeIcon = ({ modeKey, size = 20 }: { modeKey: ModeKey; size?: number }) => {
@@ -101,32 +138,57 @@ const ModeIcon = ({ modeKey, size = 20 }: { modeKey: ModeKey; size?: number }) =
     return <DollarSign style={{ width: s, height: s }} />;
   if (modeKey === 'nhis')
     return <Shield style={{ width: s, height: s }} />;
+  if (modeKey === 'corporate')
+    return <Briefcase style={{ width: s, height: s }} />;
   return <CreditCard style={{ width: s, height: s }} />;
 };
 
 export default function PaymentModeTab({
   paymentMode,
   insuranceDetails,
+  corporateDetails,
   onPaymentModeChange,
   onInsuranceDetailsChange,
+  onCorporateDetailsChange,
   insuranceProviders = [],
+  corporateAccounts = [],
   isLoadingProviders = false,
+  isLoadingCorporate = false,
   isOptional = false,
   patientId,
+  patientName,
+  patientContact,
+  patientEmail,
   onRetryProviders,
+  onRetryCorporate,
+  onAddCorporateEmployee,
 }: PaymentModeTabProps) {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode>('cash');
+  const [showNewEmployeeForm, setShowNewEmployeeForm] = useState(false);
+  const [newEmployeeData, setNewEmployeeData] = useState({
+    employeeId: '',
+    firstName: '',
+    lastName: '',
+    department: '',
+    position: '',
+    phone: '',
+    email: ''
+  });
+  const [selectedCorporateAccount, setSelectedCorporateAccount] = useState<string>('');
   const { error: toastError, success } = useToast();
 
   useEffect(() => {
     console.log('🔍 PaymentModeTab Debug:', {
       insuranceProviders,
+      corporateAccounts,
       providersCount: insuranceProviders.length,
+      corporateCount: corporateAccounts.length,
       paymentMode,
       isLoadingProviders,
+      isLoadingCorporate,
     });
-  }, [insuranceProviders, paymentMode, isLoadingProviders]);
+  }, [insuranceProviders, corporateAccounts, paymentMode, isLoadingProviders, isLoadingCorporate]);
 
   const safeInsurance: InsuranceDetails = insuranceDetails || {
     insuranceNumber: '',
@@ -136,8 +198,21 @@ export default function PaymentModeTab({
     endDate: '',
   };
 
+  const safeCorporate: any = corporateDetails || {
+    accountId: '',
+    employeeId: '',
+    companyName: '',
+    employeeCode: '',
+  };
+
   const updateInsuranceField = (field: string, value: any) => {
     onInsuranceDetailsChange({ ...safeInsurance, [field]: value });
+  };
+
+  const updateCorporateField = (field: string, value: any) => {
+    if (onCorporateDetailsChange) {
+      onCorporateDetailsChange({ ...safeCorporate, [field]: value });
+    }
   };
 
   const isInsuranceValid = () => {
@@ -148,10 +223,24 @@ export default function PaymentModeTab({
     return true;
   };
 
+  const isCorporateValid = () => {
+    if (!safeCorporate.accountId) return false;
+    if (!safeCorporate.employeeId) return false;
+    return true;
+  };
+
   const handleAddAttendance = (mode: PaymentMode) => {
-    if ((mode === 'nhis' || mode === 'private_insurance') && !isInsuranceValid()) {
-      toastError('Insurance Required', 'Please complete all required insurance details before creating attendance');
-      return;
+    if (mode === 'nhis' || mode === 'private_insurance') {
+      if (!isInsuranceValid()) {
+        toastError('Insurance Required', 'Please complete all required insurance details before creating attendance');
+        return;
+      }
+    }
+    if (mode === 'corporate') {
+      if (!isCorporateValid()) {
+        toastError('Corporate Details Required', 'Please select a corporate account and enter employee details before creating attendance');
+        return;
+      }
     }
     onPaymentModeChange(mode);
     setSelectedPaymentMode(mode);
@@ -170,13 +259,66 @@ export default function PaymentModeTab({
     }
   };
 
+  const handleRetryCorporate = () => {
+    if (onRetryCorporate) {
+      onRetryCorporate();
+      success('Refreshing', 'Reloading corporate accounts...');
+    }
+  };
+
+  const handleAddEmployee = async () => {
+    if (!selectedCorporateAccount) {
+      toastError('Selection Required', 'Please select a corporate account first');
+      return;
+    }
+    if (!newEmployeeData.employeeId || !newEmployeeData.firstName || !newEmployeeData.lastName) {
+      toastError('Missing Fields', 'Please fill in employee ID, first name, and last name');
+      return;
+    }
+    if (onAddCorporateEmployee) {
+      try {
+        await onAddCorporateEmployee(selectedCorporateAccount, {
+          employeeId: newEmployeeData.employeeId,
+          firstName: newEmployeeData.firstName,
+          lastName: newEmployeeData.lastName,
+          department: newEmployeeData.department,
+          position: newEmployeeData.position,
+          phone: newEmployeeData.phone || patientContact,
+          email: newEmployeeData.email || patientEmail,
+        });
+        success('Employee Added', 'Employee has been added to the corporate account');
+        setShowNewEmployeeForm(false);
+        setNewEmployeeData({
+          employeeId: '',
+          firstName: '',
+          lastName: '',
+          department: '',
+          position: '',
+          phone: '',
+          email: ''
+        });
+        // Refresh the corporate accounts list
+        if (onRetryCorporate) onRetryCorporate();
+      } catch (err: any) {
+        toastError('Failed', err.message || 'Could not add employee');
+      }
+    }
+  };
+
   const privateProviders = insuranceProviders.filter(
     (p) => p.type === 'private' && p.isActive
   );
 
+  const activeCorporateAccounts = corporateAccounts.filter(
+    (c) => c.isActive !== false
+  );
+
   const activeMode = MODES.find((m) => m.key === paymentMode) ?? null;
   const canCreateAttendance =
-    paymentMode === 'cash' || (paymentMode && isInsuranceValid());
+    paymentMode === 'cash' || 
+    (paymentMode === 'nhis' && isInsuranceValid()) ||
+    (paymentMode === 'private_insurance' && isInsuranceValid()) ||
+    (paymentMode === 'corporate' && isCorporateValid());
 
   if (!onPaymentModeChange || !onInsuranceDetailsChange) {
     return (
@@ -194,6 +336,7 @@ export default function PaymentModeTab({
         <NewAttendanceModal
           patientId={patientId}
           paymentMode={selectedPaymentMode}
+          corporateAccountId={selectedPaymentMode === 'corporate' ? safeCorporate.accountId : undefined}
           onSuccess={handleAttendanceSuccess}
           onClose={() => setShowAttendanceModal(false)}
           isEditMode={false}
@@ -220,7 +363,7 @@ export default function PaymentModeTab({
             </p>
             <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               You can set this now or add it later. Cash patients can create attendances immediately.
-              Insurance patients must complete their details first.
+              Insurance and Corporate patients must complete their details first.
             </p>
           </div>
         </div>
@@ -568,6 +711,32 @@ export default function PaymentModeTab({
                     handleRetryProviders={handleRetryProviders}
                   />
                 )}
+
+                {/* ── CORPORATE form ── */}
+                {activeMode.key === 'corporate' && (
+                  <CorporateForm
+                    safeCorporate={safeCorporate}
+                    updateCorporateField={updateCorporateField}
+                    isCorporateValid={isCorporateValid}
+                    patientId={patientId}
+                    patientName={patientName}
+                    patientContact={patientContact}
+                    patientEmail={patientEmail}
+                    handleAddAttendance={handleAddAttendance}
+                    activeMode={activeMode}
+                    isLoadingCorporate={isLoadingCorporate}
+                    corporateAccounts={activeCorporateAccounts}
+                    onRetryCorporate={onRetryCorporate}
+                    handleRetryCorporate={handleRetryCorporate}
+                    showNewEmployeeForm={showNewEmployeeForm}
+                    setShowNewEmployeeForm={setShowNewEmployeeForm}
+                    newEmployeeData={newEmployeeData}
+                    setNewEmployeeData={setNewEmployeeData}
+                    selectedCorporateAccount={selectedCorporateAccount}
+                    setSelectedCorporateAccount={setSelectedCorporateAccount}
+                    onAddEmployee={handleAddEmployee}
+                  />
+                )}
               </div>
             </>
           )}
@@ -767,6 +936,271 @@ function PrivateForm({
           label="Create insurance attendance"
           bg={activeMode.ctaBg}
           onClick={() => handleAddAttendance('private_insurance')}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── CORPORATE sub-form ────────────────────────────────────────────────────────
+function CorporateForm({
+  safeCorporate,
+  updateCorporateField,
+  isCorporateValid,
+  patientId,
+  patientName,
+  patientContact,
+  patientEmail,
+  handleAddAttendance,
+  activeMode,
+  isLoadingCorporate,
+  corporateAccounts,
+  onRetryCorporate,
+  handleRetryCorporate,
+  showNewEmployeeForm,
+  setShowNewEmployeeForm,
+  newEmployeeData,
+  setNewEmployeeData,
+  selectedCorporateAccount,
+  setSelectedCorporateAccount,
+  onAddEmployee,
+}: any) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      
+      {/* Corporate Account Selection */}
+      <FormField label="Corporate Account *">
+        {isLoadingCorporate ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Loader style={{ width: 14, height: 14, color: 'var(--text-tertiary)' }} className="animate-spin" />
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Loading corporate accounts…</span>
+          </div>
+        ) : corporateAccounts.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 10px',
+                background: 'var(--icon-yellow-bg)',
+                border: '0.5px solid var(--border-color)',
+                borderRadius: 8,
+                fontSize: 11,
+                color: 'var(--icon-yellow-text)',
+              }}
+            >
+              <AlertCircle style={{ width: 12, height: 12, flexShrink: 0 }} />
+              No corporate accounts found.
+            </div>
+            {onRetryCorporate && (
+              <button
+                type="button"
+                onClick={handleRetryCorporate}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 10px',
+                  background: 'var(--bg-main)',
+                  border: '0.5px solid var(--border-color)',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  width: 'fit-content',
+                }}
+              >
+                <RefreshCw style={{ width: 11, height: 11 }} />
+                Retry
+              </button>
+            )}
+          </div>
+        ) : (
+          <select
+            required
+            value={selectedCorporateAccount || safeCorporate.accountId}
+            onChange={(e) => {
+              const accountId = e.target.value;
+              setSelectedCorporateAccount(accountId);
+              updateCorporateField('accountId', accountId);
+              const selectedAccount = corporateAccounts.find((c: any) => c.id === accountId);
+              if (selectedAccount) {
+                updateCorporateField('companyName', selectedAccount.companyName);
+              }
+            }}
+            style={inputStyle}
+          >
+            <option value="">Select corporate account</option>
+            {corporateAccounts.map((account: any) => (
+              <option key={account.id} value={account.id}>
+                {account.companyName} {account.registrationNumber ? `(${account.registrationNumber})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </FormField>
+
+      {/* Employee ID / Code */}
+      <FormField label="Employee ID / Code *">
+        <input
+          type="text"
+          required
+          value={safeCorporate.employeeId || newEmployeeData.employeeId}
+          onChange={(e) => {
+            updateCorporateField('employeeId', e.target.value);
+            setNewEmployeeData({ ...newEmployeeData, employeeId: e.target.value });
+          }}
+          placeholder="e.g. EMP-12345"
+          style={inputStyle}
+        />
+        <p style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>
+          The employee ID provided by the corporate account
+        </p>
+      </FormField>
+
+      {/* Employee Information Section */}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-secondary)' }}>
+            Employee Information
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowNewEmployeeForm(!showNewEmployeeForm)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 8px',
+              background: 'var(--bg-main)',
+              border: '0.5px solid var(--border-color)',
+              borderRadius: 6,
+              fontSize: 10,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            <Plus style={{ width: 10, height: 10 }} />
+            {showNewEmployeeForm ? 'Cancel' : 'Add New Employee'}
+          </button>
+        </div>
+
+        {showNewEmployeeForm ? (
+          <div style={{ 
+            background: 'var(--bg-main)', 
+            borderRadius: 8, 
+            padding: 12,
+            border: '0.5px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <input
+                type="text"
+                placeholder="First Name *"
+                value={newEmployeeData.firstName}
+                onChange={(e) => setNewEmployeeData({ ...newEmployeeData, firstName: e.target.value })}
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                placeholder="Last Name *"
+                value={newEmployeeData.lastName}
+                onChange={(e) => setNewEmployeeData({ ...newEmployeeData, lastName: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Department"
+              value={newEmployeeData.department}
+              onChange={(e) => setNewEmployeeData({ ...newEmployeeData, department: e.target.value })}
+              style={{ ...inputStyle, marginBottom: 8 }}
+            />
+            <input
+              type="text"
+              placeholder="Position"
+              value={newEmployeeData.position}
+              onChange={(e) => setNewEmployeeData({ ...newEmployeeData, position: e.target.value })}
+              style={{ ...inputStyle, marginBottom: 8 }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={newEmployeeData.phone}
+                onChange={(e) => setNewEmployeeData({ ...newEmployeeData, phone: e.target.value })}
+                style={inputStyle}
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={newEmployeeData.email}
+                onChange={(e) => setNewEmployeeData({ ...newEmployeeData, email: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onAddEmployee}
+              style={{
+                marginTop: 12,
+                width: '100%',
+                padding: '8px',
+                background: 'var(--icon-indigo-text)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Save Employee
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Display patient info that will be used */}
+            {patientName && (
+              <div style={{ 
+                padding: '8px 10px', 
+                background: 'var(--bg-main)', 
+                borderRadius: 6,
+                marginBottom: 8,
+                fontSize: 11,
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <User style={{ width: 12, height: 12 }} />
+                  <span>Patient: <strong>{patientName}</strong></span>
+                </div>
+                {patientContact && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Phone style={{ width: 12, height: 12 }} />
+                    <span>{patientContact}</span>
+                  </div>
+                )}
+                {patientEmail && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Mail style={{ width: 12, height: 12 }} />
+                    <span>{patientEmail}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textAlign: 'center' }}>
+              Select a corporate account and enter employee ID to continue
+            </div>
+          </>
+        )}
+      </div>
+
+      {patientId && (
+        <CtaButton
+          valid={isCorporateValid()}
+          label="Create corporate attendance"
+          bg={activeMode.ctaBg}
+          onClick={() => handleAddAttendance('corporate')}
         />
       )}
     </div>

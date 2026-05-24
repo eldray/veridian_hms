@@ -1,17 +1,34 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../types/auth.types';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
+
+// Define AuthRequest locally
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    userId: string;
+    role: string;
+    username: string;
+    fullName: string;
+    email?: string;
+    licenseNumber?: string;
+    specialization?: string;
+  };
+}
+
+// Define Prisma Transaction type
+type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
  * Middleware to wrap route handlers in database transactions
  * Ensures atomic operations for multi-step processes
  */
 export const withTransaction = (
-  handler: (req: AuthRequest, res: Response, tx: Prisma.TransactionClient) => Promise<void>
+  handler: (req: AuthRequest, res: Response, tx: PrismaTransactionClient) => Promise<void>
 ) => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       await prisma.$transaction(async (tx) => {
         await handler(req, res, tx);
@@ -28,14 +45,15 @@ export const withTransaction = (
  * Compares version numbers to detect conflicts
  */
 export const checkConcurrency = (entityModel: any, entityIdField: string = 'id') => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const clientVersion = req.headers['if-match'];
 
       if (!clientVersion) {
         // No version header, proceed normally
-        return next();
+        next();
+        return;
       }
 
       const record = await entityModel.findUnique({
@@ -44,14 +62,15 @@ export const checkConcurrency = (entityModel: any, entityIdField: string = 'id')
       });
 
       if (!record) {
-        return res.status(404).json({ 
+        res.status(404).json({ 
           success: false, 
           message: 'Record not found' 
         });
+        return;
       }
 
       if (record.version !== parseInt(clientVersion as string)) {
-        return res.status(409).json({
+        res.status(409).json({
           success: false,
           message: 'Conflict detected: Record was modified by another user',
           conflict: {
@@ -59,6 +78,7 @@ export const checkConcurrency = (entityModel: any, entityIdField: string = 'id')
             clientVersion: parseInt(clientVersion as string)
           }
         });
+        return;
       }
 
       // Store current version for later increment
@@ -74,7 +94,7 @@ export const checkConcurrency = (entityModel: any, entityIdField: string = 'id')
 /**
  * Increment version number after successful update
  */
-export const incrementVersion = async (entityModel: any, entityId: string) => {
+export const incrementVersion = async (entityModel: any, entityId: string): Promise<void> => {
   await entityModel.update({
     where: { id: entityId },
     data: { version: { increment: 1 } }
@@ -85,7 +105,7 @@ export const incrementVersion = async (entityModel: any, entityId: string) => {
  * Audit logging middleware - records all data changes
  */
 export const auditLog = (entityType: string, action: string) => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const originalJson = res.json.bind(res);
       
@@ -98,13 +118,14 @@ export const auditLog = (entityType: string, action: string) => {
             action,
             performedById: req.user?.id || 'system',
             ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
+            // userAgent stored in metadata (not direct field)
             previousState: (req as any).previousState || null,
             newState: action !== 'DELETE' ? body : null,
             metadata: {
               method: req.method,
               path: req.path,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              userAgent: req.get('user-agent')
             }
           };
 
@@ -142,9 +163,9 @@ export const auditLog = (entityType: string, action: string) => {
 export const secureOperation = (
   entityType: string,
   action: string,
-  handler: (req: AuthRequest, res: Response, tx: Prisma.TransactionClient) => Promise<void>
+  handler: (req: AuthRequest, res: Response, tx: PrismaTransactionClient) => Promise<void>
 ) => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       await prisma.$transaction(async (tx) => {
         // Check concurrency if updating/deleting
@@ -181,20 +202,24 @@ export const secureOperation = (
         action,
         performedById: req.user?.id || 'system',
         ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        timestamp: new Date().toISOString()
+        metadata: {
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('user-agent')
+        }
       };
 
       prisma.auditLog.create({ data: auditData }).catch(err => 
         console.error('Audit log creation failed:', err)
       );
 
+      next();
     } catch (error: any) {
-      if (error.message.includes('CONFLICT')) {
-        return res.status(409).json({
+      if (error.message && error.message.includes('CONFLICT')) {
+        res.status(409).json({
           success: false,
           message: 'Conflict detected: Record was modified by another user. Please refresh and try again.'
         });
+        return;
       }
       console.error('Secure operation failed:', error);
       next(error);

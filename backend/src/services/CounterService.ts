@@ -1,13 +1,12 @@
 // services/CounterService.ts
 import { PrismaClient } from '@prisma/client';
 
-let patientCounter = 1000;
-let attendanceCounter = 1000;
-let admissionCounter = 1000;
-let claimCounter = 1000;
-let referralCounter = 1000;
-let billCounter = 1000;
-let appointmentCounter = 1000;  // ✅ Added
+// Separate counters for different sequences
+let patientCounter = 1000;      // PATIENT SEQUENCE - increments per new patient
+let attendanceCounter = 1000;   // ATTENDANCE SEQUENCE - increments per visit (any type)
+let receiptCounter = 1000;      // RECEIPT SEQUENCE - increments per payment
+let referralCounter = 1000;     // REFERRAL SEQUENCE - independent
+let appointmentCounter = 1000;  // APPOINTMENT SEQUENCE - independent
 
 export class CounterService {
   private static instance: CounterService;
@@ -36,38 +35,28 @@ export class CounterService {
       select: { folderNumber: true }
     });
     if (lastPatient?.folderNumber) {
-      const match = lastPatient.folderNumber.match(/PAT-(\d+)/);
-      if (match) patientCounter = parseInt(match[1]);
+      const match = lastPatient.folderNumber.match(/\d+$/);
+      if (match) patientCounter = parseInt(match[0]);
     }
 
-    // Get last attendance number
+    // Get last attendance number (critical - this is the master sequence)
     const lastAttendance = await this.prisma.attendance.findFirst({
       orderBy: { attendanceNumber: 'desc' },
       select: { attendanceNumber: true }
     });
     if (lastAttendance?.attendanceNumber) {
-      const match = lastAttendance.attendanceNumber.match(/ATT-(\d+)/);
-      if (match) attendanceCounter = parseInt(match[1]);
+      const match = lastAttendance.attendanceNumber.match(/\d+$/);
+      if (match) attendanceCounter = parseInt(match[0]);
     }
 
-    // Get last admission number
-    const lastAdmission = await this.prisma.admission.findFirst({
-      orderBy: { admissionNumber: 'desc' },
-      select: { admissionNumber: true }
+    // Get last receipt number
+    const lastReceipt = await this.prisma.payment.findFirst({
+      orderBy: { reference: 'desc' },
+      select: { reference: true }
     });
-    if (lastAdmission?.admissionNumber) {
-      const match = lastAdmission.admissionNumber.match(/ADM-(\d+)/);
-      if (match) admissionCounter = parseInt(match[1]);
-    }
-
-    // Get last claim number
-    const lastClaim = await this.prisma.insuranceClaim.findFirst({
-      orderBy: { claimNumber: 'desc' },
-      select: { claimNumber: true }
-    });
-    if (lastClaim?.claimNumber) {
-      const match = lastClaim.claimNumber.match(/CLAIM-(\d+)/);
-      if (match) claimCounter = parseInt(match[1]);
+    if (lastReceipt?.reference) {
+      const match = lastReceipt.reference.match(/RCP-(\d+)/);
+      if (match) receiptCounter = parseInt(match[1]);
     }
 
     // Get last referral number
@@ -76,77 +65,110 @@ export class CounterService {
       select: { referralNumber: true }
     });
     if (lastReferral?.referralNumber) {
-      const match = lastReferral.referralNumber.match(/REF-(\d+)/);
-      if (match) referralCounter = parseInt(match[1]);
+      const match = lastReferral.referralNumber.match(/\d+$/);
+      if (match) referralCounter = parseInt(match[0]);
     }
 
-    // Get last bill number
-    const lastBill = await this.prisma.bill.findFirst({
-      orderBy: { billNumber: 'desc' },
-      select: { billNumber: true }
-    });
-    if (lastBill?.billNumber) {
-      const match = lastBill.billNumber.match(/BILL-(\d+)/);
-      if (match) billCounter = parseInt(match[1]);
-    }
-
-    // ✅ Get last appointment number
+    // Get last appointment number
     const lastAppointment = await this.prisma.appointment.findFirst({
       orderBy: { appointmentNumber: 'desc' },
       select: { appointmentNumber: true }
     });
     if (lastAppointment?.appointmentNumber) {
-      const match = lastAppointment.appointmentNumber.match(/APT-(\d+)/);
-      if (match) appointmentCounter = parseInt(match[1]);
+      const match = lastAppointment.appointmentNumber.match(/\d+$/);
+      if (match) appointmentCounter = parseInt(match[0]);
     }
 
     this.initialized = true;
-    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Admission=${admissionCounter}, Claim=${claimCounter}, Referral=${referralCounter}, Bill=${billCounter}, Appointment=${appointmentCounter}`);
+    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}`);
   }
 
+  // ============================================
+  // PATIENT NUMBER
+  // ============================================
   nextPatientNumber(): string {
-    return `PAT-${++patientCounter}`;
+    return `${++patientCounter}`;
   }
 
+  // ============================================
+  // ATTENDANCE NUMBER (MASTER SEQUENCE)
+  // ============================================
   nextAttendanceNumber(): string {
-    return `ATT-${++attendanceCounter}`;
+    return `${++attendanceCounter}`;
   }
 
-  nextAdmissionNumber(): string {
-    return `ADM-${++admissionCounter}`;
+  getCurrentAttendanceNumber(): number {
+    return attendanceCounter;
   }
 
-  nextClaimNumber(): string {
-    return `CLAIM-${++claimCounter}`;
+  // ============================================
+  // ADMISSION NUMBER (matches attendance)
+  // ============================================
+  getAdmissionNumberFromAttendance(attendanceNumber: string): string {
+    return attendanceNumber;
   }
 
+  // ============================================
+  // CLAIM NUMBER (matches attendance)
+  // ============================================
+  getClaimNumberFromAttendance(attendanceNumber: string, claimType: 'nhis' | 'private_insurance' | 'corporate'): string {
+    const prefix = claimType === 'nhis' ? 'NHIS' : claimType === 'private_insurance' ? 'PRV' : 'CORP';
+    return `${prefix}-${attendanceNumber}`;
+  }
+
+  // ============================================
+  // BILL NUMBER (matches attendance)
+  // ============================================
+  getBillNumberFromAttendance(attendanceNumber: string): string {
+    return `BILL-${attendanceNumber}`;
+  }
+
+  // ============================================
+  // RECEIPT NUMBER (independent sequential)
+  // ============================================
+  nextReceiptNumber(): string {
+    return `RCP-${++receiptCounter}`;
+  }
+
+  // ============================================
+  // REFERRAL NUMBER (independent)
+  // ============================================
   nextReferralNumber(): string {
-    return `REF-${++referralCounter}`;
+    return `${++referralCounter}`;
   }
 
-  nextBillNumber(): string {
-    return `BILL-${++billCounter}`;
+  // For external referrals (already have number)
+  createReferralFromExternal(externalNumber: string): string {
+    return externalNumber;
   }
 
-  // ✅ Add this method
+  // ============================================
+  // APPOINTMENT NUMBER (independent)
+  // ============================================
   nextAppointmentNumber(): string {
-    return `APT-${++appointmentCounter}`;
+    return `${++appointmentCounter}`;
+  }
+
+  // ============================================
+  // HELPER METHODS
+  // ============================================
+  extractAttendanceNumber(recordNumber: string): string {
+    const match = recordNumber.match(/\d+$/);
+    return match ? match[0] : recordNumber;
   }
 
   getCounters() {
     return {
       patient: patientCounter,
       attendance: attendanceCounter,
-      admission: admissionCounter,
-      claim: claimCounter,
+      receipt: receiptCounter,
       referral: referralCounter,
-      bill: billCounter,
-      appointment: appointmentCounter  // ✅ Added
+      appointment: appointmentCounter
     };
   }
 }
 
-// Export a singleton instance (will be initialized in server.ts)
+// Singleton export
 let counterServiceInstance: CounterService | null = null;
 
 export function getCounterService(prisma?: PrismaClient): CounterService {

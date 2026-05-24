@@ -120,7 +120,7 @@ model ServicePricing {
   cashPrice        Float
   nhisPrice        Float          @default(0)
   insurancePrice   Float
-  corporatePrice   Float          @default(0) // ✅ ADD THIS
+  corporatePrice   Float          @default(0)
   vatRate          Float          @default(0)
   isTaxable        Boolean        @default(true)
   effectiveDate    DateTime       @default(now())
@@ -186,7 +186,6 @@ model ServiceCatalog {
   BillLineItem        BillLineItem[]
   ProformaInvoiceItem ProformaInvoiceItem[]
 
-  // ✅ ADD THIS - opposite relation for GDRG procedure linking
   gdrgProcedureLinks GDRGTariffProcedure[]
 
   @@index([code])
@@ -225,13 +224,11 @@ model Patient {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  // NHIS fields
-  nhisNumber     String? // membership/card number used for eligibility checks
-  nhisExpiryDate DateTime? // ✅ ADD - expiry from eligibility API response
-  nhisActive     Boolean   @default(false) // ✅ ADD - live NHIS active status
+  nhisNumber     String?
+  nhisExpiryDate DateTime?
+  nhisActive     Boolean   @default(false)
   phoneNumber    String?
 
-  Admission            Admission[]
   Attendance           Attendance[]
   Bed                  Bed?
   Bill                 Bill[]
@@ -248,7 +245,6 @@ model Patient {
   postnatalRecords     PostnatalRecord[]
   proformaInvoices     ProformaInvoice[]
 
-  // PERFORMANCE OPTIMIZATION: Indexes for patient search and NHIS lookups
   @@index([nhisNumber])
   @@index([phoneNumber])
   @@index([dateOfBirth])
@@ -398,8 +394,8 @@ model Attendance {
   paymentMode            PaymentMode
   nhisCCC                String?
   nhisEligibilityCheckId String?
+  referralId             String?        @unique
 
-  // NHIS CCC Generation Fields
   nhisCCCCode        String?
   nhisCCCGeneratedAt DateTime?
   nhisCCCValidUntil  DateTime?
@@ -411,12 +407,11 @@ model Attendance {
   gdrgCategory      String?
   serviceCategory   ServiceCategory?
 
-  // 🆕 NEW CLINICAL FIELDS
-  historyPresentingComplaint String? // H.P.C
-  onsetDurationQuality       String? // O.D.Q  
-  physicalExamination        String? // Physical exam findings
-  treatmentPlan              String? // Treatment plan / physician notes
-  followUpDate               DateTime? // Follow-up appointment date
+  historyPresentingComplaint String?
+  onsetDurationQuality       String?
+  physicalExamination        String?
+  treatmentPlan              String?
+  followUpDate               DateTime?
 
   antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
   currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
@@ -437,14 +432,18 @@ model Attendance {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  Admission                         Admission?
-  Bed                               Bed?                      @relation(fields: [bedId], references: [id])
-  User_Attendance_createdByIdToUser User                      @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
-  InsuranceProvider                 InsuranceProvider?        @relation(fields: [insuranceProviderId], references: [id])
-  CorporateAccount                  CorporateAccount?         @relation(fields: [corporateAccountId], references: [id])
-  Patient                           Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  User_Attendance_updatedByIdToUser User?                     @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
-  Ward                              Ward?                     @relation(fields: [wardId], references: [id])
+  Admission                         Admission?                    @relation("AttendanceAdmission")
+  Bed                               Bed?                          @relation(fields: [bedId], references: [id])
+  User_Attendance_createdByIdToUser User                          @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
+  InsuranceProvider                 InsuranceProvider?            @relation(fields: [insuranceProviderId], references: [id])
+  CorporateAccount                  CorporateAccount?             @relation(fields: [corporateAccountId], references: [id])
+  Patient                           Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_Attendance_updatedByIdToUser User?                         @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
+  Ward                              Ward?                         @relation(fields: [wardId], references: [id])
+  
+  appointment                       Appointment?                  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  referral                          ReferralRecord?               // @relation removed - defined on ReferralRecord side only
+ 
   AttendanceDiagnosis               AttendanceDiagnosis[]
   Bill                              Bill?
   InsuranceClaim                    InsuranceClaim?
@@ -456,20 +455,19 @@ model Attendance {
   Vitals                            Vitals[]
   NHISEligibilityCheck              NHISEligibilityCheck[]
   PreAuthorisationRequest           PreAuthorisationRequest[]
-  ReferralRecord                    ReferralRecord[]
   WardChargeRecord                  WardChargeRecord[]
   deliveryRecords                   DeliveryRecord[]
   abortionRecords                   AbortionRecord[]
   postnatalRecords                  PostnatalRecord[]
+  proformaInvoices                  ProformaInvoice[]
+  CorporateEmployee                 CorporateEmployee?            @relation(fields: [corporateEmployeeId], references: [id])
+  corporateEmployeeId               String?
+  patientClassification             PatientClassification?  // NEW or OLD
+  diagnosisClassification           DiagnosisClassification?
 
-  proformaInvoices    ProformaInvoice[]
-  CorporateEmployee   CorporateEmployee? @relation(fields: [corporateEmployeeId], references: [id])
-  corporateEmployeeId String?
-
-  // PERFORMANCE OPTIMIZATION: Indexes for frequently queried fields
   @@index([nhisCCCCode])
   @@index([nhisEligibilityCheckId])
-  @@index([patientId, dateTime]) // Composite index for patient history
+  @@index([patientId, dateTime])
   @@index([insuranceProviderId])
   @@index([bedId])
   @@index([wardId])
@@ -481,6 +479,10 @@ model Attendance {
   @@index([status])
   @@index([gdrgCategory])
   @@index([serviceCategory])
+  @@index([encounterCategory])
+  @@index([appointmentId])
+  @@index([referralId])
+  @@index([dateTime, status])
 }
 
 // ============================================================
@@ -514,7 +516,6 @@ model LabTest {
   User_LabTest_verifiedByIdToUser  User?           @relation("LabTest_verifiedByIdToUser", fields: [verifiedById], references: [id])
   ServiceCatalog                   ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
-  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([requestedAt])
@@ -553,7 +554,6 @@ model Scan {
   User_Scan_verifiedByIdToUser  User?           @relation("Scan_verifiedByIdToUser", fields: [verifiedById], references: [id])
   ServiceCatalog                ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
-  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([requestedAt])
@@ -592,7 +592,6 @@ model Procedure {
   ProcedureTemplate                  ProcedureTemplate @relation(fields: [templateId], references: [id])
   ServiceCatalog                     ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
 
-  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
   @@index([attendanceId, status])
   @@index([templateId])
   @@index([performedAt])
@@ -642,8 +641,7 @@ model Medication {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  // ✅ NEW: Track multiple dose administrations
-  administeredDoses Json? // Stores [{ doseNumber, administeredAt, administeredBy }]
+  administeredDoses Json?
 
   User_Medication_administeredByIdToUser User?           @relation("Medication_administeredByIdToUser", fields: [administeredById], references: [id])
   Attendance                             Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -652,7 +650,6 @@ model Medication {
   StockItem                              StockItem?      @relation(fields: [stockItemId], references: [id])
   ServiceCatalog                         ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
 
-  // PERFORMANCE OPTIMIZATION: Composite index for attendance queries
   @@index([attendanceId, status])
   @@index([prescribedAt])
   @@index([stockItemId])
@@ -684,32 +681,56 @@ model Vitals {
   Patient    Patient    @relation(fields: [patientId], references: [id])
   User       User       @relation(fields: [recordedById], references: [id])
 
-  // PERFORMANCE OPTIMIZATION: Composite index for quick vitals lookup
   @@index([attendanceId, recordedAt])
   @@index([patientId, recordedAt])
   @@index([attendanceId])
   @@index([patientId])
 }
 
+model Ward {
+  id                    String   @id @default(cuid())
+  wardName              String
+  wardType              String
+  totalBeds             Int
+  occupiedBeds          Int      @default(0)
+  isNHISCovered         Boolean  @default(true)
+  nhisRequiresAuth      Boolean  @default(false)
+  isPrivateInsExempted  Boolean  @default(false)
+  isPending             Boolean  @default(true)
+  requiresAuthorization Boolean  @default(false)
+  tariffCode            String?
+  vatRate               Float    @default(0)
+  isTaxable             Boolean  @default(true)
+  dailyCashRate         Float    @default(0)
+  dailyNHISRate         Float    @default(0)
+  dailyInsuranceRate    Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  Attendance       Attendance[]
+  Bed              Bed[]
+  ServiceCatalog   ServiceCatalog[]
+  WardChargeRecord WardChargeRecord[]
+}
+
 // ============================================================
 // DIAGNOSIS & GDRG (NHIS Claims)
 // ============================================================
 
-// MDC (Major Diagnostic Categories) from NHIS manual
 enum GDRGMDC {
-  ASUR // Adult Surgery
-  DENT // Dental and Maxillofacial Surgery
-  ENTH // Ear, Nose and Throat Surgery
-  INVE // Investigations
-  MEDI // Medicine
-  OBGY // Obstetrics and Gynaecology
-  OPDC // OPD Consultation
-  OPHT // Ophthalmology
-  ORTH // Orthopaedics
-  PAED // Paediatrics
-  PSUR // Paediatric Surgery
-  RSUR // Reconstructive Surgery
-  ZOOM // Cross-MDC
+  ASUR
+  DENT
+  ENTH
+  INVE
+  MEDI
+  OBGY
+  OPDC
+  OPHT
+  ORTH
+  PAED
+  PSUR
+  RSUR
+  ZOOM
 }
 
 model GDRGTariff {
@@ -738,9 +759,7 @@ model GDRGTariff {
 
   diagnoses      GDRGTariffDiagnosis[]
   ServiceCatalog ServiceCatalog[]
-
-  // ✅ ADD THIS - opposite relation for procedures
-  procedures GDRGTariffProcedure[]
+  procedures     GDRGTariffProcedure[]
 
   @@index([gdrgCode])
   @@index([mdc])
@@ -768,7 +787,6 @@ model GDRGTariffDiagnosis {
 // ============================================================
 
 enum MorbidityGroup {
-  // Communicable Immunizable
   afp_polio
   meningitis
   neonatal_tetanus
@@ -778,8 +796,6 @@ enum MorbidityGroup {
   yellow_fever
   tetanus
   tuberculosis
-
-  // Communicable Non-Immunizable
   uncomplicated_malaria_suspected
   uncomplicated_malaria_tested
   uncomplicated_malaria_positive
@@ -808,8 +824,6 @@ enum MorbidityGroup {
   upper_respiratory_tract_infections
   pneumonia
   septicaemia
-
-  // Non-Communicable Diseases
   malnutrition
   obesity
   anaemia
@@ -828,8 +842,6 @@ enum MorbidityGroup {
   prostate_cancer
   hepatocellular_carcinoma
   all_other_cancers
-
-  // Mental Health
   schizophrenia
   acute_psychotic_disorder
   mono_symptoms_delusion
@@ -844,8 +856,6 @@ enum MorbidityGroup {
   generalized_anxiety
   other_anxiety_disorders
   neurosis
-
-  // Specialized Conditions
   acute_eye_infection
   cataract
   trachoma
@@ -862,21 +872,15 @@ enum MorbidityGroup {
   ulcer
   kidney_related_diseases
   other_oral_conditions
-
-  // Obstetrics & Gynaecological
   gynaecological_conditions
   pregnancy_related_complications
   anaemia_in_pregnancy
-
-  // Reproductive Tract
   gonorrhoea
   genital_ulcer
   vaginal_discharge
   urethral_discharge
   other_diseases_male_reproductive_system
   other_diseases_female_reproductive_system
-
-  // Injuries
   transport_injuries_road_traffic_accidents
   home_injuries
   occupational_industrial_injuries
@@ -891,8 +895,6 @@ enum MorbidityGroup {
   brought_in_dead
   other_animal_bites
   all_other_diseases
-
-  // Re-Attendances and Referrals
   re_attendances
   referrals
 }
@@ -912,7 +914,7 @@ model Diagnosis {
   updatedAt             DateTime       @updatedAt
 
   gdrgTariffDiagnoses GDRGTariffDiagnosis[]
-  attendanceDiagnoses AttendanceDiagnosis[] // ✅ This is all you need
+  attendanceDiagnoses AttendanceDiagnosis[]
   ServiceCatalog      ServiceCatalog[]
 
   @@index([icdCode])
@@ -923,12 +925,12 @@ model AttendanceDiagnosis {
   id                 String              @id @default(cuid())
   attendanceId       String
   diagnosisId        String
-  diagnosisType      DiagnosisType       @default(provisional) // primary, additional, provisional
+  diagnosisType      DiagnosisType       @default(provisional)
   notes              String?
   date               DateTime            @default(now())
   createdById        String
   icdCode            String?
-  presentOnAdmission PresentOnAdmission? // ✅ Keep this for admissions
+  presentOnAdmission PresentOnAdmission?
   createdAt          DateTime            @default(now())
 
   Attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -973,9 +975,8 @@ model Bill {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
-  // Relations
   CorporateAccount            CorporateAccount?  @relation("CorporateAccountBills", fields: [corporateAccountId], references: [id])
-  Admission                   Admission?         @relation(fields: [admissionId], references: [id])
+  admission                   Admission?         @relation(fields: [admissionId], references: [id])
   Attendance                  Attendance         @relation(fields: [attendanceId], references: [id])
   InsuranceProvider           InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
   Patient                     Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -1086,7 +1087,7 @@ model Payment {
 model InsuranceClaim {
   id                  String      @id @default(cuid())
   claimNumber         String      @unique
-  billId              String? // ← Already optional
+  billId              String?
   patientId           String
   attendanceId        String      @unique
   insuranceProviderId String
@@ -1124,9 +1125,7 @@ model InsuranceClaim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   Attendance                            Attendance        @relation(fields: [attendanceId], references: [id])
-  // ✅ FIX: Make Bill optional (add ?)
   Bill                                  Bill?             @relation(fields: [billId], references: [id], onDelete: Cascade)
   User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
@@ -1204,78 +1203,32 @@ model WardChargeRecord {
 }
 
 model Admission {
-  id                 String           @id @default(cuid())
-  admissionNumber    String           @unique
-  patientId          String
-  attendanceId       String?          @unique // ✅ Link to attendance
-  wardId             String
-  bedId              String
-  admissionDate      DateTime
-  admissionTime      String
-  admittingDoctor    String
-  reasonForAdmission String
-  diagnosis          String
-  status             String           @default("admitted")
-  dischargeDate      DateTime?
-  dischargeTime      String?
-  dischargeSummary   String?
-  dailyNotes         Json?
-  createdBy          String
-  admissionType      AdmissionType    @default(emergency)
-  admissionSource    AdmissionSource  @default(home)
+  id                 String         @id @default(cuid())
+  attendanceId       String         @unique
+  admissionNumber    String         @unique
+  
+  admissionType      AdmissionType  @default(emergency)
+  admissionSource    AdmissionSource @default(home)
   dischargeStatus    DischargeStatus?
-  lengthOfStay       Int              @default(0)
-
-  // ❌ REMOVE these fields - they're redundant
-  // primaryAttendanceDiagnosisId String?           
-  // principalIcdCode            String
-  // principalPresentOnAdmission PresentOnAdmission
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-
-  // Relations
-  Attendance      Attendance?      @relation(fields: [attendanceId], references: [id])
-  Bed             Bed              @relation(fields: [bedId], references: [id])
-  Patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  Ward            Ward             @relation(fields: [wardId], references: [id])
-  Bill            Bill[]
-  deliveryRecords DeliveryRecord[]
-
-  proformaInvoices ProformaInvoice[]
-
+  
+  admissionDate      DateTime       @default(now())
+  dischargeDate      DateTime?
+  
+  dailyNotes         Json?
+  
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  attendance         Attendance     @relation("AttendanceAdmission", fields: [attendanceId], references: [id], onDelete: Cascade)
+  
+  bills              Bill[]
+  deliveryRecords    DeliveryRecord[]
+  proformaInvoices   ProformaInvoice[]
+  
   @@index([admissionNumber])
-  @@index([patientId])
-  @@index([wardId])
-  @@index([status])
   @@index([admissionDate])
-}
-
-model Ward {
-  id                    String   @id @default(cuid())
-  wardName              String
-  wardType              String
-  totalBeds             Int
-  occupiedBeds          Int      @default(0)
-  isNHISCovered         Boolean  @default(true)
-  nhisRequiresAuth      Boolean  @default(false)
-  isPrivateInsExempted  Boolean  @default(false)
-  isPending             Boolean  @default(true)
-  requiresAuthorization Boolean  @default(false)
-  tariffCode            String?
-  vatRate               Float    @default(0)
-  isTaxable             Boolean  @default(true)
-  dailyCashRate         Float    @default(0)
-  dailyNHISRate         Float    @default(0)
-  dailyInsuranceRate    Float    @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  Admission        Admission[]
-  Attendance       Attendance[]
-  Bed              Bed[]
-  ServiceCatalog   ServiceCatalog[]
-  WardChargeRecord WardChargeRecord[]
+  @@index([dischargeDate])
+  @@map("admissions")
 }
 
 model Bed {
@@ -1287,7 +1240,6 @@ model Bed {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now())
 
-  Admission  Admission[]
   Attendance Attendance[]
   Patient    Patient?     @relation(fields: [currentPatientId], references: [id])
   Ward       Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
@@ -1303,7 +1255,7 @@ model ReferralRecord {
   id                   String         @id @default(cuid())
   referralNumber       String         @unique
   patientId            String
-  attendanceId         String?
+  attendanceId         String?        @unique
   referralType         ReferralType
   referralReason       String
   referralNotes        String?
@@ -1321,13 +1273,14 @@ model ReferralRecord {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  patient    Patient     @relation(fields: [patientId], references: [id])
   attendance Attendance? @relation(fields: [attendanceId], references: [id])
+  patient    Patient     @relation(fields: [patientId], references: [id])
   createdBy  User        @relation(fields: [createdById], references: [id])
 
   @@index([patientId])
   @@index([referralDate])
   @@index([status])
+  @@index([attendanceId])
   @@map("referral_records")
 }
 
@@ -1341,27 +1294,22 @@ model AntenatalBooking {
   attendanceId        String  @unique
   currentAttendanceId String? @unique
 
-  // Pregnancy dates
   bookingDate             DateTime
   lmp                     DateTime?
   edd                     DateTime?
   gestationalAgeWeeks     Int?
-  gestationalAgeAtBooking Int? // ✅ Add this if missing
+  gestationalAgeAtBooking Int?
 
-  // Obstetric history
   gravida               Int
   para                  Int
   previousCSection      Boolean @default(false)
   previousComplications String?
 
-  // ✅ ADD THESE FIELDS:
-  bloodGroup String? // Blood type (A+, A-, B+, B-, O+, O-, AB+, AB-)
-  hivStatus  String? // HIV status (Positive, Negative, Unknown)
-  hbLevel    Float? // Hemoglobin level at booking (g/dL)
-  vdrl       String? // VDRL/RPR syphilis test result (Reactive, Non-reactive)
-  // ✅ END ADDED FIELDS
+  bloodGroup String?
+  hivStatus  String?
+  hbLevel    Float?
+  vdrl       String?
 
-  // IPTp Tracking (GHS Form A)
   iptpDoses Json
   iptp1Date DateTime?
   iptp2Date DateTime?
@@ -1369,7 +1317,6 @@ model AntenatalBooking {
   iptp4Date DateTime?
   iptp5Date DateTime?
 
-  // TT Vaccination (GHS Form A)
   ttDoses Json
   tt1Date DateTime?
   tt2Date DateTime?
@@ -1377,41 +1324,33 @@ model AntenatalBooking {
   tt4Date DateTime?
   tt5Date DateTime?
 
-  // Malaria in Pregnancy
   malariaTested    Boolean @default(false)
   malariaPositive  Boolean @default(false)
   malariaTreatment String?
   malariaIPTpGiven Boolean @default(false)
 
-  // Anaemia
   hbBooking        Float?
   hb36Weeks        Float?
   anaemiaDiagnosed Boolean @default(false)
   ironFolateGiven  Boolean @default(false)
 
-  // ITN/LLIN
   itnGiven     Boolean   @default(false)
   itnGivenDate DateTime?
 
-  // Risk assessment
   riskLevel   AntenatalRisk
   riskFactors Json?
 
-  // Delivery outcome
   deliveryRecordId String?   @unique
   deliveryOutcome  String?
   deliveryDate     DateTime?
 
-  // Status
   isActive    Boolean @default(true)
   isCompleted Boolean @default(false)
 
-  // Audit
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   patient           Patient           @relation(fields: [patientId], references: [id])
   attendance        Attendance        @relation("FirstANCAttendance", fields: [attendanceId], references: [id])
   currentAttendance Attendance?       @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
@@ -1432,7 +1371,6 @@ model ANCVisit {
   attendanceId String @unique
   visitNumber  Int
 
-  // Visit data
   visitDate           DateTime
   gestationalAgeWeeks Int?
   weight              Float?
@@ -1442,50 +1380,40 @@ model ANCVisit {
   fetalMovements      Boolean?
   presentation        String?
 
-  // Oedema
   oedema      Boolean @default(false)
   oedemaGrade String?
 
-  // Urinalysis
   urinalysisProtein Boolean?
   urinalysisGlucose Boolean?
   urinalysisBlood   Boolean?
 
-  // IPTp at this visit
   iptpGiven      Boolean @default(false)
   iptpDoseNumber Int?
   iptpDrug       String?
 
-  // TT at this visit
   ttGiven      Boolean @default(false)
   ttDoseNumber Int?
 
-  // Supplements
   ironGiven    Boolean @default(false)
   folateGiven  Boolean @default(false)
   calciumGiven Boolean @default(false)
 
-  // Malaria screening
   malariaTestDone       Boolean @default(false)
   malariaTestResult     String?
   malariaTreatmentGiven Boolean @default(false)
 
-  // Danger signs
   dangerSignsPresent Boolean  @default(false)
   dangerSignsList    String[]
   referralMade       Boolean  @default(false)
   referredTo         String?
 
-  // Next visit
   nextVisitDate      DateTime?
   returnInstructions String?
 
-  // Audit
   recordedById String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relations
   booking    AntenatalBooking @relation(fields: [bookingId], references: [id])
   attendance Attendance       @relation(fields: [attendanceId], references: [id])
   recordedBy User             @relation(fields: [recordedById], references: [id])
@@ -1502,59 +1430,50 @@ model PostnatalRecord {
   examinationDate    DateTime @default(now())
   dayNumber          Int      @default(1)
 
-  // Maternal assessment
-  maternalCondition     String? // good, fair, poor, critical
+  maternalCondition     String?
   maternalComplications Json    @default("[]")
   bloodPressure         String?
   temperature           Float?
   pulse                 Int?
   fundalHeight          Int?
-  lochia                String? // normal, heavy, foul_smelling, scanty
-  perinealCondition     String? // intact, healing, infected, dehisced
-  caesareanWound        String? // healing, infected, dehisced
+  lochia                String?
+  perinealCondition     String?
+  caesareanWound        String?
 
-  // Breastfeeding
-  breastfeedingStatus       String? // exclusive, mixed, not_breastfeeding
+  breastfeedingStatus       String?
   breastfeedingDifficulties Json    @default("[]")
-  latching                  String? // good, fair, poor
+  latching                  String?
 
-  // Baby assessment
-  babyCondition    String? // good, fair, poor, critical
+  babyCondition    String?
   babyWeight       Float?
   babyTemperature  Float?
-  babyFeeding      String? // good, fair, poor
+  babyFeeding      String?
   jaundice         Boolean @default(false)
-  jaundiceSeverity String? // mild, moderate, severe
-  cordCondition    String? // dry, moist, infected
+  jaundiceSeverity String?
+  cordCondition    String?
 
-  // Immunizations
   bcgGiven   Boolean @default(false)
   opv0Given  Boolean @default(false)
   hepB0Given Boolean @default(false)
 
-  // Family Planning
   familyPlanningDiscussed      Boolean @default(false)
   familyPlanningMethodAccepted String?
 
-  // Danger signs
   maternalDangerSigns Json @default("[]")
   babyDangerSigns     Json @default("[]")
 
-  // Referrals
   referralMade   Boolean @default(false)
   referredTo     String?
   referralReason String?
 
-  // Next visit
   nextVisitDate DateTime?
-  nextVisitType String? // day_7, day_14, day_28, day_42, other
+  nextVisitType String?
 
   notes       String?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   attendance       Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   antenatalBooking AntenatalBooking? @relation(fields: [antenatalBookingId], references: [id])
@@ -1775,7 +1694,6 @@ model StockTransaction {
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
   StockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
 
-  // PERFORMANCE OPTIMIZATION: Indexes for stock queries and reports
   @@index([stockItemId, transactionDate])
   @@index([transactionType])
   @@index([transactionDate])
@@ -1851,10 +1769,10 @@ model Department {
 
 model Appointment {
   id                String            @id @default(cuid())
-  appointmentNumber String            @unique @default(uuid())
+  appointmentNumber String            @unique
   patientId         String
-  clinicianId       String? // Doctor, nurse, or midwife
-  clinicianRole     UserRole? // Store which role
+  clinicianId       String?
+  clinicianRole     UserRole?
   departmentId      String?
   title             String
   description       String?
@@ -1869,8 +1787,9 @@ model Appointment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   createdBy         String
-
-  // Relations
+  
+  attendance   Attendance?
+  
   clinician  User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
   patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -1908,7 +1827,6 @@ model Hospital {
   ghsDistrictCode         String?
   ghaHFCode               String?
 
-  // NHIS API Configuration for Real-time Eligibility Verification
   nhisApiBaseUrl             String?   @map("nhis_api_base_url")
   nhisApiClientId            String?   @map("nhis_api_client_id")
   nhisApiClientSecret        String?   @map("nhis_api_client_secret")
@@ -1942,12 +1860,11 @@ model User {
   licenseNumber  String?
   specialization String?
   isActive       Boolean  @default(true)
-  version        Int      @default(0) // Optimistic locking
+  version        Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   departmentId   String?
 
-  // Relations
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
   AttendanceDiagnosis                             AttendanceDiagnosis[]
@@ -1986,8 +1903,6 @@ model User {
   PreAuthorisationRequest_updated                 PreAuthorisationRequest[] @relation("PreAuth_updatedBy")
 
   refreshTokens RefreshToken[]
-
-  // ✅ CORRECT - Opposite relation for ClaimBatch (no fields argument needed)
   claimBatchesCreated ClaimBatch[]
 
   BillLineItem_voided      BillLineItem[]        @relation("BillLineItem_voidedBy")
@@ -2157,18 +2072,14 @@ model DeliveryRecord {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  // Foreign key for the reverse relation
   antenatalBookingId String?
 
-  // Relations
   patient    Patient    @relation(fields: [patientId], references: [id])
   attendance Attendance @relation(fields: [attendanceId], references: [id])
-  Admission  Admission? @relation(fields: [admissionId], references: [id])
+  admission  Admission? @relation(fields: [admissionId], references: [id])
   createdBy  User       @relation(fields: [createdById], references: [id])
 
-  // This side has NO fields/references arguments - just @relation()
   antenatalBooking AntenatalBooking? @relation()
-
   Newborn          NewbornRecord[]
   AbortionRecord   AbortionRecord?   @relation(fields: [abortionRecordId], references: [id])
   abortionRecordId String?
@@ -2219,105 +2130,237 @@ model AbortionRecord {
 }
 
 // ============================================================
-// GHS REPORTING ENUMS
+// PROFORMA INVOICES (Estimates for Private Patients)
 // ============================================================
 
-// In your schema.prisma file
+model ProformaInvoice {
+  id                 String                @id @default(cuid())
+  referenceNumber    String                @unique
+  patientId          String
+  attendanceId       String?               @unique
+  admissionId        String?
+  status             ProformaInvoiceStatus @default(DRAFT)
+  subtotal           Float                 @default(0)
+  discount           Float                 @default(0)
+  taxAmount          Float                 @default(0)
+  totalAmount        Float                 @default(0)
+  validityDays       Int                   @default(7)
+  expiresAt          DateTime?
+  notes              String?
+  termsAndConditions String?
+  createdById        String
+  approvedById       String?
+  approvedAt         DateTime?
+  convertedToBillId  String?               @unique
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
-enum GHSReportType {
-  opd_morbidity
-  opd_attendance // ✅ NEW - For OPD Attendance report
-  ipd_morbidity
-  idsr
-  form_a_morbidity
-  form_a_services
-  form_a_complete // ✅ NEW - For combined ANC + Delivery + Postnatal
-  malaria_data
-  monthly_summary
+  Attendance         Attendance?           @relation(fields: [attendanceId], references: [id])
+  admission          Admission?            @relation(fields: [admissionId], references: [id])
+  Patient            Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  User_createdBy     User                  @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
+  User_approvedBy    User?                 @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
+  Bill               Bill?                 @relation(fields: [convertedToBillId], references: [id])
+  items              ProformaInvoiceItem[]
+  CorporateAccount   CorporateAccount?     @relation(fields: [corporateAccountId], references: [id])
+  corporateAccountId String?
+
+  @@index([patientId])
+  @@index([status])
+  @@index([referenceNumber])
+  @@index([createdAt])
 }
 
-enum MalariaCommodityType {
-  asaq_below_1yr
-  asaq_1_5yrs
-  asaq_6_13yrs
-  asaq_14_plus
-  al_0_3yrs
-  al_4_8yrs
-  al_9_13yrs
-  al_14_plus
-  dhap_40_320mg
-  quinine_tablet
-  quinine_injection
-  artesunate_injection_30mg
-  artesunate_injection_60mg
-  artesunate_injection_120mg
-  arthemeter_injection_40mg
-  arthemeter_injection_80mg
-  rectal_artesunate_50mg
-  rectal_artesunate_200mg
-  rdt_kits
-  sp
+model ProformaInvoiceItem {
+  id                    String      @id @default(cuid())
+  proformaInvoiceId     String
+  serviceCatalogId      String?
+  description           String
+  serviceType           ServiceType
+  quantity              Int         @default(1)
+  unitPrice             Float
+  pricingBasis          PaymentMode
+  vatRate               Float       @default(0)
+  vatAmount             Float       @default(0)
+  totalPrice            Float
+  isInsuranceCovered    Boolean     @default(false)
+  insuranceCoverage     Float       @default(0)
+  patientResponsibility Float
+
+  proformaInvoice ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
+  serviceCatalog  ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
+
+  @@index([proformaInvoiceId])
 }
 
-enum DeliveryType {
-  spontaneous_vertex
-  assisted_breech
-  vacuum
-  forceps
-  caesarean_section
-  multiple
-}
-
-enum DeliveryOutcome {
-  live_birth
-  stillbirth_fresh
-  stillbirth_macerated
-  neonatal_death
-}
-
-enum PlaceOfDelivery {
-  hospital
-  health_centre
-  clinic
-  home
-  en_route
-}
-
-enum MaternalOutcome {
-  alive
-  dead_direct_cause
-  dead_indirect_cause
-  dead_unknown
-}
-
-enum NewbornOutcome {
-  alive
-  dead_within_24hrs
-  dead_1_7days
-  dead_8_28days
-  referred_out
-}
-
-enum AbortionType {
-  spontaneous
-  induced_safe
-  induced_unsafe
-  septic
-  incomplete
-  complete
-  missed
-  recurrent
-}
-
-enum AbortionMethod {
-  medical
-  surgical_d_and_c
-  surgical_mva
-  other
+enum ProformaInvoiceStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  CONVERTED
+  EXPIRED
 }
 
 // ============================================================
-// EXISTING ENUMS
+// SMS/WHATSAPP INTEGRATION (Extends Notification)
+// ============================================================
+
+model CommunicationChannel {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  provider  String
+  apiKey    String?
+  apiSecret String?
+  senderId  String?
+  isActive  Boolean  @default(false)
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templates CommunicationTemplate[]
+  logs      CommunicationLog[]
+
+  @@map("communication_channels")
+}
+
+model CommunicationTemplate {
+  id        String            @id @default(cuid())
+  channelId String
+  name      String
+  type      CommunicationType
+  subject   String?
+  body      String
+  variables Json?
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  channel CommunicationChannel @relation(fields: [channelId], references: [id])
+  logs    CommunicationLog[]
+
+  @@index([channelId])
+  @@index([type])
+  @@map("communication_templates")
+}
+
+model CommunicationLog {
+  id                String              @id @default(cuid())
+  channelId         String
+  templateId        String?
+  recipient         String
+  message           String
+  status            CommunicationStatus @default(PENDING)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  metadata          Json?
+  cost              Float?
+  providerMessageId String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  channel  CommunicationChannel   @relation(fields: [channelId], references: [id])
+  template CommunicationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([recipient])
+  @@index([status])
+  @@index([createdAt])
+  @@index([channelId])
+  @@map("communication_logs")
+}
+
+enum CommunicationType {
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CONFIRMATION
+  LAB_RESULT_READY
+  PRESCRIPTION_READY
+  PAYMENT_REMINDER
+  BILL_NOTIFICATION
+  WELCOME_MESSAGE
+  GENERAL_NOTIFICATION
+  CUSTOM
+}
+
+enum CommunicationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum CommunicationChannelType {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+// ============================================================
+// CORPORATE ACCOUNTS (Extended from Insurance)
+// ============================================================
+
+model CorporateAccount {
+  id                  String              @id @default(cuid())
+  companyName         String
+  registrationNumber  String?             @unique
+  taxId               String?
+  contactPerson       String
+  email               String
+  phone               String
+  address             String?
+  creditLimit         Float               @default(0)
+  currentBalance      Float               @default(0)
+  paymentTerms        Int                 @default(30)
+  discountPercentage  Float               @default(0)
+  isActive            Boolean             @default(true)
+  insuranceProviderId String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  bills               Bill[]              @relation("CorporateAccountBills")
+  insuranceProvider   InsuranceProvider?  @relation(fields: [insuranceProviderId], references: [id])
+  employees           CorporateEmployee[]
+  invoices            Invoice[]
+  proformaInvoices    ProformaInvoice[]
+  Attendance          Attendance[]
+  InsuranceClaim      InsuranceClaim[]
+
+  @@index([insuranceProviderId])
+  @@index([registrationNumber])
+  @@map("corporate_accounts")
+}
+
+model CorporateEmployee {
+  id             String    @id @default(cuid())
+  employeeId     String
+  firstName      String
+  lastName       String
+  otherNames     String?
+  dateOfBirth    DateTime?
+  gender         Gender?
+  phone          String?
+  email          String?
+  department     String?
+  position       String?
+  enrollmentDate DateTime  @default(now())
+  endDate        DateTime?
+  isActive       Boolean   @default(true)
+  accountId      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  account     CorporateAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+
+  @@unique([accountId, employeeId])
+  @@index([accountId])
+  @@map("corporate_employees")
+}
+
+// ============================================================
+// ENUMS (Keep all existing enums at the end)
 // ============================================================
 
 enum AdmissionType {
@@ -2775,232 +2818,106 @@ enum AntenatalRisk {
   high
 }
 
-// ============================================================
-// PROFORMA INVOICES (Estimates for Private Patients)
-// ============================================================
-
-model ProformaInvoice {
-  id                 String                @id @default(cuid())
-  referenceNumber    String                @unique
-  patientId          String
-  attendanceId       String?               @unique
-  admissionId        String?
-  status             ProformaInvoiceStatus @default(DRAFT)
-  subtotal           Float                 @default(0)
-  discount           Float                 @default(0)
-  taxAmount          Float                 @default(0)
-  totalAmount        Float                 @default(0)
-  validityDays       Int                   @default(7)
-  expiresAt          DateTime?
-  notes              String?
-  termsAndConditions String?
-  createdById        String
-  approvedById       String?
-  approvedAt         DateTime?
-  convertedToBillId  String?               @unique
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-
-  Attendance         Attendance?           @relation(fields: [attendanceId], references: [id])
-  Admission          Admission?            @relation(fields: [admissionId], references: [id])
-  Patient            Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  User_createdBy     User                  @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
-  User_approvedBy    User?                 @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
-  Bill               Bill?                 @relation(fields: [convertedToBillId], references: [id])
-  items              ProformaInvoiceItem[]
-  CorporateAccount   CorporateAccount?     @relation(fields: [corporateAccountId], references: [id])
-  corporateAccountId String?
-
-  @@index([patientId])
-  @@index([status])
-  @@index([referenceNumber])
-  @@index([createdAt])
+enum GHSReportType {
+  opd_morbidity
+  opd_attendance
+  ipd_morbidity
+  idsr
+  form_a_morbidity
+  form_a_services
+  form_a_complete
+  malaria_data
+  monthly_summary
 }
 
-model ProformaInvoiceItem {
-  id                    String      @id @default(cuid())
-  proformaInvoiceId     String
-  serviceCatalogId      String?
-  description           String
-  serviceType           ServiceType
-  quantity              Int         @default(1)
-  unitPrice             Float
-  pricingBasis          PaymentMode
-  vatRate               Float       @default(0)
-  vatAmount             Float       @default(0)
-  totalPrice            Float
-  isInsuranceCovered    Boolean     @default(false)
-  insuranceCoverage     Float       @default(0)
-  patientResponsibility Float
-
-  proformaInvoice ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
-  serviceCatalog  ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
-
-  @@index([proformaInvoiceId])
+enum MalariaCommodityType {
+  asaq_below_1yr
+  asaq_1_5yrs
+  asaq_6_13yrs
+  asaq_14_plus
+  al_0_3yrs
+  al_4_8yrs
+  al_9_13yrs
+  al_14_plus
+  dhap_40_320mg
+  quinine_tablet
+  quinine_injection
+  artesunate_injection_30mg
+  artesunate_injection_60mg
+  artesunate_injection_120mg
+  arthemeter_injection_40mg
+  arthemeter_injection_80mg
+  rectal_artesunate_50mg
+  rectal_artesunate_200mg
+  rdt_kits
+  sp
 }
 
-enum ProformaInvoiceStatus {
-  DRAFT
-  SENT
-  APPROVED
-  REJECTED
-  CONVERTED
-  EXPIRED
+enum DeliveryType {
+  spontaneous_vertex
+  assisted_breech
+  vacuum
+  forceps
+  caesarean_section
+  multiple
 }
 
-// ============================================================
-// SMS/WHATSAPP INTEGRATION (Extends Notification)
-// ============================================================
-
-model CommunicationChannel {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g., "SMS", "WhatsApp"
-  provider  String // e.g., "Twilio", "Hubtel", "mNotify"
-  apiKey    String?
-  apiSecret String?
-  senderId  String? // For SMS: short code, For WhatsApp: business number
-  isActive  Boolean  @default(false)
-  settings  Json? // Provider-specific configuration
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  templates CommunicationTemplate[]
-  logs      CommunicationLog[]
-
-  @@map("communication_channels")
+enum DeliveryOutcome {
+  live_birth
+  stillbirth_fresh
+  stillbirth_macerated
+  neonatal_death
 }
 
-model CommunicationTemplate {
-  id        String            @id @default(cuid())
-  channelId String
-  name      String // e.g., "appointment_reminder"
-  type      CommunicationType
-  subject   String? // For email
-  body      String // Template with placeholders {{patientName}}, {{date}}, etc.
-  variables Json? // List of required variables
-  isActive  Boolean           @default(true)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-
-  channel CommunicationChannel @relation(fields: [channelId], references: [id])
-  logs    CommunicationLog[]
-
-  @@index([channelId])
-  @@index([type])
-  @@map("communication_templates")
+enum PlaceOfDelivery {
+  hospital
+  health_centre
+  clinic
+  home
+  en_route
 }
 
-model CommunicationLog {
-  id                String              @id @default(cuid())
-  channelId         String
-  templateId        String?
-  recipient         String // Phone number or email
-  message           String
-  status            CommunicationStatus @default(PENDING)
-  sentAt            DateTime?
-  deliveredAt       DateTime?
-  readAt            DateTime?
-  failedAt          DateTime?
-  failureReason     String?
-  metadata          Json? // Additional data like appointmentId, patientId, etc.
-  cost              Float? // Cost of sending (for billing)
-  providerMessageId String? // Message ID from provider
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-
-  channel  CommunicationChannel   @relation(fields: [channelId], references: [id])
-  template CommunicationTemplate? @relation(fields: [templateId], references: [id])
-
-  @@index([recipient])
-  @@index([status])
-  @@index([createdAt])
-  @@index([channelId])
-  @@map("communication_logs")
+enum MaternalOutcome {
+  alive
+  dead_direct_cause
+  dead_indirect_cause
+  dead_unknown
 }
 
-enum CommunicationType {
-  APPOINTMENT_REMINDER
-  APPOINTMENT_CONFIRMATION
-  LAB_RESULT_READY
-  PRESCRIPTION_READY
-  PAYMENT_REMINDER
-  BILL_NOTIFICATION
-  WELCOME_MESSAGE
-  GENERAL_NOTIFICATION
-  CUSTOM
+enum NewbornOutcome {
+  alive
+  dead_within_24hrs
+  dead_1_7days
+  dead_8_28days
+  referred_out
 }
 
-enum CommunicationStatus {
-  PENDING
-  SENT
-  DELIVERED
-  READ
-  FAILED
+enum AbortionType {
+  spontaneous
+  induced_safe
+  induced_unsafe
+  septic
+  incomplete
+  complete
+  missed
+  recurrent
 }
 
-enum CommunicationChannelType {
-  SMS
-  WHATSAPP
-  EMAIL
+enum AbortionMethod {
+  medical
+  surgical_d_and_c
+  surgical_mva
+  other
 }
 
-// ============================================================
-// CORPORATE ACCOUNTS (Extended from Insurance)
-// ============================================================
+// Add these enums where your other enums are defined (near the top of the file)
 
-model CorporateAccount {
-  id                  String              @id @default(cuid())
-  companyName         String
-  registrationNumber  String?             @unique
-  taxId               String?
-  contactPerson       String
-  email               String
-  phone               String
-  address             String?
-  creditLimit         Float               @default(0)
-  currentBalance      Float               @default(0)
-  paymentTerms        Int                 @default(30) // days
-  discountPercentage  Float               @default(0)
-  isActive            Boolean             @default(true)
-  insuranceProviderId String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  bills               Bill[]              @relation("CorporateAccountBills")
-  insuranceProvider   InsuranceProvider?  @relation(fields: [insuranceProviderId], references: [id])
-  employees           CorporateEmployee[]
-  invoices            Invoice[]
-  proformaInvoices    ProformaInvoice[]
-  Attendance          Attendance[]
-  InsuranceClaim      InsuranceClaim[]
-
-  @@index([insuranceProviderId])
-  @@index([registrationNumber])
-  @@map("corporate_accounts")
+enum PatientClassification {
+  NEW
+  OLD
 }
 
-model CorporateEmployee {
-  id             String    @id @default(cuid())
-  employeeId     String
-  firstName      String
-  lastName       String
-  otherNames     String?
-  dateOfBirth    DateTime?
-  gender         Gender?
-  phone          String?
-  email          String?
-  department     String?
-  position       String?
-  enrollmentDate DateTime  @default(now())
-  endDate        DateTime?
-  isActive       Boolean   @default(true)
-  accountId      String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  account     CorporateAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  attendances Attendance[]
-
-  @@unique([accountId, employeeId])
-  @@index([accountId])
-  @@map("corporate_employees")
+enum DiagnosisClassification {
+  NEW_DIAGNOSIS
+  OLD_DIAGNOSIS
 }

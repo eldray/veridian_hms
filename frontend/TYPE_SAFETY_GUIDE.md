@@ -1,197 +1,141 @@
-# Type Safety Guidelines
-
-## Current Status
-The frontend store layer currently has **553 instances** of `: any` type annotations, which defeats TypeScript's type safety.
-
-## Problems with `any`
-
-1. **No Type Checking**: TypeScript won't catch errors
-2. **Poor IDE Support**: No autocomplete or IntelliSense
-3. **Runtime Errors**: Type mismatches only discovered at runtime
-4. **Maintenance Issues**: Hard to refactor safely
-
-## How to Fix
-
-### ❌ Bad - Using `any`
-```typescript
-interface PatientState {
-  loadPatients: (filters?: any) => Promise<void>;
-  addPatient: (data: FormData | any) => Promise<Patient>;
-}
-```
-
-### ✅ Good - Using Proper Types
-```typescript
-interface PatientFilters {
-  page?: number;
-  limit?: number;
-  search?: string;
-  gender?: Gender;
-  paymentMode?: PaymentMode;
-}
-
-interface PatientState {
-  loadPatients: (filters?: PatientFilters) => Promise<void>;
-  addPatient: (data: PatientCreateInput) => Promise<Patient>;
-}
-```
-
-## Common Patterns
-
-### 1. API Response Types
-```typescript
-// Instead of any
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  meta?: {
-    total: number;
-    page: number;
-    limit: number;
-  };
-}
-```
-
-### 2. Form Data Types
-```typescript
-interface PatientCreateInput {
-  folderNumber: string;
-  surname: string;
-  otherNames: string;
-  gender: Gender;
-  dateOfBirth: string;
-  contact: string;
-  address: string;
-  paymentMode?: PaymentMode;
-  insuranceDetails?: InsuranceDetails;
-}
-```
-
-### 3. Unknown vs Any
-If you truly don't know the type, use `unknown` instead of `any`:
-```typescript
-// Safer than any
-const data: unknown = await fetchData();
-
-// You must narrow the type before using
-if (typeof data === 'object' && data !== null && 'name' in data) {
-  console.log(data.name); // ✅ Safe
-}
-```
-
-## Migration Strategy
-
-### Phase 1: Identify Critical Stores
-Priority order based on usage:
-1. `patientStore.ts` - Most critical, highest usage
-2. `billingStore.ts` - Financial data, needs accuracy
-3. `authStore.ts` - Security sensitive
-4. `appointmentStore.ts` - Core functionality
-5. Others...
-
-### Phase 2: Create Type Definitions
-Add to `frontend/src/types/index.ts`:
-```typescript
-// Store-specific types
-export interface PatientFilters {
-  page?: number;
-  limit?: number;
-  search?: string;
-}
-
-export interface StorePagination {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-```
-
-### Phase 3: Incremental Replacement
-1. Pick one store file
-2. Replace all `any` with proper types
-3. Run TypeScript compiler: `npm run type-check`
-4. Fix any errors
-5. Commit changes
-6. Move to next store
-
-## Tools
-
-### Find All `any` Usages
-```bash
-# Count occurrences
-grep -rn ": any" frontend/src/store --include="*.ts" | wc -l
-
-# See locations
-grep -rn ": any" frontend/src/store --include="*.ts"
-```
-
-### TypeScript Strict Mode
-Ensure `tsconfig.json` has:
-```json
 {
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true
+  "name": "veridian",
+  "private": true,
+  "version": "0.0.0",
+  "main": "main.js",
+  "author": "Emmanuel Appiah <emk.appiah@gmail.com>",
+  "description": "Hospital Management System - A HMS app built with React and Electron",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:3000 && npm run electron\"",
+    "electron": "cross-env ELECTRON_DISABLE_SANDBOX=1 NODE_ENV=development electron main.js --no-sandbox",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:build": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@tailwindcss/vite": "^4.1.16",
+    "axios": "^1.12.2",
+    "chart.js": "^4.5.1",
+    "clsx": "^2.1.1",
+    "dexie": "^4.2.1",
+    "i18next": "^23.10.1",
+    "lucide-react": "^0.454.0",
+    "nanoid": "^5.1.6",
+    "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.1.1",
+    "react-hook-form": "^7.66.0",
+    "react-i18next": "^14.1.0",
+    "react-router-dom": "^7.9.4",
+    "react-select": "^5.10.2",
+    "react-use": "^17.6.0",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.3.1",
+    "zod": "^4.1.12",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.0.14",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^38.2.2",
+    "electron-builder": "^24.13.3",
+    "electron-updater": "^6.6.2",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.7",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.hospitalmanagement.app",
+    "productName": "Hospital Management",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.js",
+      "public/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "eldray",
+        "repo": "veridia_hms"
+      }
+    ]
   }
 }
-```
+  
 
-## Benefits of Fixing
 
-1. **Fewer Bugs**: Catch errors at compile time
-2. **Better DX**: Autocomplete and inline documentation
-3. **Easier Refactoring**: TypeScript helps you find all usages
-4. **Self-Documenting**: Types serve as documentation
-5. **Team Collaboration**: Clear contracts between components
 
-## Example Fix - Patient Store
 
-Before:
-```typescript
-loadPatients: (filters?: any) => Promise<void>;
-```
+  // vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite'
+import { resolve } from 'path';
 
-After:
-```typescript
-loadPatients: (filters?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  gender?: Gender;
-  paymentMode?: PaymentMode;
-}) => Promise<void>;
-```
-
-Or with named type:
-```typescript
-loadPatients: (filters?: PatientFilters) => Promise<void>;
-```
-
-## Checklist
-
-- [ ] Replace `any` in function parameters
-- [ ] Replace `any` in state properties
-- [ ] Replace `any` in return types
-- [ ] Use `unknown` for truly dynamic data
-- [ ] Add type guards for runtime validation
-- [ ] Enable strict mode in tsconfig
-- [ ] Add ESLint rule to prevent new `any` usage
-
-## ESLint Rule
-
-Add to `.eslintrc.json`:
-```json
-{
-  "rules": {
-    "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/no-unsafe-assignment": "warn",
-    "@typescript-eslint/no-unsafe-member-access": "warn",
-    "@typescript-eslint/no-unsafe-call": "warn"
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react(),tailwindcss()],
+  base: './',
+  server: {
+    host: 'localhost',
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+    hmr: {
+      clientPort: 3000,
+    },
+  },
+  define: {
+    'process.env': {}
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src')
+    }
   }
-}
-```
-
-This will warn whenever someone tries to use `any` in new code.
+});

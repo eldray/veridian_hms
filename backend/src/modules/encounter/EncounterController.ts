@@ -17,7 +17,6 @@ export class EncounterController {
   create = [
     body('patientId').notEmpty().withMessage('Patient ID is required'),
 
-    // ✅ ALIGNED: matches AttendanceType enum exactly
     body('attendanceType').isIn([
       'emergency_acute',
       'antenatal',
@@ -29,15 +28,12 @@ export class EncounterController {
       'general_consultation',
     ]).withMessage('Valid attendance type is required'),
 
-    // ✅ ALIGNED: matches PaymentMode enum exactly
     body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate'])
       .withMessage('Valid payment mode is required'),
 
-    // ✅ ALIGNED: matches Attendance.encounterCategory (EncounterCategory enum)
     body('encounterCategory').optional().isIn(['opd', 'ipd', 'daycase'])
       .withMessage('Valid encounter category is required'),
 
-    // ✅ ALIGNED: matches Attendance.visitCategory (VisitCategory enum)
     body('visitCategory').optional().isIn(['general', 'specialist', 'emergency', 'inpatient'])
       .withMessage('Valid visit category is required'),
 
@@ -57,7 +53,6 @@ export class EncounterController {
       return true;
     }),
 
-    // ✅ ALIGNED: clinical fields from Attendance model
     body('complaints').optional().isString(),
     body('medicalNotes').optional().isString(),
     body('historyPresentingComplaint').optional().isString(),
@@ -104,11 +99,9 @@ export class EncounterController {
     try {
       const filters = {
         patientId: req.query.patientId as string,
-        // ✅ ALIGNED: renamed from encounterType → attendanceType
         attendanceType: req.query.attendanceType as string,
         encounterCategory: req.query.encounterCategory as string,
         visitCategory: req.query.visitCategory as string,
-        // ✅ ALIGNED: matches AttendanceStatus enum
         status: req.query.status as 'pending' | 'completed' | 'cancelled' | 'admitted' | 'discharged' | undefined,
         paymentMode: req.query.paymentMode as 'cash' | 'nhis' | 'private_insurance' | 'corporate' | undefined,
         insuranceProviderId: req.query.insuranceProviderId as string,
@@ -137,11 +130,19 @@ export class EncounterController {
   // ============================================
   // GET ENCOUNTER BY ID
   // ============================================
+
   getById = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
+      console.log('🔍 getById called with id:', id);  // ✅ Add this debug log
+      
+      if (id === 'daycase') {
+        // This should never happen if routes are ordered correctly
+        console.error('❌ "daycase" being treated as ID - route order issue!');
+        return res.status(400).json({ message: 'Invalid encounter ID' });
+      }
+      
       const encounter = await this.service.getEncounterById(id);
-
       res.json({
         success: true,
         data: encounter,
@@ -154,7 +155,6 @@ export class EncounterController {
       });
     }
   };
-
   // ============================================
   // UPDATE ENCOUNTER
   // ============================================
@@ -214,7 +214,6 @@ export class EncounterController {
   // UPDATE ENCOUNTER STATUS
   // ============================================
   updateStatus = [
-    // ✅ ALIGNED: matches AttendanceStatus enum exactly
     body('status').isIn(['pending', 'completed', 'cancelled', 'admitted', 'discharged'])
       .withMessage('Valid status is required'),
 
@@ -250,11 +249,9 @@ export class EncounterController {
   // ============================================
   addDiagnosis = [
     body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
-    // ✅ ALIGNED: matches DiagnosisType enum
     body('diagnosisType').optional().isIn(['primary', 'additional', 'provisional'])
       .withMessage('Valid diagnosis type required'),
     body('notes').optional().isString(),
-    // ✅ ALIGNED: Attendance.AttendanceDiagnosis has presentOnAdmission (PresentOnAdmission enum)
     body('presentOnAdmission').optional().isIn(['Y', 'N', 'U'])
       .withMessage('Present on admission must be Y, N, or U'),
 
@@ -359,7 +356,6 @@ export class EncounterController {
   // ADD VITALS
   // ============================================
   addVitals = [
-    // ✅ ALIGNED: matches Vitals model fields exactly
     body('bloodPressure').optional().isString(),
     body('temperature').optional().isFloat(),
     body('pulse').optional().isInt(),
@@ -471,7 +467,6 @@ export class EncounterController {
     body('dosage').notEmpty().withMessage('Dosage is required'),
     body('frequency').notEmpty().withMessage('Frequency is required'),
     body('duration').notEmpty().withMessage('Duration is required'),
-    // ✅ ALIGNED: matches Medication model fields
     body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     body('route').optional().isString(),
     body('instructions').optional().isString(),
@@ -590,7 +585,6 @@ export class EncounterController {
   addLabTest = [
     body('templateId').notEmpty().withMessage('Lab test template ID is required'),
     body('serviceCatalogId').optional().isString(),
-    // ✅ ALIGNED: matches Priority enum
     body('priority').optional().isIn(['routine', 'urgent', 'stat'])
       .withMessage('Valid priority is required'),
     body('notes').optional().isString(),
@@ -636,7 +630,6 @@ export class EncounterController {
   // UPDATE LAB TEST STATUS
   // ============================================
   updateLabTestStatus = [
-    // ✅ ALIGNED: matches LabTestStatus enum exactly
     body('status').isIn(['requested', 'in_progress', 'completed', 'cancelled'])
       .withMessage('Valid status is required'),
     body('result').optional(),
@@ -705,7 +698,6 @@ export class EncounterController {
   addScan = [
     body('templateId').notEmpty().withMessage('Scan template ID is required'),
     body('serviceCatalogId').optional().isString(),
-    // ✅ ALIGNED: matches ScanPriority enum (only routine | urgent — no 'stat')
     body('priority').optional().isIn(['routine', 'urgent'])
       .withMessage('Valid priority is required'),
     body('notes').optional().isString(),
@@ -751,7 +743,6 @@ export class EncounterController {
   // UPDATE SCAN STATUS
   // ============================================
   updateScanStatus = [
-    // ✅ ALIGNED: matches ScanStatus enum exactly
     body('status').isIn(['requested', 'in_progress', 'completed', 'cancelled'])
       .withMessage('Valid status is required'),
     body('result').optional().isString(),
@@ -870,7 +861,6 @@ export class EncounterController {
   // UPDATE PROCEDURE STATUS
   // ============================================
   updateProcedureStatus = [
-    // ✅ ALIGNED: matches ProcedureStatus enum exactly
     body('status').isIn(['scheduled', 'completed', 'cancelled'])
       .withMessage('Valid status is required'),
     body('performedById').optional().isString(),
@@ -1088,6 +1078,241 @@ export class EncounterController {
       res.status(500).json({
         message: 'Error fetching encounter statistics',
         error: (error as Error).message,
+      });
+    }
+  };
+
+  // ============================================
+  // ADMISSION ROUTES (Formal IPD)
+  // ============================================
+
+  // CREATE FORMAL ADMISSION FROM IPD ENCOUNTER
+  createAdmission = [
+    body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
+    body('admissionType').optional().isIn(['emergency', 'elective', 'transfer']),
+    body('admissionSource').optional().isIn(['home', 'referral', 'another_facility', 'opd', 'emergency']),
+
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          res.status(400).json({ errors: errors.array() });
+          return;
+        }
+
+        const user = req.user;
+        if (!user) {
+          res.status(401).json({ message: 'User authentication required' });
+          return;
+        }
+
+        const admission = await this.service.createFormalAdmission(req.body, user.id);
+
+        res.status(201).json({
+          success: true,
+          data: admission,
+          message: 'Formal admission created successfully'
+        });
+      } catch (error) {
+        console.error('Error creating admission:', error);
+        res.status(500).json({
+          message: 'Error creating admission',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // GET ALL FORMAL ADMISSIONS
+  getAllAdmissions = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const {
+        status,
+        wardId,
+        dateFrom,
+        dateTo,
+        page = 1,
+        limit = 50
+      } = req.query;
+
+      const result = await this.service.getAllAdmissions({
+        status: status as any,
+        wardId: wardId as string,
+        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+        dateTo: dateTo ? new Date(dateTo as string) : undefined,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+
+      res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination
+      });
+    } catch (error) {
+      console.error('Error fetching admissions:', error);
+      res.status(500).json({
+        message: 'Error fetching admissions',
+        error: (error as Error).message
+      });
+    }
+  };
+
+  // ADD DAILY NOTES TO ADMISSION
+  addDailyNotes = [
+    body('notes').notEmpty().withMessage('Notes are required'),
+    body('noteType').optional().isString(),
+
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      try {
+        const { id } = req.params;
+        const user = req.user;
+
+        if (!user) {
+          res.status(401).json({ message: 'User authentication required' });
+          return;
+        }
+
+        const result = await this.service.addDailyNotes(id, req.body, user.id);
+
+        res.json({
+          success: true,
+          data: result.note,
+          message: 'Daily notes added successfully'
+        });
+      } catch (error) {
+        console.error('Error adding daily notes:', error);
+        res.status(500).json({
+          message: 'Error adding daily notes',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // DAYCASE/OBSERVATION ROUTES
+  // ============================================
+
+  // GET DAYCASE PATIENTS (Observation/Detention)
+  getDaycasePatients = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const {
+        status,
+        wardId,
+        page = 1,
+        limit = 50
+      } = req.query;
+
+      // Call the service method (not admissionService directly)
+      const result = await this.service.getDaycasePatients({
+        status: status as any,
+        wardId: wardId as string,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+
+      res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination
+      });
+    } catch (error) {
+      console.error('Error fetching daycase patients:', error);
+      res.status(500).json({
+        message: 'Error fetching daycase patients',
+        error: (error as Error).message
+      });
+    }
+  };
+
+  // CONVERT DAYCASE TO IPD
+  convertDaycaseToIPD = [
+    body('admissionType').optional().isIn(['emergency', 'elective', 'transfer']),
+
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      try {
+        const { id } = req.params;
+        const user = req.user;
+
+        if (!user) {
+          res.status(401).json({ message: 'User authentication required' });
+          return;
+        }
+
+        const admission = await this.service.convertDaycaseToIPD(id, req.body, user.id);
+
+        res.json({
+          success: true,
+          data: admission,
+          message: 'Daycase converted to IPD successfully'
+        });
+      } catch (error) {
+        console.error('Error converting daycase to IPD:', error);
+        res.status(500).json({
+          message: 'Error converting daycase to IPD',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // DISCHARGE ROUTES
+  // ============================================
+
+  // DISCHARGE FROM ENCOUNTER (IPD or Daycase)
+  dischargeEncounter = [
+    body('dischargeStatus').optional().isIn(['home', 'transfer', 'expired', 'against_medical_advice']),
+    body('dischargeDate').optional().isISO8601(),
+    body('dischargeSummary').optional().isString(),
+
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      try {
+        const { id } = req.params;
+        const user = req.user;
+
+        if (!user) {
+          res.status(401).json({ message: 'User authentication required' });
+          return;
+        }
+
+        const result = await this.service.dischargeFromEncounter(id, req.body, user.id);
+
+        res.json({
+          success: true,
+          message: result.message,
+          dischargeDate: result.dischargeDate
+        });
+      } catch (error) {
+        console.error('Error discharging patient:', error);
+        res.status(500).json({
+          message: 'Error discharging patient',
+          error: (error as Error).message
+        });
+      }
+    }
+  ];
+
+  // ============================================
+  // BED OCCUPANCY
+  // ============================================
+
+  // GET BED OCCUPANCY (All IPD + Daycase)
+  getBedOccupancy = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const occupants = await this.service.getBedOccupancy();
+
+      res.json({
+        success: true,
+        data: occupants.data,
+        summary: occupants.summary
+      });
+    } catch (error) {
+      console.error('Error fetching bed occupancy:', error);
+      res.status(500).json({
+        message: 'Error fetching bed occupancy',
+        error: (error as Error).message
       });
     }
   };

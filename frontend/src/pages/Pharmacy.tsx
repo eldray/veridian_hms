@@ -1,17 +1,11 @@
-// src/pages/DispenseMedication.tsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+// src/pages/DispenseMedication.tsx - Waiting List Page (UPDATED with UI Theme)
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useStockStore } from '../store/stockStore';
-import { useAuthStore } from '../store/authStore';
-import { useToast } from '../store/toastStore';
 import { useWorklistStore } from '../store/worklistStore';
-import { WorklistPanel } from '../components/worklist/WorklistPanel';
-import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
-import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
-import { useHospitalStore } from '../store/hospitalStore';
+import { useToast } from '../store/toastStore';
 import {
   ChevronLeft,
   Pill,
@@ -22,241 +16,70 @@ import {
   AlertCircle,
   User,
   TrendingUp,
-  X,
-  Plus,
-  FileText,
-  UserCircle,
-  Zap,
+  Search,
+  Clock,
+  AlertTriangle,
+  ChevronRight,
   Users,
+  Calendar,
+  Bed,
+  Eye,
+  Zap,
+  Filter
 } from 'lucide-react';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
 
-const getStatusBadge = (status: string) => {
-  const config: Record<string, { bg: string; text: string; label: string }> = {
-    prescribed:   { bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', label: 'Prescribed'   },
-    dispensed:    { bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]',  label: 'Dispensed'    },
-    administered: { bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]',   label: 'Administered' },
-    cancelled:    { bg: 'bg-[var(--icon-red-bg)]',    text: 'text-[var(--icon-red-text)]',    label: 'Cancelled'    },
-  };
-  const c = config[status] || config.prescribed;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.label}
-    </span>
-  );
+// Helper to calculate priority based on prescription age
+const getPriority = (prescribedAt: string): { level: 'high' | 'medium' | 'low'; color: string; label: string } => {
+  const hoursSince = (new Date().getTime() - new Date(prescribedAt).getTime()) / (1000 * 60 * 60);
+  
+  if (hoursSince > 24) {
+    return { level: 'high', color: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', label: 'HIGH' };
+  } else if (hoursSince > 12) {
+    return { level: 'medium', color: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', label: 'MEDIUM' };
+  }
+  return { level: 'low', color: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', label: 'LOW' };
 };
 
-// ── Panel Header ──────────────────────────────────────────────────────────────
-
-const PanelHeader: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  count?: number;
-  action?: React.ReactNode;
-}> = ({ icon, title, count, action }) => (
-  <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)] flex items-center justify-between flex-shrink-0">
-    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-      {icon}
-      {title}
-      {count !== undefined && count > 0 && (
-        <span className="ml-1 px-1.5 py-0.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full text-[10px] font-bold text-[var(--text-secondary)]">
-          {count}
-        </span>
-      )}
-    </h3>
-    {action}
-  </div>
-);
-
-// ── Dispense Quantity Modal ───────────────────────────────────────────────────
-
-const DispenseQuantityModal: React.FC<{
-  medication: any;
-  stockItem: any;
-  onConfirm: (quantity: number) => void;
-  onClose: () => void;
-  isProcessing: boolean;
-}> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
-  const [quantity, setQuantity] = useState(medication.quantity || 1);
-  const maxQuantity = stockItem?.currentStock || medication.quantity || 1;
-  const totalCost = (medication.unitCost || stockItem?.costPrice || 0) * quantity;
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        minHeight: '100vh',
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <div
-        className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] w-full"
-        style={{ maxWidth: 440 }}
-      >
-        {/* Modal header */}
-        <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
-          <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-            <Package className="w-4 h-4 text-[var(--icon-green-text)]" />
-            Dispense medication
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-[var(--bg-card)] rounded-lg transition-colors"
-          >
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Medication summary */}
-          <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
-            <p className="font-semibold text-[var(--text-primary)] text-sm">{medication.name}</p>
-            <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--text-secondary)]">
-              <span>{medication.dosage || 'As directed'}</span>
-              <span>·</span>
-              <span>{medication.frequency || 'As prescribed'}</span>
-              <span>·</span>
-              <span>{medication.duration || 'As needed'}</span>
-            </div>
-          </div>
-
-          {/* Quantity input */}
-          <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-              Quantity to dispense
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => {
-                  let val = parseInt(e.target.value);
-                  if (isNaN(val)) val = 1;
-                  val = Math.min(Math.max(val, 1), maxQuantity);
-                  setQuantity(val);
-                }}
-                min={1}
-                max={maxQuantity}
-                className="w-28 px-3 py-2 text-center text-lg font-bold bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
-              />
-              <span className="text-sm text-[var(--text-secondary)]">
-                Available:{' '}
-                <strong className="text-[var(--icon-green-text)]">{maxQuantity}</strong>{' '}
-                {stockItem?.unitOfMeasure || 'units'}
-              </span>
-            </div>
-          </div>
-
-          {medication.instructions && (
-            <p className="text-sm text-[var(--text-secondary)]">
-              <span className="font-medium text-[var(--text-primary)]">Instructions:</span>{' '}
-              {medication.instructions}
-            </p>
-          )}
-
-          {/* Cost summary */}
-          <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 border border-[var(--border-color)]">
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Unit cost:</span>
-              <span className="font-medium text-[var(--text-primary)]">
-                GHS {(medication.unitCost || stockItem?.costPrice || 0).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm mt-1">
-              <span className="text-[var(--text-secondary)]">Total cost:</span>
-              <span className="font-bold text-[var(--icon-green-text)]">
-                GHS {totalCost.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onConfirm(quantity)}
-              disabled={isProcessing}
-              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'var(--icon-green-text)' }}
-            >
-              {isProcessing ? (
-                <div
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-                />
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm dispense
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+// Stats Card Component
+const StatCard = ({ title, value, icon: Icon, color }: any) => (
+  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
+      </div>
+      <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center`}>
+        <Icon className="w-5 h-5" />
       </div>
     </div>
-  );
-};
-
-// ── Main page ─────────────────────────────────────────────────────────────────
+  </div>
+);
 
 export default function DispenseMedication() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { setDepartment, worklistItems, stats: worklistStats, fetchWorklist } = useWorklistStore();
 
-  const [isLoading, setIsLoading]                       = useState(true);
-  const [refreshing, setRefreshing]                     = useState(false);
-  const [showWorklist, setShowWorklist]                 = useState(false);
-  const [selectedPatientId, setSelectedPatientId]       = useState<string>('');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
-  const [dispensingId, setDispensingId]                 = useState<string | null>(null);
-  const [printingId, setPrintingId]                     = useState<string | null>(null);
-  const [isPrescribeModalOpen, setIsPrescribeModalOpen] = useState(false);
-  const [dispenseModal, setDispenseModal]               = useState<{
-    isOpen: boolean;
-    medication: any;
-    stockItem: any;
-  }>({ isOpen: false, medication: null, stockItem: null });
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-  const hasLoaded = useRef(false);
-  const { hospital } = useHospitalStore();
-
-  const {
-    attendances,
-    getAttendances,
-    updateMedicationStatus,
-    canAddMedicalEntries,
-    getAttendance,
-    calculateBill,
-  } = useAttendanceStore();
-
-  const { patients, loadPatients }   = usePatientStore();
+  const { attendances, getAttendances } = useAttendanceStore();
+  const { patients, loadPatients } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
-  const { user }                      = useAuthStore();
 
-  // ── Data loading ────────────────────────────────────────────────────────────
-
-  const loadData = async (force = false) => {
-    if (!force && hasLoaded.current) return;
+  const loadData = async () => {
     try {
       setRefreshing(true);
       setIsLoading(true);
       await Promise.all([loadPatients(), getAttendances(), getStockItems()]);
-      hasLoaded.current = true;
+      // Load pharmacy worklist
+      await fetchWorklist('pharmacy');
       success('Data loaded', 'Dispensing ready');
     } catch (err: any) {
       toastError('Load failed', err.message || 'Could not load data');
@@ -266,210 +89,110 @@ export default function DispenseMedication() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
-
-  // ── Derived data ────────────────────────────────────────────────────────────
-
-  const patientAttendances = useMemo(() => {
-    if (!selectedPatientId || !attendances.length) return [];
-    return attendances.filter((attendance) => {
-      const ids = [
-        attendance.patientId,
-        attendance.patient?.id,
-        attendance.patient?._id,
-        attendance.data?.patientId,
-      ]
-        .filter(Boolean)
-        .map((id) => id?.toString())
-        .filter((id) => id && id !== 'undefined');
-      return ids.includes(selectedPatientId);
-    });
-  }, [attendances, selectedPatientId]);
-
-  const selectedPatient    = patients.find((p) => getEntityId(p) === selectedPatientId);
-  const selectedAttendance = patientAttendances.find((a) => getEntityId(a) === selectedAttendanceId);
-
   useEffect(() => {
-    setSelectedAttendanceId('');
-    setDispensingId(null);
-  }, [selectedPatientId]);
+    loadData();
+  }, []);
 
-  const canDispatch  = selectedAttendance && ['pending', 'admitted'].includes(selectedAttendance.status);
-  const canPrescribe = selectedAttendance && ['pending', 'admitted'].includes(selectedAttendance.status);
-
-  const allMedications = (selectedAttendance?.Medication || []).map((med: any) => ({
-    id:              med.id,
-    name:            med.name,
-    dosage:          med.dosage,
-    frequency:       med.frequency,
-    duration:        med.duration,
-    quantity:        med.quantity || 0,
-    route:           med.route,
-    instructions:    med.instructions,
-    status:          med.status,
-    prescribedAt:    med.prescribedAt,
-    dispensedAt:     med.dispensedAt,
-    stockItemId:     med.stockItemId,
-    unitCost:        med.dispensedUnitCost,
-    prescribedBy:    med.prescribedBy?.fullName || med.prescribedBy || 'Unknown',
-    prescribedById:  med.prescribedById,
-    notes:           med.notes,
-    dispensedUnitCost: med.dispensedUnitCost,
-    dispensedBy:     med.dispensedBy,
-  }));
-
-  const prescribedMeds = allMedications.filter((m: any) => m.status === 'prescribed');
-  const dispensedMeds  = allMedications.filter((m: any) => m.status === 'dispensed');
-
-  const sortedPrescribedMeds = [...prescribedMeds].sort(
-    (a: any, b: any) => new Date(a.prescribedAt).getTime() - new Date(b.prescribedAt).getTime()
-  );
-  const sortedDispensedMeds = [...dispensedMeds].sort(
-    (a: any, b: any) => new Date(b.dispensedAt).getTime() - new Date(a.dispensedAt).getTime()
-  );
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
-
-  const handleClearSelection = () => {
-    setSelectedPatientId('');
-    setSelectedAttendanceId('');
-    setDispensingId(null);
-    setDispenseModal({ isOpen: false, medication: null, stockItem: null });
-  };
-
-  const handleRefresh = () => loadData(true);
-
-  const handleDispenseClick = (medication: any) => {
-    const stockItem = stockItems.find((s) => s.id === medication.stockItemId);
-    if (!stockItem || stockItem.currentStock < 1) {
-      toastError('Low stock', `Only ${stockItem?.currentStock || 0} available`);
-      return;
-    }
-    setDispenseModal({ isOpen: true, medication, stockItem });
-  };
-
-  const handleConfirmDispense = async (quantity: number) => {
-    const { medication, stockItem } = dispenseModal;
-    if (!selectedAttendanceId || !medication) return;
-    if (!canDispatch) {
-      toastError('Cannot dispense', 'Attendance must be active or pending');
-      setDispenseModal({ isOpen: false, medication: null, stockItem: null });
-      return;
-    }
-
-    setDispensingId(medication.id);
-    try {
-      await updateMedicationStatus(selectedAttendanceId, medication.id, {
-        status:            'dispensed',
-        dispensedAt:       new Date().toISOString(),
-        dispensedById:     user?.id,
-        quantity,
-        dispensedUnitCost: stockItem?.costPrice || medication.unitCost || 0,
-        batchNumber:       stockItem?.batchNumber || null,
+  // Find patients with prescribed medications (not dispensed)
+  const waitingPatients = useMemo(() => {
+    const patientMap = new Map();
+    
+    for (const attendance of attendances) {
+      const medications = attendance.Medication || [];
+      const prescribedMeds = medications.filter((m: any) => m.status === 'prescribed');
+      
+      if (prescribedMeds.length === 0) continue;
+      
+      const patient = patients.find(p => getEntityId(p) === attendance.patientId);
+      if (!patient) continue;
+      
+      const oldestPrescription = prescribedMeds.reduce((oldest: any, m: any) => {
+        const date = new Date(m.prescribedAt);
+        return date < new Date(oldest) ? date : oldest;
+      }, prescribedMeds[0]?.prescribedAt);
+      
+      // Calculate waiting hours
+      const waitingHours = Math.floor((new Date().getTime() - new Date(oldestPrescription).getTime()) / (1000 * 60 * 60));
+      
+      const priority = getPriority(oldestPrescription);
+      
+      patientMap.set(patient.id, {
+        id: patient.id,
+        name: `${patient.surname} ${patient.otherNames}`,
+        folderNumber: patient.folderNumber,
+        age: patient.age || 'N/A',
+        gender: patient.gender || 'N/A',
+        bedNumber: attendance.bed?.bedNumber,
+        wardName: attendance.ward?.wardName,
+        attendanceId: attendance.id,
+        prescriptionCount: prescribedMeds.length,
+        oldestPrescription: new Date(oldestPrescription).toLocaleDateString(),
+        waitingHours,
+        priority,
+        medications: prescribedMeds
       });
-      success(medication.name, `Dispensed ${quantity} unit(s) successfully`);
-      await Promise.all([
-        getAttendances(),
-        getStockItems(),
-        getAttendance(selectedAttendanceId),
-        calculateBill(selectedAttendanceId),
-      ]);
-    } catch (err: any) {
-      toastError('Dispense failed', err.response?.data?.message || err.message);
-    } finally {
-      setDispensingId(null);
-      setDispenseModal({ isOpen: false, medication: null, stockItem: null });
     }
+    
+    return Array.from(patientMap.values());
+  }, [attendances, patients]);
+
+  // Filter patients by search
+  const filteredPatients = useMemo(() => {
+    if (!searchQuery) return waitingPatients;
+    const lower = searchQuery.toLowerCase();
+    return waitingPatients.filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      p.folderNumber.toLowerCase().includes(lower)
+    );
+  }, [waitingPatients, searchQuery]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+  const paginatedPatients = filteredPatients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Stats from worklist + local data
+  const stats = {
+    toDispense: waitingPatients.reduce((sum, p) => sum + p.prescriptionCount, 0),
+    totalPatients: waitingPatients.length,
+    urgent: waitingPatients.filter(p => p.priority.level === 'high').length,
+    critical: waitingPatients.filter(p => p.waitingHours > 48).length,
+    lowStockItems: stockItems.filter(s => s.currentStock < (s.reorderLevel || 10)).length
   };
 
-  const calculateAge = (dateOfBirth: string): number => {
-    if (!dateOfBirth) return 0;
-    const today     = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age         = today.getFullYear() - birthDate.getFullYear();
-    const mo        = today.getMonth() - birthDate.getMonth();
-    if (mo < 0 || (mo === 0 && today.getDate() < birthDate.getDate())) age--;
-    return age;
+  const handlePatientClick = (patient: any) => {
+    navigate(`/dashboard/dispense/${patient.id}`, {
+      state: { 
+        patient,
+        attendanceId: patient.attendanceId,
+        prescriptions: patient.medications
+      }
+    });
   };
 
-  const handlePrintPrescription = async (medication?: any) => {
-    if (!selectedAttendanceId || !selectedPatient || !selectedAttendance) {
-      toastError('Error', 'Missing required information');
-      return;
-    }
-    const medsToPrint = medication ? [medication] : prescribedMeds;
-    if (medsToPrint.length === 0) {
-      toastError('No prescriptions', 'No medications to print');
-      return;
-    }
-    setPrintingId(medication?.id || 'all');
-    try {
-      const medicationsData = medsToPrint.map((med: any) => ({
-        name:         med.name,
-        dosage:       med.dosage || 'As directed',
-        frequency:    med.frequency || 'As prescribed',
-        duration:     med.duration || 'As needed',
-        quantity:     med.quantity || 1,
-        route:        med.route || 'oral',
-        instructions: med.instructions,
-        notes:        med.notes,
-        prescribedAt: med.prescribedAt || new Date().toISOString(),
-      }));
-      const htmlContent = generatePDF(
-        'combinedPrescription',
-        {
-          medications: medicationsData,
-          patient: {
-            ...selectedPatient,
-            fullName: `${selectedPatient.surname} ${selectedPatient.otherNames}`,
-            age:      calculateAge(selectedPatient.dateOfBirth),
-          },
-          attendance:    selectedAttendance,
-          prescriberName: user?.fullName || 'Unknown',
-        },
-        hospital
-      );
-      openPrintWindow(htmlContent, `Prescription_${selectedPatient.folderNumber}`);
-      success('Prescription ready', 'Print window opened');
-    } catch {
-      toastError('Print failed', 'Could not generate prescription');
-    } finally {
-      setPrintingId(null);
+  // Handle worklist item click (from the sidebar/queue)
+  const handleWorklistItemClick = (item: any) => {
+    const patient = waitingPatients.find(p => p.id === item.patientId);
+    if (patient) {
+      handlePatientClick(patient);
     }
   };
-
-  const handlePrescribeSuccess = async () => {
-    setIsPrescribeModalOpen(false);
-    await Promise.all([
-      getAttendances(),
-      getAttendance(selectedAttendanceId),
-      calculateBill(selectedAttendanceId),
-    ]);
-    success('Medication prescribed', 'Prescription added successfully');
-  };
-
-  // ── Loading state ────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-          <div
-            className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-3"
-            style={{ borderColor: 'var(--icon-green-text)', borderTopColor: 'transparent' }}
-          />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading pharmacy…</h2>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Please wait</p>
+        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Pharmacy...</h2>
         </div>
       </div>
     );
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-
   return (
-    <div className="space-y-5 p-6">
-
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -477,46 +200,31 @@ export default function DispenseMedication() {
             onClick={() => navigate('/dashboard')}
             className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
           >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-primary)]" />
+            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--icon-green-bg)' }}
-          >
-            <Pill className="w-4 h-4" style={{ color: 'var(--icon-green-text)' }} />
+          <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center">
+            <Pill className="w-5 h-5 text-[var(--icon-green-text)]" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Medication Dispensing</h1>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              Dispense, manage, and print prescriptions
-            </p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Medication Dispensing</h1>
+            <p className="text-sm text-[var(--text-secondary)]">View waiting list and dispense medications</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              setShowWorklist(true);
+              setDepartment('pharmacy');
+              fetchWorklist('pharmacy');
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm shadow-md"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all text-sm"
           >
             <Users className="w-4 h-4" />
-            <span>Today's Queue</span>
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-              {useWorklistStore.getState().stats.total > 0 ? useWorklistStore.getState().stats.total : ''}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => navigate('/dashboard/medical-entries')}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <FileText className="w-4 h-4" />
-            Medical entries
+            Today's Queue ({worklistStats.total})
           </button>
           <button
-            onClick={handleRefresh}
+            onClick={loadData}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -524,519 +232,168 @@ export default function DispenseMedication() {
         </div>
       </div>
 
-      {/* Patient & Attendance Selector */}
-      <PatientAttendanceSelector
-        patients={patients}
-        attendances={attendances}
-        selectedPatientId={selectedPatientId}
-        selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={setSelectedPatientId}
-        onAttendanceSelect={setSelectedAttendanceId}
-        onClearSelection={handleClearSelection}
-        placeholder="Select a visit to dispense medications…"
-      />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard 
+          title="To Dispense" 
+          value={stats.toDispense} 
+          icon={Pill}
+          color="bg-[var(--icon-purple-bg)]"
+        />
+        <StatCard 
+          title="Patients Waiting" 
+          value={stats.totalPatients} 
+          icon={Users}
+          color="bg-[var(--icon-cyan-bg)]"
+        />
+        <StatCard 
+          title="Urgent" 
+          value={stats.urgent} 
+          icon={AlertTriangle}
+          color="bg-[var(--icon-yellow-bg)]"
+        />
+        <StatCard 
+          title="Critical Wait" 
+          value={stats.critical} 
+          icon={AlertCircle}
+          color="bg-[var(--icon-red-bg)]"
+        />
+      </div>
 
-      {/* Patient / visit info strip */}
-      {selectedPatient && selectedAttendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--icon-green-bg)' }}
-              >
-                <User className="w-4 h-4" style={{ color: 'var(--icon-green-text)' }} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-[var(--text-primary)] text-sm">
-                    {selectedPatient.surname} {selectedPatient.otherNames}
-                  </h3>
-                  <span className="text-xs text-[var(--text-secondary)] capitalize">
-                    {selectedPatient.gender} · {selectedPatient.age || '?'}y
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <span
-                    className="font-mono text-[10px] px-1.5 py-0.5 rounded border"
-                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-                  >
-                    #{selectedPatient.folderNumber}
-                  </span>
-                  <span>·</span>
-                  <span>{selectedPatient.contact}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="text-xs font-mono px-2.5 py-1 rounded-full border"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
-              >
-                {selectedAttendance.attendanceNumber || 'New Visit'}
-              </span>
-              <span
-                className="text-xs px-2.5 py-1 rounded-full border"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
-              >
-                {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt || '').toLocaleDateString()}
-              </span>
-              {getStatusBadge(selectedAttendance.status)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats cards */}
-      {selectedAttendance && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            {
-              icon: Pill,
-              value: prescribedMeds.length,
-              label: 'To dispense',
-              bg:    'bg-[var(--icon-purple-bg)]',
-              color: 'text-[var(--icon-purple-text)]',
-            },
-            {
-              icon: CheckCircle,
-              value: dispensedMeds.length,
-              label: 'Dispensed',
-              bg:    'bg-[var(--icon-green-bg)]',
-              color: 'text-[var(--icon-green-text)]',
-            },
-            {
-              icon: Printer,
-              value: prescribedMeds.length,
-              label: 'Ready to print',
-              bg:    'bg-[var(--icon-cyan-bg)]',
-              color: 'text-[var(--icon-cyan-text)]',
-            },
-            {
-              icon: TrendingUp,
-              value:
-                allMedications.length > 0
-                  ? `${Math.round((dispensedMeds.length / allMedications.length) * 100)}%`
-                  : '0%',
-              label: 'Completion',
-              bg:    'bg-[var(--icon-yellow-bg)]',
-              color: 'text-[var(--icon-yellow-text)]',
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)]"
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-[var(--text-primary)]">{stat.value}</p>
-                  <p className="text-[10px] text-[var(--text-secondary)]">{stat.label}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Quick actions */}
-      {selectedAttendance && canPrescribe && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setIsPrescribeModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-            style={{ background: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' }}
-          >
-            <Plus className="w-4 h-4" />
-            Prescribe medication
-          </button>
-          {prescribedMeds.length > 0 && (
-            <button
-              onClick={() => handlePrintPrescription()}
-              disabled={printingId === 'all'}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
-            >
-              <Printer className="w-4 h-4" />
-              Print all prescriptions
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Read-only warning */}
-      {selectedAttendance &&
-        !canDispatch &&
-        !['pending', 'admitted'].includes(selectedAttendance.status) && (
-          <div
-            className="flex items-center gap-2 px-4 py-3 rounded-xl border text-sm"
-            style={{
-              background:   'var(--icon-yellow-bg)',
-              borderColor:  'var(--border-color)',
-              color:        'var(--icon-yellow-text)',
-            }}
-          >
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <p>
-              This visit is{' '}
-              <strong>{selectedAttendance.status}</strong>. Medications can be viewed but
-              not dispensed.
-            </p>
-          </div>
-        )}
-
-      {/* ── Main content ────────────────────────────────────────────────────── */}
-
-      {selectedAttendance ? (
-        <div className="space-y-5">
-
-          {/* DISPENSED panel — top */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <PanelHeader
-              icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
-              title="Dispensed medications"
-              count={dispensedMeds.length}
-            />
-
-            {sortedDispensedMeds.length === 0 ? (
-              <div className="p-8 text-center">
-                <CheckCircle
-                  className="w-8 h-8 mx-auto mb-2"
-                  style={{ color: 'var(--text-tertiary)' }}
-                />
-                <p className="text-sm text-[var(--text-secondary)]">No medications dispensed yet</p>
-                {prescribedMeds.length > 0 && (
-                  <p className="text-xs mt-1" style={{ color: 'var(--icon-yellow-text)' }}>
-                    {prescribedMeds.length} prescription(s) awaiting dispensing
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto" style={{ maxHeight: 400, overflowY: 'auto' }}>
-                <table className="w-full text-xs">
-                  <thead
-                    className="sticky top-0 border-b border-[var(--border-color)]"
-                    style={{ background: 'var(--bg-main)' }}
-                  >
-                    <tr>
-                      {[
-                        'Medication', 'Dosage', 'Frequency',
-                        'Qty dispensed', 'Unit cost', 'Total',
-                        'Dispensed date', 'Dispensed by', 'Actions',
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-color)]">
-                    {sortedDispensedMeds.map((med: any) => {
-                      const total = (med.dispensedUnitCost || 0) * (med.quantity || 1);
-                      return (
-                        <tr
-                          key={med.id}
-                          className="hover:bg-[var(--bg-main)] transition-colors"
-                        >
-                          <td className="px-4 py-2 font-medium text-[var(--text-primary)]">
-                            {med.name}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.dosage || '—'}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.frequency || '—'}
-                          </td>
-                          <td className="px-4 py-2 font-semibold text-[var(--icon-green-text)]">
-                            {med.quantity || 1}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            GHS {(med.dispensedUnitCost || 0).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            GHS {total.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                            {med.dispensedAt
-                              ? new Date(med.dispensedAt).toLocaleString()
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.dispensedBy?.fullName || '—'}
-                          </td>
-                          <td className="px-4 py-2 text-center">
-                            <button
-                              onClick={() => handlePrintPrescription(med)}
-                              disabled={printingId === med.id}
-                              className="p-1 rounded transition-colors hover:bg-[var(--icon-purple-bg)]"
-                              style={{ color: 'var(--icon-purple-text)' }}
-                              title="Print prescription"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* PRESCRIBED panel — bottom */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <PanelHeader
-              icon={<Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />}
-              title="Prescribed medications"
-              count={prescribedMeds.length}
-              action={
-                canPrescribe ? (
-                  <button
-                    onClick={() => setIsPrescribeModalOpen(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:opacity-80"
-                    style={{
-                      background: 'var(--icon-purple-bg)',
-                      color:      'var(--icon-purple-text)',
-                    }}
-                  >
-                    <Plus className="w-3 h-3" />
-                    Prescribe
-                  </button>
-                ) : undefined
-              }
-            />
-
-            {sortedPrescribedMeds.length === 0 ? (
-              <div className="p-8 text-center">
-                <Pill
-                  className="w-8 h-8 mx-auto mb-2"
-                  style={{ color: 'var(--text-tertiary)' }}
-                />
-                <p className="text-sm text-[var(--text-secondary)]">No medications prescribed</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto" style={{ maxHeight: 400, overflowY: 'auto' }}>
-                <table className="w-full text-xs">
-                  <thead
-                    className="sticky top-0 border-b border-[var(--border-color)]"
-                    style={{ background: 'var(--bg-main)' }}
-                  >
-                    <tr>
-                      {[
-                        'Medication', 'Dosage', 'Frequency', 'Duration',
-                        'Quantity', 'Stock', 'Prescribed by', 'Prescribed on', 'Actions',
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-color)]">
-                    {sortedPrescribedMeds.map((med: any) => {
-                      const stockItem      = stockItems.find((s) => s.id === med.stockItemId);
-                      const stockAvailable = stockItem?.currentStock || 0;
-                      const hasStock       = stockAvailable >= (med.quantity || 1);
-                      const isLowStock     = stockAvailable > 0 && stockAvailable < (med.quantity || 1);
-
-                      return (
-                        <tr
-                          key={med.id}
-                          className="hover:bg-[var(--bg-main)] transition-colors"
-                        >
-                          <td className="px-4 py-2">
-                            <div className="font-medium text-[var(--text-primary)]">{med.name}</div>
-                            {med.instructions && (
-                              <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
-                                {med.instructions}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.dosage || '—'}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.frequency || '—'}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {med.duration || '—'}
-                          </td>
-                          <td className="px-4 py-2 font-medium text-[var(--text-primary)]">
-                            {med.quantity || 1}
-                          </td>
-                          <td className="px-4 py-2">
-                            {stockItem ? (
-                              <div className="flex items-center gap-1">
-                                <span
-                                  style={{
-                                    color: hasStock
-                                      ? 'var(--icon-green-text)'
-                                      : isLowStock
-                                      ? 'var(--icon-yellow-text)'
-                                      : 'var(--icon-red-text)',
-                                  }}
-                                >
-                                  {stockAvailable}
-                                </span>
-                                <span className="text-[10px] text-[var(--text-secondary)]">
-                                  {stockItem.unitOfMeasure || 'units'}
-                                </span>
-                              </div>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                              <UserCircle className="w-3 h-3 flex-shrink-0" />
-                              <span>{med.prescribedBy || 'Unknown'}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)] whitespace-nowrap">
-                            {med.prescribedAt
-                              ? new Date(med.prescribedAt).toLocaleString()
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center justify-center gap-1">
-                              {/* Print button */}
-                              <button
-                                onClick={() => handlePrintPrescription(med)}
-                                disabled={printingId === med.id}
-                                className="p-1 rounded transition-colors hover:bg-[var(--icon-purple-bg)]"
-                                style={{ color: 'var(--icon-purple-text)' }}
-                                title="Print prescription"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Dispense — has enough stock */}
-                              {canDispatch && hasStock && (
-                                <button
-                                  onClick={() => handleDispenseClick(med)}
-                                  disabled={dispensingId === med.id}
-                                  className="px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1 hover:opacity-80 disabled:opacity-50"
-                                  style={{
-                                    background: 'var(--icon-green-bg)',
-                                    color:      'var(--icon-green-text)',
-                                  }}
-                                >
-                                  {dispensingId === med.id ? (
-                                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <>
-                                      <Zap className="w-3 h-3" />
-                                      Dispense
-                                    </>
-                                  )}
-                                </button>
-                              )}
-
-                              {/* Dispense — low stock */}
-                              {canDispatch && isLowStock && (
-                                <button
-                                  onClick={() => handleDispenseClick(med)}
-                                  disabled={dispensingId === med.id}
-                                  className="px-2 py-1 rounded text-xs font-medium transition-all hover:opacity-80 disabled:opacity-50"
-                                  style={{
-                                    background: 'var(--icon-yellow-bg)',
-                                    color:      'var(--icon-yellow-text)',
-                                  }}
-                                >
-                                  Dispense ({stockAvailable} left)
-                                </button>
-                              )}
-
-                              {/* Out of stock */}
-                              {canDispatch && stockAvailable === 0 && (
-                                <span
-                                  className="text-xs"
-                                  style={{ color: 'var(--icon-red-text)' }}
-                                >
-                                  Out of stock
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-        </div>) : selectedPatientId && !selectedAttendanceId ? (
-        <div
-          className="rounded-xl p-8 text-center border"
-          style={{
-            background:  'var(--icon-yellow-bg)',
-            borderColor: 'var(--border-color)',
-          }}
-        >
-          <AlertCircle
-            className="w-10 h-10 mx-auto mb-3"
-            style={{ color: 'var(--icon-yellow-text)' }}
+      {/* Search Bar */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+          <input
+            type="text"
+            placeholder="Search by patient name or folder number..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
           />
-          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">
-            No attendance selected
-          </h3>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Please select an attendance to dispense medications.
-          </p>
         </div>
-      ) : null}
+      </div>
 
-      {/* Modals — rendered outside the ternary so they're always mounted when needed */}
-      {dispenseModal.isOpen && dispenseModal.medication && (
-        <DispenseQuantityModal
-          medication={dispenseModal.medication}
-          stockItem={dispenseModal.stockItem}
-          onConfirm={handleConfirmDispense}
-          onClose={() =>
-            setDispenseModal({ isOpen: false, medication: null, stockItem: null })
-          }
-          isProcessing={dispensingId === dispenseModal.medication?.id}
-        />
-      )}
-
-      {selectedAttendanceId && (
-        <MedicationModal
-          isOpen={isPrescribeModalOpen}
-          onClose={() => setIsPrescribeModalOpen(false)}
-          onSuccess={handlePrescribeSuccess}
-          attendanceId={selectedAttendanceId}
-          stockItems={stockItems}
-          canAdd={canPrescribe}
-          userId={user?.id}
-          userName={user?.fullName}
-        />
-      )}
-
-      {/* Worklist Panel */}
-      {showWorklist && (
-        <WorklistPanel
-          department="pharmacy"
-          onSelectPatient={(patientId, item) => {
-            setSelectedPatientId(patientId);
-            if (item.attendanceId) {
-              setSelectedAttendanceId(item.attendanceId);
-            }
-            setShowWorklist(false);
-          }}
-          onClose={() => setShowWorklist(false)}
-        />
-      )}
-    </div> // closes outer space-y-5 p-6
+      {/* Waiting List - Table View */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
+          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <Package className="w-4 h-4 text-[var(--icon-green-text)]" />
+            Waiting List ({filteredPatients.length} patients)
+          </h2>
+        </div>
+        
+        {filteredPatients.length === 0 ? (
+          <div className="p-8 text-center">
+            <Package className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+            <p className="text-[var(--text-secondary)]">No patients with pending prescriptions</p>
+            <p className="text-sm text-[var(--text-tertiary)] mt-1">All prescriptions have been dispensed</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Rx Count</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Priority</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Waiting Time</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {paginatedPatients.map((patient) => (
+                    <tr 
+                      key={patient.id} 
+                      className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
+                      onClick={() => handlePatientClick(patient)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{patient.name}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {patient.age} years • {patient.gender}
+                            </p>
+                          </div>
+                        </div>
+                       </td>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-sm text-[var(--text-primary)]">{patient.folderNumber}</span>
+                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                          <Bed className="w-3.5 h-3.5" />
+                          <span>{patient.bedNumber || '—'}</span>
+                        </div>
+                       </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-6 h-6 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-full text-xs font-semibold">
+                          {patient.prescriptionCount}
+                        </span>
+                       </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${patient.priority.color}`}>
+                          {patient.priority.label}
+                        </span>
+                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{patient.waitingHours}h {patient.waitingHours % 60}m</span>
+                        </div>
+                       </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
+                          className="px-3 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-xs font-medium flex items-center gap-1 mx-auto"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Dispense
+                        </button>
+                       </td>
+                     </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
+                <div className="text-sm text-[var(--text-secondary)]">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -2,9 +2,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
-
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
+import { useStockStore } from '../../store/stockStore';
 import { useToast } from '../../store/toastStore';
 import {
   ArrowLeft, Save, Lock, Download, Printer, FileText, User, Calendar,
@@ -13,7 +13,7 @@ import {
   Edit, Trash2 as TrashIcon
 } from 'lucide-react';
 
-// Re-import shared modal components
+// Types
 interface DiagnosisItem {
   id?: string;
   description: string;
@@ -21,12 +21,14 @@ interface DiagnosisItem {
   diagnosisId?: string;
 }
 
-interface InvestigationItem {
+interface ServiceItem {
   id?: string;
   description: string;
   date: string;
   serviceCatalogId?: string;
-  amount: number;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
 
 interface MedicineItem {
@@ -39,7 +41,9 @@ interface MedicineItem {
   stockItemId?: string;
 }
 
-// Add Diagnosis Modal (Private Insurance version)
+// ============================================
+// ADD DIAGNOSIS MODAL
+// ============================================
 function AddDiagnosisModalPrivate({ isOpen, onClose, onAdd, existingDiagnoses }: any) {
   const { diagnoses, getDiagnoses } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,7 +123,9 @@ function AddDiagnosisModalPrivate({ isOpen, onClose, onAdd, existingDiagnoses }:
   );
 }
 
-// Add Service Modal (Private Insurance)
+// ============================================
+// ADD SERVICE MODAL
+// ============================================
 function AddServiceModal({ isOpen, onClose, onAdd }: any) {
   const { serviceCatalog, getServiceCatalog } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,7 +235,121 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
   );
 }
 
-// Edit Service Modal
+// ============================================
+// ADD MEDICINE MODAL (FIXED - ADDED THIS)
+// ============================================
+function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
+  const { stockItems, getStockItems } = useStockStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [medicineDate, setMedicineDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (isOpen) getStockItems({ isActive: true, isMedication: true });
+  }, [isOpen, getStockItems]);
+
+  const filteredMedicines = (stockItems || []).filter(m =>
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (selectedMedicine) {
+      const unitPrice = selectedMedicine.costPrice || selectedMedicine.sellingPrice || 0;
+      onAdd({
+        description: selectedMedicine.name,
+        date: medicineDate,
+        stockItemId: selectedMedicine.id,
+        quantity,
+        unitPrice,
+        total: quantity * unitPrice
+      });
+      setSelectedMedicine(null);
+      setSearchTerm('');
+      setQuantity(1);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Medicine</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search medicine by name or drug code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
+              <input
+                type="date"
+                value={medicineDate}
+                onChange={(e) => setMedicineDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {filteredMedicines.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setSelectedMedicine(m)}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedMedicine?.id === m.id
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="font-medium text-sm">{m.name}</div>
+                <div className="text-xs text-[var(--text-secondary)]">
+                  Code: {m.drugCode || m.code} | Price: GHS {(m.costPrice || 0).toFixed(2)}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button onClick={handleAdd} disabled={!selectedMedicine} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg disabled:opacity-50 text-sm font-medium">
+            Add Medicine
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// EDIT SERVICE MODAL
+// ============================================
 function EditServiceModal({ isOpen, onClose, onSave, service }: any) {
   const [formData, setFormData] = useState<any>(null);
 
@@ -312,7 +432,94 @@ function EditServiceModal({ isOpen, onClose, onSave, service }: any) {
   );
 }
 
-// Main Component
+// ============================================
+// EDIT MEDICINE MODAL (FIXED - ADDED THIS)
+// ============================================
+function EditMedicineModal({ isOpen, onClose, onSave, medicine }: any) {
+  const [formData, setFormData] = useState<any>(null);
+
+  useEffect(() => {
+    if (medicine) setFormData({ ...medicine });
+  }, [medicine]);
+
+  const handleSave = () => {
+    if (formData) {
+      formData.total = formData.quantity * formData.unitPrice;
+      onSave(formData);
+      onClose();
+    }
+  };
+
+  if (!isOpen || !formData) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit Medicine</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="bg-[var(--bg-main)] p-2 rounded-lg">
+            <p className="text-sm font-medium">{formData.description}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Unit Price (GHS)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.unitPrice}
+                onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm"
+            />
+          </div>
+          <div className="bg-[var(--icon-green-bg)] p-2 rounded-lg">
+            <div className="flex justify-between text-sm">
+              <span className="text-[var(--text-secondary)]">Total:</span>
+              <span className="font-bold text-[var(--icon-green-text)]">GHS {(formData.quantity * formData.unitPrice).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg text-sm font-medium">
+            Save Changes
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 export default function EditPrivateClaim() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -331,13 +538,14 @@ export default function EditPrivateClaim() {
 
   const { patients } = usePatientStore();
   const { getDiagnoses, serviceCatalog, getServiceCatalog } = useMedicalServicesStore();
+  const { getStockItems } = useStockStore();
 
-  // Private Insurance specific state
+  // State
   const [insuranceProvider, setInsuranceProvider] = useState<any>(null);
   const [coveragePercentage, setCoveragePercentage] = useState(80);
   const [policyNumber, setPolicyNumber] = useState('');
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
-  const [services, setServices] = useState<InvestigationItem[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [medicines, setMedicines] = useState<MedicineItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
   const [insuranceCoverage, setInsuranceCoverage] = useState(0);
@@ -352,7 +560,7 @@ export default function EditPrivateClaim() {
   const isDraft = currentClaim?.status === 'draft';
   const isFinalized = currentClaim?.status === 'submitted';
 
-  // Calculate totals whenever services or medicines change
+  // Calculate totals
   useEffect(() => {
     const serviceTotal = services.reduce((sum, s) => sum + (s.total || s.quantity * s.unitPrice), 0);
     const medicineTotal = medicines.reduce((sum, m) => sum + (m.total || m.quantity * m.unitPrice), 0);
@@ -370,16 +578,9 @@ export default function EditPrivateClaim() {
       getInsuranceClaim(id);
       getDiagnoses();
       getServiceCatalog({ isActive: true });
+      getStockItems({ isActive: true, isMedication: true });
     }
   }, [id]);
-
-  // In EditPrivateClaim.tsx
-if (currentClaim.metadata) {
-  const metadata = currentClaim.metadata as any;
-  if (metadata.services) setServices(metadata.services);
-  if (metadata.medicines) setMedicines(metadata.medicines);
-  if (metadata.diagnoses) setDiagnoses(metadata.diagnoses);
-}
 
   // Populate form from claim
   useEffect(() => {
@@ -404,36 +605,11 @@ if (currentClaim.metadata) {
       diagnosisId: d.diagnosisId
     })));
 
-    // Parse services from bill line items
-    const bill = currentClaim.Bill;
-    if (bill?.BillLineItem) {
-      const serviceItems = bill.BillLineItem.filter((item: any) => 
-        item.serviceType === 'consultation' || item.serviceType === 'lab_test' || 
-        item.serviceType === 'scan' || item.serviceType === 'procedure'
-      ).map((item: any) => ({
-        id: item.id,
-        description: item.description,
-        date: bill.billDate?.split('T')[0] || visitDate,
-        serviceCatalogId: item.serviceCatalogId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.lineTotal
-      }));
-      setServices(serviceItems);
-
-      // Parse medications
-      const medicationItems = bill.BillLineItem.filter((item: any) => 
-        item.serviceType === 'medication'
-      ).map((item: any) => ({
-        id: item.id,
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.lineTotal,
-        date: bill.billDate?.split('T')[0] || visitDate,
-        stockItemId: item.serviceCatalogId
-      }));
-      setMedicines(medicationItems);
+    // Parse from metadata if exists
+    if (currentClaim.metadata) {
+      const metadata = currentClaim.metadata as any;
+      if (metadata.services) setServices(metadata.services);
+      if (metadata.medicines) setMedicines(metadata.medicines);
     }
   }, [currentClaim]);
 
@@ -445,7 +621,7 @@ if (currentClaim.metadata) {
     setDiagnoses(diagnoses.filter((_, i) => i !== index));
   };
 
-  const addService = (service: InvestigationItem) => {
+  const addService = (service: ServiceItem) => {
     setServices([...services, service]);
   };
 
@@ -453,7 +629,7 @@ if (currentClaim.metadata) {
     setServices(services.filter((_, i) => i !== index));
   };
 
-  const updateService = (updatedService: InvestigationItem) => {
+  const updateService = (updatedService: ServiceItem) => {
     setServices(services.map(s => s.id === updatedService.id ? updatedService : s));
   };
 
@@ -481,7 +657,12 @@ if (currentClaim.metadata) {
         medicationCodes: medicines.map(m => m.stockItemId).filter(Boolean),
         notes,
         totalClaimAmount: subtotal,
-        approvedAmount: insuranceCoverage
+        approvedAmount: insuranceCoverage,
+        metadata: {
+          services,
+          medicines,
+          diagnoses
+        }
       };
       
       await updateInsuranceClaim(id!, updateData);
@@ -621,15 +802,22 @@ if (currentClaim.metadata) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b">
-                <tr><th className="px-3 py-2 text-left text-xs">#</th><th className="px-3 py-2 text-left text-xs">DESCRIPTION</th><th className="px-3 py-2 text-left text-xs">ICD-10</th>{isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}</tr>
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs">#</th>
+                  <th className="px-3 py-2 text-left text-xs">DESCRIPTION</th>
+                  <th className="px-3 py-2 text-left text-xs">ICD-10</th>
+                  {isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}
+                </tr>
               </thead>
               <tbody className="divide-y">
                 {diagnoses.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 4 : 3} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No diagnoses added</td></tr>
+                  <tr>
+                    <td colSpan={isDraft ? 4 : 3} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No diagnoses added</td>
+                  </tr>
                 ) : (
                   diagnoses.map((diag, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2">{idx + 1}.</td>
+                      <td className="px-3 py-2">{idx + 1}</td>
                       <td className="px-3 py-2">{diag.description}</td>
                       <td className="px-3 py-2 font-mono text-xs">{diag.icd10}</td>
                       {isDraft && (
@@ -663,15 +851,24 @@ if (currentClaim.metadata) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b">
-                <tr><th className="px-3 py-2 text-left text-xs">#</th><th className="px-3 py-2 text-left text-xs">SERVICE</th><th className="px-3 py-2 text-center text-xs">QTY</th><th className="px-3 py-2 text-right text-xs">UNIT PRICE</th><th className="px-3 py-2 text-right text-xs">TOTAL</th>{isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}</tr>
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs">#</th>
+                  <th className="px-3 py-2 text-left text-xs">SERVICE</th>
+                  <th className="px-3 py-2 text-center text-xs">QTY</th>
+                  <th className="px-3 py-2 text-right text-xs">UNIT PRICE</th>
+                  <th className="px-3 py-2 text-right text-xs">TOTAL</th>
+                  {isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}
+                </tr>
               </thead>
               <tbody className="divide-y">
                 {services.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 6 : 5} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No services added</td></tr>
+                  <tr>
+                    <td colSpan={isDraft ? 6 : 5} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No services added</td>
+                  </tr>
                 ) : (
                   services.map((srv, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2">{idx + 1}.</td>
+                      <td className="px-3 py-2">{idx + 1}</td>
                       <td className="px-3 py-2">{srv.description}</td>
                       <td className="px-3 py-2 text-center">{srv.quantity}</td>
                       <td className="px-3 py-2 text-right">GHS {srv.unitPrice.toFixed(2)}</td>
@@ -700,7 +897,7 @@ if (currentClaim.metadata) {
               Medicines ({medicines.length})
             </h2>
             {isDraft && (
-              <button onClick={() => setActiveModal('medicine')} className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded">
+              <button onClick={() => setActiveModal('medicine')} className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded">
                 <Plus className="w-3 h-3" /> Add Medicine
               </button>
             )}
@@ -708,15 +905,24 @@ if (currentClaim.metadata) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b">
-                <tr><th className="px-3 py-2 text-left text-xs">#</th><th className="px-3 py-2 text-left text-xs">MEDICATION</th><th className="px-3 py-2 text-center text-xs">QTY</th><th className="px-3 py-2 text-right text-xs">UNIT PRICE</th><th className="px-3 py-2 text-right text-xs">TOTAL</th>{isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}</tr>
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs">#</th>
+                  <th className="px-3 py-2 text-left text-xs">MEDICATION</th>
+                  <th className="px-3 py-2 text-center text-xs">QTY</th>
+                  <th className="px-3 py-2 text-right text-xs">UNIT PRICE</th>
+                  <th className="px-3 py-2 text-right text-xs">TOTAL</th>
+                  {isDraft && <th className="px-3 py-2 text-center text-xs">Actions</th>}
+                </tr>
               </thead>
               <tbody className="divide-y">
                 {medicines.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 6 : 5} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No medicines added</td></tr>
+                  <tr>
+                    <td colSpan={isDraft ? 6 : 5} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No medicines added</td>
+                  </tr>
                 ) : (
                   medicines.map((med, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2">{idx + 1}.</td>
+                      <td className="px-3 py-2">{idx + 1}</td>
                       <td className="px-3 py-2">{med.description}</td>
                       <td className="px-3 py-2 text-center">{med.quantity}</td>
                       <td className="px-3 py-2 text-right">GHS {med.unitPrice.toFixed(2)}</td>

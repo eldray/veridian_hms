@@ -1,12 +1,12 @@
-// src/pages/Appointments.tsx - FULLY CORRECTED VERSION
+// src/pages/Appointments.tsx - FIXED with NewAttendanceModal
 import { useEffect, useState, useMemo } from 'react';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
 import { usePatientStore } from '../store/patientStore';
-import { useDepartmentStore } from '../store/departmentStore';
 import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
+import NewAttendanceModal from '../components/NewAttendanceModal';
 
 import {
   Plus,
@@ -32,6 +32,8 @@ interface SelectOption {
   value: string;
   label: string;
   role?: string;
+  departmentId?: string;
+  departmentName?: string;
   folderNumber?: string;
 }
 
@@ -45,13 +47,11 @@ export default function Appointments() {
     deleteAppointment,
     updateAppointmentStatus,
     checkInAppointment,
-    convertToAttendance,
     getAvailableClinicians,
     availableClinicians,
     isLoading 
   } = useAppointmentStore();
   const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
-  const { departments, getDepartments, isLoading: departmentsLoading } = useDepartmentStore();
   const { user, hasRole } = useAuthStore();
   const { success, error } = useToast();
   
@@ -72,20 +72,15 @@ export default function Appointments() {
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // ✅ NEW: Use NewAttendanceModal for conversion
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedAppointmentForAttendance, setSelectedAppointmentForAttendance] = useState<any>(null);
-  const [paymentData, setPaymentData] = useState({
-    paymentMode: 'cash',
-    insuranceProviderId: '',
-    nhisCCC: '',
-    corporateAccountId: ''
-  });
 
-  // Form data
+  // Form data - department comes from clinician
   const [formData, setFormData] = useState({
     patientId: '',
     clinicianId: '',
-    departmentId: '',
     title: '',
     description: '',
     appointmentDate: '',
@@ -103,22 +98,16 @@ export default function Appointments() {
     }));
   }, [patients]);
 
-  // Convert clinicians to Select options
+  // Convert clinicians to Select options (includes department info)
   const clinicianOptions: SelectOption[] = useMemo(() => {
     return availableClinicians.map(clinician => ({
       value: clinician.id,
       label: `${clinician.fullName} (${clinician.role})`,
-      role: clinician.role
+      role: clinician.role,
+      departmentId: clinician.departmentId,
+      departmentName: clinician.department?.name
     }));
   }, [availableClinicians]);
-
-  // Convert departments to Select options
-  const departmentOptions: SelectOption[] = useMemo(() => {
-    return departments.map(dept => ({
-      value: dept.id,
-      label: dept.name
-    }));
-  }, [departments]);
 
   // Get selected patient label
   const selectedPatientLabel = useMemo(() => {
@@ -136,19 +125,11 @@ export default function Appointments() {
     if (!clinician) return null;
     return {
       value: clinician.id,
-      label: `${clinician.fullName} (${clinician.role})`
+      label: `${clinician.fullName} (${clinician.role})`,
+      departmentId: clinician.departmentId,
+      departmentName: clinician.department?.name
     };
   }, [availableClinicians, formData.clinicianId]);
-
-  // Get selected department label
-  const selectedDepartmentLabel = useMemo(() => {
-    const dept = departments.find(d => d.id === formData.departmentId);
-    if (!dept) return null;
-    return {
-      value: dept.id,
-      label: dept.name
-    };
-  }, [departments, formData.departmentId]);
 
   // Get date range based on filter
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
@@ -203,7 +184,6 @@ export default function Appointments() {
       await Promise.all([
         getAppointments(filters),
         loadPatients(),
-        getDepartments(),
         getAvailableClinicians(['doctor', 'nurse', 'midwife'])
       ]);
     } catch (err) {
@@ -265,44 +245,53 @@ export default function Appointments() {
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
-  // Handle convert to attendance
+  // ✅ Handle convert to attendance - Open NewAttendanceModal
   const handleConvertToAttendance = (appointment: any) => {
     setSelectedAppointmentForAttendance(appointment);
-    setPaymentData({
-      paymentMode: 'cash',
-      insuranceProviderId: '',
-      nhisCCC: '',
-      corporateAccountId: ''
-    });
-    setShowPaymentModal(true);
+    setShowAttendanceModal(true);
   };
 
-  // Confirm payment and create attendance
-  const confirmConvertToAttendance = async () => {
-    if (!selectedAppointmentForAttendance) return;
+  // ✅ Handle successful attendance creation
+  const handleAttendanceSuccess = async (attendance: any) => {
+    setShowAttendanceModal(false);
     
-    try {
-      const result = await convertToAttendance(selectedAppointmentForAttendance.id, paymentData);
-      setShowPaymentModal(false);
-      setSelectedAppointmentForAttendance(null);
-      success('Converted', 'Appointment converted to attendance successfully');
-      
-      await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
-      navigate(`/dashboard/attendance/${result.attendance?.id || result.id}`);
-      await loadData();
-    } catch (err: any) {
-      error('Conversion Failed', err.message || 'Could not convert to attendance');
-    }
+    // Update appointment status to completed
+    await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
+    
+    success('Converted', 'Appointment converted to attendance successfully');
+    
+    // Navigate to the attendance details
+    navigate(`/dashboard/attendance/${attendance.id}`);
+    
+    // Refresh data
+    await loadData();
+    setSelectedAppointmentForAttendance(null);
+  };
+
+  // ✅ Handle attendance modal close
+  const handleAttendanceClose = () => {
+    setShowAttendanceModal(false);
+    setSelectedAppointmentForAttendance(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Get selected clinician to get department
+    const selectedClinician = availableClinicians.find(c => c.id === formData.clinicianId);
+    
+    const appointmentPayload = {
+      ...formData,
+      departmentId: selectedClinician?.departmentId || null,
+      clinicianRole: selectedClinician?.role
+    };
+    
     try {
       if (editingAppointment) {
-        await updateAppointment(editingAppointment.id, formData);
+        await updateAppointment(editingAppointment.id, appointmentPayload);
         success('Appointment Updated', 'Appointment updated successfully');
       } else {
-        await createAppointment(formData);
+        await createAppointment(appointmentPayload);
         success('Appointment Created', 'Appointment created successfully');
       }
       setShowForm(false);
@@ -319,7 +308,6 @@ export default function Appointments() {
     setFormData({
       patientId: apt.patientId,
       clinicianId: apt.clinicianId,
-      departmentId: apt.departmentId,
       title: apt.title,
       description: apt.description || '',
       appointmentDate: apt.appointmentDate?.split('T')[0] || '',
@@ -366,7 +354,6 @@ export default function Appointments() {
     setFormData({
       patientId: '',
       clinicianId: '',
-      departmentId: '',
       title: '',
       description: '',
       appointmentDate: '',
@@ -769,53 +756,14 @@ export default function Appointments() {
         </>
       )}
 
-      {/* Payment Modal */}
-      {showPaymentModal && selectedAppointmentForAttendance && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-            <div className="p-6 border-b border-[var(--border-color)]">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Select Payment Method</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">Patient: {getPatientName(findPatient(selectedAppointmentForAttendance))}</p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Payment Mode *</label>
-                <select value={paymentData.paymentMode} onChange={(e) => setPaymentData({ ...paymentData, paymentMode: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
-                  <option value="cash">Cash</option>
-                  <option value="nhis">NHIS</option>
-                  <option value="private_insurance">Private Insurance</option>
-                  <option value="corporate">Corporate</option>
-                </select>
-              </div>
-              {paymentData.paymentMode === 'nhis' && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">NHIS Number *</label>
-                  <input type="text" value={paymentData.nhisCCC} onChange={(e) => setPaymentData({ ...paymentData, nhisCCC: e.target.value })} placeholder="Enter NHIS number" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
-              )}
-              {(paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance') && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Insurance Provider</label>
-                  <input type="text" value={paymentData.insuranceProviderId} onChange={(e) => setPaymentData({ ...paymentData, insuranceProviderId: e.target.value })} placeholder="Provider ID" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
-              )}
-              {paymentData.paymentMode === 'corporate' && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Corporate Account ID</label>
-                  <input type="text" value={paymentData.corporateAccountId} onChange={(e) => setPaymentData({ ...paymentData, corporateAccountId: e.target.value })} placeholder="Enter Corporate Account ID" className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
-              )}
-            </div>
-            <div className="p-6 border-t border-[var(--border-color)] flex gap-3 justify-end">
-              <button onClick={() => { setShowPaymentModal(false); setSelectedAppointmentForAttendance(null); }} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium">
-                Cancel
-              </button>
-              <button onClick={confirmConvertToAttendance} className="px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium">
-                Confirm & Create Attendance
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ✅ NewAttendanceModal for converting appointment */}
+      {showAttendanceModal && selectedAppointmentForAttendance && (
+        <NewAttendanceModal
+          patientId={selectedAppointmentForAttendance.patientId}
+          onSuccess={handleAttendanceSuccess}
+          onClose={handleAttendanceClose}
+          isEditMode={false}
+        />
       )}
 
       {/* Appointment Form Modal */}
@@ -833,23 +781,41 @@ export default function Appointments() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Patient *</label>
-                  <Select options={patientOptions} value={selectedPatientLabel} onChange={(option: any) => setFormData({ ...formData, patientId: option?.value || '' })} placeholder="Search patient by name or folder number..." isClearable isLoading={patientsLoading} styles={selectStyles} noOptionsMessage={() => "No patients found"} />
+                  <Select 
+                    options={patientOptions} 
+                    value={selectedPatientLabel} 
+                    onChange={(option: any) => setFormData({ ...formData, patientId: option?.value || '' })} 
+                    placeholder="Search patient by name or folder number..." 
+                    isClearable 
+                    isLoading={patientsLoading} 
+                    styles={selectStyles} 
+                    noOptionsMessage={() => "No patients found"} 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Clinician (Doctor/Nurse/Midwife) *</label>
-                  <Select options={clinicianOptions} value={selectedClinicianLabel} onChange={(option: any) => setFormData({ ...formData, clinicianId: option?.value || '' })} placeholder="Search clinician by name..." isClearable isLoading={false} styles={selectStyles} noOptionsMessage={() => "No clinicians found"} />
+                  <Select 
+                    options={clinicianOptions} 
+                    value={selectedClinicianLabel} 
+                    onChange={(option: any) => setFormData({ ...formData, clinicianId: option?.value || '' })} 
+                    placeholder="Search clinician by name..." 
+                    isClearable 
+                    isLoading={false} 
+                    styles={selectStyles} 
+                    noOptionsMessage={() => "No clinicians found"} 
+                  />
+                  {/* Show department info from selected clinician */}
+                  {selectedClinicianLabel && (
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                      Department: {selectedClinicianLabel.departmentName || 'Not assigned'}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Department *</label>
-                  <Select options={departmentOptions} value={selectedDepartmentLabel} onChange={(option: any) => setFormData({ ...formData, departmentId: option?.value || '' })} placeholder="Select department..." isClearable isLoading={departmentsLoading} styles={selectStyles} noOptionsMessage={() => "No departments found"} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Title *</label>
-                  <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" placeholder="Appointment title" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Title *</label>
+                <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" placeholder="Appointment title" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

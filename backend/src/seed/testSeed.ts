@@ -1,4 +1,4 @@
-// src/seed/testSeed.ts - UPDATED with new appointment schema
+// src/seed/testSeed.ts - UPDATED with new schema and numbering strategy
 import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus, ServiceType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -10,21 +10,37 @@ const SEEDING_ENABLED = process.env.ENABLE_SEEDING !== 'false';
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+// ============================================
+// NUMBERING STRATEGY (Matches the schema)
+// ============================================
+// - Patient numbers: sequential (1001, 1002, 1003...)
+// - Attendance numbers: sequential master sequence (1001, 1002, 1003...)
+// - Admission numbers: SAME as attendance number (no separate counter)
+// - Bill numbers: BILL-{attendanceNumber}
+// - Claim numbers: {PREFIX}-{attendanceNumber} (NHIS-, PRV-, CORP-)
+// - Receipt numbers: sequential (RCP-1001, RCP-1002...)
+// - Referral numbers: sequential (REF-1001, REF-1002...)
+// - Appointment numbers: sequential (APT-1001, APT-1002...)
 
-// Counter-based generators for patient and attendance numbers starting from 1000
 let patientCounter = 1000;
 let attendanceCounter = 1000;
-let admissionCounter = 1000;
-let claimCounter = 1000;
-let appointmentCounter = 1000;  // ✅ Added for appointments
+let receiptCounter = 1000;
+let referralCounter = 1000;
+let appointmentCounter = 1000;
 
-const generatePatientNumber = () => `PAT-${++patientCounter}`;
-const generateAttendanceNumber = () => `ATT-${++attendanceCounter}`;
-const generateClaimNumber = () => `CLAIM-${++claimCounter}`;
-const generateReferralNumber = () => `REF-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-const generateAdmissionNumber = () => `ADM-${++admissionCounter}`;
-const generateAppointmentNumber = () => `APT-${++appointmentCounter}`;  // ✅ Added
+const generatePatientNumber = () => `${++patientCounter}`;
+const generateAttendanceNumber = () => `${++attendanceCounter}`;
+const generateReceiptNumber = () => `RCP-${++receiptCounter}`;
+const generateReferralNumber = () => `REF-${++referralCounter}`;
+const generateAppointmentNumber = () => `APT-${++appointmentCounter}`;
+
+// Derived numbers (based on attendance number)
+const getAdmissionNumber = (attendanceNumber: string) => attendanceNumber;
+const getBillNumber = (attendanceNumber: string) => `BILL-${attendanceNumber}`;
+const getClaimNumber = (attendanceNumber: string, paymentMode: string) => {
+  const prefix = paymentMode === 'nhis' ? 'NHIS' : paymentMode === 'private_insurance' ? 'PRV' : 'CORP';
+  return `${prefix}-${attendanceNumber}`;
+};
 
 // Date helpers
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
@@ -39,22 +55,34 @@ const hoursAgo = (hours: number, baseDate: Date = new Date()) => {
   return d;
 };
 
-// Safety checks
+const daysFromNow = (days: number, baseDate: Date = new Date()) => {
+  const d = new Date(baseDate);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+// ============================================
+// SAFETY CHECKS
+// ============================================
+
 const hasRealData = async (): Promise<boolean> => {
   const realPatientCount = await prisma.patient.count({
-    where: { folderNumber: { not: { in: ['PAT-TEST-001', 'PAT-TEST-002', 'PAT-TEST-003', 'PAT-TEST-004', 'PAT-TEST-005', 'PAT-TEST-006', 'PAT-TEST-007', 'PAT-TEST-008', 'PAT-TEST-009', 'PAT-TEST-010'] } } }
+    where: { folderNumber: { not: { in: ['1001', '1002', '1003', '1004', '1005', '1006', '1007', '1008', '1009', '1010'] } } }
   });
   return realPatientCount > 0;
 };
 
 const hasTestData = async (): Promise<boolean> => {
   const testPatientCount = await prisma.patient.count({
-    where: { folderNumber: { in: ['PAT-TEST-001', 'PAT-TEST-002', 'PAT-TEST-003', 'PAT-TEST-004', 'PAT-TEST-005', 'PAT-TEST-006', 'PAT-TEST-007', 'PAT-TEST-008', 'PAT-TEST-009', 'PAT-TEST-010'] } }
+    where: { folderNumber: { in: ['1001', '1002', '1003', '1004', '1005', '1006', '1007', '1008', '1009', '1010'] } }
   });
   return testPatientCount >= 10;
 };
 
-// Delete test data
+// ============================================
+// DELETE TEST DATA
+// ============================================
+
 export const deleteTestData = async (force: boolean = false) => {
   if (isProduction && !force) {
     return { success: false, message: 'Disabled in production', productionSafety: true };
@@ -71,7 +99,7 @@ export const deleteTestData = async (force: boolean = false) => {
     }
 
     const testPatients = await prisma.patient.findMany({
-      where: { folderNumber: { in: ['PAT-TEST-001', 'PAT-TEST-002', 'PAT-TEST-003', 'PAT-TEST-004', 'PAT-TEST-005', 'PAT-TEST-006', 'PAT-TEST-007', 'PAT-TEST-008', 'PAT-TEST-009', 'PAT-TEST-010'] } },
+      where: { folderNumber: { in: ['1001', '1002', '1003', '1004', '1005', '1006', '1007', '1008', '1009', '1010'] } },
       select: { id: true }
     });
     const testPatientIds = testPatients.map(p => p.id);
@@ -117,7 +145,10 @@ export const deleteTestData = async (force: boolean = false) => {
   }
 };
 
-// Main test data seeding
+// ============================================
+// MAIN TEST DATA SEEDING
+// ============================================
+
 export const seedTestData = async (force: boolean = false) => {
   if (!SEEDING_ENABLED) {
     return { success: false, message: 'Seeding disabled', seedingDisabled: true };
@@ -147,27 +178,27 @@ export const seedTestData = async (force: boolean = false) => {
       }
     }
 
-// =============== CREATE TEST USERS IF NOT EXISTS ===============
-console.log('👥 Creating/verifying test users...');
-const testUsersData = [
-  { username: 'doctor1', password: hashPassword('doctor123'), fullName: 'Dr. Kofi Mensah', role: UserRole.doctor, email: 'doctor@hospital.com', phone: '+233244222222', licenseNumber: 'MD-12345', specialization: 'General Medicine' },
-  { username: 'nurse1', password: hashPassword('nurse123'), fullName: 'Nurse Akua Johnson', role: UserRole.nurse, email: 'nurse@hospital.com', phone: '+233244333333', licenseNumber: 'RN-54321' },
-  { username: 'midwife1', password: hashPassword('midwife123'), fullName: 'Midwife Abena Serwaa', role: UserRole.midwife, email: 'midwife@hospital.com', phone: '+233244444444', licenseNumber: 'MW-98765' },
-  { username: 'lab1', password: hashPassword('lab123'), fullName: 'Lab Tech Yaw Asare', role: UserRole.lab_tech, email: 'lab@hospital.com', phone: '+233244666666', licenseNumber: 'LT-11223' },
-  { username: 'sonographer1', password: hashPassword('scan123'), fullName: 'Sonographer Ama Boateng', role: UserRole.sonographer, email: 'sonographer@hospital.com', phone: '+233244999999', licenseNumber: 'SN-11223' },
-  { username: 'pharma1', password: hashPassword('pharma123'), fullName: 'Pharmacist Nana Kwaku', role: UserRole.pharmacist, email: 'pharma@hospital.com', phone: '+233244777777', licenseNumber: 'PH-44556' },
-  { username: 'accounts1', password: hashPassword('accounts123'), fullName: 'Accountant Esi Brown', role: UserRole.accounts, email: 'accounts@hospital.com', phone: '+233244888888' },
-  { username: 'records1', password: hashPassword('records123'), fullName: 'Records Officer Kwame Osei', role: UserRole.records, email: 'records@hospital.com', phone: '+233244555555' },
-];
+    // =============== CREATE TEST USERS ===============
+    console.log('👥 Creating/verifying test users...');
+    const testUsersData = [
+      { username: 'doctor1', password: hashPassword('doctor123'), fullName: 'Dr. Kofi Mensah', role: UserRole.doctor, email: 'doctor@hospital.com', phone: '+233244222222', licenseNumber: 'MD-12345', specialization: 'General Medicine' },
+      { username: 'nurse1', password: hashPassword('nurse123'), fullName: 'Nurse Akua Johnson', role: UserRole.nurse, email: 'nurse@hospital.com', phone: '+233244333333', licenseNumber: 'RN-54321' },
+      { username: 'midwife1', password: hashPassword('midwife123'), fullName: 'Midwife Abena Serwaa', role: UserRole.midwife, email: 'midwife@hospital.com', phone: '+233244444444', licenseNumber: 'MW-98765' },
+      { username: 'lab1', password: hashPassword('lab123'), fullName: 'Lab Tech Yaw Asare', role: UserRole.lab_tech, email: 'lab@hospital.com', phone: '+233244666666', licenseNumber: 'LT-11223' },
+      { username: 'sonographer1', password: hashPassword('scan123'), fullName: 'Sonographer Ama Boateng', role: UserRole.sonographer, email: 'sonographer@hospital.com', phone: '+233244999999', licenseNumber: 'SN-11223' },
+      { username: 'pharma1', password: hashPassword('pharma123'), fullName: 'Pharmacist Nana Kwaku', role: UserRole.pharmacist, email: 'pharma@hospital.com', phone: '+233244777777', licenseNumber: 'PH-44556' },
+      { username: 'accounts1', password: hashPassword('accounts123'), fullName: 'Accountant Esi Brown', role: UserRole.accounts, email: 'accounts@hospital.com', phone: '+233244888888' },
+      { username: 'records1', password: hashPassword('records123'), fullName: 'Records Officer Kwame Osei', role: UserRole.records, email: 'records@hospital.com', phone: '+233244555555' },
+    ];
 
-for (const userData of testUsersData) {
-  await prisma.user.upsert({
-    where: { username: userData.username },
-    create: { ...userData, isActive: true },
-    update: {},
-  });
-}
-console.log('✅ Test users created/verified');
+    for (const userData of testUsersData) {
+      await prisma.user.upsert({
+        where: { username: userData.username },
+        create: { ...userData, isActive: true },
+        update: {},
+      });
+    }
+    console.log('✅ Test users created/verified');
 
     // =============== GET CORE DATA REFERENCES ===============
     const admin = await prisma.user.findUnique({ where: { username: 'admin' } });
@@ -178,7 +209,6 @@ console.log('✅ Test users created/verified');
     const sonographer = await prisma.user.findFirst({ where: { role: UserRole.sonographer } });
     const pharmacist = await prisma.user.findFirst({ where: { role: UserRole.pharmacist } });
     const accounts = await prisma.user.findFirst({ where: { role: UserRole.accounts } });
-    const records = await prisma.user.findFirst({ where: { role: UserRole.records } });
 
     if (!admin || !doctor) {
       throw new Error('Required users not found. Run core seeding first.');
@@ -207,7 +237,6 @@ console.log('✅ Test users created/verified');
     
     const chestXray = await prisma.serviceCatalog.findFirst({ where: { serviceType: 'scan', name: { contains: 'chest', mode: 'insensitive' } } });
     const ultrasound = await prisma.serviceCatalog.findFirst({ where: { serviceType: 'scan', name: { contains: 'ultrasound', mode: 'insensitive' } } });
-    const xray = await prisma.serviceCatalog.findFirst({ where: { serviceType: 'scan', name: { contains: 'x-ray', mode: 'insensitive' } } });
     
     const paracetamol = await prisma.serviceCatalog.findFirst({ where: { serviceType: 'medication', name: { contains: 'paracetamol', mode: 'insensitive' } } });
     const artesunate = await prisma.serviceCatalog.findFirst({ where: { serviceType: 'medication', name: { contains: 'artesunate', mode: 'insensitive' } } });
@@ -238,9 +267,11 @@ console.log('✅ Test users created/verified');
     }
 
     // =============== CREATE 10 TEST PATIENTS ===============
+    const now = new Date();
+    
     const patientsData = [
       {
-        folderNumber: 'PAT-TEST-001',
+        folderNumber: generatePatientNumber(), // 1001
         surname: 'Mensah',
         otherNames: 'Kwame',
         gender: Gender.male,
@@ -253,7 +284,7 @@ console.log('✅ Test users created/verified');
         insuranceDetails: {},
       },
       {
-        folderNumber: 'PAT-TEST-002',
+        folderNumber: generatePatientNumber(), // 1002
         surname: 'Serwaa',
         otherNames: 'Ama',
         gender: Gender.female,
@@ -267,7 +298,7 @@ console.log('✅ Test users created/verified');
         insuranceDetails: { memberId: 'NHIS-24593', startDate: '2024-01-01', endDate: '2024-12-31' },
       },
       {
-        folderNumber: 'PAT-TEST-003',
+        folderNumber: generatePatientNumber(), // 1003
         surname: 'Asante',
         otherNames: 'Yaw',
         gender: Gender.male,
@@ -281,7 +312,7 @@ console.log('✅ Test users created/verified');
         insuranceDetails: { policyNumber: 'PRV-87654', provider: privateProvider?.name || 'Acacia Health' },
       },
       {
-        folderNumber: 'PAT-TEST-004',
+        folderNumber: generatePatientNumber(), // 1004
         surname: 'Adjei',
         otherNames: 'Esi',
         gender: Gender.female,
@@ -295,7 +326,7 @@ console.log('✅ Test users created/verified');
         insuranceDetails: { memberId: 'NHIS-38762' },
       },
       {
-        folderNumber: 'PAT-TEST-005',
+        folderNumber: generatePatientNumber(), // 1005
         surname: 'Ofori',
         otherNames: 'Kofi',
         gender: Gender.male,
@@ -309,7 +340,7 @@ console.log('✅ Test users created/verified');
       },
       // Maternity patients
       {
-        folderNumber: 'PAT-TEST-006',
+        folderNumber: generatePatientNumber(), // 1006
         surname: 'Mensah',
         otherNames: 'Grace',
         gender: Gender.female,
@@ -320,10 +351,10 @@ console.log('✅ Test users created/verified');
         insuranceProviderId: nhisProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(180),
-        insuranceDetails: { memberId: 'NHIS-MAT-001', startDate: '2024-01-01', endDate: '2024-12-31' },
+        insuranceDetails: { memberId: 'NHIS-MAT-001' },
       },
       {
-        folderNumber: 'PAT-TEST-007',
+        folderNumber: generatePatientNumber(), // 1007
         surname: 'Amankwah',
         otherNames: 'Frederica',
         gender: Gender.female,
@@ -334,10 +365,10 @@ console.log('✅ Test users created/verified');
         insuranceProviderId: nhisProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(150),
-        insuranceDetails: { memberId: 'NHIS-MAT-002', startDate: '2024-01-01', endDate: '2024-12-31' },
+        insuranceDetails: { memberId: 'NHIS-MAT-002' },
       },
       {
-        folderNumber: 'PAT-TEST-008',
+        folderNumber: generatePatientNumber(), // 1008
         surname: 'Dapaah',
         otherNames: 'Victoria',
         gender: Gender.female,
@@ -350,7 +381,7 @@ console.log('✅ Test users created/verified');
         insuranceDetails: {},
       },
       {
-        folderNumber: 'PAT-TEST-009',
+        folderNumber: generatePatientNumber(), // 1009
         surname: 'Boateng',
         otherNames: 'Christina',
         gender: Gender.female,
@@ -361,10 +392,10 @@ console.log('✅ Test users created/verified');
         insuranceProviderId: nhisProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(200),
-        insuranceDetails: { memberId: 'NHIS-MAT-004', startDate: '2024-01-01', endDate: '2024-12-31' },
+        insuranceDetails: { memberId: 'NHIS-MAT-004' },
       },
       {
-        folderNumber: 'PAT-TEST-010',
+        folderNumber: generatePatientNumber(), // 1010
         surname: 'Nyarko',
         otherNames: 'Benedicta',
         gender: Gender.female,
@@ -375,7 +406,7 @@ console.log('✅ Test users created/verified');
         insuranceProviderId: privateProvider?.id,
         registeredBy: admin.fullName,
         registeredAt: daysAgo(160),
-        insuranceDetails: { policyNumber: 'PRV-MAT-005', provider: privateProvider?.name || 'Acacia Health' },
+        insuranceDetails: { policyNumber: 'PRV-MAT-005' },
       },
     ];
 
@@ -388,15 +419,16 @@ console.log('✅ Test users created/verified');
       });
       patients.push(patient);
     }
-    console.log(`✅ Created ${patients.length} test patients`);
+    console.log(`✅ Created ${patients.length} test patients (Numbers: ${patients.map(p => p.folderNumber).join(', ')})`);
 
     // =============== CREATE ATTENDANCES ===============
     const attendances: any[] = [];
 
-    // ATTENDANCE 1: Cash - Emergency Malaria (Patient 1)
+    // ATTENDANCE 1001: Cash - Emergency Malaria (Patient 1001)
+    const att1Number = generateAttendanceNumber(); // 1001
     const att1 = await prisma.attendance.create({
       data: {
-        attendanceNumber: generateAttendanceNumber(),
+        attendanceNumber: att1Number,
         patientId: patients[0].id,
         dateTime: daysAgo(14),
         attendanceType: AttendanceType.emergency_acute,
@@ -418,10 +450,11 @@ console.log('✅ Test users created/verified');
     });
     attendances.push(att1);
 
-    // ATTENDANCE 2: NHIS - Chronic Hypertension (Patient 2)
+    // ATTENDANCE 1002: NHIS - Chronic Hypertension (Patient 1002)
+    const att2Number = generateAttendanceNumber(); // 1002
     const att2 = await prisma.attendance.create({
       data: {
-        attendanceNumber: generateAttendanceNumber(),
+        attendanceNumber: att2Number,
         patientId: patients[1].id,
         insuranceProviderId: nhisProvider.id,
         dateTime: daysAgo(10),
@@ -445,10 +478,11 @@ console.log('✅ Test users created/verified');
     });
     attendances.push(att2);
 
-    // ATTENDANCE 3: Private Insurance - Surgical Hernia (Patient 3)
+    // ATTENDANCE 1003: Private Insurance - Surgical Hernia (Patient 1003)
+    const att3Number = generateAttendanceNumber(); // 1003
     const att3 = await prisma.attendance.create({
       data: {
-        attendanceNumber: generateAttendanceNumber(),
+        attendanceNumber: att3Number,
         patientId: patients[2].id,
         insuranceProviderId: privateProvider?.id,
         dateTime: daysAgo(7),
@@ -458,23 +492,27 @@ console.log('✅ Test users created/verified');
         medicalNotes: 'Diagnosed with right inguinal hernia. Elective repair scheduled.',
         historyPresentingComplaint: 'Right groin swelling, reducible, increases with standing/coughing',
         physicalExamination: 'Visible right inguinal swelling, reducible, cough impulse positive',
-        treatmentPlan: 'Right inguinal hernia repair (ASUR20A)',
+        treatmentPlan: 'Right inguinal hernia repair',
         createdById: doctor.id,
         status: AttendanceStatus.completed,
         totalBill: 0,
         paidAmount: 0,
         outstandingBalance: 0,
-        encounterCategory: EncounterCategory.daycase,
         visitCategory: VisitCategory.specialist,
         serviceCategory: ServiceCategory.ipd,
+        encounterCategory: EncounterCategory.ipd,  // ✅ IPD for formal admission
+        bedId: bed.id,        // ✅ Assign bed
+        wardId: generalWard.id,  // ✅ Assign ward
+        status: AttendanceStatus.admitted,  // ✅ Status 'admitted'
       },
     });
     attendances.push(att3);
 
-    // ATTENDANCE 4: NHIS - Antenatal Visit (Patient 4)
+    // ATTENDANCE 1004: NHIS - Antenatal Visit (Patient 1004)
+    const att4Number = generateAttendanceNumber(); // 1004
     const att4 = await prisma.attendance.create({
       data: {
-        attendanceNumber: generateAttendanceNumber(),
+        attendanceNumber: att4Number,
         patientId: patients[3].id,
         insuranceProviderId: nhisProvider.id,
         dateTime: daysAgo(5),
@@ -498,10 +536,11 @@ console.log('✅ Test users created/verified');
     });
     attendances.push(att4);
 
-    // ATTENDANCE 5: Cash - Paediatric Pneumonia (Patient 5 - child)
+    // ATTENDANCE 1005: Cash - Paediatric Pneumonia (Patient 1005)
+    const att5Number = generateAttendanceNumber(); // 1005
     const att5 = await prisma.attendance.create({
       data: {
-        attendanceNumber: generateAttendanceNumber(),
+        attendanceNumber: att5Number,
         patientId: patients[4].id,
         dateTime: daysAgo(3),
         attendanceType: AttendanceType.emergency_acute,
@@ -522,7 +561,7 @@ console.log('✅ Test users created/verified');
       },
     });
     attendances.push(att5);
-    console.log(`✅ Created ${attendances.length} attendances`);
+    console.log(`✅ Created ${attendances.length} attendances (Numbers: ${attendances.map(a => a.attendanceNumber).join(', ')})`);
 
     // =============== ADD DIAGNOSES ===============
     if (malariaDiag) {
@@ -843,7 +882,7 @@ console.log('✅ Test users created/verified');
           frequency: '8 hourly',
           duration: '3 days',
           quantity: 9,
-          route: '口服',
+          route: 'oral',
           instructions: 'Take for fever',
           status: MedicationStatus.dispensed,
           prescribedAt: daysAgo(14),
@@ -983,11 +1022,13 @@ console.log('✅ Test users created/verified');
     }
     console.log('✅ Services rendered added');
 
-    // =============== CREATE BILLS ===============
-    // Bill 1: Cash patient (Malaria)
+    // =============== CREATE BILLS (Using bill numbers based on attendance) ===============
+    
+    // Bill 1001: Cash patient (Malaria) - attendance 1001
+    const bill1Number = getBillNumber(att1Number); // BILL-1001
     const bill1 = await prisma.bill.create({
       data: {
-        billNumber: generateBillNumber(),
+        billNumber: bill1Number,
         patientId: patients[0].id,
         attendanceId: att1.id,
         subtotal: 250.00,
@@ -1011,15 +1052,29 @@ console.log('✅ Test users created/verified');
       data: [
         { billId: bill1.id, description: 'Emergency Consultation', serviceType: ServiceType.consultation, quantity: 1, unitPrice: 100.00, pricingBasis: PaymentMode.cash, lineTotal: 100.00, insuranceCoveredAmount: 0, patientPayableAmount: 100.00, discount: 0 },
         { billId: bill1.id, description: 'Malaria RDT', serviceType: ServiceType.lab_test, quantity: 1, unitPrice: 50.00, pricingBasis: PaymentMode.cash, lineTotal: 50.00, insuranceCoveredAmount: 0, patientPayableAmount: 50.00, discount: 0 },
-        { billId: bill1.id, description: 'Artesunate (3-day course)', serviceType: ServiceType.medication, quantity: 1, unitPrice: 60.00, pricingBasis: PaymentMode.cash, lineTotal: 60.00, insuranceCoveredAmount: 0, patientPayableAmount: 60.00, discount: 0 },
+        { billId: bill1.id, description: 'Artesunate', serviceType: ServiceType.medication, quantity: 1, unitPrice: 60.00, pricingBasis: PaymentMode.cash, lineTotal: 60.00, insuranceCoveredAmount: 0, patientPayableAmount: 60.00, discount: 0 },
         { billId: bill1.id, description: 'Paracetamol', serviceType: ServiceType.medication, quantity: 1, unitPrice: 40.00, pricingBasis: PaymentMode.cash, lineTotal: 40.00, insuranceCoveredAmount: 0, patientPayableAmount: 40.00, discount: 0 },
       ],
     });
 
-    // Bill 2: NHIS patient (Hypertension)
+    // Add payment receipt for bill 1001
+    await prisma.payment.create({
+      data: {
+        billId: bill1.id,
+        amount: 250.00,
+        paymentMethod: 'cash',
+        reference: generateReceiptNumber(), // RCP-1001
+        transactionDate: daysAgo(14),
+        receivedById: accounts?.id || admin.id,
+        notes: 'Full payment',
+      },
+    });
+
+    // Bill 1002: NHIS patient (Hypertension) - attendance 1002
+    const bill2Number = getBillNumber(att2Number); // BILL-1002
     const bill2 = await prisma.bill.create({
       data: {
-        billNumber: generateBillNumber(),
+        billNumber: bill2Number,
         patientId: patients[1].id,
         attendanceId: att2.id,
         subtotal: 180.00,
@@ -1044,14 +1099,15 @@ console.log('✅ Test users created/verified');
       data: [
         { billId: bill2.id, description: 'Specialist Consultation', serviceType: ServiceType.consultation, quantity: 1, unitPrice: 120.00, pricingBasis: PaymentMode.nhis, lineTotal: 120.00, insuranceCoveredAmount: 120.00, patientPayableAmount: 0, discount: 0 },
         { billId: bill2.id, description: 'Random Blood Sugar', serviceType: ServiceType.lab_test, quantity: 1, unitPrice: 30.00, pricingBasis: PaymentMode.nhis, lineTotal: 30.00, insuranceCoveredAmount: 30.00, patientPayableAmount: 0, discount: 0 },
-        { billId: bill2.id, description: 'Amlodipine 5mg (30 tablets)', serviceType: ServiceType.medication, quantity: 1, unitPrice: 30.00, pricingBasis: PaymentMode.nhis, lineTotal: 30.00, insuranceCoveredAmount: 30.00, patientPayableAmount: 0, discount: 0 },
+        { billId: bill2.id, description: 'Amlodipine', serviceType: ServiceType.medication, quantity: 1, unitPrice: 30.00, pricingBasis: PaymentMode.nhis, lineTotal: 30.00, insuranceCoveredAmount: 30.00, patientPayableAmount: 0, discount: 0 },
       ],
     });
 
-    // Bill 3: Private Insurance patient (Hernia Surgery)
+    // Bill 1003: Private Insurance patient (Hernia) - attendance 1003
+    const bill3Number = getBillNumber(att3Number); // BILL-1003
     const bill3 = await prisma.bill.create({
       data: {
-        billNumber: generateBillNumber(),
+        billNumber: bill3Number,
         patientId: patients[2].id,
         attendanceId: att3.id,
         subtotal: 1500.00,
@@ -1075,15 +1131,16 @@ console.log('✅ Test users created/verified');
     await prisma.billLineItem.createMany({
       data: [
         { billId: bill3.id, description: 'Consultation', serviceType: ServiceType.consultation, quantity: 1, unitPrice: 100.00, pricingBasis: PaymentMode.private_insurance, lineTotal: 100.00, insuranceCoveredAmount: 80.00, patientPayableAmount: 20.00, discount: 0 },
-        { billId: bill3.id, description: 'Right Inguinal Hernia Repair (ASUR20A)', serviceType: ServiceType.procedure, quantity: 1, unitPrice: 1200.00, pricingBasis: PaymentMode.private_insurance, lineTotal: 1200.00, insuranceCoveredAmount: 960.00, patientPayableAmount: 240.00, discount: 0 },
-        { billId: bill3.id, description: 'Medications/Supplies', serviceType: ServiceType.medication, quantity: 1, unitPrice: 200.00, pricingBasis: PaymentMode.cash, lineTotal: 200.00, insuranceCoveredAmount: 160.00, patientPayableAmount: 40.00, discount: 0 },
+        { billId: bill3.id, description: 'Hernia Repair', serviceType: ServiceType.procedure, quantity: 1, unitPrice: 1200.00, pricingBasis: PaymentMode.private_insurance, lineTotal: 1200.00, insuranceCoveredAmount: 960.00, patientPayableAmount: 240.00, discount: 0 },
+        { billId: bill3.id, description: 'Medications', serviceType: ServiceType.medication, quantity: 1, unitPrice: 200.00, pricingBasis: PaymentMode.cash, lineTotal: 200.00, insuranceCoveredAmount: 160.00, patientPayableAmount: 40.00, discount: 0 },
       ],
     });
 
-    // Bill 4: NHIS Antenatal
+    // Bill 1004: NHIS Antenatal - attendance 1004
+    const bill4Number = getBillNumber(att4Number); // BILL-1004
     const bill4 = await prisma.bill.create({
       data: {
-        billNumber: generateBillNumber(),
+        billNumber: bill4Number,
         patientId: patients[3].id,
         attendanceId: att4.id,
         subtotal: 250.00,
@@ -1112,10 +1169,11 @@ console.log('✅ Test users created/verified');
       ],
     });
 
-    // Bill 5: Cash Paediatric
+    // Bill 1005: Cash Paediatric - attendance 1005
+    const bill5Number = getBillNumber(att5Number); // BILL-1005
     const bill5 = await prisma.bill.create({
       data: {
-        billNumber: generateBillNumber(),
+        billNumber: bill5Number,
         patientId: patients[4].id,
         attendanceId: att5.id,
         subtotal: 350.00,
@@ -1139,29 +1197,32 @@ console.log('✅ Test users created/verified');
       data: [
         { billId: bill5.id, description: 'Paediatric Consultation', serviceType: ServiceType.consultation, quantity: 1, unitPrice: 80.00, pricingBasis: PaymentMode.cash, lineTotal: 80.00, insuranceCoveredAmount: 0, patientPayableAmount: 80.00, discount: 0 },
         { billId: bill5.id, description: 'Chest X-ray', serviceType: ServiceType.scan, quantity: 1, unitPrice: 120.00, pricingBasis: PaymentMode.cash, lineTotal: 120.00, insuranceCoveredAmount: 0, patientPayableAmount: 120.00, discount: 0 },
-        { billId: bill5.id, description: 'Amoxicillin 250mg/5ml', serviceType: ServiceType.medication, quantity: 1, unitPrice: 80.00, pricingBasis: PaymentMode.cash, lineTotal: 80.00, insuranceCoveredAmount: 0, patientPayableAmount: 80.00, discount: 0 },
-        { billId: bill5.id, description: 'Paracetamol 120mg/5ml', serviceType: ServiceType.medication, quantity: 1, unitPrice: 70.00, pricingBasis: PaymentMode.cash, lineTotal: 70.00, insuranceCoveredAmount: 0, patientPayableAmount: 70.00, discount: 0 },
+        { billId: bill5.id, description: 'Amoxicillin', serviceType: ServiceType.medication, quantity: 1, unitPrice: 80.00, pricingBasis: PaymentMode.cash, lineTotal: 80.00, insuranceCoveredAmount: 0, patientPayableAmount: 80.00, discount: 0 },
+        { billId: bill5.id, description: 'Paracetamol', serviceType: ServiceType.medication, quantity: 1, unitPrice: 70.00, pricingBasis: PaymentMode.cash, lineTotal: 70.00, insuranceCoveredAmount: 0, patientPayableAmount: 70.00, discount: 0 },
       ],
     });
 
-    // Add payment for bill5
+    // Add partial payment for bill5
     await prisma.payment.create({
       data: {
         billId: bill5.id,
         amount: 200.00,
         paymentMethod: 'cash',
+        reference: generateReceiptNumber(), // RCP-1002
         transactionDate: daysAgo(3),
         receivedById: accounts?.id || admin.id,
         notes: 'Partial payment',
       },
     });
-    console.log('✅ Bills created');
+    console.log(`✅ Bills created: ${bill1Number}, ${bill2Number}, ${bill3Number}, ${bill4Number}, ${bill5Number}`);
 
-    // =============== CREATE INSURANCE CLAIMS ===============
-    // NHIS Claim for Patient 2 (Hypertension)
+    // =============== CREATE INSURANCE CLAIMS (Using claim numbers based on attendance) ===============
+    
+    // NHIS Claim for attendance 1002 (Patient 1002)
+    const claim2Number = getClaimNumber(att2Number, 'nhis'); // NHIS-1002
     await prisma.insuranceClaim.create({
       data: {
-        claimNumber: generateClaimNumber(),
+        claimNumber: claim2Number,
         billId: bill2.id,
         patientId: patients[1].id,
         insuranceProviderId: nhisProvider.id,
@@ -1180,11 +1241,12 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Private Insurance Claim for Patient 3 (Hernia)
+    // Private Claim for attendance 1003 (Patient 1003)
     if (privateProvider) {
+      const claim3Number = getClaimNumber(att3Number, 'private_insurance'); // PRV-1003
       await prisma.insuranceClaim.create({
         data: {
-          claimNumber: generateClaimNumber(),
+          claimNumber: claim3Number,
           billId: bill3.id,
           patientId: patients[2].id,
           insuranceProviderId: privateProvider.id,
@@ -1206,10 +1268,11 @@ console.log('✅ Test users created/verified');
       });
     }
 
-    // NHIS Claim for Patient 4 (Antenatal)
+    // NHIS Claim for attendance 1004 (Patient 1004)
+    const claim4Number = getClaimNumber(att4Number, 'nhis'); // NHIS-1004
     await prisma.insuranceClaim.create({
       data: {
-        claimNumber: generateClaimNumber(),
+        claimNumber: claim4Number,
         billId: bill4.id,
         patientId: patients[3].id,
         insuranceProviderId: nhisProvider.id,
@@ -1226,13 +1289,12 @@ console.log('✅ Test users created/verified');
         createdById: accounts?.id || admin.id,
       },
     });
-    console.log('✅ Insurance claims created');
+    console.log(`✅ Insurance claims created: ${claim2Number}, ${claim3Number}, ${claim4Number}`);
 
     // =============== CREATE REFERRALS ===============
-    // Referral from Patient 5 to Paediatrics
     await prisma.referralRecord.create({
       data: {
-        referralNumber: generateReferralNumber(),
+        referralNumber: generateReferralNumber(), // REF-1001
         patientId: patients[4].id,
         attendanceId: att5.id,
         referralType: ReferralType.outgoing,
@@ -1249,10 +1311,9 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Referral from Patient 3 to Surgery
     await prisma.referralRecord.create({
       data: {
-        referralNumber: generateReferralNumber(),
+        referralNumber: generateReferralNumber(), // REF-1002
         patientId: patients[2].id,
         attendanceId: att3.id,
         referralType: ReferralType.outgoing,
@@ -1270,173 +1331,151 @@ console.log('✅ Test users created/verified');
     });
     console.log('✅ Referrals created');
 
-    // =============== CREATE ADMISSIONS ===============
-    if (generalWard) {
-      let bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
-      
-      if (!bed && generalWard) {
-        bed = await prisma.bed.create({
-          data: {
-            wardId: generalWard.id,
-            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NEW-01`,
-            isOccupied: false,
-          },
-        });
-      }
+// =============== CREATE ADMISSIONS (UPDATED for lightweight Admission model) ===============
 
-      if (bed) {
-        await prisma.admission.create({
-          data: {
-            admissionNumber: generateAdmissionNumber(),
-            patientId: patients[2].id,
-            attendanceId: att3.id,
-            wardId: generalWard.id,
-            bedId: bed.id,
-            admissionDate: daysAgo(7),
-            admissionTime: '08:30',
-            admittingDoctor: doctor.fullName,
-            reasonForAdmission: 'Elective hernia repair',
-            diagnosis: 'Right inguinal hernia',
-            status: 'discharged',
-            dischargeDate: daysAgo(6),
-            dischargeTime: '15:00',
-            dischargeSummary: 'Successful hernia repair. Patient discharged in stable condition.',
-            createdBy: doctor.fullName,
-            admissionType: AdmissionType.elective,
-            admissionSource: AdmissionSource.opd,
-            dischargeStatus: 'home',
-            lengthOfStay: 1,
-          },
-        });
+// Admission for attendance 1003 (Hernia patient - Patient 1003) - already discharged
+if (generalWard) {
+  let bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+  
+  if (!bed && generalWard) {
+    bed = await prisma.bed.create({
+      data: {
+        wardId: generalWard.id,
+        bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-001`,
+        isOccupied: false,
+      },
+    });
+  }
 
-        await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: false, currentPatientId: null } });
-      }
-    }
+  if (bed && att3) {
+    // Get the attendance number (not a new generated number)
+    const attendanceNumber = att3.attendanceNumber; // This is "1003"
+    
+    await prisma.admission.create({
+      data: {
+        attendanceId: att3.id,
+        admissionNumber: attendanceNumber,  // ✅ Same as attendance number
+        admissionType: AdmissionType.elective,
+        admissionSource: AdmissionSource.opd,
+        dischargeStatus: DischargeStatus.home,
+        admissionDate: daysAgo(7),
+        dischargeDate: daysAgo(6),
+      },
+    });
 
-    if (pediatricWard) {
-      let bed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
-      
-      if (bed) {
-        await prisma.admission.create({
-          data: {
-            admissionNumber: generateAdmissionNumber(),
-            patientId: patients[4].id,
-            attendanceId: att5.id,
-            wardId: pediatricWard.id,
-            bedId: bed.id,
-            admissionDate: daysAgo(3),
-            admissionTime: '10:15',
-            admittingDoctor: doctor.fullName,
-            reasonForAdmission: 'Severe pneumonia with respiratory distress',
-            diagnosis: 'Community-acquired pneumonia',
-            status: 'admitted',
-            createdBy: doctor.fullName,
-            admissionType: AdmissionType.emergency,
-            admissionSource: AdmissionSource.emergency,
-            lengthOfStay: 2,
-          },
-        });
+    // Mark bed as occupied (patient was admitted)
+    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[2].id } });
+  }
+}
 
-        await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
-      }
-    }
+// Admission for attendance 1005 (Paediatric pneumonia - Patient 1005) - still active
+if (pediatricWard) {
+  let bed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
+  
+  if (!bed && pediatricWard) {
+    bed = await prisma.bed.create({
+      data: {
+        wardId: pediatricWard.id,
+        bedNumber: `${pediatricWard.wardName.substring(0, 3).toUpperCase()}-001`,
+        isOccupied: false,
+      },
+    });
+  }
 
-    // =============== ADD MORE ADMISSIONS FOR ALL PAYMENT MODES ===============
-    console.log('\\n🏥 Creating additional admissions for all payment modes...');
+  if (bed && att5) {
+    const attendanceNumber = att5.attendanceNumber; // This is "1005"
+    
+    await prisma.admission.create({
+      data: {
+        attendanceId: att5.id,
+        admissionNumber: attendanceNumber,  // ✅ Same as attendance number
+        admissionType: AdmissionType.emergency,
+        admissionSource: AdmissionSource.emergency,
+        admissionDate: daysAgo(3),
+        // No dischargeDate - still active
+      },
+    });
 
-    // Admission for NHIS patient (Patient 2 - Ama Serwaa)
-    if (generalWard) {
-      let nhisBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
+  }
+}
 
-      if (!nhisBed) {
-        nhisBed = await prisma.bed.create({
-          data: {
-            wardId: generalWard.id,
-            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
-            isOccupied: false,
-          },
-        });
-      }
+// Add more admissions for other patients
 
-      if (nhisBed && attendances[1]) {
-        await prisma.admission.create({
-          data: {
-            admissionNumber: generateAdmissionNumber(),
-            patientId: patients[1].id,
-            attendanceId: attendances[1].id,
-            wardId: generalWard.id,
-            bedId: nhisBed.id,
-            admissionDate: daysAgo(2),
-            admissionTime: '14:00',
-            admittingDoctor: doctor.fullName,
-            reasonForAdmission: 'Hypertensive crisis management',
-            diagnosis: 'Essential hypertension with complications',
-            status: 'admitted',
-            createdBy: doctor.fullName,
-            admissionType: AdmissionType.urgent,
-            admissionSource: AdmissionSource.opd,
-            lengthOfStay: 1,
-          },
-        });
+// Admission for NHIS patient (Patient 1002 - Ama Serwaa) - active
+if (generalWard && att2) {
+  let bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+  
+  if (!bed) {
+    bed = await prisma.bed.create({
+      data: {
+        wardId: generalWard.id,
+        bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
+        isOccupied: false,
+      },
+    });
+  }
 
-        await prisma.bed.update({ where: { id: nhisBed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
-      }
-    }
+  if (bed) {
+    const attendanceNumber = att2.attendanceNumber; // "1002"
+    
+    await prisma.admission.create({
+      data: {
+        attendanceId: att2.id,
+        admissionNumber: attendanceNumber,
+        admissionType: AdmissionType.emergency,
+        admissionSource: AdmissionSource.opd,
+        admissionDate: daysAgo(5),
+        // Active admission - no discharge date
+      },
+    });
 
-    // Admission for Private Insurance patient (Patient 9 - Christina Boateng - maternity patient with private insurance)
-    if (maternityWard) {
-      let privBed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
+    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
+  }
+}
 
-      if (!privBed) {
-        privBed = await prisma.bed.create({
-          data: {
-            wardId: maternityWard.id,
-            bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-PRV-01`,
-            isOccupied: false,
-          },
-        });
-      }
+// Admission for Private Insurance patient (Patient 1003 already done above)
 
-      const privPatientAttendance = await prisma.attendance.findFirst({
-        where: { patientId: patients[9].id },
-        orderBy: { dateTime: 'desc' }
-      });
+// Admission for Antenatal patient (Patient 1004) - daycase (observation)
+if (maternityWard && att4) {
+  let bed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
+  
+  if (!bed) {
+    bed = await prisma.bed.create({
+      data: {
+        wardId: maternityWard.id,
+        bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-OBS-01`,
+        isOccupied: false,
+      },
+    });
+  }
 
-      if (privBed && privPatientAttendance) {
-        await prisma.admission.create({
-          data: {
-            admissionNumber: generateAdmissionNumber(),
-            patientId: patients[9].id,
-            attendanceId: privPatientAttendance.id,
-            wardId: maternityWard.id,
-            bedId: privBed.id,
-            admissionDate: daysAgo(1),
-            admissionTime: '06:00',
-            admittingDoctor: doctor.fullName,
-            reasonForAdmission: 'Elective C-section delivery',
-            diagnosis: 'Term pregnancy for elective caesarean section',
-            status: 'admitted',
-            createdBy: doctor.fullName,
-            admissionType: AdmissionType.elective,
-            admissionSource: AdmissionSource.opd,
-            lengthOfStay: 1,
-          },
-        });
+  if (bed) {
+    const attendanceNumber = att4.attendanceNumber; // "1004"
+    
+    // For daycase, update the attendance encounterCategory to 'daycase' first
+    await prisma.attendance.update({
+      where: { id: att4.id },
+      data: { encounterCategory: EncounterCategory.daycase }
+    });
+    
+    // Daycase patients don't have a formal admission record
+    // They are just marked as 'daycase' in attendance
+    // But we still assign a bed
+    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[3].id } });
+  }
+}
 
-        await prisma.bed.update({ where: { id: privBed.id }, data: { isOccupied: true, currentPatientId: patients[9].id } });
-      }
-    }
+console.log('✅ Admissions created');
 
-    console.log('✅ Admissions created');
 
-    // =============== CREATE APPOINTMENTS (UPDATED with clinicianId) ===============
-    // Follow-up appointment for Patient 1 (Malaria)
+    // =============== CREATE APPOINTMENTS ===============
     await prisma.appointment.create({
       data: {
-        appointmentNumber: generateAppointmentNumber(),
+        appointmentNumber: generateAppointmentNumber(), // APT-1001
         patientId: patients[0].id,
-        clinicianId: doctor.id,           // ✅ Changed from doctorId
-        clinicianRole: doctor.role,       // ✅ Added clinicianRole
+        clinicianId: doctor.id,
+        clinicianRole: doctor.role,
         departmentId: medDept?.id,
         title: 'Malaria Follow-up',
         description: 'Post-treatment review for malaria',
@@ -1449,13 +1488,12 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Follow-up appointment for Patient 2 (Hypertension)
     await prisma.appointment.create({
       data: {
-        appointmentNumber: generateAppointmentNumber(),
+        appointmentNumber: generateAppointmentNumber(), // APT-1002
         patientId: patients[1].id,
-        clinicianId: doctor.id,           // ✅ Changed from doctorId
-        clinicianRole: doctor.role,       // ✅ Added clinicianRole
+        clinicianId: doctor.id,
+        clinicianRole: doctor.role,
         departmentId: medDept?.id,
         title: 'Hypertension Review',
         description: 'Monthly BP check and medication review',
@@ -1465,22 +1503,21 @@ console.log('✅ Test users created/verified');
         status: AppointmentStatus.checked_in,
         type: AppointmentType.follow_up,
         checkedIn: true,
-        checkedInAt: daysAgo(3, new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000)),
+        checkedInAt: daysAgo(3),
         createdBy: admin.id,
       },
     });
 
-    // Future appointment for Patient 3 (Hernia post-op) - with nurse
     await prisma.appointment.create({
       data: {
-        appointmentNumber: generateAppointmentNumber(),
+        appointmentNumber: generateAppointmentNumber(), // APT-1003
         patientId: patients[2].id,
-        clinicianId: nurse.id,            // ✅ Can be nurse
-        clinicianRole: nurse.role,        // ✅ Added clinicianRole
+        clinicianId: nurse.id,
+        clinicianRole: nurse.role,
         departmentId: surgeryDept?.id,
         title: 'Post-operative Review',
         description: 'Follow-up after hernia repair',
-        appointmentDate: daysAgo(-7), // 7 days from now
+        appointmentDate: daysFromNow(7),
         appointmentTime: '14:00',
         duration: 30,
         status: AppointmentStatus.scheduled,
@@ -1489,13 +1526,12 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // Antenatal appointment for Patient 4 - with midwife
     await prisma.appointment.create({
       data: {
-        appointmentNumber: generateAppointmentNumber(),
+        appointmentNumber: generateAppointmentNumber(), // APT-1004
         patientId: patients[3].id,
-        clinicianId: midwife.id,          // ✅ Can be midwife
-        clinicianRole: midwife.role,      // ✅ Added clinicianRole
+        clinicianId: midwife.id,
+        clinicianRole: midwife.role,
         departmentId: obsGynDept?.id,
         title: 'Antenatal Visit',
         description: 'Routine ANC at 32 weeks',
@@ -1508,12 +1544,11 @@ console.log('✅ Test users created/verified');
       },
     });
 
-    // ✅ Additional appointment with nurse for Patient 5
     await prisma.appointment.create({
       data: {
-        appointmentNumber: generateAppointmentNumber(),
+        appointmentNumber: generateAppointmentNumber(), // APT-1005
         patientId: patients[4].id,
-        clinicianId: nurse.id,            // ✅ Appointment with nurse
+        clinicianId: nurse.id,
         clinicianRole: nurse.role,
         departmentId: pediatricsDept?.id,
         title: 'Vaccination Appointment',
@@ -1526,7 +1561,6 @@ console.log('✅ Test users created/verified');
         createdBy: admin.id,
       },
     });
-
     console.log('✅ Appointments created');
 
     // =============== CREATE NOTIFICATIONS ===============
@@ -1540,6 +1574,7 @@ console.log('✅ Test users created/verified');
         actionType: 'lab_results',
         actionId: att1.id,
         actionUrl: `/attendances/${att1.id}`,
+        createdAt: daysAgo(14),
       },
     });
 
@@ -1553,6 +1588,7 @@ console.log('✅ Test users created/verified');
         actionType: 'claim',
         actionId: bill2.id,
         actionUrl: `/claims/${bill2.id}`,
+        createdAt: daysAgo(10),
       },
     });
 
@@ -1566,16 +1602,17 @@ console.log('✅ Test users created/verified');
         actionType: 'medication',
         actionId: att5.id,
         actionUrl: `/attendances/${att5.id}/medications`,
+        createdAt: daysAgo(3),
       },
     });
 
-    // ✅ ADD NOTIFICATIONS FOR ADMIN
+    // Admin notifications
     if (admin) {
       await prisma.notification.create({
         data: {
           userId: admin.id,
           title: '👋 Welcome Admin',
-          message: 'You are logged in as System Administrator. You will see all system-wide notifications here.',
+          message: 'You are logged in as System Administrator.',
           type: 'success',
           priority: 'medium',
           isRead: false,
@@ -1594,66 +1631,22 @@ console.log('✅ Test users created/verified');
           createdAt: new Date(),
         },
       });
-
-      await prisma.notification.create({
-        data: {
-          userId: admin.id,
-          title: '📋 Pending Tasks',
-          message: 'You have reports to review. Check the reports dashboard.',
-          type: 'system',
-          priority: 'medium',
-          actionType: 'reports',
-          actionUrl: '/dashboard/reports',
-          isRead: false,
-          createdAt: new Date(),
-        },
-      });
-
-      await prisma.notification.create({
-        data: {
-          userId: admin.id,
-          title: '👥 User Activity',
-          message: 'Test users have been created. Review user accounts.',
-          type: 'info',
-          priority: 'low',
-          actionType: 'users',
-          actionUrl: '/dashboard/users',
-          isRead: false,
-          createdAt: new Date(),
-        },
-      });
-
-      await prisma.notification.create({
-        data: {
-          userId: admin.id,
-          title: '💰 Financial Summary',
-          message: `Total bills created: 5. Total claims submitted: 2. Review financial reports.`,
-          type: 'billing',
-          priority: 'medium',
-          actionType: 'financial',
-          actionUrl: '/dashboard/finance',
-          isRead: false,
-          createdAt: new Date(),
-        },
-      });
-    }   
+    }
     console.log('✅ Notifications created');
 
+    // =============== SUMMARY ===============
     console.log('\n🎉 TEST DATA SEEDING COMPLETED!');
     console.log('\n📋 SUMMARY:');
-    console.log(`   - Patients: 10 (Cash: 3, NHIS: 5, Private: 2)`);
-    console.log(`   - Attendances: 5+ (Emergency, Chronic, Surgery, Antenatal, Paediatric + Maternity)`);
-    console.log(`   - Diagnoses: 5 (Malaria, Hypertension, Hernia, Antenatal, Pneumonia)`);
-    console.log(`   - Lab Tests: 4 completed`);
-    console.log(`   - Scans: 2 completed`);
-    console.log(`   - Medications: 6 prescribed/dispensed`);
-    console.log(`   - Bills: 5 (2 paid, 1 partial, 2 pending)`);
-    console.log(`   - Insurance Claims: 3 (NHIS x2, Private x1)`);
-    console.log(`   - Referrals: 2`);
-    console.log(`   - Admissions: 2 (1 discharged, 1 active)`);
-    console.log(`   - Appointments: 5+ (Doctor, Nurse, Midwife appointments)`);
-    console.log(`   - Notifications: 3+`);
-    console.log(`   - Maternity Records: 5 patients with ANC, Delivery, and PNC data`);
+    console.log(`   - Patients: 10 (Numbers: 1001-1010)`);
+    console.log(`   - Attendances: 5 (Numbers: 1001-1005)`);
+    console.log(`   - Bills: 5 (Numbers: BILL-1001 to BILL-1005)`);
+    console.log(`   - Receipts: 2 (RCP-1001, RCP-1002)`);
+    console.log(`   - Insurance Claims: 3 (NHIS-1002, PRV-1003, NHIS-1004)`);
+    console.log(`   - Referrals: 2 (REF-1001, REF-1002)`);
+    console.log(`   - Admissions: 2 (1003, 1005 - same as attendance numbers)`);
+    console.log(`   - Appointments: 5 (APT-1001 to APT-1005)`);
+    console.log(`   - Notifications: 5+`);
+
     console.log('\n👨‍⚕️ TEST LOGINS:');
     console.log(`   - admin/admin123 (Admin)`);
     console.log(`   - doctor1/doctor123 (Doctor)`);
@@ -1663,7 +1656,6 @@ console.log('✅ Test users created/verified');
     console.log(`   - lab1/lab123 (Lab Tech)`);
     console.log(`   - sonographer1/scan123 (Sonographer)`);
     console.log(`   - pharma1/pharma123 (Pharmacist)`);
-    console.log(`   - records1/records123 (Records)`);
 
     return {
       success: true,
@@ -1677,7 +1669,10 @@ console.log('✅ Test users created/verified');
   }
 };
 
-// Database initialization function
+// ============================================
+// DATABASE INITIALIZATION
+// ============================================
+
 export const initializeDatabase = async () => {
   console.log('🚀 Initializing database...');
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);

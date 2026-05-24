@@ -24,6 +24,7 @@ export const createGHSReportRoutes = (prisma: PrismaClient) => {
   router.get('/morbidity-mortality', controller.generateMorbidityMortalityReport);
   router.get('/top-diagnoses', controller.getTopDiagnoses);
   router.get('/form-a', controller.generateFormAReport);
+  router.get('/consulting-room-register', controller.generateConsultingRoomRegister);
 
   // ==============================================
   // REPORT SUBMISSIONS (PRESERVED FROM ORIGINAL)

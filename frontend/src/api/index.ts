@@ -1047,6 +1047,111 @@ export const deleteWaiver = (id: string) =>
 export const applyWaiverToBill = (billId: string, waiverId: string) => 
   api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
 
+
+// ──────────────────────────────────────────────
+// ADMISSIONS (Formal IPD Admissions - Lightweight)
+// ──────────────────────────────────────────────
+
+// Get all formal admissions (IPD encounters with Admission record)
+export const getAdmissions = (filters?: { 
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  patientId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}) => 
+  api.get('/admissions', { params: filters }).then(r => {
+    if (r.data?.success && Array.isArray(r.data.data)) return r.data.data;
+    if (Array.isArray(r.data)) return r.data;
+    if (r.data?.data && Array.isArray(r.data.data)) return r.data.data;
+    return [];
+  });
+
+// Get single admission by ID
+export const getAdmission = (id: string) => 
+  api.get(`/admissions/${id}`).then(r => r.data?.data || r.data);
+
+// Create formal admission from existing IPD encounter
+export const createAdmission = (data: { 
+  attendanceId: string;        // REQUIRED - links to clinical encounter
+  admissionType?: 'emergency' | 'elective' | 'transfer';
+  admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  admissionDate?: string;
+}) => 
+  api.post('/admissions', data).then(r => r.data?.data || r.data);
+
+// Update admission (discharge only typically)
+export const updateAdmission = (id: string, data: { 
+  dischargeDate?: string;
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  dailyNotes?: any;
+}) => 
+  api.put(`/admissions/${id}`, data).then(r => r.data?.data || r.data);
+
+// Delete admission (only if not discharged)
+export const deleteAdmission = (id: string) => 
+  api.delete(`/admissions/${id}`).then(r => r.data);
+
+// Discharge patient from admission
+export const dischargeAdmission = (id: string, data?: { 
+  dischargeDate?: string;
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+}) => 
+  api.post(`/admissions/${id}/discharge`, data || {}).then(r => r.data);
+
+// Add daily notes to admission
+export const addDailyNotesToAdmission = (admissionId: string, data: { notes: string; noteType?: string }) => 
+  api.post(`/admissions/${admissionId}/notes`, data).then(r => r.data?.data || r.data);
+
+// Get admission statistics
+export const getAdmissionStats = () => 
+  api.get('/admissions/stats').then(r => r.data?.data || r.data);
+
+// Get admissions by patient ID (historical)
+export const getAdmissionsByPatientId = (patientId: string, filters?: { page?: number; limit?: number }) => 
+  api.get(`/admissions/patient/${patientId}`, { params: filters }).then(r => r.data?.data || r.data);
+
+// ──────────────────────────────────────────────
+// DAYCASE/OBSERVATION PATIENTS (Not formally admitted)
+// ──────────────────────────────────────────────
+
+// Get daycase/observation patients (encounterCategory = 'daycase')
+export const getDaycasePatients = (filters?: { 
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  page?: number;
+  limit?: number;
+}) => 
+  api.get('/encounters/daycase', { params: filters }).then(r => r.data?.data || r.data);
+
+// Convert daycase to IPD (when observation becomes formal admission)
+export const convertDaycaseToIPD = (encounterId: string, data?: { 
+  admissionType?: 'emergency' | 'elective' | 'transfer';
+}) => 
+  api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// BED OCCUPANCY (IPD + Daycase combined)
+// ──────────────────────────────────────────────
+
+// Get current bed occupancy (all patients in beds - IPD and Daycase)
+export const getBedOccupancy = () => 
+  api.get('/encounters/bed-occupancy').then(r => r.data);
+
+// ──────────────────────────────────────────────
+// DISCHARGE FROM ENCOUNTER (IPD or Daycase)
+// ──────────────────────────────────────────────
+
+// Discharge from encounter (works for both IPD and Daycase)
+export const dischargeFromEncounter = (encounterId: string, data?: { 
+  dischargeDate?: string;
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  dischargeSummary?: string;
+}) => 
+  api.post(`/encounters/${encounterId}/discharge`, data || {}).then(r => r.data);
+
 // ──────────────────────────────────────────────
 // WARD CHARGES
 // ──────────────────────────────────────────────
@@ -1056,57 +1161,6 @@ export const getWardCharges = (encounterId: string, params?: any) =>
 
 export const generateDailyWardCharges = (date?: string) => 
   api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
-
-// ──────────────────────────────────────────────
-// ADMISSIONS
-// ──────────────────────────────────────────────
-
-export const getAdmissions = (filters?: any) => 
-  api.get('/admissions', { params: filters }).then(r => handleResponse<Admission>(r.data));
-
-export const getAdmission = (id: string) => 
-  api.get(`/admissions/${id}`).then(r => r.data);
-
-export const createAdmission = (data: any) => 
-  api.post('/admissions', data).then(r => r.data);
-
-export const updateAdmission = (id: string, data: any) => 
-  api.put(`/admissions/${id}`, data).then(r => r.data);
-
-export const deleteAdmission = (id: string) => 
-  api.delete(`/admissions/${id}`).then(r => r.data);
-
-export const dischargePatient = (id: string, data: any) => 
-  api.post(`/admissions/${id}/discharge`, data).then(r => r.data);
-
-export const updateAdmissionWithNHISData = (id: string, data: any) => 
-  api.patch(`/admissions/${id}/nhis`, data).then(r => r.data);
-
-export const addDailyNotesToAdmission = (admissionId: string, data: any) => 
-  api.post(`/admissions/${admissionId}/daily-notes`, data).then(r => r.data);
-
-export const getAdmissionStats = () => 
-  api.get('/admissions/stats').then(r => r.data);
-
-export const getAdmissionsByPatientId = (patientId: string) => 
-  api.get(`/admissions/patient/${patientId}`).then(r => r.data);
-
-// ✅ ADD BACK: Daily Notes for Admissions
-export const addDailyNoteToAdmission = (admissionId: string, data: any) => 
-  api.post(`/admissions/${admissionId}/daily-notes`, data).then(r => r.data);
-
-export const updateDailyNote = (admissionId: string, noteId: string, data: any) => 
-  api.put(`/admissions/${admissionId}/daily-notes/${noteId}`, data).then(r => r.data);
-
-export const deleteDailyNote = (admissionId: string, noteId: string) => 
-  api.delete(`/admissions/${admissionId}/daily-notes/${noteId}`).then(r => r.data);
-
-// ✅ ADD BACK: Secondary Diagnoses for Admissions
-export const addSecondaryDiagnosisToAdmission = (admissionId: string, data: any) => 
-  api.post(`/admissions/${admissionId}/secondary-diagnoses`, data).then(r => r.data);
-
-export const removeSecondaryDiagnosisFromAdmission = (admissionId: string, diagnosisId: string) => 
-  api.delete(`/admissions/${admissionId}/secondary-diagnoses/${diagnosisId}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // WARDS & BEDS
@@ -1915,19 +1969,9 @@ export const getGHSOPDReport = async (params: ReportFilter) => {
   return response.data;
 };
 
-export const getFamilyPlanningReport = async (params: ReportFilter) => {
-  const response = await api.get('/ghs-reports/family-planning', { params });
-  return response.data;
-};
-
 export const getGHSIPDReport = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/ipd', { params });
   return response.data;
-};
-
-export const getGHSDeliveryReport = async (filters: ReportFilter) => {
-  const response = await api.get('/ghs-reports/delivery', { params: filters });
-  return response.data.data;
 };
 
 export const getGHSIDSRReport = async (params: ReportFilter) => {
@@ -1937,6 +1981,20 @@ export const getGHSIDSRReport = async (params: ReportFilter) => {
 
 export const getGHSMalariaReport = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/malaria', { params });
+  return response.data;
+};
+
+// ==============================================
+// GHS DELIVERY REPORT
+// ==============================================
+
+export const getGHSDeliveryReport = async (filters: ReportFilter) => {
+  const response = await api.get('/ghs-reports/delivery', { params: filters });
+  return response.data;
+};
+
+export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
+  const response = await api.get('/ghs-reports/family-planning', { params: filters });
   return response.data;
 };
 
@@ -1955,9 +2013,9 @@ export const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) 
   return response.data;
 };
 
-export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
-  const response = await api.get('/ghs-reports/family-planning', { params: filters });
-  return response.data.data;
+export const getFamilyPlanningReport = async (params: ReportFilter) => {
+  const response = await api.get('/ghs-reports/family-planning', { params });
+  return response.data;
 };
 
 export const getReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
@@ -1978,7 +2036,6 @@ export const exportGHSReportToCSV = async (submissionId: string) => {
 };
 
 export const exportReportToCSV = async (reportType: string, filters: ReportFilter) => {
-  // First get the report data, then export
   let reportData;
   switch (reportType) {
     case 'financial':
@@ -2006,6 +2063,45 @@ export const exportReportToCSV = async (reportType: string, filters: ReportFilte
     responseType: 'blob'
   });
   
+  return response.data;
+};
+
+
+export const getConsultingRoomRegister = async (params: { 
+  startDate?: string; 
+  endDate?: string; 
+  period?: 'daily' | 'weekly' | 'monthly' 
+}) => {
+  const response = await api.get('/ghs-reports/consulting-room-register', { params });
+  return response.data;
+};
+
+// Add these to your api/index.ts
+
+// ==============================================
+// NHIS EXPIRY & CLAIMS REPORTS
+// ==============================================
+
+export const getNhisExpiryReport = async (params: { 
+  daysThreshold?: number; 
+  startDate?: string; 
+  endDate?: string 
+}) => {
+  const response = await api.get('/reports/nhis-expiry', { params });
+  return response.data;
+};
+
+export const getNhisClaimsSummary = async (params: { 
+  startDate?: string; 
+  endDate?: string; 
+  expiryStatus?: 'ACTIVE' | 'WARNING' | 'CRITICAL' | 'EXPIRED' 
+}) => {
+  const response = await api.get('/reports/nhis-claims-summary', { params });
+  return response.data;
+};
+
+export const getNhisExpiringSoon = async (days: number = 30) => {
+  const response = await api.get('/reports/nhis-expiring-soon', { params: { days } });
   return response.data;
 };
 
@@ -2356,13 +2452,18 @@ export default {
   getWardCharges, generateDailyWardCharges,
   
   // Admissions
-  getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission, dischargePatient,
-  addDailyNoteToAdmission, updateDailyNote, deleteDailyNote, addSecondaryDiagnosisToAdmission, removeSecondaryDiagnosisFromAdmission, 
-  addDailyNotesToAdmission, updateAdmissionWithNHISData, getAdmissionStats, getAdmissionsByPatientId,
+  getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
+  dischargeAdmission, addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
   
   // Wards & Beds
-  getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds,
+  getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds, getBedOccupancy,
   getBeds, getBed, createBed, updateBed, deleteBed,
+
+  // Daycase/Observation (NEW)
+  getDaycasePatients, convertDaycaseToIPD,
+  
+  // Discharge (UPDATED)
+  dischargeFromEncounter, // dischargePatient is alias for backward compat
   
   // Stock
   getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,
@@ -2428,7 +2529,7 @@ export default {
   
   // Reports
   getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
-  getMorbidityMortalityReport, getTopDiagnoses, getGHSDeliveryReport, getGHSFamilyPlanningReport, getFamilyPlanningReport,
+  getMorbidityMortalityReport, getTopDiagnoses,  getFamilyPlanningReport,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport,

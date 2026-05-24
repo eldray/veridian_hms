@@ -408,6 +408,290 @@ export class ReportController {
     }
   };
 
+  // modules/report/ReportController.ts - Add this new method
+
+// ✅ NHIS EXPIRY REPORT - Track expiring NHIS memberships
+getNhisExpiryReport = async (req: Request, res: Response) => {
+  try {
+    const { daysThreshold = 30, startDate, endDate } = req.query;
+    const threshold = parseInt(daysThreshold as string) || 30;
+    
+    const today = new Date();
+    const expiryCutoff = new Date();
+    expiryCutoff.setDate(today.getDate() + threshold);
+    
+    // Build where conditions
+    const where: any = {
+      nhisNumber: { not: null },
+      nhisActive: true
+    };
+    
+    // Filter by expiry date range
+    if (startDate && endDate) {
+      where.nhisExpiryDate = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      };
+    } else {
+      // Default: show expiring within threshold days
+      where.nhisExpiryDate = {
+        gte: today,
+        lte: expiryCutoff
+      };
+    }
+    
+    // Get patients with NHIS numbers
+    const patients = await this.prisma.patient.findMany({
+      where,
+      select: {
+        id: true,
+        folderNumber: true,
+        surname: true,
+        otherNames: true,
+        contact: true,
+        phoneNumber: true,
+        nhisNumber: true,
+        nhisExpiryDate: true,
+        nhisActive: true,
+        createdAt: true,
+        attendance: {
+          take: 1,
+          orderBy: { dateTime: 'desc' },
+          select: { dateTime: true }
+        }
+      },
+      orderBy: { nhisExpiryDate: 'asc' }
+    });
+    
+    // Calculate days until expiry for each
+    const patientsWithExpiry = patients.map(patient => {
+      const daysUntilExpiry = patient.nhisExpiryDate 
+        ? Math.ceil((patient.nhisExpiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      const expiryStatus = daysUntilExpiry !== null 
+        ? daysUntilExpiry <= 0 ? 'EXPIRED' 
+          : daysUntilExpiry <= 7 ? 'CRITICAL' 
+          : daysUntilExpiry <= 30 ? 'WARNING' 
+          : 'HEALTHY'
+        : 'UNKNOWN';
+      
+      return {
+        ...patient,
+        fullName: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+        daysUntilExpiry,
+        expiryStatus,
+        lastVisit: patient.attendance?.[0]?.dateTime || null
+      };
+    });
+    
+    // Summary statistics
+    const summary = {
+      totalNHISPatients: patientsWithExpiry.length,
+      expired: patientsWithExpiry.filter(p => p.expiryStatus === 'EXPIRED').length,
+      critical: patientsWithExpiry.filter(p => p.expiryStatus === 'CRITICAL').length,  // 0-7 days
+      warning: patientsWithExpiry.filter(p => p.expiryStatus === 'WARNING').length,   // 8-30 days
+      healthy: patientsWithExpiry.filter(p => p.expiryStatus === 'HEALTHY').length,
+      noExpiryDate: patientsWithExpiry.filter(p => !p.nhisExpiryDate).length
+    };
+    
+    // Group by month
+    const expiryByMonth = patientsWithExpiry
+      .filter(p => p.nhisExpiryDate)
+      .reduce((acc, p) => {
+        const monthKey = p.nhisExpiryDate!.toISOString().slice(0, 7); // YYYY-MM
+        acc[monthKey] = (acc[monthKey] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    
+    res.json({
+      success: true,
+      data: {
+        patients: patientsWithExpiry,
+        summary,
+        expiryByMonth,
+        filters: {
+          daysThreshold: threshold,
+          startDate: startDate || today.toISOString().split('T')[0],
+          endDate: endDate || expiryCutoff.toISOString().split('T')[0]
+        },
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('NHIS expiry report error:', error);
+    res.status(500).json({ success: false, message: 'Error generating NHIS expiry report' });
+  }
+};
+
+// ✅ NHIS CLAIMS SUMMARY - Track claims by NHIS membership
+getNhisClaimsSummary = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, expiryStatus } = req.query;
+    
+    const whereClaim: any = {
+      insuranceProvider: {
+        type: 'nhis'
+      }
+    };
+    
+    if (startDate && endDate) {
+      whereClaim.submissionDate = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      };
+    }
+    
+    // Get all NHIS claims
+    const claims = await this.prisma.insuranceClaim.findMany({
+      where: whereClaim,
+      include: {
+        Patient: {
+          select: {
+            id: true,
+            surname: true,
+            otherNames: true,
+            folderNumber: true,
+            nhisNumber: true,
+            nhisExpiryDate: true,
+            nhisActive: true
+          }
+        },
+        InsuranceProvider: {
+          select: { name: true }
+        },
+        Bill: true
+      },
+      orderBy: { submissionDate: 'desc' }
+    });
+    
+    // Enhance claims with expiry info
+    const today = new Date();
+    const enhancedClaims = claims.map(claim => {
+      const expiryDate = claim.Patient?.nhisExpiryDate;
+      const daysUntilExpiry = expiryDate 
+        ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      let expiryStatus = 'UNKNOWN';
+      if (expiryDate) {
+        if (daysUntilExpiry! <= 0) expiryStatus = 'EXPIRED';
+        else if (daysUntilExpiry! <= 7) expiryStatus = 'CRITICAL';
+        else if (daysUntilExpiry! <= 30) expiryStatus = 'WARNING';
+        else expiryStatus = 'ACTIVE';
+      }
+      
+      return {
+        ...claim,
+        patientName: claim.Patient ? `${claim.Patient.surname} ${claim.Patient.otherNames || ''}`.trim() : 'Unknown',
+        nhisNumber: claim.Patient?.nhisNumber,
+        nhisExpiryDate: expiryDate,
+        nhisExpiryStatus: expiryStatus,
+        daysUntilExpiry
+      };
+    });
+    
+    // Filter by expiry status if requested
+    const filteredClaims = expiryStatus 
+      ? enhancedClaims.filter(c => c.nhisExpiryStatus === expiryStatus)
+      : enhancedClaims;
+    
+    // Summary by expiry status
+    const summaryByExpiryStatus = {
+      ACTIVE: enhancedClaims.filter(c => c.nhisExpiryStatus === 'ACTIVE').length,
+      WARNING: enhancedClaims.filter(c => c.nhisExpiryStatus === 'WARNING').length,
+      CRITICAL: enhancedClaims.filter(c => c.nhisExpiryStatus === 'CRITICAL').length,
+      EXPIRED: enhancedClaims.filter(c => c.nhisExpiryStatus === 'EXPIRED').length,
+      UNKNOWN: enhancedClaims.filter(c => c.nhisExpiryStatus === 'UNKNOWN').length
+    };
+    
+    // Claim amounts by expiry status
+    const claimAmountsByExpiryStatus = {
+      ACTIVE: enhancedClaims.filter(c => c.nhisExpiryStatus === 'ACTIVE').reduce((sum, c) => sum + c.totalClaimAmount, 0),
+      WARNING: enhancedClaims.filter(c => c.nhisExpiryStatus === 'WARNING').reduce((sum, c) => sum + c.totalClaimAmount, 0),
+      CRITICAL: enhancedClaims.filter(c => c.nhisExpiryStatus === 'CRITICAL').reduce((sum, c) => sum + c.totalClaimAmount, 0),
+      EXPIRED: enhancedClaims.filter(c => c.nhisExpiryStatus === 'EXPIRED').reduce((sum, c) => sum + c.totalClaimAmount, 0),
+      UNKNOWN: enhancedClaims.filter(c => c.nhisExpiryStatus === 'UNKNOWN').reduce((sum, c) => sum + c.totalClaimAmount, 0)
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        claims: filteredClaims,
+        summary: {
+          totalClaims: filteredClaims.length,
+          totalClaimAmount: filteredClaims.reduce((sum, c) => sum + c.totalClaimAmount, 0),
+          byExpiryStatus: summaryByExpiryStatus,
+          claimAmountsByExpiryStatus
+        },
+        period: { startDate, endDate },
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('NHIS claims summary error:', error);
+    res.status(500).json({ success: false, message: 'Error generating NHIS claims summary' });
+  }
+};
+
+// ✅ NHIS EXPIRING SOON - Quick summary for dashboard
+getNhisExpiringSoon = async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+    const threshold = parseInt(days as string) || 30;
+    
+    const today = new Date();
+    const expiryCutoff = new Date();
+    expiryCutoff.setDate(today.getDate() + threshold);
+    
+    const expiringPatients = await this.prisma.patient.findMany({
+      where: {
+        nhisNumber: { not: null },
+        nhisActive: true,
+        nhisExpiryDate: {
+          gte: today,
+          lte: expiryCutoff
+        }
+      },
+      select: {
+        id: true,
+        folderNumber: true,
+        surname: true,
+        otherNames: true,
+        contact: true,
+        phoneNumber: true,
+        nhisNumber: true,
+        nhisExpiryDate: true,
+        attendance: {
+          take: 1,
+          orderBy: { dateTime: 'desc' },
+          select: { dateTime: true }
+        }
+      },
+      orderBy: { nhisExpiryDate: 'asc' },
+      take: 20
+    });
+    
+    const expiringWithDays = expiringPatients.map(p => ({
+      ...p,
+      fullName: `${p.surname} ${p.otherNames || ''}`.trim(),
+      daysUntilExpiry: Math.ceil((p.nhisExpiryDate!.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        expiringPatients: expiringWithDays,
+        count: expiringWithDays.length,
+        threshold
+      }
+    });
+  } catch (error) {
+    console.error('NHIS expiring soon error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching expiring NHIS memberships' });
+  }
+};
+
 // modules/report/ReportController.ts
 
 exportReport = async (req: Request, res: Response) => {

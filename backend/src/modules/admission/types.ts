@@ -1,70 +1,28 @@
-// modules/admission/types.ts
-export interface AdmissionQueryParams {
-  status?: string;
-  wardId?: string;
-  patientId?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  page?: number;
-  limit?: number;
+// modules/admission/AdmissionTypes.ts
+export interface CreateAdmissionDTO {
+  attendanceId: string;      // REQUIRED - links to clinical encounter
+  admissionType?: 'emergency' | 'elective' | 'transfer';
+  admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  admissionDate?: Date;
 }
 
-export interface CreateAdmissionBody {
-  patientId: string;
-  wardId: string;
-  bedId: string;
-  attendanceId?: string;
-  primaryDiagnosisId: string;
-  admittingDoctor: string;
-  reasonForAdmission: string;
-  paymentMode?: string;
-  admissionDate?: string;
-  admissionTime?: string;
-  admissionType?: string;
-  admissionSource?: string;
-  presentOnAdmission?: string;
+export interface UpdateAdmissionDTO {
+  dischargeDate?: Date;
+  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  dailyNotes?: any;
 }
 
-export interface AddSecondaryDiagnosisBody {
-  diagnosisId: string;
-  diagnosisType: 'additional' | 'provisional';
-  notes?: string;
-  presentOnAdmission?: string;
-}
-
-export interface UpdatePrimaryDiagnosisBody {
-  primaryDiagnosisId: string;
-  presentOnAdmission?: string;
-}
-
-export interface DischargePatientBody {
-  dischargeDate?: string;
-  dischargeTime?: string;
-  dischargeStatus?: string;
-  conditionAtDischarge?: string;
-}
-
-export interface AddDailyNotesBody {
+export interface AddDailyNoteDTO {
   notes: string;
   noteType?: string;
 }
 
-export interface UpdateAdmissionBody {
+export interface AdmissionFilters {
+  status?: 'active' | 'discharged';
   wardId?: string;
-  bedId?: string;
-  admittingDoctor?: string;
-  reasonForAdmission?: string;
-  diagnosis?: string;
-}
-
-export interface AdmissionResponse {
-  success: boolean;
-  data?: any;
-  message?: string;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
+  patientId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  page?: number;
+  limit?: number;
 }

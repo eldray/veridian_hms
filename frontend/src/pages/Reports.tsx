@@ -1,4 +1,4 @@
-// src/pages/Reports.tsx - COMPLETE UPDATED VERSION
+// src/pages/Reports.tsx - COMPLETE UPDATED VERSION WITH ALL REPORTS
 import React, { useState, useEffect, useCallback } from 'react';
 import { useReportsStore } from '../store/reportsStore';
 import { useAuthStore } from '../store/authStore';
@@ -8,11 +8,12 @@ import {
   Download, Activity, Clock, CheckCircle, Baby, Heart, Stethoscope,
   PieChart, UserCheck, Shield, AlertTriangle, Droplet, RefreshCw,
   ArrowLeft, Hospital, Syringe, Scissors, FlaskConical, ListOrdered,
-  FileSpreadsheet, ClipboardList
+  FileSpreadsheet, ClipboardList, IdCard, AlertCircle, Eye,
+  ChevronRight, Search, Printer, Filter, X, Phone, Mail, MapPin,
+  CalendarDays, FileWarning, CreditCard, Package
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';
-
 
 // Age groups for GHS Morbidity Report (Full Form A)
 const AGE_GROUPS = [
@@ -28,76 +29,86 @@ export default function Reports() {
     start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
-  const [activeCategory, setActiveCategory] = useState<'ghs' | 'clinical' | 'financial'>('ghs');
+  const [activeCategory, setActiveCategory] = useState<'ghs' | 'clinical' | 'financial' | 'nhis'>('ghs');
   const [reportType, setReportType] = useState<string>('opd-attendance');
   const [activeFormATab, setActiveFormATab] = useState<'antenatal' | 'delivery' | 'postnatal'>('antenatal');
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [nhisExpiryDays, setNhisExpiryDays] = useState<number>(30);
+  const [nhisExpiryStatus, setNhisExpiryStatus] = useState<string>('all');
 
-// ✅ Correct function names from your store
-const {
-  // GHS Reports
-  getGHSOPDReport,  
-  getGHSIPDReport,      
-  getGHSIDSRReport,     
-  getGHSMalariaReport,  
-  getGHSFormAReport,    
-  getFamilyPlanningReport,
-  getMorbidityMortalityReport,
-  getTopDiagnoses,
-  
-  // Clinical Reports
-  getDemographicReport,
-  getFinancialReport,
-  getInsuranceClaimsReport,
-  getClinicalReport,
-  getAttendanceReport,
-  getRevenueReport,
-  getLabReport,
-  getScanReport,
-  getProcedureReport,
-  getMedicationReport,
-  getVitalsReport,
-  
-  // Export
-  exportReport,
-  
-  // State
-  opdReport,
-  ipdReport,
-  formAReport,
-  malariaReport,
-  idsrReport,
-  familyPlanningReport,
-  morbidityMortalityReport,
-  topDiagnoses,
-  demographicReport,
-  financialReport,
-  insuranceClaimsReport,
-  clinicalReport,
-  attendanceReport,
-  revenueReport,
-  labReport,
-  scanReport,
-  procedureReport,
-  medicationReport,
-  vitalsReport,
-  
-  isLoading: storeLoading,
-} = useReportsStore();
+  // Store functions
+  const {
+    // GHS Reports
+    getGHSOPDReport,
+    getGHSIPDReport,
+    getGHSIDSRReport,
+    getGHSMalariaReport,
+    getGHSFormAReport,
+    getFamilyPlanningReport,
+    getMorbidityMortalityReport,
+    getTopDiagnoses,
+    
+    // Clinical Reports
+    getDemographicReport,
+    getFinancialReport,
+    getInsuranceClaimsReport,
+    getClinicalReport,
+    getAttendanceReport,
+    getRevenueReport,
+    getLabReport,
+    getScanReport,
+    getProcedureReport,
+    getMedicationReport,
+    getVitalsReport,
+    
+    // NHIS Reports
+    getNhisExpiryReport,
+    getNhisClaimsSummary,
+    
+    // Export
+    exportReport,
+    
+    // State
+    opdReport,
+    ipdReport,
+    formAReport,
+    malariaReport,
+    idsrReport,
+    familyPlanningReport,
+    morbidityMortalityReport,
+    topDiagnoses,
+    demographicReport,
+    financialReport,
+    insuranceClaimsReport,
+    clinicalReport,
+    attendanceReport,
+    revenueReport,
+    labReport,
+    scanReport,
+    procedureReport,
+    medicationReport,
+    vitalsReport,
+    nhisExpiryReport,
+    nhisClaimsSummary,
+    
+    isLoading: storeLoading,
+  } = useReportsStore();
 
   // Category configurations
   const categories = [
     { id: 'ghs', label: 'GHS Standard Reports', icon: FileText },
     { id: 'clinical', label: 'Clinical Reports', icon: Activity },
     { id: 'financial', label: 'Financial Reports', icon: DollarSign },
+    { id: 'nhis', label: 'NHIS Reports', icon: Shield },
   ];
 
-  // Report items by category - UPDATED (removed separate ANC and Delivery)
+  // Report items by category
   const reportItems = {
     ghs: [
       { key: 'opd-attendance', label: 'OPD Attendance', icon: Users, color: 'cyan' },
+      { key: 'consulting-room-register', label: 'Consulting Room Register', icon: ClipboardList, color: 'teal' },
       { key: 'opd-morbidity', label: 'OPD Morbidity (Full Form A)', icon: FileSpreadsheet, color: 'red' },
       { key: 'top-diagnoses', label: 'Top 10 Diagnoses', icon: ListOrdered, color: 'orange' },
       { key: 'form-a', label: 'Form A (Maternal Health)', icon: Heart, color: 'pink' },
@@ -119,6 +130,10 @@ const {
       { key: 'financial', label: 'Financial Summary', icon: DollarSign, color: 'green' },
       { key: 'revenue', label: 'Revenue Analysis', icon: TrendingUp, color: 'emerald' },
       { key: 'insurance', label: 'Insurance Claims', icon: Shield, color: 'purple' },
+    ],
+    nhis: [
+      { key: 'nhis-expiry', label: 'NHIS Membership Expiry', icon: CalendarDays, color: 'orange' },
+      { key: 'nhis-claims', label: 'NHIS Claims Summary', icon: CreditCard, color: 'blue' },
     ],
   };
 
@@ -146,15 +161,19 @@ const {
     setIsLoading(true);
     try {
       const filters = { startDate: dateRange.start, endDate: dateRange.end };
+      
       switch (reportType) {
-        case 'opd-attendance': await getGHSOPDReport(filters); break;      // Changed
+        // GHS Reports
+        case 'opd-attendance': await getGHSOPDReport(filters); break;
         case 'opd-morbidity': await getMorbidityMortalityReport(filters); break;
         case 'top-diagnoses': await getTopDiagnoses(filters, 10); break;
-        case 'form-a': await getGHSFormAReport(filters); break;           // Changed
-        case 'ipd': await getGHSIPDReport(filters); break;                // Changed
-        case 'malaria': await getGHSMalariaReport(filters); break;        // Changed
-        case 'idsr': await getGHSIDSRReport(filters); break;              // Changed
+        case 'form-a': await getGHSFormAReport(filters); break;
+        case 'ipd': await getGHSIPDReport(filters); break;
+        case 'malaria': await getGHSMalariaReport(filters); break;
+        case 'idsr': await getGHSIDSRReport(filters); break;
         case 'family-planning': await getFamilyPlanningReport(filters); break;
+        
+        // Clinical Reports
         case 'demographic': await getDemographicReport(filters); break;
         case 'financial': await getFinancialReport(filters); break;
         case 'insurance': await getInsuranceClaimsReport(filters); break;
@@ -166,6 +185,14 @@ const {
         case 'procedures': await getProcedureReport(filters); break;
         case 'medications': await getMedicationReport(filters); break;
         case 'vitals': await getVitalsReport(filters); break;
+        
+        // NHIS Reports
+        case 'nhis-expiry': 
+          await getNhisExpiryReport({ daysThreshold: nhisExpiryDays, startDate: dateRange.start, endDate: dateRange.end }); 
+          break;
+        case 'nhis-claims': 
+          await getNhisClaimsSummary({ startDate: dateRange.start, endDate: dateRange.end, expiryStatus: nhisExpiryStatus !== 'all' ? nhisExpiryStatus : undefined }); 
+          break;
       }
       setGeneratedAt(new Date());
     } catch (err: any) {
@@ -173,7 +200,7 @@ const {
     } finally {
       setIsLoading(false);
     }
-  }, [reportType, dateRange]);
+  }, [reportType, dateRange, nhisExpiryDays, nhisExpiryStatus]);
 
   useEffect(() => {
     loadReport();
@@ -208,11 +235,9 @@ const {
       case 'malaria': return malariaReport;
       case 'idsr': return idsrReport;
       case 'family-planning': return familyPlanningReport;
-      case 'morbidity-mortality': return morbidityMortalityReport;
       case 'demographic': return demographicReport;
       case 'financial': return financialReport;
       case 'insurance': return insuranceClaimsReport;
-      case 'clinical-stats': return clinicalReport;
       case 'attendance': return attendanceReport;
       case 'revenue': return revenueReport;
       case 'lab': return labReport;
@@ -220,6 +245,8 @@ const {
       case 'procedures': return procedureReport;
       case 'medications': return medicationReport;
       case 'vitals': return vitalsReport;
+      case 'nhis-expiry': return nhisExpiryReport;
+      case 'nhis-claims': return nhisClaimsSummary;
       default: return null;
     }
   };
@@ -229,25 +256,26 @@ const {
   const getReportTitle = () => {
     const titles: Record<string, string> = {
       'opd-attendance': 'OPD Attendance Report',
+      'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity Report (GHS Form A)',
       'top-diagnoses': 'Top 10 Diagnoses',
-      'form-a': 'GHS Form A - Maternal Health Report (ANC + Delivery + Postnatal)',
-      ipd: 'IPD & Mortality Report',
-      malaria: 'Malaria Data Report',
-      idsr: 'IDSR Notifiable Diseases Report',
+      'form-a': 'GHS Form A - Maternal Health Report',
+      'ipd': 'IPD & Mortality Report',
+      'malaria': 'Malaria Data Report',
+      'idsr': 'IDSR Notifiable Diseases Report',
       'family-planning': 'Family Planning Report',
-      'morbidity-mortality': 'Morbidity & Mortality Report',
-      demographic: 'Demographic Analysis Report',
-      financial: 'Financial Summary Report',
-      insurance: 'Insurance Claims Report',
-      'clinical-stats': 'Clinical Statistics Report',
-      attendance: 'Attendance Patterns Report',
-      revenue: 'Revenue Analysis Report',
+      'demographic': 'Demographic Analysis Report',
+      'financial': 'Financial Summary Report',
+      'insurance': 'Insurance Claims Report',
+      'attendance': 'Attendance Patterns Report',
+      'revenue': 'Revenue Analysis Report',
       'lab': 'Laboratory Report',
       'scans': 'Radiology/Scans Report',
       'procedures': 'Procedures Report',
       'medications': 'Medications Report',
       'vitals': 'Vitals & Observations Report',
+      'nhis-expiry': 'NHIS Membership Expiry Report',
+      'nhis-claims': 'NHIS Claims Summary Report',
     };
     return titles[reportType] || 'Report';
   };
@@ -283,7 +311,299 @@ const {
     </div>
   );
 
-  // ==================== 1. OPD ATTENDANCE REPORT ====================
+  // ==================== CONSULTING ROOM REGISTER ====================
+  const renderConsultingRoomRegister = () => {
+    const report = opdReport as any;
+    if (!report) return <EmptyState message="No consulting room register data available for this period" />;
+
+    const entries = report.entries || [];
+    
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Patients" value={report.summary?.totalPatients || 0} icon={Users} color="cyan" />
+          <StatCard label="New Patients" value={report.summary?.newPatients || 0} icon={UserCheck} color="green" />
+          <StatCard label="NHIS Patients" value={report.summary?.nhisPatients || 0} icon={Shield} color="blue" />
+          <StatCard label="Pregnant Women" value={report.summary?.pregnantWomen || 0} icon={Baby} color="pink" />
+        </div>
+
+        <TableCard title="Consulting Room Register - Daily Patient Log" icon={ClipboardList}>
+          <div className="overflow-x-auto max-h-[600px]">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)] z-10">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Date</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Patient No</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">NHIS No</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Name</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Age</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Sex</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Provisional Diagnosis</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Lab Tests</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Drugs Prescribed</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">NHIS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {entries.slice(0, 100).map((entry: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-[var(--bg-main)]">
+                    <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">{entry.date}</td>
+                    <td className="px-3 py-2 font-mono text-[var(--text-primary)]">{entry.patientNo}</td>
+                    <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{entry.nhisNo || '-'}</td>
+                    <td className="px-3 py-2 text-[var(--text-primary)]">{entry.patientName}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)]">{entry.age}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)]">{entry.sex === 'male' ? 'M' : 'F'}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[200px] truncate">{entry.provisionalDiagnosis || '-'}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[150px] truncate">{entry.labTestsRequested || '-'}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)] max-w-[200px] truncate">{entry.drugsPrescribed || '-'}</td>
+                    <td className="px-3 py-2 text-center">
+                      {entry.isNHIS ? <span className="text-green-600 font-bold">Y</span> : <span className="text-gray-400">N</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TableCard>
+        
+        {entries.length > 100 && (
+          <p className="text-xs text-[var(--text-tertiary)] text-center">Showing first 100 of {entries.length} entries</p>
+        )}
+      </div>
+    );
+  };
+
+  // ==================== NHIS EXPIRY REPORT ====================
+  const renderNhisExpiryReport = () => {
+    const report = nhisExpiryReport as any;
+    if (!report) return <EmptyState message="No NHIS expiry data available for this period" />;
+
+    const summary = report.summary || {};
+    const patients = report.patients || [];
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'EXPIRED': return 'bg-red-100 text-red-800';
+        case 'CRITICAL': return 'bg-orange-100 text-orange-800';
+        case 'WARNING': return 'bg-yellow-100 text-yellow-800';
+        case 'HEALTHY': return 'bg-green-100 text-green-800';
+        default: return 'bg-gray-100 text-gray-800';
+      }
+    };
+
+    return (
+      <div className="space-y-5">
+        {/* Filter controls */}
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[var(--text-secondary)]" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Days threshold:</span>
+            </div>
+            <select 
+              value={nhisExpiryDays} 
+              onChange={(e) => setNhisExpiryDays(parseInt(e.target.value))}
+              className="px-3 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg"
+            >
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+              <option value={60}>60 days</option>
+              <option value={90}>90 days</option>
+            </select>
+            <button 
+              onClick={() => loadReport()}
+              className="px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatCard label="Total NHIS Patients" value={summary.totalNHISPatients || 0} icon={Users} color="cyan" />
+          <StatCard label="Expired" value={summary.expired || 0} icon={AlertTriangle} color="red" />
+          <StatCard label="Critical (0-7 days)" value={summary.critical || 0} icon={AlertCircle} color="orange" />
+          <StatCard label="Warning (8-30 days)" value={summary.warning || 0} icon={AlertTriangle} color="yellow" />
+          <StatCard label="Healthy" value={summary.healthy || 0} icon={CheckCircle} color="green" />
+        </div>
+
+        {/* Patients Table */}
+        <TableCard title="NHIS Memberships - Expiry Status" icon={CalendarDays}>
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Folder No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Patient Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">NHIS Number</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Expiry Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Days Left</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Last Visit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {patients.map((patient: any, idx: number) => (
+                <tr key={idx} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <td className="px-4 py-3 font-mono text-[var(--text-primary)]">{patient.folderNumber}</td>
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{patient.fullName}</td>
+                  <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{patient.nhisNumber || '-'}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">{patient.phoneNumber || patient.contact || '-'}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">{patient.nhisExpiryDate ? new Date(patient.nhisExpiryDate).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-3 font-bold">
+                    {patient.daysUntilExpiry !== null ? (
+                      <span className={patient.daysUntilExpiry <= 0 ? 'text-red-600' : patient.daysUntilExpiry <= 7 ? 'text-orange-600' : patient.daysUntilExpiry <= 30 ? 'text-yellow-600' : 'text-green-600'}>
+                        {patient.daysUntilExpiry <= 0 ? 'Expired' : `${patient.daysUntilExpiry} days`}
+                      </span>
+                    ) : '-'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.expiryStatus)}`}>
+                      {patient.expiryStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    {patient.lastVisit ? new Date(patient.lastVisit).toLocaleDateString() : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== NHIS CLAIMS SUMMARY ====================
+  const renderNhisClaimsSummary = () => {
+    const report = nhisClaimsSummary as any;
+    if (!report) return <EmptyState message="No NHIS claims data available for this period" />;
+
+    const summary = report.summary || {};
+    const claims = report.claims || [];
+    const byExpiryStatus = summary.byExpiryStatus || {};
+
+    const getExpiryStatusColor = (status: string) => {
+      switch (status) {
+        case 'EXPIRED': return 'text-red-600 bg-red-50';
+        case 'CRITICAL': return 'text-orange-600 bg-orange-50';
+        case 'WARNING': return 'text-yellow-600 bg-yellow-50';
+        case 'ACTIVE': return 'text-green-600 bg-green-50';
+        default: return 'text-gray-600 bg-gray-50';
+      }
+    };
+
+    return (
+      <div className="space-y-5">
+        {/* Filter controls */}
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-[var(--text-secondary)]" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Expiry Status:</span>
+            </div>
+            <select 
+              value={nhisExpiryStatus} 
+              onChange={(e) => setNhisExpiryStatus(e.target.value)}
+              className="px-3 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg"
+            >
+              <option value="all">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="WARNING">Warning (31-60 days)</option>
+              <option value="CRITICAL">Critical (0-30 days)</option>
+              <option value="EXPIRED">Expired</option>
+            </select>
+            <button 
+              onClick={() => loadReport()}
+              className="px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total NHIS Claims" value={summary.totalClaims || 0} icon={FileText} color="cyan" />
+          <StatCard label="Total Claim Amount" value={`GHS ${(summary.totalClaimAmount || 0).toLocaleString()}`} icon={DollarSign} color="green" />
+          <StatCard label="Active Members" value={byExpiryStatus.ACTIVE || 0} icon={CheckCircle} color="green" />
+          <StatCard label="Expired Members" value={byExpiryStatus.EXPIRED || 0} icon={AlertTriangle} color="red" />
+        </div>
+
+        {/* By Expiry Status Breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3 bg-green-50 rounded-lg text-center border border-green-200">
+            <p className="text-xs text-green-600">Active Claims</p>
+            <p className="text-2xl font-bold text-green-700">{byExpiryStatus.ACTIVE || 0}</p>
+          </div>
+          <div className="p-3 bg-yellow-50 rounded-lg text-center border border-yellow-200">
+            <p className="text-xs text-yellow-600">Warning</p>
+            <p className="text-2xl font-bold text-yellow-700">{byExpiryStatus.WARNING || 0}</p>
+          </div>
+          <div className="p-3 bg-orange-50 rounded-lg text-center border border-orange-200">
+            <p className="text-xs text-orange-600">Critical</p>
+            <p className="text-2xl font-bold text-orange-700">{byExpiryStatus.CRITICAL || 0}</p>
+          </div>
+          <div className="p-3 bg-red-50 rounded-lg text-center border border-red-200">
+            <p className="text-xs text-red-600">Expired</p>
+            <p className="text-2xl font-bold text-red-700">{byExpiryStatus.EXPIRED || 0}</p>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg text-center border border-gray-200">
+            <p className="text-xs text-gray-600">Unknown</p>
+            <p className="text-2xl font-bold text-gray-700">{byExpiryStatus.UNKNOWN || 0}</p>
+          </div>
+        </div>
+
+        {/* Claims Table */}
+        <TableCard title="NHIS Claims with Expiry Status" icon={CreditCard}>
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Claim #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">NHIS #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Expiry Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Submission Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {claims.slice(0, 50).map((claim: any, idx: number) => (
+                <tr key={idx} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <td className="px-4 py-3 font-mono text-[var(--text-primary)]">{claim.claimNumber}</td>
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{claim.patientName}</td>
+                  <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{claim.nhisNumber || '-'}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    {claim.nhisExpiryDate ? new Date(claim.nhisExpiryDate).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getExpiryStatusColor(claim.nhisExpiryStatus)}`}>
+                      {claim.nhisExpiryStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-[var(--text-primary)]">
+                    GHS {claim.totalClaimAmount?.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+        
+        {claims.length > 50 && (
+          <p className="text-xs text-[var(--text-tertiary)] text-center">Showing first 50 of {claims.length} claims</p>
+        )}
+      </div>
+    );
+  };
+
+  // ==================== OPD ATTENDANCE REPORT ====================
   const renderOPDAttendanceReport = () => {
     const report = opdReport as any;
     if (!report) return <EmptyState message="No OPD attendance data available for this period" />;
@@ -350,7 +670,7 @@ const {
     );
   };
 
-  // ==================== 2. FULL OPD MORBIDITY REPORT ====================
+  // ==================== DISEASE TABLE FOR MORBIDITY REPORT ====================
   const renderDiseaseTable = (title: string, data: Record<string, any>, diseaseLabels: Record<string, string>) => {
     const entries = Object.entries(diseaseLabels).filter(([key]) => data && data[key]);
     if (entries.length === 0) return null;
@@ -460,6 +780,7 @@ const {
     );
   };
 
+  // ==================== FULL MORBIDITY REPORT ====================
   const renderFullMorbidityReport = () => {
     const report = morbidityMortalityReport as any;
     if (!report) return <EmptyState message="No morbidity data available for this period" />;
@@ -557,11 +878,11 @@ const {
             Generated on {new Date().toLocaleString()} | GHS OPD Morbidity Report (Form A)
           </p>
         </div>
-      </div> 
-  ); 
-};
+      </div>
+    );
+  };
 
-  // ==================== 3. TOP 10 DIAGNOSES ====================
+  // ==================== TOP 10 DIAGNOSES ====================
   const renderTopDiagnoses = () => {
     const diagnoses = topDiagnoses as any[];
     if (!diagnoses || diagnoses.length === 0) {
@@ -593,6 +914,7 @@ const {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
+              {/* FIX 1: corrected .map() — added opening parenthesis around parameters */}
               {diagnoses.map((diag: any, idx: number) => (
                 <tr key={diag.diagnosisId || idx} className="hover:bg-[var(--bg-main)] transition-colors">
                   <td className="px-4 py-3 font-bold text-[var(--icon-orange-text)]">{idx + 1}</td>
@@ -607,6 +929,7 @@ const {
                   <td className="px-4 py-3 text-center text-[var(--text-secondary)]">{diag.female || 0}</td>
                   <td className="px-4 py-3 text-center font-bold text-[var(--text-primary)]">{diag.totalCases || 0}</td>
                 </tr>
+                /* FIX 2: changed stray <tr> to </tr> closing tag */
               ))}
             </tbody>
           </table>
@@ -615,261 +938,13 @@ const {
     );
   };
 
-
-  // ==================== LABORATORY REPORT ====================
-const renderLabReport = () => {
-  const report = labReport as any;
-  if (!report) return <EmptyState message="No laboratory data available for this period" />;
-
-  return (
-    <div className="space-y-5">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Total Tests" value={report.summary?.totalTests || 0} icon={FlaskConical} color="blue" />
-        <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
-        <StatCard label="In Progress" value={report.summary?.byStatus?.inProgress || 0} icon={Activity} color="yellow" />
-        <StatCard label="Avg Turnaround" value={`${report.summary?.averageTurnaroundTime || 0} min`} icon={Clock} color="cyan" />
-        <StatCard label="Stat Requests" value={report.summary?.byPriority?.stat || 0} icon={AlertTriangle} color="red" />
-      </div>
-
-      {/* Top Tests */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <TableCard title="Top 10 Tests Requested" icon={FlaskConical}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
-              <tr><th className="px-4 py-2 text-left">Test Name</th><th className="px-4 py-2 text-right">Count</th><th className="px-4 py-2 text-right">Positivity Rate</th></tr>
-            </thead>
-            <tbody className="divide-y">
-              {(report.topTests || []).map((test: any, i: number) => (
-                <tr key={i}><td className="px-4 py-2">{i+1}. {test.testName}</td><td className="px-4 py-2 text-right font-medium">{test.count}</td><td className="px-4 py-2 text-right">{test.positiveRate || 0}%</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-
-        <TableCard title="Test Status Distribution" icon={PieChart}>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Requested:</span><span className="font-bold text-yellow-600">{report.summary?.byStatus?.requested || 0}</span></div>
-            <div className="flex justify-between"><span>In Progress:</span><span className="font-bold text-blue-600">{report.summary?.byStatus?.inProgress || 0}</span></div>
-            <div className="flex justify-between"><span>Completed:</span><span className="font-bold text-green-600">{report.summary?.byStatus?.completed || 0}</span></div>
-            <div className="flex justify-between"><span>Cancelled:</span><span className="font-bold text-red-600">{report.summary?.byStatus?.cancelled || 0}</span></div>
-          </div>
-        </TableCard>
-      </div>
-    </div>
-  );
-};
-
-// ==================== SCAN/RADIOLOGY REPORT ====================
-const renderScanReport = () => {
-  const report = scanReport as any;
-  if (!report) return <EmptyState message="No radiology data available for this period" />;
-
-  const byType = report.summary?.byType || {};
-  const byBodyPart = report.summary?.byBodyPart || {};
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Scans" value={report.summary?.totalScans || 0} icon={ClipboardList} color="indigo" />
-        <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
-        <StatCard label="Avg Turnaround" value={`${report.summary?.averageTurnaroundTime || 0} min`} icon={Clock} color="cyan" />
-        <StatCard label="Cancelled" value={report.summary?.byStatus?.cancelled || 0} icon={AlertTriangle} color="red" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <TableCard title="Scans by Type" icon={PieChart}>
-          <div className="p-4 space-y-2">
-            {Object.entries(byType).slice(0, 10).map(([type, count]: [string, any]) => (
-              <div key={type} className="flex justify-between"><span className="capitalize">{type}</span><span className="font-bold">{count}</span></div>
-            ))}
-          </div>
-        </TableCard>
-
-        <TableCard title="Scans by Body Part" icon={Activity}>
-          <div className="p-4 space-y-2">
-            {Object.entries(byBodyPart).slice(0, 10).map(([part, count]: [string, any]) => (
-              <div key={part} className="flex justify-between"><span className="capitalize">{part}</span><span className="font-bold">{count}</span></div>
-            ))}
-          </div>
-        </TableCard>
-      </div>
-
-      <TableCard title="Top Scans" icon={ClipboardList}>
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--bg-main)] border-b"><tr><th className="px-4 py-2 text-left">Scan Name</th><th className="px-4 py-2 text-right">Count</th></tr></thead>
-          <tbody className="divide-y">
-            {(report.topScans || []).map((scan: any, i: number) => (
-              <tr key={i}><td className="px-4 py-2">{i+1}. {scan.scanName}</td><td className="px-4 py-2 text-right font-bold">{scan.count}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </TableCard>
-    </div>
-  );
-};
-
-// ==================== PROCEDURES REPORT ====================
-const renderProcedureReport = () => {
-  const report = procedureReport as any;
-  if (!report) return <EmptyState message="No procedure data available for this period" />;
-
-  const byCategory = report.summary?.byCategory || {};
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Procedures" value={report.summary?.totalProcedures || 0} icon={Scissors} color="purple" />
-        <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
-        <StatCard label="Scheduled" value={report.summary?.byStatus?.scheduled || 0} icon={Calendar} color="blue" />
-        <StatCard label="Avg Duration" value={`${report.summary?.averageDuration || 0} min`} icon={Clock} color="cyan" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <TableCard title="Procedures by Category" icon={PieChart}>
-          <div className="p-4 space-y-2">
-            {Object.entries(byCategory).map(([category, count]: [string, any]) => (
-              <div key={category} className="flex justify-between"><span className="capitalize">{category}</span><span className="font-bold">{count}</span></div>
-            ))}
-          </div>
-        </TableCard>
-
-        <TableCard title="Top 10 Procedures" icon={Scissors}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b"><tr><th className="px-4 py-2 text-left">Procedure Name</th><th className="px-4 py-2 text-right">Count</th></tr></thead>
-            <tbody className="divide-y">
-              {(report.topProcedures || []).map((proc: any, i: number) => (
-                <tr key={i}><td className="px-4 py-2">{i+1}. {proc.procedureName}</td><td className="px-4 py-2 text-right font-bold">{proc.count}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-      </div>
-    </div>
-  );
-};
-
-// ==================== MEDICATIONS REPORT ====================
-const renderMedicationReport = () => {
-  const report = medicationReport as any;
-  if (!report) return <EmptyState message="No medication data available for this period" />;
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Prescriptions" value={report.summary?.totalPrescriptions || 0} icon={Syringe} color="green" />
-        <StatCard label="Dispensed" value={report.summary?.byStatus?.dispensed || 0} icon={CheckCircle} color="green" />
-        <StatCard label="Administered" value={report.summary?.byStatus?.administered || 0} icon={Activity} color="blue" />
-        <StatCard label="Cancelled" value={report.summary?.byStatus?.cancelled || 0} icon={AlertTriangle} color="red" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <TableCard title="Medications by Route" icon={PieChart}>
-          <div className="p-4 space-y-2">
-            {(report.summary?.byRoute ? Object.entries(report.summary.byRoute) : []).map(([route, count]: [string, any]) => (
-              <div key={route} className="flex justify-between"><span className="capitalize">{route}</span><span className="font-bold">{count}</span></div>
-            ))}
-          </div>
-        </TableCard>
-
-        <TableCard title="Top 10 Medications" icon={Syringe}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b"><tr><th className="px-4 py-2 text-left">Medication Name</th><th className="px-4 py-2 text-right">Prescriptions</th><th className="px-4 py-2 text-right">Total Quantity</th></tr></thead>
-            <tbody className="divide-y">
-              {(report.topMedications || []).slice(0, 10).map((med: any, i: number) => (
-                <tr key={i}><td className="px-4 py-2">{i+1}. {med.medicationName}</td><td className="px-4 py-2 text-right font-bold">{med.count}</td><td className="px-4 py-2 text-right">{med.totalQuantity}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-      </div>
-    </div>
-  );
-};
-
-// ==================== VITALS REPORT ====================
-const renderVitalsReport = () => {
-  const report = vitalsReport as any;
-  if (!report) return <EmptyState message="No vitals data available for this period" />;
-
-  const abnormal = report.summary?.abnormalFindings || {};
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Records" value={report.summary?.totalVitalsRecords || 0} icon={Activity} color="cyan" />
-        <StatCard label="Unique Patients" value={report.summary?.uniquePatients || 0} icon={Users} color="blue" />
-        <StatCard label="Hypertension" value={abnormal.hypertension || 0} icon={AlertTriangle} color="red" />
-        <StatCard label="Fever (>38°C)" value={abnormal.fever || 0} icon={AlertTriangle} color="orange" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <TableCard title="Abnormal Findings" icon={AlertTriangle}>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between">
-              <span>Hypertension (BP &gt;140/90):</span>
-              <span className="font-bold text-red-600">{abnormal?.hypertension ?? 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Hypotension (BP &lt;90/60):</span>
-              <span className="font-bold text-orange-600">{abnormal?.hypotension ?? 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Fever (&gt;38°C):</span>
-              <span className="font-bold text-red-600">{abnormal?.fever ?? 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Tachycardia (Pulse &gt;100):</span>
-              <span className="font-bold text-yellow-600">{abnormal?.tachycardia ?? 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Bradycardia (Pulse &lt;60):</span>
-              <span className="font-bold text-blue-600">{abnormal?.bradycardia ?? 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Hypoxia (SpO2 &lt;94%):</span>
-              <span className="font-bold text-purple-600">{abnormal?.hypoxia ?? 0}</span>
-            </div>
-            <div className="border-t pt-2 mt-2">
-              <div className="font-semibold mb-1">BMI Categories:</div>
-              <div className="flex justify-between">
-                <span>Underweight (BMI &lt;18.5):</span>
-                <span>{abnormal?.underweight ?? 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Overweight (BMI 25-29.9):</span>
-                <span>{abnormal?.overweight ?? 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Obese (BMI ≥30):</span>
-                <span>{abnormal?.obese ?? 0}</span>
-              </div>
-            </div>
-          </div>
-        </TableCard>
-
-        <TableCard title="Vital Trends (Monthly)" icon={TrendingUp}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b"><tr><th className="px-4 py-2 text-left">Month</th><th className="px-4 py-2 text-center">Avg Temp (°C)</th><th className="px-4 py-2 text-center">Avg BP (Systolic)</th></tr></thead>
-            <tbody className="divide-y">
-              {(report.trends || []).slice(-6).map((trend: any, i: number) => (
-                <tr key={i}><td className="px-4 py-2">{trend.month}</td><td className="px-4 py-2 text-center">{trend.avgTemp}</td><td className="px-4 py-2 text-center">{trend.avgBPSystolic}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-      </div>
-    </div>
-  );
-};
-  // ==================== 4. FORM A REPORT (Combined ANC + Delivery + Postnatal) ====================
+  // ==================== FORM A REPORT ====================
   const renderFormAReport = () => {
     const report = formAReport as any;
     if (!report) return <EmptyState message="No Form A data available for this period" />;
 
     return (
       <div className="space-y-6">
-        {/* Header */}
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center">
           <h2 className="text-xl font-bold text-[var(--text-primary)]">GHANA HEALTH SERVICE</h2>
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-1">FORM A: MATERNAL HEALTH REPORT</h3>
@@ -879,7 +954,6 @@ const renderVitalsReport = () => {
           </p>
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="ANC Registrants" value={report.antenatal?.newRegistrants || 0} icon={UserCheck} color="green" />
           <StatCard label="Total Deliveries" value={report.delivery?.totalDeliveries || 0} icon={Baby} color="cyan" />
@@ -887,63 +961,31 @@ const renderVitalsReport = () => {
           <StatCard label="PNC Visits" value={report.postnatal?.totalVisits || 0} icon={Activity} color="purple" />
         </div>
 
-        {/* Section Tabs */}
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">
-          <button onClick={() => setActiveFormATab('antenatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'antenatal' ? 'bg-[var(--icon-pink-text)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Antenatal</button>
-          <button onClick={() => setActiveFormATab('delivery')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'delivery' ? 'bg-[var(--icon-pink-text)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Delivery</button>
-          <button onClick={() => setActiveFormATab('postnatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'postnatal' ? 'bg-[var(--icon-pink-text)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Postnatal</button>
+          <button onClick={() => setActiveFormATab('antenatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'antenatal' ? 'bg-pink-500 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Antenatal</button>
+          <button onClick={() => setActiveFormATab('delivery')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'delivery' ? 'bg-pink-500 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Delivery</button>
+          <button onClick={() => setActiveFormATab('postnatal')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${activeFormATab === 'postnatal' ? 'bg-pink-500 text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>Postnatal</button>
         </div>
 
         {/* Antenatal Tab */}
         {activeFormATab === 'antenatal' && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 bg-pink-50 rounded-lg text-center"><div className="text-2xl font-bold text-pink-600">{report.antenatal?.iptp?.dose3 || 0}</div><div className="text-xs">IPTp-3+</div></div>
-              <div className="p-3 bg-blue-50 rounded-lg text-center"><div className="text-2xl font-bold text-blue-600">{report.antenatal?.ttVaccination?.tt2Plus || 0}</div><div className="text-xs">TT2+ (Protected)</div></div>
-              <div className="p-3 bg-green-50 rounded-lg text-center"><div className="text-2xl font-bold text-green-600">{report.antenatal?.itnDistributed || 0}</div><div className="text-xs">ITN Distributed</div></div>
-              <div className="p-3 bg-yellow-50 rounded-lg text-center"><div className="text-2xl font-bold text-yellow-600">{report.antenatal?.firstVisits || 0}</div><div className="text-xs">First ANC Visits</div></div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-blue-600" /> IPTp Coverage</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>IPTp-1:</span><span className="font-bold">{report.antenatal?.iptp?.dose1 || 0}</span></div>
-                  <div className="flex justify-between"><span>IPTp-2:</span><span className="font-bold">{report.antenatal?.iptp?.dose2 || 0}</span></div>
-                  <div className="flex justify-between bg-pink-50 p-1 rounded"><span>IPTp-3+:</span><span className="font-bold text-pink-600">{report.antenatal?.iptp?.dose3 || 0}</span></div>
-                  <div className="flex justify-between"><span>IPTp-4:</span><span className="font-bold">{report.antenatal?.iptp?.dose4 || 0}</span></div>
-                  <div className="flex justify-between"><span>IPTp-5+:</span><span className="font-bold">{report.antenatal?.iptp?.dose5Plus || 0}</span></div>
-                </div>
+              <div className="p-3 bg-pink-50 rounded-lg text-center">
+                <div className="text-2xl font-bold text-pink-600">{report.antenatal?.iptp?.dose3 || 0}</div>
+                <div className="text-xs">IPTp-3+</div>
               </div>
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><Syringe className="w-4 h-4 text-green-600" /> TT Vaccination</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>TT1:</span><span className="font-bold">{report.antenatal?.ttVaccination?.dose1 || 0}</span></div>
-                  <div className="flex justify-between"><span>TT2:</span><span className="font-bold">{report.antenatal?.ttVaccination?.dose2 || 0}</span></div>
-                  <div className="flex justify-between bg-green-50 p-1 rounded"><span>TT2+ (Protected):</span><span className="font-bold text-green-600">{report.antenatal?.ttVaccination?.tt2Plus || 0}</span></div>
-                  <div className="flex justify-between"><span>TT3:</span><span className="font-bold">{report.antenatal?.ttVaccination?.dose3 || 0}</span></div>
-                  <div className="flex justify-between"><span>TT4:</span><span className="font-bold">{report.antenatal?.ttVaccination?.dose4 || 0}</span></div>
-                  <div className="flex justify-between"><span>TT5:</span><span className="font-bold">{report.antenatal?.ttVaccination?.dose5 || 0}</span></div>
-                </div>
+              <div className="p-3 bg-blue-50 rounded-lg text-center">
+                <div className="text-2xl font-bold text-blue-600">{report.antenatal?.ttVaccination?.tt2Plus || 0}</div>
+                <div className="text-xs">TT2+ (Protected)</div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><Droplet className="w-4 h-4 text-red-600" /> Malaria in Pregnancy</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Tested:</span><span className="font-bold">{report.antenatal?.malariaTested || 0}</span></div>
-                  <div className="flex justify-between"><span>Positive:</span><span className="font-bold text-red-600">{report.antenatal?.malariaPositive || 0}</span></div>
-                  <div className="flex justify-between"><span>Treated:</span><span className="font-bold text-green-600">{report.antenatal?.malariaTreated || 0}</span></div>
-                </div>
+              <div className="p-3 bg-green-50 rounded-lg text-center">
+                <div className="text-2xl font-bold text-green-600">{report.antenatal?.itnDistributed || 0}</div>
+                <div className="text-xs">ITN Distributed</div>
               </div>
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-600" /> Complications</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>High Risk:</span><span className="font-bold">{report.antenatal?.highRisk || 0}</span></div>
-                  <div className="flex justify-between"><span>Anaemia at Booking:</span><span className="font-bold">{report.antenatal?.anaemiaAtBooking || 0}</span></div>
-                  <div className="flex justify-between"><span>Referrals Made:</span><span className="font-bold">{report.antenatal?.referralsMade || 0}</span></div>
-                </div>
+              <div className="p-3 bg-yellow-50 rounded-lg text-center">
+                <div className="text-2xl font-bold text-yellow-600">{report.antenatal?.firstVisits || 0}</div>
+                <div className="text-xs">First ANC Visits</div>
               </div>
             </div>
           </div>
@@ -951,94 +993,48 @@ const renderVitalsReport = () => {
 
         {/* Delivery Tab */}
         {activeFormATab === 'delivery' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 bg-green-50 rounded-lg text-center"><div className="text-2xl font-bold text-green-600">{report.delivery?.spontaneousVertex || 0}</div><div className="text-xs">Spontaneous Vertex</div></div>
-              <div className="p-3 bg-blue-50 rounded-lg text-center"><div className="text-2xl font-bold text-blue-600">{report.delivery?.caesareanSection || 0}</div><div className="text-xs">Caesarean Section</div></div>
-              <div className="p-3 bg-yellow-50 rounded-lg text-center"><div className="text-2xl font-bold text-yellow-600">{report.delivery?.liveBirths || 0}</div><div className="text-xs">Live Births</div></div>
-              <div className="p-3 bg-red-50 rounded-lg text-center"><div className="text-2xl font-bold text-red-600">{report.delivery?.stillbirthsFresh + report.delivery?.stillbirthsMacerated || 0}</div><div className="text-xs">Stillbirths</div></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 bg-green-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-green-600">{report.delivery?.spontaneousVertex || 0}</div>
+              <div className="text-xs">Spontaneous Vertex</div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3">Mode of Delivery</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Spontaneous Vertex:</span><span className="font-bold">{report.delivery?.spontaneousVertex || 0}</span></div>
-                  <div className="flex justify-between"><span>Assisted Breech:</span><span className="font-bold">{report.delivery?.assistedBreech || 0}</span></div>
-                  <div className="flex justify-between"><span>Vacuum:</span><span className="font-bold">{report.delivery?.vacuum || 0}</span></div>
-                  <div className="flex justify-between"><span>Forceps:</span><span className="font-bold">{report.delivery?.forceps || 0}</span></div>
-                  <div className="flex justify-between bg-blue-50 p-1 rounded"><span>Caesarean Section:</span><span className="font-bold text-blue-600">{report.delivery?.caesareanSection || 0}</span></div>
-                  <div className="flex justify-between"><span>Multiple Births:</span><span className="font-bold">{report.delivery?.multiple || 0}</span></div>
-                </div>
-              </div>
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3">Delivery Outcomes</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Live Births:</span><span className="font-bold text-green-600">{report.delivery?.liveBirths || 0}</span></div>
-                  <div className="flex justify-between"><span>Fresh Stillbirths:</span><span className="font-bold text-red-600">{report.delivery?.stillbirthsFresh || 0}</span></div>
-                  <div className="flex justify-between"><span>Macerated Stillbirths:</span><span className="font-bold text-red-600">{report.delivery?.stillbirthsMacerated || 0}</span></div>
-                  <div className="flex justify-between"><span>Neonatal Deaths:</span><span className="font-bold text-red-600">{report.delivery?.neonatalDeaths || 0}</span></div>
-                  <div className="flex justify-between bg-red-50 p-1 rounded"><span>Maternal Deaths:</span><span className="font-bold text-red-600">{report.delivery?.maternalDeaths || 0}</span></div>
-                  <div className="flex justify-between"><span>Low Birth Weight:</span><span className="font-bold">{report.delivery?.lowBirthWeight || 0}</span></div>
-                </div>
-              </div>
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-blue-600">{report.delivery?.caesareanSection || 0}</div>
+              <div className="text-xs">Caesarean Section</div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3">Place of Delivery</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Hospital:</span><span className="font-bold">{report.delivery?.hospitalDeliveries || 0}</span></div>
-                  <div className="flex justify-between"><span>Health Centre/Clinic:</span><span className="font-bold">{report.delivery?.healthCentreDeliveries || 0}</span></div>
-                  <div className="flex justify-between"><span>Home/En Route:</span><span className="font-bold">{report.delivery?.homeDeliveries || 0}</span></div>
-                </div>
-              </div>
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-3">Birth Attendant</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Skilled Attendant:</span><span className="font-bold text-green-600">{report.delivery?.skilledAttendant || 0}</span></div>
-                  <div className="flex justify-between"><span>TBA:</span><span className="font-bold">{report.delivery?.tbaAttendant || 0}</span></div>
-                </div>
-              </div>
+            <div className="p-3 bg-yellow-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-yellow-600">{report.delivery?.liveBirths || 0}</div>
+              <div className="text-xs">Live Births</div>
+            </div>
+            <div className="p-3 bg-red-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-red-600">{(report.delivery?.stillbirthsFresh || 0) + (report.delivery?.stillbirthsMacerated || 0)}</div>
+              <div className="text-xs">Stillbirths</div>
             </div>
           </div>
         )}
 
         {/* Postnatal Tab */}
         {activeFormATab === 'postnatal' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="p-3 bg-blue-50 rounded-lg text-center"><div className="text-2xl font-bold text-blue-600">{report.postnatal?.newMothers || 0}</div><div className="text-xs">New Mothers</div></div>
-              <div className="p-3 bg-green-50 rounded-lg text-center"><div className="text-2xl font-bold text-green-600">{report.postnatal?.pncWithin48Hours || 0}</div><div className="text-xs">PNC within 48h</div></div>
-              <div className="p-3 bg-yellow-50 rounded-lg text-center"><div className="text-2xl font-bold text-yellow-600">{report.postnatal?.exclusiveBreastfeeding || 0}</div><div className="text-xs">Exclusive BF</div></div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-blue-600">{report.postnatal?.newMothers || 0}</div>
+              <div className="text-xs">New Mothers</div>
             </div>
-
-            <div className="border rounded-lg p-4">
-              <h4 className="font-bold mb-3">Postnatal Care Summary</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Total PNC Visits:</span><span className="font-bold">{report.postnatal?.totalVisits || 0}</span></div>
-                <div className="flex justify-between p-2 bg-gray-50 rounded"><span>PNC within 48 hours:</span><span className="font-bold text-green-600">{report.postnatal?.pncWithin48Hours || 0}</span></div>
-                <div className="flex justify-between p-2 bg-gray-50 rounded"><span>PNC within 6 weeks:</span><span className="font-bold">{report.postnatal?.pncWithin6Weeks || 0}</span></div>
-                <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Family Planning Accepted:</span><span className="font-bold">{report.postnatal?.familyPlanningAccepted || 0}</span></div>
-                <div className="flex justify-between p-2 bg-green-50 rounded"><span>Exclusive Breastfeeding:</span><span className="font-bold text-green-600">{report.postnatal?.exclusiveBreastfeeding || 0}</span></div>
-                <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Immunizations Given:</span><span className="font-bold">{report.postnatal?.immunizationGiven || 0}</span></div>
-                <div className="flex justify-between p-2 bg-red-50 rounded"><span>Postnatal Complications:</span><span className="font-bold text-red-600">{report.postnatal?.complications || 0}</span></div>
-              </div>
+            <div className="p-3 bg-green-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-green-600">{report.postnatal?.pncWithin48Hours || 0}</div>
+              <div className="text-xs">PNC within 48h</div>
+            </div>
+            <div className="p-3 bg-yellow-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-yellow-600">{report.postnatal?.exclusiveBreastfeeding || 0}</div>
+              <div className="text-xs">Exclusive BF</div>
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4 text-center">
-          <p className="text-xs text-[var(--text-tertiary)]">
-            Generated on {new Date(report.generatedAt).toLocaleString()} | GHS Form A - Maternal Health Report
-          </p>
-        </div>
       </div>
     );
   };
 
-  // ==================== 5. IPD REPORT ====================
+  // ==================== IPD REPORT ====================
   const renderIPDReport = () => {
     const report = ipdReport as any;
     if (!report) return <EmptyState message="No IPD data available for this period" />;
@@ -1085,41 +1081,19 @@ const renderVitalsReport = () => {
             </tbody>
           </table>
         </TableCard>
-
-        <TableCard title="Malaria in Inpatients" icon={Droplet}>
-          <div className="grid grid-cols-2 gap-4 p-5">
-            <div className="text-center p-4 bg-[var(--icon-red-bg)] rounded-lg">
-              <p className="text-sm text-[var(--text-secondary)]">Under-5 Admitted with Malaria</p>
-              <p className="text-2xl font-bold text-[var(--icon-red-text)]">{malaria.under5_admitted || 0}</p>
-            </div>
-            <div className="text-center p-4 bg-[var(--icon-red-bg)] rounded-lg">
-              <p className="text-sm text-[var(--text-secondary)]">5+ Years Admitted with Malaria</p>
-              <p className="text-2xl font-bold text-[var(--icon-red-text)]">{malaria.above5_admitted || 0}</p>
-            </div>
-            <div className="text-center p-4 bg-[var(--icon-red-bg)] rounded-lg opacity-75">
-              <p className="text-sm text-[var(--text-secondary)]">Under-5 Malaria Deaths</p>
-              <p className="text-2xl font-bold text-[var(--icon-red-text)]">{malaria.under5_deaths || 0}</p>
-            </div>
-            <div className="text-center p-4 bg-[var(--icon-red-bg)] rounded-lg opacity-75">
-              <p className="text-sm text-[var(--text-secondary)]">5+ Years Malaria Deaths</p>
-              <p className="text-2xl font-bold text-[var(--icon-red-text)]">{malaria.above5_deaths || 0}</p>
-            </div>
-          </div>
-        </TableCard>
       </div>
     );
   };
 
-  // ==================== 6. MALARIA REPORT ====================
+  // ==================== MALARIA REPORT ====================
+  const renderMalariaReport = () => {
+    const report = malariaReport as any;
+    if (!report) return <EmptyState message="No malaria data available for this period" />;
 
-const renderMalariaReport = () => {
-  const report = malariaReport as any;
-  if (!report) return <EmptyState message="No malaria data available for this period" />;
+    return <MalariaReportView data={report} dateRange={dateRange} />;
+  };
 
-  return <MalariaReportView data={report} dateRange={dateRange} />;
-};
-
-  // ==================== 7. IDSR REPORT ====================
+  // ==================== IDSR REPORT ====================
   const renderIDSRReport = () => {
     const report = idsrReport as any;
     if (!report) return <EmptyState message="No IDSR data available for this period" />;
@@ -1152,7 +1126,7 @@ const renderMalariaReport = () => {
     );
   };
 
-  // ==================== 8. FAMILY PLANNING REPORT ====================
+  // ==================== FAMILY PLANNING REPORT ====================
   const renderFamilyPlanningReport = () => {
     const report = familyPlanningReport as any;
     if (!report) return <EmptyState message="No family planning data available for this period" />;
@@ -1168,7 +1142,11 @@ const renderMalariaReport = () => {
         <TableCard title="Method Mix" icon={PieChart}>
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Method</th><th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th></tr></thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Method</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
               {Object.entries(report.methodMix || {}).map(([method, count]: [string, any]) => (
                 <tr key={method} className="hover:bg-[var(--bg-main)]">
@@ -1179,59 +1157,11 @@ const renderMalariaReport = () => {
             </tbody>
           </table>
         </TableCard>
-
-        <TableCard title="Age Group Distribution (15-49 years)" icon={Users}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><th className="px-4 py-3 text-left">Age Group</th><th className="px-4 py-3 text-right">Count</th></tr></thead>
-            <tbody className="divide-y">
-              {Object.entries(report.demographicBreakdown || {}).map(([group, count]: [string, any]) => (
-                <tr key={group} className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">{group}</td><td className="px-4 py-3 text-right">{count}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
       </div>
     );
   };
 
-  // ==================== 9. MORBIDITY & MORTALITY REPORT ====================
-  const renderMorbidityMortalityReport = () => {
-    const report = morbidityMortalityReport as any;
-    if (!report) return <EmptyState message="No morbidity & mortality data available for this period" />;
-
-    return (
-      <div className="space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Cases" value={report.totals?.totalCases || 0} icon={Activity} color="cyan" />
-          <StatCard label="Top Disease" value={report.topDiseases?.[0]?.name || 'N/A'} icon={AlertTriangle} color="red" />
-          <StatCard label="Under-5 Cases" value={report.totals?.under5 || 0} icon={Baby} color="yellow" />
-          <StatCard label="Above-5 Cases" value={report.totals?.above5 || 0} icon={Users} color="green" />
-        </div>
-
-        <TableCard title="Top 10 Diseases" icon={Activity}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
-              <tr><th className="px-4 py-3 text-left">Rank</th><th className="px-4 py-3 text-left">Disease</th><th className="px-4 py-3 text-right">Total</th><th className="px-4 py-3 text-right">Male</th><th className="px-4 py-3 text-right">Female</th><th className="px-4 py-3 text-right">Under-5</th></tr></thead>
-            <tbody className="divide-y">
-              {(report.topDiseases || []).map((d: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <td className="px-4 py-3 font-medium">{i+1}</td>
-                  <td className="px-4 py-3">{d.name}</td>
-                  <td className="px-4 py-3 text-right">{d.totalCases}</td>
-                  <td className="px-4 py-3 text-right">{d.male}</td>
-                  <td className="px-4 py-3 text-right">{d.female}</td>
-                  <td className="px-4 py-3 text-right">{d.under5}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-      </div>
-    );
-  };
-
-  // ==================== 10. DEMOGRAPHIC REPORT ====================
+  // ==================== DEMOGRAPHIC REPORT ====================
   const renderDemographicReport = () => {
     const report = demographicReport as any;
     if (!report) return <EmptyState message="No demographic data available for this period" />;
@@ -1249,28 +1179,17 @@ const renderMalariaReport = () => {
 
         <TableCard title="Age Distribution" icon={PieChart}>
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b"><tr><th className="px-4 py-3 text-left">Age Group</th><th className="px-4 py-3 text-right">Count</th></tr></thead>
-            <tbody className="divide-y">
-              {Object.entries(demographics.ageDistribution || {}).map(([group, count]: [string, any]) => (
-                <tr key={group} className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">{group}</td><td className="px-4 py-3 text-right">{count}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-
-        <TableCard title="Payment Mode Distribution" icon={Shield}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="px-4 py-3 text-left">Payment Mode</th>
-                <th className="px-4 py-3 text-right">Count</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Age Group</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {Object.entries(demographics.paymentModeDistribution || {}).map(([mode, count]: [string, any]) => (
-                <tr key={mode} className="hover:bg-[var(--bg-main)]">
-                  <td className="px-4 py-3 capitalize">{mode.replace('_', ' ')}</td>
-                  <td className="px-4 py-3 text-right">{count}</td>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {Object.entries(demographics.ageDistribution || {}).map(([group, count]: [string, any]) => (
+                <tr key={group} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{group}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{count}</td>
                 </tr>
               ))}
             </tbody>
@@ -1280,7 +1199,7 @@ const renderMalariaReport = () => {
     );
   };
 
-  // ==================== 11. FINANCIAL REPORT ====================
+  // ==================== FINANCIAL REPORT ====================
   const renderFinancialReport = () => {
     const report = financialReport as any;
     if (!report) return <EmptyState message="No financial data available for this period" />;
@@ -1305,35 +1224,14 @@ const renderMalariaReport = () => {
                 <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Bills</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Avg Bill</th>
               </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {(report.revenueByPaymentMode || []).map((item: any, i: number) => (
-              <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                <td className="px-4 py-3 capitalize text-[var(--text-primary)]">{item.paymentMode?.replace('_', ' ')}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.totalRevenue?.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.billCount}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.averageBill?.toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </TableCard>
-
-        <TableCard title="Monthly Revenue Trend" icon={TrendingUp}>
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Period</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Revenue</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Bills</th>
-              </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.monthlyRevenueTrend || []).map((item: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <td className="px-4 py-3 text-[var(--text-primary)]">{item.period}</td>
+              {(report.revenueByPaymentMode || []).map((item: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 capitalize text-[var(--text-primary)]">{item.paymentMode?.replace('_', ' ')}</td>
                   <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.totalRevenue?.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.billCount}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.averageBill?.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -1343,40 +1241,35 @@ const renderMalariaReport = () => {
     );
   };
 
-  // ==================== 12. INSURANCE CLAIMS REPORT ====================
-  const renderInsuranceClaimsReport = () => {
-    const report = insuranceClaimsReport as any;
-    if (!report) return <EmptyState message="No insurance claims data available for this period" />;
-
-    const totals = report.totals || {};
+  // ==================== LABORATORY REPORT ====================
+  const renderLabReport = () => {
+    const report = labReport as any;
+    if (!report) return <EmptyState message="No laboratory data available for this period" />;
 
     return (
       <div className="space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <StatCard label="Total Claims" value={totals.totalClaims || 0} icon={FileText} color="cyan" />
-          <StatCard label="Total Claim Amount" value={`GHS ${(totals.totalClaimAmount || 0).toLocaleString()}`} icon={DollarSign} color="yellow" />
-          <StatCard label="Total Paid Amount" value={`GHS ${(totals.totalPaidAmount || 0).toLocaleString()}`} icon={CheckCircle} color="green" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Tests" value={report.summary?.totalTests || 0} icon={FlaskConical} color="blue" />
+          <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
+          <StatCard label="In Progress" value={report.summary?.byStatus?.inProgress || 0} icon={Activity} color="yellow" />
+          <StatCard label="Avg Turnaround" value={`${report.summary?.averageTurnaroundTime || 0} min`} icon={Clock} color="cyan" />
         </div>
 
-        <TableCard title="Claims by Provider" icon={Shield}>
+        <TableCard title="Top 10 Tests" icon={FlaskConical}>
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Provider</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Claims</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Amount</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Paid</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Approval Rate</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Test Name</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Positivity Rate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.claimsReport || []).map((item: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <td className="px-4 py-3 text-[var(--text-primary)]">{item.insuranceProvider}</td>
-                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.totalClaims}</td>
-                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.totalClaimAmount?.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.totalPaidAmount?.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.approvalRate?.toFixed(1)}%</td>
+              {(report.topTests || []).map((test: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{i + 1}. {test.testName}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{test.count}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{test.positiveRate || 0}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1386,40 +1279,7 @@ const renderMalariaReport = () => {
     );
   };
 
-  // ==================== 13. CLINICAL STATS REPORT ====================
-  const renderClinicalStatsReport = () => {
-    const report = clinicalReport as any;
-    if (!report) return <EmptyState message="No clinical data available for this period" />;
-
-    return (
-      <TableCard title="Clinical Statistics" icon={BarChart3}>
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Diagnosis</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Cases</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Avg Age</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Male</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Female</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {(report.clinicalReport || []).slice(0, 20).map((item: any, i: number) => (
-              <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                <td className="px-4 py-3 text-[var(--text-primary)]">{item.diagnosis}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.totalCases}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.averageAge}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.genderDistribution?.male}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.genderDistribution?.female}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableCard>
-    );
-  };
-
-  // ==================== 14. ATTENDANCE REPORT ====================
+  // ==================== ATTENDANCE REPORT ====================
   const renderAttendanceReport = () => {
     const report = attendanceReport as any;
     if (!report) return <EmptyState message="No attendance data available for this period" />;
@@ -1437,42 +1297,32 @@ const renderMalariaReport = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <TableCard title="Attendance by Type" icon={PieChart}>
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr><th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th></tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {Object.entries(patterns.byType || {}).map(([type, count]: [string, any]) => (
-                  <tr key={type} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3 capitalize text-[var(--text-primary)]">{type.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="p-4 space-y-2">
+              {Object.entries(patterns.byType || {}).map(([type, count]: [string, any]) => (
+                <div key={type} className="flex justify-between text-sm">
+                  <span className="capitalize text-[var(--text-primary)]">{type.replace('_', ' ')}</span>
+                  <span className="font-bold text-[var(--text-primary)]">{count}</span>
+                </div>
+              ))}
+            </div>
           </TableCard>
 
           <TableCard title="Payment Mode Distribution" icon={Shield}>
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr><th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Payment Mode</th><th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th></tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {Object.entries(patterns.byPaymentMode || {}).map(([mode, count]: [string, any]) => (
-                  <tr key={mode} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3 capitalize text-[var(--text-primary)]">{mode.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="p-4 space-y-2">
+              {Object.entries(patterns.byPaymentMode || {}).map(([mode, count]: [string, any]) => (
+                <div key={mode} className="flex justify-between text-sm">
+                  <span className="capitalize text-[var(--text-primary)]">{mode.replace('_', ' ')}</span>
+                  <span className="font-bold text-[var(--text-primary)]">{count}</span>
+                </div>
+              ))}
+            </div>
           </TableCard>
         </div>
       </div>
     );
   };
 
-  // ==================== 15. REVENUE REPORT ====================
+  // ==================== REVENUE REPORT ====================
   const renderRevenueReport = () => {
     const report = revenueReport as any;
     if (!report) return <EmptyState message="No revenue data available for this period" />;
@@ -1498,14 +1348,183 @@ const renderMalariaReport = () => {
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
               {(report.monthlyRevenueTrend || []).map((item: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
                   <td className="px-4 py-3 text-[var(--text-primary)]">{item.period}</td>
                   <td className="px-4 py-3 text-right text-[var(--text-secondary)]">GHS {item.totalRevenue?.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-[var(--text-secondary)]">{item.billCount}</td>
                 </tr>
               ))}
             </tbody>
-        </table>
+          </table>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== SCANS REPORT ====================
+  const renderScanReport = () => {
+    const report = scanReport as any;
+    if (!report) return <EmptyState message="No radiology data available for this period" />;
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Scans" value={report.summary?.totalScans || 0} icon={ClipboardList} color="indigo" />
+          <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
+          <StatCard label="Avg Turnaround" value={`${report.summary?.averageTurnaroundTime || 0} min`} icon={Clock} color="cyan" />
+          <StatCard label="Cancelled" value={report.summary?.byStatus?.cancelled || 0} icon={AlertTriangle} color="red" />
+        </div>
+
+        <TableCard title="Top Scans" icon={ClipboardList}>
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Scan Name</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {(report.topScans || []).map((scan: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{i + 1}. {scan.scanName}</td>
+                  <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)]">{scan.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== PROCEDURES REPORT ====================
+  const renderProcedureReport = () => {
+    const report = procedureReport as any;
+    if (!report) return <EmptyState message="No procedure data available for this period" />;
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Procedures" value={report.summary?.totalProcedures || 0} icon={Scissors} color="purple" />
+          <StatCard label="Completed" value={report.summary?.byStatus?.completed || 0} icon={CheckCircle} color="green" />
+          <StatCard label="Scheduled" value={report.summary?.byStatus?.scheduled || 0} icon={Calendar} color="blue" />
+          <StatCard label="Avg Duration" value={`${report.summary?.averageDuration || 0} min`} icon={Clock} color="cyan" />
+        </div>
+
+        <TableCard title="Top Procedures" icon={Scissors}>
+          {/* FIX 3: corrected </tr> → <tr> in thead opening */}
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Procedure Name</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Count</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {(report.topProcedures || []).map((proc: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{i + 1}. {proc.procedureName}</td>
+                  <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)]">{proc.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== MEDICATIONS REPORT ====================
+  const renderMedicationReport = () => {
+    const report = medicationReport as any;
+    if (!report) return <EmptyState message="No medication data available for this period" />;
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Prescriptions" value={report.summary?.totalPrescriptions || 0} icon={Syringe} color="green" />
+          <StatCard label="Dispensed" value={report.summary?.byStatus?.dispensed || 0} icon={CheckCircle} color="green" />
+          <StatCard label="Administered" value={report.summary?.byStatus?.administered || 0} icon={Activity} color="blue" />
+          {/* FIX 4: Package is now imported at the top */}
+          <StatCard label="Total Quantity" value={report.summary?.totalQuantity || 0} icon={Package} color="orange" />
+        </div>
+
+        <TableCard title="Top Medications" icon={Syringe}>
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Medication Name</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)]">Prescriptions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {(report.topMedications || []).map((med: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{i + 1}. {med.medicationName}</td>
+                  <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)]">{med.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== VITALS REPORT ====================
+  const renderVitalsReport = () => {
+    const report = vitalsReport as any;
+    if (!report) return <EmptyState message="No vitals data available for this period" />;
+
+    const abnormal = report.summary?.abnormalFindings || {};
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Records" value={report.summary?.totalVitalsRecords || 0} icon={Activity} color="cyan" />
+          <StatCard label="Unique Patients" value={report.summary?.uniquePatients || 0} icon={Users} color="blue" />
+          <StatCard label="Hypertension" value={abnormal.hypertension || 0} icon={AlertTriangle} color="red" />
+          <StatCard label="Fever" value={abnormal.fever || 0} icon={AlertTriangle} color="orange" />
+        </div>
+
+        <TableCard title="Abnormal Findings" icon={AlertTriangle}>
+          <div className="p-4 grid grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Hypertension:</span><span className="font-bold text-red-600">{abnormal.hypertension || 0}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Hypotension:</span><span className="font-bold text-orange-600">{abnormal.hypotension || 0}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Fever (&gt;38°C):</span><span className="font-bold text-red-600">{abnormal.fever || 0}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Tachycardia:</span><span className="font-bold text-yellow-600">{abnormal.tachycardia || 0}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Bradycardia:</span><span className="font-bold text-blue-600">{abnormal.bradycardia || 0}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Hypoxia:</span><span className="font-bold text-purple-600">{abnormal.hypoxia || 0}</span></div>
+          </div>
+        </TableCard>
+      </div>
+    );
+  };
+
+  // ==================== INSURANCE CLAIMS REPORT ====================
+  const renderInsuranceClaimsReport = () => {
+    const report = insuranceClaimsReport as any;
+    if (!report) return <EmptyState message="No insurance claims data available for this period" />;
+
+    const totals = report.totals || {};
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="Total Claims" value={totals.totalClaims || 0} icon={FileText} color="cyan" />
+          <StatCard label="Total Claim Amount" value={`GHS ${(totals.totalClaimAmount || 0).toLocaleString()}`} icon={DollarSign} color="yellow" />
+          <StatCard label="Total Paid Amount" value={`GHS ${(totals.totalPaidAmount || 0).toLocaleString()}`} icon={CheckCircle} color="green" />
+        </div>
+
+        <TableCard title="Claims by Status" icon={PieChart}>
+          <div className="p-4 space-y-2">
+            {Object.entries(totals.byStatus || {}).map(([status, count]: [string, any]) => (
+              <div key={status} className="flex justify-between text-sm">
+                <span className="capitalize text-[var(--text-primary)]">{status}</span>
+                <span className="font-bold text-[var(--text-primary)]">{count}</span>
+              </div>
+            ))}
+          </div>
         </TableCard>
       </div>
     );
@@ -1521,6 +1540,9 @@ const renderMalariaReport = () => {
 
   const renderReportContent = () => {
     switch (reportType) {
+      case 'consulting-room-register': return renderConsultingRoomRegister();
+      case 'nhis-expiry': return renderNhisExpiryReport();
+      case 'nhis-claims': return renderNhisClaimsSummary();
       case 'opd-attendance': return renderOPDAttendanceReport();
       case 'opd-morbidity': return renderFullMorbidityReport();
       case 'top-diagnoses': return renderTopDiagnoses();
@@ -1529,11 +1551,9 @@ const renderMalariaReport = () => {
       case 'malaria': return renderMalariaReport();
       case 'idsr': return renderIDSRReport();
       case 'family-planning': return renderFamilyPlanningReport();
-      case 'morbidity-mortality': return renderMorbidityMortalityReport();
       case 'demographic': return renderDemographicReport();
       case 'financial': return renderFinancialReport();
       case 'insurance': return renderInsuranceClaimsReport();
-      case 'clinical-stats': return renderClinicalStatsReport();
       case 'attendance': return renderAttendanceReport();
       case 'revenue': return renderRevenueReport();
       case 'lab': return renderLabReport();
@@ -1549,7 +1569,7 @@ const renderMalariaReport = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header with Back Button */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-lg transition-all text-sm font-medium">
@@ -1589,7 +1609,15 @@ const renderMalariaReport = () => {
         {categories.map((category) => {
           const Icon = category.icon;
           return (
-            <button key={category.id} onClick={() => { setActiveCategory(category.id as any); const firstReport = reportItems[category.id as keyof typeof reportItems]?.[0]?.key; if (firstReport) setReportType(firstReport); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${activeCategory === category.id ? 'bg-[var(--icon-cyan-text)] text-white shadow-md' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'}`}>
+            <button
+              key={category.id}
+              onClick={() => {
+                setActiveCategory(category.id as any);
+                const firstReport = reportItems[category.id as keyof typeof reportItems]?.[0]?.key;
+                if (firstReport) setReportType(firstReport);
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${activeCategory === category.id ? 'bg-[var(--icon-cyan-text)] text-white shadow-md' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'}`}
+            >
               <Icon className="w-4 h-4" />
               {category.label}
             </button>
@@ -1601,7 +1629,11 @@ const renderMalariaReport = () => {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
         <div className="flex flex-wrap gap-2">
           {currentReports.map(({ key, label, icon: Icon, color }) => (
-            <button key={key} onClick={() => setReportType(key)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${reportType === key ? `bg-[var(--icon-${color}-text)] text-white shadow-md` : 'bg-[var(--bg-main)] text-[var(--text-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-hover)]'}`}>
+            <button
+              key={key}
+              onClick={() => setReportType(key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${reportType === key ? `bg-[var(--icon-${color}-text)] text-white shadow-md` : 'bg-[var(--bg-main)] text-[var(--text-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-hover)]'}`}
+            >
               <Icon className="w-4 h-4" />
               {label}
             </button>

@@ -1,8 +1,8 @@
 // backend/middleware/authMiddleware.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-// ✅ Add this
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 // Extended Request interface
@@ -39,7 +39,7 @@ interface DecodedToken {
   email?: string;
 }
 
-export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('🔐 Auth Middleware - Headers:', {
       authorization: req.headers.authorization ? 'Present' : 'Missing',
@@ -51,29 +51,32 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('❌ No Bearer token found');
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         message: 'Access denied. No token provided.' 
       });
+      return; // ✅ FIXED: Added return
     }
 
     const token = authHeader.split(' ')[1];
     
     if (!token) {
       console.log('❌ No token found after Bearer');
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         message: 'Access denied. Invalid token format.' 
       });
+      return; // ✅ FIXED: Added return
     }
 
     // Verify JWT token
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET not configured');
-      return res.status(500).json({ 
+      res.status(500).json({ 
         success: false,
         message: 'Server configuration error' 
       });
+      return; // ✅ FIXED: Added return
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as DecodedToken;
@@ -103,10 +106,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
     if (!user) {
       console.log('❌ User not found or inactive:', decoded.userId);
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         message: 'User account not found or inactive' 
       });
+      return; // ✅ FIXED: Added return
     }
 
     console.log('✅ User authenticated:', {
@@ -128,39 +132,44 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     };
     
     next();
+    return; // ✅ FIXED: Added return for completeness
   } catch (error) {
     console.error('❌ Auth middleware error:', error);
     
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         message: 'Invalid token' 
       });
+      return; // ✅ FIXED: Added return
     }
     if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         message: 'Token expired' 
       });
+      return; // ✅ FIXED: Added return
     }
     
     res.status(401).json({ 
       success: false,
       message: 'Authentication failed' 
     });
+    return; // ✅ FIXED: Added return
   }
 };
 
 // Enhanced role-based access control
 export const requireRole = (allowedRoles: UserRole[]) => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
         console.log('❌ Role check failed: No user in request');
-        return res.status(403).json({ 
+        res.status(403).json({ 
           success: false,
           message: 'Access denied. Authentication required.' 
         });
+        return; // ✅ FIXED: Added return
       }
 
       const userRole = req.user.role;
@@ -171,10 +180,11 @@ export const requireRole = (allowedRoles: UserRole[]) => {
           actual: userRole,
           user: req.user.username
         });
-        return res.status(403).json({ 
+        res.status(403).json({ 
           success: false,
           message: `Access denied. Required roles: ${allowedRoles.join(', ')}. Your role: ${userRole}` 
         });
+        return; // ✅ FIXED: Added return
       }
 
       console.log('✅ Role check passed:', {
@@ -184,12 +194,14 @@ export const requireRole = (allowedRoles: UserRole[]) => {
       });
       
       next();
+      return; // ✅ FIXED: Added return
     } catch (error) {
       console.error('❌ Role middleware error:', error);
       res.status(500).json({ 
         success: false,
         message: 'Error verifying user role' 
       });
+      return; // ✅ FIXED: Added return
     }
   };
 };
@@ -257,25 +269,28 @@ export const canModifyRecord = (req: AuthRequest, recordOwnerId?: string): boole
 
 // Middleware to check ownership or admin access
 export const requireOwnershipOrAdmin = (ownerIdField: string = 'userId') => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        return res.status(403).json({ 
+        res.status(403).json({ 
           success: false,
           message: 'Access denied' 
         });
+        return; // ✅ FIXED: Added return
       }
 
       // Admin can access anything
       if (req.user.role === 'admin') {
-        return next();
+        next();
+        return; // ✅ FIXED: Added return
       }
 
       // Check if user owns the resource
       const resourceOwnerId = (req.params as any)[ownerIdField] || (req.body as any)[ownerIdField];
       
       if (resourceOwnerId && resourceOwnerId === req.user.id) {
-        return next();
+        next();
+        return; // ✅ FIXED: Added return
       }
 
       console.log('❌ Ownership check failed:', {
@@ -284,16 +299,18 @@ export const requireOwnershipOrAdmin = (ownerIdField: string = 'userId') => {
         field: ownerIdField
       });
 
-      return res.status(403).json({ 
+      res.status(403).json({ 
         success: false,
         message: 'Access denied. You can only access your own records.' 
       });
+      return; // ✅ FIXED: Added return
     } catch (error) {
       console.error('❌ Ownership middleware error:', error);
       res.status(500).json({ 
         success: false,
         message: 'Error verifying access' 
       });
+      return; // ✅ FIXED: Added return
     }
   };
 };
