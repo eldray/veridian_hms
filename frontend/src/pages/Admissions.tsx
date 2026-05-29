@@ -1,4 +1,5 @@
-// src/pages/Admissions.tsx - UPDATED FOR NEW ADMISSION DESIGN
+// src/pages/Admissions.tsx - UPDATED with Ward Management button and proper data display
+
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -36,10 +37,19 @@ import {
   Activity,
   ClipboardList,
   Pill,
-  Microscope
+  Microscope,
+  AlertTriangle,
+  ClockIcon,
+  LayoutDashboard,
+  Building2,
+  Moon,
+  Sun
 } from 'lucide-react';
 
-// Helper: Get consistent ID
+type DateFilterType = 'today' | 'yesterday' | 'custom';
+type TabType = 'all' | 'active' | 'discharged';
+
+// Helper functions
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
   return entity?._id || entity?.id;
 };
@@ -50,7 +60,6 @@ const getPatientName = (patient: any): string => {
   return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
 };
 
-// Helper: Calculate age
 const calculateAge = (dateOfBirth: string): number => {
   if (!dateOfBirth) return 0;
   const today = new Date();
@@ -63,9 +72,6 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
-type DateFilterType = 'today' | 'yesterday' | 'custom';
-type TabType = 'all' | 'active' | 'discharged';
-
 export default function Admissions() {
   const { success, error } = useToast();
   const { hospital } = useHospitalStore();
@@ -77,6 +83,8 @@ export default function Admissions() {
   const [selectedAdmission, setSelectedAdmission] = useState<any>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedDaycase, setSelectedDaycase] = useState<any>(null);
   
   // Date filter states
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
@@ -84,12 +92,12 @@ export default function Admissions() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const { admissions, getAdmissions, dischargeAdmission, getAdmissionStats, admissionStats, daycasePatients, getDaycasePatients } = useAdmissionStore();
+  const { admissions, getAdmissions, convertDaycaseToIPD, dischargePatient, getDetentionPatients, getFormalIPDPatients, detentionPatients, formalIPDPatients } = useAdmissionStore();
   const { patients, loadPatients } = usePatientStore();
   const { attendances, getAttendances, updateAttendance, dischargeFromEncounter } = useAttendanceStore();
   const { user, hasRole } = useAuthStore();
 
-  // Helper: Get date range based on filter
+  // Get date range helper
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -128,10 +136,9 @@ export default function Admissions() {
         getAdmissions(),
         loadPatients(),
         getAttendances(),
-        getAdmissionStats(),
-        getDaycasePatients(),
+        getDetentionPatients(),
+        getFormalIPDPatients(),
       ]);
-      success('Data Loaded', 'Admissions data refreshed successfully');
     } catch (err: any) {
       console.error('❌ Error loading admissions data:', err);
       error('Load Failed', err.response?.data?.message || 'Failed to load admissions data');
@@ -145,58 +152,126 @@ export default function Admissions() {
     loadData();
   }, []);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
 
-  // Find patient for admission - UPDATED to handle new structure
-  const findPatient = (admission: any) => {
-    if (!admission) return null;
+  // ============================================
+  // BUILD ALL ADMISSIONS (Formal IPD + Detention + Daycase)
+  // ============================================
+  
+  // 1. Get formal IPD admissions (excluding detention)
+  const formalIPD = useMemo(() => admissions.filter(a => a.admissionType !== 'detention_observation'), [admissions]);
+  
+  // 2. Get detention/observation admissions
+  const detention = useMemo(() => admissions.filter(a => a.admissionType === 'detention_observation'), [admissions]);
+  
+  // 3. Get day surgery patients from attendances
+  const daycasePatients = useMemo(() => {
+    return attendances.filter(a => 
+      a.encounterCategory === 'daycase' && 
+      a.status === 'admitted'
+    );
+  }, [attendances]);
+  
+  // 4. Transform daycase patients to admission-like objects
+  const virtualDaycaseAdmissions = useMemo(() => {
+    return daycasePatients.map(att => ({
+      id: att.id,
+      admissionNumber: att.attendanceNumber || `DAY-${att.id.slice(-8)}`,
+      attendanceId: att.id,
+      admissionDate: att.dateTime || att.createdAt,
+      dischargeDate: null,
+      admissionType: 'day_surgery',
+      admissionSource: 'opd',
+      dischargeStatus: null,
+      dailyNotes: [],
+      createdAt: att.createdAt,
+      updatedAt: att.updatedAt,
+      attendance: att,
+      isDaySurgery: true,
+      isVirtual: true,
+      status: 'admitted',
+      displayType: 'day_surgery'
+    }));
+  }, [daycasePatients]);
+  
+  // 5. Combine all admissions
+
+  const allAdmissions = useMemo(() => {
+    // 1. Get formal IPD from admissions store
+    const formal = formalIPD.map(adm => ({
+      ...adm,
+      isDaySurgery: false,
+      isDetention: false,
+      isVirtual: false,
+      status: adm.dischargeDate ? 'discharged' : 'admitted',
+      displayType: 'formal_ipd'
+    }));
     
-    // First try to get patient from admission.attendance (new structure)
-    if (admission.attendance?.patient) {
-      return admission.attendance.patient;
-    }
+    // 2. Get detention from admissions store
+    const detentionList = detention.map(adm => ({
+      ...adm,
+      isDaySurgery: false,
+      isDetention: true,
+      isVirtual: false,
+      status: adm.dischargeDate ? 'discharged' : 'admitted',
+      displayType: 'detention'
+    }));
     
-    // Then try direct patient field
-    if (admission.patient) {
-      return admission.patient;
-    }
+    // 3. Get day surgery from attendances
+    const daySurgery = virtualDaycaseAdmissions;
     
-    // Then try Patient (capital P)
-    if (admission.Patient) {
-      return admission.Patient;
-    }
+    // 4. ✅ NEW: Get admitted patients from attendances that don't have admission records
+    //    This is the FALLBACK for when admissions store is empty
+    const admittedFromAttendances = attendances
+      .filter(a => 
+        a.status === 'admitted' && 
+        a.encounterCategory === 'ipd' &&
+        !formal.some(f => f.attendanceId === a.id) &&
+        !detentionList.some(d => d.attendanceId === a.id)
+      )
+      .map(att => ({
+        id: att.id,
+        admissionNumber: att.attendanceNumber || `ADM-${att.id.slice(-8)}`,
+        attendanceId: att.id,
+        admissionDate: att.dateTime || att.createdAt,
+        dischargeDate: null,
+        admissionType: att.admissionType || 'emergency',
+        admissionSource: 'opd',
+        dischargeStatus: null,
+        dailyNotes: [],
+        createdAt: att.createdAt,
+        updatedAt: att.updatedAt,
+        attendance: att,
+        isDaySurgery: false,
+        isDetention: false,
+        isVirtual: true,
+        status: 'admitted',
+        displayType: 'formal_ipd'
+      }));
     
-    // Finally search by patientId in the patients store
-    let patientId = admission.patientId || admission.patient_id;
-    if (!patientId && admission.attendance?.patientId) {
-      patientId = admission.attendance.patientId;
-    }
+    // Remove duplicates
+    const existingAttendanceIds = new Set([...formal, ...detentionList].map(a => a.attendanceId));
+    const uniqueDaySurgery = daySurgery.filter(o => !existingAttendanceIds.has(o.attendanceId));
+    const uniqueFromAttendances = admittedFromAttendances.filter(a => !existingAttendanceIds.has(a.attendanceId));
     
-    if (patientId) {
-      const foundPatient = patients.find(p => {
-        const pId = getEntityId(p);
-        return pId && String(pId) === String(patientId);
-      });
-      if (foundPatient) return foundPatient;
-    }
+    const result = [...formal, ...detentionList, ...uniqueDaySurgery, ...uniqueFromAttendances];
+    console.log(`📊 Combined admissions: ${result.length} (${formal.length} formal, ${detentionList.length} detention, ${uniqueDaySurgery.length} day surgery, ${uniqueFromAttendances.length} from attendances)`);
     
-    console.warn('⚠️ No patient found for admission:', admission.id);
-    return null;
-  };
+    return result;
+  }, [formalIPD, detention, virtualDaycaseAdmissions, attendances]);
 
   // Filter admissions by search, date, and tab
   const filteredAdmissions = useMemo(() => {
-    if (!admissions.length) return [];
+    if (!allAdmissions.length) return [];
     
     const dateRange = getDateRange();
     
-    const filtered = admissions.filter(admission => {
-      // Date filtering based on admission date
+    const filtered = allAdmissions.filter(admission => {
+      // Date filtering
       if (dateRange) {
-        const admissionDate = new Date(admission.admissionDate || admission.createdAt);
+        const admissionDate = new Date(admission.admissionDate);
         if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) {
           return false;
         }
@@ -209,15 +284,14 @@ export default function Admissions() {
       
       // Search filtering
       if (searchQuery) {
-        const patient = findPatient(admission);
+        const patient = admission.attendance?.Patient || patients.find(p => p.id === admission.attendance?.patientId);
         const fullName = patient ? getPatientName(patient) : '';
         const lower = searchQuery.toLowerCase();
         return (
           admission.admissionNumber?.toLowerCase().includes(lower) ||
           fullName.toLowerCase().includes(lower) ||
           patient?.folderNumber?.toLowerCase().includes(lower) ||
-          admission.attendance?.complaints?.toLowerCase().includes(lower) ||
-          admission.admissionType?.toLowerCase().includes(lower)
+          admission.attendance?.complaints?.toLowerCase().includes(lower)
         );
       }
       
@@ -225,13 +299,17 @@ export default function Admissions() {
     });
     
     return filtered.sort((a, b) => 
-      new Date(b.admissionDate || b.createdAt).getTime() - new Date(a.admissionDate || a.createdAt).getTime()
+      new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime()
     );
-  }, [admissions, patients, searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
+  }, [allAdmissions, patients, searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
 
-  // Separate by status for stats
   const activeAdmissions = filteredAdmissions.filter(a => !a.dischargeDate);
   const dischargedAdmissions = filteredAdmissions.filter(a => a.dischargeDate);
+  
+  // Counts by type
+  const formalIPDCount = filteredAdmissions.filter(a => a.displayType === 'formal_ipd' && !a.dischargeDate).length;
+  const detentionCount = filteredAdmissions.filter(a => a.displayType === 'detention' && !a.dischargeDate).length;
+  const daySurgeryCount = filteredAdmissions.filter(a => a.displayType === 'day_surgery' && !a.dischargeDate).length;
 
   // Pagination
   const totalPages = Math.ceil(filteredAdmissions.length / itemsPerPage);
@@ -240,7 +318,6 @@ export default function Admissions() {
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
-  // Get date filter display text
   const getDateFilterDisplay = () => {
     switch (dateFilter) {
       case 'today': return 'Today';
@@ -283,81 +360,71 @@ export default function Admissions() {
     }
   };
 
-  const getStatusColor = (admission: any) => {
-    if (admission.dischargeDate) return 'bg-gray-100 text-gray-700';
-    return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
+  const getStatusBadge = (admission: any) => {
+    if (admission.dischargeDate) {
+      return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">DISCHARGED</span>;
+    }
+    
+    switch (admission.displayType) {
+      case 'day_surgery':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-700">
+          <Sun className="w-3 h-3" />
+          DAY SURGERY
+        </span>;
+      case 'detention':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+          <Moon className="w-3 h-3" />
+          OBSERVATION (12-72h)
+        </span>;
+      case 'formal_ipd':
+      default:
+        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+          <Hospital className="w-3 h-3" />
+          ADMITTED (IPD)
+        </span>;
+    }
   };
 
-  // Calculate length of stay
+  const getTypeIcon = (admission: any) => {
+    switch (admission.displayType) {
+      case 'day_surgery':
+        return <Sun className="w-4 h-4 text-purple-600" />;
+      case 'detention':
+        return <Moon className="w-4 h-4 text-orange-600" />;
+      case 'formal_ipd':
+      default:
+        return <Hospital className="w-4 h-4 text-green-600" />;
+    }
+  };
+
   const getLengthOfStay = (admission: any) => {
-    const start = new Date(admission.admissionDate || admission.createdAt);
+    const start = new Date(admission.admissionDate);
     const end = admission.dischargeDate ? new Date(admission.dischargeDate) : new Date();
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     return days;
   };
 
-  // Print Discharge Summary using pdfGenerator - UPDATED to use attendance data
-  const handlePrintDischargeSummary = async (admission: any) => {
-    const patient = findPatient(admission);
-    if (!patient) {
-      error('Print Failed', 'Patient information not found');
-      return;
-    }
+  const handleConvertToIPD = async (daycaseAdmission: any) => {
+    setSelectedDaycase(daycaseAdmission);
+    setShowConvertModal(true);
+  };
 
+  const confirmConvertToIPD = async () => {
+    if (!selectedDaycase) return;
+    
     try {
-      // Get primary diagnosis from attendance
-      const attendance = admission.attendance;
-      const primaryDiagnosis = attendance?.AttendanceDiagnosis?.find((d: any) => d.diagnosisType === 'primary')?.Diagnosis;
-      
-      const dischargeData = {
-        admission: {
-          admissionNumber: admission.admissionNumber,
-          admissionDate: admission.admissionDate,
-          dischargeDate: admission.dischargeDate || new Date().toISOString(),
-          dischargeStatus: admission.dischargeStatus || 'home',
-          lengthOfStay: getLengthOfStay(admission),
-          admissionType: admission.admissionType || 'emergency',
-          dischargeSummary: 'Patient discharged successfully.',
-          attendingDoctor: attendance?.createdBy?.fullName || 'Unknown',
-          wardName: attendance?.ward?.wardName || 'General Ward',
-          bedNumber: attendance?.bed?.bedNumber || 'N/A'
-        },
-        attendance: {
-          attendanceNumber: attendance?.attendanceNumber || 'N/A',
-          dateTime: admission.admissionDate,
-          attendingClinician: attendance?.createdBy?.fullName
-        },
-        patient: {
-          fullName: getPatientName(patient),
-          folderNumber: patient.folderNumber,
-          contact: patient.contact,
-          age: calculateAge(patient.dateOfBirth),
-          gender: patient.gender,
-          id: patient.id
-        },
-        clinicalData: {
-          diagnoses: primaryDiagnosis ? [{
-            name: primaryDiagnosis.name,
-            icdCode: primaryDiagnosis.icdCode || '',
-            primary: true,
-            date: admission.admissionDate
-          }] : [],
-          medications: attendance?.Medication || [],
-          procedures: attendance?.Procedure || []
-        }
-      };
-
-      const htmlContent = generatePDF('dischargeSummary', dischargeData, hospital);
-      openPrintWindow(htmlContent, `Discharge_Summary_${admission.admissionNumber}`);
-      
-      success('Print Ready', 'Discharge summary generated successfully');
-    } catch (err) {
-      console.error('Error printing discharge summary:', err);
-      error('Print Failed', 'Could not generate discharge summary');
+      await convertDaycaseToIPD(selectedDaycase.attendanceId, {
+        admissionType: 'emergency'
+      });
+      success('Converted', 'Day surgery patient converted to formal IPD admission');
+      await loadData();
+      setShowConvertModal(false);
+      setSelectedDaycase(null);
+    } catch (err: any) {
+      error('Conversion Failed', err.message);
     }
   };
 
-  // Discharge Handler - UPDATED to use new discharge method
   const handleDischargePatient = async (admission: any) => {
     setSelectedAdmission(admission);
     setShowDischargeModal(true);
@@ -366,46 +433,34 @@ export default function Admissions() {
   const confirmDischarge = async () => {
     if (!selectedAdmission) return;
     
-    const patient = findPatient(selectedAdmission);
-    const attendanceId = selectedAdmission.attendance?.id || selectedAdmission.attendanceId;
-    
     try {
-      const dischargeData = {
+      await dischargePatient(selectedAdmission.attendanceId, {
         dischargeDate: new Date().toISOString(),
-        dischargeStatus: 'home',
-        dischargeSummary: 'Patient discharged successfully',
-      };
-
-      // Use the appropriate discharge method
-      if (attendanceId) {
-        await dischargeFromEncounter(attendanceId, dischargeData);
-      } else {
-        await dischargeAdmission(selectedAdmission.id, dischargeData);
-      }
-      
-      await Promise.all([getAdmissions(), getAdmissionStats(), getAttendances()]);
+        dischargeStatus: 'home'
+      });
+      success('Patient Discharged', 'Patient has been successfully discharged');
+      await loadData();
       setShowDischargeModal(false);
       setSelectedAdmission(null);
-      success('Patient Discharged!', `${getPatientName(patient)} has been successfully discharged.`);
-      
-      // Print discharge summary after discharge
-      await handlePrintDischargeSummary(selectedAdmission);
     } catch (err: any) {
-      console.error('❌ Discharge error:', err);
-      error('Discharge Failed', err.response?.data?.message || 'Failed to discharge patient. Please try again.');
+      error('Discharge Failed', err.message);
     }
   };
 
-  const canDischargePatient = hasRole(['admin', 'doctor']);
+  const canDischarge = hasRole(['admin', 'doctor']);
+  const canConvert = hasRole(['admin', 'doctor']);
 
-  // Loading state
+  // Navigate to ward management
+  const navigateToWardManagement = () => {
+    window.location.href = '/dashboard/wards';
+  };
+
   if (isLoading && !refreshing) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Loading Admissions...</h2>
-          <p className="text-[var(--text-secondary)] text-sm">Please wait while we load the admissions data</p>
         </div>
       </div>
     );
@@ -417,33 +472,30 @@ export default function Admissions() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Admissions</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Manage inpatient admissions and discharges</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            Manage IPD admissions, observation cases, and day surgery patients
+          </p>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {filteredAdmissions.length} admission(s) • {activeAdmissions.length} active • {dischargedAdmissions.length} discharged
+            {filteredAdmissions.length} total • {formalIPDCount} IPD • {detentionCount} Observation • {daySurgeryCount} Day Surgery • {dischargedAdmissions.length} Discharged
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to="/wards"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          {/* ✅ Ward Management Button - RESTORED */}
+          <button
+            onClick={navigateToWardManagement}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-700 hover:text-white transition-all text-sm font-medium"
           >
-            <Bed className="w-4 h-4" />
+            <Building2 className="w-4 h-4" />
             Ward Management
-          </Link>
-          <Link
-            to="/dashboard/encounters/new?type=ipd"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            New Admission
-          </Link>
+          </button>
+          
           <button
             onClick={loadData}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            Refresh
           </button>
         </div>
       </div>
@@ -454,17 +506,17 @@ export default function Admissions() {
           onClick={() => setActiveTab('all')}
           className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
             activeTab === 'all'
-              ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+              ? 'bg-cyan-100 text-cyan-700'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
           }`}
         >
-          All Admissions
+          All ({filteredAdmissions.length})
         </button>
         <button
           onClick={() => setActiveTab('active')}
           className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
             activeTab === 'active'
-              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+              ? 'bg-green-100 text-green-700'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
           }`}
         >
@@ -483,7 +535,7 @@ export default function Admissions() {
       </div>
 
       {/* Date Filter Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -492,39 +544,30 @@ export default function Admissions() {
           
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                setDateFilter('today');
-                setShowDatePicker(false);
-              }}
+              onClick={() => { setDateFilter('today'); setShowDatePicker(false); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'today'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  ? 'bg-cyan-100 text-cyan-700'
                   : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
               }`}
             >
               Today
             </button>
             <button
-              onClick={() => {
-                setDateFilter('yesterday');
-                setShowDatePicker(false);
-              }}
+              onClick={() => { setDateFilter('yesterday'); setShowDatePicker(false); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'yesterday'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  ? 'bg-cyan-100 text-cyan-700'
                   : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
               }`}
             >
               Yesterday
             </button>
             <button
-              onClick={() => {
-                setDateFilter('custom');
-                setShowDatePicker(true);
-              }}
+              onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'custom'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  ? 'bg-cyan-100 text-cyan-700'
                   : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
               }`}
             >
@@ -532,7 +575,6 @@ export default function Admissions() {
             </button>
           </div>
 
-          {/* Custom Date Range Picker */}
           {showDatePicker && dateFilter === 'custom' && (
             <div className="flex items-center gap-3 ml-auto">
               <input
@@ -557,172 +599,97 @@ export default function Admissions() {
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex-1 w-full sm:max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by patient name, folder number, admission number..."
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
-            >
-              <option value={10}>10 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={50}>50 per page</option>
-            </select>
-          </div>
+      {/* Search Bar */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by patient name, folder number, admission number..."
+            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500 text-sm"
+          />
         </div>
       </div>
 
-      {/* Stats Banner */}
-      {filteredAdmissions.length > 0 && (
-        <div className={`rounded-xl p-4 border ${
-          activeTab === 'active' 
-            ? 'bg-green-50 border-green-200' 
-            : activeTab === 'discharged'
-            ? 'bg-gray-50 border-gray-200'
-            : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
-        }`}>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p className="text-sm font-semibold text-blue-800">
-                Showing {paginatedAdmissions.length} of {filteredAdmissions.length} admission records
-              </p>
-              {searchQuery && (
-                <p className="text-xs text-blue-600 mt-0.5">
-                  Search results for: "{searchQuery}"
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
-              <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
-                Active: {activeAdmissions.length}
-              </span>
-              <span className="bg-gray-100 px-2 py-1 rounded border border-gray-200">
-                Discharged: {dischargedAdmissions.length}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Admissions Table */}
       {filteredAdmissions.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
+        <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
           <Hospital className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-            {searchQuery ? 'No Admissions Found' : 'No Admission Records'}
+            {searchQuery ? 'No Admissions Found' : 'No Active Admissions'}
           </h3>
-          <p className="text-[var(--text-secondary)] text-sm mb-4">
+          <p className="text-[var(--text-secondary)] text-sm">
             {searchQuery 
-              ? 'No admission records match your search criteria. Try adjusting your search terms.'
-              : `No admission records found for ${getDateFilterDisplay().toLowerCase()}.`
+              ? 'No records match your search criteria.'
+              : 'No patients are currently admitted or under observation.'
             }
           </p>
-          {searchQuery ? (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all text-sm font-medium border border-[var(--border-color)]"
-            >
-              <X className="w-4 h-4" />
-              Clear Search
-            </button>
-          ) : dateFilter !== 'today' && (
-            <button
-              onClick={() => setDateFilter('today')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <Calendar className="w-4 h-4" />
-              View Today's Admissions
-            </button>
-          )}
         </div>
       ) : (
         <>
-          <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Admission #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">ID/Number</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Admission Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Discharge Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Ward / Bed</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Length of Stay</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Stay</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
                 {paginatedAdmissions.map((admission) => {
-                  const patient = findPatient(admission);
+                  const patient = admission.attendance?.Patient || patients.find(p => p.id === admission.attendance?.patientId);
                   const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
-                  const admissionDate = admission.admissionDate || admission.createdAt;
-                  const dischargeDate = admission.dischargeDate;
-                  const attendance = admission.attendance;
-                  const wardName = attendance?.ward?.wardName || admission.ward?.wardName || '—';
-                  const bedNumber = attendance?.bed?.bedNumber || admission.bed?.bedNumber || '—';
-                  const lengthOfStay = getLengthOfStay(admission);
-                  const isDischarged = !!dischargeDate;
+                  const wardName = admission.attendance?.Ward?.wardName || '—';
+                  const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
+                  const isDischarged = !!admission.dischargeDate;
+                  const stayDays = getLengthOfStay(admission);
                   
                   return (
-                    <tr key={admission.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
+                    <tr key={admission.id} className={`hover:bg-[var(--bg-main)] transition-colors ${
+                      admission.displayType === 'detention' ? 'bg-orange-50/20' : 
+                      admission.displayType === 'day_surgery' ? 'bg-purple-50/20' : ''
+                    }`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                          <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-cyan-600" />
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[var(--text-primary)] text-sm truncate">
-                              {fullName}
-                            </p>
+                          <div>
+                            <p className="font-semibold text-[var(--text-primary)] text-sm">{fullName}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {patient?.folderNumber || 'No Folder'}
+                              {patient?.folderNumber || 'No Folder'} • {patient?.gender || '—'} • {patient?.dateOfBirth ? calculateAge(patient.dateOfBirth) : '?'} yrs
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {getTypeIcon(admission)}
+                          {getStatusBadge(admission)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
                         <span className="text-sm font-mono text-[var(--text-primary)]">
-                          {admission.admissionNumber || '—'}
+                          {admission.admissionNumber}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm">
                           <p className="font-medium text-[var(--text-primary)]">
-                            {formatDate(admissionDate)}
+                            {formatDate(admission.admissionDate)}
                           </p>
                           <p className="text-[var(--text-secondary)] text-xs">
-                            {formatDateTime(admissionDate)}
+                            {formatDateTime(admission.admissionDate)}
                           </p>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {dischargeDate ? (
-                          <div className="text-sm">
-                            <p className="font-medium text-[var(--text-primary)]">
-                              {formatDate(dischargeDate)}
-                            </p>
-                            <p className="text-[var(--text-secondary)] text-xs">
-                              {formatDateTime(dischargeDate)}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-[var(--text-secondary)] text-sm">—</span>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 text-sm">
@@ -734,41 +701,50 @@ export default function Admissions() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-[var(--text-primary)]">
-                          {lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}
+                          {stayDays} day{stayDays !== 1 ? 's' : ''}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(admission)}`}>
-                          {isDischarged ? 'DISCHARGED' : 'ACTIVE'}
-                        </span>
+                        {getStatusBadge(admission)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          {/* View Medical Records - Link to attendance */}
-                          {attendance?.id && (
+                          {/* View Admission Details */}
+                          <Link
+                            to={`/dashboard/admissions/${admission.id}`}
+                            className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-colors"
+                            title="View Admission Details"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Link>
+                          
+                          {/* View Medical Records */}
+                          {admission.attendance?.id && (
                             <Link
-                              to={`/dashboard/medical-entries/${attendance.id}`}
-                              className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
+                              to={`/dashboard/medical-entries/${admission.attendance.id}`}
+                              className="p-2 bg-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-700 hover:text-white transition-colors"
                               title="View Medical Records"
                             >
                               <Eye className="w-4 h-4" />
                             </Link>
                           )}
                           
-                          {/* Print Discharge Summary */}
-                          <button
-                            onClick={() => handlePrintDischargeSummary(admission)}
-                            className="p-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-700 hover:text-white transition-colors"
-                            title="Print Discharge Summary"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
+                          {/* Convert to IPD (only for day surgery) */}
+                          {admission.displayType === 'day_surgery' && !isDischarged && canConvert && (
+                            <button
+                              onClick={() => handleConvertToIPD(admission)}
+                              className="p-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-700 hover:text-white transition-colors"
+                              title="Convert to IPD"
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+                          )}
                           
-                          {/* Discharge Button (only for active admissions) */}
-                          {!isDischarged && canDischargePatient && (
+                          {/* Discharge Button */}
+                          {!isDischarged && canDischarge && (
                             <button
                               onClick={() => handleDischargePatient(admission)}
-                              className="p-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
+                              className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-700 hover:text-white transition-colors"
                               title="Discharge Patient"
                             >
                               <LogOut className="w-4 h-4" />
@@ -785,52 +761,26 @@ export default function Admissions() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)} of{' '}
-                  {filteredAdmissions.length} admission records
+                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)} of {filteredAdmissions.length}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
+                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
+                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
+                    Page {currentPage} of {totalPages}
+                  </span>
                   <button
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
+                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -841,29 +791,54 @@ export default function Admissions() {
         </>
       )}
 
-      {/* Discharge Confirmation Modal */}
+      {/* Convert Modal */}
+      {showConvertModal && selectedDaycase && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+            <div className="p-6 border-b border-[var(--border-color)]">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Convert to IPD Admission</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
+                Convert this day surgery patient to formal IPD admission?
+              </p>
+            </div>
+            <div className="p-6 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmConvertToIPD}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
+              >
+                Convert to IPD
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discharge Modal */}
       {showDischargeModal && selectedAdmission && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
             <div className="p-6 border-b border-[var(--border-color)]">
               <h3 className="text-lg font-bold text-[var(--text-primary)]">Confirm Discharge</h3>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Are you sure you want to discharge {getPatientName(findPatient(selectedAdmission))}?
+                Are you sure you want to discharge this patient?
               </p>
             </div>
             <div className="p-6 flex gap-3 justify-end">
               <button
-                onClick={() => {
-                  setShowDischargeModal(false);
-                  setSelectedAdmission(null);
-                }}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
+                onClick={() => setShowDischargeModal(false)}
+                className="px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDischarge}
-                className="px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all text-sm font-medium"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
               >
                 Confirm Discharge
               </button>

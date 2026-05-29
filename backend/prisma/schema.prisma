@@ -693,6 +693,7 @@ model Ward {
   wardType              String
   totalBeds             Int
   occupiedBeds          Int      @default(0)
+  isActive              Boolean  @default(true)
   isNHISCovered         Boolean  @default(true)
   nhisRequiresAuth      Boolean  @default(false)
   isPrivateInsExempted  Boolean  @default(false)
@@ -940,6 +941,8 @@ model AttendanceDiagnosis {
   @@index([attendanceId])
   @@index([diagnosisId])
   @@index([diagnosisType])
+  @@index([createdAt])
+  @@index([createdAt, diagnosisId]) 
 }
 
 // ============================================================
@@ -994,6 +997,7 @@ model Bill {
   @@index([patientId])
   @@index([status])
   @@index([admissionId])
+  @@index([billDate, status])
   @@index([createdAt])
 }
 
@@ -1800,6 +1804,7 @@ model Appointment {
   @@index([departmentId, appointmentDate])
   @@index([status, appointmentDate])
   @@map("appointments")
+  @@index([appointmentDate, status])
 }
 
 // ============================================================

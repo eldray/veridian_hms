@@ -901,61 +901,68 @@ getLabTestTemplates: async (filters = {}) => {
   },
 
   // === SERVICE CATALOG ===
-  getServiceCatalog: async (filters = {}) => {
-    set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
-    try {
-      const response = await apiGetServiceCatalog({ ...filters, limit: 5000 });
-      
-      console.log('📦 Service Catalog API Response:', response);
-      
-      let services: ServiceCatalog[] = [];
-      let pagination = null;
-      
-      if (response?.success && Array.isArray(response.data)) {
-        services = response.data;
-        pagination = response.pagination;
-      } else if (Array.isArray(response)) {
-        services = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        services = response.data;
-        pagination = response.pagination;
-      } else if (response?.services && Array.isArray(response.services)) {
-        services = response.services;
-      } else {
-        services = [];
-      }
-      
-      console.log(`✅ Loaded ${services.length} services`);
-      
-      set({
-        serviceCatalog: services,
-        pagination: pagination,
-        isLoading: false
-      });
-      
-      return { services, pagination };
-    } catch (error: unknown) {
-      console.error('❌ Failed to fetch service catalog:', error);
-      set({
-        errors: { ...get().errors, serviceCatalog: error.message },
-        isLoading: false
-      });
-      throw error;
-    }
-  },
+// In medicalServicesStore.ts - CORRECTED getServiceCatalog
 
-    getServiceCatalogs: async (filters = {}) => {
-      set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
-      try {
-        // ✅ IMPORTANT: Ensure limit is passed correctly
-        const apiFilters = { 
-          ...filters, 
-          limit: filters.limit || 5000,  // Use provided limit or default to 5000
-          page: filters.page || 1
-        };
-        
-        console.log('📡 Fetching service catalog with filters:', apiFilters);
-        
+getServiceCatalog: async (filters = {}) => {
+  set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
+  try {
+    const response = await apiGetServiceCatalog({ ...filters, limit: 5000 });
+    
+    console.log('📦 Service Catalog API Response:', response);
+    
+    let services: ServiceCatalog[] = [];
+    let pagination = null;
+    
+    // ✅ FIXED: The response from apiGetServiceCatalog is already the data object
+    // It comes as { data: Array(1000), pagination: {...} }
+    if (response && typeof response === 'object') {
+      // Check if response has a data array
+      if (response.data && Array.isArray(response.data)) {
+        services = response.data;
+        pagination = response.pagination;
+      }
+      // Check if response itself is an array
+      else if (Array.isArray(response)) {
+        services = response;
+      }
+      // Check if response has services array
+      else if (response.services && Array.isArray(response.services)) {
+        services = response.services;
+        pagination = response.pagination;
+      }
+    }
+    
+    console.log(`✅ Loaded ${services.length} services`);
+    
+    set({
+      serviceCatalog: services,
+      pagination: pagination,
+      isLoading: false
+    });
+    
+    return { services, pagination };
+  } catch (error: unknown) {
+    console.error('❌ Failed to fetch service catalog:', error);
+    set({
+      errors: { ...get().errors, serviceCatalog: error.message },
+      isLoading: false
+    });
+    throw error;
+  }
+},
+
+
+getServiceCatalogs: async (filters = {}) => {
+  set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
+  try {
+    const apiFilters = { 
+      ...filters, 
+      limit: filters.limit || 5000,
+      page: filters.page || 1
+    };
+    
+    console.log('📡 Fetching service catalog with filters:', apiFilters);
+    
     const response = await apiGetServiceCatalog(apiFilters);
     
     console.log('📦 Service Catalog API Response:', response);
@@ -963,10 +970,17 @@ getLabTestTemplates: async (filters = {}) => {
     let services: ServiceCatalog[] = [];
     let pagination = null;
     
-    // Handle different response formats
-    if (response?.success && Array.isArray(response.data)) {
-      services = response.data;
-      pagination = response.pagination;
+    // ✅ FIXED: Handle nested data structure correctly
+    if (response?.success && response?.data) {
+      if (response.data.data && Array.isArray(response.data.data)) {
+        services = response.data.data;
+        pagination = response.data.pagination;
+      } else if (Array.isArray(response.data)) {
+        services = response.data;
+      } else if (response.data.services && Array.isArray(response.data.services)) {
+        services = response.data.services;
+        pagination = response.data.pagination;
+      }
     } else if (Array.isArray(response)) {
       services = response;
     } else if (response?.data && Array.isArray(response.data)) {
@@ -974,8 +988,7 @@ getLabTestTemplates: async (filters = {}) => {
       pagination = response.pagination;
     } else if (response?.services && Array.isArray(response.services)) {
       services = response.services;
-    } else {
-      services = [];
+      pagination = response.pagination;
     }
     
     console.log(`✅ Loaded ${services.length} services (Total in DB: ${pagination?.total || services.length})`);
@@ -996,7 +1009,8 @@ getLabTestTemplates: async (filters = {}) => {
     throw error;
   }
 },
-
+ 
+  
   createServiceCatalogItem: async (data: any) => {
     set({ isLoading: true });
     try {

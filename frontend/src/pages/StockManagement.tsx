@@ -54,7 +54,7 @@ export default function StockManagement() {
   // State for pagination and view mode
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9);
-  const [viewMode, setViewMode] = useState<'grid' | 'line'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'line'>('line');
 
   const isAdmin = hasRole(['admin', 'pharmacist']);
 
@@ -824,10 +824,11 @@ export default function StockManagement() {
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
                   >
-                    <option value="medication">Medication</option>
-                    <option value="consumable">Consumable</option>
-                    <option value="equipment">Equipment</option>
-                    <option value="supply">Supply</option>
+                    {getUniqueCategories().map(c => (
+                      <option key={c} value={c}>
+                        {c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' ')}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 

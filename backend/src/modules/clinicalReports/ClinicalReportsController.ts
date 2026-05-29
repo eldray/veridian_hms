@@ -3,34 +3,32 @@
  * HTTP request handlers for clinical report operations
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { ClinicalReportsService } from './ClinicalReportsService';
 
 export class ClinicalReportsController {
   private service: ClinicalReportsService;
 
-  constructor() {
-    this.service = new ClinicalReportsService();
+  // FIXED: accepts prisma so the connection pool is shared — was constructor() with no args
+  constructor(prisma: PrismaClient) {
+    this.service = new ClinicalReportsService(prisma);
   }
 
   /**
    * GET /clinical-reports/lab
-   * Generate lab report
    */
   generateLabReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'startDate and endDate are required' 
-        });
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
       }
 
       const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const end   = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
 
       const report = await this.service.generateLabReport({ startDate: start, endDate: end });
@@ -43,21 +41,17 @@ export class ClinicalReportsController {
 
   /**
    * GET /clinical-reports/scan
-   * Generate scan report
    */
   generateScanReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'startDate and endDate are required' 
-        });
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
       }
 
       const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const end   = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
 
       const report = await this.service.generateScanReport({ startDate: start, endDate: end });
@@ -70,21 +64,17 @@ export class ClinicalReportsController {
 
   /**
    * GET /clinical-reports/procedure
-   * Generate procedure report
    */
   generateProcedureReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'startDate and endDate are required' 
-        });
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
       }
 
       const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const end   = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
 
       const report = await this.service.generateProcedureReport({ startDate: start, endDate: end });
@@ -97,21 +87,17 @@ export class ClinicalReportsController {
 
   /**
    * GET /clinical-reports/medication
-   * Generate medication report
    */
   generateMedicationReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'startDate and endDate are required' 
-        });
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
       }
 
       const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const end   = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
 
       const report = await this.service.generateMedicationReport({ startDate: start, endDate: end });
@@ -124,21 +110,17 @@ export class ClinicalReportsController {
 
   /**
    * GET /clinical-reports/vitals
-   * Generate vitals report
    */
   generateVitalsReport = async (req: AuthRequest, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'startDate and endDate are required' 
-        });
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
       }
 
       const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const end   = new Date(endDate as string);
       end.setHours(23, 59, 59, 999);
 
       const report = await this.service.generateVitalsReport({ startDate: start, endDate: end });
@@ -149,6 +131,3 @@ export class ClinicalReportsController {
     }
   };
 }
-
-// Only one export - remove the duplicate if present
-export const clinicalReportsController = new ClinicalReportsController();

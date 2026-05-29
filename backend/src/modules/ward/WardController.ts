@@ -9,12 +9,10 @@ import { BaseController } from '../../shared/base/BaseController';
 import { WardService } from './WardService';
 import { CreateWardDTO, WardFilters } from './WardTypes';
 
-const prisma = new PrismaClient();
-
 export class WardController extends BaseController {
   private service: WardService;
 
-  constructor() {
+  constructor(prisma: any) {  // ✅ Accept prisma as parameter
     super();
     this.service = new WardService(prisma);
   }

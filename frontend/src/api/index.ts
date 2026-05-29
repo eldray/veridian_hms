@@ -15,6 +15,7 @@ export interface ReportFilter {
   startDate?: string;
   endDate?: string;
   period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  facilityId?: string;
   departmentId?: string;
   doctorId?: string;
   patientId?: string;
@@ -388,20 +389,62 @@ export const generateCCC = (data: { policyNumber: string; encounterId: string; t
 // GDRG TARIFFS
 // ──────────────────────────────────────────────
 
+// api/index.ts - UPDATE getGDRGTariffs to fetch all pages
+
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  const response = await api.get('/gdrg', { params: filters });
-  const result = response.data;
-  if (result?.success && Array.isArray(result.data)) {
-    return result.data;
+  const limit = 500; // Fetch more per request
+  let allTariffs: any[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+  
+  try {
+    // First request to get total count
+    const firstResponse = await api.get('/gdrg', { params: { ...filters, page: 1, limit } });
+    const result = firstResponse.data;
+    
+    console.log('🔍 Raw GDRG API response:', result);
+    
+    // Extract data from nested structure
+    let tariffsData = [];
+    if (result?.success && result?.data?.data) {
+      tariffsData = result.data.data;
+      totalPages = Math.ceil(result.data.pagination?.total / limit) || 1;
+    } else if (result?.data && Array.isArray(result.data)) {
+      tariffsData = result.data;
+      totalPages = 1;
+    } else if (Array.isArray(result)) {
+      tariffsData = result;
+      totalPages = 1;
+    }
+    
+    allTariffs = [...tariffsData];
+    
+    // Fetch remaining pages
+    if (totalPages > 1) {
+      const remainingPromises = [];
+      for (let page = 2; page <= totalPages; page++) {
+        remainingPromises.push(
+          api.get('/gdrg', { params: { ...filters, page, limit } }).then(r => r.data)
+        );
+      }
+      
+      const remainingResponses = await Promise.all(remainingPromises);
+      
+      for (const response of remainingResponses) {
+        if (response?.success && response?.data?.data) {
+          allTariffs = [...allTariffs, ...response.data.data];
+        } else if (response?.data && Array.isArray(response.data)) {
+          allTariffs = [...allTariffs, ...response.data];
+        }
+      }
+    }
+    
+    console.log(`✅ Loaded ${allTariffs.length} GDRG tariffs`);
+    return allTariffs;
+  } catch (error) {
+    console.error('Error fetching GDRG tariffs:', error);
+    return [];
   }
-  if (Array.isArray(result)) {
-    return result;
-  }
-  if (Array.isArray(result?.data)) {
-    return result.data;
-  }
-  console.warn('Unexpected GDRG tariffs response:', result);
-  return [];
 };
 
 export const getGDRGByCode = async (code: string) => {
@@ -772,12 +815,15 @@ export const getScansWorklist = () =>
   api.get('/encounters/worklist/scans').then(r => r.data);
 
 export const getTheatreWorklist = () =>
-  api.get('/encounters/worklist/theatre').then(r => r.data);
+  api.get('/encounters/worklist/procedures').then(r => r.data);
+
+export const getMaternalWorklist = () => 
+  api.get('/encounters/worklist/maternal').then(r => r.data);
 
 export const getWorklistSummary = () =>
   api.get('/encounters/worklist/summary').then(r => r.data);
 
-// Diagnosis Operations
+
 export const addDiagnosisToEncounter = (encounterId: string, data: any) => 
   api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => r.data);
 
@@ -891,9 +937,28 @@ export const addVitalsToEncounter = async (encounterId: string, data: any) => {
   return response.data;
 };
 
+// api/index.ts - Make sure this is correct
+
 export const getVitalsByEncounter = async (encounterId: string) => {
-  const response = await api.get(`/encounters/${encounterId}/vitals`);
-  return response.data;
+  try {
+    const response = await api.get(`/encounters/${encounterId}/vitals`);
+    console.log('API getVitalsByEncounter response:', response.data);
+    
+    // Handle different response formats
+    if (response.data?.data) {
+      return response.data.data;
+    }
+    if (response.data?.vitals) {
+      return response.data.vitals;
+    }
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data || [];
+  } catch (error) {
+    console.error('Error in getVitalsByEncounter:', error);
+    return [];
+  }
 };
 
 export const updateVitals = async (vitalsId: string, data: any) => {
@@ -940,10 +1005,19 @@ export const generateNHISClaimFromEncounter = (encounterId: string) =>
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
+// api/index.ts - Update getBills function with cache prevention
 
-export const getBills = (filters?: any) => 
-  api.get('/bills', { params: filters }).then(r => { 
+export const getBills = (filters?: any) => {
+  // ✅ Add cache-busting timestamp to prevent 304 responses
+  const params = { 
+    ...filters,
+    _t: Date.now()  // Forces fresh request every time
+  };
+  
+  return api.get('/bills', { params }).then(r => { 
     console.log('📊 API Bills Response:', r.data);
+    console.log('📊 Response Headers:', r.headers);
+    
     if (Array.isArray(r.data)) {
       return r.data;
     } else if (r.data && Array.isArray(r.data.data)) {
@@ -955,9 +1029,17 @@ export const getBills = (filters?: any) =>
       return [];
     }
   });
+};
 
-export const getBill = (id: string) => 
-  api.get(`/bills/${id}`).then(r => r.data);
+export const getBill = (id: string) => {
+  // ✅ Also add cache-busting for single bill
+  return api.get(`/bills/${id}`, { 
+    params: { _t: Date.now() } 
+  }).then(r => {
+    console.log('📄 API Bill Response:', r.data);
+    return r.data;
+  });
+};
 
 export const createBill = (data: any) => 
   api.post('/bills', data).then(r => r.data);
@@ -1048,76 +1130,74 @@ export const applyWaiverToBill = (billId: string, waiverId: string) =>
   api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
 
 
-// ──────────────────────────────────────────────
-// ADMISSIONS (Formal IPD Admissions - Lightweight)
-// ──────────────────────────────────────────────
+// ============================================
+// ADMISSIONS API ENDPOINTS
+// ============================================
 
-// Get all formal admissions (IPD encounters with Admission record)
+// GET all formal admissions (IPD only)
 export const getAdmissions = (filters?: { 
   status?: 'active' | 'discharged';
   wardId?: string;
-  patientId?: string;
-  dateFrom?: string;
-  dateTo?: string;
+  admissionType?: string;
+  excludeDetention?: boolean;
   page?: number;
   limit?: number;
 }) => 
-  api.get('/admissions', { params: filters }).then(r => {
-    if (r.data?.success && Array.isArray(r.data.data)) return r.data.data;
-    if (Array.isArray(r.data)) return r.data;
-    if (r.data?.data && Array.isArray(r.data.data)) return r.data.data;
+  api.get('/encounters/admissions', { params: filters }).then(r => {
+    console.log('🔍 getAdmissions API response:', r.data);
+    
+    // Handle various response structures
+    if (r.data?.success && r.data?.data) {
+      return r.data.data;
+    }
+    if (r.data?.data && Array.isArray(r.data.data)) {
+      return r.data.data;
+    }
+    if (Array.isArray(r.data)) {
+      return r.data;
+    }
+    if (r.data?.admissions && Array.isArray(r.data.admissions)) {
+      return r.data.admissions;
+    }
+    
+    console.warn('Unexpected getAdmissions response structure:', r.data);
     return [];
   });
-
-// Get single admission by ID
+// GET single admission by ID
 export const getAdmission = (id: string) => 
-  api.get(`/admissions/${id}`).then(r => r.data?.data || r.data);
+  api.get(`/encounters/admissions/${id}`).then(r => r.data?.data || r.data);
 
-// Create formal admission from existing IPD encounter
+// CREATE formal admission from IPD encounter
 export const createAdmission = (data: { 
-  attendanceId: string;        // REQUIRED - links to clinical encounter
-  admissionType?: 'emergency' | 'elective' | 'transfer';
-  admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  attendanceId: string;
+  admissionType?: 'emergency' | 'elective' | 'transfer' | 'detention_observation' | 'antenatal_observation' | 'delivery' | 'postpartum_observation';
+  admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency' | 'antenatal' | 'delivery';
   admissionDate?: string;
 }) => 
-  api.post('/admissions', data).then(r => r.data?.data || r.data);
+  api.post(`/encounters/${data.attendanceId}/admissions`, data).then(r => r.data?.data || r.data);
 
-// Update admission (discharge only typically)
+// UPDATE admission (discharge only typically)
 export const updateAdmission = (id: string, data: { 
   dischargeDate?: string;
   dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
   dailyNotes?: any;
+  dischargeSummary?: string;
 }) => 
-  api.put(`/admissions/${id}`, data).then(r => r.data?.data || r.data);
+  api.put(`/encounters/admissions/${id}`, data).then(r => r.data?.data || r.data);
 
-// Delete admission (only if not discharged)
+// DELETE admission (only if not discharged)
 export const deleteAdmission = (id: string) => 
-  api.delete(`/admissions/${id}`).then(r => r.data);
+  api.delete(`/encounters/admissions/${id}`).then(r => r.data);
 
-// Discharge patient from admission
-export const dischargeAdmission = (id: string, data?: { 
+// DISCHARGE from encounter (works for IPD, Daycase, and Detention)
+export const dischargeFromEncounter = (encounterId: string, data?: { 
   dischargeDate?: string;
   dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
+  dischargeSummary?: string;
 }) => 
-  api.post(`/admissions/${id}/discharge`, data || {}).then(r => r.data);
+  api.post(`/encounters/${encounterId}/discharge`, data || {}).then(r => r.data);
 
-// Add daily notes to admission
-export const addDailyNotesToAdmission = (admissionId: string, data: { notes: string; noteType?: string }) => 
-  api.post(`/admissions/${admissionId}/notes`, data).then(r => r.data?.data || r.data);
-
-// Get admission statistics
-export const getAdmissionStats = () => 
-  api.get('/admissions/stats').then(r => r.data?.data || r.data);
-
-// Get admissions by patient ID (historical)
-export const getAdmissionsByPatientId = (patientId: string, filters?: { page?: number; limit?: number }) => 
-  api.get(`/admissions/patient/${patientId}`, { params: filters }).then(r => r.data?.data || r.data);
-
-// ──────────────────────────────────────────────
-// DAYCASE/OBSERVATION PATIENTS (Not formally admitted)
-// ──────────────────────────────────────────────
-
-// Get daycase/observation patients (encounterCategory = 'daycase')
+// GET daycase/observation patients (day surgery only)
 export const getDaycasePatients = (filters?: { 
   status?: 'active' | 'discharged';
   wardId?: string;
@@ -1126,31 +1206,75 @@ export const getDaycasePatients = (filters?: {
 }) => 
   api.get('/encounters/daycase', { params: filters }).then(r => r.data?.data || r.data);
 
-// Convert daycase to IPD (when observation becomes formal admission)
+// Convert daycase to IPD
 export const convertDaycaseToIPD = (encounterId: string, data?: { 
   admissionType?: 'emergency' | 'elective' | 'transfer';
 }) => 
   api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => r.data);
 
-// ──────────────────────────────────────────────
-// BED OCCUPANCY (IPD + Daycase combined)
-// ──────────────────────────────────────────────
+// Add daily notes to admission
+export const addDailyNotesToAdmission = (admissionId: string, data: { 
+  notes: string; 
+  noteType?: string;
+}) => 
+  api.post(`/encounters/admissions/${admissionId}/notes`, data).then(r => r.data?.data || r.data);
+
+// Get admission statistics
+export const getAdmissionStats = () => 
+  api.get('/encounters/stats').then(r => r.data?.data || r.data);
+
+// Get admissions by patient ID (historical)
+export const getAdmissionsByPatientId = (patientId: string, filters?: { 
+  page?: number; 
+  limit?: number;
+}) => 
+  api.get(`/encounters/admissions/patient/${patientId}`, { params: filters }).then(r => r.data?.data || r.data);
 
 // Get current bed occupancy (all patients in beds - IPD and Daycase)
 export const getBedOccupancy = () => 
-  api.get('/encounters/bed-occupancy').then(r => r.data);
+  api.get('/encounters/bed-occupancy').then(r => r.data?.data || r.data);
 
-// ──────────────────────────────────────────────
-// DISCHARGE FROM ENCOUNTER (IPD or Daycase)
-// ──────────────────────────────────────────────
 
-// Discharge from encounter (works for both IPD and Daycase)
-export const dischargeFromEncounter = (encounterId: string, data?: { 
-  dischargeDate?: string;
-  dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
-  dischargeSummary?: string;
+// ============================================
+// DETENTION/OBSERVATION API ENDPOINTS
+// ============================================
+
+// GET detention/observation patients (admissionType = 'detention_observation')
+export const getDetentionPatients = (filters?: { 
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  observationHours?: number;
+  readyForDecision?: boolean;
+  page?: number;
+  limit?: number;
 }) => 
-  api.post(`/encounters/${encounterId}/discharge`, data || {}).then(r => r.data);
+  api.get('/encounters/detention', { params: filters }).then(r => {
+    console.log('🔍 getDetentionPatients API response:', r.data);
+    // Return the full response with data and summary
+    return r.data;
+  });
+
+
+// GET formal IPD patients (excluding detention)
+export const getFormalIPDPatients = (filters?: { 
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  page?: number;
+  limit?: number;
+}) => 
+  api.get('/encounters/formal-ipd', { params: filters }).then(r => {
+    console.log('🔍 getFormalIPDPatients API response:', r.data);
+    return r.data;
+  });
+
+// Convert detention/observation to formal IPD
+export const convertDetentionToIPD = (encounterId: string, data: { 
+  admissionType: 'elective' | 'emergency' | 'transfer';
+  clinicalNotes?: string;
+  decisionReason?: string;
+}) => 
+  api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => r.data);
+
 
 // ──────────────────────────────────────────────
 // WARD CHARGES
@@ -1389,12 +1513,64 @@ export const getReferralStats = async (params?: { startDate?: string; endDate?: 
 // MEDICAL SERVICES (Diagnoses, Lab Tests, Procedures, Scans)
 // ──────────────────────────────────────────────
 
+// api/index.ts - UPDATE getDiagnoses function
+
 export const getDiagnoses = (filters?: any) => 
   api.get('/diagnoses', { params: filters }).then(r => {
-    if (r.data?.success && Array.isArray(r.data.data)) return r.data.data;
-    if (Array.isArray(r.data)) return r.data;
-    if (r.data?.data && Array.isArray(r.data.data)) return r.data.data;
-    return [];
+    console.log('🔍 Raw Diagnoses API response:', r.data);
+    
+    const responseData = r.data;
+    
+    // Handle nested response structure (similar to services)
+    if (responseData?.success && responseData?.data?.data) {
+      const diagnoses = responseData.data.data;
+      const pagination = responseData.data.pagination;
+      console.log(`✅ Extracted ${diagnoses.length} diagnoses from nested response`);
+      return {
+        data: diagnoses,
+        diagnoses: diagnoses,
+        pagination: pagination
+      };
+    }
+    
+    // Handle direct data array
+    if (responseData?.data && Array.isArray(responseData.data)) {
+      return {
+        data: responseData.data,
+        diagnoses: responseData.data,
+        pagination: responseData.pagination
+      };
+    }
+    
+    // Handle array response
+    if (Array.isArray(responseData)) {
+      return {
+        data: responseData,
+        diagnoses: responseData,
+        pagination: null
+      };
+    }
+    
+    // Handle paginated response
+    if (responseData?.items && Array.isArray(responseData.items)) {
+      return {
+        data: responseData.items,
+        diagnoses: responseData.items,
+        pagination: {
+          total: responseData.total,
+          page: responseData.page,
+          limit: responseData.limit,
+          pages: responseData.pages
+        }
+      };
+    }
+    
+    console.warn('Unexpected diagnoses response structure:', responseData);
+    return {
+      data: [],
+      diagnoses: [],
+      pagination: null
+    };
   });
   
 export const getDiagnosis = (id: string) => 
@@ -1423,8 +1599,6 @@ export const getDiagnosisStats = () =>
 
 export const bulkUpdateDiagnoses = (data: any) => 
   api.post('/diagnoses/bulk-update', data).then(r => r.data);
-
-// api/index.ts - FIXED Lab Test endpoints
 
 // ============================================
 // LAB TEST TEMPLATES
@@ -1517,13 +1691,51 @@ export const bulkUpdateScanTemplates = (data: any) =>
 // SERVICE CATALOG
 // ──────────────────────────────────────────────
 
+// api/index.ts - REPLACE the getServiceCatalog function
+
 export const getServiceCatalog = (filters?: any) => 
   api.get('/services', { params: filters }).then(r => {
-    const services = handleResponse<ServiceCatalog>(r.data);
+    console.log('🔍 Raw API response:', r.data);
+    
+    // The response structure is: { success: true, data: { data: [...], pagination: {...} } }
+    const responseData = r.data;
+    
+    if (responseData?.success && responseData?.data?.data) {
+      // Extract the nested data array
+      const services = responseData.data.data;
+      const pagination = responseData.data.pagination;
+      
+      console.log(`✅ Extracted ${services.length} services from nested response`);
+      
+      return {
+        data: services,
+        services: services,
+        pagination: pagination
+      };
+    }
+    
+    // Fallback for other response structures
+    if (Array.isArray(responseData)) {
+      return {
+        data: responseData,
+        services: responseData,
+        pagination: null
+      };
+    }
+    
+    if (responseData?.data && Array.isArray(responseData.data)) {
+      return {
+        data: responseData.data,
+        services: responseData.data,
+        pagination: responseData.pagination
+      };
+    }
+    
+    console.warn('Unexpected API response structure:', responseData);
     return {
-      data: services,
-      services: services,
-      pagination: r.data.pagination
+      data: [],
+      services: [],
+      pagination: null
     };
   });
 
@@ -1960,6 +2172,7 @@ export const serveScanImages = (filename: string) =>
 export const serveDocuments = (filename: string) => 
   `/uploads/documents/${filename}`;
 
+
 // ──────────────────────────────────────────────
 // GHS REPORTS
 // ──────────────────────────────────────────────
@@ -1984,17 +2197,8 @@ export const getGHSMalariaReport = async (params: ReportFilter) => {
   return response.data;
 };
 
-// ==============================================
-// GHS DELIVERY REPORT
-// ==============================================
-
 export const getGHSDeliveryReport = async (filters: ReportFilter) => {
   const response = await api.get('/ghs-reports/delivery', { params: filters });
-  return response.data;
-};
-
-export const getGHSFamilyPlanningReport = async (filters: ReportFilter) => {
-  const response = await api.get('/ghs-reports/family-planning', { params: filters });
   return response.data;
 };
 
@@ -2013,12 +2217,26 @@ export const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) 
   return response.data;
 };
 
+// FIXED: removed duplicate getGHSFamilyPlanningReport — one function, one endpoint
 export const getFamilyPlanningReport = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/family-planning', { params });
   return response.data;
 };
 
-export const getReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
+export const getConsultingRoomRegister = async (params: {
+  startDate?: string;
+  endDate?: string;
+  period?: 'daily' | 'weekly' | 'monthly';
+}) => {
+  const response = await api.get('/ghs-reports/consulting-room-register', { params });
+  return response.data;
+};
+
+export const getReportSubmissions = async (filters?: {
+  reportType?: string;
+  year?: number;
+  month?: number;
+}) => {
   const response = await api.get('/ghs-reports/submissions', { params: filters });
   return response.data;
 };
@@ -2030,71 +2248,28 @@ export const getReportSubmissionById = async (id: string) => {
 
 export const exportGHSReportToCSV = async (submissionId: string) => {
   const response = await api.get(`/ghs-reports/submissions/${submissionId}/export`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return response.data;
 };
 
-export const exportReportToCSV = async (reportType: string, filters: ReportFilter) => {
-  let reportData;
-  switch (reportType) {
-    case 'financial':
-      reportData = await getFinancialReport(filters);
-      break;
-    case 'clinical':
-      reportData = await getClinicalReport(filters);
-      break;
-    case 'revenue':
-      reportData = await getRevenueReport(filters);
-      break;
-    case 'attendance':
-      reportData = await getEncounterReport(filters);
-      break;
-    default:
-      throw new Error(`Unknown report type: ${reportType}`);
-  }
-  
-  const response = await api.post('/reports/export', {
-    reportType,
-    format: 'csv',
-    filters,
-    data: reportData.data
-  }, {
-    responseType: 'blob'
-  });
-  
-  return response.data;
-};
+// ──────────────────────────────────────────────
+// NHIS REPORTS  (→ /reports/nhis-*)
+// ──────────────────────────────────────────────
 
-
-export const getConsultingRoomRegister = async (params: { 
-  startDate?: string; 
-  endDate?: string; 
-  period?: 'daily' | 'weekly' | 'monthly' 
-}) => {
-  const response = await api.get('/ghs-reports/consulting-room-register', { params });
-  return response.data;
-};
-
-// Add these to your api/index.ts
-
-// ==============================================
-// NHIS EXPIRY & CLAIMS REPORTS
-// ==============================================
-
-export const getNhisExpiryReport = async (params: { 
-  daysThreshold?: number; 
-  startDate?: string; 
-  endDate?: string 
+export const getNhisExpiryReport = async (params: {
+  daysThreshold?: number;
+  startDate?: string;
+  endDate?: string;
 }) => {
   const response = await api.get('/reports/nhis-expiry', { params });
   return response.data;
 };
 
-export const getNhisClaimsSummary = async (params: { 
-  startDate?: string; 
-  endDate?: string; 
-  expiryStatus?: 'ACTIVE' | 'WARNING' | 'CRITICAL' | 'EXPIRED' 
+export const getNhisClaimsSummary = async (params: {
+  startDate?: string;
+  endDate?: string;
+  expiryStatus?: 'ACTIVE' | 'WARNING' | 'CRITICAL' | 'EXPIRED';
 }) => {
   const response = await api.get('/reports/nhis-claims-summary', { params });
   return response.data;
@@ -2106,7 +2281,7 @@ export const getNhisExpiringSoon = async (days: number = 30) => {
 };
 
 // ──────────────────────────────────────────────
-// FINANCIAL & CLINICAL REPORTS
+// FINANCIAL & CLINICAL REPORTS  (→ /reports/*)
 // ──────────────────────────────────────────────
 
 export const getFinancialReport = async (params: ReportFilter) => {
@@ -2124,6 +2299,7 @@ export const getClinicalReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+// Named getEncounterReport in api to match the import alias in reportsStore
 export const getEncounterReport = async (params: ReportFilter) => {
   const response = await api.get('/reports/attendance', { params });
   return response.data;
@@ -2139,23 +2315,30 @@ export const getDemographicReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+// ──────────────────────────────────────────────
+// CLINICAL DETAIL REPORTS  (→ /clinical-reports/*)
+// ──────────────────────────────────────────────
+
 export const getLabReport = async (params: ReportFilter) => {
   const response = await api.get('/clinical-reports/lab', { params });
   return response.data;
 };
 
+// FIXED: was '/clinical-reports/scans' — route is '/clinical-reports/scan'
 export const getScanReport = async (params: ReportFilter) => {
-  const response = await api.get('/clinical-reports/scans', { params });
+  const response = await api.get('/clinical-reports/scan', { params });
   return response.data;
 };
 
+// FIXED: was '/clinical-reports/procedures' — route is '/clinical-reports/procedure'
 export const getProcedureReport = async (params: ReportFilter) => {
-  const response = await api.get('/clinical-reports/procedures', { params });
+  const response = await api.get('/clinical-reports/procedure', { params });
   return response.data;
 };
 
+// FIXED: was '/clinical-reports/medications' — route is '/clinical-reports/medication'
 export const getMedicationReport = async (params: ReportFilter) => {
-  const response = await api.get('/clinical-reports/medications', { params });
+  const response = await api.get('/clinical-reports/medication', { params });
   return response.data;
 };
 
@@ -2169,24 +2352,63 @@ export const getClinicalReports = async (filters?: any) => {
   return response.data.data || response.data;
 };
 
-// Aliases for backward compatibility
-export const getLabReportData = getLabReport;
-export const getScanReportData = getScanReport;
-export const getProcedureReportData = getProcedureReport;
-export const getMedicationReportData = getMedicationReport;
-export const getVitalsReportData = getVitalsReport;
-
 // ──────────────────────────────────────────────
-// EXPORT REPORT
+// EXPORT  (→ POST /reports/export)
 // ──────────────────────────────────────────────
 
-export const exportReport = async (data: { 
-  reportType: string; 
-  format: string; 
+// Used by Reports.tsx handleExport — sends already-fetched report data to the server
+export const exportReport = async (data: {
+  reportType: string;
+  format: string;
   filters: ReportFilter;
   data: any;
 }) => {
   const response = await api.post('/reports/export', data);
+  return response.data;
+};
+
+
+export const exportReportToCSV = async (reportType: string, filters: ReportFilter) => {
+  let reportData: any;
+
+  switch (reportType) {
+    case 'financial':
+      reportData = await getFinancialReport(filters);
+      break;
+    case 'clinical':
+      reportData = await getClinicalReport(filters);
+      break;
+    case 'revenue':
+      reportData = await getRevenueReport(filters);
+      break;
+    case 'attendance':
+      reportData = await getEncounterReport(filters);
+      break;
+    case 'lab':
+      reportData = await getLabReport(filters);
+      break;
+    case 'scans':
+      reportData = await getScanReport(filters);
+      break;
+    case 'procedures':
+      reportData = await getProcedureReport(filters);
+      break;
+    case 'medications':
+      reportData = await getMedicationReport(filters);
+      break;
+    case 'vitals':
+      reportData = await getVitalsReport(filters);
+      break;
+    default:
+      throw new Error(`Unknown report type for CSV export: ${reportType}`);
+  }
+
+  const response = await api.post(
+    '/reports/export',
+    { reportType, format: 'csv', filters, data: reportData.data ?? reportData },
+    { responseType: 'blob' },
+  );
+
   return response.data;
 };
 
@@ -2453,7 +2675,7 @@ export default {
   
   // Admissions
   getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
-  dischargeAdmission, addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
+   addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
   
   // Wards & Beds
   getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds, getBedOccupancy,
@@ -2534,8 +2756,7 @@ export default {
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
-  getClinicalReports, getLabReportData, getScanReportData, getProcedureReportData,
-  getMedicationReportData, getVitalsReportData, exportReportToCSV,
+  getClinicalReports, exportReportToCSV,
   
   // Antenatal
   getAntenatalBookings, getActiveBookingByPatient, getAntenatalBookingById, createAntenatalBooking,

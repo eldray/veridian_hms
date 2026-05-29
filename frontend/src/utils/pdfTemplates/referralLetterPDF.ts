@@ -1,18 +1,50 @@
-// src/utils/pdfTemplates/referralLetterPDF.ts
+// src/utils/pdfTemplates/referralLetterPDF.ts - FIXED VERSION
+
 import type { Patient, Hospital, ReferralRecord } from '../../types';
 
 export const generateReferralLetterHTML = (
-  referral: ReferralRecord,
-  patient: Patient,
-  hospital: Hospital
+  referral: any,
+  patient: any,
+  hospital: any
 ): string => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  // Safely get patient name
+  const getPatientName = () => {
+    if (patient?.surname && patient?.otherNames) {
+      return `${patient.surname} ${patient.otherNames}`;
+    }
+    if (patient?.fullName) return patient.fullName;
+    if (patient?.name) return patient.name;
+    return 'Patient Name Not Available';
+  };
+
+  // Safely get hospital name
+  const getHospitalName = () => {
+    return hospital?.name || 'Veridian Hospital';
+  };
+
+  const getHospitalAddress = () => {
+    return hospital?.address || '123 Medical Center Drive, Accra, Ghana';
+  };
+
+  const getHospitalPhone = () => {
+    return hospital?.phone || '+233-24-123-4567';
+  };
+
+  const getHospitalEmail = () => {
+    return hospital?.email || 'info@veridianhospital.gov.gh';
   };
 
   return `
@@ -20,7 +52,7 @@ export const generateReferralLetterHTML = (
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Referral Letter - ${referral.referralNumber}</title>
+  <title>Referral Letter - ${referral?.referralNumber || 'N/A'}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -86,11 +118,11 @@ export const generateReferralLetterHTML = (
       padding: 15px;
       margin: 15px 0;
     }
-    .clinical-content { color: #1e293b; line-height: 1.5; font-size: 13px; }
+    .clinical-content { color: #1e293b; line-height: 1.5; font-size: 13px; white-space: pre-wrap; }
     .urgency-badge {
       display: inline-block;
-      background: #fef3c7;
-      color: #b45309;
+      background: ${referral?.urgency === 'stat' ? '#fee2e2' : referral?.urgency === 'urgent' ? '#fef3c7' : '#e0e7ff'};
+      color: ${referral?.urgency === 'stat' ? '#991b1b' : referral?.urgency === 'urgent' ? '#b45309' : '#1e3a8a'};
       padding: 4px 12px;
       border-radius: 20px;
       font-weight: 700;
@@ -146,10 +178,10 @@ export const generateReferralLetterHTML = (
 <body>
   <div class="letter-container">
     <div class="header">
-      <div class="hospital-name">${hospital.name}</div>
+      <div class="hospital-name">${getHospitalName()}</div>
       <div class="hospital-details">
-        ${hospital.address}<br>
-        Tel: ${hospital.phone} | Email: ${hospital.email}
+        ${getHospitalAddress()}<br>
+        Tel: ${getHospitalPhone()} | Email: ${getHospitalEmail()}
       </div>
       <div class="letter-badge">REFERRAL LETTER</div>
     </div>
@@ -158,64 +190,46 @@ export const generateReferralLetterHTML = (
       <div class="info-grid" style="margin-bottom: 20px;">
         <div class="info-item">
           <div class="info-label">Reference Number</div>
-          <div class="info-value">${referral.referralNumber}</div>
+          <div class="info-value">${referral?.referralNumber || 'N/A'}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Date</div>
-          <div class="info-value">${formatDate(referral.referralDate)}</div>
+          <div class="info-value">${formatDate(referral?.referralDate)}</div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title">TO:</div>
         <div class="info-item" style="margin-bottom: 10px;">
-          <div class="info-value">${referral.referredToFacility || '_________________________'}</div>
-          <div>Attn: ${referral.referredToDoctor || 'Medical Officer'} (${referral.referredToDepartment || 'General'})</div>
+          <div class="info-value">${referral?.referredToFacility || '_________________________'}</div>
+          <div>Attn: ${referral?.referredToDoctor || 'Medical Officer'} (${referral?.referredToDepartment || 'General'})</div>
         </div>
-        ${referral.urgency ? `<div class="urgency-badge">URGENCY: ${referral.urgency.toUpperCase()}</div>` : ''}
+        ${referral?.urgency ? `<div class="urgency-badge">URGENCY: ${referral.urgency.toUpperCase()}</div>` : ''}
       </div>
 
       <div class="section">
         <div class="section-title">PATIENT INFORMATION</div>
         <div class="info-grid">
-          <div class="info-item"><div class="info-label">Name</div><div class="info-value">${patient.fullName}</div></div>
-          <div class="info-item"><div class="info-label">Folder Number</div><div class="info-value">${patient.folderNumber}</div></div>
-          <div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${formatDate(patient.dateOfBirth)}</div></div>
-          <div class="info-item"><div class="info-label">Gender</div><div class="info-value">${patient.gender}</div></div>
-          <div class="info-item"><div class="info-label">Contact</div><div class="info-value">${patient.contact || 'N/A'}</div></div>
+          <div class="info-item"><div class="info-label">Name</div><div class="info-value">${getPatientName()}</div></div>
+          <div class="info-item"><div class="info-label">Folder Number</div><div class="info-value">${patient?.folderNumber || 'N/A'}</div></div>
+          <div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${formatDate(patient?.dateOfBirth)}</div></div>
+          <div class="info-item"><div class="info-label">Gender</div><div class="info-value">${patient?.gender || 'N/A'}</div></div>
+          <div class="info-item"><div class="info-label">Contact</div><div class="info-value">${patient?.contact || patient?.phone || 'N/A'}</div></div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title">REASON FOR REFERRAL</div>
         <div class="clinical-section">
-          <div class="clinical-content">${referral.reason || referral.referralReason || 'Not specified'}</div>
+          <div class="clinical-content">${referral?.referralReason || referral?.reason || 'Not specified'}</div>
         </div>
       </div>
 
-      ${referral.primaryDiagnosis ? `
+      ${referral?.referralNotes ? `
       <div class="section">
-        <div class="section-title">PRIMARY DIAGNOSIS</div>
+        <div class="section-title">ADDITIONAL NOTES</div>
         <div class="clinical-section">
-          <div class="clinical-content">${referral.primaryDiagnosis.name} (ICD-10: ${referral.primaryDiagnosis.icdCode})</div>
-        </div>
-      </div>
-      ` : ''}
-
-      ${referral.clinicalNotes ? `
-      <div class="section">
-        <div class="section-title">CLINICAL NOTES</div>
-        <div class="clinical-section">
-          <div class="clinical-content">${referral.clinicalNotes}</div>
-        </div>
-      </div>
-      ` : ''}
-
-      ${referral.additionalNotes ? `
-      <div class="section">
-        <div class="section-title">ADDITIONAL INFORMATION</div>
-        <div class="clinical-section">
-          <div class="clinical-content">${referral.additionalNotes}</div>
+          <div class="clinical-content">${referral.referralNotes}</div>
         </div>
       </div>
       ` : ''}

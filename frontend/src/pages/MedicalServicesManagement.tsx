@@ -241,21 +241,99 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
 
   const loadAllCounts = async () => {
     try {
+      // Helper function to fetch all pages of data
+      const fetchAllPages = async (apiCall: (params: any) => Promise<any>, params: any = {}) => {
+        let allData: any[] = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        const limit = 500;
+        
+        try {
+          // First request to get total pages
+          const firstResponse = await apiCall({ ...params, page: 1, limit });
+          
+          // Extract data and pagination
+          let dataArray: any[] = [];
+          let pagination: any = null;
+          
+          if (firstResponse?.data?.data && Array.isArray(firstResponse.data.data)) {
+            dataArray = firstResponse.data.data;
+            pagination = firstResponse.data.pagination;
+          } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
+            dataArray = firstResponse.data;
+            pagination = firstResponse.pagination;
+          } else if (Array.isArray(firstResponse)) {
+            dataArray = firstResponse;
+          } else if (firstResponse?.items && Array.isArray(firstResponse.items)) {
+            dataArray = firstResponse.items;
+            pagination = firstResponse.pagination;
+          }
+          
+          allData = [...dataArray];
+          
+          if (pagination) {
+            totalPages = pagination.pages || Math.ceil(pagination.total / limit);
+            currentPage = pagination.page || 1;
+          }
+          
+          // Fetch remaining pages
+          if (currentPage < totalPages) {
+            const remainingPromises = [];
+            for (let page = currentPage + 1; page <= totalPages; page++) {
+              remainingPromises.push(apiCall({ ...params, page, limit }));
+            }
+            
+            const remainingResponses = await Promise.all(remainingPromises);
+            
+            for (const response of remainingResponses) {
+              if (response?.data?.data && Array.isArray(response.data.data)) {
+                allData = [...allData, ...response.data.data];
+              } else if (response?.data && Array.isArray(response.data)) {
+                allData = [...allData, ...response.data];
+              } else if (Array.isArray(response)) {
+                allData = [...allData, ...response];
+              } else if (response?.items && Array.isArray(response.items)) {
+                allData = [...allData, ...response.items];
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching paginated data:', error);
+        }
+        
+        return allData;
+      };
+      
+      // Fetch all data from all pages
       const [allDiagnoses, allLabTests, allProcedures, allScans] = await Promise.all([
-        apiGetDiagnoses({ limit: 10000 }),
-        apiGetLabTestTemplates({ limit: 10000 }),
-        apiGetProcedureTemplates({ limit: 10000 }),
-        apiGetScanTemplates({ limit: 10000 }),
+        fetchAllPages(apiGetDiagnoses),
+        fetchAllPages(apiGetLabTestTemplates),
+        fetchAllPages(apiGetProcedureTemplates),
+        fetchAllPages(apiGetScanTemplates),
       ]);
       
       setTotalCounts({
-        diagnoses: Array.isArray(allDiagnoses) ? allDiagnoses.length : 0,
-        labTests: Array.isArray(allLabTests) ? allLabTests.length : 0,
-        procedures: Array.isArray(allProcedures) ? allProcedures.length : 0,
-        scans: Array.isArray(allScans) ? allScans.length : 0,
+        diagnoses: allDiagnoses.length,
+        labTests: allLabTests.length,
+        procedures: allProcedures.length,
+        scans: allScans.length,
+      });
+      
+      console.log('📊 Full counts loaded:', {
+        diagnoses: allDiagnoses.length,
+        labTests: allLabTests.length,
+        procedures: allProcedures.length,
+        scans: allScans.length,
       });
     } catch (error) {
       console.error('Error loading counts:', error);
+      // Fallback to store data
+      setTotalCounts({
+        diagnoses: diagnoses.length,
+        labTests: labTestTemplates.length,
+        procedures: procedureTemplates.length,
+        scans: scanTemplates.length,
+      });
     }
   };
 
@@ -451,6 +529,19 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     { id: 'procedures' as ActiveTab, label: 'Procedures', icon: Scissors, color: 'green', count: totalCounts.procedures },
     { id: 'scans' as ActiveTab, label: 'Scans', icon: Scan, color: 'orange', count: totalCounts.scans },
   ];
+
+    // Load all data when component mounts to populate counts
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([
+        getDiagnoses({ limit: 1000 }),
+        getLabTestTemplates({ limit: 1000 }),
+        getProcedureTemplates({ limit: 1000 }),
+        getScanTemplates({ limit: 1000 }),
+      ]);
+    };
+    loadInitialData();
+  }, []);
 
   const filteredData = getFilteredData();
   const isLoading = getIsLoading();

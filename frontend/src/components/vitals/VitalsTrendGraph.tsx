@@ -1,12 +1,14 @@
+// src/components/vitals/VitalsTrendGraph.tsx
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Vitals } from '../../types/vitals';
 
 interface VitalsTrendGraphProps {
   vitals: Vitals[];
+  isAntenatal?: boolean;  // ✅ Add this prop
 }
 
-export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) => {
+export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals, isAntenatal = false }) => {
   // Prepare data for the chart
   const chartData = vitals.map((vital, index) => {
     const bp = vital.bloodPressure ? vital.bloodPressure.split('/').map(Number) : [null, null];
@@ -21,8 +23,16 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
       pulse: vital.pulse,
       respiration: vital.respiration,
       spo2: vital.spo2,
+      // ✅ Add antenatal fields if needed
+      fetalHeartRate: isAntenatal ? vital.fetalHeartRate : undefined,
+      fundalHeight: isAntenatal ? vital.fundalHeight : undefined,
     };
-  }).filter(item => item.systolic !== null || item.temperature !== undefined || item.pulse !== undefined);
+  }).filter(item => 
+    item.systolic !== null || 
+    item.temperature !== undefined || 
+    item.pulse !== undefined ||
+    (isAntenatal && (item.fetalHeartRate !== undefined || item.fundalHeight !== undefined))
+  );
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -44,6 +54,12 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
           )}
           {data.spo2 && (
             <p className="text-sm text-red-600">SpO2: {data.spo2}%</p>
+          )}
+          {isAntenatal && data.fetalHeartRate && (
+            <p className="text-sm text-pink-600">Fetal Heart Rate: {data.fetalHeartRate} bpm</p>
+          )}
+          {isAntenatal && data.fundalHeight && (
+            <p className="text-sm text-pink-600">Fundal Height: {data.fundalHeight} cm</p>
           )}
         </div>
       );
@@ -128,6 +144,18 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
               stroke="#f59e0b" 
               strokeWidth={2}
               name="Temperature"
+              dot={{ r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+          )}
+          
+          {isAntenatal && chartData.some(d => d.fetalHeartRate) && (
+            <Line 
+              type="monotone" 
+              dataKey="fetalHeartRate" 
+              stroke="#ec4899" 
+              strokeWidth={2}
+              name="Fetal Heart Rate"
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
             />

@@ -125,10 +125,13 @@ export class PatientController extends BaseController {
 
   async createPatient(req: Request, res: Response) {
     try {
-      const data: CreatePatientDTO = req.body;
+      const data = req.body;
       
-      const patient = await this.service.createPatient(data);
-
+      // ✅ Remove fields that don't exist in the database schema
+      const { age, ageInMonths, ...cleanData } = data;
+      
+      const patient = await this.service.createPatient(cleanData);
+  
       return res.status(201).json({
         success: true,
         data: patient,

@@ -25,11 +25,11 @@ const navigationItems = [
   { name: 'Attendance',      path: '/dashboard/attendance',         icon: Calendar,        roles: ['admin','doctor','nurse','midwife','lab_tech','sonographer'] },
   { name: 'Appointments',    path: '/dashboard/appointments',       icon: Calendar,        roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Notifications',   path: '/dashboard/notifications',      icon: Bell,            roles: ['admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer'] },
-  { name: 'Medical Entries', path: '/dashboard/medical-entries',    icon: Clipboard,       roles: ['admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Consultations',   path: '/dashboard/medical-waiting-list',    icon: Clipboard,       roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Vitals',          path: '/dashboard/vitals',             icon: HeartPulse,      roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Theatre',         path: '/dashboard/theatre',            icon: Scissors,        roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Nursing',         path: '/dashboard/nursing',            icon: Syringe,         roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Antenatal',       path: '/dashboard/antenatal',          icon: Baby,            roles: ['admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Maternal Health',       path: '/dashboard/maternal-waiting-list',          icon: Baby,            roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Laboratory',      path: '/dashboard/laboratory',         icon: Microscope,      roles: ['admin','doctor','nurse','lab_tech','sonographer'] },
   { name: 'Scans',           path: '/dashboard/scans',              icon: Scan,            roles: ['admin','doctor','nurse','midwife','sonographer'] },
   { name: 'Pharmacy',        path: '/dashboard/pharmacy',           icon: Pill,            roles: ['admin','pharmacist','doctor'] },
@@ -52,7 +52,7 @@ const NAV_GROUPS = [
   },
   {
     label: 'Clinical',
-    keys: ['Medical Entries', 'Vitals', 'Theatre', 'Nursing', 'Antenatal', 'Laboratory', 'Scans'],
+    keys: ['Consultations', 'Vitals', 'Theatre', 'Nursing', 'Maternal Health', 'Laboratory', 'Scans'],
   },
   {
     label: 'Pharmacy',

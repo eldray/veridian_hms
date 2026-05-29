@@ -18,11 +18,13 @@ export class GDRGController extends BaseController {
 
   getTariffs = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { mdc, isActive, search, page = 1, limit = 50 } = req.query;
-
+      // ✅ CHANGED: default limit from 50 to 1000
+      const { mdc, isActive, search, page = 1, limit = 1000 } = req.query;
+  
       const pageNum = Math.max(1, parseInt(page as string));
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
-
+      // ✅ CHANGED: max limit from 100 to 1000
+      const limitNum = Math.min(1000, Math.max(1, parseInt(limit as string)));
+  
       const where: any = {};
       if (mdc) where.mdc = mdc;
       if (isActive !== undefined) where.isActive = isActive === 'true';
@@ -33,7 +35,7 @@ export class GDRGController extends BaseController {
           { nhisServiceCode: { contains: search as string, mode: 'insensitive' } }
         ];
       }
-
+  
       const include = {
         diagnoses: {
           include: {
@@ -56,9 +58,9 @@ export class GDRGController extends BaseController {
           }
         }
       };
-
+  
       const result = await this.gdrgService.getAllTariffs(where, include, pageNum, limitNum);
-
+  
       this.paginated(res, result.data, result.pagination, 'GDRG tariffs retrieved successfully');
     } catch (error) {
       this.error(res, error);

@@ -1,19 +1,23 @@
 // modules/dashboard/DashboardRoutes.ts
 import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { DashboardController } from './DashboardController';
 import { protect } from '../../middleware/authMiddleware';
 
-const dashboardController = new DashboardController();
-const router = Router();
+// FIXED: accepts prisma so the connection pool is shared — no more top-level new PrismaClient()
+export function createDashboardRoutes(prisma: PrismaClient): Router {
+  const router     = Router();
+  // FIXED: passes prisma through to controller → service
+  const controller = new DashboardController(prisma);
 
-// All routes require authentication
-router.use(protect);
+  router.use(protect);
 
-// Dashboard routes - accessible to all authenticated users
-router.get('/stats', dashboardController.getDashboardStats);
+  router.get('/stats',         controller.getDashboardStats);
+  // FIXED: removed stray leading space before /stats/weekly
+  router.get('/stats/weekly',  controller.getWeeklyStats);
+  router.get('/stats/monthly', controller.getMonthlyStats);
 
-// Optional: Add weekly and monthly stats routes (uncomment if needed)
-// router.get('/stats/weekly', dashboardController.getWeeklyStats);
-// router.get('/stats/monthly', dashboardController.getMonthlyStats);
+  return router;
+}
 
-export default router;
+export default createDashboardRoutes;

@@ -15,6 +15,19 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
     });
   }
 
+// In PatientRepository.ts
+
+async findByInsuranceNumber(insuranceNumber: string): Promise<Patient | null> {
+  return this.prisma.patient.findFirst({
+    where: {
+      insuranceDetails: {
+        path: ['insuranceNumber'],
+        equals: insuranceNumber
+      }
+    }
+  });
+}
+
   async findByPhone(phone: string, include?: any): Promise<Patient | null> {
     return this.getModel().findFirst({
       where: { contact: phone },

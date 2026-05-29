@@ -1,5 +1,5 @@
 // src/seed/testSeed.ts - UPDATED with new schema and numbering strategy
-import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus, ServiceType } from '@prisma/client';
+import { PrismaClient, UserRole, Gender, PaymentMode, AdmissionType, AdmissionSource, EncounterCategory, DischargeStatus, VisitCategory, BillStatus, ClaimStatus, AttendanceStatus, LabTestStatus, ProcedureStatus, ScanStatus, MedicationStatus, AttendanceType, PresentOnAdmission, DiagnosisType, ServiceCategory, Priority, ScanPriority, AppointmentStatus, AppointmentType, ReferralType, ReferralStatus, ServiceType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -116,8 +116,8 @@ export const deleteTestData = async (force: boolean = false) => {
     const testAttendanceIds = testAttendances.map(a => a.id);
 
     // Delete in correct order
-    await prisma.billLineItem.deleteMany({ where: { bill: { patientId: { in: testPatientIds } } } });
-    await prisma.payment.deleteMany({ where: { bill: { patientId: { in: testPatientIds } } } });
+    await prisma.billLineItem.deleteMany({ where: { Bill: { patientId: { in: testPatientIds } } } });
+    await prisma.payment.deleteMany({ where: { Bill: { patientId: { in: testPatientIds } } } });
     await prisma.bill.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.insuranceClaim.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.referralRecord.deleteMany({ where: { patientId: { in: testPatientIds } } });
@@ -480,6 +480,21 @@ export const seedTestData = async (force: boolean = false) => {
 
     // ATTENDANCE 1003: Private Insurance - Surgical Hernia (Patient 1003)
     const att3Number = generateAttendanceNumber(); // 1003
+    
+    let surgicalBed = null;
+    if (generalWard) {
+      surgicalBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+      if (!surgicalBed) {
+        surgicalBed = await prisma.bed.create({
+          data: {
+            wardId: generalWard.id,
+            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-SURG-01`,
+            isOccupied: false,
+          },
+        });
+      }
+    }
+
     const att3 = await prisma.attendance.create({
       data: {
         attendanceNumber: att3Number,
@@ -500,10 +515,10 @@ export const seedTestData = async (force: boolean = false) => {
         outstandingBalance: 0,
         visitCategory: VisitCategory.specialist,
         serviceCategory: ServiceCategory.ipd,
-        encounterCategory: EncounterCategory.ipd,  // ✅ IPD for formal admission
-        bedId: bed.id,        // ✅ Assign bed
-        wardId: generalWard.id,  // ✅ Assign ward
-        status: AttendanceStatus.admitted,  // ✅ Status 'admitted'
+        encounterCategory: EncounterCategory.ipd,
+        bedId: surgicalBed?.id,        // ✅ Now defined
+        wardId: generalWard?.id,
+        status: AttendanceStatus.admitted,
       },
     });
     attendances.push(att3);
@@ -1216,10 +1231,16 @@ export const seedTestData = async (force: boolean = false) => {
     });
     console.log(`✅ Bills created: ${bill1Number}, ${bill2Number}, ${bill3Number}, ${bill4Number}, ${bill5Number}`);
 
-    // =============== CREATE INSURANCE CLAIMS (Using claim numbers based on attendance) ===============
-    
-    // NHIS Claim for attendance 1002 (Patient 1002)
-    const claim2Number = getClaimNumber(att2Number, 'nhis'); // NHIS-1002
+  // =============== CREATE INSURANCE CLAIMS (Using claim numbers based on attendance) ===============
+
+  // Define variables at the top of this section
+  let claim2Number = '';
+  let claim3Number = '';
+  let claim4Number = '';
+
+  // NHIS Claim for attendance 1002 (Patient 1002)
+  if (nhisProvider) {
+    claim2Number = getClaimNumber(att2Number, 'nhis'); // NHIS-1002
     await prisma.insuranceClaim.create({
       data: {
         claimNumber: claim2Number,
@@ -1240,36 +1261,38 @@ export const seedTestData = async (force: boolean = false) => {
         createdById: accounts?.id || admin.id,
       },
     });
+  }
 
-    // Private Claim for attendance 1003 (Patient 1003)
-    if (privateProvider) {
-      const claim3Number = getClaimNumber(att3Number, 'private_insurance'); // PRV-1003
-      await prisma.insuranceClaim.create({
-        data: {
-          claimNumber: claim3Number,
-          billId: bill3.id,
-          patientId: patients[2].id,
-          insuranceProviderId: privateProvider.id,
-          attendanceId: att3.id,
-          totalClaimAmount: 1500.00,
-          status: ClaimStatus.approved,
-          diagnosisCodes: [herniaDiag?.icdCode || 'K40.90'],
-          procedureCodes: ['ASUR20A'],
-          labTestCodes: [],
-          serviceCodes: [generalConsult?.code || 'CONS-GEN'],
-          scanCodes: [],
-          gdrgCodes: ['ASUR20A'],
-          nhisServiceCodes: [],
-          submissionDate: daysAgo(6),
-          approvalDate: daysAgo(5),
-          approvedAmount: 1200.00,
-          createdById: accounts?.id || admin.id,
-        },
-      });
-    }
+  // Private Claim for attendance 1003 (Patient 1003)
+  if (privateProvider) {
+    claim3Number = getClaimNumber(att3Number, 'private_insurance'); // PRV-1003
+    await prisma.insuranceClaim.create({
+      data: {
+        claimNumber: claim3Number,
+        billId: bill3.id,
+        patientId: patients[2].id,
+        insuranceProviderId: privateProvider.id,
+        attendanceId: att3.id,
+        totalClaimAmount: 1500.00,
+        status: ClaimStatus.approved,
+        diagnosisCodes: [herniaDiag?.icdCode || 'K40.90'],
+        procedureCodes: ['ASUR20A'],
+        labTestCodes: [],
+        serviceCodes: [generalConsult?.code || 'CONS-GEN'],
+        scanCodes: [],
+        gdrgCodes: ['ASUR20A'],
+        nhisServiceCodes: [],
+        submissionDate: daysAgo(6),
+        approvalDate: daysAgo(5),
+        approvedAmount: 1200.00,
+        createdById: accounts?.id || admin.id,
+      },
+    });
+  }
 
-    // NHIS Claim for attendance 1004 (Patient 1004)
-    const claim4Number = getClaimNumber(att4Number, 'nhis'); // NHIS-1004
+  // NHIS Claim for attendance 1004 (Patient 1004)
+  if (nhisProvider) {
+    claim4Number = getClaimNumber(att4Number, 'nhis'); // NHIS-1004
     await prisma.insuranceClaim.create({
       data: {
         claimNumber: claim4Number,
@@ -1289,7 +1312,13 @@ export const seedTestData = async (force: boolean = false) => {
         createdById: accounts?.id || admin.id,
       },
     });
-    console.log(`✅ Insurance claims created: ${claim2Number}, ${claim3Number}, ${claim4Number}`);
+  }
+
+  // Only log claims that were actually created
+  const createdClaims = [claim2Number, claim3Number, claim4Number].filter(c => c);
+  if (createdClaims.length > 0) {
+    console.log(`✅ Insurance claims created: ${createdClaims.join(', ')}`);
+  }
 
     // =============== CREATE REFERRALS ===============
     await prisma.referralRecord.create({
@@ -1331,142 +1360,130 @@ export const seedTestData = async (force: boolean = false) => {
     });
     console.log('✅ Referrals created');
 
-// =============== CREATE ADMISSIONS (UPDATED for lightweight Admission model) ===============
+    // =============== CREATE ADMISSIONS (UPDATED for lightweight Admission model) ===============
 
-// Admission for attendance 1003 (Hernia patient - Patient 1003) - already discharged
-if (generalWard) {
-  let bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
-  
-  if (!bed && generalWard) {
-    bed = await prisma.bed.create({
-      data: {
-        wardId: generalWard.id,
-        bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-001`,
-        isOccupied: false,
-      },
-    });
-  }
+    // Admission for attendance 1003 (Hernia patient - Patient 1003) - already discharged
+    if (generalWard && att3) {
+      let surgicalBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+      
+      if (!surgicalBed && generalWard) {
+        surgicalBed = await prisma.bed.create({
+          data: {
+            wardId: generalWard.id,
+            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-SURG-01`,
+            isOccupied: false,
+          },
+        });
+      }
 
-  if (bed && att3) {
-    // Get the attendance number (not a new generated number)
-    const attendanceNumber = att3.attendanceNumber; // This is "1003"
-    
-    await prisma.admission.create({
-      data: {
-        attendanceId: att3.id,
-        admissionNumber: attendanceNumber,  // ✅ Same as attendance number
-        admissionType: AdmissionType.elective,
-        admissionSource: AdmissionSource.opd,
-        dischargeStatus: DischargeStatus.home,
-        admissionDate: daysAgo(7),
-        dischargeDate: daysAgo(6),
-      },
-    });
+      if (surgicalBed && att3) {
+        const attendanceNumber = att3.attendanceNumber;
+        
+        await prisma.admission.create({
+          data: {
+            attendanceId: att3.id,
+            admissionNumber: attendanceNumber,
+            admissionType: AdmissionType.elective,
+            admissionSource: AdmissionSource.opd,
+            dischargeStatus: DischargeStatus.home,
+            admissionDate: daysAgo(7),
+            dischargeDate: daysAgo(6),
+          },
+        });
 
-    // Mark bed as occupied (patient was admitted)
-    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[2].id } });
-  }
-}
+        await prisma.bed.update({ where: { id: surgicalBed.id }, data: { isOccupied: true, currentPatientId: patients[2].id } });
+      }
+    }
 
-// Admission for attendance 1005 (Paediatric pneumonia - Patient 1005) - still active
-if (pediatricWard) {
-  let bed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
-  
-  if (!bed && pediatricWard) {
-    bed = await prisma.bed.create({
-      data: {
-        wardId: pediatricWard.id,
-        bedNumber: `${pediatricWard.wardName.substring(0, 3).toUpperCase()}-001`,
-        isOccupied: false,
-      },
-    });
-  }
+    // Admission for attendance 1005 (Paediatric pneumonia - Patient 1005) - still active
+    if (pediatricWard && att5) {
+      let pediatricBed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
+      
+      if (!pediatricBed && pediatricWard) {
+        pediatricBed = await prisma.bed.create({
+          data: {
+            wardId: pediatricWard.id,
+            bedNumber: `${pediatricWard.wardName.substring(0, 3).toUpperCase()}-PED-01`,
+            isOccupied: false,
+          },
+        });
+      }
 
-  if (bed && att5) {
-    const attendanceNumber = att5.attendanceNumber; // This is "1005"
-    
-    await prisma.admission.create({
-      data: {
-        attendanceId: att5.id,
-        admissionNumber: attendanceNumber,  // ✅ Same as attendance number
-        admissionType: AdmissionType.emergency,
-        admissionSource: AdmissionSource.emergency,
-        admissionDate: daysAgo(3),
-        // No dischargeDate - still active
-      },
-    });
+      if (pediatricBed && att5) {
+        const attendanceNumber = att5.attendanceNumber;
+        
+        await prisma.admission.create({
+          data: {
+            attendanceId: att5.id,
+            admissionNumber: attendanceNumber,
+            admissionType: AdmissionType.emergency,
+            admissionSource: AdmissionSource.emergency,
+            admissionDate: daysAgo(3),
+          },
+        });
 
-    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
-  }
-}
+        await prisma.bed.update({ where: { id: pediatricBed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
+      }
+    }
 
-// Add more admissions for other patients
+    // Admission for NHIS patient (Patient 1002 - Ama Serwaa) - active
+    if (generalWard && att2) {
+      let nhisBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
+      
+      if (!nhisBed) {
+        nhisBed = await prisma.bed.create({
+          data: {
+            wardId: generalWard.id,
+            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
+            isOccupied: false,
+          },
+        });
+      }
 
-// Admission for NHIS patient (Patient 1002 - Ama Serwaa) - active
-if (generalWard && att2) {
-  let bed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
-  
-  if (!bed) {
-    bed = await prisma.bed.create({
-      data: {
-        wardId: generalWard.id,
-        bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
-        isOccupied: false,
-      },
-    });
-  }
+      if (nhisBed) {
+        const attendanceNumber = att2.attendanceNumber;
+        
+        await prisma.admission.create({
+          data: {
+            attendanceId: att2.id,
+            admissionNumber: attendanceNumber,
+            admissionType: AdmissionType.emergency,
+            admissionSource: AdmissionSource.opd,
+            admissionDate: daysAgo(5),
+          },
+        });
 
-  if (bed) {
-    const attendanceNumber = att2.attendanceNumber; // "1002"
-    
-    await prisma.admission.create({
-      data: {
-        attendanceId: att2.id,
-        admissionNumber: attendanceNumber,
-        admissionType: AdmissionType.emergency,
-        admissionSource: AdmissionSource.opd,
-        admissionDate: daysAgo(5),
-        // Active admission - no discharge date
-      },
-    });
+        await prisma.bed.update({ where: { id: nhisBed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
+      }
+    }
 
-    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
-  }
-}
+    // Admission for Antenatal patient (Patient 1004) - daycase (observation)
+    if (maternityWard && att4) {
+      let obsBed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
+      
+      if (!obsBed) {
+        obsBed = await prisma.bed.create({
+          data: {
+            wardId: maternityWard.id,
+            bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-OBS-01`,
+            isOccupied: false,
+          },
+        });
+      }
 
-// Admission for Private Insurance patient (Patient 1003 already done above)
+      if (obsBed) {
+        const attendanceNumber = att4.attendanceNumber;
+        
+        await prisma.attendance.update({
+          where: { id: att4.id },
+          data: { encounterCategory: EncounterCategory.daycase }
+        });
+        
+        await prisma.bed.update({ where: { id: obsBed.id }, data: { isOccupied: true, currentPatientId: patients[3].id } });
+      }
+    }
 
-// Admission for Antenatal patient (Patient 1004) - daycase (observation)
-if (maternityWard && att4) {
-  let bed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
-  
-  if (!bed) {
-    bed = await prisma.bed.create({
-      data: {
-        wardId: maternityWard.id,
-        bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-OBS-01`,
-        isOccupied: false,
-      },
-    });
-  }
-
-  if (bed) {
-    const attendanceNumber = att4.attendanceNumber; // "1004"
-    
-    // For daycase, update the attendance encounterCategory to 'daycase' first
-    await prisma.attendance.update({
-      where: { id: att4.id },
-      data: { encounterCategory: EncounterCategory.daycase }
-    });
-    
-    // Daycase patients don't have a formal admission record
-    // They are just marked as 'daycase' in attendance
-    // But we still assign a bed
-    await prisma.bed.update({ where: { id: bed.id }, data: { isOccupied: true, currentPatientId: patients[3].id } });
-  }
-}
-
-console.log('✅ Admissions created');
+    console.log('✅ Admissions created');
 
 
     // =============== CREATE APPOINTMENTS ===============

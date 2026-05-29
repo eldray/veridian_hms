@@ -7,7 +7,14 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
-import { documentApi } from '../api/documentApi';
+import {
+  getReferrals,
+  createOutgoingReferral,
+  createIncomingReferral,
+  updateReferralStatus,
+  generateReferralLetter,  // ← ADD THIS
+  getReferralStats
+} from '../api';
 import { useAuthStore } from '../store/authStore';
 
 import {
@@ -16,14 +23,6 @@ import {
   Filter, RefreshCw, Building, Stethoscope, Search,
   Download
 } from 'lucide-react';
-import {
-  getReferrals,
-  createOutgoingReferral,
-  createIncomingReferral,
-  updateReferralStatus,
-  generateReferralLetter,
-  getReferralStats
-} from '../api';
 
 interface Referral {
   id: string;
@@ -233,50 +232,47 @@ const fetchReferrals = async () => {
     }
   };
 
-// Replace your handlePrintLetter function with this
-const handlePrintLetter = async (referral: any) => {
-  const referralId = referral?.id || referral?._id;
-  
-  console.log('📄 Referral ID:', referralId);
-  console.log('📄 Referral Number:', referral.referralNumber);
-  
-  if (!referralId) {
-    toastError('Error', 'Referral ID is missing');
-    return;
-  }
-  
-  try {
-    // Step 1: Generate the document
-    const response = await documentApi.generateReferralLetter(referralId);
-    const documentId = response?.data?.documentId || response?.documentId;
+  const handlePrintLetter = async (referral: any) => {
+    const referralId = referral?.id || referral?._id;
     
-    console.log('📄 Document ID:', documentId);
+    console.log('📄 Referral ID:', referralId);
+    console.log('📄 Referral Number:', referral.referralNumber);
     
-    if (!documentId) {
-      toastError('Error', 'Failed to generate document');
+    if (!referralId) {
+      toastError('Error', 'Referral ID is missing');
       return;
     }
     
-    // Step 2: Download the PDF using the downloadDocument function (which includes auth)
-    const blob = await documentApi.downloadDocument(documentId);
-    
-    // Step 3: Create a download link and trigger download
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `referral_${referral.referralNumber}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    success('Success', 'Referral letter downloaded');
-    
-  } catch (err: any) {
-    console.error('❌ Error in handlePrintLetter:', err);
-    toastError('Error', err.response?.data?.message || err.message || 'Failed to generate referral letter');
-  }
-};
+    try {
+      // Use the direct API function
+      const response = await generateReferralLetter(referralId);
+      
+      console.log('📄 Response:', response);
+      
+      // The response should have a documentId
+      const documentId = response?.data?.documentId || response?.documentId;
+      
+      if (documentId) {
+        // Download the document
+        const blob = await downloadDocument(documentId);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `referral_${referral.referralNumber}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        success('Success', 'Referral letter downloaded');
+      } else {
+        toastError('Error', 'Failed to generate document');
+      }
+    } catch (err: any) {
+      console.error('❌ Error in handlePrintLetter:', err);
+      toastError('Error', err.response?.data?.message || err.message || 'Failed to generate referral letter');
+    }
+  };
 
 const downloadReferralLetter = async (referral: any) => {
   const referralId = referral?.id || referral?._id;

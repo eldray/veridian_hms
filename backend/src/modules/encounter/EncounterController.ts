@@ -158,57 +158,82 @@ export class EncounterController {
   // ============================================
   // UPDATE ENCOUNTER
   // ============================================
-  update = [
-    body('attendanceType').optional().isIn([
-      'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup',
-      'specialist_consultation', 'delivery', 'surgery', 'general_consultation',
-    ]).withMessage('Valid attendance type is required'),
+// modules/encounter/EncounterController.ts - Update the update method
 
-    body('encounterCategory').optional().isIn(['opd', 'ipd', 'daycase'])
-      .withMessage('Valid encounter category is required'),
+update = [
+  body('attendanceType').optional().isIn([
+    'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup',
+    'specialist_consultation', 'delivery', 'surgery', 'general_consultation',
+  ]).withMessage('Valid attendance type is required'),
 
-    body('visitCategory').optional().isIn(['general', 'specialist', 'emergency', 'inpatient'])
-      .withMessage('Valid visit category is required'),
+  body('encounterCategory').optional().isIn(['opd', 'ipd', 'daycase'])
+    .withMessage('Valid encounter category is required'),
 
-    body('complaints').optional().isString(),
-    body('medicalNotes').optional().isString(),
-    body('historyPresentingComplaint').optional().isString(),
-    body('onsetDurationQuality').optional().isString(),
-    body('physicalExamination').optional().isString(),
-    body('treatmentPlan').optional().isString(),
-    body('followUpDate').optional().isISO8601().toDate(),
-    body('gdrgCategory').optional().isString(),
-    body('referringFacility').optional().isString(),
+  body('visitCategory').optional().isIn(['general', 'specialist', 'emergency', 'inpatient'])
+    .withMessage('Valid visit category is required'),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
+  // ✅ ADD THESE MISSING FIELDS
+  body('complaints').optional().isString(),
+  body('medicalNotes').optional().isString(),
+  body('historyPresentingComplaint').optional().isString(),
+  body('onsetDurationQuality').optional().isString(),
+  body('physicalExamination').optional().isString(),
+  body('treatmentPlan').optional().isString(),
+  body('followUpDate').optional().isISO8601().toDate(),
+  body('gdrgCategory').optional().isString(),
+  body('referringFacility').optional().isString(),
 
-        const { id } = req.params;
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const encounter = await this.service.updateEncounter(id, req.body, user.id);
-
-        res.json({
-          success: true,
-          data: encounter,
-          message: 'Encounter updated successfully',
-        });
-      } catch (error) {
-        console.error('Error updating encounter:', error);
-        res.status(500).json({
-          message: 'Error updating encounter',
-          error: (error as Error).message,
-        });
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
       }
-    },
-  ];
+
+      const { id } = req.params;
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: 'User authentication required' });
+      }
+
+      // ✅ Build update data with allowed fields only
+      const updateData: any = {};
+      
+      // Clinical fields
+      if (req.body.complaints !== undefined) updateData.complaints = req.body.complaints;
+      if (req.body.medicalNotes !== undefined) updateData.medicalNotes = req.body.medicalNotes;
+      if (req.body.historyPresentingComplaint !== undefined) updateData.historyPresentingComplaint = req.body.historyPresentingComplaint;
+      if (req.body.onsetDurationQuality !== undefined) updateData.onsetDurationQuality = req.body.onsetDurationQuality;
+      if (req.body.physicalExamination !== undefined) updateData.physicalExamination = req.body.physicalExamination;
+      if (req.body.treatmentPlan !== undefined) updateData.treatmentPlan = req.body.treatmentPlan;
+      if (req.body.followUpDate !== undefined) updateData.followUpDate = req.body.followUpDate;
+      if (req.body.referringFacility !== undefined) updateData.referringFacility = req.body.referringFacility;
+      
+      // Other fields
+      if (req.body.status !== undefined) updateData.status = req.body.status;
+      if (req.body.bedId !== undefined) updateData.bedId = req.body.bedId;
+      if (req.body.wardId !== undefined) updateData.wardId = req.body.wardId;
+      
+      // Always update updatedById and updatedAt
+      updateData.updatedById = user.id;
+      updateData.updatedAt = new Date();
+
+      const encounter = await this.service.updateEncounter(id, updateData, user.id);
+
+      res.json({
+        success: true,
+        data: encounter,
+        message: 'Encounter updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating encounter:', error);
+      res.status(500).json({
+        message: 'Error updating encounter',
+        error: (error as Error).message,
+      });
+    }
+  },
+];
 
   // ============================================
   // UPDATE ENCOUNTER STATUS
@@ -352,6 +377,28 @@ export class EncounterController {
     }
   };
 
+
+// ============================================
+// GET VITALS BY ENCOUNTER ID
+// ============================================
+getVitalsByEncounter = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const vitals = await this.service.getVitalsByEncounter(id);
+    
+    res.json({
+      success: true,
+      data: vitals,
+    });
+  } catch (error) {
+    console.error('Error fetching vitals:', error);
+    res.status(500).json({
+      message: 'Error fetching vitals',
+      error: (error as Error).message,
+    });
+  }
+};
   // ============================================
   // ADD VITALS
   // ============================================
@@ -604,7 +651,7 @@ export class EncounterController {
           return res.status(401).json({ message: 'User authentication required' });
         }
 
-        const labOrder = await this.service.addLabOrder(id, {
+        const labOrder = await this.service.addLabTest(id, {
           templateId,
           serviceCatalogId,
           priority: priority as 'routine' | 'urgent' | 'stat',
@@ -648,7 +695,7 @@ export class EncounterController {
         const { status, result, normalRange, units, notes } = req.body;
         const user = req.user;
 
-        const labOrder = await this.service.updateLabOrderStatus(
+        const labOrder = await this.service.updateLabTestStatus(
           labOrderId,
           status,
           { result, normalRange, units, notes },
@@ -677,7 +724,7 @@ export class EncounterController {
     try {
       const { encounterId, labOrderId } = req.params;
 
-      await this.service.removeLabOrder(encounterId, labOrderId);
+      await this.service.removeLabTest(encounterId, labOrderId);
 
       res.json({
         success: true,
@@ -996,44 +1043,169 @@ export class EncounterController {
     }
   };
 
-  // ============================================
-  // WORKLISTS (CLINICAL QUEUES)
-  // ============================================
-  getVitalsWorklist = async (req: AuthRequest, res: Response) => {
-    try {
-      const worklist = await this.service.getVitalsWorklist();
-      res.json({ success: true, data: worklist, count: worklist.length });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching vitals worklist', error: (error as Error).message });
-    }
-  };
 
-  getMedicalWorklist = async (req: AuthRequest, res: Response) => {
-    try {
-      const worklist = await this.service.getMedicalWorklist();
-      res.json({ success: true, data: worklist, count: worklist.length });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching medical worklist', error: (error as Error).message });
-    }
-  };
 
-  getLabWorklist = async (req: AuthRequest, res: Response) => {
-    try {
-      const worklist = await this.service.getLabWorklist();
-      res.json({ success: true, data: worklist, count: worklist.length });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching lab worklist', error: (error as Error).message });
-    }
-  };
+// ============================================
+// WORKLISTS (CLINICAL QUEUES) - Updated responses
+// ============================================
 
-  getPharmacyWorklist = async (req: AuthRequest, res: Response) => {
-    try {
-      const worklist = await this.service.getPharmacyWorklist();
-      res.json({ success: true, data: worklist, count: worklist.length });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching pharmacy worklist', error: (error as Error).message });
-    }
-  };
+getVitalsWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getVitalsWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, pending, recent, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching vitals worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+getMedicalWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getMedicalWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, pending, reviewed, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching medical worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+getLabWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getLabWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, pending, completed, inProgress, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching lab worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+getPharmacyWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getPharmacyWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, pending, dispensed, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching pharmacy worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+getRadiologyWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getRadiologyWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, pending, completed, inProgress, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching radiology worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+getProceduresWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getProceduresWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist  // Returns { total, scheduled, inProgress, completed, data }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching procedures worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// Updated summary to work with new structures
+getWorklistSummary = async (req: AuthRequest, res: Response) => {
+  try {
+    const [vitals, medical, lab, pharmacy, scans, theatre] = await Promise.all([
+      this.service.getVitalsWorklist(),
+      this.service.getMedicalWorklist(),
+      this.service.getLabWorklist(),
+      this.service.getPharmacyWorklist(),
+      this.service.getRadiologyWorklist(),
+      this.service.getProceduresWorklist()
+    ]);
+
+    const summary = {
+      vitals: { 
+        count: vitals.pending, 
+        urgent: vitals.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      medical: { 
+        count: medical.pending, 
+        urgent: medical.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      lab: { 
+        count: lab.pending, 
+        urgent: lab.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      pharmacy: { 
+        count: pharmacy.pending, 
+        urgent: pharmacy.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      scans: { 
+        count: scans.pending, 
+        urgent: scans.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      theatre: { 
+        count: theatre.scheduled, 
+        urgent: theatre.data.filter((i: any) => i.priority === 'urgent').length 
+      },
+      total: vitals.pending + medical.pending + lab.pending + pharmacy.pending + scans.pending + theatre.scheduled
+    };
+
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching worklist summary', 
+      error: (error as Error).message 
+    });
+  }
+};
+
+// ============================================
+// MATERNAL WORKLIST
+// ============================================
+getMaternalWorklist = async (req: AuthRequest, res: Response) => {
+  try {
+    const worklist = await this.service.getMaternalWorklist();
+    res.json({ 
+      success: true, 
+      ...worklist
+    });
+  } catch (error) {
+    console.error('Error fetching maternal worklist:', error);
+    res.status(500).json({ 
+      message: 'Error fetching maternal worklist', 
+      error: (error as Error).message 
+    });
+  }
+};
 
   // ============================================
   // DELETE ENCOUNTER
@@ -1123,12 +1295,16 @@ export class EncounterController {
     }
   ];
 
-  // GET ALL FORMAL ADMISSIONS
+// ============================================
+// ✅ UPDATE: GET ALL ADMISSIONS with filter options
+// ============================================
   getAllAdmissions = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const {
         status,
         wardId,
+        admissionType,
+        excludeDetention,
         dateFrom,
         dateTo,
         page = 1,
@@ -1138,6 +1314,8 @@ export class EncounterController {
       const result = await this.service.getAllAdmissions({
         status: status as any,
         wardId: wardId as string,
+        admissionType: admissionType as any,
+        excludeDetention: excludeDetention === 'true',
         dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
         dateTo: dateTo ? new Date(dateTo as string) : undefined,
         page: parseInt(page as string),
@@ -1189,6 +1367,120 @@ export class EncounterController {
       }
     }
   ];
+
+
+// ============================================
+// ✅ NEW: CONVERT DETENTION TO FORMAL IPD
+// ============================================
+convertDetentionToIPD = [
+  body('admissionType').isIn(['elective', 'emergency', 'transfer']).withMessage('Valid admission type is required'),
+  body('clinicalNotes').optional().isString(),
+  body('decisionReason').optional().isString(),
+
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
+      }
+
+      const { id } = req.params;
+      const user = req.user;
+
+      if (!user) {
+        res.status(401).json({ message: 'User authentication required' });
+        return;
+      }
+
+      const result = await this.service.convertDetentionToFormalIPD(id, req.body, user.id);
+
+      res.json({
+        success: true,
+        data: result.admission,
+        message: result.message
+      });
+    } catch (error) {
+      console.error('Error converting detention to IPD:', error);
+      res.status(500).json({
+        message: 'Error converting detention to IPD',
+        error: (error as Error).message
+      });
+    }
+  }
+];
+
+// ============================================
+// ✅ NEW: GET FORMAL IPD PATIENTS (excluding detention)
+// ============================================
+getFormalIPDPatients = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const {
+      status,
+      wardId,
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    const result = await this.service.getFormalIPDPatients({
+      status: status as any,
+      wardId: wardId as string,
+      page: parseInt(page as string),
+      limit: parseInt(limit as string)
+    });
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Error fetching formal IPD patients:', error);
+    res.status(500).json({
+      message: 'Error fetching formal IPD patients',
+      error: (error as Error).message
+    });
+  }
+};
+
+
+// ============================================
+// ✅ NEW: GET DETENTION/OBSERVATION PATIENTS
+// ============================================
+getDetentionPatients = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const {
+      status,
+      wardId,
+      observationHours,
+      readyForDecision,
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    const result = await this.service.getDetentionPatients({
+      status: status as any,
+      wardId: wardId as string,
+      observationHours: observationHours ? parseInt(observationHours as string) : undefined,
+      readyForDecision: readyForDecision === 'true',
+      page: parseInt(page as string),
+      limit: parseInt(limit as string)
+    });
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+      summary: result.summary
+    });
+  } catch (error) {
+    console.error('Error fetching detention patients:', error);
+    res.status(500).json({
+      message: 'Error fetching detention patients',
+      error: (error as Error).message
+    });
+  }
+};
 
   // ============================================
   // DAYCASE/OBSERVATION ROUTES

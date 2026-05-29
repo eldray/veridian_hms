@@ -1,11 +1,12 @@
 // modules/report/ReportService.ts
-import { PrismaClient, BillStatus, PaymentMode } from '@prisma/client';
+import { PrismaClient, BillStatus } from '@prisma/client';
+// FIXED: removed unused PaymentMode import
 import { ReportFilters } from './ReportTypes';
 
 export class ReportService {
   private prisma: PrismaClient;
 
-  constructor(prisma: PrismaClient) {  // ✅ FIXED - accept prisma
+  constructor(prisma: PrismaClient) {
     this.prisma = prisma;
   }
 
@@ -27,7 +28,7 @@ export class ReportService {
       nhisFacilityCode: hospital?.nhisFacilityCode || 'GH001',
       facilityType: hospital?.nhisFacilityType || 'Secondary',
       district: hospital?.ghsDistrictCode || 'Unknown',
-      ghfCode: hospital?.ghaHFCode || 'Unknown'
+      ghfCode: hospital?.ghaHFCode || 'Unknown',
     };
   }
 
@@ -35,94 +36,91 @@ export class ReportService {
   async getDemographicReport(filters: ReportFilters) {
     const { startDate, endDate } = filters;
 
-    const where: any = {};
+    const patientWhere: any = {};
     if (startDate || endDate) {
-      where.registeredAt = {};
-      if (startDate) where.registeredAt.gte = new Date(startDate);
-      if (endDate) where.registeredAt.lte = new Date(endDate);
+      patientWhere.registeredAt = {};
+      if (startDate) patientWhere.registeredAt.gte = new Date(startDate);
+      if (endDate) patientWhere.registeredAt.lte = new Date(endDate);
     }
 
     const patients = await this.prisma.patient.findMany({
-      where,
+      where: patientWhere,
       select: {
         id: true,
         gender: true,
         dateOfBirth: true,
         paymentMode: true,
-        registeredAt: true
-      }
+        registeredAt: true,
+      },
     });
 
+    const attendanceWhere: any = {};
+    if (startDate || endDate) {
+      attendanceWhere.dateTime = {};
+      if (startDate) attendanceWhere.dateTime.gte = new Date(startDate);
+      if (endDate) attendanceWhere.dateTime.lte = new Date(endDate);
+    }
+
     const attendances = await this.prisma.attendance.findMany({
-      where: startDate || endDate ? {
-        dateTime: {
-          ...(startDate && { gte: new Date(startDate) }),
-          ...(endDate && { lte: new Date(endDate) })
-        }
-      } : {},
-      select: {
-        patientId: true,
-        dateTime: true,
-        paymentMode: true
-      }
+      where: attendanceWhere,
+      select: { patientId: true, dateTime: true, paymentMode: true },
     });
 
     const genderDistribution = {
       male: patients.filter(p => p.gender === 'male').length,
       female: patients.filter(p => p.gender === 'female').length,
-      other: patients.filter(p => p.gender === 'other').length
+      other: patients.filter(p => p.gender === 'other').length,
     };
 
+    // GHS-aligned age groups (consistent with GHS report module)
     const ageGroups: Record<string, number> = {
       '<1 year': 0, '1-4 years': 0, '5-9 years': 0, '10-14 years': 0,
       '15-17 years': 0, '18-19 years': 0, '20-34 years': 0, '35-49 years': 0,
-      '50-59 years': 0, '60-69 years': 0, '70+ years': 0
+      '50-59 years': 0, '60-69 years': 0, '70+ years': 0,
     };
 
     for (const patient of patients) {
       const age = this.calculateAge(patient.dateOfBirth);
-      let ageGroup = '';
-      if (age < 1) ageGroup = '<1 year';
-      else if (age < 5) ageGroup = '1-4 years';
-      else if (age < 10) ageGroup = '5-9 years';
-      else if (age < 15) ageGroup = '10-14 years';
-      else if (age < 18) ageGroup = '15-17 years';
-      else if (age < 20) ageGroup = '18-19 years';
-      else if (age < 35) ageGroup = '20-34 years';
-      else if (age < 50) ageGroup = '35-49 years';
-      else if (age < 60) ageGroup = '50-59 years';
-      else if (age < 70) ageGroup = '60-69 years';
-      else ageGroup = '70+ years';
-      ageGroups[ageGroup] = (ageGroups[ageGroup] || 0) + 1;
+      if (age < 1)        ageGroups['<1 year']++;
+      else if (age < 5)   ageGroups['1-4 years']++;
+      else if (age < 10)  ageGroups['5-9 years']++;
+      else if (age < 15)  ageGroups['10-14 years']++;
+      else if (age < 18)  ageGroups['15-17 years']++;
+      else if (age < 20)  ageGroups['18-19 years']++;
+      else if (age < 35)  ageGroups['20-34 years']++;
+      else if (age < 50)  ageGroups['35-49 years']++;
+      else if (age < 60)  ageGroups['50-59 years']++;
+      else if (age < 70)  ageGroups['60-69 years']++;
+      else                ageGroups['70+ years']++;
     }
 
     const paymentModeDistribution = {
       cash: patients.filter(p => p.paymentMode === 'cash').length,
       nhis: patients.filter(p => p.paymentMode === 'nhis').length,
       private_insurance: patients.filter(p => p.paymentMode === 'private_insurance').length,
-      corporate: patients.filter(p => p.paymentMode === 'corporate').length  // ✅ Corporate included
+      corporate: patients.filter(p => p.paymentMode === 'corporate').length,
     };
 
     return {
-      reportType: 'DEMOGRAPHIC ANALYSIS REPORT',
+      reportType: 'DEMOGRAPHIC ANALYSIS REPORT' as const,
       facility: await this.getFacilityInfo(),
       period: {
         startDate: startDate || 'Beginning',
         endDate: endDate || 'Now',
-        generated: new Date().toISOString().split('T')[0]
+        generated: new Date().toISOString().split('T')[0],
       },
       patientDemographics: {
         totalPatients: patients.length,
         genderDistribution,
         ageDistribution: ageGroups,
-        paymentModeDistribution  // ✅ Corporate breakdown
+        paymentModeDistribution,
       },
       attendancePatterns: {
         totalAttendances: attendances.length,
         visitsPerPatient: attendances.length / Math.max(1, patients.length),
-        newPatients: 0
+        newPatients: 0,
       },
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
   }
 
@@ -137,28 +135,31 @@ export class ReportService {
       if (endDate) where.billDate.lte = new Date(endDate);
     }
     if (paymentMode) where.paymentMode = paymentMode;
-    if (corporateAccountId) {
-      where.patient = { insuranceProviderId: corporateAccountId };
-    }
+    // FIXED: Bill has corporateAccountId directly — no need to nest through patient
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const bills = await this.prisma.bill.findMany({
       where,
       include: {
         Patient: { select: { surname: true, otherNames: true, folderNumber: true, paymentMode: true } },
-        Attendance: { include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } }
+        Attendance: {
+          include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } },
+        },
       },
-      orderBy: { billDate: 'desc' }
+      orderBy: { billDate: 'desc' },
     });
 
-    const summary = bills.reduce((acc, bill) => {
-      acc.totalRevenue += bill.totalAmount || 0;
-      acc.totalPaid += bill.paidAmount || 0;
-      acc.outstandingBalance += bill.balance || 0;
-      acc.totalBills += 1;
-      return acc;
-    }, { totalRevenue: 0, totalPaid: 0, outstandingBalance: 0, totalBills: 0 });
+    const summary = bills.reduce(
+      (acc, bill) => {
+        acc.totalRevenue += bill.totalAmount || 0;
+        acc.totalPaid += bill.paidAmount || 0;
+        acc.outstandingBalance += bill.balance || 0;
+        acc.totalBills += 1;
+        return acc;
+      },
+      { totalRevenue: 0, totalPaid: 0, outstandingBalance: 0, totalBills: 0 },
+    );
 
-    // ✅ Corporate breakdown
     const byPaymentMode = bills.reduce((acc, bill) => {
       const mode = bill.paymentMode;
       if (!acc[mode]) acc[mode] = { count: 0, amount: 0 };
@@ -170,9 +171,9 @@ export class ReportService {
     return {
       reportPeriod: { startDate: startDate || 'Beginning', endDate: endDate || 'Now' },
       summary,
-      byPaymentMode,  // ✅ Corporate included
+      byPaymentMode,
       breakdown: bills,
-      reportGenerated: new Date()
+      reportGenerated: new Date(),
     };
   }
 
@@ -188,7 +189,8 @@ export class ReportService {
     }
     if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
     if (status) where.status = status;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;  // ✅ Corporate filter
+    // FIXED: corporateAccountId is a direct field on InsuranceClaim
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const claims = await this.prisma.insuranceClaim.findMany({
       where,
@@ -197,28 +199,27 @@ export class ReportService {
         Patient: { select: { surname: true, otherNames: true, folderNumber: true, paymentMode: true } },
         Attendance: { select: { attendanceNumber: true, dateTime: true } },
         Bill: { select: { totalAmount: true, insuranceCovered: true, paidAmount: true } },
-        CorporateAccount: { select: { companyName: true } }  // ✅ Corporate include
+        CorporateAccount: { select: { companyName: true } },
       },
-      orderBy: { submissionDate: 'desc' }
+      orderBy: { submissionDate: 'desc' },
     });
 
-    // ✅ Separate corporate vs regular claims
     const corporateClaims = claims.filter(c => c.corporateAccountId);
     const regularClaims = claims.filter(c => !c.corporateAccountId);
 
     return {
-      reportType: 'Insurance Claims Analysis',
+      reportType: 'Insurance Claims Analysis' as const,
       period: { startDate, endDate },
       summary: {
         totalClaims: claims.length,
         corporateClaims: corporateClaims.length,
         regularClaims: regularClaims.length,
         totalClaimAmount: claims.reduce((sum, c) => sum + c.totalClaimAmount, 0),
-        totalPaidAmount: claims.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
+        totalPaidAmount: claims.reduce((sum, c) => sum + (c.paidAmount || 0), 0),
       },
       claimsReport: claims,
-      corporateClaims,  // ✅ Separate corporate claims
-      generatedAt: new Date()
+      corporateClaims,
+      generatedAt: new Date(),
     };
   }
 
@@ -226,81 +227,81 @@ export class ReportService {
   async getClinicalReport(filters: ReportFilters) {
     const { startDate, endDate } = filters;
 
+    const where: any = {};
+    if (startDate || endDate) {
+      where.dateTime = {};
+      if (startDate) where.dateTime.gte = new Date(startDate);
+      if (endDate) where.dateTime.lte = new Date(endDate);
+    }
+
     const clinicalData = await this.prisma.attendance.findMany({
-      where: startDate || endDate ? {
-        dateTime: {
-          ...(startDate && { gte: new Date(startDate) }),
-          ...(endDate && { lte: new Date(endDate) })
-        }
-      } : {},
+      where,
       include: {
         Patient: { select: { dateOfBirth: true, gender: true, paymentMode: true } },
-        AttendanceDiagnosis: { 
-          include: { 
-            Diagnosis: { 
-              select: { 
-                name: true, 
-                icdCode: true,
-                morbidityGroup: true
-              } 
-            } 
-          } 
-        }
-      }
+        AttendanceDiagnosis: {
+          include: {
+            Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } },
+          },
+        },
+      },
     });
 
-    const clinicalReport = clinicalData.reduce((acc, attendance) => {
+    const clinicalReport: Record<string, any> = {};
+
+    for (const attendance of clinicalData) {
       for (const diagnosisItem of attendance.AttendanceDiagnosis) {
         const diagnosis = diagnosisItem.Diagnosis;
         if (!diagnosis) continue;
 
         const key = `${diagnosis.name}-${diagnosis.icdCode}`;
-        if (!acc[key]) {
-          acc[key] = {
+        if (!clinicalReport[key]) {
+          clinicalReport[key] = {
             diagnosis: diagnosis.name,
             icdCode: diagnosis.icdCode,
             morbidityGroup: diagnosis.morbidityGroup,
             totalCases: 0,
-            ages: [],
-            genders: [],
-            paymentModes: []  // ✅ Track payment modes
+            ages: [] as number[],
+            genders: [] as string[],
+            paymentModes: [] as string[],
           };
         }
-        
-        acc[key].totalCases += 1;
+
+        clinicalReport[key].totalCases += 1;
         if (attendance.Patient) {
           const age = this.calculateAge(attendance.Patient.dateOfBirth, attendance.dateTime);
-          acc[key].ages.push(age);
-          acc[key].genders.push(attendance.Patient.gender);
+          clinicalReport[key].ages.push(age);
+          clinicalReport[key].genders.push(attendance.Patient.gender);
           if (attendance.Patient.paymentMode) {
-            acc[key].paymentModes.push(attendance.Patient.paymentMode);
+            clinicalReport[key].paymentModes.push(attendance.Patient.paymentMode);
           }
         }
       }
-      return acc;
-    }, {} as any);
+    }
 
     const reportData = Object.values(clinicalReport).map((item: any) => ({
       diagnosis: item.diagnosis,
       icdCode: item.icdCode,
       morbidityGroup: item.morbidityGroup,
       totalCases: item.totalCases,
-      averageAge: item.ages.length > 0 ? Math.round(item.ages.reduce((a: number, b: number) => a + b, 0) / item.ages.length * 10) / 10 : 0,
+      averageAge:
+        item.ages.length > 0
+          ? Math.round((item.ages.reduce((a: number, b: number) => a + b, 0) / item.ages.length) * 10) / 10
+          : 0,
       genderDistribution: {
         male: item.genders.filter((g: string) => g === 'male').length,
-        female: item.genders.filter((g: string) => g === 'female').length
+        female: item.genders.filter((g: string) => g === 'female').length,
       },
-      paymentModeBreakdown: item.paymentModes.reduce((acc: any, mode: string) => {
+      paymentModeBreakdown: item.paymentModes.reduce((acc: Record<string, number>, mode: string) => {
         acc[mode] = (acc[mode] || 0) + 1;
         return acc;
-      }, {})  // ✅ Corporate breakdown
+      }, {}),
     }));
 
     return {
-      reportType: 'Clinical Statistics',
+      reportType: 'Clinical Statistics' as const,
       period: { startDate, endDate },
       clinicalReport: reportData,
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
   }
 
@@ -316,17 +317,18 @@ export class ReportService {
     }
     if (attendanceType) where.attendanceType = attendanceType;
     if (paymentMode) where.paymentMode = paymentMode;
-    if (corporateAccountId) {
-      where.patient = { insuranceProviderId: corporateAccountId };
-    }
+    // FIXED: Attendance has corporateAccountId directly
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const attendances = await this.prisma.attendance.findMany({
       where,
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, gender: true, dateOfBirth: true, paymentMode: true } },
-        Bill: { select: { totalAmount: true, paidAmount: true, status: true } }
+        Patient: {
+          select: { id: true, surname: true, otherNames: true, gender: true, dateOfBirth: true, paymentMode: true },
+        },
+        Bill: { select: { totalAmount: true, paidAmount: true, status: true } },
       },
-      orderBy: { dateTime: 'desc' }
+      orderBy: { dateTime: 'desc' },
     });
 
     const totalAttendances = attendances.length;
@@ -342,21 +344,24 @@ export class ReportService {
       return acc;
     }, {} as Record<string, number>);
 
-    // ✅ Corporate share calculation
     const corporateAttendances = attendances.filter(a => a.paymentMode === 'corporate').length;
 
     return {
-      reportType: 'ATTENDANCE REPORT',
+      reportType: 'ATTENDANCE REPORT' as const,
       facility: await this.getFacilityInfo(),
-      period: { startDate: startDate || 'Beginning', endDate: endDate || 'Now', generated: new Date().toISOString().split('T')[0] },
-      summary: { 
-        totalAttendances, 
-        uniquePatients, 
+      period: {
+        startDate: startDate || 'Beginning',
+        endDate: endDate || 'Now',
+        generated: new Date().toISOString().split('T')[0],
+      },
+      summary: {
+        totalAttendances,
+        uniquePatients,
         averageVisitsPerPatient: totalAttendances / Math.max(1, uniquePatients),
-        corporateShare: totalAttendances > 0 ? (corporateAttendances / totalAttendances) * 100 : 0  // ✅ Corporate share
+        corporateShare: totalAttendances > 0 ? (corporateAttendances / totalAttendances) * 100 : 0,
       },
       attendancePatterns: { byType: typeBreakdown, byPaymentMode: paymentBreakdown },
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
   }
 
@@ -371,9 +376,8 @@ export class ReportService {
       if (endDate) where.billDate.lte = new Date(endDate);
     }
     if (paymentMode) where.paymentMode = paymentMode;
-    if (corporateAccountId) {
-      where.patient = { insuranceProviderId: corporateAccountId };
-    }
+    // FIXED: Bill has corporateAccountId directly
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const bills = await this.prisma.bill.findMany({ where });
 
@@ -382,215 +386,198 @@ export class ReportService {
 
     const revenueByPaymentMode = bills.reduce((acc, bill) => {
       const mode = bill.paymentMode;
-      if (!acc[mode]) acc[mode] = { paymentMode: mode, totalRevenue: 0, billCount: 0 };
+      if (!acc[mode]) acc[mode] = { paymentMode: mode, totalRevenue: 0, billCount: 0, averageBill: 0 };
       acc[mode].totalRevenue += bill.paidAmount || 0;
       acc[mode].billCount += 1;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { paymentMode: string; totalRevenue: number; billCount: number; averageBill: number }>);
 
-    Object.values(revenueByPaymentMode).forEach((mode: any) => {
+    Object.values(revenueByPaymentMode).forEach(mode => {
       mode.averageBill = mode.billCount > 0 ? mode.totalRevenue / mode.billCount : 0;
     });
 
-    // ✅ Corporate revenue specific
     const corporateRevenue = revenueByPaymentMode['corporate']?.totalRevenue || 0;
     const corporateShare = totalRevenue > 0 ? (corporateRevenue / totalRevenue) * 100 : 0;
 
     return {
-      reportType: 'REVENUE ANALYSIS REPORT',
+      reportType: 'REVENUE ANALYSIS REPORT' as const,
       facility: await this.getFacilityInfo(),
-      period: { startDate: startDate || 'Beginning', endDate: endDate || 'Now', generated: new Date().toISOString().split('T')[0] },
-      summary: { 
-        totalRevenue, 
-        totalBills, 
+      period: {
+        startDate: startDate || 'Beginning',
+        endDate: endDate || 'Now',
+        generated: new Date().toISOString().split('T')[0],
+      },
+      summary: {
+        totalRevenue,
+        totalBills,
         averageBillAmount: totalBills > 0 ? totalRevenue / totalBills : 0,
-        corporateRevenue,  // ✅ Corporate revenue
-        corporateShare     // ✅ Corporate share percentage
+        corporateRevenue,
+        corporateShare,
       },
-      revenueByPaymentMode: Object.values(revenueByPaymentMode),  // ✅ Includes corporate
-      generatedAt: new Date()
+      revenueByPaymentMode: Object.values(revenueByPaymentMode),
+      generatedAt: new Date(),
     };
   }
 
-  // modules/report/ReportService.ts - Add these methods
+  // ==================== NHIS EXPIRY REPORT ====================
+  async getNhisExpiryReport(filters: ReportFilters) {
+    const { startDate, endDate, daysThreshold = 30 } = filters;
 
-// ==================== NHIS EXPIRY REPORT ====================
-async getNhisExpiryReport(filters: ReportFilters & { daysThreshold?: number }) {
-  const { startDate, endDate, daysThreshold = 30 } = filters;
-  const threshold = daysThreshold || 30;
-  
-  const today = new Date();
-  const expiryCutoff = new Date();
-  expiryCutoff.setDate(today.getDate() + threshold);
-  
-  const where: any = {
-    nhisNumber: { not: null },
-    nhisActive: true
-  };
-  
-  if (startDate && endDate) {
-    where.nhisExpiryDate = {
-      gte: new Date(startDate),
-      lte: new Date(endDate)
-    };
-  } else {
-    where.nhisExpiryDate = {
-      gte: today,
-      lte: expiryCutoff
-    };
-  }
-  
-  const patients = await this.prisma.patient.findMany({
-    where,
-    select: {
-      id: true,
-      folderNumber: true,
-      surname: true,
-      otherNames: true,
-      contact: true,
-      phoneNumber: true,
-      nhisNumber: true,
-      nhisExpiryDate: true,
+    const today = new Date();
+    const expiryCutoff = new Date();
+    expiryCutoff.setDate(today.getDate() + daysThreshold);
+
+    const where: any = {
+      nhisNumber: { not: null },
       nhisActive: true,
-      insuranceProviderId: true,
-      createdAt: true
-    },
-    orderBy: { nhisExpiryDate: 'asc' }
-  });
-  
-  // Calculate days until expiry
-  const patientsWithExpiry = patients.map(patient => {
-    const daysUntilExpiry = patient.nhisExpiryDate 
-      ? Math.ceil((patient.nhisExpiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      : null;
-    
-    const expiryStatus = daysUntilExpiry !== null 
-      ? daysUntilExpiry <= 0 ? 'EXPIRED' 
-        : daysUntilExpiry <= 7 ? 'CRITICAL' 
-        : daysUntilExpiry <= 30 ? 'WARNING' 
-        : 'HEALTHY'
-      : 'UNKNOWN';
-    
-    return {
-      ...patient,
-      fullName: `${patient.surname} ${patient.otherNames || ''}`.trim(),
-      daysUntilExpiry,
-      expiryStatus
     };
-  });
-  
-  const summary = {
-    totalNHISPatients: patientsWithExpiry.length,
-    expired: patientsWithExpiry.filter(p => p.expiryStatus === 'EXPIRED').length,
-    critical: patientsWithExpiry.filter(p => p.expiryStatus === 'CRITICAL').length,
-    warning: patientsWithExpiry.filter(p => p.expiryStatus === 'WARNING').length,
-    healthy: patientsWithExpiry.filter(p => p.expiryStatus === 'HEALTHY').length,
-    noExpiryDate: patientsWithExpiry.filter(p => !p.nhisExpiryDate).length
-  };
-  
-  return {
-    reportType: 'NHIS MEMBERSHIP EXPIRY REPORT',
-    facility: await this.getFacilityInfo(),
-    period: {
-      startDate: startDate || today.toISOString().split('T')[0],
-      endDate: endDate || expiryCutoff.toISOString().split('T')[0],
-      generated: new Date().toISOString().split('T')[0]
-    },
-    summary,
-    patients: patientsWithExpiry,
-    generatedAt: new Date()
-  };
-}
 
-// ==================== NHIS CLAIMS WITH EXPIRY ====================
-async getNhisClaimsWithExpiry(filters: ReportFilters & { expiryStatus?: string }) {
-  const { startDate, endDate, expiryStatus } = filters;
-  
-  const whereClaim: any = {
-    insuranceProvider: {
-      type: 'nhis'
+    if (startDate && endDate) {
+      where.nhisExpiryDate = { gte: new Date(startDate), lte: new Date(endDate) };
+    } else {
+      where.nhisExpiryDate = { gte: today, lte: expiryCutoff };
     }
-  };
-  
-  if (startDate && endDate) {
-    whereClaim.submissionDate = {
-      gte: new Date(startDate),
-      lte: new Date(endDate)
+
+    const patients = await this.prisma.patient.findMany({
+      where,
+      select: {
+        id: true,
+        folderNumber: true,
+        surname: true,
+        otherNames: true,
+        contact: true,
+        phoneNumber: true,
+        nhisNumber: true,
+        nhisExpiryDate: true,
+        nhisActive: true,
+        insuranceProviderId: true,
+        createdAt: true,
+      },
+      orderBy: { nhisExpiryDate: 'asc' },
+    });
+
+    const patientsWithExpiry = patients.map(patient => {
+      const daysUntilExpiry = patient.nhisExpiryDate
+        ? Math.ceil((patient.nhisExpiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      const expiryStatus =
+        daysUntilExpiry === null ? 'UNKNOWN'
+        : daysUntilExpiry <= 0   ? 'EXPIRED'
+        : daysUntilExpiry <= 7   ? 'CRITICAL'
+        : daysUntilExpiry <= 30  ? 'WARNING'
+        : 'HEALTHY';
+
+      return {
+        ...patient,
+        fullName: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+        daysUntilExpiry,
+        expiryStatus,
+      };
+    });
+
+    const summary = {
+      totalNHISPatients: patientsWithExpiry.length,
+      expired: patientsWithExpiry.filter(p => p.expiryStatus === 'EXPIRED').length,
+      critical: patientsWithExpiry.filter(p => p.expiryStatus === 'CRITICAL').length,
+      warning: patientsWithExpiry.filter(p => p.expiryStatus === 'WARNING').length,
+      healthy: patientsWithExpiry.filter(p => p.expiryStatus === 'HEALTHY').length,
+      noExpiryDate: patientsWithExpiry.filter(p => !p.nhisExpiryDate).length,
+    };
+
+    return {
+      reportType: 'NHIS MEMBERSHIP EXPIRY REPORT' as const,
+      facility: await this.getFacilityInfo(),
+      period: {
+        startDate: startDate || today.toISOString().split('T')[0],
+        endDate: endDate || expiryCutoff.toISOString().split('T')[0],
+        generated: new Date().toISOString().split('T')[0],
+      },
+      summary,
+      patients: patientsWithExpiry,
+      generatedAt: new Date(),
     };
   }
-  
-  const claims = await this.prisma.insuranceClaim.findMany({
-    where: whereClaim,
-    include: {
-      Patient: {
-        select: {
-          id: true,
-          surname: true,
-          otherNames: true,
-          folderNumber: true,
-          nhisNumber: true,
-          nhisExpiryDate: true,
-          nhisActive: true
-        }
-      },
-      InsuranceProvider: {
-        select: { name: true }
-      },
-      Bill: true
-    },
-    orderBy: { submissionDate: 'desc' }
-  });
-  
-  const today = new Date();
-  const claimsWithExpiry = claims.map(claim => {
-    const expiryDate = claim.Patient?.nhisExpiryDate;
-    const daysUntilExpiry = expiryDate 
-      ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      : null;
-    
-    let expiryStatusValue = 'UNKNOWN';
-    if (expiryDate) {
-      if (daysUntilExpiry! <= 0) expiryStatusValue = 'EXPIRED';
-      else if (daysUntilExpiry! <= 7) expiryStatusValue = 'CRITICAL';
-      else if (daysUntilExpiry! <= 30) expiryStatusValue = 'WARNING';
-      else expiryStatusValue = 'ACTIVE';
-    }
-    
-    return {
-      ...claim,
-      patientName: claim.Patient ? `${claim.Patient.surname} ${claim.Patient.otherNames || ''}`.trim() : 'Unknown',
-      nhisNumber: claim.Patient?.nhisNumber,
-      nhisExpiryDate: expiryDate,
-      nhisExpiryStatus: expiryStatusValue,
-      daysUntilExpiry
+
+  // ==================== NHIS CLAIMS WITH EXPIRY ====================
+  async getNhisClaimsWithExpiry(filters: ReportFilters) {
+    const { startDate, endDate, expiryStatus } = filters;
+
+    const where: any = {
+      // FIXED: correct Prisma relation filter syntax using 'is'
+      InsuranceProvider: { is: { type: 'nhis' } },
     };
-  });
-  
-  const filteredClaims = expiryStatus 
-    ? claimsWithExpiry.filter(c => c.nhisExpiryStatus === expiryStatus)
-    : claimsWithExpiry;
-  
-  const summaryByExpiryStatus = {
-    ACTIVE: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'ACTIVE').length,
-    WARNING: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'WARNING').length,
-    CRITICAL: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'CRITICAL').length,
-    EXPIRED: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'EXPIRED').length,
-    UNKNOWN: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'UNKNOWN').length
-  };
-  
-  return {
-    reportType: 'NHIS CLAIMS WITH EXPIRY STATUS',
-    facility: await this.getFacilityInfo(),
-    period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
-    summary: {
-      totalClaims: filteredClaims.length,
-      totalClaimAmount: filteredClaims.reduce((sum, c) => sum + c.totalClaimAmount, 0),
-      byExpiryStatus: summaryByExpiryStatus
-    },
-    claims: filteredClaims,
-    generatedAt: new Date()
-  };
-}
+
+    if (startDate && endDate) {
+      where.submissionDate = { gte: new Date(startDate), lte: new Date(endDate) };
+    }
+
+    const claims = await this.prisma.insuranceClaim.findMany({
+      where,
+      include: {
+        Patient: {
+          select: {
+            id: true, surname: true, otherNames: true, folderNumber: true,
+            nhisNumber: true, nhisExpiryDate: true, nhisActive: true,
+          },
+        },
+        InsuranceProvider: { select: { name: true } },
+        Bill: true,
+      },
+      orderBy: { submissionDate: 'desc' },
+    });
+
+    const today = new Date();
+    const claimsWithExpiry = claims.map(claim => {
+      const expiryDate = claim.Patient?.nhisExpiryDate;
+      const daysUntilExpiry = expiryDate
+        ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      const nhisExpiryStatus =
+        !expiryDate            ? 'UNKNOWN'
+        : daysUntilExpiry! <= 0  ? 'EXPIRED'
+        : daysUntilExpiry! <= 7  ? 'CRITICAL'
+        : daysUntilExpiry! <= 30 ? 'WARNING'
+        : 'ACTIVE';
+
+      return {
+        ...claim,
+        patientName: claim.Patient
+          ? `${claim.Patient.surname} ${claim.Patient.otherNames || ''}`.trim()
+          : 'Unknown',
+        nhisNumber: claim.Patient?.nhisNumber,
+        nhisExpiryDate: expiryDate,
+        nhisExpiryStatus,
+        daysUntilExpiry,
+      };
+    });
+
+    const filtered = expiryStatus
+      ? claimsWithExpiry.filter(c => c.nhisExpiryStatus === expiryStatus)
+      : claimsWithExpiry;
+
+    const byExpiryStatus = {
+      ACTIVE:   claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'ACTIVE').length,
+      WARNING:  claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'WARNING').length,
+      CRITICAL: claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'CRITICAL').length,
+      EXPIRED:  claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'EXPIRED').length,
+      UNKNOWN:  claimsWithExpiry.filter(c => c.nhisExpiryStatus === 'UNKNOWN').length,
+    };
+
+    return {
+      reportType: 'NHIS CLAIMS WITH EXPIRY STATUS' as const,
+      facility: await this.getFacilityInfo(),
+      period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
+      summary: {
+        totalClaims: filtered.length,
+        totalClaimAmount: filtered.reduce((sum, c) => sum + c.totalClaimAmount, 0),
+        byExpiryStatus,
+      },
+      claims: filtered,
+      generatedAt: new Date(),
+    };
+  }
 
   // ==================== EXPORT REPORT ====================
   async exportReport(data: { reportType: string; format: string; filters: any }) {
@@ -602,8 +589,8 @@ async getNhisClaimsWithExpiry(filters: ReportFilters & { expiryStatus?: string }
         format: data.format,
         downloadUrl: `/exports/${data.reportType}-${Date.now()}.${data.format}`,
         fileSize: '2.5 MB',
-        generatedAt: new Date()
-      }
+        generatedAt: new Date(),
+      },
     };
   }
 }

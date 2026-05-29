@@ -215,7 +215,7 @@ const addSchemaDefaults = (data: any, type: string) => {
         metadata: data.metadata || null,
         tariffCode: data.tariffCode || null,
         diagnosisId: data.diagnosisId || null,
-        labTestTemplateId: data.labTestTemplateId || null,
+        labTestTemplateId: data.labTestTemplateId || null,  // ✅ Make sure this is included
         procedureTemplateId: data.procedureTemplateId || null,
         stockItemId: data.stockItemId || null,
         wardId: data.wardId || null,

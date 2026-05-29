@@ -10,14 +10,6 @@ import { serviceCatalogController } from './ServiceCatalogController';
 export function createServiceCatalogRoutes(): Router {
   const router = Router();
 
-  // All routes require authentication
-  router.use((req: AuthRequest, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
-    }
-    next();
-  });
-
   // GET all services with filtering and pagination
   router.get('/', (req: AuthRequest, res) => serviceCatalogController.getServiceCatalog(req, res));
   

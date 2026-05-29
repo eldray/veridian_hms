@@ -543,7 +543,7 @@ export default function Attendance() {
                   </div>
                   <div className="flex items-center gap-1">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
-                      {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
+                    {(attendance.status || 'pending').charAt(0).toUpperCase() + (attendance.status || 'pending').slice(1)}
                     </span>
                     {canDelete && (
                       <button
@@ -640,10 +640,14 @@ export default function Attendance() {
       ) : (
         // ✅ DEFAULT LIST VIEW
         <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+        {/* DEFAULT LIST VIEW */}
+        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Attendance #</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment</th>
@@ -660,37 +664,48 @@ export default function Attendance() {
                 
                 return (
                   <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
+                    {/* Patient Name Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[var(--text-primary)] text-sm truncate">
-                            {fullName}
-                          </p>
-                          <p className="text-xs text-[var(--text-secondary)]">
-                            {patient?.folderNumber || 'No Folder'}
-                          </p>
-                        </div>
+                        <p className="font-semibold text-[var(--text-primary)] text-sm">
+                          {fullName}
+                        </p>
                       </div>
                     </td>
+                    
+                    {/* Folder Number Column (Patient Number) */}
                     <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <p className="font-medium text-[var(--text-primary)]">
-                          {formatDate(attendance.dateTime || attendance.createdAt)}
-                        </p>
-                        <p className="text-[var(--text-secondary)] text-xs">
-                          {attendance.attendanceNumber}
-                        </p>
-                      </div>
+                      <p className="font-mono text-sm font-medium text-[var(--text-primary)]">
+                        {patient?.folderNumber || 'N/A'}
+                      </p>
                     </td>
+                    
+                    {/* Attendance Number Column */}
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-sm font-semibold text-[var(--icon-cyan-text)]">
+                        {attendance.attendanceNumber}
+                      </p>
+                    </td>
+                    
+                    {/* Date & Time Column */}
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-[var(--text-primary)]">
+                        {formatDate(attendance.dateTime || attendance.createdAt)}
+                      </p>
+                    </td>
+                    
+                    {/* Type Column */}
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 text-xs">
                         <Hospital className="w-3 h-3 text-[var(--icon-cyan-text)]" />
                         {getAttendanceTypeLabel(attendance.attendanceType)}
                       </span>
                     </td>
+                    
+                    {/* Payment Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 text-xs">
                         {getPaymentModeIcon(attendance.paymentMode)}
@@ -702,11 +717,15 @@ export default function Attendance() {
                         )}
                       </div>
                     </td>
+                    
+                    {/* Status Column */}
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
-                        {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
+                        {(attendance.status || 'pending').charAt(0).toUpperCase() + (attendance.status || 'pending').slice(1)}
                       </span>
                     </td>
+                    
+                    {/* Actions Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
@@ -741,6 +760,7 @@ export default function Attendance() {
               })}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 

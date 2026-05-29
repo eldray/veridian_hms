@@ -1,5 +1,5 @@
-// src/components/Toast.tsx - More compact
-import { useEffect } from 'react';
+// src/components/Toast.tsx
+import { useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -18,15 +18,28 @@ interface ToastProps {
 }
 
 export function Toast({ toast, onRemove }: ToastProps) {
-  useEffect(() => {
-    if (toast.duration !== 0) {
-      const timer = setTimeout(() => {
-        onRemove(toast.id);
-      }, toast.duration || 5000);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-      return () => clearTimeout(timer);
+  useEffect(() => {
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
-  }, [toast, onRemove]);
+
+    // Only set timeout if duration > 0
+    if (toast.duration && toast.duration > 0) {
+      timeoutRef.current = setTimeout(() => {
+        onRemove(toast.id);
+      }, toast.duration);
+    }
+
+    // Cleanup
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [toast.id, toast.duration, onRemove]);
 
   const icons = {
     success: CheckCircle,
@@ -45,7 +58,7 @@ export function Toast({ toast, onRemove }: ToastProps) {
   const Icon = icons[toast.type];
 
   return (
-    <div className={`flex items-start gap-3 p-3 rounded-lg border ${styles[toast.type]} shadow-lg animate-in slide-in-from-right-full duration-300 max-w-xs`}>
+    <div className={`flex items-start gap-3 p-3 rounded-lg border ${styles[toast.type]} shadow-lg max-w-xs animate-in slide-in-from-right duration-300`}>
       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
         toast.type === 'success' ? 'text-green-600' :
         toast.type === 'error' ? 'text-red-600' :

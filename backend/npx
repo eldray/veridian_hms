@@ -5,3 +5,20 @@ npx prisma migrate dev --name <name>	Create and apply a new migration
 npx prisma db push	Push schema changes without migration files (prototyping only)
 npx prisma migrate status	Check migration status
 npx prisma studio	View/edit database data visually
+
+
+# 1. Stop your server (Ctrl+C)
+
+# 2. Reset and drop everything
+npx prisma migrate reset --force --skip-seed
+
+# 3. Push the schema fresh
+npx prisma db push --force-reset
+
+# 4. Generate Prisma client
+npx prisma generate
+
+# 5. Run seed with FORCE flag
+npm run seed -- --force
+# or
+npx ts-node src/scripts/seedData.ts --force

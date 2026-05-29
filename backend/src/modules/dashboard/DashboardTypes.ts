@@ -1,6 +1,7 @@
 // modules/dashboard/DashboardTypes.ts
 import { Request } from 'express';
 
+// modules/dashboard/DashboardTypes.ts
 export interface IDashboardStats {
   totalPatients: number;
   todayVisits: number;
@@ -11,6 +12,11 @@ export interface IDashboardStats {
   totalRevenue: number;
   scheduledAppointments: number;
   completedProcedures: number;
+  diagnosisTrends: Array<{
+    disease: string;
+    icdCode: string;
+    patients: number;
+  }>;
 }
 
 export interface IWeeklyStats {

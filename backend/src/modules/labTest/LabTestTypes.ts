@@ -1,135 +1,98 @@
-// LabTestTypes.ts - TypeScript types and DTOs for Lab Test module
+// modules/labTest/LabTestTypes.ts
+import { ServiceCategory } from '@prisma/client';
 
-import { ServiceCategory, Priority } from '@prisma/client';
-
-// ============================================
-// REQUEST/RESPONSE TYPES
-// ============================================
-
-export interface LabTestServiceQuery {
-  serviceCategory?: ServiceCategory;
-  subType?: string;
+export interface LabTestQueryParams {
   isActive?: boolean;
-  isNHISCovered?: boolean;
+  category?: string;
+  subType?: string;
   page?: number;
   limit?: number;
 }
 
-export interface CreateLabTestServiceDTO {
+export interface CreateLabTestDTO {
   name: string;
   code: string;
   description?: string;
   serviceCategory: ServiceCategory;
-  subType: string;
-  cashPrice: number;
-  nhisPrice?: number;
-  insurancePrice: number;
+  subType?: string;
   nhisServiceCode?: string;
   tariffCode?: string;
   isNHISCovered?: boolean;
-  nhisCoverageType?: string;
   nhisRequiresAuth?: boolean;
   privateInsRequiresAuth?: boolean;
   isPrivateInsuranceExempted?: boolean;
-  metadata?: {
-    specimenType?: string;
-    preparationInstructions?: string;
-    turnaroundTime?: string;
-    normalRange?: string;
-    containerType?: string;
-    resultTemplate?: string;
-    storageRequirements?: string;
-  };
-  requiresClinicalNotes?: boolean;
+  specimenType?: string;
+  preparationInstructions?: string;
+  turnaroundTime?: string;
+  normalRange?: string;
+  containerType?: string;
+  resultTemplate?: any;
   isActive?: boolean;
   unit?: string;
+  cashPrice: number;
+  nhisPrice?: number;
+  insurancePrice: number;
   vatRate?: number;
   isTaxable?: boolean;
 }
 
-export interface UpdateLabTestServiceDTO extends Partial<CreateLabTestServiceDTO> {
-  id: string;
+export interface UpdateLabTestDTO extends Partial<CreateLabTestDTO> {
+  id?: string;
 }
 
-export interface BulkUpdateLabTestDTO {
+export interface BulkUpdateDTO {
   ids: string[];
   isActive: boolean;
 }
 
-export interface PaginationResponse {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
-}
-
-// ============================================
-// RESPONSE TYPES
-// ============================================
-
-export interface LabTestServiceResponse {
+export interface LabTestResponse {
   id: string;
   name: string;
   code: string;
-  description?: string;
-  serviceType: 'lab_test';
+  description: string | null;
+  serviceType: string;
   serviceCategory: ServiceCategory;
-  subType: string;
-  nhisServiceCode?: string;
-  tariffCode?: string;
+  subType: string | null;
+  nhisServiceCode: string | null;
+  tariffCode: string | null;
   isNHISCovered: boolean;
-  nhisCoverageType?: string;
   nhisRequiresAuth: boolean;
   privateInsRequiresAuth: boolean;
   isPrivateInsuranceExempted: boolean;
-  metadata?: any;
-  requiresClinicalNotes: boolean;
+  metadata: any;
   isActive: boolean;
   unit: string;
-  pricing?: {
+  createdById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  pricing: {
+    id: string;
+    serviceCatalogId: string;
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
     vatRate: number;
     isTaxable: boolean;
+    effectiveDate: Date;
     isActive: boolean;
-  };
-  LabTestTemplate?: Array<{
-    id: string;
-    name: string;
-    investigationCode?: string;
-    category?: string;
-  }>;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   labTests?: Array<{
     id: string;
     status: string;
-    Attendance?: {
-      attendanceNumber: string;
-    };
   }>;
-  User?: {
-    id: string;
-    fullName: string;
-    username: string;
-  };
 }
 
-export interface LabTestServicesListResponse {
-  success: boolean;
-  data: LabTestServiceResponse[];
-  pagination?: PaginationResponse;
+export interface PaginationInfo {
+  currentPage: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
-export interface LabTestSubCategoryResponse {
+export interface GetLabTestsResponse {
   success: boolean;
-  data: string[];
-}
-
-export interface LabMetadataFieldsResponse {
-  success: boolean;
-  data: {
-    specimenTypes: string[];
-    preparationInstructions: string[];
-    metadataStructure: Record<string, string>;
-  };
+  data: LabTestResponse[];
+  pagination: PaginationInfo;
 }

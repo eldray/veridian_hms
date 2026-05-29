@@ -1,4 +1,5 @@
-// stores/worklistStore.ts - CORRECTED
+// stores/worklistStore.ts - UPDATED for Grouped Worklists
+
 import { create } from 'zustand';
 import { 
   getVitalsWorklist,
@@ -7,6 +8,7 @@ import {
   getPharmacyWorklist,
   getScansWorklist,
   getTheatreWorklist,
+  getMaternalWorklist,
   getWorklistSummary
 } from '../api';
 import { WorklistState, WorklistItem, DepartmentType } from '../types/worklist';
@@ -37,51 +39,185 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
     try {
       let response;
       
-      // ✅ Use the imported API functions
       switch (department) {
         case 'vitals':
           response = await getVitalsWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
         case 'medical':
           response = await getMedicalWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
         case 'lab':
           response = await getLabWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
         case 'pharmacy':
           response = await getPharmacyWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
         case 'scans':
           response = await getScansWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
         case 'theatre':
           response = await getTheatreWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.scheduled || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
           break;
+          
+        // ✅ ADD MATERNAL CASE
+        case 'maternal':
+          response = await getMaternalWorklist();
+          if (response && response.data && Array.isArray(response.data)) {
+            const items = response.data;
+            const stats = {
+              total: response.pending || 0,
+              urgent: items.filter((i: any) => i.priority === 'urgent').length,
+              critical: items.filter((i: any) => i.priority === 'stat').length
+            };
+            set({ worklistItems: items, stats, isLoading: false });
+          } else {
+            const items = Array.isArray(response) ? response : (response?.data || []);
+            set({ 
+              worklistItems: items,
+              stats: {
+                total: items.length,
+                urgent: items.filter((i: any) => i.priority === 'urgent').length,
+                critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
+              },
+              isLoading: false 
+            });
+          }
+          break;
+          
         default:
           response = await getWorklistSummary();
+          set({ 
+            worklistItems: [],
+            stats: { total: 0, urgent: 0, critical: 0 },
+            isLoading: false 
+          });
+          break;
       }
-      
-      // Handle different response structures
-      let items = [];
-      if (response?.data && Array.isArray(response.data)) {
-        items = response.data;
-      } else if (Array.isArray(response)) {
-        items = response;
-      } else if (response?.items && Array.isArray(response.items)) {
-        items = response.items;
-      }
-      
-      const stats = {
-        total: items.length,
-        urgent: items.filter((i: any) => i.priority === 'urgent' || i.priority === 'high').length,
-        critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
-      };
-
-      set({ 
-        worklistItems: items, 
-        stats,
-        isLoading: false 
-      });
     } catch (error: any) {
       console.error('Worklist fetch error:', error);
       set({ 

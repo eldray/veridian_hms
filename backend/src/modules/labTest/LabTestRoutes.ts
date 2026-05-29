@@ -1,29 +1,42 @@
-// modules/labTest/LabTestRoutes.ts - FIXED
-
+// modules/labTest/LabTestRoutes.ts
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { LabTestController } from './LabTestController';
-import { protect, requireRole } from '../../middleware/authMiddleware';
+import { LabTestService } from './LabTestService';
+import { LabTestRepository } from './LabTestRepository';
 
 export function createLabTestRoutes(prisma: PrismaClient): Router {
   const router = Router();
-  const controller = new LabTestController(prisma);
+  const repository = new LabTestRepository(prisma);
+  const service = new LabTestService(repository);
+  const controller = new LabTestController(service);
 
-  router.use(protect);
+  // GET all lab tests
+  router.get('/', controller.getLabTests as any);
 
-  // ✅ Regular methods (not arrays) - use .bind()
-  router.get('/', requireRole(['admin', 'doctor', 'lab_tech', 'nurse', 'midwife']), controller.getLabTestServices.bind(controller));
-  router.get('/categories', requireRole(['admin', 'doctor', 'lab_tech']), controller.getLabTestCategories.bind(controller));
-  router.get('/sub-categories', requireRole(['admin', 'doctor', 'lab_tech']), controller.getLabTestSubCategories.bind(controller));
-  router.get('/specimen-types', requireRole(['admin', 'doctor', 'lab_tech']), controller.getSpecimenTypes.bind(controller));
-  router.get('/metadata-fields', requireRole(['admin', 'doctor', 'lab_tech']), controller.getLabTestMetadataFields.bind(controller));
-  router.get('/:id', requireRole(['admin', 'doctor', 'lab_tech', 'nurse', 'midwife']), controller.getLabTestServiceById.bind(controller));
+  // GET lab test categories
+  router.get('/categories', controller.getLabTestCategories as any);
 
-  // ✅ Array-based methods (with validation) - NO .bind()
-  router.post('/', requireRole(['admin']), controller.createLabTestService);
-  router.put('/:id', requireRole(['admin']), controller.updateLabTestService);
-  router.delete('/:id', requireRole(['admin']), controller.deleteLabTestService.bind(controller));
-  router.patch('/bulk-update', requireRole(['admin']), controller.bulkUpdateLabTestServices);
+  // GET specimen types
+  router.get('/specimen-types', controller.getSpecimenTypes as any);
+
+  // GET lab test metadata fields
+  router.get('/metadata-fields', controller.getLabTestMetadataFields as any);
+
+  // GET lab test by ID
+  router.get('/:id', controller.getLabTestById as any);
+
+  // POST create lab test
+  router.post('/', controller.createLabTest);
+
+  // PUT update lab test
+  router.put('/:id', controller.updateLabTest);
+
+  // DELETE lab test
+  router.delete('/:id', controller.deleteLabTest as any);
+
+  // POST bulk update lab tests
+  router.post('/bulk-update', controller.bulkUpdateLabTests as any);
 
   return router;
-}
+} 

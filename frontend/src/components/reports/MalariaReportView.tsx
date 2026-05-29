@@ -44,9 +44,17 @@ interface Props {
 }
 
 export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
-  if (!data) return null;
+  // ✅ Add defensive check at the beginning
+  if (!data || !data.facility) {
+    console.error('MalariaReportView: Invalid data structure', data);
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        Error: Invalid report data structure. Please try generating the report again.
+      </div>
+    );
+  }
 
-  const hasStockOut = (stock: any) => stock.stockOutDays > 7;
+  const hasStockOut = (stock: any) => stock?.stockOutDays > 7;
 
   return (
     <div className="space-y-6" id="malaria-report">
@@ -179,19 +187,19 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_1_5yrs.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_1_5yrs.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_1_5yrs) ? 'Yes' : 'No'}</td>
-              </tr>
+               </tr>
               <tr className="hover:bg-gray-50"><td className="px-4 py-3">6-13 years</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_6_13yrs.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_6_13yrs) ? 'Yes' : 'No'}</td>
-              </tr>
+               </tr>
               <tr className="hover:bg-gray-50"><td className="px-4 py-3">14+ years</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_14_plus.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_14_plus) ? 'Yes' : 'No'}</td>
-              </tr>
+               </tr>
             </tbody>
           </table>
         </div>

@@ -1,4 +1,4 @@
-// src/App.tsx - UPDATED WITH STOCK REPORTS AND ALL PAGES
+// src/App.tsx - UPDATED WITH ALL WAITING LIST PAGES
 import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { ToastContainer } from './components/ToastContainer';
@@ -19,6 +19,7 @@ import Attendance from './pages/Attendance';
 import Admissions from './pages/Admissions';
 import CorporateAccounts from './pages/CorporateAccounts';
 import Billing from './pages/Billing';
+import ScansEntry from './pages/ScansEntry';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Laboratory from './pages/Laboratory';
@@ -30,6 +31,9 @@ import ProcessPayment from './pages/ProcessPayment';
 import Login from './pages/Login';
 import Vitals from './pages/Vitals';
 import PatientDetails from './pages/PatientDetails';
+import MedicalWaitingList from './pages/MedicalWaitingList';
+import MaternalWaitingList from './pages/MaternalWaitingList';
+import Antenatal from './pages/Antenatal'; // ✅ Import Antenatal (Maternal entries page)
 import AttendanceDetails from './pages/AttendanceDetails';
 import Theatre from './pages/Theatre';
 import Nursing from './pages/Nursing';
@@ -40,6 +44,7 @@ import StockManagement from './pages/StockManagement';
 import InsuranceProviders from './pages/InsuranceProviders';
 import InsuranceClaims from './pages/InsuranceClaims';
 import EditInsuranceClaim from './pages/EditInsuranceClaim';
+import VitalsEntry from './pages/VitalsEntry';
 import EditNHISClaim from './pages/insurance-claims/EditNHISClaim';
 import EditPrivateClaim from './pages/insurance-claims/EditPrivateClaim';
 import EditCorporateClaim from './pages/insurance-claims/EditCorporateClaim';
@@ -47,13 +52,14 @@ import ClaimBatches from './pages/ClaimBatches';
 import WardManagement from './pages/WardManagement';
 import Notifications from './pages/Notifications';
 import Appointments from './pages/Appointments';
+import LabResultEntry from './pages/LabResultEntry';
 import Departments from './pages/Departments';
-import Antenatal from './pages/Antenatal';
+import TheatreProcedure from './pages/TheatreProcedure';
 import Scans from './pages/Scans';
 import InvoiceManagement from './pages/InvoiceManagement';
 import RequisitionManagement from './pages/RequisitionManagement';
 import StockTransactions from './pages/StockTransactions';
-import StockReports from './pages/StockReports'; // ✅ NEW IMPORT
+import StockReports from './pages/StockReports';
 import PatientBillingItems from './pages/PatientBillingItems';
 import Referrals from './pages/Referrals';
 
@@ -66,17 +72,17 @@ const rolePermissions = {
     'dashboard', 'patients', 'attendance', 'admissions', 'billing',
     'pharmacy', 'laboratory', 'medical_entries', 'reports', 'profile',
     'insurance_claims', 'service_catalog', 'vitals', 'appointments', 'theatre',
-    'nursing', 'antenatal', 'scans', 'wards', 'departments'
+    'nursing', 'antenatal', 'scans', 'wards', 'departments', 'medical_waiting_list'
   ],
   nurse: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
     'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'theatre'
+    'antenatal', 'theatre', 'medical_waiting_list'
   ],
   midwife: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
     'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'delivery', 'theatre'
+    'antenatal', 'delivery', 'theatre', 'medical_waiting_list', 'maternal_waiting_list'
   ],
   records: [
     'dashboard', 'patients', 'attendance', 'admissions', 'reports', 'profile',
@@ -88,7 +94,8 @@ const rolePermissions = {
   ],
   pharmacist: [
     'dashboard', 'pharmacy', 'inventory', 'stock_management', 'profile',
-    'invoices', 'requisitions', 'stock_transactions', 'reports', 'stock_reports'
+    'invoices', 'requisitions', 'stock_transactions', 'reports', 'stock_reports',
+    'dispense_medication' // ✅ Pharmacy waiting list permission
   ],
   accounts: [
     'dashboard', 'billing', 'reports', 'process_payment', 'insurance_providers',
@@ -121,8 +128,10 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/insurance-claims/:id/edit': 'insurance_claims',
     '/dashboard/inventory': 'inventory',
     '/dashboard/pharmacy': 'pharmacy',
+    '/dashboard/dispense': 'dispense_medication', // ✅ Pharmacy waiting list
+    '/dashboard/dispense/:id': 'pharmacy',
     '/dashboard/stock': 'stock_management',
-    '/dashboard/stock/reports': 'stock_reports', // ✅ NEW
+    '/dashboard/stock/reports': 'stock_reports',
     '/dashboard/theatre': 'theatre',
     '/dashboard/nursing': 'nursing',
     '/dashboard/antenatal': 'antenatal',
@@ -136,8 +145,13 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/transactions': 'stock_transactions',
     '/dashboard/laboratory': 'laboratory',
     '/dashboard/medical-entries': 'medical_entries',
+    '/dashboard/medical-entries/:attendanceId': 'medical_entries',
+    '/dashboard/medical-waiting-list': 'medical_waiting_list', // ✅ Medical waiting list
+    '/dashboard/maternal-waiting-list': 'maternal_waiting_list', // ✅ Maternal waiting list
+    '/dashboard/maternal/:attendanceId': 'antenatal',
     '/dashboard/medicalservices': 'service_catalog',
     '/dashboard/vitals': 'vitals',
+    '/dashboard/vitals/:id': 'vitals',
     '/dashboard/service-catalog': 'service_catalog',
     '/dashboard/reports': 'reports',
     '/dashboard/profile': 'profile',
@@ -158,6 +172,8 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (routePath.match(/^\/dashboard\/billing\/[^/]+\/payment$/)) return perms?.includes('billing');
   if (routePath.match(/^\/dashboard\/invoices\/[^/]+$/)) return perms?.includes('invoices');
   if (routePath.match(/^\/dashboard\/requisitions\/[^/]+$/)) return perms?.includes('requisitions');
+  if (routePath.match(/^\/dashboard\/dispense\/[^/]+$/)) return perms?.includes('pharmacy');
+  if (routePath.match(/^\/dashboard\/medical-entries\/[^/]+$/)) return perms?.includes('medical_entries');
 
   return false;
 };
@@ -278,16 +294,28 @@ function App() {
           <Route path="admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
           <Route path="wards" element={<ProtectedRoute><WardManagement /></ProtectedRoute>} />
           <Route path="laboratory" element={<ProtectedRoute><Laboratory /></ProtectedRoute>} />
+          <Route path="laboratory/:id" element={<ProtectedRoute><LabResultEntry /></ProtectedRoute>} />
           <Route path="scans" element={<ProtectedRoute><Scans /></ProtectedRoute>} />
+          <Route path="/dashboard/scans/:id" element={<ProtectedRoute><ScansEntry /></ProtectedRoute>} />
           <Route path="medical-entries" element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="medical-entries/:attendanceId" element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="vitals" element={<ProtectedRoute><Vitals /></ProtectedRoute>} />
+          <Route path="/dashboard/vitals/:id" element={<ProtectedRoute><VitalsEntry/></ProtectedRoute>} />
+
+          {/* Waiting List Pages */}
+          <Route path="/dashboard/medical-waiting-list" element={<ProtectedRoute><MedicalWaitingList /></ProtectedRoute>} />
+          <Route path="/dashboard/maternal-waiting-list" element={<ProtectedRoute><MaternalWaitingList /></ProtectedRoute>} />
+          
+          {/* Maternal Health */}
+          <Route path="/dashboard/maternal/:attendanceId" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
+          
+          {/* Medical Services */}
           <Route path="medicalservices" element={<ProtectedRoute><MedicalServicesManagement /></ProtectedRoute>} />
           
           {/* Theatre & Nursing routes */}
           <Route path="theatre" element={<ProtectedRoute><Theatre /></ProtectedRoute>} />
+          <Route path="/dashboard/theatre/:id" element={<ProtectedRoute><TheatreProcedure /></ProtectedRoute>} />
           <Route path="nursing" element={<ProtectedRoute><Nursing /></ProtectedRoute>} />
-          <Route path="antenatal" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
           
           {/* Inventory & Pharmacy routes */}
           <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
@@ -295,7 +323,7 @@ function App() {
           <Route path="stock" element={<ProtectedRoute><StockManagement /></ProtectedRoute>} />
           <Route path="/dashboard/dispense/:id" element={<ProtectedRoute><DispensePatient/></ProtectedRoute>} />
           
-          {/* Stock Reports - ✅ NEW ROUTE */}
+          {/* Stock Reports */}
           <Route path="stock/reports" element={<ProtectedRoute><StockReports /></ProtectedRoute>} />
           
           {/* Stock Management routes */}
@@ -324,7 +352,6 @@ function App() {
           <Route path="/dashboard/corporate-accounts" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="/dashboard/corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           
-
           {/* User & System routes */}
           <Route path="profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

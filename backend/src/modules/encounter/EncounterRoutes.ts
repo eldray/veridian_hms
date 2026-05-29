@@ -17,10 +17,16 @@ router.get('/daycase', protect, controller.getDaycasePatients);
 router.post('/:id/convert-to-ipd', protect, controller.convertDaycaseToIPD);
 
 // WORKLIST ROUTES
+
+// WORKLIST ROUTES - Match frontend expectations
 router.get('/worklist/vitals', protect, controller.getVitalsWorklist);
 router.get('/worklist/medical', protect, controller.getMedicalWorklist);
 router.get('/worklist/lab', protect, controller.getLabWorklist);
 router.get('/worklist/pharmacy', protect, controller.getPharmacyWorklist);
+router.get('/worklist/scans', protect, controller.getRadiologyWorklist);
+router.get('/worklist/procedures', protect, controller.getProceduresWorklist);
+router.get('/worklist/maternal', protect, controller.getMaternalWorklist);
+router.get('/worklist/summary', protect, controller.getWorklistSummary);
 
 // STATS ROUTE
 router.get('/stats', protect, controller.getStats);
@@ -35,6 +41,17 @@ router.post('/:id/discharge', protect, controller.dischargeEncounter);
 
 // BED OCCUPANCY
 router.get('/bed-occupancy', protect, controller.getBedOccupancy);
+
+// ============================================
+// DETENTION/OBSERVATION ROUTES (NEW)
+// ============================================
+router.get('/detention', protect, controller.getDetentionPatients);
+router.post('/:id/convert-detention-to-ipd', protect, controller.convertDetentionToIPD);
+
+// ============================================
+// FORMAL IPD ROUTES (NEW)
+// ============================================
+router.get('/formal-ipd', protect, controller.getFormalIPDPatients);
 
 // ============================================
 // DYNAMIC ID ROUTES (LAST - catches :id parameters)
@@ -52,6 +69,7 @@ router.post('/:id/diagnosis', protect, controller.addDiagnosis);
 router.put('/:id/diagnosis/primary', protect, controller.setPrimaryDiagnosis);
 router.delete('/:id/diagnosis/:diagnosisId', protect, controller.removeDiagnosis);
 
+router.get('/:id/vitals', protect, controller.getVitalsByEncounter); 
 router.post('/:id/vitals', protect, controller.addVitals);
 router.put('/vitals/:vitalsId', protect, controller.updateVitals);
 router.delete('/vitals/:vitalsId', protect, controller.deleteVitals);

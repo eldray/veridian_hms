@@ -254,16 +254,58 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateAttendance: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiUpdateAttendance(id, data);
+      console.log('📝 Updating attendance:', { id, data });
+      
+      // ✅ Filter out undefined values and fields that should not be sent
+      const cleanData = Object.keys(data).reduce((acc, key) => {
+        if (data[key] !== undefined && data[key] !== null) {
+          // Remove updatedAt if present - let backend handle it
+          if (key !== 'updatedAt') {
+            acc[key] = data[key];
+          }
+        }
+        return acc;
+      }, {} as any);
+      
+      console.log('🧹 Cleaned data being sent:', cleanData);
+      
+      const updated = await apiUpdateAttendance(id, cleanData);
+      
+      console.log('✅ Attendance updated successfully:', updated);
+      
       set({
         attendances: get().attendances.map((a) => (a.id === id ? updated : a)),
         currentAttendance: get().currentAttendance?.id === id ? updated : get().currentAttendance,
         isLoading: false,
+        error: null,
       });
+      
+      return updated;
     } catch (error: any) {
-      console.error('Error updating attendance:', error);
-      set({ error: error.message || 'Failed to update attendance', isLoading: false });
-      throw error;
+      console.error('❌ Error updating attendance:', {
+        id,
+        data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        responseData: error.response?.data
+      });
+      
+      // ✅ Extract detailed error message from response
+      let errorMessage = error.message || 'Failed to update attendance';
+      if (error.response?.data?.errors) {
+        // Handle validation errors array
+        const validationErrors = error.response.data.errors;
+        errorMessage = validationErrors.map((err: any) => err.msg).join(', ');
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      set({ 
+        error: errorMessage, 
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
     }
   },
 
@@ -610,8 +652,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     }
   },
 
+// stores/attendanceStore.ts - FIXED Vitals functions
+
   // ==========================================
-  // VITALS OPERATIONS
+  // VITALS OPERATIONS - FIXED
   // ==========================================
 
   addVitals: async (attendanceId, data) => {
@@ -622,13 +666,33 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      await apiAddVitals(attendanceId, data);
-      const updatedAttendance = await apiGetAttendance(attendanceId);
+      // Save the vitals (API only needs attendanceId)
+      const savedVitals = await apiAddVitals(attendanceId, data);
+      console.log('✅ Vitals saved:', savedVitals);
+      
+      // Fetch fresh vitals after save
+      const freshVitals = await apiGetVitals(attendanceId);
+      console.log('📊 Fresh vitals after save:', freshVitals);
+      
+      // Update the vitals in the local attendance object
+      const updatedAttendances = get().attendances.map((a) => {
+        if (a.id === attendanceId) {
+          return { ...a, Vitals: freshVitals };
+        }
+        return a;
+      });
+      
+      const updatedCurrentAttendance = get().currentAttendance?.id === attendanceId
+        ? { ...get().currentAttendance, Vitals: freshVitals }
+        : get().currentAttendance;
+      
       set({
-        attendances: get().attendances.map((a) => (a.id === updatedAttendance.id ? updatedAttendance : a)),
-        currentAttendance: updatedAttendance,
+        attendances: updatedAttendances,
+        currentAttendance: updatedCurrentAttendance,
         isLoading: false,
       });
+      
+      return savedVitals;
     } catch (error: any) {
       console.error('Error adding vitals:', error);
       set({ error: error.message || 'Failed to add vitals', isLoading: false });
@@ -637,8 +701,12 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   getVitalsByAttendance: async (attendanceId) => {
+    console.log('🔍 Fetching vitals for attendance:', attendanceId);
     try {
-      return await apiGetVitals(attendanceId);
+      const vitals = await apiGetVitals(attendanceId);
+      console.log('📊 API returned vitals:', vitals);
+      console.log('📊 Vitals count:', vitals?.length || 0);
+      return vitals || [];
     } catch (error) {
       console.error('Error fetching vitals:', error);
       return [];
@@ -648,11 +716,28 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateVitals: async (attendanceId, vitalsId, data) => {
     set({ isLoading: true, error: null });
     try {
-      await apiUpdateVitals(attendanceId, vitalsId, data);
-      const updatedAttendance = await apiGetAttendance(attendanceId);
+      // ✅ Only need vitalsId for the API call
+      await apiUpdateVitals(vitalsId, data);
+      console.log('✅ Vitals updated for vitalsId:', vitalsId);
+      
+      // Fetch fresh vitals after update using attendanceId
+      const freshVitals = await apiGetVitals(attendanceId);
+      console.log('📊 Fresh vitals after update:', freshVitals);
+      
+      const updatedAttendances = get().attendances.map((a) => {
+        if (a.id === attendanceId) {
+          return { ...a, Vitals: freshVitals };
+        }
+        return a;
+      });
+      
+      const updatedCurrentAttendance = get().currentAttendance?.id === attendanceId
+        ? { ...get().currentAttendance, Vitals: freshVitals }
+        : get().currentAttendance;
+      
       set({
-        attendances: get().attendances.map((a) => (a.id === updatedAttendance.id ? updatedAttendance : a)),
-        currentAttendance: updatedAttendance,
+        attendances: updatedAttendances,
+        currentAttendance: updatedCurrentAttendance,
         isLoading: false,
       });
     } catch (error: any) {
@@ -665,11 +750,30 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   deleteVitals: async (attendanceId, vitalsId) => {
     set({ isLoading: true, error: null });
     try {
-      await apiDeleteVitals(attendanceId, vitalsId);
-      const updatedAttendance = await apiGetAttendance(attendanceId);
+      console.log('🗑️ Deleting vitals:', { attendanceId, vitalsId });
+      
+      // ✅ Only need vitalsId for the API call
+      await apiDeleteVitals(vitalsId);
+      console.log('✅ Vitals deleted successfully');
+      
+      // Fetch fresh vitals after delete using attendanceId
+      const freshVitals = await apiGetVitals(attendanceId);
+      console.log('📊 Fresh vitals after delete:', freshVitals);
+      
+      const updatedAttendances = get().attendances.map((a) => {
+        if (a.id === attendanceId) {
+          return { ...a, Vitals: freshVitals };
+        }
+        return a;
+      });
+      
+      const updatedCurrentAttendance = get().currentAttendance?.id === attendanceId
+        ? { ...get().currentAttendance, Vitals: freshVitals }
+        : get().currentAttendance;
+      
       set({
-        attendances: get().attendances.map((a) => (a.id === updatedAttendance.id ? updatedAttendance : a)),
-        currentAttendance: updatedAttendance,
+        attendances: updatedAttendances,
+        currentAttendance: updatedCurrentAttendance,
         isLoading: false,
       });
     } catch (error: any) {
@@ -678,6 +782,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       throw error;
     }
   },
+
 
   // ==========================================
   // BILLING OPERATIONS

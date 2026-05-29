@@ -1,4 +1,4 @@
-// stores/wardStore.ts - UPDATED WITH ALL API FUNCTIONS
+// stores/wardStore.ts - FIXED to match backend response structure
 import { create } from 'zustand';
 import { 
   getWards as apiGetWards,
@@ -11,7 +11,6 @@ import {
   createBed as apiCreateBed,
   updateBed as apiUpdateBed,
   deleteBed as apiDeleteBed,
-  // ✅ ADDED MISSING FUNCTION
   getAvailableBeds as apiGetAvailableBeds
 } from '../api';
 import type { Ward, Bed, Pagination } from '../types';
@@ -19,7 +18,7 @@ import type { Ward, Bed, Pagination } from '../types';
 interface WardState {
   wards: Ward[];
   beds: Bed[];
-  availableBeds: Bed[]; // ✅ ADDED
+  availableBeds: Bed[];
   currentWard: Ward | null;
   currentBed: Bed | null;
   isLoading: boolean;
@@ -28,21 +27,21 @@ interface WardState {
   // Wards
   getWards: (filters?: any) => Promise<void>;
   getWard: (id: string) => Promise<void>;
-  createWard: (data: any) => Promise<void>;
-  updateWard: (id: string, data: any) => Promise<void>;
+  createWard: (data: any) => Promise<any>;
+  updateWard: (id: string, data: any) => Promise<any>;
   deleteWard: (id: string) => Promise<void>;
   
   // Beds
   getBeds: (filters?: any) => Promise<void>;
   getBed: (id: string) => Promise<void>;
-  createBed: (data: any) => Promise<void>;
-  updateBed: (id: string, data: any) => Promise<void>;
+  createBed: (data: any) => Promise<any>;
+  updateBed: (id: string, data: any) => Promise<any>;
   deleteBed: (id: string) => Promise<void>;
   
-  // ✅ ADDED MISSING FUNCTION
-  getAvailableBeds: () => Promise<void>;
+  // Available beds
+  getAvailableBeds: () => Promise<Bed[]>;
   
-  // Utility functions
+  // Utility
   getBedsByWard: (wardId: string) => Bed[];
   getAvailableBedsByWard: (wardId: string) => Bed[];
   
@@ -50,51 +49,88 @@ interface WardState {
   clearCurrentBed: () => void;
 }
 
-// Helper function to transform backend data to frontend format
-const transformWard = (ward: any): Ward => ({
-  ...ward,
-  id: ward.id,
-});
+// Transform functions matching your backend response structure
+const transformWard = (ward: any): Ward => {
+  // Your backend returns data directly, not wrapped in extra layers
+  return {
+    id: ward.id,
+    wardName: ward.wardName,
+    wardType: ward.wardType,
+    totalBeds: ward.totalBeds,
+    occupiedBeds: ward.occupiedBeds,
+    isActive: ward.isActive,
+    dailyCashRate: ward.dailyCashRate,
+    dailyNHISRate: ward.dailyNHISRate,
+    dailyInsuranceRate: ward.dailyInsuranceRate,
+    vatRate: ward.vatRate,
+    isTaxable: ward.isTaxable,
+    isNHISCovered: ward.isNHISCovered,
+    nhisRequiresAuth: ward.nhisRequiresAuth,
+    isPrivateInsExempted: ward.isPrivateInsExempted,
+    requiresAuthorization: ward.requiresAuthorization,
+    description: ward.description,
+    location: ward.location,
+    floor: ward.floor,
+    createdAt: ward.createdAt,
+    updatedAt: ward.updatedAt,
+    beds: ward.Bed || ward.beds,
+    availableBeds: ward.availableBeds ?? (ward.totalBeds - ward.occupiedBeds),
+    occupancyRate: ward.occupancyRate ?? (ward.totalBeds > 0 ? (ward.occupiedBeds / ward.totalBeds) * 100 : 0)
+  };
+};
 
-const transformBed = (bed: any): Bed => ({
-  ...bed,
-  id: bed.id,
-});
+const transformBed = (bed: any): Bed => {
+  return {
+    id: bed.id,
+    bedNumber: bed.bedNumber,
+    wardId: bed.wardId,
+    isOccupied: bed.isOccupied,
+    currentPatientId: bed.currentPatientId,
+    createdAt: bed.createdAt,
+    updatedAt: bed.updatedAt,
+    ward: bed.Ward || bed.ward,
+    currentPatient: bed.Patient || bed.currentPatient
+  };
+};
 
 export const useWardStore = create<WardState>((set, get) => ({
   wards: [],
   beds: [],
-  availableBeds: [], // ✅ ADDED
+  availableBeds: [],
   currentWard: null,
   currentBed: null,
   isLoading: false,
   pagination: null,
 
+  // ✅ FIXED: Get wards - handles your backend response format
   getWards: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const response = await apiGetWards(filters);
       console.log('🔍 [WardStore] Raw wards response:', response);
       
+      // Your backend returns { success, data, message }
       let wardsArray: any[] = [];
       
-      if (Array.isArray(response)) {
-        wardsArray = response;
-      } else if (response && Array.isArray(response.wards)) {
-        wardsArray = response.wards;
-      } else if (response && Array.isArray(response.data)) {
+      if (response?.data && Array.isArray(response.data)) {
         wardsArray = response.data;
+      } else if (response?.data?.data && Array.isArray(response.data.data)) {
+        wardsArray = response.data.data;
+      } else if (Array.isArray(response)) {
+        wardsArray = response;
+      } else if (response?.wards && Array.isArray(response.wards)) {
+        wardsArray = response.wards;
       } else {
         console.warn('Unexpected wards response structure:', response);
         wardsArray = [];
       }
 
       const transformedWards = wardsArray.map(transformWard);
-      console.log('✅ [WardStore] Transformed wards:', transformedWards);
+      console.log('✅ [WardStore] Transformed wards:', transformedWards.length);
       
       set({ 
         wards: transformedWards,
-        pagination: response.pagination || null,
+        pagination: response?.pagination || null,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -104,11 +140,57 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Get available beds - handles your backend response format
+  getAvailableBeds: async () => {
+    set({ isLoading: true });
+    try {
+      const response = await apiGetAvailableBeds();
+      console.log('🔍 [WardStore] Raw available beds response:', response);
+      
+      // Your backend returns { success, data: { totalAvailableBeds, availableBeds, byWard } }
+      let bedsArray: any[] = [];
+      
+      if (response?.data?.availableBeds && Array.isArray(response.data.availableBeds)) {
+        bedsArray = response.data.availableBeds;
+      } else if (response?.data && Array.isArray(response.data)) {
+        bedsArray = response.data;
+      } else if (response?.availableBeds && Array.isArray(response.availableBeds)) {
+        bedsArray = response.availableBeds;
+      } else if (Array.isArray(response)) {
+        bedsArray = response;
+      } else {
+        console.warn('Unexpected available beds response structure:', response);
+        bedsArray = [];
+      }
+
+      const transformedBeds = bedsArray.map(transformBed);
+      console.log('✅ [WardStore] Transformed available beds:', transformedBeds.length);
+      
+      set({ 
+        availableBeds: transformedBeds,
+        isLoading: false 
+      });
+      
+      return transformedBeds;
+    } catch (error: unknown) {
+      console.error('❌ [WardStore] Failed to fetch available beds:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  // Get single ward
   getWard: async (id: string) => {
     set({ isLoading: true });
     try {
-      const ward = await apiGetWard(id);
-      set({ currentWard: transformWard(ward), isLoading: false });
+      const response = await apiGetWard(id);
+      let wardData = response;
+      
+      if (response?.data) {
+        wardData = response.data;
+      }
+      
+      set({ currentWard: transformWard(wardData), isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch ward:', error);
       set({ isLoading: false });
@@ -116,14 +198,21 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // ✅ FIXED: Create ward - handles backend response
   createWard: async (data: any) => {
     set({ isLoading: true });
     try {
       console.log('🔍 [WardStore] Creating ward with data:', data);
-      const newWard = await apiCreateWard(data);
-      console.log('✅ [WardStore] Created ward response:', newWard);
+      const response = await apiCreateWard(data);
+      console.log('✅ [WardStore] Created ward response:', response);
       
-      const transformedWard = transformWard(newWard.ward || newWard);
+      // Your backend returns { success, data, message }
+      let wardData = response;
+      if (response?.data) {
+        wardData = response.data;
+      }
+      
+      const transformedWard = transformWard(wardData);
       const wards = get().wards;
       
       set({ 
@@ -140,13 +229,19 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Update ward
   updateWard: async (id: string, data: any) => {
     set({ isLoading: true });
     try {
-      const updatedWard = await apiUpdateWard(id, data);
-      const transformedWard = transformWard(updatedWard.ward || updatedWard);
+      const response = await apiUpdateWard(id, data);
+      let wardData = response;
+      if (response?.data) {
+        wardData = response.data;
+      }
+      
+      const transformedWard = transformWard(wardData);
       const wards = get().wards.map(ward => 
-        (ward.id === id) ? transformedWard : ward
+        ward.id === id ? transformedWard : ward
       );
       set({ 
         wards,
@@ -161,17 +256,15 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Delete ward
   deleteWard: async (id: string) => {
     set({ isLoading: true });
     try {
       await apiDeleteWard(id);
-      const wards = get().wards.filter(ward => 
-        !(ward.id === id)
-      );
+      const wards = get().wards.filter(ward => ward.id !== id);
       set({ 
         wards,
-        currentWard: get().currentWard && 
-          (get().currentWard.id === id || get().currentWard.id === id) ? null : get().currentWard,
+        currentWard: get().currentWard?.id === id ? null : get().currentWard,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -181,6 +274,7 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Get all beds
   getBeds: async (filters = {}) => {
     set({ isLoading: true });
     try {
@@ -189,23 +283,23 @@ export const useWardStore = create<WardState>((set, get) => ({
       
       let bedsArray: any[] = [];
       
-      if (Array.isArray(response)) {
-        bedsArray = response;
-      } else if (response && Array.isArray(response.beds)) {
-        bedsArray = response.beds;
-      } else if (response && Array.isArray(response.data)) {
+      if (response?.data && Array.isArray(response.data)) {
         bedsArray = response.data;
+      } else if (response?.data?.beds && Array.isArray(response.data.beds)) {
+        bedsArray = response.data.beds;
+      } else if (Array.isArray(response)) {
+        bedsArray = response;
       } else {
         console.warn('Unexpected beds response structure:', response);
         bedsArray = [];
       }
 
       const transformedBeds = bedsArray.map(transformBed);
-      console.log('✅ [WardStore] Transformed beds:', transformedBeds);
+      console.log('✅ [WardStore] Transformed beds:', transformedBeds.length);
       
       set({ 
         beds: transformedBeds,
-        pagination: response.pagination || null,
+        pagination: response?.pagination || null,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -215,11 +309,16 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Get single bed
   getBed: async (id: string) => {
     set({ isLoading: true });
     try {
-      const bed = await apiGetBed(id);
-      set({ currentBed: transformBed(bed), isLoading: false });
+      const response = await apiGetBed(id);
+      let bedData = response;
+      if (response?.data) {
+        bedData = response.data;
+      }
+      set({ currentBed: transformBed(bedData), isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch bed:', error);
       set({ isLoading: false });
@@ -227,14 +326,20 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Create bed
   createBed: async (data: any) => {
     set({ isLoading: true });
     try {
       console.log('🔍 [WardStore] Creating bed with data:', data);
-      const newBed = await apiCreateBed(data);
-      console.log('✅ [WardStore] Created bed response:', newBed);
+      const response = await apiCreateBed(data);
+      console.log('✅ [WardStore] Created bed response:', response);
       
-      const transformedBed = transformBed(newBed.bed || newBed);
+      let bedData = response;
+      if (response?.data) {
+        bedData = response.data;
+      }
+      
+      const transformedBed = transformBed(bedData);
       const beds = get().beds;
       
       set({ 
@@ -251,13 +356,19 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Update bed
   updateBed: async (id: string, data: any) => {
     set({ isLoading: true });
     try {
-      const updatedBed = await apiUpdateBed(id, data);
-      const transformedBed = transformBed(updatedBed.bed || updatedBed);
+      const response = await apiUpdateBed(id, data);
+      let bedData = response;
+      if (response?.data) {
+        bedData = response.data;
+      }
+      
+      const transformedBed = transformBed(bedData);
       const beds = get().beds.map(bed => 
-        (bed.id === id) ? transformedBed : bed
+        bed.id === id ? transformedBed : bed
       );
       set({ 
         beds,
@@ -272,17 +383,15 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
+  // Delete bed
   deleteBed: async (id: string) => {
     set({ isLoading: true });
     try {
       await apiDeleteBed(id);
-      const beds = get().beds.filter(bed => 
-        !(bed.id === id)
-      );
+      const beds = get().beds.filter(bed => bed.id !== id);
       set({ 
         beds,
-        currentBed: get().currentBed && 
-          (get().currentBed.id === id || get().currentBed.id === id) ? null : get().currentBed,
+        currentBed: get().currentBed?.id === id ? null : get().currentBed,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -292,35 +401,15 @@ export const useWardStore = create<WardState>((set, get) => ({
     }
   },
 
-  // ✅ ADDED MISSING FUNCTION
-  getAvailableBeds: async () => {
-    set({ isLoading: true });
-    try {
-      const availableBeds = await apiGetAvailableBeds();
-      const transformedBeds = availableBeds.map(transformBed);
-      
-      set({ 
-        availableBeds: transformedBeds,
-        isLoading: false 
-      });
-      
-      return transformedBeds;
-    } catch (error: unknown) {
-      console.error('❌ [WardStore] Failed to fetch available beds:', error);
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  // ✅ ADDED UTILITY FUNCTIONS
+  // Utility functions
   getBedsByWard: (wardId: string) => {
     const { beds } = get();
-    return beds.filter(bed => bed.wardId === wardId || bed.ward?.id === wardId);
+    return beds.filter(bed => bed.wardId === wardId);
   },
 
   getAvailableBedsByWard: (wardId: string) => {
     const { availableBeds } = get();
-    return availableBeds.filter(bed => bed.wardId === wardId || bed.ward?.id === wardId);
+    return availableBeds.filter(bed => bed.wardId === wardId);
   },
 
   clearCurrentWard: () => {

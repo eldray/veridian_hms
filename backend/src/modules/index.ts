@@ -10,14 +10,13 @@ import { createAppointmentRoutes } from './appointment';
 import { createBillingRoutes } from './billing';
 import { createDepartmentRoutes } from './department';
 import { createAntenatalRoutes } from './antenatal';
-import { createAdmissionRoutes } from './admission';
 import { encounterRoutes } from './encounter';
 import { createReferralRoutes } from './referral/ReferralRoutes';
 import { createBedRoutes } from './bed';
 import { BillRoutes } from './bill';
 import { createDiagnosisRoutes } from './diagnosis/DiagnosisRoutes';
 import documentRoutes from './document/DocumentRoutes';
-import dashboardRoutes from './dashboard/DashboardRoutes';
+import createDashboardRoutes from './dashboard/DashboardRoutes';
 import { createClinicalReportsRoutes } from './clinicalReports';
 import { createReportRoutes } from './report';
 import { createServiceCatalogRoutes } from './serviceCatalog';
@@ -63,9 +62,6 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   app.use('/encounters', encounterRoutes);
   console.log('✅ Encounter routes mounted at /encounters (includes worklist queues)');
-  
-  app.use('/admissions', createAdmissionRoutes(prisma));
-  console.log('✅ Admission routes mounted at /admissions');
   
   app.use('/referrals', createReferralRoutes(prisma));
   console.log('✅ Referral routes mounted at /referrals');
@@ -170,7 +166,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/ghs-reports', createGHSReportRoutes(prisma));  // ✅ Pass prisma
   console.log('✅ GHS Report routes mounted at /ghs-reports');
   
-  app.use('/dashboard', dashboardRoutes);
+  app.use('/dashboard', createDashboardRoutes(prisma));
   console.log('✅ Dashboard routes mounted at /dashboard');
 
   // ============================================

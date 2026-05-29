@@ -9,9 +9,10 @@ export class GDRGRepository extends BaseRepository<GDRGTariff, any, any> {
     super(prisma, 'gDRGTariff');
   }
 
-  async findAllWithFilters(where?: any, include?: any, page: number = 1, limit: number = 100) {
+  async findAllWithFilters(where?: any, include?: any, page: number = 1, limit: number = 1000) {
     const pageNum = Math.max(1, page);
-    const limitNum = Math.min(100, Math.max(1, limit));
+    // ✅ CHANGED: max limit from 100 to 1000
+    const limitNum = Math.min(1000, Math.max(1, limit));
     const skip = (pageNum - 1) * limitNum;
 
     const [data, total] = await Promise.all([

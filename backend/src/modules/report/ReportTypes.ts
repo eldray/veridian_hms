@@ -3,19 +3,34 @@
  * TypeScript types and interfaces for report operations
  */
 
+// ─── Base Filters ─────────────────────────────────────────────────────────────
+
 export interface ReportFilters {
+  // Standardised date params (use these — dateFrom/dateTo are legacy)
   startDate?: string;
   endDate?: string;
-  period?: string;
+
+  // Legacy aliases kept for backward compat with controller query params
   dateFrom?: string;
   dateTo?: string;
+
+  period?: string;
   diagnosisCode?: string;
   attendanceType?: string;
   paymentMode?: string;
   serviceCategory?: string;
   insuranceProviderId?: string;
   status?: string;
+
+  // Corporate — was missing, used throughout the service
+  corporateAccountId?: string;
+
+  // NHIS expiry — was missing, used in NHIS service methods
+  daysThreshold?: number;
+  expiryStatus?: string;
 }
+
+// ─── Shared building blocks ───────────────────────────────────────────────────
 
 export interface FacilityInfo {
   name: string;
@@ -31,20 +46,7 @@ export interface ReportPeriod {
   generated: string;
 }
 
-export interface FamilyPlanningReport {
-  reportType: 'FAMILY PLANNING REPORT';
-  facility: FacilityInfo;
-  period: ReportPeriod;
-  summary: {
-    totalFPClients: number;
-    totalFPVisits: number;
-    newAcceptors: number;
-    coupleYearProtection: number;
-  };
-  demographicBreakdown: Record<string, number>;
-  methodMix: Record<string, number>;
-  generatedAt: Date;
-}
+// ─── Demographic Report ───────────────────────────────────────────────────────
 
 export interface DemographicReport {
   reportType: 'DEMOGRAPHIC ANALYSIS REPORT';
@@ -68,6 +70,8 @@ export interface DemographicReport {
   generatedAt: Date;
 }
 
+// ─── Financial Report ─────────────────────────────────────────────────────────
+
 export interface FinancialReport {
   reportPeriod: {
     startDate: string | Date;
@@ -79,9 +83,12 @@ export interface FinancialReport {
     outstandingBalance: number;
     totalBills: number;
   };
+  byPaymentMode: Record<string, { count: number; amount: number }>;
   breakdown: any[];
   reportGenerated: Date;
 }
+
+// ─── Insurance Claims Report ──────────────────────────────────────────────────
 
 export interface InsuranceClaimsReport {
   reportType: 'Insurance Claims Analysis';
@@ -89,24 +96,147 @@ export interface InsuranceClaimsReport {
     startDate?: string;
     endDate?: string;
   };
-  claimsReport: any[];
-  totals: {
+  // Aligned with service which returns 'summary', not 'totals'
+  summary: {
     totalClaims: number;
+    corporateClaims: number;
+    regularClaims: number;
     totalClaimAmount: number;
     totalPaidAmount: number;
   };
+  claimsReport: any[];
+  corporateClaims: any[];
   generatedAt: Date;
 }
+
+// ─── Clinical Report ──────────────────────────────────────────────────────────
 
 export interface ClinicalReport {
   reportType: 'Clinical Statistics';
   period: {
-    dateFrom?: string;
-    dateTo?: string;
+    startDate?: string;
+    endDate?: string;
   };
-  clinicalReport: any[];
+  clinicalReport: Array<{
+    diagnosis: string;
+    icdCode: string;
+    morbidityGroup: string;
+    totalCases: number;
+    averageAge: number;
+    genderDistribution: { male: number; female: number };
+    paymentModeBreakdown: Record<string, number>;
+  }>;
   generatedAt: Date;
 }
+
+// ─── Attendance Report ────────────────────────────────────────────────────────
+
+export interface AttendanceReport {
+  reportType: 'ATTENDANCE REPORT';
+  facility: FacilityInfo;
+  period: ReportPeriod;
+  summary: {
+    totalAttendances: number;
+    uniquePatients: number;
+    averageVisitsPerPatient: number;
+    corporateShare: number;
+  };
+  // Removed dailyDistribution and hourlyDistribution — not computed in service
+  attendancePatterns: {
+    byType: Record<string, number>;
+    byPaymentMode: Record<string, number>;
+  };
+  generatedAt: Date;
+}
+
+// ─── Revenue Report ───────────────────────────────────────────────────────────
+
+export interface RevenueReport {
+  reportType: 'REVENUE ANALYSIS REPORT';
+  facility: FacilityInfo;
+  period: ReportPeriod;
+  summary: {
+    totalRevenue: number;
+    totalBills: number;
+    averageBillAmount: number;
+    corporateRevenue: number;
+    corporateShare: number;
+  };
+  revenueByPaymentMode: Array<{
+    paymentMode: string;
+    totalRevenue: number;
+    billCount: number;
+    averageBill: number;
+  }>;
+  generatedAt: Date;
+}
+
+// ─── NHIS Reports ─────────────────────────────────────────────────────────────
+
+export type NHISExpiryStatus = 'EXPIRED' | 'CRITICAL' | 'WARNING' | 'HEALTHY' | 'UNKNOWN';
+
+export interface NHISExpiryPatient {
+  id: string;
+  folderNumber: string;
+  surname: string;
+  otherNames: string | null;
+  contact: string;
+  phoneNumber: string | null;
+  nhisNumber: string | null;
+  nhisExpiryDate: Date | null;
+  nhisActive: boolean;
+  fullName: string;
+  daysUntilExpiry: number | null;
+  expiryStatus: NHISExpiryStatus;
+}
+
+export interface NHISExpiryReport {
+  reportType: 'NHIS MEMBERSHIP EXPIRY REPORT';
+  facility: FacilityInfo;
+  period: ReportPeriod;
+  summary: {
+    totalNHISPatients: number;
+    expired: number;
+    critical: number;
+    warning: number;
+    healthy: number;
+    noExpiryDate: number;
+  };
+  patients: NHISExpiryPatient[];
+  generatedAt: Date;
+}
+
+export interface NHISClaimsWithExpiryReport {
+  reportType: 'NHIS CLAIMS WITH EXPIRY STATUS';
+  facility: FacilityInfo;
+  period: { startDate?: string; endDate?: string; generated: string };
+  summary: {
+    totalClaims: number;
+    totalClaimAmount: number;
+    byExpiryStatus: Record<NHISExpiryStatus, number>;
+  };
+  claims: any[];
+  generatedAt: Date;
+}
+
+// ─── Family Planning Report ───────────────────────────────────────────────────
+
+export interface FamilyPlanningReport {
+  reportType: 'FAMILY PLANNING REPORT';
+  facility: FacilityInfo;
+  period: ReportPeriod;
+  summary: {
+    totalFPClients: number;
+    totalFPVisits: number;
+    newAcceptors: number;
+    coupleYearProtection: number;
+  };
+  demographicBreakdown: Record<string, number>;
+  methodMix: Record<string, number>;
+  generatedAt: Date;
+}
+
+// ─── Morbidity Report ─────────────────────────────────────────────────────────
 
 export interface MorbidityMortalityReport {
   reportType: 'MORBIDITY & MORTALITY REPORT';
@@ -126,97 +256,9 @@ export interface MorbidityMortalityReport {
   generatedAt: Date;
 }
 
-export interface AttendanceReport {
-  reportType: 'ATTENDANCE REPORT';
-  facility: FacilityInfo;
-  period: ReportPeriod;
-  summary: {
-    totalAttendances: number;
-    uniquePatients: number;
-    averageVisitsPerPatient: number;
-  };
-  attendancePatterns: {
-    byType: Record<string, number>;
-    byPaymentMode: Record<string, number>;
-    dailyDistribution: Record<string, number>;
-    hourlyDistribution: Record<string, number>;
-  };
-  generatedAt: Date;
-}
+// ─── Export ───────────────────────────────────────────────────────────────────
 
-export interface RevenueReport {
-  reportType: 'REVENUE ANALYSIS REPORT';
-  facility: FacilityInfo;
-  period: ReportPeriod;
-  summary: {
-    totalRevenue: number;
-    totalBills: number;
-    averageBillAmount: number;
-  };
-  revenueByPaymentMode: any[];
-  monthlyRevenueTrend: any[];
-  generatedAt: Date;
-}
-
-export interface LabReport {
-  reportType: 'LABORATORY REPORT';
-  facility: FacilityInfo;
-  period: ReportPeriod;
-  summary: {
-    totalTests: number;
-    byStatus: Record<string, number>;
-    byPriority: Record<string, number>;
-    averageTurnaroundTime: number;
-  };
-  topTests: any[];
-  generatedAt: Date;
-}
-
-export interface ScanReport {
-  summary: {
-    totalScans: number;
-    byStatus: Record<string, number>;
-    byType: Record<string, number>;
-    byBodyPart: Record<string, number>;
-    averageTurnaroundTime: number;
-  };
-  topScans: any[];
-  generatedAt: Date;
-}
-
-export interface ProcedureReport {
-  summary: {
-    totalProcedures: number;
-    byStatus: Record<string, number>;
-    byCategory: Record<string, number>;
-    averageDuration: number;
-  };
-  topProcedures: any[];
-  generatedAt: Date;
-}
-
-export interface MedicationReport {
-  summary: {
-    totalPrescriptions: number;
-    byStatus: Record<string, number>;
-    byRoute: Record<string, number>;
-    totalQuantityDispensed: number;
-  };
-  topMedications: any[];
-  generatedAt: Date;
-}
-
-export interface VitalsReport {
-  summary: {
-    totalVitalsRecords: number;
-    uniquePatients: number;
-    abnormalFindings: Record<string, number>;
-  };
-  trends: any[];
-  generatedAt: Date;
-}
-
-export type ReportType = 
+export type ReportType =
   | 'family-planning'
   | 'demographic'
   | 'financial'
@@ -225,11 +267,8 @@ export type ReportType =
   | 'morbidity-mortality'
   | 'attendance'
   | 'revenue'
-  | 'lab'
-  | 'scan'
-  | 'procedure'
-  | 'medication'
-  | 'vitals';
+  | 'nhis-expiry'
+  | 'nhis-claims';
 
 export type ExportFormat = 'pdf' | 'excel' | 'csv';
 

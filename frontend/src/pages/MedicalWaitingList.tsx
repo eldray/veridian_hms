@@ -1,4 +1,4 @@
-// src/pages/VitalsWaitingList.tsx - SIMPLIFIED using worklistItems
+// src/pages/MedicalWaitingList.tsx - SIMPLIFIED using worklistStore only
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -6,38 +6,25 @@ import { useWorklistStore } from '../store/worklistStore';
 import { useToast } from '../store/toastStore';
 import {
   ChevronLeft,
-  Activity,
-  RefreshCw,
+  Stethoscope,
+  Users,
   AlertCircle,
   Clock,
-  CheckCircle,
-  AlertTriangle,
-  Heart,
-  Thermometer,
-  User,
-  Calendar,
-  TrendingUp,
   Search,
-  Users,
-  Eye,
+  User,
   Bed,
-  Baby,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Eye,
+  Thermometer,
+  Heart,
+  ClipboardList,
   History,
-  Edit3
+  FileText,
+  Calendar
 } from 'lucide-react';
-
-// Helper function to calculate age
-function calculateAge(dateOfBirth: Date): number {
-  if (!dateOfBirth) return 0;
-  const birthDate = new Date(dateOfBirth);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
 
 // Stats Card Component
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
@@ -57,17 +44,31 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
 // Priority Badge
 const getPriorityBadge = (priority: string) => {
   switch (priority) {
-    case 'critical':
     case 'stat':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Critical</span>;
+    case 'critical':
+      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">CRITICAL</span>;
     case 'urgent':
-      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Urgent</span>;
+      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">URGENT</span>;
     default:
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Routine</span>;
+      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">WAITING</span>;
   }
 };
 
-export default function VitalsWaitingList() {
+// Status Badge
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'pending_doctor':
+      return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Pending Review</span>;
+    case 'reviewed':
+      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Reviewed</span>;
+    case 'pending_vitals_first':
+      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Awaiting Vitals</span>;
+    default:
+      return <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{status}</span>;
+  }
+};
+
+export default function MedicalWaitingList() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
@@ -78,15 +79,15 @@ export default function VitalsWaitingList() {
   const [itemsPerPage] = useState(10);
   const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
-  // ✅ Only use worklistStore - no more attendanceStore or patientStore needed
-  const { worklistItems, stats: worklistStats, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  // ✅ ONLY use worklistStore
+  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
 
   const loadData = async () => {
     try {
       setRefreshing(true);
       setIsLoading(true);
-      await fetchWorklist('vitals');
-      success('Data loaded', 'Vitals ready');
+      await fetchWorklist('medical');
+      success('Data loaded', 'Medical waiting list ready');
     } catch (err: any) {
       toastError('Load failed', err.message || 'Could not load data');
     } finally {
@@ -99,13 +100,14 @@ export default function VitalsWaitingList() {
     loadData();
   }, []);
 
-  // ✅ Directly use worklistItems - they already have hasVitalsToday flag
+  // ✅ Directly use worklistItems - they already have status flags
+  // For medical: hasMedicalNotesToday flag determines if patient has been reviewed
   const pendingPatients = useMemo(() => {
-    return worklistItems.filter(item => !item.hasVitalsToday);
+    return worklistItems.filter(item => !item.hasMedicalNotesToday && item.status === 'pending_doctor');
   }, [worklistItems]);
 
   const recentPatients = useMemo(() => {
-    return worklistItems.filter(item => item.hasVitalsToday);
+    return worklistItems.filter(item => item.hasMedicalNotesToday || item.status === 'reviewed');
   }, [worklistItems]);
 
   // Filter based on search and active tab
@@ -113,9 +115,10 @@ export default function VitalsWaitingList() {
     const source = activeTab === 'pending' ? pendingPatients : recentPatients;
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
-    return source.filter(p =>
-      p.patient?.name?.toLowerCase().includes(lower) ||
-      p.patient?.folderNumber?.toLowerCase().includes(lower)
+    return source.filter(patient =>
+      patient.patient?.name?.toLowerCase().includes(lower) ||
+      patient.patient?.folderNumber?.toLowerCase().includes(lower) ||
+      patient.complaints?.toLowerCase().includes(lower)
     );
   }, [pendingPatients, recentPatients, searchQuery, activeTab]);
 
@@ -133,15 +136,14 @@ export default function VitalsWaitingList() {
 
   // Stats
   const stats = {
-    pendingVitals: pendingPatients.length,
-    critical: pendingPatients.filter(p => p.priority === 'critical' || p.priority === 'stat').length,
+    total: pendingPatients.length,
     urgent: pendingPatients.filter(p => p.priority === 'urgent').length,
-    antenatalPatients: pendingPatients.filter(p => p.isAntenatal).length,
-    recentVitals: recentPatients.length
+    critical: pendingPatients.filter(p => p.priority === 'stat' || p.priority === 'critical').length,
+    reviewed: recentPatients.length
   };
 
-  const handlePatientClick = (patient: any) => {
-    navigate(`/dashboard/vitals/${patient.patientId}`, {
+  const handleStartConsultation = (patient: any) => {
+    navigate(`/dashboard/medical-entries/${patient.attendanceId}`, {
       state: {
         patient: {
           id: patient.patientId,
@@ -151,8 +153,7 @@ export default function VitalsWaitingList() {
           gender: patient.patient?.gender
         },
         attendanceId: patient.attendanceId,
-        isAntenatal: patient.isAntenatal,
-        lastVitals: patient.lastVitals
+        fromWaitingList: true
       }
     });
   };
@@ -161,8 +162,8 @@ export default function VitalsWaitingList() {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-[var(--icon-red-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Vitals Queue...</h2>
+          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Medical Queue...</h2>
         </div>
       </div>
     );
@@ -179,12 +180,12 @@ export default function VitalsWaitingList() {
           >
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
-          <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-xl flex items-center justify-center">
-            <Activity className="w-5 h-5 text-[var(--icon-red-text)]" />
+          <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+            <Stethoscope className="w-5 h-5 text-[var(--icon-purple-text)]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Vital Signs</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Record and monitor patient vital signs</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Medical Consultation Queue</h1>
+            <p className="text-sm text-[var(--text-secondary)]">View waiting patients and start consultations</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -201,40 +202,40 @@ export default function VitalsWaitingList() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <StatCard
-          title="Vitals Due"
-          value={stats.pendingVitals}
-          icon={Activity}
-          color="text-[var(--icon-red-text)]"
-          bg="bg-[var(--icon-red-bg)]"
+        <StatCard 
+          title="Total Waiting" 
+          value={stats.total} 
+          icon={Users}
+          color="text-cyan-600"
+          bg="bg-cyan-100"
         />
-        <StatCard
-          title="Critical"
-          value={stats.critical}
+        <StatCard 
+          title="Urgent" 
+          value={stats.urgent} 
           icon={AlertTriangle}
-          color="text-red-600"
-          bg="bg-red-100"
-        />
-        <StatCard
-          title="Urgent"
-          value={stats.urgent}
-          icon={Clock}
           color="text-orange-600"
           bg="bg-orange-100"
         />
-        <StatCard
-          title="Antenatal"
-          value={stats.antenatalPatients}
-          icon={Baby}
-          color="text-pink-600"
-          bg="bg-pink-100"
+        <StatCard 
+          title="Critical" 
+          value={stats.critical} 
+          icon={AlertCircle}
+          color="text-red-600"
+          bg="bg-red-100"
         />
-        <StatCard
-          title="Recent Vitals"
-          value={stats.recentVitals}
-          icon={History}
+        <StatCard 
+          title="Reviewed Today" 
+          value={stats.reviewed} 
+          icon={CheckCircle}
           color="text-green-600"
           bg="bg-green-100"
+        />
+        <StatCard 
+          title="Recent Cases" 
+          value={stats.reviewed} 
+          icon={History}
+          color="text-purple-600"
+          bg="bg-purple-100"
         />
       </div>
 
@@ -244,7 +245,7 @@ export default function VitalsWaitingList() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
           <input
             type="text"
-            placeholder="Search by patient name or folder number..."
+            placeholder="Search by patient name, folder number, or complaints..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
@@ -259,15 +260,15 @@ export default function VitalsWaitingList() {
             onClick={() => setActiveTab('pending')}
             className={`px-4 py-2 text-sm font-medium transition-all relative ${
               activeTab === 'pending'
-                ? 'text-[var(--icon-red-text)] border-b-2 border-[var(--icon-red-text)]'
+                ? 'text-[var(--icon-purple-text)] border-b-2 border-[var(--icon-purple-text)]'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             <span className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Pending Vitals
+              Pending Review
               {pendingPatients.length > 0 && (
-                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">
                   {pendingPatients.length}
                 </span>
               )}
@@ -283,7 +284,7 @@ export default function VitalsWaitingList() {
           >
             <span className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
-              Recent Vitals (Today)
+              Reviewed Today
               {recentPatients.length > 0 && (
                 <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
                   {recentPatients.length}
@@ -300,31 +301,31 @@ export default function VitalsWaitingList() {
           <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
             {activeTab === 'pending' ? (
               <>
-                <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
-                Vitals Waiting List ({filteredPatients.length} patients)
+                <ClipboardList className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                Waiting List ({filteredPatients.length} patients)
               </>
             ) : (
               <>
                 <History className="w-4 h-4 text-green-600" />
-                Recent Vitals Recorded Today ({filteredPatients.length} patients)
+                Recently Reviewed Today ({filteredPatients.length} patients)
               </>
             )}
           </h2>
         </div>
-
+        
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
             {activeTab === 'pending' ? (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
-                <p className="text-[var(--text-secondary)]">No patients waiting for vitals</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">All vitals are up to date</p>
+                <p className="text-[var(--text-secondary)]">No patients waiting for consultation</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">All patients have been attended to</p>
               </>
             ) : (
               <>
                 <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
-                <p className="text-[var(--text-secondary)]">No vitals recorded today</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">Record vitals to see them here</p>
+                <p className="text-[var(--text-secondary)]">No patients reviewed today</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Complete consultations to see them here</p>
               </>
             )}
           </div>
@@ -337,24 +338,23 @@ export default function VitalsWaitingList() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Last Vitals' : 'Latest Reading'}
-                    </th>
-                    {activeTab === 'pending' && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Priority</th>
-                    )}
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Complaints</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Waiting Time' : 'Recorded At'}
+                      {activeTab === 'pending' ? 'Priority' : 'Reviewed At'}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
+                      {activeTab === 'pending' ? 'Wait Time' : 'Doctor'}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
                   {paginatedPatients.map((patient) => (
-                    <tr
-                      key={patient.id}
+                    <tr 
+                      key={patient.id} 
                       className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
-                      onClick={() => handlePatientClick(patient)}
+                      onClick={() => handleStartConsultation(patient)}
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -367,7 +367,6 @@ export default function VitalsWaitingList() {
                             </p>
                             <p className="text-xs text-[var(--text-secondary)]">
                               {patient.patient?.age} years • {patient.patient?.gender}
-                              {patient.isAntenatal && <span className="ml-1 text-pink-500">🤰</span>}
                             </p>
                           </div>
                         </div>
@@ -380,67 +379,61 @@ export default function VitalsWaitingList() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                           <Bed className="w-3.5 h-3.5" />
-                          <span>{patient.location?.bed || '—'}</span>
+                          <span>{patient.location?.bed || 'OPD'}</span>
                           {patient.location?.ward && <span className="text-xs">({patient.location.ward})</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {patient.lastVitals ? (
-                          <div className="text-xs space-y-1">
-                            <div className="flex gap-2 justify-center">
-                              <span>BP: {patient.lastVitals.bloodPressure || '—'}</span>
-                              <span>Temp: {patient.lastVitals.temperature || '—'}°C</span>
-                            </div>
-                            <div className="flex gap-2 justify-center text-[var(--text-tertiary)]">
-                              <span>Pulse: {patient.lastVitals.pulse || '—'}</span>
-                              <span>SpO2: {patient.lastVitals.spo2 || '—'}%</span>
-                            </div>
-                          </div>
+                        <p className="text-sm text-[var(--text-primary)] max-w-xs truncate">
+                          {patient.complaints || '—'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(patient.status)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {activeTab === 'pending' ? (
+                          getPriorityBadge(patient.priority)
                         ) : (
-                          <span className="text-xs text-[var(--text-secondary)]">No records</span>
+                          <div className="text-xs text-[var(--text-secondary)]">
+                            {patient.reviewedAt 
+                              ? new Date(patient.reviewedAt).toLocaleTimeString()
+                              : '—'}
+                          </div>
                         )}
                       </td>
-                      {activeTab === 'pending' && (
-                        <td className="px-4 py-3">
-                          {getPriorityBadge(patient.priority)}
-                          {patient.hasAbnormal && (
-                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px]">
-                              Abnormal
-                            </span>
-                          )}
-                        </td>
-                      )}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>
-                            {activeTab === 'pending'
-                              ? `${Math.floor(patient.waitTime / 60)}h ${patient.waitTime % 60}m`
-                              : patient.vitalsRecordedAt
-                                ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
-                                : '—'
-                            }
+                        {activeTab === 'pending' ? (
+                          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>
+                              {Math.floor(patient.waitTime / 60)}h {patient.waitTime % 60}m
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--text-secondary)]">
+                            {patient.reviewedBy || '—'}
                           </span>
-                        </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
+                          onClick={(e) => { e.stopPropagation(); handleStartConsultation(patient); }}
                           className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
                             activeTab === 'pending'
-                              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
+                              ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white'
                               : 'bg-blue-100 text-blue-700 hover:bg-blue-700 hover:text-white'
                           }`}
                         >
                           {activeTab === 'pending' ? (
                             <>
                               <Eye className="w-3 h-3" />
-                              Record Vitals
+                              Start Consultation
                             </>
                           ) : (
                             <>
-                              <Edit3 className="w-3 h-3" />
-                              Edit Vitals
+                              <FileText className="w-3 h-3" />
+                              View Record
                             </>
                           )}
                         </button>
@@ -450,7 +443,7 @@ export default function VitalsWaitingList() {
                 </tbody>
               </table>
             </div>
-
+            
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
