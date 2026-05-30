@@ -184,31 +184,47 @@ export class GHSReportController extends BaseController {
     }
   };
 
-  // ── Form A Report ─────────────────────────────────────────────────────────
+// modules/ghsReport/GHSReportController.ts
 
-  generateFormAReport = async (req: AuthRequest, res: Response) => {
-    try {
-      const { startDate, endDate, year, month } = this.reportService.parseDateParams(req.query);
-      const report = await this.reportService.generateFormAReport(startDate, endDate);
-      const csv    = GHSReportService.exportFormAToCSV(report);
+// ─ Form A Report ─────────────────────────────────────────────────────────
 
-      const saved = await this.prisma.gHSReportSubmission.create({
-        data: {
-          reportType:     'form_a_complete',
-          reportingYear:  year,
-          reportingMonth: month,
-          periodStart:    startDate,
-          periodEnd:      endDate,
-          data:           report as any,
-          createdById:    req.user!.id,
-        },
-      });
+generateFormAReport = async (req: AuthRequest, res: Response) => {
+  try {
+    // 1. Parse dates safely (defaults to current month if missing)
+    const { startDate, endDate, year, month } = this.reportService.parseDateParams(req.query);
+    
+    // 2. Generate comprehensive report from updated Service
+    const report = await this.reportService.generateFormAReport(startDate, endDate);
+    
+    // 3. Export to CSV using the new formatter
+    const csv = GHSReportService.exportFormAToCSV(report);
 
-      this.ok(res, { data: report, csv, submissionId: saved.id }, 'Form A report generated successfully');
-    } catch (error) {
-      this.error(res, error);
-    }
-  };
+    // 4. Save submission record for audit & DHIMS2 tracking
+    const saved = await this.prisma.gHSReportSubmission.create({
+      data: {
+        reportType:     'form_a_complete',
+        reportingYear:  year,
+        reportingMonth: month,
+        periodStart:    startDate,
+        periodEnd:      endDate,
+        data:           report as any,
+        createdById:    req.user!.id,
+      },
+    });
+
+    // 5. Return JSON + CSV link to frontend
+    this.ok(res, { 
+      data: report, 
+      csv, 
+      submissionId: saved.id,
+      period: { startDate, endDate } 
+    }, 'Form A report generated successfully');
+    
+  } catch (error) {
+    console.error('❌ Error generating Form A report:', error);
+    this.error(res, error, 'Failed to generate Form A report');
+  }
+};
 
   // ── IDSR Report ───────────────────────────────────────────────────────────
 

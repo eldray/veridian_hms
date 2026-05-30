@@ -244,6 +244,7 @@ model Patient {
   abortionRecords      AbortionRecord[]
   postnatalRecords     PostnatalRecord[]
   proformaInvoices     ProformaInvoice[]
+  familyPlanningServices FamilyPlanningService[]
 
   @@index([nhisNumber])
   @@index([phoneNumber])
@@ -412,7 +413,7 @@ model Attendance {
   physicalExamination        String?
   treatmentPlan              String?
   followUpDate               DateTime?
-
+  familyPlanningServices   FamilyPlanningService[]
   antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
   currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
   antenatalVisits          ANCVisit[]
@@ -1928,6 +1929,7 @@ model User {
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
   abortionRecords  AbortionRecord[]
+  familyPlanningServicesProvided FamilyPlanningService[]
 }
 
 model RefreshToken {
@@ -2063,7 +2065,7 @@ model DeliveryRecord {
   deliveryDate      DateTime
   deliveryType      DeliveryType
   deliveryOutcome   DeliveryOutcome
-  placeOfDelivery   PlaceOfDelivery
+  placeOfDelivery   PlaceOfDelivery @default(private_hospital) // ✅ DEFAULT for private hospitals
   attendant         String
   birthWeight       Float?
   gestationWeeks    Int?
@@ -2078,6 +2080,15 @@ model DeliveryRecord {
   updatedAt         DateTime        @updatedAt
 
   antenatalBookingId String?
+
+  // ✅ NEW: Male Involvement
+  malePartnerPresentANC     Boolean  @default(false)
+  malePartnerPresentDelivery Boolean @default(false)
+  malePartnerPresentPNC     Boolean  @default(false)
+  
+  // ✅ NEW: Maternal Death Audit
+  maternalDeathsAudited     Boolean  @default(false)
+  auditNotes                String?
 
   patient    Patient    @relation(fields: [patientId], references: [id])
   attendance Attendance @relation(fields: [attendanceId], references: [id])
@@ -2096,18 +2107,25 @@ model DeliveryRecord {
 }
 
 model NewbornRecord {
-  id               String         @id @default(cuid())
-  deliveryRecordId String
-  birthWeight      Float
-  gender           Gender
-  apgarScore1min   Int?
-  apgarScore5min   Int?
-  resuscitation    Boolean        @default(false)
-  outcome          NewbornOutcome
-  anomalies        String[]
-  referredTo       String?
-  createdAt        DateTime       @default(now())
-
+  id                        String         @id @default(cuid())
+  deliveryRecordId          String
+  birthWeight               Float
+  gender                    Gender
+  apgarScore1min            Int?
+  apgarScore5min            Int?
+  resuscitation             Boolean        @default(false)
+  outcome                   NewbornOutcome
+  anomalies                 String[]
+  referredTo                String?
+  createdAt                 DateTime       @default(now())
+  
+  // ✅ NEW: Essential Newborn Care (per baby)
+  breastfeedingWithin30Min  Boolean        @default(false)
+  eyeProphylaxisGiven       Boolean        @default(false)
+  cordCareMethod            CordCareMethod @default(dry_cord)
+  babyWeightAt6to10Days     Float?
+  weightAt6to10DaysDate     DateTime?
+  
   deliveryRecord DeliveryRecord @relation(fields: [deliveryRecordId], references: [id])
 
   @@map("newborn_records")
@@ -2125,6 +2143,11 @@ model AbortionRecord {
   createdById      String
   createdAt        DateTime        @default(now())
 
+  // ✅ NEW: Post-Abortion Family Planning
+  postAbortionFPCounselled  Boolean  @default(false)
+  postAbortionFPAccepted    Boolean  @default(false)
+  fpMethodAccepted          String?  // FP method accepted post-abortion
+
   patient         Patient          @relation(fields: [patientId], references: [id])
   attendance      Attendance       @relation(fields: [attendanceId], references: [id])
   createdBy       User             @relation(fields: [createdById], references: [id])
@@ -2133,6 +2156,33 @@ model AbortionRecord {
   @@index([abortionDate])
   @@map("abortion_records")
 }
+
+model FamilyPlanningService {
+  id                String   @id @default(cuid())
+  patientId         String
+  attendanceId      String?  // Optional link to encounter
+  serviceDate       DateTime @default(now())
+  method            FPMethod
+  isPostnatal       Boolean  @default(false)
+  isPostAbortion    Boolean  @default(false)
+  counseled         Boolean  @default(true)
+  accepted          Boolean  @default(true)
+  cypFactor         Float    @default(1.0) // Couple Year Protection factor
+  notes             String?
+  providedById      String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  patient    Patient @relation(fields: [patientId], references: [id])
+  attendance Attendance? @relation(fields: [attendanceId], references: [id])
+  provider   User    @relation(fields: [providedById], references: [id])
+
+  @@index([patientId])
+  @@index([serviceDate])
+  @@index([method])
+  @@map("family_planning_services")
+}
+
 
 // ============================================================
 // PROFORMA INVOICES (Estimates for Private Patients)
@@ -2874,13 +2924,6 @@ enum DeliveryOutcome {
   neonatal_death
 }
 
-enum PlaceOfDelivery {
-  hospital
-  health_centre
-  clinic
-  home
-  en_route
-}
 
 enum MaternalOutcome {
   alive
@@ -2915,8 +2958,6 @@ enum AbortionMethod {
   other
 }
 
-// Add these enums where your other enums are defined (near the top of the file)
-
 enum PatientClassification {
   NEW
   OLD
@@ -2925,4 +2966,50 @@ enum PatientClassification {
 enum DiagnosisClassification {
   NEW_DIAGNOSIS
   OLD_DIAGNOSIS
+}
+
+enum CordCareMethod {
+  dry_cord
+  chlorhexidine
+  methylated_spirit
+  alcohol
+  other
+}
+
+enum PlaceOfDelivery {
+  private_hospital        // DEFAULT for your system
+  government_hospital
+  health_centre
+  clinic
+  chag_facility
+  private_midwife
+  tba_trained
+  tba_untrained
+  home
+  en_route
+  mines_facility
+  quasi_govt_institution
+}
+
+enum FPMethod {
+  // Modern Methods
+  pill_coc
+  pill_pop
+  injectable_dmpa
+  injectable_net_en
+  implant_implanon
+  implant_jadelle
+  iud_copper
+  iud_hormonal
+  condom_male
+  condom_female
+  female_sterilization
+  
+  // Traditional
+  lactational_amenorrhea
+  withdrawal
+  calendar_method
+  
+  // Emergency
+  emergency_contraception
 }

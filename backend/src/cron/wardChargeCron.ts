@@ -28,20 +28,20 @@ export class WardChargeService {
     // Get all active admissions (not discharged)
     const activeAdmissions = await prisma.admission.findMany({
       where: {
-        status: 'admitted',
         dischargeDate: null
       },
       include: {
-        Ward: true,           // ✅ FIXED: Capital W
-        Bed: true,
-        Attendance: {
+        attendance: {
           include: {
             Patient: true,
             Bill: true,
             InsuranceProvider: true,
-            CorporateAccount: true
+            CorporateAccount: true,
+            Ward: true,
+            Bed: true  // Ward is accessed through Attendance
           }
-        }
+        },
+      
       }
     });
 

@@ -8,7 +8,7 @@ import {
   PieChart, UserCheck, Shield, AlertTriangle, Droplet, RefreshCw,
   ArrowLeft, Hospital, Syringe, Scissors, FlaskConical, ListOrdered,
   FileSpreadsheet, ClipboardList, AlertCircle, Filter,
-  CalendarDays, CreditCard, Package,
+  CalendarDays, CreditCard, Package,Eye,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';

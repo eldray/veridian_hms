@@ -144,19 +144,35 @@ export interface DeliveryRecordData {
   encounterId: string;
   antenatalBookingId?: string;
   deliveryDate?: string;
+  
   deliveryType?: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
   deliveryOutcome?: 'live_birth' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'neonatal_death';
-  placeOfDelivery?: 'hospital' | 'health_centre' | 'clinic' | 'home' | 'en_route';
+  
+  // ✅ UPDATED: Match new Prisma Enum (Default is private_hospital)
+  placeOfDelivery?: 'private_hospital' | 'government_hospital' | 'health_centre' | 'clinic' | 'chag_facility' | 'private_midwife' | 'tba_trained' | 'tba_untrained' | 'home' | 'en_route' | 'mines_facility' | 'quasi_govt_institution';
+  
   attendant?: string;
   birthWeight?: number;
   gestationWeeks?: number;
   apgarScore1min?: number;
   apgarScore5min?: number;
   resusCitationDone?: boolean;
-  numberOfBabies?: number;
+  
   maternalOutcome?: 'alive' | 'dead_direct_cause' | 'dead_indirect_cause' | 'dead_unknown';
   maternalComplications?: string[];
   notes?: string;
+  
+  // ✅ NEW: Male Involvement
+  malePartnerPresentANC?: boolean;
+  malePartnerPresentDelivery?: boolean;
+  malePartnerPresentPNC?: boolean;
+  
+  // ✅ NEW: Audit/Tracking
+  maternalDeathsAudited?: boolean;
+  auditNotes?: string;
+  
+  // ✅ NEW: Newborns array (for multiples)
+  newborns?: Partial<NewbornRecord>[];
 }
 
 export interface PostnatalRecordData {

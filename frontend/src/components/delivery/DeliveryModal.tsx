@@ -1,6 +1,5 @@
-// src/components/delivery/DeliveryModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Hospital, Baby, AlertTriangle } from 'lucide-react';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { useToast } from '../../store/toastStore';
 
@@ -24,10 +23,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   const { createDelivery, updateDelivery, isLoading } = useDeliveryStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     deliveryType: 'spontaneous_vertex',
     deliveryOutcome: 'live_birth',
-    placeOfDelivery: 'hospital',
+    placeOfDelivery: 'private_hospital',
     attendant: '',
     birthWeight: '',
     gestationWeeks: '',
@@ -42,7 +42,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     retainedPlacenta: false,
     postpartumHaemorrhage: false,
     familyPlanningDiscussed: false,
-    notes: ''
+    notes: '',
+    // ✅ NEW: GHS Form A Fields
+    malePartnerPresentDelivery: false,
+    maternalDeathsAudited: false,
+    auditNotes: ''
   });
 
   useEffect(() => {
@@ -50,7 +54,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       setFormData({
         deliveryType: existingDelivery.deliveryType || 'spontaneous_vertex',
         deliveryOutcome: existingDelivery.deliveryOutcome || 'live_birth',
-        placeOfDelivery: existingDelivery.placeOfDelivery || 'hospital',
+        placeOfDelivery: existingDelivery.placeOfDelivery || 'private_hospital',
         attendant: existingDelivery.attendant || '',
         birthWeight: existingDelivery.birthWeight?.toString() || '',
         gestationWeeks: existingDelivery.gestationWeeks?.toString() || '',
@@ -65,7 +69,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
         retainedPlacenta: existingDelivery.retainedPlacenta || false,
         postpartumHaemorrhage: existingDelivery.postpartumHaemorrhage || false,
         familyPlanningDiscussed: existingDelivery.familyPlanningDiscussed || false,
-        notes: existingDelivery.notes || ''
+        notes: existingDelivery.notes || '',
+        // ✅ NEW
+        malePartnerPresentDelivery: existingDelivery.malePartnerPresentDelivery || false,
+        maternalDeathsAudited: existingDelivery.maternalDeathsAudited || false,
+        auditNotes: existingDelivery.auditNotes || ''
       });
     }
   }, [existingDelivery]);
@@ -87,7 +95,6 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
         apgarScore1min: formData.apgarScore1min ? parseInt(formData.apgarScore1min) : undefined,
         apgarScore5min: formData.apgarScore5min ? parseInt(formData.apgarScore5min) : undefined,
       };
-
       if (existingDelivery) {
         await updateDelivery(existingDelivery.id, data);
         success('Updated', 'Delivery record updated successfully');
@@ -112,7 +119,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="sticky top-0 bg-[var(--bg-card)] px-6 py-4 border-b flex justify-between items-center">
-            <h2 className="text-lg font-bold">{existingDelivery ? 'Edit Delivery Record' : 'Add Delivery Record'}</h2>
+            <div className="flex items-center gap-2">
+              <Hospital className="w-5 h-5 text-green-600" />
+              <h2 className="text-lg font-bold">{existingDelivery ? 'Edit Delivery Record' : 'Add Delivery Record'}</h2>
+            </div>
             <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded"><X className="w-5 h-5" /></button>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -137,14 +147,22 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                   <option value="neonatal_death">Neonatal Death</option>
                 </select>
               </div>
+              {/* ✅ UPDATED: Expanded Place of Delivery for GHS Reporting */}
               <div>
                 <label className="block text-sm font-medium mb-1">Place of Delivery</label>
                 <select value={formData.placeOfDelivery} onChange={(e) => handleChange('placeOfDelivery', e.target.value)} className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg">
-                  <option value="hospital">Hospital</option>
+                  <option value="private_hospital">Private Hospital</option>
+                  <option value="government_hospital">Government Hospital</option>
                   <option value="health_centre">Health Centre</option>
                   <option value="clinic">Clinic</option>
+                  <option value="chag_facility">CHAG Facility</option>
+                  <option value="private_midwife">Private Midwife</option>
+                  <option value="tba_trained">TBA (Trained)</option>
+                  <option value="tba_untrained">TBA (Untrained)</option>
                   <option value="home">Home</option>
                   <option value="en_route">En Route</option>
+                  <option value="mines_facility">Mines Facility</option>
+                  <option value="quasi_govt_institution">Quasi-Govt Institution</option>
                 </select>
               </div>
               <div>
@@ -183,7 +201,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
             </div>
 
             <div className="border-t pt-4">
-              <h4 className="font-semibold mb-3">Complications</h4>
+              <h4 className="font-semibold mb-3 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-500" /> Complications & Observations</h4>
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex items-center gap-2"><input type="checkbox" checked={formData.episiotomy} onChange={(e) => handleChange('episiotomy', e.target.checked)} className="rounded" /> Episiotomy</label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={formData.perinealTears} onChange={(e) => handleChange('perinealTears', e.target.checked)} className="rounded" /> Perineal Tears</label>
@@ -191,11 +209,20 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                 <label className="flex items-center gap-2"><input type="checkbox" checked={formData.postpartumHaemorrhage} onChange={(e) => handleChange('postpartumHaemorrhage', e.target.checked)} className="rounded" /> Postpartum Haemorrhage</label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={formData.resusCitationDone} onChange={(e) => handleChange('resusCitationDone', e.target.checked)} className="rounded" /> Resuscitation Done</label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={formData.familyPlanningDiscussed} onChange={(e) => handleChange('familyPlanningDiscussed', e.target.checked)} className="rounded" /> Family Planning Discussed</label>
+                {/* ✅ NEW: GHS Male Involvement & Audit */}
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.malePartnerPresentDelivery} onChange={(e) => handleChange('malePartnerPresentDelivery', e.target.checked)} className="rounded" /> Male Partner Present</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.maternalDeathsAudited} onChange={(e) => handleChange('maternalDeathsAudited', e.target.checked)} className="rounded" /> Maternal Death Audited</label>
               </div>
+              {formData.maternalDeathsAudited && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium mb-1">Audit Notes</label>
+                  <textarea rows={2} value={formData.auditNotes} onChange={(e) => handleChange('auditNotes', e.target.value)} className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg" placeholder="Audit findings and recommendations..." />
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Notes</label>
+              <label className="block text-sm font-medium mb-1">Clinical Notes</label>
               <textarea rows={3} value={formData.notes} onChange={(e) => handleChange('notes', e.target.value)} className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg" />
             </div>
 

@@ -90,6 +90,8 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
     occupation: '',
     partnerName: '',
     partnerContact: '',
+    malePartnerInvolved: false,
+    partnerHIVStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown'
     emergencyContact: '',
     emergencyContactPhone: '',
     notes: ''
@@ -183,6 +185,8 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
         occupation: formData.occupation,
         partnerName: formData.partnerName,
         partnerContact: formData.partnerContact,
+        malePartnerInvolved: formData.malePartnerInvolved,
+        partnerHIVStatus: formData.partnerHIVStatus || undefined
         emergencyContact: formData.emergencyContact,
         emergencyContactPhone: formData.emergencyContactPhone,
         notes: formData.notes
@@ -532,6 +536,30 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
                       onChange={(e) => handleChange('partnerContact', e.target.value)}
                       className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Partner HIV Status</label>
+                    <select
+                      value={formData.partnerHIVStatus}
+                      onChange={(e) => handleChange('partnerHIVStatus', e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                    >
+                      <option value="">Not tested</option>
+                      <option value="Positive">Positive</option>
+                      <option value="Negative">Negative</option>
+                      <option value="Unknown">Unknown</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-3 mt-6">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.malePartnerInvolved}
+                        onChange={(e) => handleChange('malePartnerInvolved', e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="font-medium">Male Partner Involved in ANC</span>
+                    </label>
                   </div>
                 </div>
               </div>

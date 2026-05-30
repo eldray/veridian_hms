@@ -1577,8 +1577,34 @@ export default function Antenatal() {
               { l: 'TT Given', v: selectedVisit.ttGiven ? `Yes (Dose ${selectedVisit.ttDoseNumber})` : 'No' },
               { l: 'ITN Given', v: selectedVisit.itnGiven ? 'Yes' : 'No' },
               { l: 'Iron/Folate', v: selectedVisit.ironGiven || selectedVisit.folateGiven ? 'Yes' : 'No' },
+              { l: 'IPTp Given', v: selectedVisit.iptpGiven ? `Yes (Dose ${selectedVisit.iptpDoseNumber})` : 'No' },
+              { l: 'TT Given', v: selectedVisit.ttGiven ? `Yes (Dose ${selectedVisit.ttDoseNumber})` : 'No' },
+              { l: 'ITN Given', v: selectedVisit.itnGiven ? 'Yes' : 'No' },
+              { l: 'Iron/Folate', v: selectedVisit.ironGiven || selectedVisit.folateGiven ? 'Yes' : 'No' },
+              
+              // ✅ ADD THESE NEW FIELDS:
+              { l: 'Malaria Test', v: selectedVisit.malariaTestDone ? `Done (${selectedVisit.malariaTestResult||'—'})` : 'Not done' },
+              { l: 'Malaria Treated', v: selectedVisit.malariaTreatmentGiven ? 'Yes' : 'No' },
+              { l: 'Danger Signs', v: selectedVisit.dangerSignsPresent ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : 'No' },
+              { l: 'Referral Made', v: selectedVisit.referralMade ? 'Yes' : 'No' },
             ].map(r => <DetailRow key={r.l} label={r.l} value={r.v} />)}
           </div>
+          {/* Show danger signs list if present */}
+          {selectedVisit.dangerSignsPresent && selectedVisit.dangerSignsList?.length > 0 && (
+            <div className="mt-4 px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Danger Signs Recorded</p>
+              <p className="text-xs text-[var(--icon-red-text)]">{selectedVisit.dangerSignsList.join(', ')}</p>
+            </div>
+          )}
+          
+          {/* Show referral details if present */}
+          {selectedVisit.referralMade && (
+            <div className="mt-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Referral Details</p>
+              <p className="text-xs text-[var(--text-primary)]">To: {selectedVisit.referredTo || '—'}</p>
+              {selectedVisit.referralReason && <p className="text-xs text-[var(--text-secondary)] mt-0.5">Reason: {selectedVisit.referralReason}</p>}
+            </div>
+          )}
         </ModalShell>
       )}
 
@@ -1604,12 +1630,55 @@ export default function Antenatal() {
                 { l: 'Blood Loss (ml)',  v: selectedDelivery.bloodLoss },
                 { l: 'APGAR Score',      v: selectedDelivery.apgarScore },
                 { l: 'Attendant',        v: selectedDelivery.attendant },
+                { l: 'Postpartum Haemorrhage', v: selectedDelivery.postpartumHaemorrhage ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : 'No' },
+                { l: 'Est. Blood Loss', v: selectedDelivery.estimatedBloodLoss ? `${selectedDelivery.estimatedBloodLoss}ml` : '—' },
+                { l: 'Family Planning Discussed', v: selectedDelivery.familyPlanningDiscussed ? 'Yes' : 'No' },
+                { l: 'Male Partner Present', v: selectedDelivery.malePartnerPresentDelivery ? <span className="text-[var(--icon-cyan-text)] font-bold">Yes</span> : 'No' },
+              
               ].map(r => r.v !== null && <DetailRow key={r.l} label={r.l} value={r.v} />)}
             </div>
             {selectedDelivery.complications && (
               <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Complications</p>
                 <p className="text-xs text-[var(--icon-red-text)]">{selectedDelivery.complications}</p>
+              </div>
+            )}
+            {/* Complications */}
+            {selectedDelivery.maternalComplications?.length > 0 && (
+              <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Complications</p>
+                <p className="text-xs text-[var(--icon-red-text)]">{selectedDelivery.maternalComplications.join(', ')}</p>
+              </div>
+            )}
+      
+            {/* ✅ NEW: Newborns Section (Essential Newborn Care) */}
+            {selectedDelivery.Newborn?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                <p className="text-xs font-bold text-[var(--text-primary)] mb-2">Newborns ({selectedDelivery.Newborn.length})</p>
+                <div className="space-y-3">
+                  {selectedDelivery.Newborn.map((baby: any, idx: number) => (
+                    <div key={baby.id || idx} className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+                      <p className="text-xs font-semibold text-[var(--text-primary)] mb-2">Baby #{baby.babyNumber}</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div><span className="text-[var(--text-tertiary)]">Gender:</span> <span className="font-medium text-[var(--text-primary)]">{baby.gender}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Birth Weight:</span> <span className="font-medium text-[var(--text-primary)]">{baby.birthWeight}g</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">APGAR 1min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore1min||'—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">APGAR 5min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore5min||'—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Resuscitation:</span> <span className={`font-medium ${baby.resuscitation ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>{baby.resuscitation ? 'Yes' : 'No'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Outcome:</span> <span className="font-medium text-[var(--text-primary)]">{baby.outcome?.replace(/_/g,' ')}</span></div>
+                        
+                        {/* ✅ NEW: Essential Newborn Care (GHS Form A) */}
+                        <div><span className="text-[var(--text-tertiary)]">BF 30min:</span> <span className={`font-medium ${baby.breastfeedingWithin30Min ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.breastfeedingWithin30Min ? 'Yes' : 'No'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Eye Prophylaxis:</span> <span className={`font-medium ${baby.eyeProphylaxisGiven ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.eyeProphylaxisGiven ? 'Yes' : 'No'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Cord Care:</span> <span className="font-medium text-[var(--text-primary)]">{baby.cordCareMethod?.replace(/_/g,' ') || '—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Follow-up Weight:</span> <span className="font-medium text-[var(--text-primary)]">{baby.babyWeightAt6to10Days ? `${baby.babyWeightAt6to10Days}g` : '—'}</span></div>
+                      </div>
+                      {baby.congenitalAnomalies?.length > 0 && (
+                        <p className="text-[10px] text-[var(--icon-red-text)] mt-2">Anomalies: {baby.congenitalAnomalies.join(', ')}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {selectedDelivery.notes && (
@@ -1644,6 +1713,20 @@ export default function Antenatal() {
                 { l: 'Blood Pressure',   v: selectedPostnatal.bloodPressure },
                 { l: 'Temperature',      v: selectedPostnatal.temperature ? `${selectedPostnatal.temperature}°C` : null },
                 { l: 'Pulse',            v: selectedPostnatal.pulse },
+                
+                // ✅ ADD THESE NEW FIELDS:
+                { l: 'Baby Condition', v: selectedPostnatal.babyCondition },
+                { l: 'Baby Weight', v: selectedPostnatal.babyWeight ? `${selectedPostnatal.babyWeight}kg` : '—' },
+                { l: 'Baby Temperature', v: selectedPostnatal.babyTemperature ? `${selectedPostnatal.babyTemperature}°C` : '—' },
+                { l: 'Cord Condition', v: selectedPostnatal.cordCondition },
+                { l: 'Jaundice', v: selectedPostnatal.jaundice ? `Yes (${selectedPostnatal.jaundiceSeverity||'—'})` : 'No' },
+                { l: 'BCG Given', v: selectedPostnatal.bcgGiven ? 'Yes' : 'No' },
+                { l: 'OPV0 Given', v: selectedPostnatal.opv0Given ? 'Yes' : 'No' },
+                { l: 'HepB0 Given', v: selectedPostnatal.hepB0Given ? 'Yes' : 'No' },
+                { l: 'Family Planning', v: selectedPostnatal.familyPlanningDiscussed ? `Yes (${selectedPostnatal.familyPlanningMethodAccepted||'—'})` : 'No' },
+                { l: 'Exclusive BF at Discharge', v: selectedPostnatal.exclusiveBFAtDischarge ? <span className="text-[var(--icon-green-text)] font-bold">Yes</span> : 'No' },
+                { l: 'Male Partner Present', v: selectedPostnatal.malePartnerPresentPNC ? <span className="text-[var(--icon-cyan-text)] font-bold">Yes</span> : 'No' },
+              
               ].map(r => r.v !== null && <DetailRow key={r.l} label={r.l} value={r.v} />)}
             </div>
             {selectedPostnatal.complications && (
@@ -1664,6 +1747,45 @@ export default function Antenatal() {
                 <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap">{selectedPostnatal.notes}</p>
               </div>
             )}
+                  {/* Complications */}
+          {selectedPostnatal.maternalComplications?.length > 0 && (
+            <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Maternal Complications</p>
+              <p className="text-xs text-[var(--icon-red-text)]">{selectedPostnatal.maternalComplications.join(', ')}</p>
+            </div>
+          )}
+          
+          {/* Danger Signs */}
+          {(selectedPostnatal.maternalDangerSigns?.length > 0 || selectedPostnatal.babyDangerSigns?.length > 0) && (
+            <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-orange-text)] mb-1">⚠ Danger Signs</p>
+              {selectedPostnatal.maternalDangerSigns?.length > 0 && (
+                <p className="text-xs text-[var(--icon-orange-text)]">Maternal: {selectedPostnatal.maternalDangerSigns.join(', ')}</p>
+              )}
+              {selectedPostnatal.babyDangerSigns?.length > 0 && (
+                <p className="text-xs text-[var(--icon-orange-text)] mt-1">Baby: {selectedPostnatal.babyDangerSigns.join(', ')}</p>
+              )}
+            </div>
+          )}
+          
+          {/* Next Visit */}
+          {selectedPostnatal.nextVisitDate && (
+            <div className="mt-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Next Visit</p>
+              <p className="text-xs text-[var(--text-primary)]">
+                {new Date(selectedPostnatal.nextVisitDate).toLocaleDateString()} 
+                {selectedPostnatal.nextVisitType && ` (${selectedPostnatal.nextVisitType.replace(/_/g,' ')})`}
+              </p>
+            </div>
+          )}
+          
+          {/* Notes */}
+          {selectedPostnatal.notes && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Notes</p>
+              <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap">{selectedPostnatal.notes}</p>
+            </div>
+          )}
           </div>
         </ModalShell>
       )}
