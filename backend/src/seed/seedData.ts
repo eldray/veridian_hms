@@ -186,7 +186,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('\n🧪 STEP 4: Test Data Seeding');
     console.log('-----------------------------------');
     console.log('   - Patients (Cash, NHIS, Private Insurance)');
-    console.log('   - Attendances (Emergency, Chronic, Surgery, Antenatal, Paediatric)');
+    console.log('   - Attendances (completed, pending today, admitted, detained, discharged)');
     console.log('   - Clinical Data (Vitals, Labs, Scans, Medications)');
     console.log('   - Bills & Payments');
     console.log('   - Insurance Claims');

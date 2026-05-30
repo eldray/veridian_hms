@@ -61,6 +61,13 @@ const daysFromNow = (days: number, baseDate: Date = new Date()) => {
   return d;
 };
 
+/** Today at a specific local time — used for pending / in-progress attendances */
+const todayAt = (hours: number, minutes: number = 0, baseDate: Date = new Date()) => {
+  const d = new Date(baseDate);
+  d.setHours(hours, minutes, 0, 0);
+  return d;
+};
+
 // ============================================
 // SAFETY CHECKS
 // ============================================
@@ -121,7 +128,7 @@ export const deleteTestData = async (force: boolean = false) => {
     await prisma.bill.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.insuranceClaim.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.referralRecord.deleteMany({ where: { patientId: { in: testPatientIds } } });
-    await prisma.admission.deleteMany({ where: { patientId: { in: testPatientIds } } });
+    await prisma.admission.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
     await prisma.appointment.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.notification.deleteMany({ where: { userId: { in: testPatientIds } } });
     
@@ -504,43 +511,40 @@ export const seedTestData = async (force: boolean = false) => {
         attendanceType: AttendanceType.surgery,
         paymentMode: PaymentMode.private_insurance,
         complaints: 'Inguinal swelling that increases with coughing for 6 months',
-        medicalNotes: 'Diagnosed with right inguinal hernia. Elective repair scheduled.',
+        medicalNotes: 'Diagnosed with right inguinal hernia. Elective repair completed.',
         historyPresentingComplaint: 'Right groin swelling, reducible, increases with standing/coughing',
         physicalExamination: 'Visible right inguinal swelling, reducible, cough impulse positive',
-        treatmentPlan: 'Right inguinal hernia repair',
+        treatmentPlan: 'Right inguinal hernia repair — completed and discharged',
         createdById: doctor.id,
-        status: AttendanceStatus.completed,
+        status: AttendanceStatus.discharged,
         totalBill: 0,
         paidAmount: 0,
         outstandingBalance: 0,
         visitCategory: VisitCategory.specialist,
         serviceCategory: ServiceCategory.ipd,
         encounterCategory: EncounterCategory.ipd,
-        bedId: surgicalBed?.id,        // ✅ Now defined
+        bedId: surgicalBed?.id,
         wardId: generalWard?.id,
-        status: AttendanceStatus.admitted,
       },
     });
     attendances.push(att3);
 
-    // ATTENDANCE 1004: NHIS - Antenatal Visit (Patient 1004)
+    // ATTENDANCE 1004: NHIS - Antenatal Visit (Patient 1004) — pending, today
     const att4Number = generateAttendanceNumber(); // 1004
     const att4 = await prisma.attendance.create({
       data: {
         attendanceNumber: att4Number,
         patientId: patients[3].id,
         insuranceProviderId: nhisProvider.id,
-        dateTime: daysAgo(5),
+        dateTime: todayAt(8, 30),
         attendanceType: AttendanceType.antenatal,
         paymentMode: PaymentMode.nhis,
         nhisCCC: '38762',
-        complaints: 'Routine antenatal check-up, 28 weeks pregnant',
-        medicalNotes: 'Normal pregnancy progression. Fetal heart rate 140bpm. Fundal height 28cm.',
+        complaints: 'Routine antenatal check-up, 28 weeks pregnant — awaiting consultation',
+        medicalNotes: 'Patient checked in. Awaiting midwife review.',
         historyPresentingComplaint: 'G2P1 at 28 weeks, routine ANC visit',
-        physicalExamination: 'BP 110/70, FH 28cm, FHR 140bpm, cephalic presentation',
-        treatmentPlan: 'Continue iron and folate supplements. Return in 4 weeks.',
         createdById: midwife?.id || doctor.id,
-        status: AttendanceStatus.completed,
+        status: AttendanceStatus.pending,
         totalBill: 0,
         paidAmount: 0,
         outstandingBalance: 0,
@@ -551,22 +555,20 @@ export const seedTestData = async (force: boolean = false) => {
     });
     attendances.push(att4);
 
-    // ATTENDANCE 1005: Cash - Paediatric Pneumonia (Patient 1005)
+    // ATTENDANCE 1005: Cash - Paediatric (Patient 1005) — pending, today
     const att5Number = generateAttendanceNumber(); // 1005
     const att5 = await prisma.attendance.create({
       data: {
         attendanceNumber: att5Number,
         patientId: patients[4].id,
-        dateTime: daysAgo(3),
+        dateTime: todayAt(10, 15),
         attendanceType: AttendanceType.emergency_acute,
         paymentMode: PaymentMode.cash,
-        complaints: 'Child with high fever, cough, and difficulty breathing for 2 days',
-        medicalNotes: 'Pediatric patient diagnosed with pneumonia. Started on antibiotics.',
-        historyPresentingComplaint: '2-day history of fever, productive cough, tachypnea',
-        physicalExamination: 'T 38.9°C, RR 28/min, SpO2 94%, crackles in right lower lung',
-        treatmentPlan: 'Amoxicillin 125mg/5ml TID x 7 days, Paracetamol for fever',
+        complaints: 'Child with fever and cough — triaged, awaiting doctor review',
+        medicalNotes: 'Vitals recorded at triage. Awaiting paediatric consultation.',
+        historyPresentingComplaint: '1-day history of fever and cough',
         createdById: doctor.id,
-        status: AttendanceStatus.completed,
+        status: AttendanceStatus.pending,
         totalBill: 0,
         paidAmount: 0,
         outstandingBalance: 0,
@@ -576,6 +578,91 @@ export const seedTestData = async (force: boolean = false) => {
       },
     });
     attendances.push(att5);
+
+    // ATTENDANCE 1006: Cash - Active IPD admission (Patient 1001 return visit) — admitted, today
+    const att6Number = generateAttendanceNumber(); // 1006
+    let ipdBed = generalWard
+      ? await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } })
+      : null;
+    if (!ipdBed && generalWard) {
+      ipdBed = await prisma.bed.create({
+        data: {
+          wardId: generalWard.id,
+          bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-IPD-01`,
+          isOccupied: false,
+        },
+      });
+    }
+
+    const att6 = await prisma.attendance.create({
+      data: {
+        attendanceNumber: att6Number,
+        patientId: patients[0].id,
+        dateTime: todayAt(7, 0),
+        attendanceType: AttendanceType.emergency_acute,
+        paymentMode: PaymentMode.cash,
+        complaints: 'Acute asthma exacerbation — wheezing and shortness of breath',
+        medicalNotes: 'Admitted for nebulisation and observation on ward.',
+        historyPresentingComplaint: 'Sudden onset breathlessness and wheeze since early morning',
+        physicalExamination: 'RR 24/min, SpO2 93%, bilateral wheeze, no cyanosis',
+        treatmentPlan: 'Nebulised salbutamol, IV hydrocortisone, ward admission',
+        createdById: doctor.id,
+        status: AttendanceStatus.admitted,
+        totalBill: 0,
+        paidAmount: 0,
+        outstandingBalance: 0,
+        encounterCategory: EncounterCategory.ipd,
+        visitCategory: VisitCategory.emergency,
+        serviceCategory: ServiceCategory.ipd,
+        bedId: ipdBed?.id,
+        wardId: generalWard?.id,
+      },
+    });
+    attendances.push(att6);
+
+    // ATTENDANCE 1007: NHIS - Detention / observation (Patient 1002) — admitted daycase, today
+    const att7Number = generateAttendanceNumber(); // 1007
+    let detentionBed = generalWard
+      ? await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } })
+      : null;
+    if (!detentionBed && generalWard) {
+      detentionBed = await prisma.bed.create({
+        data: {
+          wardId: generalWard.id,
+          bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-DET-01`,
+          isOccupied: false,
+        },
+      });
+    }
+
+    const att7 = await prisma.attendance.create({
+      data: {
+        attendanceNumber: att7Number,
+        patientId: patients[1].id,
+        insuranceProviderId: nhisProvider.id,
+        dateTime: todayAt(9, 30),
+        attendanceType: AttendanceType.emergency_acute,
+        paymentMode: PaymentMode.nhis,
+        nhisCCC: '24594',
+        complaints: 'Head injury after minor fall — under observation',
+        medicalNotes: 'GCS 15. Placed in detention/observation for 24-hour monitoring.',
+        historyPresentingComplaint: 'Fall from standing height, brief loss of consciousness denied',
+        physicalExamination: 'GCS 15, no focal neurology, small scalp hematoma',
+        treatmentPlan: 'Observation, repeat GCS checks, CT if symptoms worsen',
+        createdById: doctor.id,
+        status: AttendanceStatus.admitted,
+        totalBill: 0,
+        paidAmount: 0,
+        outstandingBalance: 0,
+        encounterCategory: EncounterCategory.daycase,
+        visitCategory: VisitCategory.emergency,
+        serviceCategory: ServiceCategory.ipd,
+        bedId: detentionBed?.id,
+        wardId: generalWard?.id,
+      },
+    });
+    attendances.push(att7);
+
     console.log(`✅ Created ${attendances.length} attendances (Numbers: ${attendances.map(a => a.attendanceNumber).join(', ')})`);
 
     // =============== ADD DIAGNOSES ===============
@@ -624,32 +711,19 @@ export const seedTestData = async (force: boolean = false) => {
       });
     }
 
-    if (antenatalDiag) {
-      await prisma.attendanceDiagnosis.create({
-        data: {
-          attendanceId: att4.id,
-          diagnosisId: antenatalDiag.id,
-          diagnosisType: DiagnosisType.primary,
-          icdCode: antenatalDiag.icdCode,
-          presentOnAdmission: PresentOnAdmission.Y,
-          createdById: midwife?.id || doctor.id,
-          date: daysAgo(5),
-          notes: 'Routine antenatal care',
-        },
-      });
-    }
+    // att4 & att5 are pending — no confirmed diagnoses yet
 
-    if (pneumoniaDiag) {
+    if (asthmaDiag) {
       await prisma.attendanceDiagnosis.create({
         data: {
-          attendanceId: att5.id,
-          diagnosisId: pneumoniaDiag.id,
+          attendanceId: att6.id,
+          diagnosisId: asthmaDiag.id,
           diagnosisType: DiagnosisType.primary,
-          icdCode: pneumoniaDiag.icdCode,
+          icdCode: asthmaDiag.icdCode,
           presentOnAdmission: PresentOnAdmission.Y,
           createdById: doctor.id,
-          date: daysAgo(3),
-          notes: 'Community-acquired pneumonia',
+          date: todayAt(7, 15),
+          notes: 'Acute asthma exacerbation',
         },
       });
     }
@@ -717,7 +791,7 @@ export const seedTestData = async (force: boolean = false) => {
         height: 160,
         bmi: 26.6,
         recordedById: midwife?.id || nurse?.id || doctor.id,
-        recordedAt: daysAgo(5),
+        recordedAt: todayAt(8, 45),
       },
     });
 
@@ -734,7 +808,38 @@ export const seedTestData = async (force: boolean = false) => {
         bmi: 16.3,
         bloodPressure: '100/65',
         recordedById: nurse?.id || doctor.id,
-        recordedAt: daysAgo(3),
+        recordedAt: todayAt(10, 20),
+      },
+    });
+
+    await prisma.vitals.create({
+      data: {
+        attendanceId: att6.id,
+        patientId: att6.patientId,
+        temperature: 36.8,
+        pulse: 102,
+        respiration: 24,
+        spo2: 93,
+        weight: 70,
+        height: 170,
+        bloodPressure: '130/80',
+        recordedById: nurse?.id || doctor.id,
+        recordedAt: todayAt(7, 10),
+      },
+    });
+
+    await prisma.vitals.create({
+      data: {
+        attendanceId: att7.id,
+        patientId: att7.patientId,
+        bloodPressure: '125/78',
+        pulse: 76,
+        respiration: 16,
+        spo2: 99,
+        weight: 65,
+        height: 162,
+        recordedById: nurse?.id || doctor.id,
+        recordedAt: todayAt(9, 45),
       },
     });
     console.log('✅ Vitals added');
@@ -803,14 +908,9 @@ export const seedTestData = async (force: boolean = false) => {
           attendanceId: att4.id,
           templateId: urinalysisLab.labTestTemplateId,
           serviceCatalogId: urinalysisLab.id,
-          status: LabTestStatus.completed,
-          result: { protein: 'Negative', glucose: 'Negative', leukocytes: 'Negative' },
-          normalRange: 'All negative',
-          units: 'Qualitative',
-          requestedAt: daysAgo(5),
-          completedAt: daysAgo(5),
+          status: LabTestStatus.requested,
+          requestedAt: todayAt(8, 35),
           createdById: midwife?.id || doctor.id,
-          performedById: labTech?.id,
           priority: Priority.routine,
         },
       });
@@ -827,14 +927,9 @@ export const seedTestData = async (force: boolean = false) => {
           scanType: 'xray',
           description: 'Chest X-ray',
           bodyPart: 'chest',
-          status: ScanStatus.completed,
-          result: 'Chest X-ray shows right lower lobe infiltrates',
-          findings: 'Consolidation in right lower lung field',
-          impression: 'Consistent with pneumonia',
-          requestedAt: daysAgo(3),
-          completedAt: daysAgo(3),
+          status: ScanStatus.requested,
+          requestedAt: todayAt(10, 25),
           createdById: doctor.id,
-          performedById: sonographer?.id,
           priority: ScanPriority.urgent,
           imageUrls: [],
         },
@@ -850,14 +945,9 @@ export const seedTestData = async (force: boolean = false) => {
           scanType: 'obstetric',
           description: 'Obstetric ultrasound scan',
           bodyPart: 'abdomen',
-          status: ScanStatus.completed,
-          result: 'Normal pregnancy, singleton, fetal heart rate 140bpm',
-          findings: 'Fetal biometry consistent with 28 weeks',
-          impression: 'Normal obstetric scan',
-          requestedAt: daysAgo(5),
-          completedAt: daysAgo(5),
+          status: ScanStatus.requested,
+          requestedAt: todayAt(8, 40),
           createdById: midwife?.id || doctor.id,
-          performedById: sonographer?.id,
           priority: ScanPriority.routine,
           imageUrls: [],
         },
@@ -927,47 +1017,7 @@ export const seedTestData = async (force: boolean = false) => {
       });
     }
 
-    if (amoxicillin) {
-      await prisma.medication.create({
-        data: {
-          attendanceId: att5.id,
-          serviceCatalogId: amoxicillin.id,
-          name: 'Amoxicillin 250mg/5ml',
-          dosage: '5ml',
-          frequency: '8 hourly',
-          duration: '7 days',
-          quantity: 105,
-          route: 'oral',
-          instructions: 'Shake well before use',
-          status: MedicationStatus.dispensed,
-          prescribedAt: daysAgo(3),
-          dispensedAt: daysAgo(3),
-          prescribedById: doctor.id,
-          dispensedById: pharmacist?.id,
-        },
-      });
-    }
-
-    if (paracetamol) {
-      await prisma.medication.create({
-        data: {
-          attendanceId: att5.id,
-          serviceCatalogId: paracetamol.id,
-          name: 'Paracetamol 120mg/5ml',
-          dosage: '5ml',
-          frequency: '6 hourly',
-          duration: '3 days',
-          quantity: 60,
-          route: 'oral',
-          instructions: 'For fever',
-          status: MedicationStatus.dispensed,
-          prescribedAt: daysAgo(3),
-          dispensedAt: daysAgo(3),
-          prescribedById: doctor.id,
-          dispensedById: pharmacist?.id,
-        },
-      });
-    }
+    // att5 is pending — no medications dispensed yet
     console.log('✅ Medications added');
 
     // =============== ADD SERVICE RENDERED ===============
@@ -1013,25 +1063,12 @@ export const seedTestData = async (force: boolean = false) => {
     if (generalConsult) {
       await prisma.serviceRendered.create({
         data: {
-          attendanceId: att4.id,
-          serviceItemId: generalConsult.id,
-          quantity: 1,
-          performedById: midwife?.id || doctor.id,
-          date: daysAgo(5),
-          notes: 'Antenatal consultation',
-        },
-      });
-    }
-
-    if (generalConsult) {
-      await prisma.serviceRendered.create({
-        data: {
-          attendanceId: att5.id,
+          attendanceId: att6.id,
           serviceItemId: generalConsult.id,
           quantity: 1,
           performedById: doctor.id,
-          date: daysAgo(3),
-          notes: 'Paediatric consultation',
+          date: todayAt(7, 30),
+          notes: 'Emergency admission for asthma',
         },
       });
     }
@@ -1151,7 +1188,7 @@ export const seedTestData = async (force: boolean = false) => {
       ],
     });
 
-    // Bill 1004: NHIS Antenatal - attendance 1004
+    // Bill 1004: NHIS Antenatal - attendance 1004 (pending, today)
     const bill4Number = getBillNumber(att4Number); // BILL-1004
     const bill4 = await prisma.bill.create({
       data: {
@@ -1166,11 +1203,11 @@ export const seedTestData = async (force: boolean = false) => {
         insuranceCovered: 250.00,
         patientPayable: 0,
         paidAmount: 0,
-        balance: 0,
-        status: BillStatus.pending,
+        balance: 250.00,
+        status: BillStatus.draft,
         paymentMode: PaymentMode.nhis,
         insuranceProviderId: nhisProvider.id,
-        billDate: daysAgo(5),
+        billDate: todayAt(8, 30),
         createdById: accounts?.id || admin.id,
         claimStatus: ClaimStatus.draft,
       },
@@ -1184,25 +1221,25 @@ export const seedTestData = async (force: boolean = false) => {
       ],
     });
 
-    // Bill 1005: Cash Paediatric - attendance 1005
+    // Bill 1005: Cash Paediatric - attendance 1005 (pending, today)
     const bill5Number = getBillNumber(att5Number); // BILL-1005
     const bill5 = await prisma.bill.create({
       data: {
         billNumber: bill5Number,
         patientId: patients[4].id,
         attendanceId: att5.id,
-        subtotal: 350.00,
+        subtotal: 200.00,
         discount: 0,
         waiverAmount: 0,
         taxAmount: 0,
-        totalAmount: 350.00,
+        totalAmount: 200.00,
         insuranceCovered: 0,
-        patientPayable: 350.00,
-        paidAmount: 200.00,
-        balance: 150.00,
-        status: BillStatus.partial,
+        patientPayable: 200.00,
+        paidAmount: 0,
+        balance: 200.00,
+        status: BillStatus.draft,
         paymentMode: PaymentMode.cash,
-        billDate: daysAgo(3),
+        billDate: todayAt(10, 15),
         createdById: accounts?.id || admin.id,
         claimStatus: ClaimStatus.not_required,
       },
@@ -1212,24 +1249,58 @@ export const seedTestData = async (force: boolean = false) => {
       data: [
         { billId: bill5.id, description: 'Paediatric Consultation', serviceType: ServiceType.consultation, quantity: 1, unitPrice: 80.00, pricingBasis: PaymentMode.cash, lineTotal: 80.00, insuranceCoveredAmount: 0, patientPayableAmount: 80.00, discount: 0 },
         { billId: bill5.id, description: 'Chest X-ray', serviceType: ServiceType.scan, quantity: 1, unitPrice: 120.00, pricingBasis: PaymentMode.cash, lineTotal: 120.00, insuranceCoveredAmount: 0, patientPayableAmount: 120.00, discount: 0 },
-        { billId: bill5.id, description: 'Amoxicillin', serviceType: ServiceType.medication, quantity: 1, unitPrice: 80.00, pricingBasis: PaymentMode.cash, lineTotal: 80.00, insuranceCoveredAmount: 0, patientPayableAmount: 80.00, discount: 0 },
-        { billId: bill5.id, description: 'Paracetamol', serviceType: ServiceType.medication, quantity: 1, unitPrice: 70.00, pricingBasis: PaymentMode.cash, lineTotal: 70.00, insuranceCoveredAmount: 0, patientPayableAmount: 70.00, discount: 0 },
       ],
     });
 
-    // Add partial payment for bill5
-    await prisma.payment.create({
+    // Bill 1006: Active IPD - attendance 1006
+    const bill6Number = getBillNumber(att6Number);
+    await prisma.bill.create({
       data: {
-        billId: bill5.id,
-        amount: 200.00,
-        paymentMethod: 'cash',
-        reference: generateReceiptNumber(), // RCP-1002
-        transactionDate: daysAgo(3),
-        receivedById: accounts?.id || admin.id,
-        notes: 'Partial payment',
+        billNumber: bill6Number,
+        patientId: patients[0].id,
+        attendanceId: att6.id,
+        subtotal: 450.00,
+        discount: 0,
+        waiverAmount: 0,
+        taxAmount: 0,
+        totalAmount: 450.00,
+        insuranceCovered: 0,
+        patientPayable: 450.00,
+        paidAmount: 0,
+        balance: 450.00,
+        status: BillStatus.pending,
+        paymentMode: PaymentMode.cash,
+        billDate: todayAt(7, 0),
+        createdById: accounts?.id || admin.id,
+        claimStatus: ClaimStatus.not_required,
       },
     });
-    console.log(`✅ Bills created: ${bill1Number}, ${bill2Number}, ${bill3Number}, ${bill4Number}, ${bill5Number}`);
+
+    // Bill 1007: Detention observation - attendance 1007
+    const bill7Number = getBillNumber(att7Number);
+    await prisma.bill.create({
+      data: {
+        billNumber: bill7Number,
+        patientId: patients[1].id,
+        attendanceId: att7.id,
+        subtotal: 180.00,
+        discount: 0,
+        waiverAmount: 0,
+        taxAmount: 0,
+        totalAmount: 180.00,
+        insuranceCovered: 180.00,
+        patientPayable: 0,
+        paidAmount: 0,
+        balance: 180.00,
+        status: BillStatus.pending,
+        paymentMode: PaymentMode.nhis,
+        insuranceProviderId: nhisProvider.id,
+        billDate: todayAt(9, 30),
+        createdById: accounts?.id || admin.id,
+        claimStatus: ClaimStatus.draft,
+      },
+    });
+    console.log(`✅ Bills created: ${bill1Number}, ${bill2Number}, ${bill3Number}, ${bill4Number}, ${bill5Number}, ${bill6Number}, ${bill7Number}`);
 
   // =============== CREATE INSURANCE CLAIMS (Using claim numbers based on attendance) ===============
 
@@ -1327,15 +1398,13 @@ export const seedTestData = async (force: boolean = false) => {
         patientId: patients[4].id,
         attendanceId: att5.id,
         referralType: ReferralType.outgoing,
-        referralReason: 'Paediatric pneumonia requiring specialist care',
-        referralNotes: 'Child with confirmed pneumonia. Refer to paediatrician for management.',
-        urgency: Priority.urgent,
+        referralReason: 'Paediatric fever — pending specialist review if needed',
+        referralNotes: 'Child awaiting initial consultation. Referral prepared if required.',
+        urgency: Priority.routine,
         referredToDepartment: pediatricsDept?.name,
         referredToDoctor: doctor.fullName,
-        referralDate: daysAgo(3),
-        status: ReferralStatus.accepted,
-        outcomeNotes: 'Accepted. Patient seen and treatment initiated.',
-        completedAt: daysAgo(2),
+        referralDate: todayAt(10, 15),
+        status: ReferralStatus.pending,
         createdById: doctor.id,
       },
     });
@@ -1360,130 +1429,63 @@ export const seedTestData = async (force: boolean = false) => {
     });
     console.log('✅ Referrals created');
 
-    // =============== CREATE ADMISSIONS (UPDATED for lightweight Admission model) ===============
-
-    // Admission for attendance 1003 (Hernia patient - Patient 1003) - already discharged
-    if (generalWard && att3) {
-      let surgicalBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
-      
-      if (!surgicalBed && generalWard) {
-        surgicalBed = await prisma.bed.create({
-          data: {
-            wardId: generalWard.id,
-            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-SURG-01`,
-            isOccupied: false,
-          },
+    // =============== CREATE ADMISSIONS ===============
+    // 1003 — discharged (elective IPD, hernia repair)
+    if (att3) {
+      await prisma.admission.create({
+        data: {
+          attendanceId: att3.id,
+          admissionNumber: att3.attendanceNumber,
+          admissionType: AdmissionType.elective,
+          admissionSource: AdmissionSource.opd,
+          dischargeStatus: DischargeStatus.home,
+          admissionDate: daysAgo(7),
+          dischargeDate: daysAgo(6),
+        },
+      });
+      if (surgicalBed) {
+        await prisma.bed.update({
+          where: { id: surgicalBed.id },
+          data: { isOccupied: false, currentPatientId: null },
         });
-      }
-
-      if (surgicalBed && att3) {
-        const attendanceNumber = att3.attendanceNumber;
-        
-        await prisma.admission.create({
-          data: {
-            attendanceId: att3.id,
-            admissionNumber: attendanceNumber,
-            admissionType: AdmissionType.elective,
-            admissionSource: AdmissionSource.opd,
-            dischargeStatus: DischargeStatus.home,
-            admissionDate: daysAgo(7),
-            dischargeDate: daysAgo(6),
-          },
-        });
-
-        await prisma.bed.update({ where: { id: surgicalBed.id }, data: { isOccupied: true, currentPatientId: patients[2].id } });
       }
     }
 
-    // Admission for attendance 1005 (Paediatric pneumonia - Patient 1005) - still active
-    if (pediatricWard && att5) {
-      let pediatricBed = await prisma.bed.findFirst({ where: { wardId: pediatricWard.id, isOccupied: false } });
-      
-      if (!pediatricBed && pediatricWard) {
-        pediatricBed = await prisma.bed.create({
-          data: {
-            wardId: pediatricWard.id,
-            bedNumber: `${pediatricWard.wardName.substring(0, 3).toUpperCase()}-PED-01`,
-            isOccupied: false,
-          },
-        });
-      }
-
-      if (pediatricBed && att5) {
-        const attendanceNumber = att5.attendanceNumber;
-        
-        await prisma.admission.create({
-          data: {
-            attendanceId: att5.id,
-            admissionNumber: attendanceNumber,
-            admissionType: AdmissionType.emergency,
-            admissionSource: AdmissionSource.emergency,
-            admissionDate: daysAgo(3),
-          },
-        });
-
-        await prisma.bed.update({ where: { id: pediatricBed.id }, data: { isOccupied: true, currentPatientId: patients[4].id } });
-      }
+    // 1006 — active formal IPD admission (emergency asthma)
+    if (att6 && ipdBed) {
+      await prisma.admission.create({
+        data: {
+          attendanceId: att6.id,
+          admissionNumber: att6.attendanceNumber,
+          admissionType: AdmissionType.emergency,
+          admissionSource: AdmissionSource.emergency,
+          admissionDate: todayAt(7, 0),
+        },
+      });
+      await prisma.bed.update({
+        where: { id: ipdBed.id },
+        data: { isOccupied: true, currentPatientId: patients[0].id },
+      });
     }
 
-    // Admission for NHIS patient (Patient 1002 - Ama Serwaa) - active
-    if (generalWard && att2) {
-      let nhisBed = await prisma.bed.findFirst({ where: { wardId: generalWard.id, isOccupied: false } });
-      
-      if (!nhisBed) {
-        nhisBed = await prisma.bed.create({
-          data: {
-            wardId: generalWard.id,
-            bedNumber: `${generalWard.wardName.substring(0, 3).toUpperCase()}-NHIS-01`,
-            isOccupied: false,
-          },
-        });
-      }
-
-      if (nhisBed) {
-        const attendanceNumber = att2.attendanceNumber;
-        
-        await prisma.admission.create({
-          data: {
-            attendanceId: att2.id,
-            admissionNumber: attendanceNumber,
-            admissionType: AdmissionType.emergency,
-            admissionSource: AdmissionSource.opd,
-            admissionDate: daysAgo(5),
-          },
-        });
-
-        await prisma.bed.update({ where: { id: nhisBed.id }, data: { isOccupied: true, currentPatientId: patients[1].id } });
-      }
+    // 1007 — active detention / observation
+    if (att7 && detentionBed) {
+      await prisma.admission.create({
+        data: {
+          attendanceId: att7.id,
+          admissionNumber: att7.attendanceNumber,
+          admissionType: AdmissionType.detention_observation,
+          admissionSource: AdmissionSource.emergency,
+          admissionDate: todayAt(9, 30),
+        },
+      });
+      await prisma.bed.update({
+        where: { id: detentionBed.id },
+        data: { isOccupied: true, currentPatientId: patients[1].id },
+      });
     }
 
-    // Admission for Antenatal patient (Patient 1004) - daycase (observation)
-    if (maternityWard && att4) {
-      let obsBed = await prisma.bed.findFirst({ where: { wardId: maternityWard.id, isOccupied: false } });
-      
-      if (!obsBed) {
-        obsBed = await prisma.bed.create({
-          data: {
-            wardId: maternityWard.id,
-            bedNumber: `${maternityWard.wardName.substring(0, 3).toUpperCase()}-OBS-01`,
-            isOccupied: false,
-          },
-        });
-      }
-
-      if (obsBed) {
-        const attendanceNumber = att4.attendanceNumber;
-        
-        await prisma.attendance.update({
-          where: { id: att4.id },
-          data: { encounterCategory: EncounterCategory.daycase }
-        });
-        
-        await prisma.bed.update({ where: { id: obsBed.id }, data: { isOccupied: true, currentPatientId: patients[3].id } });
-      }
-    }
-
-    console.log('✅ Admissions created');
+    console.log('✅ Admissions created (discharged: 1003, active IPD: 1006, detention: 1007)');
 
 
     // =============== CREATE APPOINTMENTS ===============
@@ -1655,12 +1657,12 @@ export const seedTestData = async (force: boolean = false) => {
     console.log('\n🎉 TEST DATA SEEDING COMPLETED!');
     console.log('\n📋 SUMMARY:');
     console.log(`   - Patients: 10 (Numbers: 1001-1010)`);
-    console.log(`   - Attendances: 5 (Numbers: 1001-1005)`);
-    console.log(`   - Bills: 5 (Numbers: BILL-1001 to BILL-1005)`);
-    console.log(`   - Receipts: 2 (RCP-1001, RCP-1002)`);
+    console.log(`   - Attendances: 7 (1001-1002 completed, 1004-1005 pending today, 1006 admitted, 1007 detained, 1003 discharged)`);
+    console.log(`   - Bills: 7 (BILL-1001 to BILL-1007)`);
+    console.log(`   - Receipts: 1 (RCP-1001)`);
     console.log(`   - Insurance Claims: 3 (NHIS-1002, PRV-1003, NHIS-1004)`);
     console.log(`   - Referrals: 2 (REF-1001, REF-1002)`);
-    console.log(`   - Admissions: 2 (1003, 1005 - same as attendance numbers)`);
+    console.log(`   - Admissions: 3 (1003 discharged, 1006 active IPD, 1007 detention)`);
     console.log(`   - Appointments: 5 (APT-1001 to APT-1005)`);
     console.log(`   - Notifications: 5+`);
 
