@@ -178,7 +178,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // HANDLE ANTENATAL ENCOUNTER (SCHEMA-ALIGNED)
+  // ✅ ENHANCED: HANDLE ANTENATAL ENCOUNTER (SCHEMA-ALIGNED)
   // ============================================
   private async handleAntenatalEncounter(encounterId: string, patientId: string, userId: string) {
     // Check if patient already has an active antenatal booking
@@ -189,7 +189,7 @@ export class EncounterService {
         isCompleted: false
       }
     });
-  
+
     if (!existingBooking) {
       // FIRST ANTENATAL VISIT: Create new booking
       console.log(`📋 Creating new antenatal booking for patient ${patientId}`);
@@ -197,69 +197,134 @@ export class EncounterService {
       // Get the attendance number for reference
       const attendance = await this.prisma.attendance.findUnique({
         where: { id: encounterId },
-        select: { attendanceNumber: true }
+        select: { attendanceNumber: true, dateTime: true }
       });
-      
+
       const booking = await this.prisma.antenatalBooking.create({
         data: {
           patientId: patientId,
           attendanceId: encounterId,           // First ANC attendance
           currentAttendanceId: encounterId,    // Current ANC attendance
           bookingDate: new Date(),
-          gravida: 1,
-          para: 0,
-          riskLevel: 'low',
-          riskFactors: [],
+          gravida: 1,                          // Default for first booking
+          para: 0,                             // Default for first booking
+          riskLevel: 'low',                    // Default risk level
+          riskFactors: [],                     // ✅ Json field - empty array
           isActive: true,
           isCompleted: false,
           createdById: userId,
-          iptpDoses: {},  // ✅ JSON field - matches schema (iptpDoses Json)
-          ttDoses: {}     // ✅ JSON field - matches schema (ttDoses Json)
+          
+          // ✅ JSON fields - properly initialized
+          iptpDoses: {},                       // ✅ Json field - empty object
+          ttDoses: {},                         // ✅ Json field - empty object
+          
+          // ✅ Default values for required fields
+          previousCSection: false,
+          malariaTested: false,
+          malariaPositive: false,
+          anaemiaDiagnosed: false,
+          ironFolateGiven: false,
+          itnGiven: false
+        },
+        include: {
+          patient: {
+            select: { id: true, surname: true, otherNames: true, folderNumber: true }
+          }
         }
       });
-      
+
       // Create first ANC visit record
-      await this.prisma.aNCVisit.create({
+      const visit = await this.prisma.aNCVisit.create({
         data: {
           bookingId: booking.id,
           attendanceId: encounterId,
           visitNumber: 1,
-          visitDate: new Date(),
-          recordedById: userId
+          visitDate: attendance?.dateTime || new Date(),
+          recordedById: userId,
+          
+          // ✅ Default values for required boolean fields
+          iptpGiven: false,
+          ttGiven: false,
+          ironGiven: false,
+          folateGiven: false,
+          calciumGiven: false,
+          malariaTestDone: false,
+          malariaTreatmentGiven: false,
+          dangerSignsPresent: false,
+          referralMade: false,
+          oedema: false,
+          
+          // ✅ Default values for array fields
+          dangerSignsList: []
+        },
+        include: {
+          recordedBy: {
+            select: { fullName: true, role: true }
+          }
         }
       });
+
+      console.log(`✅ Created antenatal booking ${booking.id} with first visit ${visit.id}`);
+      return { booking, visit, isNew: true };
       
-      console.log(`✅ Created antenatal booking ${booking.id} with first visit`);
     } else {
       // FOLLOW-UP VISIT: Create only ANC visit
       console.log(`📋 Follow-up antenatal visit for patient ${patientId} - booking ${existingBooking.id}`);
       
+      // Get the next visit number
       const visitCount = await this.prisma.aNCVisit.count({
         where: { bookingId: existingBooking.id }
       });
       
-      await this.prisma.aNCVisit.create({
+      // Get attendance details
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: encounterId },
+        select: { dateTime: true }
+      });
+
+      const visit = await this.prisma.aNCVisit.create({
         data: {
           bookingId: existingBooking.id,
           attendanceId: encounterId,
           visitNumber: visitCount + 1,
-          visitDate: new Date(),
-          recordedById: userId
+          visitDate: attendance?.dateTime || new Date(),
+          recordedById: userId,
+          
+          // ✅ Default values for required boolean fields
+          iptpGiven: false,
+          ttGiven: false,
+          ironGiven: false,
+          folateGiven: false,
+          calciumGiven: false,
+          malariaTestDone: false,
+          malariaTreatmentGiven: false,
+          dangerSignsPresent: false,
+          referralMade: false,
+          oedema: false,
+          
+          // ✅ Default values for array fields
+          dangerSignsList: []
+        },
+        include: {
+          recordedBy: {
+            select: { fullName: true, role: true }
+          }
         }
       });
-      
+
       // Update current attendance on booking
       await this.prisma.antenatalBooking.update({
         where: { id: existingBooking.id },
         data: { currentAttendanceId: encounterId }
       });
-      
-      console.log(`✅ Created ANC visit #${visitCount + 1} for booking ${existingBooking.id}`);
+
+      console.log(`✅ Created ANC visit #${visitCount + 1} (${visit.id}) for booking ${existingBooking.id}`);
+      return { booking: existingBooking, visit, isNew: false };
     }
   }
 
   // ============================================
-  // HANDLE DELIVERY ENCOUNTER (SCHEMA-ALIGNED)
+  // ✅ FIXED: HANDLE DELIVERY ENCOUNTER (SCHEMA-ALIGNED)
   // ============================================
   private async handleDeliveryEncounter(encounterId: string, patientId: string, userId: string) {
     // Find active antenatal booking
@@ -271,25 +336,47 @@ export class EncounterService {
       }
     });
 
-    // Create delivery record
+    // ✅ FIX: Get the actual user's full name for the attendant field
+    // Schema expects a String (attendant name), NOT a userId
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true, role: true }
+    });
+    
+    // Create attendant string with role for clarity
+    const attendantName = user 
+      ? `${user.fullName} (${user.role || 'Staff'})` 
+      : 'Unknown Attendant';
+
+    // Create delivery record with schema-compliant data
     const deliveryRecord = await this.prisma.deliveryRecord.create({
       data: {
         patientId: patientId,
         attendanceId: encounterId,
         antenatalBookingId: antenatalBooking?.id,
         deliveryDate: new Date(),
-        deliveryType: 'spontaneous_vertex',     // ✅ Matches DeliveryType enum
+        deliveryType: 'spontaneous_vertex',      // ✅ Matches DeliveryType enum
         deliveryOutcome: 'live_birth',           // ✅ Matches DeliveryOutcome enum
-        placeOfDelivery: 'private_hospital',    // ✅ Matches PlaceOfDelivery enum (default)
-        attendant: userId,
-        maternalOutcome: 'alive',               // ✅ Matches MaternalOutcome enum
+        placeOfDelivery: 'private_hospital',     // ✅ Matches PlaceOfDelivery enum (default for private hospitals)
+        attendant: attendantName,                // ✅ FIXED: Now uses full name instead of userId
+        maternalOutcome: 'alive',                // ✅ Matches MaternalOutcome enum
         complications: [],                       // ✅ String[] - matches schema
         createdById: userId,
-        // Male involvement fields (schema-compliant)
+        
+        // ✅ Male involvement fields (schema-compliant)
         malePartnerPresentANC: false,
         malePartnerPresentDelivery: false,
         malePartnerPresentPNC: false,
-        maternalDeathsAudited: false
+        
+        // ✅ Maternal death audit fields
+        maternalDeathsAudited: false,
+        auditNotes: null
+      },
+      include: {
+        patient: {
+          select: { id: true, surname: true, otherNames: true, folderNumber: true }
+        },
+        Newborn: true
       }
     });
 
@@ -309,10 +396,13 @@ export class EncounterService {
     }
 
     console.log(`✅ Created delivery record ${deliveryRecord.id} for patient ${patientId}`);
+    console.log(`   Attendant: ${attendantName}`);
+    
+    return deliveryRecord;
   }
 
   // ============================================
-  // HANDLE POSTNATAL ENCOUNTER (SCHEMA-ALIGNED)
+  // ✅ FIXED: HANDLE POSTNATAL ENCOUNTER (SCHEMA-ALIGNED)
   // ============================================
   private async handlePostnatalEncounter(encounterId: string, patientId: string, userId: string) {
     // Find the most recent delivery record for this patient
@@ -320,7 +410,10 @@ export class EncounterService {
       where: {
         patientId: patientId
       },
-      orderBy: { deliveryDate: 'desc' }
+      orderBy: { deliveryDate: 'desc' },
+      include: {
+        Newborn: true  // Include newborn records for reference
+      }
     });
 
     // Find the antenatal booking (if exists)
@@ -332,7 +425,16 @@ export class EncounterService {
       orderBy: { bookingDate: 'desc' }
     });
 
-    // Create postnatal record
+    // Calculate day number based on delivery date
+    let dayNumber = 1;
+    if (deliveryRecord?.deliveryDate) {
+      const daysSinceDelivery = Math.floor(
+        (Date.now() - new Date(deliveryRecord.deliveryDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      dayNumber = Math.max(1, daysSinceDelivery);
+    }
+
+    // Create postnatal record with ALL required fields
     const postnatalRecord = await this.prisma.postnatalRecord.create({
       data: {
         patientId: patientId,
@@ -340,20 +442,77 @@ export class EncounterService {
         antenatalBookingId: antenatalBooking?.id,
         deliveryRecordId: deliveryRecord?.id,
         examinationDate: new Date(),
-        dayNumber: 1,
-        // Required fields with defaults
-        maternalCondition: 'good',
-        breastfeedingStatus: 'exclusive',
-        babyCondition: 'good',
+        dayNumber: dayNumber,
+        
+        // ✅ Maternal assessment fields (required)
+        maternalCondition: 'good',                    // ✅ Enum: 'good' | 'fair' | 'poor' | 'critical'
+        maternalComplications: [],                    // ✅ Json field - empty array
+        bloodPressure: null,                          // Will be filled during examination
+        temperature: null,
+        pulse: null,
+        fundalHeight: null,
+        lochia: 'normal',                             // ✅ Enum: 'normal' | 'heavy' | 'foul_smelling' | 'scanty'
+        perinealCondition: 'intact',                  // ✅ Enum: 'intact' | 'healing' | 'infected' | 'dehisced'
+        caesareanWound: null,
+        
+        // ✅ Breastfeeding fields
+        breastfeedingStatus: 'exclusive',             // ✅ Enum: 'exclusive' | 'mixed' | 'not_breastfeeding'
+        breastfeedingDifficulties: [],                // ✅ Json field - empty array
+        latching: 'good',                             // ✅ Enum: 'good' | 'fair' | 'poor'
+        
+        // ✅ Baby assessment fields
+        babyCondition: 'good',                        // ✅ Enum: 'good' | 'fair' | 'poor' | 'critical'
+        babyWeight: deliveryRecord?.birthWeight ? deliveryRecord.birthWeight / 1000 : null, // Convert g to kg
+        babyTemperature: null,
+        babyFeeding: 'good',                          // ✅ Enum: 'good' | 'fair' | 'poor'
+        jaundice: false,
+        jaundiceSeverity: null,
+        cordCondition: 'dry',                         // ✅ Enum: 'dry' | 'moist' | 'infected'
+        
+        // ✅ Immunization fields
+        bcgGiven: false,
+        opv0Given: false,
+        hepB0Given: false,
+        
+        // ✅ Family planning fields
         familyPlanningDiscussed: false,
-        createdById: userId,
-        // JSON fields
-        maternalComplications: [],      // ✅ Json - matches schema
-        babyDangerSigns: []             // ✅ Json - matches schema
+        familyPlanningMethodAccepted: null,
+        
+        // ✅ Danger signs (Json fields)
+        maternalDangerSigns: [],                      // ✅ Json field - empty array
+        babyDangerSigns: [],                          // ✅ Json field - empty array
+        
+        // ✅ Referral fields
+        referralMade: false,
+        referredTo: null,
+        referralReason: null,
+        
+        // ✅ Follow-up
+        nextVisitDate: null,
+        nextVisitType: null,
+        
+        // ✅ Notes and metadata
+        notes: 'Initial postnatal examination created automatically.',
+        createdById: userId
+      },
+      include: {
+        patient: {
+          select: { id: true, surname: true, otherNames: true, folderNumber: true }
+        },
+        deliveryRecord: {
+          include: { Newborn: true }
+        }
       }
     });
 
     console.log(`✅ Created postnatal record ${postnatalRecord.id} for patient ${patientId}`);
+    console.log(`   Day ${dayNumber} post-delivery`);
+    if (deliveryRecord) {
+      console.log(`   Linked to delivery record ${deliveryRecord.id}`);
+      console.log(`   Newborns: ${deliveryRecord.Newborn?.length || 0}`);
+    }
+    
+    return postnatalRecord;
   }
 
   // ============================================

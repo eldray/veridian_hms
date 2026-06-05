@@ -20,6 +20,7 @@ import Admissions from './pages/Admissions';
 import CorporateAccounts from './pages/CorporateAccounts';
 import Billing from './pages/Billing';
 import ScansEntry from './pages/ScansEntry';
+import FamilyPlanning from './pages/FamilyPlanning';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Laboratory from './pages/Laboratory';
@@ -301,6 +302,7 @@ function App() {
           <Route path="medical-entries/:attendanceId" element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="vitals" element={<ProtectedRoute><Vitals /></ProtectedRoute>} />
           <Route path="/dashboard/vitals/:id" element={<ProtectedRoute><VitalsEntry/></ProtectedRoute>} />
+          <Route path="/family-planning" element={<ProtectedRoute><FamilyPlanning /></ProtectedRoute>} />
 
           {/* Waiting List Pages */}
           <Route path="/dashboard/medical-waiting-list" element={<ProtectedRoute><MedicalWaitingList /></ProtectedRoute>} />

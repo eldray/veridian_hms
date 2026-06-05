@@ -2489,32 +2489,86 @@ export const exportReportToCSV = async (reportType: string, filters: ReportFilte
   return response.data;
 };
 
-// ──────────────────────────────────────────────
-// ANTENATAL REGISTRATION (After encounter created)
-// ──────────────────────────────────────────────
 
-// Register a new antenatal booking (called AFTER creating an antenatal encounter)
-export const registerAntenatalBooking = async (data: {
-  encounterId: string;
-  lastMenstrualPeriod: string;      // LMP date
-  numberOfPregnancies: number;       // gravida
-  numberOfDeliveries: number;         // para
-  riskLevel?: 'low' | 'medium' | 'high';
-  bloodGroup?: string;
-  hivStatus?: string;
-  hemoglobinLevel?: number;
-  syphilisStatus?: string;
-  previousCesareanSection?: boolean;
-  previousPregnancyComplications?: string;
-  gestationalAgeWeeks?: number;
-  riskFactors?: any;
-}) => {
-  const response = await api.post('/antenatal/register', data);
+// ============================================
+// FAMILY PLANNING
+// ============================================
+
+export interface FPServiceData {
+  patientId: string;
+  attendanceId?: string;
+  serviceDate?: string;
+  method: string;
+  methodCategory: string;
+  isNewAcceptor?: boolean;
+  counsellingGiven?: boolean;
+  informedConsent?: boolean;
+  sideEffects?: string;
+  contraindications?: string;
+  medicalEligibilityCategory?: number;
+  nextFollowUpDate?: string;
+  isPostpartum?: boolean;
+  isPostAbortion?: boolean;
+  postpartumWeeks?: number;
+  notes?: string;
+}
+
+export const getFPServices = async (filters?: any) => {
+  const response = await api.get('/family-planning', { params: filters });
   return response.data;
 };
 
+export const getFPServiceById = async (id: string) => {
+  const response = await api.get(`/family-planning/${id}`);
+  return response.data;
+};
+
+export const createFPService = async (data: FPServiceData) => {
+  const response = await api.post('/family-planning', data);
+  return response.data;
+};
+
+export const updateFPService = async (id: string, data: Partial<FPServiceData>) => {
+  const response = await api.put(`/family-planning/${id}`, data);
+  return response.data;
+};
+
+export const deleteFPService = async (id: string) => {
+  const response = await api.delete(`/family-planning/${id}`);
+  return response.data;
+};
+
+export const getCurrentFPMethod = async (patientId: string) => {
+  const response = await api.get(`/family-planning/patient/${patientId}/current`);
+  return response.data;
+};
+
+export const getFPHistory = async (patientId: string) => {
+  const response = await api.get(`/family-planning/patient/${patientId}/history`);
+  return response.data;
+};
+
+export const getFPClientDetails = async (patientId: string) => {
+  const response = await api.get(`/family-planning/patient/${patientId}/details`);
+  return response.data;
+};
+
+export const getFPStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/family-planning/statistics', { params: filters });
+  return response.data;
+};
+
+export const getFPMethodMix = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/family-planning/method-mix', { params: filters });
+  return response.data;
+};
+
+export const getGHSFPReport = async (startDate: string, endDate: string) => {
+  const response = await api.get('/family-planning/ghs-report', { params: { startDate, endDate } });
+  return response.data;
+};
 // ──────────────────────────────────────────────
-// ANTENATAL RECORDS (View/Update existing records)
+// ANTENATAL RECORDS (Updated names to match stores)
 // ──────────────────────────────────────────────
 
 // Get all antenatal records
@@ -2524,43 +2578,66 @@ export const getAntenatalRecords = async (filters?: {
   isActive?: boolean; 
   patientId?: string 
 }) => {
-  const response = await api.get('/antenatal/records', { params: filters });
+  const response = await api.get('/antenatal', { params: filters });
   return response.data;
 };
 
 // Get antenatal record by encounter ID
 export const getAntenatalRecordByEncounter = async (encounterId: string) => {
-  const response = await api.get(`/antenatal/records/by-encounter/${encounterId}`);
+  const response = await api.get(`/antenatal/attendance/${encounterId}`);
   return response.data;
 };
 
 // Get active antenatal record by patient ID
 export const getActiveAntenatalRecordByPatient = async (patientId: string) => {
-  const response = await api.get(`/antenatal/records/by-patient/${patientId}/active`);
+  const response = await api.get(`/antenatal/patient/${patientId}/active`);
   return response.data;
 };
 
 // Get antenatal record by ID
 export const getAntenatalRecordById = async (recordId: string) => {
-  const response = await api.get(`/antenatal/records/${recordId}`);
+  const response = await api.get(`/antenatal/${recordId}`);
+  return response.data;
+};
+
+// Register new antenatal booking (first visit)
+export const registerAntenatalBooking = async (data: {
+  patientId: string;
+  attendanceId?: string;
+  gravida: number;
+  para: number;
+  lmp: string;
+  gestationalAgeWeeks?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskFactors?: any;
+  bloodGroup?: string;
+  hivStatus?: string;
+  hbLevel?: number;
+  vdrl?: string;
+  bookingWeight?: number;
+  bookingBP?: string;
+  previousCSection?: boolean;
+  previousComplications?: string;
+}) => {
+  const response = await api.post('/antenatal', data);
   return response.data;
 };
 
 // Update antenatal record
 export const updateAntenatalRecord = async (recordId: string, data: {
-  numberOfPregnancies?: number;
-  numberOfDeliveries?: number;
-  estimatedDueDate?: string;
+  gravida?: number;
+  para?: number;
+  edd?: string;
   gestationalAgeWeeks?: number;
   riskLevel?: 'low' | 'medium' | 'high';
   bloodGroup?: string;
   hivStatus?: string;
-  hemoglobinLevel?: number;
-  syphilisStatus?: string;
-  previousCesareanSection?: boolean;
-  previousPregnancyComplications?: string;
+  hbLevel?: number;
+  vdrl?: string;
+  previousCSection?: boolean;
+  previousComplications?: string;
 }) => {
-  const response = await api.put(`/antenatal/records/${recordId}`, data);
+  const response = await api.put(`/antenatal/${recordId}`, data);
   return response.data;
 };
 
@@ -2570,13 +2647,13 @@ export const closeAntenatalRecord = async (recordId: string, data: {
   deliveryOutcome?: string; 
   deliveryRecordId?: string 
 }) => {
-  const response = await api.post(`/antenatal/records/${recordId}/close`, data);
+  const response = await api.post(`/antenatal/${recordId}/close`, data);
   return response.data;
 };
 
 // Delete antenatal record (admin only)
 export const deleteAntenatalRecord = async (recordId: string) => {
-  const response = await api.delete(`/antenatal/records/${recordId}`);
+  const response = await api.delete(`/antenatal/${recordId}`);
   return response.data;
 };
 
@@ -2586,7 +2663,7 @@ export const deleteAntenatalRecord = async (recordId: string) => {
 
 // Record a new ANC visit (follow-up)
 export const recordANCVisit = async (data: {
-  antenatalRecordId: string;
+  bookingId: string;
   attendanceId: string;
   visitNumber: number;
   visitDate: string;
@@ -2597,16 +2674,17 @@ export const recordANCVisit = async (data: {
   fetalHeartRate?: number;
   fetalMovements?: boolean;
   presentation?: string;
-  iptpDoseGiven?: boolean;
+  iptpGiven?: boolean;
   iptpDoseNumber?: number;
   iptpDrug?: string;
-  tetanusToxoidGiven?: boolean;
-  tetanusToxoidDoseNumber?: number;
+  ttGiven?: boolean;
+  ttDoseNumber?: number;
   ironGiven?: boolean;
   folateGiven?: boolean;
   calciumGiven?: boolean;
   malariaTestDone?: boolean;
   malariaTestResult?: string;
+  malariaTreatmentGiven?: boolean;
   dangerSignsPresent?: boolean;
   dangerSignsList?: string[];
   referralMade?: boolean;
@@ -2619,8 +2697,8 @@ export const recordANCVisit = async (data: {
 };
 
 // Get all ANC visits for an antenatal record
-export const getANCVisitsByAntenatalRecord = async (antenatalRecordId: string) => {
-  const response = await api.get(`/antenatal/visits/by-antenatal-record/${antenatalRecordId}`);
+export const getANCVisitsByAntenatalRecord = async (recordId: string) => {
+  const response = await api.get(`/antenatal/bookings/${recordId}/visits`);
   return response.data;
 };
 
@@ -2632,12 +2710,15 @@ export const getANCVisitById = async (id: string) => {
 
 // Update ANC visit
 export const updateANCVisit = async (id: string, data: Partial<{
+  gestationalAgeWeeks: number;
   weight: number;
   bloodPressure: string;
   fundalHeight: number;
   fetalHeartRate: number;
-  iptpDoseGiven: boolean;
-  tetanusToxoidGiven: boolean;
+  iptpGiven: boolean;
+  iptpDoseNumber: number;
+  ttGiven: boolean;
+  ttDoseNumber: number;
   dangerSignsPresent: boolean;
   referralMade: boolean;
   nextVisitDate: string;
@@ -2653,44 +2734,8 @@ export const deleteANCVisit = async (id: string) => {
 };
 
 // ──────────────────────────────────────────────
-// DELIVERY RECORDS
+// DELIVERY RECORDS (Updated names to match stores)
 // ──────────────────────────────────────────────
-
-// Record a new delivery
-export const recordDelivery = async (data: {
-  patientId: string;
-  attendanceId: string;
-  deliveryDate: string;
-  deliveryType: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
-  deliveryOutcome: 'live_birth' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'neonatal_death';
-  placeOfDelivery?: string;
-  attendant?: string;
-  gestationalAgeWeeks?: number;
-  birthWeight?: number;
-  apgarScore1min?: number;
-  apgarScore5min?: number;
-  resuscitationDone?: boolean;
-  maternalOutcome?: string;
-  complications?: string[];
-  notes?: string;
-  malePartnerPresentANC?: boolean;
-  malePartnerPresentDelivery?: boolean;
-  malePartnerPresentPNC?: boolean;
-  newborns?: Array<{
-    birthWeight: number;
-    gender: string;
-    apgarScore1min?: number;
-    apgarScore5min?: number;
-    resuscitationDone?: boolean;
-    outcome?: string;
-    breastfeedingWithin30Min?: boolean;
-    eyeProphylaxisGiven?: boolean;
-    cordCareMethod?: string;
-  }>;
-}) => {
-  const response = await api.post('/antenatal/delivery', data);
-  return response.data;
-};
 
 // Get all delivery records
 export const getDeliveryRecords = async (filters?: { 
@@ -2710,6 +2755,45 @@ export const getDeliveryRecord = async (id: string) => {
   return response.data;
 };
 
+// Record a new delivery
+export const recordDelivery = async (data: {
+  patientId: string;
+  attendanceId: string;
+  antenatalBookingId?: string;
+  deliveryDate: string;
+  deliveryType: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
+  deliveryOutcome: 'live_birth' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'neonatal_death';
+  placeOfDelivery?: 'private_hospital' | 'government_hospital' | 'health_centre' | 'clinic' | 'chag_facility' | 'private_midwife' | 'tba_trained' | 'tba_untrained' | 'home' | 'en_route' | 'mines_facility' | 'quasi_govt_institution';
+  attendant?: string;
+  gestationWeeks?: number;
+  birthWeight?: number;
+  apgarScore1min?: number;
+  apgarScore5min?: number;
+  resusCitationDone?: boolean;
+  maternalOutcome?: 'alive' | 'dead_direct_cause' | 'dead_indirect_cause' | 'dead_unknown';
+  complications?: string[];
+  notes?: string;
+  malePartnerPresentANC?: boolean;
+  malePartnerPresentDelivery?: boolean;
+  malePartnerPresentPNC?: boolean;
+  maternalDeathsAudited?: boolean;
+  auditNotes?: string;
+  newborns?: Array<{
+    birthWeight: number;
+    gender: 'male' | 'female' | 'other';
+    apgarScore1min?: number;
+    apgarScore5min?: number;
+    resuscitation?: boolean;
+    outcome?: string;
+    breastfeedingWithin30Min?: boolean;
+    eyeProphylaxisGiven?: boolean;
+    cordCareMethod?: 'dry_cord' | 'chlorhexidine' | 'methylated_spirit' | 'alcohol' | 'other';
+  }>;
+}) => {
+  const response = await api.post('/antenatal/deliveries', data);
+  return response.data;
+};
+
 // Update delivery record
 export const updateDeliveryRecord = async (id: string, data: Partial<{
   deliveryType: string;
@@ -2719,6 +2803,12 @@ export const updateDeliveryRecord = async (id: string, data: Partial<{
   apgarScore5min: number;
   maternalOutcome: string;
   complications: string[];
+  notes: string;
+  malePartnerPresentANC: boolean;
+  malePartnerPresentDelivery: boolean;
+  malePartnerPresentPNC: boolean;
+  maternalDeathsAudited: boolean;
+  auditNotes: string;
 }>) => {
   const response = await api.put(`/antenatal/deliveries/${id}`, data);
   return response.data;
@@ -2731,29 +2821,8 @@ export const deleteDeliveryRecord = async (id: string) => {
 };
 
 // ──────────────────────────────────────────────
-// POSTNATAL RECORDS
+// POSTNATAL RECORDS (Updated names to match stores)
 // ──────────────────────────────────────────────
-
-// Record a new postnatal visit
-export const recordPostnatalVisit = async (data: {
-  patientId: string;
-  attendanceId: string;
-  examinationDate: string;
-  dayNumber: number;
-  maternalCondition?: string;
-  bloodPressure?: string;
-  temperature?: number;
-  pulse?: number;
-  breastfeedingStatus?: string;
-  babyCondition?: string;
-  babyWeight?: number;
-  familyPlanningDiscussed?: boolean;
-  familyPlanningMethodAccepted?: string;
-  notes?: string;
-}) => {
-  const response = await api.post('/antenatal/postnatal', data);
-  return response.data;
-};
 
 // Get all postnatal records
 export const getPostnatalRecords = async (filters?: { 
@@ -2761,7 +2830,7 @@ export const getPostnatalRecords = async (filters?: {
   page?: number; 
   limit?: number 
 }) => {
-  const response = await api.get('/antenatal/postnatal', { params: filters });
+  const response = await api.get('/antenatal/postnatals', { params: filters });
   return response.data;
 };
 
@@ -2771,13 +2840,84 @@ export const getPostnatalRecord = async (id: string) => {
   return response.data;
 };
 
+// Record a new postnatal visit
+export const recordPostnatalVisit = async (data: {
+  patientId: string;
+  attendanceId: string;
+  antenatalBookingId?: string;
+  deliveryRecordId?: string;
+  examinationDate: string;
+  dayNumber?: number;
+  maternalCondition?: 'good' | 'fair' | 'poor' | 'critical';
+  maternalComplications?: string[];
+  bloodPressure?: string;
+  temperature?: number;
+  pulse?: number;
+  fundalHeight?: number;
+  lochia?: string;
+  perinealCondition?: string;
+  caesareanWound?: string;
+  breastfeedingStatus?: 'exclusive' | 'mixed' | 'not_breastfeeding';
+  breastfeedingDifficulties?: string[];
+  latching?: string;
+  babyCondition?: 'good' | 'fair' | 'poor' | 'critical';
+  babyWeight?: number;
+  babyTemperature?: number;
+  babyFeeding?: string;
+  jaundice?: boolean;
+  jaundiceSeverity?: string;
+  cordCondition?: string;
+  bcgGiven?: boolean;
+  opv0Given?: boolean;
+  hepB0Given?: boolean;
+  familyPlanningDiscussed?: boolean;
+  familyPlanningMethodAccepted?: string;
+  maternalDangerSigns?: string[];
+  babyDangerSigns?: string[];
+  referralMade?: boolean;
+  referredTo?: string;
+  referralReason?: string;
+  nextVisitDate?: string;
+  nextVisitType?: string;
+  notes?: string;
+}) => {
+  const response = await api.post('/antenatal/postnatal', data);
+  return response.data;
+};
+
 // Update postnatal record
 export const updatePostnatalRecord = async (id: string, data: Partial<{
   maternalCondition: string;
+  maternalComplications: string[];
+  bloodPressure: string;
+  temperature: number;
+  pulse: number;
+  fundalHeight: number;
+  lochia: string;
+  perinealCondition: string;
+  caesareanWound: string;
   breastfeedingStatus: string;
+  breastfeedingDifficulties: string[];
+  latching: string;
   babyCondition: string;
+  babyWeight: number;
+  babyTemperature: number;
+  babyFeeding: string;
+  jaundice: boolean;
+  jaundiceSeverity: string;
+  cordCondition: string;
+  bcgGiven: boolean;
+  opv0Given: boolean;
+  hepB0Given: boolean;
   familyPlanningDiscussed: boolean;
   familyPlanningMethodAccepted: string;
+  maternalDangerSigns: string[];
+  babyDangerSigns: string[];
+  referralMade: boolean;
+  referredTo: string;
+  referralReason: string;
+  nextVisitDate: string;
+  nextVisitType: string;
   notes: string;
 }>) => {
   const response = await api.put(`/antenatal/postnatal/${id}`, data);
@@ -2795,17 +2935,17 @@ export const deletePostnatalRecord = async (id: string) => {
 // ──────────────────────────────────────────────
 
 export const getAntenatalStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/statistics/antenatal', { params: filters });
+  const response = await api.get('/antenatal/stats/anc', { params: filters });
   return response.data;
 };
 
 export const getDeliveryStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/statistics/delivery', { params: filters });
+  const response = await api.get('/antenatal/stats/delivery', { params: filters });
   return response.data;
 };
 
 export const getPostnatalStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/statistics/postnatal', { params: filters });
+  const response = await api.get('/antenatal/stats/postnatal', { params: filters });
   return response.data;
 };
 
@@ -2891,7 +3031,7 @@ export default {
   getHospitalDetails, updateHospitalDetails, getAllUsers, updateUser, deactivateUser,
   getSystemSettings, updateSystemSettings, 
   
-  // ✅ ADD THESE NHIS SETTINGS
+  // NHIS SETTINGS
   getHospitalNHISSettings, updateHospitalNHISSettings,
   getNHISApiStatus, updateNHISApiConfig, testNHISConnection,
   verifyNHISEligibility, bulkVerifyNHISEligibility, generateCCC,
@@ -2915,7 +3055,8 @@ export default {
   generateBatchXML, updateBatchStatus, deleteClaimBatch,
   
   // Corporate Accounts
-  getCorporateAccounts, getCorporateAccount, createCorporateAccount,  updateCorporateAccount, deactivateCorporateAccount, getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee,
+  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount, 
+  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee,
   
   // Patients
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
@@ -2925,6 +3066,7 @@ export default {
   
   // Worklist
   getVitalsWorklist, getMedicalWorklist, getLabWorklist, getPharmacyWorklist, getWorklistSummary,
+  getScansWorklist, getTheatreWorklist, getMaternalWorklist,
   
   // Encounter Operations
   addDiagnosisToEncounter, removeDiagnosisFromEncounter,
@@ -2951,17 +3093,17 @@ export default {
   
   // Admissions
   getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
-   addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
+  addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
   
   // Wards & Beds
   getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds, getBedOccupancy,
   getBeds, getBed, createBed, updateBed, deleteBed,
 
-  // Daycase/Observation (NEW)
+  // Daycase/Observation
   getDaycasePatients, convertDaycaseToIPD,
   
-  // Discharge (UPDATED)
-  dischargeFromEncounter, // dischargePatient is alias for backward compat
+  // Discharge
+  dischargeFromEncounter,
   
   // Stock
   getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,
@@ -2970,7 +3112,7 @@ export default {
   getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction,
   getStockMovementReport, getLowStockAlerts,
   
-  // Purchase Invoices (Supplier)
+  // Purchase Invoices
   getPurchaseInvoices, getPurchaseInvoice, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice,
   
   // Requisitions
@@ -3000,11 +3142,12 @@ export default {
   // Departments
   getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment,
   getDepartmentStats, getDepartmentUsers, assignUserToDepartment, removeUserFromDepartment,
-  assignDepartmentHead, bulkUpdateDepartments,
+  assignDepartmentHead, bulkUpdateDepartments, getEligibleDepartmentHeads,
   
   // Appointments
   getAppointments, getAppointment, createAppointment, updateAppointment, deleteAppointment,
   updateAppointmentStatus, checkInAppointment, getAppointmentStatistics, getAvailableSlots,
+  getClinicianSchedule, getAvailableClinicians, convertToAttendance,
   
   // Notifications
   getNotifications, createNotification, getNotification, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
@@ -3017,7 +3160,7 @@ export default {
   // Dashboard
   getDashboardStats, getAppointmentCalendar,
   
-  // ✅ ADD THESE BACKUP FUNCTIONS
+  // Backup
   createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup, getBackupStats,
   
   // Documents
@@ -3027,21 +3170,54 @@ export default {
   
   // Reports
   getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
-  getMorbidityMortalityReport, getTopDiagnoses,  getFamilyPlanningReport,
+  getMorbidityMortalityReport, getTopDiagnoses, getFamilyPlanningReport, getConsultingRoomRegister,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
-  getRevenueReport, getDemographicReport, exportReport,
+  getRevenueReport, getDemographicReport, exportReport, exportReportToCSV,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
-  getClinicalReports, exportReportToCSV,
+  getClinicalReports,
   
-  // Antenatal
-  getAntenatalBookings, getActiveBookingByPatient, getAntenatalBookingById, createAntenatalBooking,
-  closeAntenatalBooking, getANCStatistics,
-  getANCVisitsByBooking, getANCVisitById, updateANCVisit, deleteANCVisit,
-  getDeliveries, getDelivery, createDelivery, updateDelivery, deleteDelivery, getDeliveryStats,
-  getPostnatals, getPostnatal, createPostnatal, updatePostnatal, deletePostnatal, getPostnatalStats,
-  
-  // Proforma Invoices (Estimates)
+  // NHIS Reports
+  getNhisExpiryReport, getNhisClaimsSummary, getNhisExpiringSoon,
+
+    // Antenatal Records (updated names)
+    getAntenatalRecords,
+    getAntenatalRecordByEncounter,
+    getActiveAntenatalRecordByPatient,
+    getAntenatalRecordById,
+    registerAntenatalBooking,
+    updateAntenatalRecord,
+    closeAntenatalRecord,
+    deleteAntenatalRecord,
+    
+    // ANC Visits (updated names)
+    recordANCVisit,
+    getANCVisitsByAntenatalRecord,
+    getANCVisitById,
+    updateANCVisit,
+    deleteANCVisit,
+    
+    // Delivery Records (updated names)
+    getDeliveryRecords,
+    getDeliveryRecord,
+    recordDelivery,
+    updateDeliveryRecord,
+    deleteDeliveryRecord,
+    
+    // Postnatal Records (updated names)
+    getPostnatalRecords,
+    getPostnatalRecord,
+    recordPostnatalVisit,
+    updatePostnatalRecord,
+    deletePostnatalRecord,
+    
+    // Statistics (updated names)
+    getAntenatalStatistics,
+    getDeliveryStatistics,
+    getPostnatalStatistics,
+    
+
+  // Proforma Invoices
   getEstimates, getEstimate, createEstimate, updateEstimate, deleteEstimate, sendEstimate,
   acceptEstimate, rejectEstimate, convertEstimateToBill, getEstimateStatistics,
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
@@ -3049,6 +3225,10 @@ export default {
   // Communications
   sendSMS, getCommunicationChannels, getCommunicationLogs, getCommunicationTemplates,
   createCommunicationTemplate, sendAppointmentReminderSMS,
+  
+  // Family Planning
+  getFPServices, getFPServiceById, createFPService, updateFPService, deleteFPService,
+  getCurrentFPMethod, getFPHistory, getFPClientDetails, getFPStatistics, getFPMethodMix, getGHSFPReport,
   
   // Upload
   servePatientImages, serveScanImages, serveDocuments

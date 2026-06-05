@@ -1,4 +1,4 @@
-// modules/index.ts - REMOVE Worklist import
+// modules/index.ts - WITH FAMILY PLANNING MODULE
 import { Express } from 'express';
 import { PrismaClient } from '@prisma/client';
 
@@ -41,6 +41,9 @@ import { createCorporateRoutes } from './corporate';
 import { createCommunicationRoutes } from './communication';
 import { createProformaInvoiceRoutes } from './proformaInvoice';
 
+// ✅ NEW: Family Planning Module Import
+import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
+
 export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('🔧 Registering modules...');
 
@@ -68,6 +71,10 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   
   app.use('/antenatal', createAntenatalRoutes(prisma));
   console.log('✅ Antenatal routes mounted at /antenatal');
+
+  // ✅ NEW: Family Planning Module
+  app.use('/family-planning', createFamilyPlanningRoutes(prisma));
+  console.log('✅ Family Planning routes mounted at /family-planning');
 
   // ============================================
   // APPOINTMENTS & SCHEDULING
@@ -129,7 +136,6 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // LABORATORY & DIAGNOSTICS
   // ============================================
-
   app.use('/lab-tests', createLabTestRoutes(prisma));   
   console.log('✅ Lab Test routes mounted at /lab-tests');
   
@@ -157,13 +163,13 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // REPORTS & ANALYTICS
   // ============================================
-  app.use('/clinical-reports', createClinicalReportsRoutes(prisma));  // ✅ Pass prisma
+  app.use('/clinical-reports', createClinicalReportsRoutes(prisma));
   console.log('✅ Clinical Reports routes mounted at /clinical-reports');
   
   app.use('/reports', createReportRoutes(prisma)); 
   console.log('✅ Report routes mounted at /reports');
 
-  app.use('/ghs-reports', createGHSReportRoutes(prisma));  // ✅ Pass prisma
+  app.use('/ghs-reports', createGHSReportRoutes(prisma));
   console.log('✅ GHS Report routes mounted at /ghs-reports');
   
   app.use('/dashboard', createDashboardRoutes(prisma));
@@ -190,8 +196,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // COMMUNICATIONS
   // ============================================
-  // modules/index.ts - Look for this line
-  app.use('/notifications', createNotificationRoutes(prisma));  // ✅ Pass prisma
+  app.use('/notifications', createNotificationRoutes(prisma));
   console.log('✅ Notification routes mounted at /notifications');
   
   app.use('/communications', createCommunicationRoutes());

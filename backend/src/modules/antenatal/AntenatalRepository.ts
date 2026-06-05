@@ -1,6 +1,6 @@
 // modules/antenatal/AntenatalRepository.ts
 import { PrismaClient } from '@prisma/client';
-import { 
+import {
   CreateAntenatalBookingInput,
   UpdateAntenatalBookingInput,
   CreateANCVisitInput,
@@ -20,7 +20,6 @@ export class AntenatalRepository {
   }
 
   // ===================== ANTENATAL BOOKING =====================
-  
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
     const lmp = new Date(data.lmp);
     const edd = this.calculateEDD(lmp);
@@ -29,11 +28,12 @@ export class AntenatalRepository {
       data: {
         patientId: data.patientId,
         attendanceId: data.attendanceId,
-        gravida: data.gravida,
-        para: data.para,
+        currentAttendanceId: data.attendanceId,
+        bookingDate: new Date(),
         lmp: lmp,
         edd: edd,
-        bookingDate: new Date(),
+        gravida: data.gravida,
+        para: data.para,
         gestationalAgeWeeks: data.gestationalAgeWeeks,
         riskLevel: data.riskLevel || 'low',
         riskFactors: data.riskFactors || [],
@@ -43,9 +43,9 @@ export class AntenatalRepository {
         vdrl: data.vdrl,
         isActive: true,
         isCompleted: false,
-        createdBy: data.createdById,
-        iptpDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null },
-        ttDoses: { dose1: null, dose2: null, dose3: null, dose4: null, dose5: null }
+        createdById: data.createdById,
+        iptpDoses: {},
+        ttDoses: {}
       },
       include: { patient: true }
     });
@@ -160,7 +160,6 @@ export class AntenatalRepository {
   }
 
   // ===================== ANC VISITS =====================
-
   async createVisit(data: CreateANCVisitInput): Promise<any> {
     return this.prisma.aNCVisit.create({
       data: {
@@ -232,7 +231,6 @@ export class AntenatalRepository {
   }
 
   // ===================== DELIVERY RECORDS =====================
-
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
     return this.prisma.deliveryRecord.create({
       data: {
@@ -242,7 +240,7 @@ export class AntenatalRepository {
         deliveryDate: data.deliveryDate,
         deliveryType: data.deliveryType,
         deliveryOutcome: data.deliveryOutcome,
-        placeOfDelivery: data.placeOfDelivery || 'hospital',
+        placeOfDelivery: data.placeOfDelivery || 'private_hospital',
         attendant: data.attendant,
         birthWeight: data.birthWeight,
         gestationWeeks: data.gestationWeeks,
@@ -252,6 +250,11 @@ export class AntenatalRepository {
         maternalOutcome: data.maternalOutcome || 'alive',
         complications: data.complications || [],
         notes: data.notes,
+        malePartnerPresentANC: data.malePartnerPresentANC || false,
+        malePartnerPresentDelivery: data.malePartnerPresentDelivery || false,
+        malePartnerPresentPNC: data.malePartnerPresentPNC || false,
+        maternalDeathsAudited: data.maternalDeathsAudited || false,
+        auditNotes: data.auditNotes,
         createdById: data.createdById
       },
       include: {
@@ -319,7 +322,6 @@ export class AntenatalRepository {
   }
 
   // ===================== POSTNATAL RECORDS =====================
-
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
     return this.prisma.postnatalRecord.create({
       data: {
@@ -393,7 +395,6 @@ export class AntenatalRepository {
   }
 
   // ===================== STATISTICS =====================
-
   async getANCStatistics(startDate?: Date, endDate?: Date): Promise<any> {
     const where: any = {};
     if (startDate || endDate) {
@@ -472,7 +473,6 @@ export class AntenatalRepository {
   }
 
   // ===================== HELPER METHODS =====================
-
   private calculateEDD(lmp: Date): Date {
     const edd = new Date(lmp);
     edd.setDate(edd.getDate() + 280);

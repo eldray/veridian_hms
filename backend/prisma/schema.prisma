@@ -2158,31 +2158,7 @@ model AbortionRecord {
   @@map("abortion_records")
 }
 
-model FamilyPlanningService {
-  id                String   @id @default(cuid())
-  patientId         String
-  attendanceId      String?  // Optional link to encounter
-  serviceDate       DateTime @default(now())
-  method            FPMethod
-  isPostnatal       Boolean  @default(false)
-  isPostAbortion    Boolean  @default(false)
-  counseled         Boolean  @default(true)
-  accepted          Boolean  @default(true)
-  cypFactor         Float    @default(1.0) // Couple Year Protection factor
-  notes             String?
-  providedById      String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  patient    Patient @relation(fields: [patientId], references: [id])
-  attendance Attendance? @relation(fields: [attendanceId], references: [id])
-  provider   User    @relation(fields: [providedById], references: [id])
-
-  @@index([patientId])
-  @@index([serviceDate])
-  @@index([method])
-  @@map("family_planning_services")
-}
 
 
 // ============================================================
@@ -2352,6 +2328,93 @@ enum CommunicationChannelType {
   SMS
   WHATSAPP
   EMAIL
+}
+
+model FamilyPlanningService {
+  id                String      @id @default(cuid())
+  patientId         String
+  attendanceId      String?     // Link to encounter
+  serviceDate       DateTime    @default(now())
+  
+  // FP Method
+  method            FPMethod
+  methodCategory    FPMethodCategory
+  isNewAcceptor     Boolean     @default(false)
+  
+  // Counselling
+  counsellingGiven  Boolean     @default(true)
+  informedConsent   Boolean     @default(true)
+  
+  // Clinical
+  sideEffects       String?
+  contraindications String?
+  medicalEligibilityCategory Int?  // WHO MEC category 1-4
+  
+  // Follow-up
+  nextFollowUpDate  DateTime?
+  followUpStatus    String?
+  
+  // Context
+  isPostpartum      Boolean     @default(false)
+  isPostAbortion    Boolean     @default(false)
+  postpartumWeeks   Int?
+  
+  // CYP (Couple Year Protection) calculation
+  cypFactor         Float       @default(1.0)
+  
+  // Provider
+  providedById      String
+  notes             String?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  patient           Patient     @relation(fields: [patientId], references: [id])
+  attendance        Attendance? @relation(fields: [attendanceId], references: [id])
+  providedBy        User        @relation(fields: [providedById], references: [id])
+  
+  @@index([patientId])
+  @@index([serviceDate])
+  @@index([method])
+  @@index([methodCategory])
+  @@map("family_planning_services")
+}
+
+enum FPMethod {
+  // Modern Short-Acting
+  pill_coc
+  pill_pop
+  injectable_dmpa
+  injectable_net_en
+  condom_male
+  condom_female
+  
+  // Modern Long-Acting
+  implant_implanon
+  implant_jadelle
+  iud_copper
+  iud_hormonal
+  
+  // Permanent
+  female_sterilization
+  male_sterilization
+  
+  // Traditional
+  lam
+  withdrawal
+  calendar
+  other_traditional
+  
+  // Emergency
+  emergency_contraception
+}
+
+enum FPMethodCategory {
+  modern_short_acting
+  modern_long_acting
+  permanent
+  traditional
+  emergency
 }
 
 // ============================================================
@@ -2997,27 +3060,4 @@ enum PlaceOfDelivery {
   en_route
   mines_facility
   quasi_govt_institution
-}
-
-enum FPMethod {
-  // Modern Methods
-  pill_coc
-  pill_pop
-  injectable_dmpa
-  injectable_net_en
-  implant_implanon
-  implant_jadelle
-  iud_copper
-  iud_hormonal
-  condom_male
-  condom_female
-  female_sterilization
-  
-  // Traditional
-  lactational_amenorrhea
-  withdrawal
-  calendar_method
-  
-  // Emergency
-  emergency_contraception
 }
