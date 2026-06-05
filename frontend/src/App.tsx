@@ -302,7 +302,7 @@ function App() {
           <Route path="medical-entries/:attendanceId" element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="vitals" element={<ProtectedRoute><Vitals /></ProtectedRoute>} />
           <Route path="/dashboard/vitals/:id" element={<ProtectedRoute><VitalsEntry/></ProtectedRoute>} />
-          <Route path="/family-planning" element={<ProtectedRoute><FamilyPlanning /></ProtectedRoute>} />
+          <Route path="family-planning" element={<ProtectedRoute><FamilyPlanning /></ProtectedRoute>} />
 
           {/* Waiting List Pages */}
           <Route path="/dashboard/medical-waiting-list" element={<ProtectedRoute><MedicalWaitingList /></ProtectedRoute>} />
