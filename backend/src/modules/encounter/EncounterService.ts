@@ -1,6 +1,7 @@
-// modules/encounter/EncounterService.ts
+// modules/encounter/EncounterService.ts - Updated with automatic maternal record creation
+// SCHEMA-ALIGNED: Uses correct field names from Prisma schema
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AdmissionType as PrismaAdmissionType, AttendanceStatus } from '@prisma/client';
 import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { 
@@ -29,7 +30,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // CREATE ENCOUNTER (UPDATED with detention logic)
+  // CREATE ENCOUNTER - WITH AUTOMATIC MATERNAL RECORD CREATION
   // ============================================
   async createEncounter(data: CreateEncounterDTO, userId: string) {
     // Validate NHIS CCC if payment mode is NHIS
@@ -42,7 +43,7 @@ export class EncounterService {
       throw new Error('Corporate Account ID is required for corporate payments');
     }
 
-    // ✅ NEW: Determine encounter category and admission type based on stay duration
+    // Determine encounter category and admission type based on stay duration
     let encounterCategory = data.encounterCategory || 'opd';
     let admissionType = data.admissionType;
     let shouldCreateAdmission = false;
@@ -122,6 +123,25 @@ export class EncounterService {
       userId
     );
 
+    // ============================================
+    // MATERNAL RECORD LOGIC (SCHEMA-ALIGNED)
+    // ============================================
+    
+    // 1. ANTENATAL: Create or link to booking
+    if (data.attendanceType === 'antenatal') {
+      await this.handleAntenatalEncounter(encounter.id, data.patientId, userId);
+    }
+    
+    // 2. DELIVERY: Create delivery record and close antenatal booking
+    else if (data.attendanceType === 'delivery') {
+      await this.handleDeliveryEncounter(encounter.id, data.patientId, userId);
+    }
+    
+    // 3. POSTNATAL: Create postnatal record
+    else if (data.attendanceType === 'postnatal') {
+      await this.handlePostnatalEncounter(encounter.id, data.patientId, userId);
+    }
+
     // If bed assigned, mark as occupied
     if (data.bedId) {
       await this.prisma.bed.update({
@@ -136,21 +156,21 @@ export class EncounterService {
       });
     }
 
-    // ✅ NEW: Create admission record for IPD (including detention)
+    // Create admission record for IPD
     if (shouldCreateAdmission && encounterCategory === 'ipd') {
       await this.createFormalAdmission({
         attendanceId: encounter.id,
-        admissionType: admissionType || 'emergency',
+        admissionType: admissionType as any || 'emergency',
         admissionSource: data.admissionSource || 'opd',
         admissionDate: new Date()
       }, userId);
     }
 
-    // ✅ NEW: Update attendance with admission type for easy filtering
+    // Update attendance with admission type for easy filtering
     if (admissionType) {
       await this.prisma.attendance.update({
         where: { id: encounter.id },
-        data: { admissionType: admissionType }
+        data: { admissionType: admissionType as any }
       });
     }
 
@@ -158,10 +178,188 @@ export class EncounterService {
   }
 
   // ============================================
-  // CREATE FORMAL ADMISSION (Updated)
+  // HANDLE ANTENATAL ENCOUNTER (SCHEMA-ALIGNED)
+  // ============================================
+  private async handleAntenatalEncounter(encounterId: string, patientId: string, userId: string) {
+    // Check if patient already has an active antenatal booking
+    const existingBooking = await this.prisma.antenatalBooking.findFirst({
+      where: {
+        patientId: patientId,
+        isActive: true,
+        isCompleted: false
+      }
+    });
+  
+    if (!existingBooking) {
+      // FIRST ANTENATAL VISIT: Create new booking
+      console.log(`📋 Creating new antenatal booking for patient ${patientId}`);
+      
+      // Get the attendance number for reference
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: encounterId },
+        select: { attendanceNumber: true }
+      });
+      
+      const booking = await this.prisma.antenatalBooking.create({
+        data: {
+          patientId: patientId,
+          attendanceId: encounterId,           // First ANC attendance
+          currentAttendanceId: encounterId,    // Current ANC attendance
+          bookingDate: new Date(),
+          gravida: 1,
+          para: 0,
+          riskLevel: 'low',
+          riskFactors: [],
+          isActive: true,
+          isCompleted: false,
+          createdById: userId,
+          iptpDoses: {},  // ✅ JSON field - matches schema (iptpDoses Json)
+          ttDoses: {}     // ✅ JSON field - matches schema (ttDoses Json)
+        }
+      });
+      
+      // Create first ANC visit record
+      await this.prisma.aNCVisit.create({
+        data: {
+          bookingId: booking.id,
+          attendanceId: encounterId,
+          visitNumber: 1,
+          visitDate: new Date(),
+          recordedById: userId
+        }
+      });
+      
+      console.log(`✅ Created antenatal booking ${booking.id} with first visit`);
+    } else {
+      // FOLLOW-UP VISIT: Create only ANC visit
+      console.log(`📋 Follow-up antenatal visit for patient ${patientId} - booking ${existingBooking.id}`);
+      
+      const visitCount = await this.prisma.aNCVisit.count({
+        where: { bookingId: existingBooking.id }
+      });
+      
+      await this.prisma.aNCVisit.create({
+        data: {
+          bookingId: existingBooking.id,
+          attendanceId: encounterId,
+          visitNumber: visitCount + 1,
+          visitDate: new Date(),
+          recordedById: userId
+        }
+      });
+      
+      // Update current attendance on booking
+      await this.prisma.antenatalBooking.update({
+        where: { id: existingBooking.id },
+        data: { currentAttendanceId: encounterId }
+      });
+      
+      console.log(`✅ Created ANC visit #${visitCount + 1} for booking ${existingBooking.id}`);
+    }
+  }
+
+  // ============================================
+  // HANDLE DELIVERY ENCOUNTER (SCHEMA-ALIGNED)
+  // ============================================
+  private async handleDeliveryEncounter(encounterId: string, patientId: string, userId: string) {
+    // Find active antenatal booking
+    const antenatalBooking = await this.prisma.antenatalBooking.findFirst({
+      where: {
+        patientId: patientId,
+        isActive: true,
+        isCompleted: false
+      }
+    });
+
+    // Create delivery record
+    const deliveryRecord = await this.prisma.deliveryRecord.create({
+      data: {
+        patientId: patientId,
+        attendanceId: encounterId,
+        antenatalBookingId: antenatalBooking?.id,
+        deliveryDate: new Date(),
+        deliveryType: 'spontaneous_vertex',     // ✅ Matches DeliveryType enum
+        deliveryOutcome: 'live_birth',           // ✅ Matches DeliveryOutcome enum
+        placeOfDelivery: 'private_hospital',    // ✅ Matches PlaceOfDelivery enum (default)
+        attendant: userId,
+        maternalOutcome: 'alive',               // ✅ Matches MaternalOutcome enum
+        complications: [],                       // ✅ String[] - matches schema
+        createdById: userId,
+        // Male involvement fields (schema-compliant)
+        malePartnerPresentANC: false,
+        malePartnerPresentDelivery: false,
+        malePartnerPresentPNC: false,
+        maternalDeathsAudited: false
+      }
+    });
+
+    // If there was an antenatal booking, close it
+    if (antenatalBooking) {
+      await this.prisma.antenatalBooking.update({
+        where: { id: antenatalBooking.id },
+        data: {
+          isActive: false,
+          isCompleted: true,
+          deliveryDate: new Date(),
+          deliveryOutcome: 'delivered',
+          deliveryRecordId: deliveryRecord.id
+        }
+      });
+      console.log(`✅ Closed antenatal booking ${antenatalBooking.id} after delivery`);
+    }
+
+    console.log(`✅ Created delivery record ${deliveryRecord.id} for patient ${patientId}`);
+  }
+
+  // ============================================
+  // HANDLE POSTNATAL ENCOUNTER (SCHEMA-ALIGNED)
+  // ============================================
+  private async handlePostnatalEncounter(encounterId: string, patientId: string, userId: string) {
+    // Find the most recent delivery record for this patient
+    const deliveryRecord = await this.prisma.deliveryRecord.findFirst({
+      where: {
+        patientId: patientId
+      },
+      orderBy: { deliveryDate: 'desc' }
+    });
+
+    // Find the antenatal booking (if exists)
+    const antenatalBooking = await this.prisma.antenatalBooking.findFirst({
+      where: {
+        patientId: patientId,
+        isCompleted: true
+      },
+      orderBy: { bookingDate: 'desc' }
+    });
+
+    // Create postnatal record
+    const postnatalRecord = await this.prisma.postnatalRecord.create({
+      data: {
+        patientId: patientId,
+        attendanceId: encounterId,
+        antenatalBookingId: antenatalBooking?.id,
+        deliveryRecordId: deliveryRecord?.id,
+        examinationDate: new Date(),
+        dayNumber: 1,
+        // Required fields with defaults
+        maternalCondition: 'good',
+        breastfeedingStatus: 'exclusive',
+        babyCondition: 'good',
+        familyPlanningDiscussed: false,
+        createdById: userId,
+        // JSON fields
+        maternalComplications: [],      // ✅ Json - matches schema
+        babyDangerSigns: []             // ✅ Json - matches schema
+      }
+    });
+
+    console.log(`✅ Created postnatal record ${postnatalRecord.id} for patient ${patientId}`);
+  }
+
+  // ============================================
+  // CREATE FORMAL ADMISSION (SCHEMA-ALIGNED)
   // ============================================
   async createFormalAdmission(data: CreateAdmissionDTO, userId: string) {
-    // Get the encounter
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: data.attendanceId },
       include: { Admission: true }
@@ -171,32 +369,27 @@ export class EncounterService {
       throw new Error('Encounter not found');
     }
 
-    // Must be IPD category (including detention)
     if (encounter.encounterCategory !== 'ipd') {
       throw new Error('Formal admission can only be created for IPD encounters');
     }
 
-    // Check if already admitted
     if (encounter.Admission) {
       throw new Error('This encounter already has a formal admission record');
     }
 
-    // Check if encounter is active
     if (encounter.status !== 'admitted') {
       throw new Error('Cannot create admission for non-admitted encounter');
     }
 
-    // Generate admission number
     const counterService = getCounterService();
     const admissionNumber = counterService.nextAdmissionNumber();
 
-    // Create admission record
     const admission = await this.prisma.admission.create({
       data: {
         attendanceId: data.attendanceId,
         admissionNumber,
-        admissionType: data.admissionType || 'emergency',
-        admissionSource: data.admissionSource || 'home',
+        admissionType: data.admissionType as any || 'emergency',
+        admissionSource: data.admissionSource as any || 'home',
         admissionDate: data.admissionDate || new Date(),
       },
       include: {
@@ -213,14 +406,14 @@ export class EncounterService {
     // Update attendance with admission type
     await this.prisma.attendance.update({
       where: { id: data.attendanceId },
-      data: { admissionType: admission.admissionType }
+      data: { admissionType: admission.admissionType as any }
     });
 
     return admission;
   }
 
   // ============================================
-  // ✅ NEW: GET DETENTION/OBSERVATION PATIENTS
+  // GET DETENTION PATIENTS (SCHEMA-ALIGNED)
   // ============================================
   async getDetentionPatients(filters: DetentionPatientFilters = {}) {
     const where: any = {
@@ -269,13 +462,11 @@ export class EncounterService {
       this.prisma.attendance.count({ where })
     ]);
 
-    // Calculate observation hours and determine if ready for decision
     const now = new Date();
     const processedEncounters = encounters.map(encounter => {
       const admissionDate = encounter.Admission?.admissionDate || encounter.dateTime;
       const observationHours = Math.floor((now.getTime() - new Date(admissionDate).getTime()) / (1000 * 60 * 60));
       
-      // Ready for decision if >24 hours observation OR unstable vitals
       const recentVitals = encounter.Vitals || [];
       const hasAbnormalVitals = recentVitals.some((v: any) => 
         (v.temperature && (v.temperature > 38.5 || v.temperature < 36)) ||
@@ -298,7 +489,6 @@ export class EncounterService {
       };
     });
 
-    // Filter by observation hours if specified
     let filteredData = processedEncounters;
     if (filters.observationHours) {
       filteredData = processedEncounters.filter(e => e.observationHours >= filters.observationHours!);
@@ -324,7 +514,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // ✅ NEW: GET FORMAL IPD PATIENTS (excluding detention)
+  // GET FORMAL IPD PATIENTS (SCHEMA-ALIGNED)
   // ============================================
   async getFormalIPDPatients(filters: {
     status?: 'active' | 'discharged';
@@ -381,7 +571,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // ✅ NEW: CONVERT DETENTION TO FORMAL IPD
+  // CONVERT DETENTION TO FORMAL IPD (SCHEMA-ALIGNED)
   // ============================================
   async convertDetentionToFormalIPD(encounterId: string, data: ConvertDetentionToIPDDTO, userId: string) {
     const encounter = await this.prisma.attendance.findUnique({
@@ -405,11 +595,10 @@ export class EncounterService {
       throw new Error('Cannot convert non-admitted patient');
     }
 
-    // Update admission type
     const updatedAdmission = await this.prisma.admission.update({
       where: { id: encounter.Admission.id },
       data: {
-        admissionType: data.admissionType,
+        admissionType: data.admissionType as any,
         dailyNotes: [
           ...(encounter.Admission.dailyNotes as any[] || []),
           {
@@ -423,19 +612,17 @@ export class EncounterService {
       }
     });
 
-    // Update attendance
     await this.prisma.attendance.update({
       where: { id: encounterId },
       data: { 
-        admissionType: data.admissionType,
+        admissionType: data.admissionType as any,
         medicalNotes: `${encounter.medicalNotes || ''}\n\n[${new Date().toISOString()}] Converted to formal IPD - ${data.decisionReason || 'Clinical decision'}`
       }
     });
 
-    // Create notification for ward staff
     await this.prisma.notification.create({
       data: {
-        userId: userId, // Will be expanded to all ward staff
+        userId: userId,
         title: 'Patient Converted to Formal IPD',
         message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} has been converted from detention observation to formal IPD (${data.admissionType})`,
         type: 'clinical',
@@ -454,7 +641,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // GET ALL ADMISSIONS (Updated with filtering)
+  // GET ALL ADMISSIONS (SCHEMA-ALIGNED)
   // ============================================
   async getAllAdmissions(filters: {
     status?: 'active' | 'discharged';
@@ -534,10 +721,9 @@ export class EncounterService {
   }
 
   // ============================================
-  // CONVERT DAYCASE TO IPD (Updated)
+  // CONVERT DAYCASE TO IPD (SCHEMA-ALIGNED)
   // ============================================
   async convertDaycaseToIPD(encounterId: string, admissionData: CreateAdmissionDTO, userId: string) {
-    // Get the encounter
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId }
     });
@@ -550,25 +736,23 @@ export class EncounterService {
       throw new Error('Only daycase encounters can be converted to IPD');
     }
 
-    // Update encounter category to IPD
     await this.prisma.attendance.update({
       where: { id: encounterId },
       data: { 
         encounterCategory: 'ipd',
-        admissionType: admissionData.admissionType || 'emergency'
+        admissionType: (admissionData.admissionType || 'emergency') as any
       }
     });
 
-    // Create formal admission
     return this.createFormalAdmission({
       ...admissionData,
       attendanceId: encounterId,
-      admissionType: admissionData.admissionType || 'detention_observation' // Daycase conversion often starts as observation
+      admissionType: admissionData.admissionType || 'detention_observation'
     }, userId);
   }
 
   // ============================================
-  // DISCHARGE FROM ENCOUNTER (Updated)
+  // DISCHARGE FROM ENCOUNTER (SCHEMA-ALIGNED)
   // ============================================
   async dischargeFromEncounter(encounterId: string, dischargeData: {
     dischargeDate?: Date;
@@ -595,7 +779,6 @@ export class EncounterService {
     const dischargeDate = dischargeData.dischargeDate || new Date();
     const wasDetention = encounter.Admission?.admissionType === 'detention_observation';
 
-    // Update encounter
     await this.prisma.attendance.update({
       where: { id: encounterId },
       data: {
@@ -604,13 +787,12 @@ export class EncounterService {
       }
     });
 
-    // If formal admission exists, update it
     if (encounter.Admission) {
       await this.prisma.admission.update({
         where: { id: encounter.Admission.id },
         data: {
           dischargeDate,
-          dischargeStatus: dischargeData.dischargeStatus || 'home',
+          dischargeStatus: dischargeData.dischargeStatus as any || 'home',
           dailyNotes: [
             ...(encounter.Admission.dailyNotes as any[] || []),
             {
@@ -625,14 +807,12 @@ export class EncounterService {
       });
     }
 
-    // Free the bed
     if (encounter.bedId) {
       await this.prisma.bed.update({
         where: { id: encounter.bedId },
         data: { isOccupied: false, currentPatientId: null }
       });
       
-      // Update ward occupancy
       if (encounter.wardId) {
         await this.prisma.ward.update({
           where: { id: encounter.wardId },
@@ -641,7 +821,6 @@ export class EncounterService {
       }
     }
 
-    // Create notification
     await this.prisma.notification.create({
       data: {
         userId: userId,
@@ -662,7 +841,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // ADD DAILY NOTES TO ADMISSION (Updated)
+  // ADD DAILY NOTES TO ADMISSION (SCHEMA-ALIGNED)
   // ============================================
   async addDailyNotes(encounterId: string, data: AddDailyNoteDTO, userId: string) {
     const encounter = await this.prisma.attendance.findUnique({
@@ -699,7 +878,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // GET DAYCASE/OBSERVATION PATIENTS (Original - for day surgery only)
+  // GET DAYCASE/OBSERVATION PATIENTS (SCHEMA-ALIGNED)
   // ============================================
   async getDaycasePatients(filters: {
     status?: 'active' | 'discharged';
@@ -752,7 +931,7 @@ export class EncounterService {
   }
 
   // ============================================
-  // GET BED OCCUPANCY (Updated with distinction)
+  // GET BED OCCUPANCY (SCHEMA-ALIGNED)
   // ============================================
   async getBedOccupancy() {
     const occupants = await this.prisma.attendance.findMany({
@@ -1311,7 +1490,7 @@ export class EncounterService {
     return this.repository.getProceduresWorklist();
   }
 
-  async getMaternalWorklist(): Promise<MaternalWorklistResponse> {
+  async getMaternalWorklist() {
     return this.repository.getMaternalWorklist();
   }
 

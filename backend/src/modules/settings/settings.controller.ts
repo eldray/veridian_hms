@@ -4,6 +4,16 @@ import { validationResult } from 'express-validator';
 import * as settingsService from './settings.service';
 import * as nhisEligibilityService from './nhis-eligibility.service';
 
+// Extend Request to include user from auth middleware
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    username: string;
+    role: string;
+    seniority: string;
+  };
+}
+
 // ==========================================
 // USER MANAGEMENT CONTROLLERS
 // ==========================================
@@ -18,7 +28,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
   }
 };
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: AuthRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -26,8 +36,15 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     const {
-      fullName, email, phone, licenseNumber,
-      specialization, role, isActive, departmentId,
+      fullName,
+      email,
+      phone,
+      licenseNumber,
+      specialization,
+      role,
+      seniority,
+      isActive,
+      departmentId,
     } = req.body;
 
     const updateData: any = {};
@@ -37,11 +54,40 @@ export const updateUser = async (req: Request, res: Response) => {
     if (licenseNumber !== undefined)  updateData.licenseNumber = licenseNumber;
     if (specialization !== undefined) updateData.specialization = specialization;
     if (role !== undefined)           updateData.role = role;
+    if (seniority !== undefined)      updateData.seniority = seniority;
     if (isActive !== undefined)       updateData.isActive = isActive;
     if (departmentId !== undefined)   updateData.departmentId = departmentId;
 
-    const user = await settingsService.updateUser(req.params.id, updateData);
-    res.json({ success: true, data: user });
+    // Update the user in database
+    const updatedUser = await settingsService.updateUser(req.params.id, updateData);
+    
+    // CHECK IF USER IS UPDATING THEIR OWN PROFILE
+    const isOwnProfile = req.user?.userId === req.params.id;
+    
+    // If user is updating their own profile AND seniority or role changed, refresh tokens
+    if (isOwnProfile && (seniority !== undefined || role !== undefined)) {
+      console.log(`🔄 User ${req.params.id} updated their own ${seniority ? 'seniority' : ''} ${role ? 'role' : ''} - refreshing tokens`);
+      
+      const tokenRefreshResult = await settingsService.refreshUserTokens(req.params.id);
+      
+      return res.json({
+        success: true,
+        data: {
+          user: tokenRefreshResult.user,
+          accessToken: tokenRefreshResult.accessToken,
+          refreshToken: tokenRefreshResult.refreshToken,
+        },
+        message: 'User updated successfully. Tokens refreshed.',
+      });
+    }
+    
+    // For other users or non-critical updates, just return the updated user
+    return res.json({
+      success: true,
+      data: updatedUser,
+      message: 'User updated successfully',
+    });
+    
   } catch (error: any) {
     console.error('Update user error:', error);
 
@@ -128,7 +174,6 @@ export const getNHISApiStatus = async (req: Request, res: Response) => {
       data: {
         configured: !!(hospital.nhisApiBaseUrl && hospital.nhisApiClientId),
         active: hospital.nhisApiActive || false,
-        // Never expose actual credentials
         hasBaseUrl: !!hospital.nhisApiBaseUrl,
         hasClientId: !!hospital.nhisApiClientId,
         hasClientSecret: !!hospital.nhisApiClientSecret,
@@ -138,7 +183,6 @@ export const getNHISApiStatus = async (req: Request, res: Response) => {
         hasValidToken: tokenValid,
         tokenExpiresAt: hospital.nhisApiTokenExpiresAt,
         lastTokenRefresh: hospital.nhisApiLastTokenRefresh,
-        // Facility info (safe to expose)
         nhisFacilityCode: hospital.nhisFacilityCode,
         nhisFacilityType: hospital.nhisFacilityType,
         nhisAccreditationNumber: hospital.nhisAccreditationNumber,
@@ -160,20 +204,35 @@ export const updateNHISApiConfig = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, errors: errors.array() });
 
     const {
-      nhisApiBaseUrl, nhisApiClientId, nhisApiClientSecret,
-      nhisApiTokenEndpoint, nhisApiEligibilityEndpoint, nhisApiCccEndpoint,
+      nhisApiBaseUrl,
+      nhisApiClientId,
+      nhisApiClientSecret,
+      nhisApiTokenEndpoint,
+      nhisApiEligibilityEndpoint,
+      nhisApiCccEndpoint,
       nhisApiActive,
-      // Also allow updating facility fields in same call
-      nhisFacilityCode, nhisFacilityType, nhisAccreditationNumber,
-      nhisContactPerson, nhisContactPhone, nhisContactEmail,
+      nhisFacilityCode,
+      nhisFacilityType,
+      nhisAccreditationNumber,
+      nhisContactPerson,
+      nhisContactPhone,
+      nhisContactEmail,
     } = req.body;
 
     const updated = await settingsService.updateNHISSettings({
-      nhisApiBaseUrl, nhisApiClientId, nhisApiClientSecret,
-      nhisApiTokenEndpoint, nhisApiEligibilityEndpoint, nhisApiCccEndpoint,
+      nhisApiBaseUrl,
+      nhisApiClientId,
+      nhisApiClientSecret,
+      nhisApiTokenEndpoint,
+      nhisApiEligibilityEndpoint,
+      nhisApiCccEndpoint,
       nhisApiActive,
-      nhisFacilityCode, nhisFacilityType, nhisAccreditationNumber,
-      nhisContactPerson, nhisContactPhone, nhisContactEmail,
+      nhisFacilityCode,
+      nhisFacilityType,
+      nhisAccreditationNumber,
+      nhisContactPerson,
+      nhisContactPhone,
+      nhisContactEmail,
     });
 
     res.json({

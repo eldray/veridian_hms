@@ -1,4 +1,4 @@
-// src/components/settings/BackupRestoreTab.tsx - UPDATED WITH DIRECT API CALLS
+// src/components/settings/BackupRestoreTab.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { useToast } from '../../store/toastStore';
 import { Download, Upload, RefreshCw, Database, Trash2, Loader, AlertCircle, CheckCircle } from 'lucide-react';
@@ -6,9 +6,11 @@ import api from '../../api/api';
 
 interface BackupFile {
   filename: string;
-  size: string;
-  date: string;
-  path: string;
+  size: number;        // Changed from string to number
+  sizeFormatted?: string;  // Optional formatted size
+  createdAt: string;   // Changed from 'date' to 'createdAt' to match backend
+  modifiedAt?: string;
+  path?: string;
 }
 
 export default function BackupRestoreTab() {
@@ -22,6 +24,7 @@ export default function BackupRestoreTab() {
   const [downloadingBackup, setDownloadingBackup] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
+  const [pagination, setPagination] = useState<any>(null);
 
   // Load backup list from backend
   const loadBackups = async () => {
@@ -29,13 +32,36 @@ export default function BackupRestoreTab() {
     setError(null);
     try {
       const response = await api.get('/backup');
-      const backupList = response.data?.backups || response.data?.data || response.data;
       
-      if (Array.isArray(backupList)) {
-        setBackups(backupList);
+      // Handle different response structures
+      let backupList = [];
+      let paginationData = null;
+      
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        backupList = response.data.data;
+        paginationData = response.data.pagination;
+      } else if (response.data?.backups && Array.isArray(response.data.backups)) {
+        backupList = response.data.backups;
+        paginationData = response.data.pagination;
+      } else if (Array.isArray(response.data)) {
+        backupList = response.data;
+      } else if (response.data?.success && response.data?.data) {
+        backupList = response.data.data;
       } else {
-        setBackups([]);
+        backupList = [];
       }
+      
+      // Format the backup data
+      const formattedBackups = backupList.map((backup: any) => ({
+        filename: backup.filename,
+        size: backup.size || 0,
+        sizeFormatted: formatFileSize(backup.size || 0),
+        createdAt: backup.createdAt || backup.date || backup.modifiedAt,
+        modifiedAt: backup.modifiedAt || backup.createdAt,
+      }));
+      
+      setBackups(formattedBackups);
+      setPagination(paginationData);
     } catch (err: any) {
       console.error('Failed to load backups:', err);
       setError(err.response?.data?.message || 'Failed to load backup list');
@@ -69,11 +95,11 @@ export default function BackupRestoreTab() {
       return;
     }
     
-    const validExtensions = ['.sql', '.zip', '.backup', '.json'];
+    const validExtensions = ['.sql', '.backup', '.dump'];
     const fileExtension = selectedFile.name.toLowerCase().slice(selectedFile.name.lastIndexOf('.'));
     
     if (!validExtensions.includes(fileExtension)) {
-      toastError('Invalid File', 'Please select a valid backup file (.sql, .zip, .backup, .json)');
+      toastError('Invalid File', 'Please select a valid backup file (.sql, .backup, .dump)');
       return;
     }
 
@@ -88,6 +114,7 @@ export default function BackupRestoreTab() {
     setError(null);
     
     const formData = new FormData();
+    // ✅ Make sure field name matches what backend expects
     formData.append('backup', selectedFile);
     
     try {
@@ -98,6 +125,13 @@ export default function BackupRestoreTab() {
       success('Backup Restored', 'Database restored successfully');
       setSelectedFile(null);
       await loadBackups();
+      
+      // Optional: Show a message that page may need refresh
+      setTimeout(() => {
+        if (confirm('Restore completed. Would you like to refresh the page?')) {
+          window.location.reload();
+        }
+      }, 1000);
     } catch (err: any) {
       console.error('Restore failed:', err);
       toastError('Restore Failed', err.response?.data?.message || 'Failed to restore backup');
@@ -115,7 +149,6 @@ export default function BackupRestoreTab() {
         responseType: 'blob'
       });
       
-      // Create blob link to download
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -139,7 +172,7 @@ export default function BackupRestoreTab() {
     if (!deletingBackup) return;
     
     try {
-      await api.delete(`/backup/${deletingBackup.filename}`);
+      await api.delete(`/backup/${encodeURIComponent(deletingBackup.filename)}`);
       success('Backup Deleted', `${deletingBackup.filename} has been deleted`);
       setDeletingBackup(null);
       await loadBackups();
@@ -165,17 +198,54 @@ export default function BackupRestoreTab() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateString: string) => {
+  // ✅ FIXED: Proper date formatting
+  const formatDate = (dateValue: string | Date | undefined) => {
+    if (!dateValue) return 'Unknown date';
+    
     try {
-      return new Date(dateString).toLocaleString('en-US', {
+      let date: Date;
+      
+      if (dateValue instanceof Date) {
+        date = dateValue;
+      } else if (typeof dateValue === 'string') {
+        // Try to parse the date string
+        date = new Date(dateValue);
+        
+        // If parsing failed, try to extract from filename
+        if (isNaN(date.getTime())) {
+          const match = dateValue.match(/backup-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d{3}Z/);
+          if (match) {
+            const [, year, month, day, hour, minute, second] = match;
+            date = new Date(Date.UTC(
+              parseInt(year), 
+              parseInt(month) - 1, 
+              parseInt(day), 
+              parseInt(hour), 
+              parseInt(minute), 
+              parseInt(second)
+            ));
+          }
+        }
+      } else {
+        date = new Date(dateValue);
+      }
+      
+      if (isNaN(date.getTime())) {
+        return 'Date unavailable';
+      }
+      
+      return date.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
       });
-    } catch {
-      return dateString;
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid date';
     }
   };
 
@@ -314,10 +384,15 @@ export default function BackupRestoreTab() {
                     <Database className="w-5 h-5 text-[var(--text-tertiary)] flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-[var(--text-primary)] text-sm truncate">{backup.filename}</p>
-                      <div className="flex items-center gap-4 mt-1">
-                        <span className="text-xs text-[var(--text-secondary)]">{formatDate(backup.date)}</span>
+                      <div className="flex items-center gap-4 mt-1 flex-wrap">
+                        {/* ✅ FIXED: Use createdAt field with proper formatting */}
+                        <span className="text-xs text-[var(--text-secondary)]">
+                          {formatDate(backup.createdAt)}
+                        </span>
                         {backup.size && (
-                          <span className="text-xs text-[var(--text-secondary)]">Size: {backup.size}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">
+                            Size: {backup.sizeFormatted || formatFileSize(backup.size)}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -348,6 +423,16 @@ export default function BackupRestoreTab() {
             ))
           )}
         </div>
+        
+        {/* Pagination Info */}
+        {pagination && pagination.total > 0 && (
+          <div className="bg-[var(--bg-main)] px-4 py-2 border-t border-[var(--border-color)] text-center">
+            <p className="text-xs text-[var(--text-secondary)]">
+              Total backups: {pagination.total} | 
+              Total size: {pagination.totalSizeFormatted || formatFileSize(pagination.totalSize || 0)}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

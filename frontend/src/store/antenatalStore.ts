@@ -1,174 +1,229 @@
-// src/store/antenatalStore.ts - FIXED VERSION
+// src/store/antenatalStore.ts - UPDATED WITH NEW API NAMES
 import { create } from 'zustand';
 import {
-  getAntenatalBookings,
-  getActiveBookingByPatient,
-  getAntenatalBookingById,
-  createAntenatalBooking,
-  closeAntenatalBooking,
-  getANCVisitsByBooking,
+  registerAntenatalBooking,
+  getAntenatalRecords,
+  getAntenatalRecordByEncounter,
+  getActiveAntenatalRecordByPatient,
+  getAntenatalRecordById,
+  updateAntenatalRecord,
+  closeAntenatalRecord,
+  deleteAntenatalRecord,
+  recordANCVisit,
+  getANCVisitsByAntenatalRecord,
   getANCVisitById,
   updateANCVisit,
   deleteANCVisit,
-  getANCStatistics,
+  getAntenatalStatistics,
 } from '../api';
 
 interface AntenatalState {
-  bookings: any[];
-  currentBooking: any | null;
+  records: any[];           // Changed from bookings to records
+  currentRecord: any | null; // Changed from currentBooking to currentRecord
   currentVisits: any[];
   currentVisit: any | null;
   stats: any;
   ancReport: any | null;
   isLoading: boolean;
-  isLoadingBookings: boolean;
+  isLoadingRecords: boolean;  // Changed from isLoadingBookings
   isLoadingVisits: boolean;
   isGeneratingReport: boolean;
   error: string | null;
   pagination: any | null;
 
   // Actions
-  getBookings: (filters?: any) => Promise<void>;
-  getBooking: (patientId: string) => Promise<any | null>;
-  getBookingById: (bookingId: string) => Promise<any>;
-  refreshBooking: (patientId: string) => Promise<void>;
-  createBooking: (data: any) => Promise<any>;
-  closeBooking: (bookingId: string, data: any) => Promise<void>;
-  getANCVisitsByBooking: (bookingId: string) => Promise<any[]>;
-  getVisit: (id: string) => Promise<any>;
-  updateVisit: (id: string, data: any) => Promise<void>;
-  deleteVisit: (id: string) => Promise<void>;
-  getStats: (filters?: any) => Promise<void>;
-  clearCurrentBooking: () => void;
+  getAntenatalRecords: (filters?: any) => Promise<void>;
+  getAntenatalRecordByEncounter: (encounterId: string) => Promise<any | null>;
+  getActiveAntenatalRecordByPatient: (patientId: string) => Promise<any | null>;
+  getAntenatalRecordById: (recordId: string) => Promise<any>;
+  refreshAntenatalRecord: (patientId: string) => Promise<void>;
+  registerAntenatalBooking: (data: any) => Promise<any>;
+  closeAntenatalRecord: (recordId: string, data: any) => Promise<void>;
+  deleteAntenatalRecord: (recordId: string) => Promise<void>;
+  getANCVisitsByAntenatalRecord: (recordId: string) => Promise<any[]>;
+  recordANCVisit: (data: any) => Promise<any>;
+  getANCVisitById: (id: string) => Promise<any>;
+  updateANCVisit: (id: string, data: any) => Promise<void>;
+  deleteANCVisit: (id: string) => Promise<void>;
+  getAntenatalStatistics: (filters?: any) => Promise<void>;
+  clearCurrentRecord: () => void;
   clearError: () => void;
 }
 
 export const useAntenatalStore = create<AntenatalState>((set, get) => ({
-  bookings: [],
-  currentBooking: null,
+  records: [],
+  currentRecord: null,
   currentVisits: [],
   currentVisit: null,
   stats: null,
   ancReport: null,
   isLoading: false,
-  isLoadingBookings: false,
+  isLoadingRecords: false,
   isLoadingVisits: false,
   isGeneratingReport: false,
   error: null,
   pagination: null,
 
-  getBookings: async (filters = {}) => {
-    set({ isLoadingBookings: true, error: null });
+  getAntenatalRecords: async (filters = {}) => {
+    set({ isLoadingRecords: true, error: null });
     try {
-      const response = await getAntenatalBookings(filters);
-      let bookings = [];
+      const response = await getAntenatalRecords(filters);
+      let records = [];
       let pagination = null;
       
       if (response.data?.data) {
-        bookings = response.data.data;
+        records = response.data.data;
         pagination = response.data.pagination;
       } else if (response.data) {
-        bookings = response.data;
+        records = response.data;
       }
       
-      set({ bookings, pagination, isLoadingBookings: false });
+      set({ records, pagination, isLoadingRecords: false });
     } catch (error: unknown) {
-      set({ error: error.message, isLoadingBookings: false });
+      set({ error: (error as any).message, isLoadingRecords: false });
       throw error;
     }
   },
 
-  getBooking: async (patientId: string) => {
+  getAntenatalRecordByEncounter: async (encounterId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getActiveBookingByPatient(patientId);
-      const booking = response.data || response;
-      set({ currentBooking: booking, isLoading: false });
-      return booking;
+      const response = await getAntenatalRecordByEncounter(encounterId);
+      const record = response.data || response;
+      set({ currentRecord: record, isLoading: false });
+      return record;
     } catch (error: unknown) {
-      // 404 means no booking found - that's fine, not an error
-      if (error.response?.status === 404) {
-        set({ currentBooking: null, isLoading: false });
+      if ((error as any).response?.status === 404) {
+        set({ currentRecord: null, isLoading: false });
         return null;
       }
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
   
-  getBookingById: async (bookingId: string) => {
+  getActiveAntenatalRecordByPatient: async (patientId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getAntenatalBookingById(bookingId);
-      const booking = response.data || response;
-      set({ currentBooking: booking, isLoading: false });
-      return booking;
+      const response = await getActiveAntenatalRecordByPatient(patientId);
+      const record = response.data || response;
+      set({ currentRecord: record, isLoading: false });
+      return record;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      if ((error as any).response?.status === 404) {
+        set({ currentRecord: null, isLoading: false });
+        return null;
+      }
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
   
-  refreshBooking: async (patientId: string) => {
+  getAntenatalRecordById: async (recordId: string) => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await getActiveBookingByPatient(patientId);
-      const booking = response.data || response;
-      set({ currentBooking: booking });
-      if (booking?.id) {
-        await get().getANCVisitsByBooking(booking.id);
+      const response = await getAntenatalRecordById(recordId);
+      const record = response.data || response;
+      set({ currentRecord: record, isLoading: false });
+      return record;
+    } catch (error: unknown) {
+      set({ error: (error as any).message, isLoading: false });
+      throw error;
+    }
+  },
+  
+  refreshAntenatalRecord: async (patientId: string) => {
+    try {
+      const response = await getActiveAntenatalRecordByPatient(patientId);
+      const record = response.data || response;
+      set({ currentRecord: record });
+      if (record?.id) {
+        await get().getANCVisitsByAntenatalRecord(record.id);
       }
     } catch (error) {
-      console.error('Error refreshing booking:', error);
+      console.error('Error refreshing antenatal record:', error);
     }
   },
 
-  createBooking: async (data) => {
+  registerAntenatalBooking: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await createAntenatalBooking(data);
-      const booking = response.data || response;
+      const response = await registerAntenatalBooking(data);
+      const record = response.data || response;
       set((state) => ({
-        bookings: [booking, ...state.bookings],
-        currentBooking: booking,
+        records: [record, ...state.records],
+        currentRecord: record,
         isLoading: false,
       }));
-      return booking;
+      return record;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  closeBooking: async (bookingId: string, data: any) => {
+  closeAntenatalRecord: async (recordId: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await closeAntenatalBooking(bookingId, data);
-      const booking = response.data || response;
+      const response = await closeAntenatalRecord(recordId, data);
+      const record = response.data || response;
       set((state) => ({
-        bookings: state.bookings.map(b => b.id === bookingId ? booking : b),
-        currentBooking: state.currentBooking?.id === bookingId ? booking : state.currentBooking,
+        records: state.records.map(r => r.id === recordId ? record : r),
+        currentRecord: state.currentRecord?.id === recordId ? record : state.currentRecord,
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  getANCVisitsByBooking: async (bookingId: string) => {
+  deleteAntenatalRecord: async (recordId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await deleteAntenatalRecord(recordId);
+      set((state) => ({
+        records: state.records.filter(r => r.id !== recordId),
+        currentRecord: state.currentRecord?.id === recordId ? null : state.currentRecord,
+        isLoading: false,
+      }));
+    } catch (error: unknown) {
+      set({ error: (error as any).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  getANCVisitsByAntenatalRecord: async (recordId: string) => {
     set({ isLoadingVisits: true, error: null });
     try {
-      const response = await getANCVisitsByBooking(bookingId);
+      const response = await getANCVisitsByAntenatalRecord(recordId);
       const visits = response.data?.visits || response.data || [];
       set({ currentVisits: visits, isLoadingVisits: false });
       return visits;
     } catch (error: unknown) {
-      set({ error: error.message, isLoadingVisits: false });
+      set({ error: (error as any).message, isLoadingVisits: false });
       throw error;
     }
   },
 
-  getVisit: async (id) => {
+  recordANCVisit: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await recordANCVisit(data);
+      const visit = response.data || response;
+      set((state) => ({
+        currentVisits: [...state.currentVisits, visit],
+        currentVisit: visit,
+        isLoading: false,
+      }));
+      return visit;
+    } catch (error: unknown) {
+      set({ error: (error as any).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  getANCVisitById: async (id) => {
     set({ isLoading: true, error: null });
     try {
       const response = await getANCVisitById(id);
@@ -176,12 +231,12 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       set({ currentVisit: visit, isLoading: false });
       return visit;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  updateVisit: async (id, data) => {
+  updateANCVisit: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
       const response = await updateANCVisit(id, data);
@@ -192,12 +247,12 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  deleteVisit: async (id) => {
+  deleteANCVisit: async (id) => {
     set({ isLoading: true, error: null });
     try {
       await deleteANCVisit(id);
@@ -207,23 +262,23 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  getStats: async (filters = {}) => {
+  getAntenatalStatistics: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getANCStatistics(filters);
+      const response = await getAntenatalStatistics(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  clearCurrentBooking: () => set({ currentBooking: null, currentVisits: [], currentVisit: null }),
+  clearCurrentRecord: () => set({ currentRecord: null, currentVisits: [], currentVisit: null }),
   clearError: () => set({ error: null }),
 }));

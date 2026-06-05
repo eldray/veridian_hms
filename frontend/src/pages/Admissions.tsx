@@ -15,6 +15,7 @@ import {
   Users,
   Hospital,
   Calendar,
+  ArrowRight,
   Clock,
   CheckCircle,
   X,

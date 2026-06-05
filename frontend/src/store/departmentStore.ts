@@ -1,3 +1,4 @@
+// src/store/departmentStore.ts
 import { create } from 'zustand';
 import { 
   getDepartments as apiGetDepartments, 
@@ -10,15 +11,31 @@ import {
   assignUserToDepartment as apiAssignUserToDepartment,
   assignDepartmentHead as apiAssignDepartmentHead,
   removeUserFromDepartment as apiRemoveUserFromDepartment,
-  bulkUpdateDepartments as apiBulkUpdateDepartments
+  bulkUpdateDepartments as apiBulkUpdateDepartments,
+  getEligibleDepartmentHeads as apiGetEligibleDepartmentHeads  // ✅ ADD THIS
 } from '../api';
 import type { Department, User } from '../types';
+
+// ✅ ADD EligibleDepartmentHead type
+export interface EligibleDepartmentHead {
+  id: string;
+  fullName: string;
+  role: string;
+  seniority: 'TRAINEE' | 'JUNIOR' | 'SENIOR' | 'PRINCIPAL';
+  specialization: string | null;
+  departmentId: string | null;
+  department: {
+    id: string;
+    name: string;
+  } | null;
+}
 
 interface DepartmentStore {
   departments: Department[];
   currentDepartment: Department | null;
   departmentUsers: User[];
   departmentStats: any;
+  eligibleHeads: EligibleDepartmentHead[];  // ✅ ADD THIS
   isLoading: boolean;
   error: string | null;
   
@@ -37,6 +54,9 @@ interface DepartmentStore {
   removeUserFromDepartment: (departmentId: string, userData: any) => Promise<void>;
   bulkUpdateDepartments: (data: any) => Promise<any>;
   
+  // ✅ ADD: Get eligible department heads (SENIOR/PRINCIPAL only)
+  getEligibleHeads: () => Promise<EligibleDepartmentHead[]>;
+  
   clearError: () => void;
   clearCurrentDepartment: () => void;
 }
@@ -46,6 +66,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   currentDepartment: null,
   departmentUsers: [],
   departmentStats: null,
+  eligibleHeads: [],  // ✅ ADD THIS
   isLoading: false,
   error: null,
 
@@ -53,12 +74,11 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetDepartments(filters);
-      // Handle both response formats: direct array or { data: [] }
       const departments = Array.isArray(response) ? response : response?.data || [];
       set({ departments, isLoading: false });
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch departments', 
+        error: (error as any).response?.data?.message || 'Failed to fetch departments', 
         isLoading: false 
       });
       throw error;
@@ -72,7 +92,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       set({ currentDepartment: department, isLoading: false });
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch department', 
+        error: (error as any).response?.data?.message || 'Failed to fetch department', 
         isLoading: false 
       });
       throw error;
@@ -89,7 +109,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       }));
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to create department', 
+        error: (error as any).response?.data?.message || 'Failed to create department', 
         isLoading: false 
       });
       throw error;
@@ -109,7 +129,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       }));
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to update department', 
+        error: (error as any).response?.data?.message || 'Failed to update department', 
         isLoading: false 
       });
       throw error;
@@ -127,7 +147,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       }));
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to delete department', 
+        error: (error as any).response?.data?.message || 'Failed to delete department', 
         isLoading: false 
       });
       throw error;
@@ -137,7 +157,6 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   assignDepartmentHead: async (departmentId: string, userId: string) => {
     set({ isLoading: true, error: null });
     try {
-      // ✅ Use the imported API function instead of direct api.put
       const updatedDepartment = await apiUpdateDepartment(departmentId, { headId: userId });
       
       set(state => ({
@@ -149,7 +168,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       }));
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to assign department head', 
+        error: (error as any).response?.data?.message || 'Failed to assign department head', 
         isLoading: false 
       });
       throw error;
@@ -163,7 +182,7 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
       set({ departmentStats: stats, isLoading: false });
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch department stats', 
+        error: (error as any).response?.data?.message || 'Failed to fetch department stats', 
         isLoading: false 
       });
       throw error;
@@ -174,13 +193,15 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetDepartmentUsers(departmentId);
-      // Handle response format
-      const users = Array.isArray(response) ? response : response?.users || [];
+      // Handle different response formats
+      const users = Array.isArray(response) ? response : response?.users || response?.data || [];
       set({ departmentUsers: users, isLoading: false });
+      return users;
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch department users', 
-        isLoading: false 
+        error: (error as any).response?.data?.message || 'Failed to fetch department users', 
+        isLoading: false,
+        departmentUsers: [] 
       });
       throw error;
     }
@@ -189,35 +210,33 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
   assignUserToDepartment: async (departmentId: string, userData: any) => {
     set({ isLoading: true, error: null });
     try {
-      await apiAssignUserToDepartment(departmentId, userData);
+      // Send as { userId: string } format
+      const payload = typeof userData === 'string' ? { userId: userData } : userData;
+      await apiAssignUserToDepartment(departmentId, payload);
       
-      // Refresh department users after assignment
       await get().getDepartmentUsers(departmentId);
-      // Also refresh departments list to update counts
       await get().getDepartments();
       set({ isLoading: false });
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to assign user to department', 
+        error: (error as any).response?.data?.message || 'Failed to assign user to department', 
         isLoading: false 
       });
       throw error;
     }
   },
 
-  removeUserFromDepartment: async (departmentId: string, userData: any) => {
+  removeUserFromDepartment: async (departmentId: string, userId: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiRemoveUserFromDepartment(departmentId, userData);
+      await apiRemoveUserFromDepartment(departmentId, userId);
       
-      // Refresh department users after removal
       await get().getDepartmentUsers(departmentId);
-      // Also refresh departments list to update counts
       await get().getDepartments();
       set({ isLoading: false });
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to remove user from department', 
+        error: (error as any).response?.data?.message || 'Failed to remove user from department', 
         isLoading: false 
       });
       throw error;
@@ -228,14 +247,29 @@ export const useDepartmentStore = create<DepartmentStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await apiBulkUpdateDepartments(data);
-      
-      // Refresh departments list after bulk update
       await get().getDepartments();
       set({ isLoading: false });
       return result;
     } catch (error: unknown) {
       set({ 
-        error: error.response?.data?.message || 'Failed to bulk update departments', 
+        error: (error as any).response?.data?.message || 'Failed to bulk update departments', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  // ✅ ADD: Get eligible department heads (only SENIOR and PRINCIPAL)
+  getEligibleHeads: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetEligibleDepartmentHeads();
+      const eligibleHeads = response?.data || response || [];
+      set({ eligibleHeads, isLoading: false });
+      return eligibleHeads;
+    } catch (error: unknown) {
+      set({ 
+        error: (error as any).response?.data?.message || 'Failed to fetch eligible department heads', 
         isLoading: false 
       });
       throw error;

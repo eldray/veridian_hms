@@ -1,8 +1,16 @@
-// src/components/UserRegistrationModal.tsx
+// src/components/UserRegistrationModal.tsx - UPDATED WITH SENIORITY
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield } from 'lucide-react';
+import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
+
+// Seniority configuration
+const SENIORITY_OPTIONS = [
+  { value: 'TRAINEE', label: 'Trainee', icon: GraduationCap, description: 'In training, requires supervision' },
+  { value: 'JUNIOR', label: 'Junior', icon: User, description: 'Regular staff member' },
+  { value: 'SENIOR', label: 'Senior', icon: TrendingUp, description: 'Experienced, can supervise others' },
+  { value: 'PRINCIPAL', label: 'Principal', icon: Shield, description: 'Highest authority in role' }
+];
 
 interface UserRegistrationModalProps {
   onClose: () => void;
@@ -19,6 +27,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     confirmPassword: '',
     fullName: '',
     role: '' as any,
+    seniority: 'JUNIOR' as string, // ✅ ADD with default JUNIOR
     email: '',
     phone: '',
     licenseNumber: '',
@@ -58,6 +67,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
         password: formData.password,
         fullName: formData.fullName,
         role: formData.role,
+        seniority: formData.seniority, // ✅ ADD seniority
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         licenseNumber: requiresLicense ? formData.licenseNumber : undefined,
@@ -76,6 +86,9 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  // Get selected seniority icon
+  const SelectedIcon = SENIORITY_OPTIONS.find(opt => opt.value === formData.seniority)?.icon || User;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -132,7 +145,41 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
                 <option value="lab_tech">Lab Technician</option>
                 <option value="pharmacist">Pharmacist</option>
                 <option value="accounts">Accounts</option>
+                <option value="sonographer">Sonographer</option>
               </select>
+            </div>
+          </div>
+
+          {/* ✅ NEW: Seniority Selection */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+              <SelectedIcon className="w-4 h-4 inline mr-2" />
+              Seniority Level *
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {SENIORITY_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, seniority: option.value }))}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      formData.seniority === option.value
+                        ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
+                        : 'border-[var(--border-color)] bg-[var(--bg-main)] hover:border-[var(--icon-cyan-text)]'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 mb-2 ${
+                      formData.seniority === option.value 
+                        ? 'text-[var(--icon-cyan-text)]' 
+                        : 'text-[var(--text-secondary)]'
+                    }`} />
+                    <div className="font-medium text-sm text-[var(--text-primary)]">{option.label}</div>
+                    <div className="text-xs text-[var(--text-secondary)] mt-1">{option.description}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -182,28 +229,30 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
           </div>
 
           {/* Professional Information */}
-          {requiresLicense && (
+          {(requiresLicense || requiresSpecialization) && (
             <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-4 border border-[var(--icon-cyan-text)] space-y-4">
               <h3 className="font-semibold text-[var(--icon-cyan-text)] text-sm flex items-center gap-2">
                 <Shield className="w-4 h-4" />
                 Professional Information
               </h3>
               
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                  <IdCard className="w-4 h-4 inline mr-2" />
-                  License/PIN Number *
-                </label>
-                <input
-                  type="text"
-                  name="licenseNumber"
-                  value={formData.licenseNumber}
-                  onChange={handleChange}
-                  placeholder="Enter professional license number"
-                  className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                  required={requiresLicense}
-                />
-              </div>
+              {requiresLicense && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                    <IdCard className="w-4 h-4 inline mr-2" />
+                    License/PIN Number *
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseNumber"
+                    value={formData.licenseNumber}
+                    onChange={handleChange}
+                    placeholder="Enter professional license number"
+                    className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    required={requiresLicense}
+                  />
+                </div>
+              )}
 
               {requiresSpecialization && (
                 <div>

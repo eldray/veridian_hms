@@ -1,12 +1,40 @@
-// src/components/settings/UserManagementTab.tsx - UPDATED THEME
+// src/components/settings/UserManagementTab.tsx - UPDATED WITH SENIORITY
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
-import { Search, Plus, User, Mail, Phone, Shield, Edit, Ban, Activity, Loader, AlertCircle, X, CheckCircle } from 'lucide-react';
+import { Search, Plus, User, Mail, Phone, Shield, Edit, Ban, Activity, Loader, AlertCircle, X, CheckCircle, TrendingUp, GraduationCap } from 'lucide-react';
 import UserRegistrationModal from '../UserRegistrationModal';
 import UserEditModal from '../UserEditModal';
 import { UserMessageModal } from '../UserMessageModal';
+
+// ✅ ADD Seniority configuration
+const SENIORITY_CONFIG: Record<string, { label: string; color: string; icon: any; level: number }> = {
+  TRAINEE: { 
+    label: 'Trainee', 
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    icon: GraduationCap,
+    level: 0
+  },
+  JUNIOR: { 
+    label: 'Junior', 
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: User,
+    level: 1
+  },
+  SENIOR: { 
+    label: 'Senior', 
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+    icon: TrendingUp,
+    level: 2
+  },
+  PRINCIPAL: { 
+    label: 'Principal', 
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    icon: Shield,
+    level: 3
+  }
+};
 
 export default function UserManagementTab() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +42,7 @@ export default function UserManagementTab() {
   const [deactivatingUser, setDeactivatingUser] = useState<any>(null);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [messageUser, setMessageUser] = useState<{ id: string; name: string } | null>(null);
+  const [seniorityFilter, setSeniorityFilter] = useState<string>('ALL');
   
   const { 
     users, 
@@ -22,7 +51,8 @@ export default function UserManagementTab() {
     deactivateUser, 
     isLoading,
     error,
-    clearError 
+    clearError,
+    updateUserSeniority  // ✅ ADD this
   } = useSettingsStore();
   
   const { user: currentUser } = useAuthStore();
@@ -46,12 +76,33 @@ export default function UserManagementTab() {
     }
   };
 
-  const filteredUsers = users.filter((user: any) =>
-    user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ UPDATE filtering to include seniority
+  const filteredUsers = users.filter((user: any) => {
+    const matchesSearch = 
+      user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesSeniority = seniorityFilter === 'ALL' || user.seniority === seniorityFilter;
+    
+    return matchesSearch && matchesSeniority;
+  });
+
+  // ✅ UPDATE seniority stats
+  const getSeniorityStats = () => {
+    const stats: Record<string, number> = { TRAINEE: 0, JUNIOR: 0, SENIOR: 0, PRINCIPAL: 0 };
+    users.forEach((user: any) => {
+      if (user.seniority && stats[user.seniority] !== undefined) {
+        stats[user.seniority]++;
+      } else {
+        stats.JUNIOR++; // Default fallback
+      }
+    });
+    return stats;
+  };
+
+  const seniorityStats = getSeniorityStats();
 
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
@@ -66,6 +117,18 @@ export default function UserManagementTab() {
       sonographer: 'bg-indigo-100 text-indigo-800 border border-indigo-200',
     };
     return colors[role] || 'bg-gray-100 text-gray-800 border border-gray-200';
+  };
+
+  // ✅ ADD get seniority badge component
+  const getSeniorityBadge = (seniority: string) => {
+    const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR;
+    const Icon = config.icon;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
+      </span>
+    );
   };
 
   const handleEditUser = async (userData: any) => {
@@ -95,6 +158,17 @@ export default function UserManagementTab() {
     loadUsers();
   };
 
+  // ✅ ADD handle seniority change
+  const handleSeniorityChange = async (userId: string, newSeniority: string) => {
+    try {
+      await updateUserSeniority(userId, newSeniority as any);
+      success('Seniority Updated', `User seniority level has been updated`);
+      await loadUsers();
+    } catch (err) {
+      toastError('Update Failed', 'Could not update seniority level');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Error Display */}
@@ -108,8 +182,8 @@ export default function UserManagementTab() {
         </div>
       )}
 
-      {/* Header Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Header Stats - UPDATED with seniority stats */}
+      <div className="grid grid-cols-5 gap-3">
         <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
           <p className="text-2xl font-bold text-[var(--text-primary)]">{users.length}</p>
           <p className="text-xs text-[var(--text-secondary)]">Total Users</p>
@@ -126,9 +200,14 @@ export default function UserManagementTab() {
           <p className="text-2xl font-bold text-purple-600">{users.filter((u: any) => u.role === 'admin').length}</p>
           <p className="text-xs text-[var(--text-secondary)]">Admins</p>
         </div>
+        {/* ✅ ADD Seniority summary */}
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
+          <p className="text-2xl font-bold text-amber-600">{seniorityStats.PRINCIPAL + seniorityStats.SENIOR}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Senior+ Staff</p>
+        </div>
       </div>
 
-      {/* Search and Add User */}
+      {/* Search, Filter and Add User */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
@@ -141,6 +220,20 @@ export default function UserManagementTab() {
               className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
             />
           </div>
+          
+          {/* ✅ ADD Seniority Filter Dropdown */}
+          <select
+            value={seniorityFilter}
+            onChange={(e) => setSeniorityFilter(e.target.value)}
+            className="px-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+          >
+            <option value="ALL">All Seniority Levels</option>
+            <option value="TRAINEE">Trainee</option>
+            <option value="JUNIOR">Junior</option>
+            <option value="SENIOR">Senior</option>
+            <option value="PRINCIPAL">Principal</option>
+          </select>
+          
           <button
             onClick={() => setShowRegistrationModal(true)}
             disabled={isLoading}
@@ -150,9 +243,30 @@ export default function UserManagementTab() {
             Add User
           </button>
         </div>
+        
+        {/* ✅ ADD Seniority quick filters */}
+        <div className="flex gap-2 mt-3">
+          {Object.entries(SENIORITY_CONFIG).map(([key, config]) => (
+            <button
+              key={key}
+              onClick={() => setSeniorityFilter(seniorityFilter === key ? 'ALL' : key)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                seniorityFilter === key 
+                  ? config.color.replace('border', 'bg').split(' ')[0] + ' ring-2 ring-offset-1 ring-' + config.color.split(' ')[1].split('-')[1]
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <config.icon className="w-3 h-3" />
+                {config.label}
+                <span className="ml-1 text-xs opacity-75">({seniorityStats[key] || 0})</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* User List Table */}
+      {/* User List Table - UPDATED with Seniority column */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -161,6 +275,7 @@ export default function UserManagementTab() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">User</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider hidden sm:table-cell">Contact</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Seniority</th> {/* ✅ NEW COLUMN */}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider hidden md:table-cell">License</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
@@ -191,6 +306,24 @@ export default function UserManagementTab() {
                     </span>
                     {user.specialization && (
                       <div className="text-xs text-[var(--text-secondary)] mt-1">{user.specialization}</div>
+                    )}
+                  </td>
+                  {/* ✅ NEW Seniority column */}
+                  <td className="px-4 py-3">
+                    {getSeniorityBadge(user.seniority || 'JUNIOR')}
+                    {/* ✅ ADD inline seniority edit for admins */}
+                    {currentUser?.role === 'admin' && (
+                      <select
+                        value={user.seniority || 'JUNIOR'}
+                        onChange={(e) => handleSeniorityChange(user.id, e.target.value)}
+                        className="mt-1 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded px-1 py-0.5 text-[var(--text-primary)]"
+                        disabled={isLoading}
+                      >
+                        <option value="TRAINEE">Trainee</option>
+                        <option value="JUNIOR">Junior</option>
+                        <option value="SENIOR">Senior</option>
+                        <option value="PRINCIPAL">Principal</option>
+                      </select>
                     )}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
@@ -270,7 +403,6 @@ export default function UserManagementTab() {
         />
       )}
 
-      // Add modal at the end
       {messageUser && (
         <UserMessageModal
           isOpen={true}

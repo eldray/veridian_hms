@@ -1,9 +1,6 @@
-/**
- * Department Service
- * Business logic for department operations
- */
+// DepartmentService.ts - Add seniority validation for department heads
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Seniority } from '@prisma/client';
 import { DepartmentRepository } from './DepartmentRepository';
 import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, DepartmentStats } from './DepartmentTypes';
 
@@ -14,6 +11,78 @@ export class DepartmentService {
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     this.repository = new DepartmentRepository(prisma);
+  }
+
+  // Helper to check if user has required seniority for department head
+  private async validateDepartmentHeadSeniority(userId: string, departmentName?: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        fullName: true, 
+        role: true, 
+        seniority: true,
+        departmentId: true
+      }
+    });
+
+    if (!user) {
+      throw new Error('Head user not found');
+    }
+
+    // Only SENIOR or PRINCIPAL can be department heads
+    const allowedSeniority: Seniority[] = ['SENIOR', 'PRINCIPAL'];
+    
+    if (!allowedSeniority.includes(user.seniority)) {
+      throw new Error(`Department head must have SENIOR or PRINCIPAL seniority level. Current: ${user.seniority}`);
+    }
+
+    // Validate role matches department type (optional - based on department name)
+    if (departmentName) {
+      const departmentType = this.getDepartmentTypeFromName(departmentName);
+      if (departmentType && !this.isRoleMatchForDepartment(user.role, departmentType)) {
+        throw new Error(`User role (${user.role}) does not match department type (${departmentType}). For example, a Nurse cannot head the Medical Department.`);
+      }
+    }
+
+    return;
+  }
+
+  // Helper to determine department type from name
+  private getDepartmentTypeFromName(departmentName: string): string | null {
+    const name = departmentName.toLowerCase();
+    
+    if (name.includes('medical') || name.includes('medicine') || name.includes('doctor')) return 'medical';
+    if (name.includes('nursing') || name.includes('nurse')) return 'nursing';
+    if (name.includes('pharmacy') || name.includes('pharmacist')) return 'pharmacy';
+    if (name.includes('lab') || name.includes('laboratory')) return 'lab';
+    if (name.includes('radiology') || name.includes('imaging') || name.includes('scan')) return 'radiology';
+    if (name.includes('finance') || name.includes('billing') || name.includes('accounts')) return 'finance';
+    if (name.includes('records') || name.includes('medical records')) return 'records';
+    if (name.includes('surgery') || name.includes('surgical')) return 'surgical';
+    if (name.includes('obstetrics') || name.includes('gynecology') || name.includes('obgyn')) return 'obgyn';
+    if (name.includes('pediatrics') || name.includes('child')) return 'pediatrics';
+    
+    return null;
+  }
+
+  // Helper to check if user role matches department type
+  private isRoleMatchForDepartment(userRole: string, departmentType: string): boolean {
+    const roleMatches: Record<string, string[]> = {
+      'medical': ['doctor', 'admin'],
+      'nursing': ['nurse', 'admin'],
+      'pharmacy': ['pharmacist', 'admin'],
+      'lab': ['lab_tech', 'admin'],
+      'radiology': ['sonographer', 'doctor', 'admin'],
+      'finance': ['accounts', 'admin'],
+      'records': ['records', 'admin'],
+      'surgical': ['doctor', 'admin'],
+      'obgyn': ['doctor', 'midwife', 'admin'],
+      'pediatrics': ['doctor', 'nurse', 'admin']
+    };
+    
+    const allowedRoles = roleMatches[departmentType] || [];
+    return allowedRoles.includes(userRole) || userRole === 'admin';
   }
 
   async getAllDepartments(filters: DepartmentFilters) {
@@ -35,16 +104,9 @@ export class DepartmentService {
       throw new Error('A department with this name already exists');
     }
 
-    // Validate head user if provided
+    // Validate head user if provided (must have SENIOR or PRINCIPAL seniority)
     if (data.headId) {
-      const headUser = await this.prisma.user.findUnique({
-        where: { id: data.headId },
-        select: { id: true, fullName: true, role: true }
-      });
-
-      if (!headUser) {
-        throw new Error('Head user not found');
-      }
+      await this.validateDepartmentHeadSeniority(data.headId, data.name);
     }
 
     return this.repository.create(data);
@@ -65,16 +127,10 @@ export class DepartmentService {
       }
     }
 
-    // Validate head user if provided
+    // Validate head user if provided (must have SENIOR or PRINCIPAL seniority)
     if (data.headId) {
-      const headUser = await this.prisma.user.findUnique({
-        where: { id: data.headId },
-        select: { id: true, fullName: true, role: true }
-      });
-
-      if (!headUser) {
-        throw new Error('Head user not found');
-      }
+      const departmentName = data.name || existing.name;
+      await this.validateDepartmentHeadSeniority(data.headId, departmentName);
     }
 
     return this.repository.update(id, data);
@@ -153,5 +209,35 @@ export class DepartmentService {
     }
 
     return this.repository.bulkUpdate(departmentIds, data);
+  }
+
+  // Get eligible department heads (users with SENIOR or PRINCIPAL seniority)
+  async getEligibleDepartmentHeads() {
+    const eligibleUsers = await this.prisma.user.findMany({
+      where: {
+        seniority: { in: ['SENIOR', 'PRINCIPAL'] },
+        isActive: true
+      },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        seniority: true,
+        specialization: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { seniority: 'desc' },
+        { fullName: 'asc' }
+      ]
+    });
+
+    return eligibleUsers;
   }
 }

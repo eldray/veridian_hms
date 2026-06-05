@@ -300,15 +300,20 @@ export interface User {
   username: string;
   fullName: string;
   role: UserRole;
+  seniority: Seniority;  // ✅ ADD THIS
   email?: string;
   phone?: string;
   licenseNumber?: string;
   specialization?: string;
   departmentId?: string;
+  department?: Department;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+// Add the Seniority enum
+export type Seniority = 'TRAINEE' | 'JUNIOR' | 'SENIOR' | 'PRINCIPAL';
 
 // ======================
 // PATIENT

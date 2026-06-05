@@ -1,9 +1,8 @@
-// src/seed/seedMaternityData.ts - FIXED VERSION
-import { PrismaClient, Gender, PaymentMode, AttendanceType, AttendanceStatus, EncounterCategory, VisitCategory, ServiceCategory, RiskLevel, DeliveryOutcome } from '@prisma/client';
+// src/seed/seedMaternityData.ts - Using CounterService correctly
+import { PrismaClient, Gender, PaymentMode, AttendanceType, AttendanceStatus, EncounterCategory, VisitCategory, ServiceCategory } from '@prisma/client';
+import { getCounterService, initCounterService } from '../services/CounterService.js';
 
 const prisma = new PrismaClient();
-
-type DeliveryMode = 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
 
 const daysAgo = (days: number, baseDate: Date = new Date()) => {
   const d = new Date(baseDate);
@@ -11,15 +10,12 @@ const daysAgo = (days: number, baseDate: Date = new Date()) => {
   return d;
 };
 
-let attendanceCounter = 2000;
-const generateAttendanceNumber = () => `ATT-${++attendanceCounter}`;
-
 // Check if maternity test data already exists
 const hasMaternityData = async (): Promise<boolean> => {
   const count = await prisma.antenatalBooking.count({
     where: {
       patient: {
-        folderNumber: { in: ['PAT-TEST-006', 'PAT-TEST-007', 'PAT-TEST-008', 'PAT-TEST-009', 'PAT-TEST-010'] }
+        folderNumber: { in: ['1006', '1007', '1008', '1009', '1010'] }
       }
     }
   });
@@ -36,9 +32,13 @@ export const seedMaternityData = async (force: boolean = false) => {
       return { success: true, message: 'Maternity data exists', skipped: true };
     }
     
+    // Initialize CounterService
+    const counterService = await initCounterService(prisma);
+    console.log('✅ CounterService initialized for maternity seeding');
+    console.log(`Current counters:`, counterService.getCounters());
+    
     // Get required references
     const nhisProvider = await prisma.insuranceProvider.findFirst({ where: { type: 'nhis' } });
-    const obsGynDept = await prisma.department.findFirst({ where: { name: 'Obstetrics & Gynecology' } });
     const maternityWard = await prisma.ward.findFirst({ where: { wardType: 'maternity' } });
     
     // Get or create a midwife user
@@ -61,10 +61,10 @@ export const seedMaternityData = async (force: boolean = false) => {
     // Get admin user for createdBy
     const admin = await prisma.user.findFirst({ where: { role: 'admin' } });
     
-    // Use PAT-TEST-006 to 010 (same format as testSeed.ts)
+    // Use sequential numbers (matching CounterService pattern)
     const maternityPatientsData = [
       {
-        folderNumber: 'PAT-TEST-006',
+        folderNumber: '1006',  // Simple sequential number
         surname: 'Mensah',
         otherNames: 'Grace',
         gender: Gender.female,
@@ -84,7 +84,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 2
       },
       {
-        folderNumber: 'PAT-TEST-007',
+        folderNumber: '1007',
         surname: 'Amankwah',
         otherNames: 'Frederica',
         gender: Gender.female,
@@ -103,7 +103,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 0
       },
       {
-        folderNumber: 'PAT-TEST-008',
+        folderNumber: '1008',
         surname: 'Dapaah',
         otherNames: 'Victoria',
         gender: Gender.female,
@@ -123,7 +123,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 3
       },
       {
-        folderNumber: 'PAT-TEST-009',
+        folderNumber: '1009',
         surname: 'Boateng',
         otherNames: 'Christina',
         gender: Gender.female,
@@ -143,7 +143,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         postnatalVisits: 4
       },
       {
-        folderNumber: 'PAT-TEST-010',
+        folderNumber: '1010',
         surname: 'Nyarko',
         otherNames: 'Benedicta',
         gender: Gender.female,
@@ -194,6 +194,8 @@ export const seedMaternityData = async (force: boolean = false) => {
             updatedAt: new Date()
           }
         });
+      } else {
+        console.log(`⚠️ Patient ${pData.folderNumber} already exists, using existing record`);
       }
       patients.push(patient);
       
@@ -202,9 +204,13 @@ export const seedMaternityData = async (force: boolean = false) => {
         ? daysAgo(pData.currentWeeks! * 7) 
         : daysAgo(pData.deliveryDaysAgo! + (pData.deliveryWeeks! * 7));
       
+      // Use CounterService to get attendance number (simple sequential number)
+      const attendanceNumber = counterService.nextAttendanceNumber();
+      console.log(`  📝 Generating attendance number: ${attendanceNumber}`);
+      
       const bookingAttendance = await prisma.attendance.create({
         data: {
-          attendanceNumber: generateAttendanceNumber(),
+          attendanceNumber: attendanceNumber,  // Just the number, no prefix
           patientId: patient.id,
           dateTime: bookingAttendanceDate,
           attendanceType: AttendanceType.antenatal,
@@ -287,7 +293,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         
         const visitAttendance = await prisma.attendance.create({
           data: {
-            attendanceNumber: generateAttendanceNumber(),
+            attendanceNumber: counterService.nextAttendanceNumber(),
             patientId: patient.id,
             dateTime: visitDate,
             attendanceType: AttendanceType.antenatal,
@@ -339,7 +345,7 @@ export const seedMaternityData = async (force: boolean = false) => {
         const deliveryDate = daysAgo(pData.deliveryDaysAgo!);
         const deliveryAttendance = await prisma.attendance.create({
           data: {
-            attendanceNumber: generateAttendanceNumber(),
+            attendanceNumber: counterService.nextAttendanceNumber(),
             patientId: patient.id,
             dateTime: deliveryDate,
             attendanceType: AttendanceType.delivery,
@@ -373,7 +379,7 @@ export const seedMaternityData = async (force: boolean = false) => {
             deliveryDate: deliveryDate,
             deliveryType: cs ? 'caesarean_section' : (twins ? 'multiple' : 'spontaneous_vertex'),
             deliveryOutcome: 'live_birth',
-            placeOfDelivery: 'hospital',
+            placeOfDelivery: 'private_hospital',
             attendant: midwife!.fullName,
             gestationWeeks: pData.deliveryWeeks!,
             birthWeight: twins ? 2400 : 3200,
@@ -384,12 +390,17 @@ export const seedMaternityData = async (force: boolean = false) => {
             complications: twins ? ['Preterm labour'] : [],
             createdById: midwife!.id,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            malePartnerPresentANC: false,
+            malePartnerPresentDelivery: false,
+            malePartnerPresentPNC: false,
+            maternalDeathsAudited: false,
+            auditNotes: null
           }
         });
         deliveries.push(delivery);
         
-        // Create Newborn(s) - using newbornRecord model
+        // Create Newborn(s)
         const babyWeights = twins ? [2400, 2300] : [3200];
         for (let b = 0; b < babyWeights.length; b++) {
           await prisma.newbornRecord.create({
@@ -403,21 +414,27 @@ export const seedMaternityData = async (force: boolean = false) => {
               outcome: 'alive',
               anomalies: [],
               referredTo: null,
-              createdAt: new Date()
+              createdAt: new Date(),
+              breastfeedingWithin30Min: true,
+              eyeProphylaxisGiven: true,
+              cordCareMethod: 'dry_cord',
+              babyWeightAt6to10Days: null,
+              weightAt6to10DaysDate: null
             }
           });
         }
       }
       
-      console.log(`✅ Created: ${pData.surname}`);
+      console.log(`✅ Created: ${pData.surname} (Patient: ${pData.folderNumber})`);
     }
     
     console.log('\n==================================================');
     console.log('✅ MATERNITY DATA SEEDING COMPLETED');
     console.log('==================================================');
-    console.log(`Created/Updated: ${patients.length} maternity patients (PAT-TEST-006 to 010)`);
+    console.log(`Created/Updated: ${patients.length} maternity patients (${patients.map(p => p.folderNumber).join(', ')})`);
     console.log(`Created: ${bookings.length} antenatal bookings`);
     console.log(`Created: ${deliveries.length} delivery records`);
+    console.log(`\nFinal counters:`, counterService.getCounters());
     
     return {
       success: true,

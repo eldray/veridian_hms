@@ -90,6 +90,8 @@ const hasTestData = async (): Promise<boolean> => {
 // DELETE TEST DATA
 // ============================================
 
+// src/seed/testSeed.ts - CORRECTED deleteTestData function
+
 export const deleteTestData = async (force: boolean = false) => {
   if (isProduction && !force) {
     return { success: false, message: 'Disabled in production', productionSafety: true };
@@ -116,35 +118,196 @@ export const deleteTestData = async (force: boolean = false) => {
       return { success: true, message: 'No test data to delete' };
     }
 
+    // Get test attendance IDs first
     const testAttendances = await prisma.attendance.findMany({
       where: { patientId: { in: testPatientIds } },
       select: { id: true }
     });
     const testAttendanceIds = testAttendances.map(a => a.id);
 
-    // Delete in correct order
-    await prisma.billLineItem.deleteMany({ where: { Bill: { patientId: { in: testPatientIds } } } });
-    await prisma.payment.deleteMany({ where: { Bill: { patientId: { in: testPatientIds } } } });
-    await prisma.bill.deleteMany({ where: { patientId: { in: testPatientIds } } });
-    await prisma.insuranceClaim.deleteMany({ where: { patientId: { in: testPatientIds } } });
-    await prisma.referralRecord.deleteMany({ where: { patientId: { in: testPatientIds } } });
-    await prisma.admission.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.appointment.deleteMany({ where: { patientId: { in: testPatientIds } } });
-    await prisma.notification.deleteMany({ where: { userId: { in: testPatientIds } } });
-    
-    await prisma.labTest.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.scan.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.procedure.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.medication.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.vitals.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.serviceRendered.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.attendanceDiagnosis.deleteMany({ where: { attendanceId: { in: testAttendanceIds } } });
-    await prisma.attendance.deleteMany({ where: { id: { in: testAttendanceIds } } });
-    await prisma.patient.deleteMany({ where: { id: { in: testPatientIds } } });
-    
-    await prisma.bed.updateMany({ data: { isOccupied: false, currentPatientId: null } });
-    
-    console.log('✅ Test data deleted');
+    // Get test antenatal booking IDs
+    const testBookings = await prisma.antenatalBooking.findMany({
+      where: { patientId: { in: testPatientIds } },
+      select: { id: true }
+    });
+    const testBookingIds = testBookings.map(b => b.id);
+
+    // Get test delivery record IDs (to delete newborns first)
+    const testDeliveries = await prisma.deliveryRecord.findMany({
+      where: { patientId: { in: testPatientIds } },
+      select: { id: true }
+    });
+    const testDeliveryIds = testDeliveries.map(d => d.id);
+
+    // ============================================
+    // DELETE IN CORRECT ORDER (leaf nodes first)
+    // ============================================
+
+    // 1. Delete newborn records (references deliveryRecordId)
+    if (testDeliveryIds.length > 0) {
+      await prisma.newbornRecord.deleteMany({
+        where: { deliveryRecordId: { in: testDeliveryIds } }
+      });
+      console.log(`   Deleted newborn records for ${testDeliveryIds.length} deliveries`);
+    }
+
+    // 2. Delete delivery records (references antenatalBookingId)
+    if (testDeliveryIds.length > 0) {
+      await prisma.deliveryRecord.deleteMany({
+        where: { id: { in: testDeliveryIds } }
+      });
+      console.log(`   Deleted ${testDeliveryIds.length} delivery records`);
+    }
+
+    // 3. Delete ANC visits (references bookingId)
+    if (testBookingIds.length > 0) {
+      await prisma.aNCVisit.deleteMany({
+        where: { bookingId: { in: testBookingIds } }
+      });
+      console.log(`   Deleted ANC visits for ${testBookingIds.length} bookings`);
+    }
+
+    // 4. Delete postnatal records (references antenatalBookingId and deliveryRecordId)
+    await prisma.postnatalRecord.deleteMany({
+      where: { patientId: { in: testPatientIds } }
+    });
+    console.log(`   Deleted postnatal records`);
+
+    // 5. Delete abortion records (references patientId)
+    await prisma.abortionRecord.deleteMany({
+      where: { patientId: { in: testPatientIds } }
+    });
+    console.log(`   Deleted abortion records`);
+
+    // 6. Delete antenatal bookings (now safe - no references to them)
+    if (testBookingIds.length > 0) {
+      await prisma.antenatalBooking.deleteMany({
+        where: { id: { in: testBookingIds } }
+      });
+      console.log(`   Deleted ${testBookingIds.length} antenatal bookings`);
+    }
+
+    // 7. Delete family planning services
+    await prisma.familyPlanningService.deleteMany({
+      where: { patientId: { in: testPatientIds } }
+    });
+    console.log(`   Deleted family planning services`);
+
+    // 8. Delete ward charge records
+    await prisma.wardChargeRecord.deleteMany({
+      where: { attendanceId: { in: testAttendanceIds } }
+    });
+    console.log(`   Deleted ward charge records`);
+
+    // 9. Delete bill line items
+    await prisma.billLineItem.deleteMany({ 
+      where: { bill: { patientId: { in: testPatientIds } } } 
+    });
+    console.log(`   Deleted bill line items`);
+
+    // 10. Delete payments
+    await prisma.payment.deleteMany({ 
+      where: { Bill: { patientId: { in: testPatientIds } } } 
+    });
+    console.log(`   Deleted payments`);
+
+    // 11. Delete bills
+    await prisma.bill.deleteMany({ 
+      where: { patientId: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted bills`);
+
+    // 12. Delete insurance claims
+    await prisma.insuranceClaim.deleteMany({ 
+      where: { patientId: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted insurance claims`);
+
+    // 13. Delete referral records
+    await prisma.referralRecord.deleteMany({ 
+      where: { patientId: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted referral records`);
+
+    // 14. Delete admissions
+    await prisma.admission.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted admissions`);
+
+    // 15. Delete appointments
+    await prisma.appointment.deleteMany({ 
+      where: { patientId: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted appointments`);
+
+    // 16. Delete notifications
+    await prisma.notification.deleteMany({ 
+      where: { userId: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted notifications`);
+
+    // 17. Delete lab tests
+    await prisma.labTest.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted lab tests`);
+
+    // 18. Delete scans
+    await prisma.scan.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted scans`);
+
+    // 19. Delete procedures
+    await prisma.procedure.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted procedures`);
+
+    // 20. Delete medications
+    await prisma.medication.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted medications`);
+
+    // 21. Delete vitals
+    await prisma.vitals.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted vitals`);
+
+    // 22. Delete services rendered
+    await prisma.serviceRendered.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted services rendered`);
+
+    // 23. Delete attendance diagnoses
+    await prisma.attendanceDiagnosis.deleteMany({ 
+      where: { attendanceId: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted attendance diagnoses`);
+
+    // 24. Delete attendances (now safe - no foreign key constraints left)
+    await prisma.attendance.deleteMany({ 
+      where: { id: { in: testAttendanceIds } } 
+    });
+    console.log(`   Deleted ${testAttendanceIds.length} attendances`);
+
+    // 25. Delete patients
+    await prisma.patient.deleteMany({ 
+      where: { id: { in: testPatientIds } } 
+    });
+    console.log(`   Deleted ${testPatientIds.length} patients`);
+
+    // 26. Reset beds (clear occupancy)
+    await prisma.bed.updateMany({ 
+      data: { isOccupied: false, currentPatientId: null } 
+    });
+    console.log(`   Reset bed occupancy`);
+
+    console.log('✅ Test data deleted successfully');
     return { success: true, message: 'Test data deleted' };
   } catch (error: any) {
     console.error('❌ Error deleting test data:', error);
@@ -427,6 +590,213 @@ export const seedTestData = async (force: boolean = false) => {
       patients.push(patient);
     }
     console.log(`✅ Created ${patients.length} test patients (Numbers: ${patients.map(p => p.folderNumber).join(', ')})`);
+
+// =============== CREATE MATERNITY DATA (for patients 1006-1010) ===============
+const createMaternityData = async (patients: any[], midwife: any, admin: any, nhisProvider: any, privateProvider: any) => {
+  console.log('👶 Creating maternity data (ANC, Delivery, Postnatal)...');
+  
+  // Maternity configurations for patients 1006-1010
+  const maternityConfigs = {
+    '1006': { // Grace Mensah
+      gravida: 1, para: 0, weeksAtBooking: 12, edd: new Date('2024-12-20'),
+      deliveryWeeks: 40, deliveryDaysAgo: 5, scenario: 'delivered', riskLevel: 'low'
+    },
+    '1007': { // Frederica Amankwah
+      gravida: 3, para: 2, weeksAtBooking: 16, edd: new Date('2025-02-15'),
+      currentWeeks: 28, scenario: 'current', riskLevel: 'low'
+    },
+    '1008': { // Victoria Dapaah
+      gravida: 2, para: 1, weeksAtBooking: 20, edd: new Date('2024-11-30'),
+      deliveryWeeks: 38, deliveryDaysAgo: 15, scenario: 'delivered', riskLevel: 'high'
+    },
+    '1009': { // Christina Boateng
+      gravida: 2, para: 1, weeksAtBooking: 14, edd: new Date('2024-10-25'),
+      deliveryWeeks: 39, deliveryDaysAgo: 30, scenario: 'cs_delivery', riskLevel: 'low'
+    },
+    '1010': { // Benedita Nyarko
+      gravida: 1, para: 0, weeksAtBooking: 10, edd: new Date('2024-11-10'),
+      deliveryWeeks: 36, deliveryDaysAgo: 45, scenario: 'twins_delivered', riskLevel: 'low'
+    }
+  };
+  
+  for (const patient of patients.slice(5, 10)) { // Patients 1006-1010
+    const config = maternityConfigs[patient.folderNumber];
+    if (!config) continue;
+    
+    console.log(`  Processing maternity for: ${patient.surname} (${patient.folderNumber})`);
+    
+    // Booking attendance date
+    const bookingDate = config.scenario === 'current' 
+      ? daysAgo(config.currentWeeks! * 7)
+      : daysAgo(config.deliveryDaysAgo! + (config.deliveryWeeks! * 7));
+    
+    // Create antenatal attendance
+    const antenatalAttendance = await prisma.attendance.create({
+      data: {
+        attendanceNumber: generateAttendanceNumber(),
+        patientId: patient.id,
+        dateTime: bookingDate,
+        attendanceType: AttendanceType.antenatal,
+        paymentMode: patient.paymentMode,
+        insuranceProviderId: patient.insuranceProviderId,
+        complaints: 'Routine antenatal booking visit',
+        medicalNotes: `G${config.gravida}P${config.para} booking at ${config.weeksAtBooking} weeks`,
+        createdById: midwife?.id || admin.id,
+        status: config.scenario === 'current' ? AttendanceStatus.completed : AttendanceStatus.completed,
+        encounterCategory: EncounterCategory.opd,
+        visitCategory: VisitCategory.antenatal,
+        serviceCategory: ServiceCategory.opd,
+        totalBill: 0, paidAmount: 0, outstandingBalance: 0
+      }
+    });
+    
+    // Calculate LMP
+    const lmpDate = new Date(config.edd);
+    lmpDate.setDate(lmpDate.getDate() - 280);
+    
+    // Create antenatal booking
+    const booking = await prisma.antenatalBooking.create({
+      data: {
+        patientId: patient.id,
+        attendanceId: antenatalAttendance.id,
+        gravida: config.gravida,
+        para: config.para,
+        lmp: lmpDate,
+        edd: config.edd,
+        bookingDate: bookingDate,
+        gestationalAgeWeeks: config.weeksAtBooking,
+        gestationalAgeAtBooking: config.weeksAtBooking,
+        riskLevel: config.riskLevel as any,
+        riskFactors: config.riskLevel === 'high' ? ['Previous complications'] : [],
+        isActive: config.scenario === 'current',
+        isCompleted: config.scenario !== 'current',
+        createdById: midwife?.id || admin.id,
+        bloodGroup: 'O+',
+        hivStatus: 'Negative',
+        hbLevel: 11.5,
+        iptpDoses: {},
+        ttDoses: {}
+      }
+    });
+    
+    // Create ANC visits (if enough weeks)
+    const totalWeeks = config.scenario === 'current' ? config.currentWeeks! : config.deliveryWeeks!;
+    const visitCount = Math.min(Math.floor(totalWeeks / 4), 8);
+    
+    for (let i = 1; i <= visitCount; i++) {
+      const visitDate = new Date(bookingDate);
+      visitDate.setDate(visitDate.getDate() + (i * 28));
+      
+      const visitAttendance = await prisma.attendance.create({
+        data: {
+          attendanceNumber: generateAttendanceNumber(),
+          patientId: patient.id,
+          dateTime: visitDate,
+          attendanceType: AttendanceType.antenatal,
+          paymentMode: patient.paymentMode,
+          insuranceProviderId: patient.insuranceProviderId,
+          complaints: `ANC visit - ${config.weeksAtBooking + i * 4} weeks`,
+          createdById: midwife?.id || admin.id,
+          status: AttendanceStatus.completed,
+          encounterCategory: EncounterCategory.opd,
+          visitCategory: VisitCategory.antenatal,
+          serviceCategory: ServiceCategory.opd,
+          totalBill: 0, paidAmount: 0, outstandingBalance: 0
+        }
+      });
+      
+      await prisma.aNCVisit.create({
+        data: {
+          bookingId: booking.id,
+          attendanceId: visitAttendance.id,
+          visitNumber: i,
+          visitDate: visitDate,
+          gestationalAgeWeeks: config.weeksAtBooking + (i * 4),
+          weight: 65 + (i * 0.5),
+          bloodPressure: `${110 + i}/70`,
+          fundalHeight: (config.weeksAtBooking + i * 4) * 0.9,
+          fetalHeartRate: 145,
+          recordedById: midwife?.id || admin.id
+        }
+      });
+    }
+    
+    // Create delivery record if not currently pregnant
+    if (config.scenario !== 'current') {
+      const deliveryDate = daysAgo(config.deliveryDaysAgo!);
+      const twins = config.scenario === 'twins_delivered';
+      const cs = config.scenario === 'cs_delivery';
+      
+      const deliveryAttendance = await prisma.attendance.create({
+        data: {
+          attendanceNumber: generateAttendanceNumber(),
+          patientId: patient.id,
+          dateTime: deliveryDate,
+          attendanceType: AttendanceType.delivery,
+          paymentMode: patient.paymentMode,
+          insuranceProviderId: patient.insuranceProviderId,
+          complaints: 'In labour / For delivery',
+          medicalNotes: `G${config.gravida}P${config.para} delivery at ${config.deliveryWeeks} weeks`,
+          createdById: midwife?.id || admin.id,
+          status: AttendanceStatus.completed,
+          encounterCategory: EncounterCategory.ipd,
+          visitCategory: VisitCategory.general,
+          serviceCategory: ServiceCategory.ipd,
+          totalBill: 0, paidAmount: 0, outstandingBalance: 0
+        }
+      });
+      
+      const delivery = await prisma.deliveryRecord.create({
+        data: {
+          patientId: patient.id,
+          attendanceId: deliveryAttendance.id,
+          antenatalBookingId: booking.id,
+          deliveryDate: deliveryDate,
+          deliveryType: cs ? 'caesarean_section' : (twins ? 'multiple' : 'spontaneous_vertex'),
+          deliveryOutcome: 'live_birth',
+          placeOfDelivery: 'private_hospital',
+          attendant: midwife?.fullName || 'Midwife',
+          gestationWeeks: config.deliveryWeeks!,
+          birthWeight: twins ? 2400 : 3200,
+          apgarScore1min: 8,
+          apgarScore5min: 9,
+          maternalOutcome: 'alive',
+          complications: twins ? ['Preterm labour'] : [],
+          createdById: midwife?.id || admin.id,
+          malePartnerPresentANC: false,
+          malePartnerPresentDelivery: false,
+          malePartnerPresentPNC: false,
+          maternalDeathsAudited: false
+        }
+      });
+      
+      // Create newborn records
+      const babyWeights = twins ? [2400, 2300] : [3200];
+      for (let b = 0; b < babyWeights.length; b++) {
+        await prisma.newbornRecord.create({
+          data: {
+            deliveryRecordId: delivery.id,
+            birthWeight: babyWeights[b],
+            gender: b % 2 === 0 ? Gender.male : Gender.female,
+            apgarScore1min: 8,
+            apgarScore5min: 9,
+            outcome: 'alive',
+            anomalies: [],
+            breastfeedingWithin30Min: true,
+            eyeProphylaxisGiven: true,
+            cordCareMethod: 'dry_cord'
+          }
+        });
+      }
+    }
+  }
+  
+  console.log('✅ Maternity data created');
+};
+
+// Then call this function after creating patients, around line 400 in testSeed.ts:
+// After creating the patients array, add:
+await createMaternityData(patients, midwife, admin, nhisProvider, privateProvider);
 
     // =============== CREATE ATTENDANCES ===============
     const attendances: any[] = [];

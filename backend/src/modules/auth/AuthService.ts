@@ -1,7 +1,6 @@
-// modules/auth/AuthService.ts
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
 import {
   LoginRequestDTO,
@@ -49,7 +48,12 @@ export class AuthService {
         return { success: false, error: 'Invalid credentials' };
       }
 
-      const tokens = await this.generateTokens(user.id, user.username, user.role);
+      const tokens = await this.generateTokens(
+        user.id, 
+        user.username, 
+        user.role,
+        user.seniority  // ← ADD THIS
+      );
 
       await this.repository.updateLastLogin(user.id);
 
@@ -65,6 +69,7 @@ export class AuthService {
           username: user.username,
           fullName: user.fullName,
           role: user.role,
+          seniority: user.seniority,  // ← ADD THIS
           email: user.email || undefined,
           phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
@@ -106,6 +111,7 @@ export class AuthService {
         passwordHash,
         fullName: data.fullName,
         role: data.role,
+        seniority: data.seniority || 'JUNIOR',  // ← ADD THIS (default JUNIOR)
         email: data.email,
         phone: data.phone,
         licenseNumber: data.licenseNumber,
@@ -113,7 +119,12 @@ export class AuthService {
         departmentId: data.departmentId,
       });
 
-      const tokens = await this.generateTokens(user.id, user.username, user.role);
+      const tokens = await this.generateTokens(
+        user.id, 
+        user.username, 
+        user.role,
+        user.seniority  // ← ADD THIS
+      );
 
       await this.repository.storeRefreshToken(
         user.id,
@@ -127,6 +138,7 @@ export class AuthService {
           username: user.username,
           fullName: user.fullName,
           role: user.role,
+          seniority: user.seniority,  // ← ADD THIS
           email: user.email || undefined,
           phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
@@ -166,7 +178,12 @@ export class AuthService {
         return { success: false, error: 'User not found' };
       }
 
-      const tokens = await this.generateTokens(user.id, user.username, user.role);
+      const tokens = await this.generateTokens(
+        user.id, 
+        user.username, 
+        user.role,
+        user.seniority  // ← ADD THIS
+      );
 
       await this.repository.storeRefreshToken(
         user.id,
@@ -182,6 +199,7 @@ export class AuthService {
           username: user.username,
           fullName: user.fullName,
           role: user.role,
+          seniority: user.seniority,  // ← ADD THIS
           email: user.email || undefined,
           phone: user.phone || undefined,
           departmentId: user.departmentId || undefined,
@@ -253,11 +271,22 @@ export class AuthService {
     }
   }
 
-  private async generateTokens(userId: string, username: string, role: string): Promise<{
+  // UPDATED: Include seniority in token generation
+  private async generateTokens(
+    userId: string, 
+    username: string, 
+    role: string, 
+    seniority: Seniority  // ← ADD THIS PARAMETER
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
-    const payload: TokenPayload = { userId, username, role: role as any };
+    const payload: TokenPayload = { 
+      userId, 
+      username, 
+      role: role as any,
+      seniority  // ← ADD THIS
+    };
 
     const accessToken = jwt.sign(payload, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
@@ -285,6 +314,7 @@ export class AuthService {
         username: user.username,
         fullName: user.fullName,
         role: user.role,
+        seniority: user.seniority,  // ← ADD THIS
         email: user.email,
         phone: user.phone,
         department: user.department,

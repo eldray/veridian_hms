@@ -307,8 +307,10 @@ function App() {
           <Route path="/dashboard/maternal-waiting-list" element={<ProtectedRoute><MaternalWaitingList /></ProtectedRoute>} />
           
           {/* Maternal Health */}
+          {/* Maternal Health */}
+          <Route path="antenatal" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
           <Route path="/dashboard/maternal/:attendanceId" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
-          
+              
           {/* Medical Services */}
           <Route path="medicalservices" element={<ProtectedRoute><MedicalServicesManagement /></ProtectedRoute>} />
           

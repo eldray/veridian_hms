@@ -1,10 +1,12 @@
 // src/api/index.ts - COMPLETE CONSOLIDATED VERSION (FIXED)
 import api from './api';
+// Add Seniority to the import
 import type { 
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
   Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
   StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
-  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus
+  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
+  Seniority  // ✅ ADD THIS
 } from '../types';
 
 // ============================================
@@ -287,6 +289,42 @@ const convertISODateToInputFormat = (isoDate: string): string => {
   }
 };
 
+
+
+// Add these helper functions to api/index.ts
+
+// Check if user has required seniority
+export const hasMinSeniority = (userSeniority: Seniority, requiredSeniority: Seniority): boolean => {
+  const levels: Record<Seniority, number> = {
+    TRAINEE: 0,
+    JUNIOR: 1,
+    SENIOR: 2,
+    PRINCIPAL: 3
+  };
+  return levels[userSeniority] >= levels[requiredSeniority];
+};
+
+// Get user's seniority from stored profile
+export const getUserSeniority = async (): Promise<Seniority | null> => {
+  try {
+    const profile = await getProfile();
+    return profile?.seniority || null;
+  } catch {
+    return null;
+  }
+};
+
+// Get readable seniority label
+export const getSeniorityLabel = (seniority: Seniority): string => {
+  const labels: Record<Seniority, string> = {
+    TRAINEE: 'Trainee',
+    JUNIOR: 'Junior Staff',
+    SENIOR: 'Senior Staff',
+    PRINCIPAL: 'Principal'
+  };
+  return labels[seniority];
+};
+
 // ──────────────────────────────────────────────
 // AUTH & PROFILE
 // ──────────────────────────────────────────────
@@ -294,8 +332,19 @@ const convertISODateToInputFormat = (isoDate: string): string => {
 export const login = (username: string, password: string) => 
   api.post('/auth/login', { username, password }).then(r => r.data);
 
-export const register = (userData: any) => 
-  api.post('/auth/register', userData).then(r => r.data);
+export const register = (userData: {
+  username: string;
+  password: string;
+  fullName: string;
+  role: string;
+  seniority?: string;  // ✅ ADD THIS (optional)
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  departmentId?: string;
+}) => api.post('/auth/register', userData).then(r => r.data);
+
 
 export const verifyToken = () => 
   api.get('/auth/profile').then(r => r.data.user || r.data);
@@ -1858,20 +1907,26 @@ export const getDepartmentStats = (id: string) =>
   api.get(`/departments/${id}/stats`).then(r => r.data?.data || r.data);
 
 export const getDepartmentUsers = (departmentId: string) => 
-  api.get(`/departments/${departmentId}/users`).then(r => r.data?.data?.users || r.data?.users || r.data);
+  api.get(`/departments/${departmentId}/users`).then(r => {
+    // The backend returns: { success: true, data: users[], count: number }
+    const data = r.data?.data || r.data?.users || r.data;
+    return Array.isArray(data) ? data : [];
+  });
 
 export const assignUserToDepartment = (departmentId: string, data: any) => 
-  api.post(`/departments/${departmentId}/assign-user`, data).then(r => r.data?.data || r.data);
+  api.post(`/departments/${departmentId}/users`, data).then(r => r.data?.data || r.data);
 
 export const assignDepartmentHead = (departmentId: string, userId: string) => 
   api.put(`/departments/${departmentId}`, { headId: userId }).then(r => r.data?.data || r.data);
 
-export const removeUserFromDepartment = (departmentId: string, data: any) => 
-  api.post(`/departments/${departmentId}/remove-user`, data).then(r => r.data?.data || r.data);
+export const removeUserFromDepartment = (departmentId: string, userId: string) => 
+  api.delete(`/departments/${departmentId}/users/${userId}`).then(r => r.data?.data || r.data);
 
 export const bulkUpdateDepartments = (data: any) => 
   api.post('/departments/bulk-update', data).then(r => r.data);
 
+export const getEligibleDepartmentHeads = () => 
+  api.get('/departments/eligible-heads').then(r => r.data);
 // ──────────────────────────────────────────────
 // APPOINTMENTS
 // ──────────────────────────────────────────────
@@ -2042,17 +2097,17 @@ export const getAppointmentCalendar = (month: string, year: string) =>
   api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// BACKUP SYSTEM
+// BACKUP SYSTEM - CORRECTED ENDPOINTS
 // ──────────────────────────────────────────────
 
 export const createBackup = async () => {
-  const response = await api.post('/backup/create');
+  const response = await api.post('/backup');
   return response.data;
 };
 
-export const restoreBackup = async (backupFile: any) => {
+export const restoreBackup = async (backupFile: File) => {
   const formData = new FormData();
-  formData.append('backupFile', backupFile);
+  formData.append('backup', backupFile);  // Field name should be 'backup' (matches multer)
   
   const response = await api.post('/backup/restore', formData, {
     headers: {
@@ -2062,9 +2117,9 @@ export const restoreBackup = async (backupFile: any) => {
   return response.data;
 };
 
-export const getBackupList = async () => {
-  const response = await api.get('/backup/list');
-  return response.data.backups;
+export const getBackupList = async (page: number = 1, limit: number = 50) => {
+  const response = await api.get('/backup', { params: { page, limit } });
+  return response.data;
 };
 
 export const downloadBackup = async (filename: string) => {
@@ -2124,6 +2179,12 @@ export const downloadBackup = async (filename: string) => {
 
 export const deleteBackup = async (filename: string) => {
   const response = await api.delete(`/backup/${filename}`);
+  return response.data;
+};
+
+// ✅ ADD: Get backup statistics
+export const getBackupStats = async () => {
+  const response = await api.get('/backup/stats');
   return response.data;
 };
 
@@ -2429,60 +2490,165 @@ export const exportReportToCSV = async (reportType: string, filters: ReportFilte
 };
 
 // ──────────────────────────────────────────────
-// ANTENATAL BOOKINGS
+// ANTENATAL REGISTRATION (After encounter created)
 // ──────────────────────────────────────────────
 
-export const getAntenatalBookings = async (filters?: { page?: number; limit?: number; isActive?: boolean; patientId?: string }) => {
-  const response = await api.get('/antenatal/bookings', { params: filters });
-  return response.data;
-};
-
-export const getActiveBookingByPatient = async (patientId: string) => {
-  const response = await api.get(`/antenatal/bookings/patient/${patientId}`);
-  return response.data;
-};
-
-export const getAntenatalBookingById = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/booking/${bookingId}`);
-  return response.data;
-};
-
-export const createAntenatalBooking = async (data: AntenatalBookingData) => {
-  const response = await api.post('/antenatal/booking', data);
-  return response.data;
-};
-
-export const closeAntenatalBooking = async (bookingId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
-  const response = await api.put(`/antenatal/booking/${bookingId}/close`, data);
-  return response.data;
-};
-
-export const getANCStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/stats', { params: filters });
+// Register a new antenatal booking (called AFTER creating an antenatal encounter)
+export const registerAntenatalBooking = async (data: {
+  encounterId: string;
+  lastMenstrualPeriod: string;      // LMP date
+  numberOfPregnancies: number;       // gravida
+  numberOfDeliveries: number;         // para
+  riskLevel?: 'low' | 'medium' | 'high';
+  bloodGroup?: string;
+  hivStatus?: string;
+  hemoglobinLevel?: number;
+  syphilisStatus?: string;
+  previousCesareanSection?: boolean;
+  previousPregnancyComplications?: string;
+  gestationalAgeWeeks?: number;
+  riskFactors?: any;
+}) => {
+  const response = await api.post('/antenatal/register', data);
   return response.data;
 };
 
 // ──────────────────────────────────────────────
-// ANC VISITS
+// ANTENATAL RECORDS (View/Update existing records)
 // ──────────────────────────────────────────────
 
-export const getANCVisitsByBooking = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/visits/booking/${bookingId}`);
+// Get all antenatal records
+export const getAntenatalRecords = async (filters?: { 
+  page?: number; 
+  limit?: number; 
+  isActive?: boolean; 
+  patientId?: string 
+}) => {
+  const response = await api.get('/antenatal/records', { params: filters });
   return response.data;
 };
 
+// Get antenatal record by encounter ID
+export const getAntenatalRecordByEncounter = async (encounterId: string) => {
+  const response = await api.get(`/antenatal/records/by-encounter/${encounterId}`);
+  return response.data;
+};
+
+// Get active antenatal record by patient ID
+export const getActiveAntenatalRecordByPatient = async (patientId: string) => {
+  const response = await api.get(`/antenatal/records/by-patient/${patientId}/active`);
+  return response.data;
+};
+
+// Get antenatal record by ID
+export const getAntenatalRecordById = async (recordId: string) => {
+  const response = await api.get(`/antenatal/records/${recordId}`);
+  return response.data;
+};
+
+// Update antenatal record
+export const updateAntenatalRecord = async (recordId: string, data: {
+  numberOfPregnancies?: number;
+  numberOfDeliveries?: number;
+  estimatedDueDate?: string;
+  gestationalAgeWeeks?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
+  bloodGroup?: string;
+  hivStatus?: string;
+  hemoglobinLevel?: number;
+  syphilisStatus?: string;
+  previousCesareanSection?: boolean;
+  previousPregnancyComplications?: string;
+}) => {
+  const response = await api.put(`/antenatal/records/${recordId}`, data);
+  return response.data;
+};
+
+// Close antenatal record (after delivery)
+export const closeAntenatalRecord = async (recordId: string, data: { 
+  deliveryDate?: string; 
+  deliveryOutcome?: string; 
+  deliveryRecordId?: string 
+}) => {
+  const response = await api.post(`/antenatal/records/${recordId}/close`, data);
+  return response.data;
+};
+
+// Delete antenatal record (admin only)
+export const deleteAntenatalRecord = async (recordId: string) => {
+  const response = await api.delete(`/antenatal/records/${recordId}`);
+  return response.data;
+};
+
+// ──────────────────────────────────────────────
+// ANC VISITS (Follow-up visits)
+// ──────────────────────────────────────────────
+
+// Record a new ANC visit (follow-up)
+export const recordANCVisit = async (data: {
+  antenatalRecordId: string;
+  attendanceId: string;
+  visitNumber: number;
+  visitDate: string;
+  gestationalAgeWeeks?: number;
+  weight?: number;
+  bloodPressure?: string;
+  fundalHeight?: number;
+  fetalHeartRate?: number;
+  fetalMovements?: boolean;
+  presentation?: string;
+  iptpDoseGiven?: boolean;
+  iptpDoseNumber?: number;
+  iptpDrug?: string;
+  tetanusToxoidGiven?: boolean;
+  tetanusToxoidDoseNumber?: number;
+  ironGiven?: boolean;
+  folateGiven?: boolean;
+  calciumGiven?: boolean;
+  malariaTestDone?: boolean;
+  malariaTestResult?: string;
+  dangerSignsPresent?: boolean;
+  dangerSignsList?: string[];
+  referralMade?: boolean;
+  referredTo?: string;
+  nextVisitDate?: string;
+  returnInstructions?: string;
+}) => {
+  const response = await api.post('/antenatal/visits', data);
+  return response.data;
+};
+
+// Get all ANC visits for an antenatal record
+export const getANCVisitsByAntenatalRecord = async (antenatalRecordId: string) => {
+  const response = await api.get(`/antenatal/visits/by-antenatal-record/${antenatalRecordId}`);
+  return response.data;
+};
+
+// Get ANC visit by ID
 export const getANCVisitById = async (id: string) => {
-  const response = await api.get(`/antenatal/visit/${id}`);
+  const response = await api.get(`/antenatal/visits/${id}`);
   return response.data;
 };
 
-export const updateANCVisit = async (id: string, data: Partial<ANCVisitData>) => {
-  const response = await api.put(`/antenatal/visit/${id}`, data);
+// Update ANC visit
+export const updateANCVisit = async (id: string, data: Partial<{
+  weight: number;
+  bloodPressure: string;
+  fundalHeight: number;
+  fetalHeartRate: number;
+  iptpDoseGiven: boolean;
+  tetanusToxoidGiven: boolean;
+  dangerSignsPresent: boolean;
+  referralMade: boolean;
+  nextVisitDate: string;
+}>) => {
+  const response = await api.put(`/antenatal/visits/${id}`, data);
   return response.data;
 };
 
+// Delete ANC visit (admin only)
 export const deleteANCVisit = async (id: string) => {
-  const response = await api.delete(`/antenatal/visit/${id}`);
+  const response = await api.delete(`/antenatal/visits/${id}`);
   return response.data;
 };
 
@@ -2490,33 +2656,77 @@ export const deleteANCVisit = async (id: string) => {
 // DELIVERY RECORDS
 // ──────────────────────────────────────────────
 
-export const getDeliveries = async (filters?: { patientId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+// Record a new delivery
+export const recordDelivery = async (data: {
+  patientId: string;
+  attendanceId: string;
+  deliveryDate: string;
+  deliveryType: 'spontaneous_vertex' | 'assisted_breech' | 'vacuum' | 'forceps' | 'caesarean_section' | 'multiple';
+  deliveryOutcome: 'live_birth' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'neonatal_death';
+  placeOfDelivery?: string;
+  attendant?: string;
+  gestationalAgeWeeks?: number;
+  birthWeight?: number;
+  apgarScore1min?: number;
+  apgarScore5min?: number;
+  resuscitationDone?: boolean;
+  maternalOutcome?: string;
+  complications?: string[];
+  notes?: string;
+  malePartnerPresentANC?: boolean;
+  malePartnerPresentDelivery?: boolean;
+  malePartnerPresentPNC?: boolean;
+  newborns?: Array<{
+    birthWeight: number;
+    gender: string;
+    apgarScore1min?: number;
+    apgarScore5min?: number;
+    resuscitationDone?: boolean;
+    outcome?: string;
+    breastfeedingWithin30Min?: boolean;
+    eyeProphylaxisGiven?: boolean;
+    cordCareMethod?: string;
+  }>;
+}) => {
+  const response = await api.post('/antenatal/delivery', data);
+  return response.data;
+};
+
+// Get all delivery records
+export const getDeliveryRecords = async (filters?: { 
+  patientId?: string; 
+  startDate?: string; 
+  endDate?: string; 
+  page?: number; 
+  limit?: number 
+}) => {
   const response = await api.get('/antenatal/deliveries', { params: filters });
   return response.data;
 };
 
-export const getDelivery = async (id: string) => {
-  const response = await api.get(`/antenatal/deliveries/${id}`);  // ← add 's'
+// Get delivery record by ID
+export const getDeliveryRecord = async (id: string) => {
+  const response = await api.get(`/antenatal/deliveries/${id}`);
   return response.data;
 };
 
-export const createDelivery = async (data: DeliveryRecordData) => {
-  const response = await api.post('/antenatal/deliveries', data);  // ← add 's'
+// Update delivery record
+export const updateDeliveryRecord = async (id: string, data: Partial<{
+  deliveryType: string;
+  deliveryOutcome: string;
+  birthWeight: number;
+  apgarScore1min: number;
+  apgarScore5min: number;
+  maternalOutcome: string;
+  complications: string[];
+}>) => {
+  const response = await api.put(`/antenatal/deliveries/${id}`, data);
   return response.data;
 };
 
-export const updateDelivery = async (id: string, data: Partial<DeliveryRecordData>) => {
-  const response = await api.put(`/antenatal/deliveries/${id}`, data);  // ← add 's'
-  return response.data;
-};
-
-export const deleteDelivery = async (id: string) => {
-  const response = await api.delete(`/antenatal/deliveries/${id}`);  // ← add 's'
-  return response.data;
-};
-
-export const getDeliveryStats = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/delivery/stats', { params: filters });
+// Delete delivery record (admin only)
+export const deleteDeliveryRecord = async (id: string) => {
+  const response = await api.delete(`/antenatal/deliveries/${id}`);
   return response.data;
 };
 
@@ -2524,33 +2734,78 @@ export const getDeliveryStats = async (filters?: { startDate?: string; endDate?:
 // POSTNATAL RECORDS
 // ──────────────────────────────────────────────
 
-export const getPostnatals = async (filters?: { patientId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
-  const response = await api.get('/antenatal/postnatals', { params: filters });
-  return response.data;
-};
-
-export const getPostnatal = async (id: string) => {
-  const response = await api.get(`/antenatal/postnatal/${id}`);
-  return response.data;
-};
-
-export const createPostnatal = async (data: PostnatalRecordData) => {
+// Record a new postnatal visit
+export const recordPostnatalVisit = async (data: {
+  patientId: string;
+  attendanceId: string;
+  examinationDate: string;
+  dayNumber: number;
+  maternalCondition?: string;
+  bloodPressure?: string;
+  temperature?: number;
+  pulse?: number;
+  breastfeedingStatus?: string;
+  babyCondition?: string;
+  babyWeight?: number;
+  familyPlanningDiscussed?: boolean;
+  familyPlanningMethodAccepted?: string;
+  notes?: string;
+}) => {
   const response = await api.post('/antenatal/postnatal', data);
   return response.data;
 };
 
-export const updatePostnatal = async (id: string, data: Partial<PostnatalRecordData>) => {
+// Get all postnatal records
+export const getPostnatalRecords = async (filters?: { 
+  patientId?: string; 
+  page?: number; 
+  limit?: number 
+}) => {
+  const response = await api.get('/antenatal/postnatal', { params: filters });
+  return response.data;
+};
+
+// Get postnatal record by ID
+export const getPostnatalRecord = async (id: string) => {
+  const response = await api.get(`/antenatal/postnatal/${id}`);
+  return response.data;
+};
+
+// Update postnatal record
+export const updatePostnatalRecord = async (id: string, data: Partial<{
+  maternalCondition: string;
+  breastfeedingStatus: string;
+  babyCondition: string;
+  familyPlanningDiscussed: boolean;
+  familyPlanningMethodAccepted: string;
+  notes: string;
+}>) => {
   const response = await api.put(`/antenatal/postnatal/${id}`, data);
   return response.data;
 };
 
-export const deletePostnatal = async (id: string) => {
+// Delete postnatal record (admin only)
+export const deletePostnatalRecord = async (id: string) => {
   const response = await api.delete(`/antenatal/postnatal/${id}`);
   return response.data;
 };
 
-export const getPostnatalStats = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/postnatal/stats', { params: filters });
+// ──────────────────────────────────────────────
+// STATISTICS
+// ──────────────────────────────────────────────
+
+export const getAntenatalStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/statistics/antenatal', { params: filters });
+  return response.data;
+};
+
+export const getDeliveryStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/statistics/delivery', { params: filters });
+  return response.data;
+};
+
+export const getPostnatalStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
+  const response = await api.get('/antenatal/statistics/postnatal', { params: filters });
   return response.data;
 };
 
@@ -2627,6 +2882,11 @@ export default {
   // Auth
   login, register, verifyToken, logout, getUsers, getUserStats, getProfile, updateProfile, changePassword,
   
+  // Add new helpers
+  hasMinSeniority,
+  getUserSeniority,
+  getSeniorityLabel,
+
   // Settings
   getHospitalDetails, updateHospitalDetails, getAllUsers, updateUser, deactivateUser,
   getSystemSettings, updateSystemSettings, 
@@ -2758,7 +3018,7 @@ export default {
   getDashboardStats, getAppointmentCalendar,
   
   // ✅ ADD THESE BACKUP FUNCTIONS
-  createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup,
+  createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup, getBackupStats,
   
   // Documents
   generateReceipt, generateBillStatement, generateReferralLetter, generateDischargeSummary,

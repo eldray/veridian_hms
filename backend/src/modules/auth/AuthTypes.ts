@@ -1,6 +1,5 @@
-// modules/auth/AuthTypes.ts
 import { Request } from 'express';
-import { UserRole } from '@prisma/client';
+import { UserRole, Seniority } from '@prisma/client';
 
 // DTOs
 export interface LoginRequestDTO {
@@ -14,6 +13,7 @@ export interface RegisterRequestDTO {
   password: string;
   fullName: string;
   role: UserRole;
+  seniority?: Seniority;  // ← ADD THIS (optional, defaults to JUNIOR)
   email?: string;
   phone?: string;
   licenseNumber?: string;
@@ -45,6 +45,7 @@ export interface AuthResponse {
     username: string;
     fullName: string;
     role: UserRole;
+    seniority: Seniority;  // ← ADD THIS
     email?: string;
     phone?: string;
     departmentId?: string;
@@ -70,6 +71,7 @@ export interface TokenPayload {
   userId: string;
   username: string;
   role: UserRole;
+  seniority: Seniority;  // ← ADD THIS
   iat?: number;
   exp?: number;
 }

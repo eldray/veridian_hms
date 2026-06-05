@@ -1,6 +1,6 @@
 // src/components/postnatal/PostnatalModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X, Heart, Baby } from 'lucide-react';
+import { X, Heart, Baby, Shield, AlertTriangle, ArrowLeft, Calendar } from 'lucide-react';
 import { usePostnatalStore } from '../../store/postnatalStore';
 import { useToast } from '../../store/toastStore';
 
@@ -58,15 +58,15 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
     
     // Family Planning
     familyPlanningDiscussed: false,
-    familyPlanningMethodAccepted: '' as string,
+    familyPlanningMethodAccepted: '',
     
     // Danger signs
     maternalDangerSigns: [] as string[],
     babyDangerSigns: [] as string[],
     
     malePartnerPresentPNC: false,
-    exclusiveBFAtDischarge: false
-
+    exclusiveBFAtDischarge: false,  // ✅ Add comma here
+    
     // Referral
     referralMade: false,
     referredTo: '',
@@ -129,9 +129,8 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         familyPlanningMethodAccepted: existingPostnatal.familyPlanningMethodAccepted || '',
         maternalDangerSigns: existingPostnatal.maternalDangerSigns || [],
         babyDangerSigns: existingPostnatal.babyDangerSigns || [],
-              // ✅ ADD THESE TWO:
         malePartnerPresentPNC: existingPostnatal.malePartnerPresentPNC || false,
-        exclusiveBFAtDischarge: existingPostnatal.exclusiveBFAtDischarge || false
+        exclusiveBFAtDischarge: existingPostnatal.exclusiveBFAtDischarge || false,  // ✅ Add comma here
         referralMade: existingPostnatal.referralMade || false,
         referredTo: existingPostnatal.referredTo || '',
         referralReason: existingPostnatal.referralReason || '',
@@ -193,7 +192,7 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         maternalDangerSigns: formData.maternalDangerSigns,
         babyDangerSigns: formData.babyDangerSigns,
         malePartnerPresentPNC: formData.malePartnerPresentPNC,
-        exclusiveBFAtDischarge: formData.exclusiveBFAtDischarge
+        exclusiveBFAtDischarge: formData.exclusiveBFAtDischarge,
         
         referralMade: formData.referralMade,
         referredTo: formData.referredTo || undefined,

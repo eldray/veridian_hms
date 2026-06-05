@@ -1870,6 +1870,7 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   departmentId   String?
+  seniority Seniority @default(JUNIOR)
 
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
@@ -2974,6 +2975,13 @@ enum CordCareMethod {
   methylated_spirit
   alcohol
   other
+}
+
+enum Seniority {
+  TRAINEE
+  JUNIOR
+  SENIOR
+  PRINCIPAL
 }
 
 enum PlaceOfDelivery {

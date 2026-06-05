@@ -8,6 +8,8 @@ import { PrismaClient } from '@prisma/client';
 import { DepartmentController } from './DepartmentController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
+// DepartmentRoutes.ts - Add new route for eligible heads
+
 export function createDepartmentRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new DepartmentController(prisma);
@@ -20,6 +22,9 @@ export function createDepartmentRoutes(prisma: PrismaClient): Router {
 
   // Get department statistics
   router.get('/statistics', controller.getStats.bind(controller));
+
+  // ✅ NEW: Get eligible department heads (SENIOR/PRINCIPAL only)
+  router.get('/eligible-heads', controller.getEligibleHeads.bind(controller));
 
   // Get department by ID
   router.get('/:id', controller.getById.bind(controller));

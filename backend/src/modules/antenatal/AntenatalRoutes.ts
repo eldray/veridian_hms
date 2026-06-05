@@ -1,71 +1,58 @@
 // modules/antenatal/AntenatalRoutes.ts
 import { Router } from 'express';
 import { AntenatalController } from './AntenatalController';
-import { protect } from '../../middleware/authMiddleware';
-
-const router = Router();
-let controller: AntenatalController;
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createAntenatalRoutes(prisma: any): Router {
-  controller = new AntenatalController(prisma);
+  const router = Router();
+  const controller = new AntenatalController(prisma);
+
+  // All routes require authentication
+  router.use(protect);
 
   // ============================================
-  // SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
+  // STATISTICS ROUTES
   // ============================================
-
-  // ---------- STATISTICS ROUTES ----------
-  router.get('/stats/anc', protect, controller.getANCStatistics.bind(controller));
-  router.get('/stats/delivery', protect, controller.getDeliveryStatistics.bind(controller));
-  router.get('/stats/postnatal', protect, controller.getPostnatalStatistics.bind(controller));
-
-  // ---------- DELIVERY RECORD ROUTES ----------
-  router.get('/deliveries', protect, controller.getDeliveryRecords.bind(controller));
-  router.get('/deliveries/:id', protect, controller.getDeliveryRecord.bind(controller));
-  router.post('/deliveries', protect, controller.createDeliveryRecord);
-  router.put('/deliveries/:id', protect, controller.updateDeliveryRecord.bind(controller));
-  router.delete('/deliveries/:id', protect, controller.deleteDeliveryRecord.bind(controller));
-
-  // ---------- POSTNATAL RECORD ROUTES ----------
-  router.get('/postnatals', protect, controller.getPostnatalRecords.bind(controller));
-  router.get('/postnatal/:id', protect, controller.getPostnatalRecord.bind(controller));
-  router.post('/postnatal', protect, controller.createPostnatalRecord);
-  router.put('/postnatal/:id', protect, controller.updatePostnatalRecord.bind(controller));
-  router.delete('/postnatal/:id', protect, controller.deletePostnatalRecord.bind(controller));
-
-  // ---------- ANC VISIT ROUTES ----------
-  router.get('/bookings/:bookingId/visits', protect, controller.getANCVisitsByBooking.bind(controller));
-  router.get('/visits/:id', protect, controller.getANCVisitById.bind(controller));
-  router.post('/visits', protect, controller.createANCVisit);
-  router.put('/visits/:id', protect, controller.updateANCVisit);
-  router.delete('/visits/:id', protect, controller.deleteANCVisit.bind(controller));
-
-  // ---------- BOOKING BY ATTENDANCE (specific) ----------
-  router.get('/attendance/:attendanceId', protect, controller.getAntenatalByAttendance.bind(controller));
-
-  // ---------- ACTIVE BOOKING BY PATIENT (specific) ----------
-  router.get('/patient/:patientId/active', protect, controller.getActiveBookingByPatient.bind(controller));
+  router.get('/statistics/antenatal', controller.getAntenatalStatistics.bind(controller));
+  router.get('/statistics/delivery', controller.getDeliveryStatistics.bind(controller));
+  router.get('/statistics/postnatal', controller.getPostnatalStatistics.bind(controller));
 
   // ============================================
-  // DYNAMIC ID ROUTES (LAST - catches :id parameters)
+  // ANTENATAL REGISTRATION (Called after encounter created)
   // ============================================
+  router.post('/register', controller.registerAntenatalBooking);
 
-  // Get all antenatal bookings
-  router.get('/', protect, controller.getAntenatalBookings.bind(controller));
+  // ============================================
+  // ANTENATAL RECORD MANAGEMENT
+  // ============================================
+  router.get('/records', controller.listAntenatalRecords.bind(controller));
+  router.get('/records/by-encounter/:encounterId', controller.getAntenatalRecordByEncounter.bind(controller));
+  router.get('/records/by-patient/:patientId/active', controller.getActiveAntenatalRecordByPatient.bind(controller));
+  router.get('/records/:id', controller.getAntenatalRecordById.bind(controller));
+  router.put('/records/:id', controller.updateAntenatalRecord);
+  router.post('/records/:id/close', controller.closeAntenatalRecord);
+  router.delete('/records/:id', requireRole(['admin']), controller.deleteAntenatalRecord.bind(controller));
 
-  // Get single antenatal booking by ID (must be AFTER all specific routes)
-  router.get('/:id', protect, controller.getAntenatalBookingById.bind(controller));
+  // ============================================
+  // ANC VISITS (Follow-up visits)
+  // ============================================
+  router.post('/visits', controller.recordANCVisit);
+  router.get('/visits/by-antenatal-record/:antenatalRecordId', controller.listANCVisitsByAntenatalRecord.bind(controller));
+  router.get('/visits/:id', controller.getANCVisitById.bind(controller));
+  router.put('/visits/:id', controller.updateANCVisit);
+  router.delete('/visits/:id', requireRole(['admin']), controller.deleteANCVisit.bind(controller));
 
-  // Create new antenatal booking
-  router.post('/', protect, controller.createAntenatalBooking);
+  // ============================================
+  // DELIVERY RECORDS
+  // ============================================
+  router.post('/delivery', controller.recordDelivery);
+  router.get('/deliveries', controller.getDeliveryStatistics.bind(controller)); // Or separate method
 
-  // Update antenatal booking
-  router.put('/:id', protect, controller.updateAntenatalBooking);
-
-  // Close antenatal booking
-  router.post('/:id/close', protect, controller.closeAntenatalBooking);
-
-  // Delete antenatal booking
-  router.delete('/:id', protect, controller.deleteAntenatalBooking.bind(controller));
+  // ============================================
+  // POSTNATAL RECORDS
+  // ============================================
+  router.post('/postnatal', controller.recordPostnatalVisit);
+  router.get('/postnatal', controller.getPostnatalStatistics.bind(controller)); // Or separate method
 
   return router;
 }

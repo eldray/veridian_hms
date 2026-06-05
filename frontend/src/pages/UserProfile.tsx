@@ -1,6 +1,7 @@
-// src/pages/UserProfile.tsx - REDESIGNED WITH NEW THEME
+// src/pages/UserProfile.tsx - USING ONLY SETTINGSSTORE
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';  // For auth only (login/logout/user info)
+import { useSettingsStore } from '../store/settingsStore';
 import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,23 +21,56 @@ import {
   Activity,
   CheckCircle,
   AlertCircle,
+  TrendingUp,
+  GraduationCap,
+  AtSign,
 } from 'lucide-react';
+
+const SENIORITY_CONFIG: Record<string, { label: string; color: string; icon: any; level: number }> = {
+  TRAINEE: { 
+    label: 'Trainee', 
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    icon: GraduationCap,
+    level: 0
+  },
+  JUNIOR: { 
+    label: 'Junior Staff', 
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: User,
+    level: 1
+  },
+  SENIOR: { 
+    label: 'Senior Staff', 
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+    icon: TrendingUp,
+    level: 2
+  },
+  PRINCIPAL: { 
+    label: 'Principal', 
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    icon: Shield,
+    level: 3
+  }
+};
 
 export default function UserProfile() {
   const navigate = useNavigate();
-  const { user, updateProfile, changePassword, isLoading } = useAuthStore();
+  const { user: authUser } = useAuthStore();  // Only for the logged-in user info
+  const { updateUser, isLoading, getAllUsers, users } = useSettingsStore();
   const { success, error } = useToast();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
     phone: '',
     licenseNumber: '',
-    specialization: ''
+    specialization: '',
+    seniority: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -46,39 +80,51 @@ export default function UserProfile() {
   });
 
   useEffect(() => {
-    if (user) {
+    if (authUser) {
       setProfileData({
-        fullName: user.fullName || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        licenseNumber: user.licenseNumber || '',
-        specialization: user.specialization || ''
+        fullName: authUser.fullName || '',
+        email: authUser.email || '',
+        phone: authUser.phone || '',
+        licenseNumber: authUser.licenseNumber || '',
+        specialization: authUser.specialization || '',
+        seniority: authUser.seniority || 'JUNIOR'
       });
     }
-  }, [user]);
+  }, [authUser]);
 
+  // Update profile using settingsStore
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const preparedData = {
-      fullName: profileData.fullName || '',
-      email: profileData.email || null,
-      phone: profileData.phone || null,
-      licenseNumber: profileData.licenseNumber || null,
-      specialization: profileData.specialization || null
-    };
-
-    console.log('📤 Sending profile data:', preparedData);
-
+    setIsSaving(true);
+  
     try {
-      await updateProfile(preparedData);
+      // Update user via settingsStore
+      const updatedUser = await updateUser(authUser!.id, {
+        fullName: profileData.fullName,
+        email: profileData.email,
+        phone: profileData.phone,
+        licenseNumber: profileData.licenseNumber,
+        specialization: profileData.specialization,
+        seniority: profileData.seniority
+      });
+      
       success('Profile Updated', 'Your profile has been updated successfully');
+      
+      // ✅ Force logout and redirect to login
+      // This ensures a fresh token is created
+      setTimeout(() => {
+        // Clear local storage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        // Redirect to login
+        window.location.href = '/login';
+      }, 1500);
+      
     } catch (err: any) {
       console.error('❌ Profile update failed:', err);
-      const errorMessage = err.response?.data?.message ||
-        err.response?.data?.errors?.[0]?.msg ||
-        'Failed to update profile';
-      error('Update Failed', errorMessage);
+      error('Update Failed', err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -95,32 +141,26 @@ export default function UserProfile() {
       return;
     }
 
-    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!strongPasswordRegex.test(passwordData.newPassword)) {
-      error(
-        'Weak Password',
-        'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-      );
-      return;
-    }
-
     try {
+      const { changePassword } = useAuthStore.getState();
       await changePassword(passwordData.currentPassword, passwordData.newPassword);
       success('Password Changed', 'Your password has been updated successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message ||
-        err.response?.data?.errors?.[0]?.msg ||
-        'Failed to change password';
+      const errorMessage = err.response?.data?.message || 'Failed to change password';
       error('Password Change Failed', errorMessage);
     }
   };
 
-  const medicalRoles = ['doctor', 'nurse', 'midwife'];
-  const isMedicalStaff = user && medicalRoles.includes(user.role);
-  const isDoctor = user?.role === 'doctor';
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({ ...prev, [name]: value }));
+  };
 
-  // Get role badge color
+  const medicalRoles = ['doctor', 'nurse', 'midwife'];
+  const isMedicalStaff = authUser && medicalRoles.includes(authUser.role);
+  const isDoctor = authUser?.role === 'doctor';
+
   const getRoleBadge = (role: string) => {
     const config: Record<string, { bg: string; text: string; icon: JSX.Element }> = {
       admin: { bg: 'bg-purple-100', text: 'text-purple-700', icon: <Shield className="w-3 h-3" /> },
@@ -142,7 +182,18 @@ export default function UserProfile() {
     );
   };
 
-  if (!user) {
+  const getSeniorityBadge = (seniority: string) => {
+    const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR;
+    const Icon = config.icon;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
+      </span>
+    );
+  };
+
+  if (!authUser) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
@@ -191,28 +242,38 @@ export default function UserProfile() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-[var(--text-primary)] text-lg">
-                  {user.fullName}
+                  {authUser.fullName}
                 </h3>
-                {getRoleBadge(user.role)}
+                {getRoleBadge(authUser.role)}
+                {getSeniorityBadge(profileData.seniority || authUser.seniority || 'JUNIOR')}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                  <AtSign className="w-3 h-3" />
+                  Username:
+                </span>
+                <span className="text-xs font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded text-[var(--text-primary)]">
+                  {authUser.username}
+                </span>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] mt-1">
                 <span className="flex items-center gap-1">
                   <Mail className="w-3 h-3" />
-                  {user.email || 'No email set'}
+                  {authUser.email || 'No email set'}
                 </span>
-                {user.phone && (
+                {authUser.phone && (
                   <>
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <Phone className="w-3 h-3" />
-                      {user.phone}
+                      {authUser.phone}
                     </span>
                   </>
                 )}
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  Member since {new Date(user.createdAt).toLocaleDateString()}
+                  Member since {new Date(authUser.createdAt).toLocaleDateString()}
                 </span>
               </div>
             </div>
@@ -224,6 +285,24 @@ export default function UserProfile() {
                 Active Account
               </span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Seniority Info Card */}
+      <div className="bg-gradient-to-r from-[var(--icon-cyan-bg)] to-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+            <TrendingUp className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">About Seniority Levels</h4>
+            <p className="text-xs text-[var(--text-secondary)]">
+              <strong>Trainee:</strong> In training, requires supervision.<br />
+              <strong>Junior:</strong> Regular staff privileges.<br />
+              <strong>Senior:</strong> Can supervise juniors and approve actions.<br />
+              <strong>Principal:</strong> Highest authority, can approve high-value operations.
+            </p>
           </div>
         </div>
       </div>
@@ -264,13 +343,24 @@ export default function UserProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
+                    <AtSign className="w-3.5 h-3.5 inline mr-1 text-gray-500" />
+                    Username
+                  </label>
+                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm font-mono">
+                    {authUser.username}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
                     <User className="w-3.5 h-3.5 inline mr-1 text-[var(--icon-cyan-text)]" />
                     Full Name *
                   </label>
                   <input
                     type="text"
+                    name="fullName"
                     value={profileData.fullName}
-                    onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+                    onChange={handleChange}
                     className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
                     required
                   />
@@ -283,10 +373,10 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="email"
+                    name="email"
                     value={profileData.email}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                    onChange={handleChange}
                     className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                    placeholder="your@email.com"
                   />
                 </div>
 
@@ -297,11 +387,33 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="tel"
+                    name="phone"
                     value={profileData.phone}
-                    onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                    onChange={handleChange}
                     className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                    placeholder="+233 XX XXX XXXX"
                   />
+                </div>
+
+                {/* Seniority Dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 inline mr-1 text-amber-500" />
+                    Seniority Level *
+                  </label>
+                  <select
+                    name="seniority"
+                    value={profileData.seniority}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)] text-sm"
+                  >
+                    <option value="TRAINEE">Trainee</option>
+                    <option value="JUNIOR">Junior Staff</option>
+                    <option value="SENIOR">Senior Staff</option>
+                    <option value="PRINCIPAL">Principal</option>
+                  </select>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Seniority affects your permissions and approval authority.
+                  </p>
                 </div>
 
                 {isMedicalStaff && (
@@ -312,8 +424,9 @@ export default function UserProfile() {
                     </label>
                     <input
                       type="text"
+                      name="licenseNumber"
                       value={profileData.licenseNumber}
-                      onChange={(e) => setProfileData({ ...profileData, licenseNumber: e.target.value })}
+                      onChange={handleChange}
                       className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
                       required
                     />
@@ -328,8 +441,9 @@ export default function UserProfile() {
                     </label>
                     <input
                       type="text"
+                      name="specialization"
                       value={profileData.specialization}
-                      onChange={(e) => setProfileData({ ...profileData, specialization: e.target.value })}
+                      onChange={handleChange}
                       className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
                       placeholder="e.g., Pediatrics, Surgery, Cardiology"
                       required
@@ -341,11 +455,11 @@ export default function UserProfile() {
               <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isSaving}
                   className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  {isLoading ? 'Updating...' : 'Update Profile'}
+                  {(isLoading || isSaving) ? 'Updating...' : 'Update Profile'}
                 </button>
                 <button
                   type="button"
@@ -404,23 +518,6 @@ export default function UserProfile() {
                     >
                       {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-[var(--text-secondary)]">Password must contain:</p>
-                    <ul className="text-xs text-[var(--text-tertiary)] space-y-0.5 ml-4 list-disc">
-                      <li className={passwordData.newPassword.length >= 6 ? 'text-green-600' : ''}>
-                        At least 6 characters
-                      </li>
-                      <li className={/[A-Z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
-                        At least one uppercase letter
-                      </li>
-                      <li className={/[a-z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
-                        At least one lowercase letter
-                      </li>
-                      <li className={/\d/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
-                        At least one number
-                      </li>
-                    </ul>
                   </div>
                 </div>
 

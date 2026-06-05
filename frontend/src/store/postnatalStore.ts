@@ -1,52 +1,54 @@
-// src/store/postnatalStore.ts
+// src/store/postnatalStore.ts - UPDATED WITH NEW API NAMES
 import { create } from 'zustand';
 import { 
-  getPostnatals,
-  getPostnatal,
-  createPostnatal,
-  updatePostnatal,
-  deletePostnatal,
-  getPostnatalStats,
+  recordPostnatalVisit,
+  getPostnatalRecords,
+  getPostnatalRecord,
+  updatePostnatalRecord,
+  deletePostnatalRecord,
+  getPostnatalStatistics,
 } from '../api';
 
 export interface PostnatalRecord {
   id: string;
   patientId: string;
   attendanceId: string;
-  antenatalBookingId?: string;
+  antenatalRecordId?: string;
   deliveryRecordId?: string;
   examinationDate: string;
   dayNumber: number;
-  maternalCondition: 'good' | 'fair' | 'poor' | 'critical';
-  maternalComplications: string[];
+  maternalCondition?: string;
+  maternalComplications?: string[];
   bloodPressure?: string;
   temperature?: number;
   pulse?: number;
   fundalHeight?: number;
-  lochia: 'normal' | 'heavy' | 'foul_smelling' | 'scanty';
-  perinealCondition: 'intact' | 'healing' | 'infected' | 'dehisced';
-  caesareanWound?: 'healing' | 'infected' | 'dehisced';
-  breastfeedingStatus: 'exclusive' | 'mixed' | 'not_breastfeeding';
-  breastfeedingDifficulties: string[];
-  latching: 'good' | 'fair' | 'poor';
-  babyCondition: 'good' | 'fair' | 'poor' | 'critical';
+  lochia?: string;
+  perinealCondition?: string;
+  caesareanWound?: string;
+  breastfeedingStatus?: string;
+  breastfeedingDifficulties?: string[];
+  latching?: string;
+  babyCondition?: string;
   babyWeight?: number;
   babyTemperature?: number;
-  babyFeeding: 'good' | 'fair' | 'poor';
-  jaundice: boolean;
-  jaundiceSeverity?: 'mild' | 'moderate' | 'severe';
-  cordCondition: 'dry' | 'moist' | 'infected';
-  bcgGiven: boolean;
-  opv0Given: boolean;
-  hepB0Given: boolean;
-  familyPlanningDiscussed: boolean;
+  babyFeeding?: string;
+  jaundice?: boolean;
+  jaundiceSeverity?: string;
+  cordCondition?: string;
+  bcgGiven?: boolean;
+  opv0Given?: boolean;
+  hepB0Given?: boolean;
+  familyPlanningDiscussed?: boolean;
   familyPlanningMethodAccepted?: string;
-  maternalDangerSigns: string[];
-  babyDangerSigns: string[];
-  referralTo?: string;
+  maternalDangerSigns?: string[];
+  babyDangerSigns?: string[];
+  referralMade?: boolean;
+  referredTo?: string;
   referralReason?: string;
   notes?: string;
   nextVisitDate?: string;
+  nextVisitType?: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -60,12 +62,12 @@ interface PostnatalState {
   error: string | null;
   pagination: any;
   
-  getPostnatals: (filters?: any) => Promise<void>;
-  getPostnatal: (id: string) => Promise<PostnatalRecord>;
-  createPostnatal: (data: Partial<PostnatalRecord>) => Promise<PostnatalRecord>;
-  updatePostnatal: (id: string, data: Partial<PostnatalRecord>) => Promise<void>;
-  deletePostnatal: (id: string) => Promise<void>;
-  getStats: (filters?: any) => Promise<void>;
+  getPostnatalRecords: (filters?: any) => Promise<void>;
+  getPostnatalRecord: (id: string) => Promise<PostnatalRecord>;
+  recordPostnatalVisit: (data: Partial<PostnatalRecord>) => Promise<PostnatalRecord>;
+  updatePostnatalRecord: (id: string, data: Partial<PostnatalRecord>) => Promise<void>;
+  deletePostnatalRecord: (id: string) => Promise<void>;
+  getPostnatalStatistics: (filters?: any) => Promise<void>;
   clearCurrentPostnatal: () => void;
   clearError: () => void;
 }
@@ -78,10 +80,10 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
   error: null,
   pagination: null,
 
-  getPostnatals: async (filters = {}) => {
+  getPostnatalRecords: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatals(filters);
+      const response = await getPostnatalRecords(filters);
       let records = [];
       let pagination = null;
       
@@ -94,28 +96,28 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       
       set({ postnatalRecords: records, pagination, isLoading: false });
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  getPostnatal: async (id) => {
+  getPostnatalRecord: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatal(id);
+      const response = await getPostnatalRecord(id);
       const record = response.data || response;
       set({ currentPostnatal: record, isLoading: false });
       return record;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  createPostnatal: async (data) => {
+  recordPostnatalVisit: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await createPostnatal(data);
+      const response = await recordPostnatalVisit(data);
       const record = response.data || response;
       set((state) => ({
         postnatalRecords: [record, ...state.postnatalRecords],
@@ -124,15 +126,15 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
       }));
       return record;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  updatePostnatal: async (id, data) => {
+  updatePostnatalRecord: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await updatePostnatal(id, data);
+      const response = await updatePostnatalRecord(id, data);
       const record = response.data || response;
       set((state) => ({
         postnatalRecords: state.postnatalRecords.map(r => r.id === id ? record : r),
@@ -140,34 +142,34 @@ export const usePostnatalStore = create<PostnatalState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  deletePostnatal: async (id) => {
+  deletePostnatalRecord: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await deletePostnatal(id);
+      await deletePostnatalRecord(id);
       set((state) => ({
         postnatalRecords: state.postnatalRecords.filter(r => r.id !== id),
         currentPostnatal: state.currentPostnatal?.id === id ? null : state.currentPostnatal,
         isLoading: false,
       }));
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },
 
-  getStats: async (filters = {}) => {
+  getPostnatalStatistics: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await getPostnatalStats(filters);
+      const response = await getPostnatalStatistics(filters);
       const stats = response.data || response;
       set({ stats, isLoading: false });
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as any).message, isLoading: false });
       throw error;
     }
   },

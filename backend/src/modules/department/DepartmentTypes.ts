@@ -1,9 +1,5 @@
-/**
- * Department Module Types
- * Type definitions for department operations
- */
-
-import { Department } from '@prisma/client';
+// DepartmentTypes.ts
+import { Department, Seniority } from '@prisma/client';  // ✅ ADD Seniority import
 
 export interface CreateDepartmentDTO {
   name: string;
@@ -78,4 +74,18 @@ export interface DepartmentResponse {
     total: number;
     totalPages: number;
   };
+}
+
+// ✅ ADD this interface
+export interface EligibleDepartmentHead {
+  id: string;
+  fullName: string;
+  role: string;
+  seniority: Seniority;  // Now Seniority is imported from @prisma/client
+  specialization: string | null;
+  departmentId: string | null;
+  department: {
+    id: string;
+    name: string;
+  } | null;
 }

@@ -44,6 +44,7 @@ export class AuthController {
     this.router.post('/logout', this.authenticate.bind(this), this.logout.bind(this));
     this.router.post('/change-password', this.authenticate.bind(this), this.changePassword.bind(this));
     this.router.get('/profile', this.authenticate.bind(this), this.getCurrentUser.bind(this));
+    this.router.put('/profile', this.authenticate.bind(this), this.updateProfile.bind(this)); // ✅ ADD THIS LINE
     this.router.post('/verify-token', this.verifyToken.bind(this));
     
     console.log('   - GET /test registered');
@@ -91,6 +92,7 @@ export class AuthController {
     }
   };
 
+// In the register method, update to accept seniority:
   private register = async (req: Request, res: Response): Promise<void> => {
     console.log('📝 Register endpoint hit!', req.body);
     try {
@@ -112,6 +114,13 @@ export class AuthController {
       const validRoles = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer'];
       if (!validRoles.includes(dto.role)) {
         res.status(400).json({ success: false, message: 'Invalid role' });
+        return;
+      }
+
+      // Validate seniority if provided
+      const validSeniority = ['TRAINEE', 'JUNIOR', 'SENIOR', 'PRINCIPAL'];
+      if (dto.seniority && !validSeniority.includes(dto.seniority)) {
+        res.status(400).json({ success: false, message: 'Invalid seniority level' });
         return;
       }
 
@@ -325,6 +334,76 @@ export class AuthController {
     } catch (error) {
       console.error('Authentication error:', error);
       res.status(401).json({ success: false, message: 'Authentication failed' });
+    }
+  };
+  private updateProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    console.log('📝 Update profile endpoint hit!');
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'User not authenticated' });
+        return;
+      }
+  
+      const { fullName, email, phone, licenseNumber, specialization, seniority } = req.body;
+  
+      const updateData: any = {};
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
+      if (specialization !== undefined) updateData.specialization = specialization;
+      if (seniority !== undefined) updateData.seniority = seniority;
+  
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          role: true,
+          seniority: true,
+          email: true,
+          phone: true,
+          licenseNumber: true,
+          specialization: true,
+          departmentId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+  
+      // ✅ Generate NEW tokens with updated seniority
+      const tokens = await this.generateTokens(
+        updatedUser.id,
+        updatedUser.username,
+        updatedUser.role,
+        updatedUser.seniority
+      );
+  
+      // ✅ Store the new refresh token
+      await this.repository.storeRefreshToken(
+        updatedUser.id,
+        tokens.refreshToken,
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      );
+  
+      console.log(`✅ Profile updated and new tokens generated for user: ${userId}`);
+      res.status(200).json({ 
+        success: true, 
+        data: {
+          user: updatedUser,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        },
+        message: 'Profile updated successfully' 
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({ success: false, message: 'Failed to update profile' });
     }
   };
 }

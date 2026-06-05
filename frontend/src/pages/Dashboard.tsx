@@ -1,5 +1,4 @@
-// src/pages/Dashboard.tsx - OPTIMIZED VERSION
-
+// src/pages/Dashboard.tsx - WITH SENIORITY DISPLAY
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -18,6 +17,7 @@ import {
   DollarSign,
   Shield,
   Package,
+  User,
   UserPlus,
   Pill,
   BarChart3,
@@ -27,8 +27,41 @@ import {
   Heart,
   CreditCard,
   Hospital,
+  TrendingUp,
+  GraduationCap,
 } from 'lucide-react';
-import type { PaymentMode } from '../types';
+import type { PaymentMode, Seniority } from '../types';
+
+// ============================================
+// SENIORITY CONFIGURATION
+// ============================================
+
+const SENIORITY_CONFIG: Record<Seniority, { label: string; color: string; icon: any; level: number }> = {
+  TRAINEE: { 
+    label: 'Trainee', 
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    icon: GraduationCap,
+    level: 0
+  },
+  JUNIOR: { 
+    label: 'Junior Staff', 
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: User,
+    level: 1
+  },
+  SENIOR: { 
+    label: 'Senior Staff', 
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+    icon: TrendingUp,
+    level: 2
+  },
+  PRINCIPAL: { 
+    label: 'Principal', 
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    icon: Shield,
+    level: 3
+  }
+};
 
 // ============================================
 // HELPER FUNCTIONS
@@ -70,6 +103,18 @@ const paymentModeIcon = (mode: PaymentMode) => {
 
 const paymentModeLabel = (mode: PaymentMode) =>
   ({ cash: 'Cash', nhis: 'NHIS', private_insurance: 'Insurance' }[mode] ?? 'Cash');
+
+// ✅ ADD: Get seniority badge component
+const getSeniorityBadge = (seniority: Seniority) => {
+  const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR;
+  const Icon = config.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+};
 
 // ============================================
 // STAT CARD COMPONENT
@@ -252,11 +297,17 @@ export default function Dashboard() {
 
   return (
     <div className="p-6" style={{ height: '100vh', background: 'var(--bg-main)', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflow: 'hidden' }}>
-      {/* Header */}
+      {/* Header - WITH SENIORITY DISPLAY */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Dashboard Overview</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Welcome back, {user.fullName}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Dashboard Overview</h1>
+            {/* ✅ ADD Seniority Badge next to welcome message */}
+            {user.seniority && getSeniorityBadge(user.seniority)}
+          </div>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Welcome back, {user.fullName}
+          </p>
         </div>
         <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all disabled:opacity-50" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />

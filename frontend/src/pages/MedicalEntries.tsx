@@ -479,6 +479,66 @@ const BedWardSelectionModal: React.FC<{
   );
 };
 
+
+const PhysicianNoteInput: React.FC<{
+  attendanceId: string;
+  userName: string;
+  userId?: string;
+  onSaved: () => void;
+}> = ({ attendanceId, userName, userId, onSaved }) => {
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { updateAttendance, currentAttendance } = useAttendanceStore();
+  const { success, error: toastError } = useToast();
+
+  const handleSave = async () => {
+    if (!text.trim() || !attendanceId) return;
+    setSaving(true);
+    const newNote = {
+      author: userName,
+      createdBy: { fullName: userName, id: userId },
+      createdAt: new Date().toISOString(),
+      content: text.trim(),
+    };
+    const existing = (currentAttendance as any)?.physicianNotes || [];
+    try {
+      await updateAttendance(attendanceId, {
+        physicianNotes: [...existing, newNote],
+        updatedById: userId,
+      });
+      setText('');
+      success('Saved', 'Physician note added');
+      onSaved();
+    } catch (err: any) {
+      toastError('Save failed', err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        rows={3}
+        placeholder="Add physician note…"
+        className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+          focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+          text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
+      />
+      <button
+        onClick={handleSave}
+        disabled={saving || !text.trim()}
+        className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
+          bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
+      >
+        {saving ? 'Saving…' : 'Add Note'}
+      </button>
+    </div>
+  );
+};
+
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═════════════════════════════════════════════════════════════════════════════
@@ -528,6 +588,9 @@ export default function MedicalEntries() {
   const [physicalExam, setPhysicalExam]       = useState('');
   const [treatmentPlan, setTreatmentPlan]     = useState('');
   const [followUpDate, setFollowUpDate]       = useState('');
+  const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
+  const [physicianNoteText, setPhysicianNoteText] = useState('');
+  const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [modalType, setModalType]             = useState<ModalType>(null);
 
   const loadData = async () => {
@@ -568,8 +631,26 @@ export default function MedicalEntries() {
       setHpc((att as any).historyPresentingComplaint || '');
       setOdq((att as any).onsetDurationQuality || '');
       setPhysicalExam((att as any).physicalExamination || '');
-      setTreatmentPlan((att as any).treatmentPlan || '');
       setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+      setTreatmentNotes((att as any).treatmentNotes || []);
+      setPhysicianNotes((att as any).physicianNotes || []);
+      setTreatmentPlan('');
+    });
+  }, [selectedAttendanceId]);
+
+  useEffect(() => {
+    if (!selectedAttendanceId) return;
+    getAttendance(selectedAttendanceId).then(att => {
+      if (!att) return;
+      setPresentedComplaints(att.complaints || '');
+      setHpc((att as any).historyPresentingComplaint || '');
+      setOdq((att as any).onsetDurationQuality || '');
+      setPhysicalExam((att as any).physicalExamination || '');
+      setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+      // Load persisted treatment notes
+      setTreatmentNotes((att as any).treatmentNotes || []);
+      // Clear treatment plan input (it's now a draft field, not the saved value)
+      setTreatmentPlan('');
     });
   }, [selectedAttendanceId]);
 
@@ -589,6 +670,8 @@ export default function MedicalEntries() {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
     setPhysicalExam(''); setTreatmentPlan(''); setFollowUpDate('');
+    setTreatmentNotes([]); setPhysicianNotes([]); // ← add these
+    setPhysicianNoteText('');
   };
 
   const handleSaveClinical = async () => {
@@ -606,6 +689,51 @@ export default function MedicalEntries() {
       success('Saved', 'Clinical information updated');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) { toastError('Save failed', err.message); }
+  };
+
+  // Add this function alongside handleSaveClinical
+  const handleSaveTreatmentNote = async () => {
+    if (!selectedAttendanceId || !treatmentPlan.trim()) return;
+    const newNote = {
+      author: user?.fullName || 'Physician',
+      date: new Date().toISOString(),
+      text: treatmentPlan.trim(),
+    };
+    const updatedNotes = [...treatmentNotes, newNote];
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        treatmentNotes: updatedNotes,
+        updatedById: user?.id,
+      });
+      setTreatmentNotes(updatedNotes);
+      setTreatmentPlan(''); // clear input after saving
+      success('Saved', 'Treatment note added');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Save failed', err.message);
+    }
+  };
+
+  const handleSavePhysicianNote = async () => {
+    if (!selectedAttendanceId || !physicianNoteText.trim()) return;
+    const newNote = {
+      author: user?.fullName || 'Physician',
+      date: new Date().toISOString(),
+      text: physicianNoteText.trim(),
+    };
+    const updatedNotes = [...physicianNotes, newNote];
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        physicianNotes: updatedNotes,
+        updatedById: user?.id,
+      });
+      setPhysicianNotes(updatedNotes);
+      setPhysicianNoteText('');
+      success('Saved', 'Physician note added');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Save failed', err.message);
+    }
   };
 
   // ─── DAY SURGERY (Daycase) with Bed Assignment ─────────────────────────────
@@ -1568,82 +1696,106 @@ export default function MedicalEntries() {
               </div>
             </div>
 
-            {/* RIGHT SIDEBAR — physician notes + treatment plan */}
-            <div className="w-72 xl:w-80 flex-shrink-0 sticky top-4">
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
-                style={{ maxHeight: 'calc(100vh - 120px)', boxShadow: 'var(--shadow-sm)' }}>
+          {/* RIGHT SIDEBAR */}
+          <div className="w-72 xl:w-80 flex-shrink-0">
+            <div
+              className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
+              style={{
+                position: 'sticky',
+                top: '80px',
+                height: 'calc(100vh - 100px)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              {/* ── PHYSICIAN NOTES ── */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
+              </div>
 
-                {/* Physician Notes */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-                  <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-[var(--bg-main)] min-h-[120px]"
-                  style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}>
-                  {(currentAttendance as any)?.physicianNotes?.length > 0
-                    ? (currentAttendance as any).physicianNotes.map((note: any, i: number) => (
-                        <NoteCard key={i} author={note.author || note.createdBy?.fullName || 'Doctor'} date={note.createdAt} text={note.content || note.text} />
-                      ))
-                    : (presentedComplaints || hpc || odq || physicalExam)
-                      ? (
-                          <NoteCard
-                            author={currentAttendance?.createdBy?.fullName || 'Physician'}
-                            date={currentAttendance?.createdAt}
-                          >
-                            {presentedComplaints && <NoteField label="PC" value={presentedComplaints} />}
-                            {hpc           && <NoteField label="HPC" value={hpc} />}
-                            {odq           && <NoteField label="ODQ" value={odq} />}
-                            {physicalExam  && <NoteField label="O/E" value={physicalExam} />}
-                          </NoteCard>
-                        )
-                      : <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-8">No physician notes recorded</p>}
-                </div>
-
-                {/* Divider */}
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
-                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                    <FileText className="w-3 h-3" /> Treatment Plan
-                  </span>
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
-                </div>
-
-                {/* Treatment notes */}
-                <div className="overflow-y-auto p-3 space-y-2.5 bg-[var(--bg-main)] min-h-[80px]"
-                  style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}>
-                  {(currentAttendance as any)?.treatmentNotes?.length > 0
-                    ? (currentAttendance as any).treatmentNotes.map((note: any, i: number) => (
-                        <NoteCard key={i} author={note.author || note.createdBy?.fullName || 'Doctor'} date={note.createdAt} text={note.content || note.text} />
-                      ))
-                    : treatmentPlan
-                      ? <NoteCard author={currentAttendance?.createdBy?.fullName || 'Physician'} date={currentAttendance?.createdAt} text={treatmentPlan} />
-                      : <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment plan recorded</p>}
-                </div>
-
-                {/* Treatment input */}
-                {canAddEntries && (
-                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                    <textarea
-                      value={treatmentPlan}
-                      onChange={e => setTreatmentPlan(e.target.value)}
-                      rows={3}
-                      placeholder="Treatment plan, instructions…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                    />
-                    <button
-                      onClick={handleSaveClinical}
-                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-                        bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
-                    >
-                      Save Plan
-                    </button>
-                  </div>
+              {/* Logged notes list */}
+              <div
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+              >
+                {physicianNotes.length > 0 ? (
+                  [...physicianNotes].reverse().map((note, i) => (
+                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                  ))
+                ) : (
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
                 )}
               </div>
+
+              {/* Physician notes input */}
+              {canAddEntries && (
+                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <textarea
+                    value={physicianNoteText}
+                    onChange={e => setPhysicianNoteText(e.target.value)}
+                    rows={3}
+                    placeholder="Add physician note…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                      focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
+                  />
+                  <button
+                    onClick={handleSavePhysicianNote}
+                    disabled={!physicianNoteText.trim()}
+                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
+                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
+                  >
+                    Add Note
+                  </button>
+                </div>
+              )}
+
+              {/* ── DIVIDER ── */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
+                <div className="flex-1 h-px bg-[var(--border-color)]" />
+                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                  <FileText className="w-3 h-3" /> Treatment Plan
+                </span>
+                <div className="flex-1 h-px bg-[var(--border-color)]" />
+              </div>
+
+              {/* Logged treatment notes */}
+              <div
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+              >
+                {treatmentNotes.length > 0 ? (
+                  [...treatmentNotes].reverse().map((note, i) => (
+                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                  ))
+                ) : (
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
+                )}
+              </div>
+
+              {/* Treatment plan input */}
+              {canAddEntries && (
+                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <textarea
+                    value={treatmentPlan}
+                    onChange={e => setTreatmentPlan(e.target.value)}
+                    rows={3}
+                    placeholder="Add treatment note…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                      focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
+                  />
+                  <button
+                    onClick={handleSaveTreatmentNote}
+                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
+                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
+                  >
+                    Add Note
+                  </button>
+                </div>
+              )}
             </div>
+          </div>
           </div>
         </>
       ) : selectedPatientId && !selectedAttendanceId ? (

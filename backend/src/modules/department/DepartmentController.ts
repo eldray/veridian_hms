@@ -355,6 +355,29 @@ export class DepartmentController {
     }
   };
 
+// DepartmentController.ts - Add new method to get eligible department heads
+
+// Add this method to the DepartmentController class
+getEligibleHeads = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const eligibleUsers = await this.service.getEligibleDepartmentHeads();
+
+    res.json({
+      success: true,
+      data: eligibleUsers,
+      count: eligibleUsers.length,
+      message: 'Eligible department heads retrieved successfully'
+    });
+  } catch (error) {
+    console.error('Error fetching eligible department heads:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching eligible department heads',
+      error: (error as Error).message
+    });
+  }
+};
+
   bulkUpdate = [
     body('departmentIds').isArray().withMessage('Department IDs must be an array'),
     body('departmentIds.*').isString().withMessage('Each department ID must be a string'),

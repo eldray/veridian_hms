@@ -1,7 +1,9 @@
 // modules/settings/settings.service.ts
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Seniority } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // ==========================================
 // USER MANAGEMENT SERVICES
@@ -18,6 +20,7 @@ export const getAllUsers = async () => {
       licenseNumber: true,
       specialization: true,
       role: true,
+      seniority: true,
       isActive: true,
       departmentId: true,
       department: {
@@ -39,6 +42,7 @@ export const updateUser = async (
     licenseNumber?: string;
     specialization?: string;
     role?: string;
+    seniority?: Seniority;
     isActive?: boolean;
     departmentId?: string;
   }
@@ -48,15 +52,15 @@ export const updateUser = async (
 
   const dataToUpdate: any = { updatedAt: new Date() };
 
-  if (updateData.fullName)              dataToUpdate.fullName = updateData.fullName;
-  if (updateData.email)                 dataToUpdate.email = updateData.email;
-  if (updateData.phone)                 dataToUpdate.phone = updateData.phone;
-  if (updateData.licenseNumber !== undefined) dataToUpdate.licenseNumber = updateData.licenseNumber;
-  if (updateData.specialization !== undefined) dataToUpdate.specialization = updateData.specialization;
-  if (updateData.role)                  dataToUpdate.role = updateData.role;
-  if (updateData.isActive !== undefined) dataToUpdate.isActive = updateData.isActive;
-  if (updateData.departmentId !== undefined)
-    dataToUpdate.departmentId = updateData.departmentId || null;
+  if (updateData.fullName !== undefined)              dataToUpdate.fullName = updateData.fullName;
+  if (updateData.email !== undefined)                 dataToUpdate.email = updateData.email;
+  if (updateData.phone !== undefined)                 dataToUpdate.phone = updateData.phone;
+  if (updateData.licenseNumber !== undefined)         dataToUpdate.licenseNumber = updateData.licenseNumber;
+  if (updateData.specialization !== undefined)        dataToUpdate.specialization = updateData.specialization;
+  if (updateData.role !== undefined)                  dataToUpdate.role = updateData.role;
+  if (updateData.seniority !== undefined)             dataToUpdate.seniority = updateData.seniority;
+  if (updateData.isActive !== undefined)              dataToUpdate.isActive = updateData.isActive;
+  if (updateData.departmentId !== undefined)          dataToUpdate.departmentId = updateData.departmentId || null;
 
   // Validate medical staff requirements
   const roleBeingSet = updateData.role || existingUser.role;
@@ -75,7 +79,7 @@ export const updateUser = async (
   }
 
   try {
-    return prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: dataToUpdate,
       select: {
@@ -87,6 +91,7 @@ export const updateUser = async (
         licenseNumber: true,
         specialization: true,
         role: true,
+        seniority: true,
         isActive: true,
         departmentId: true,
         department: { select: { id: true, name: true } },
@@ -94,10 +99,90 @@ export const updateUser = async (
         updatedAt: true,
       },
     });
+
+    return updatedUser;
   } catch (error: any) {
     if (error.code === 'P2002') throw new Error('Email already exists');
     throw error;
   }
+};
+
+// ==========================================
+// TOKEN REFRESH SERVICE - NEW
+// ==========================================
+
+export interface TokenRefreshResult {
+  accessToken: string;
+  refreshToken: string;
+  user: any;
+}
+
+export const refreshUserTokens = async (userId: string): Promise<TokenRefreshResult> => {
+  // Get the updated user from database
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      fullName: true,
+      role: true,
+      seniority: true,
+      email: true,
+      phone: true,
+      licenseNumber: true,
+      specialization: true,
+      departmentId: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      department: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Delete old refresh tokens
+  await prisma.refreshToken.deleteMany({
+    where: { userId: user.id }
+  });
+
+  // Generate new access token with updated seniority
+  const accessToken = jwt.sign(
+    {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      seniority: user.seniority,
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  // Generate new refresh token
+  const refreshToken = jwt.sign(
+    { userId: user.id, type: 'refresh' },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  // Store the new refresh token
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    user,
+  };
 };
 
 export const deactivateUser = async (userId: string) => {
@@ -113,6 +198,7 @@ export const deactivateUser = async (userId: string) => {
       fullName: true,
       email: true,
       role: true,
+      seniority: true,
       isActive: true,
       updatedAt: true,
     },
@@ -143,18 +229,14 @@ export const updateHospitalDetails = async (hospitalData: {
     });
   }
 
-  // Should not normally create here — hospital is seeded — but safe fallback
   return prisma.hospital.create({
     data: {
       ...hospitalData,
-      nhisFacilityCode: 'PENDING',   // must be updated via full hospital setup
+      nhisFacilityCode: 'PENDING',
     },
   });
 };
 
-/**
- * Update hospital details including NHIS API configuration
- */
 export const updateHospitalDetailsAndNHISConfig = async (hospitalData: {
   name: string;
   address: string;
@@ -180,7 +262,6 @@ export const updateHospitalDetailsAndNHISConfig = async (hospitalData: {
     updatedAt: new Date(),
   };
 
-  // Only include NHIS fields that were explicitly provided
   if (hospitalData.nhisApiBaseUrl !== undefined)
     updateData.nhisApiBaseUrl = hospitalData.nhisApiBaseUrl;
   if (hospitalData.nhisApiClientId !== undefined)
@@ -205,9 +286,6 @@ export const updateHospitalDetailsAndNHISConfig = async (hospitalData: {
   });
 };
 
-/**
- * Update only NHIS-related settings (partial update, no name/address required)
- */
 export const updateNHISSettings = async (nhisData: {
   nhisApiBaseUrl?: string | null;
   nhisApiClientId?: string | null;
@@ -228,7 +306,6 @@ export const updateNHISSettings = async (nhisData: {
 
   const updateData: any = { updatedAt: new Date() };
 
-  // API config fields
   if (nhisData.nhisApiBaseUrl !== undefined) updateData.nhisApiBaseUrl = nhisData.nhisApiBaseUrl;
   if (nhisData.nhisApiClientId !== undefined) updateData.nhisApiClientId = nhisData.nhisApiClientId;
   if (nhisData.nhisApiClientSecret !== undefined) updateData.nhisApiClientSecret = nhisData.nhisApiClientSecret;
@@ -237,7 +314,6 @@ export const updateNHISSettings = async (nhisData: {
   if (nhisData.nhisApiCccEndpoint !== undefined) updateData.nhisApiCccEndpoint = nhisData.nhisApiCccEndpoint;
   if (nhisData.nhisApiActive !== undefined) updateData.nhisApiActive = nhisData.nhisApiActive;
 
-  // Facility fields
   if (nhisData.nhisFacilityCode) updateData.nhisFacilityCode = nhisData.nhisFacilityCode;
   if (nhisData.nhisFacilityType) updateData.nhisFacilityType = nhisData.nhisFacilityType;
   if (nhisData.nhisAccreditationNumber) updateData.nhisAccreditationNumber = nhisData.nhisAccreditationNumber;

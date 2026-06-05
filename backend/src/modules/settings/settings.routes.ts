@@ -8,8 +8,11 @@ const router = Router();
 // ✅ ALIGNED: UserRole enum from schema
 const VALID_ROLES = [
   'admin', 'doctor', 'nurse', 'midwife',
-  'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer', // ✅ sonographer added
+  'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer',
 ];
+
+// ✅ Seniority levels
+const VALID_SENIORITY = ['TRAINEE', 'JUNIOR', 'SENIOR', 'PRINCIPAL'];
 
 // ==========================================
 // USER MANAGEMENT ROUTES
@@ -24,6 +27,7 @@ router.put('/users/:id', [
   body('licenseNumber').optional().trim(),
   body('specialization').optional().trim(),
   body('role').optional().isIn(VALID_ROLES).withMessage(`Role must be one of: ${VALID_ROLES.join(', ')}`),
+  body('seniority').optional().isIn(VALID_SENIORITY).withMessage(`Seniority must be one of: ${VALID_SENIORITY.join(', ')}`),
   body('isActive').optional().isBoolean(),
   body('departmentId').optional().isString(),
 ], settingsController.updateUser);
@@ -58,7 +62,6 @@ router.put('/nhis/config', [
   body('nhisApiEligibilityEndpoint').optional().isURL().withMessage('Valid eligibility endpoint URL required'),
   body('nhisApiCccEndpoint').optional().isURL().withMessage('Valid CCC endpoint URL required'),
   body('nhisApiActive').optional().isBoolean(),
-  // ✅ Facility fields that live on Hospital model
   body('nhisFacilityCode').optional().trim(),
   body('nhisFacilityType').optional().isIn([
     'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home',

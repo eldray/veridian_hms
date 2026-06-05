@@ -1,5 +1,26 @@
+// src/components/UserEditModal.tsx - UPDATED WITH SENIORITY
 import { useState, useEffect } from 'react';
-import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield } from 'lucide-react';
+import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
+
+// Seniority configuration
+const SENIORITY_OPTIONS = [
+  { value: 'TRAINEE', label: 'Trainee', icon: GraduationCap, description: 'In training, requires supervision' },
+  { value: 'JUNIOR', label: 'Junior', icon: User, description: 'Regular staff member' },
+  { value: 'SENIOR', label: 'Senior', icon: TrendingUp, description: 'Experienced, can supervise others' },
+  { value: 'PRINCIPAL', label: 'Principal', icon: Shield, description: 'Highest authority in role' }
+];
+
+interface User {
+  id: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  role: string;
+  seniority?: string; // ✅ ADD seniority
+  isActive: boolean;
+}
 
 interface UserEditModalProps {
   user: User;
@@ -16,6 +37,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
     licenseNumber: '',
     specialization: '',
     role: '',
+    seniority: 'JUNIOR', // ✅ ADD seniority
     isActive: true
   });
 
@@ -28,6 +50,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
         licenseNumber: user.licenseNumber || '',
         specialization: user.specialization || '',
         role: user.role,
+        seniority: user.seniority || 'JUNIOR', // ✅ ADD seniority with default
         isActive: user.isActive
       });
     }
@@ -52,14 +75,14 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--bg-card)] rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-[var(--border-color)]">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900">Edit User</h3>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit User</h3>
             <button 
               onClick={onClose} 
-              className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -71,7 +94,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Full Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <User className="w-4 h-4 inline mr-2 text-blue-600" />
                 Full Name *
               </label>
@@ -80,14 +103,14 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               />
             </div>
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Shield className="w-4 h-4 inline mr-2 text-purple-600" />
                 Role *
               </label>
@@ -95,7 +118,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               >
                 <option value="">Select Role</option>
@@ -107,12 +130,34 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                 <option value="lab_tech">Lab Technician</option>
                 <option value="pharmacist">Pharmacist</option>
                 <option value="accounts">Accounts</option>
+                <option value="sonographer">Sonographer</option>
+              </select>
+            </div>
+
+            {/* ✅ NEW: Seniority */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                <TrendingUp className="w-4 h-4 inline mr-2 text-amber-600" />
+                Seniority Level *
+              </label>
+              <select
+                name="seniority"
+                value={formData.seniority}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                required
+              >
+                {SENIORITY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} - {option.description}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Mail className="w-4 h-4 inline mr-2 text-green-600" />
                 Email
               </label>
@@ -121,13 +166,13 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Phone className="w-4 h-4 inline mr-2 text-orange-600" />
                 Phone
               </label>
@@ -136,14 +181,14 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
               />
             </div>
 
             {/* License Number */}
             {requiresLicense && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   <IdCard className="w-4 h-4 inline mr-2 text-yellow-600" />
                   License/PIN Number {requiresLicense && '*'}
                 </label>
@@ -152,7 +197,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                   name="licenseNumber"
                   value={formData.licenseNumber}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                   required={requiresLicense}
                 />
               </div>
@@ -161,7 +206,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
             {/* Specialization */}
             {requiresSpecialization && (
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   <Stethoscope className="w-4 h-4 inline mr-2 text-red-600" />
                   Specialization {requiresSpecialization && '*'}
                 </label>
@@ -170,7 +215,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                   name="specialization"
                   value={formData.specialization}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                   required={requiresSpecialization}
                   placeholder="e.g., Pediatrics, Surgery, etc."
                 />
@@ -185,22 +230,22 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
                   name="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-[var(--border-color)] text-blue-600 focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-700">User is active</span>
+                <span className="ml-2 text-sm text-[var(--text-primary)]">User is active</span>
               </label>
-              <p className="text-xs text-gray-500 mt-1 ml-6">
+              <p className="text-xs text-[var(--text-secondary)] mt-1 ml-6">
                 Inactive users cannot log in to the system.
               </p>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors disabled:opacity-50 font-medium text-sm"
             >
               <Save className="w-4 h-4" />
               <span>{isLoading ? 'Saving...' : 'Save Changes'}</span>
@@ -208,7 +253,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+              className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-colors font-medium text-sm"
             >
               Cancel
             </button>

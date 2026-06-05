@@ -1,4 +1,3 @@
-// modules/auth/AuthRepository.ts
 import { PrismaClient } from '@prisma/client';
 
 export class AuthRepository {
@@ -11,7 +10,21 @@ export class AuthRepository {
   async findByUsername(username: string) {
     return this.prisma.user.findUnique({
       where: { username },
-      include: {
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        fullName: true,
+        role: true,
+        seniority: true,  // ← ADD THIS
+        email: true,
+        phone: true,
+        licenseNumber: true,
+        specialization: true,
+        departmentId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         department: {
           select: {
             id: true,
@@ -25,7 +38,21 @@ export class AuthRepository {
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        fullName: true,
+        role: true,
+        seniority: true,  // ← ADD THIS
+        email: true,
+        phone: true,
+        licenseNumber: true,
+        specialization: true,
+        departmentId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         department: {
           select: {
             id: true,
@@ -36,13 +63,25 @@ export class AuthRepository {
     });
   }
 
-  async createUser(data: { username: string; passwordHash: string; fullName: string; role: string; email?: string; phone?: string; licenseNumber?: string; specialization?: string; departmentId?: string }) {
+  async createUser(data: { 
+    username: string; 
+    passwordHash: string; 
+    fullName: string; 
+    role: string; 
+    seniority?: string;  // ← ADD THIS
+    email?: string; 
+    phone?: string; 
+    licenseNumber?: string; 
+    specialization?: string; 
+    departmentId?: string 
+  }) {
     return this.prisma.user.create({
       data: {
         username: data.username,
         password: data.passwordHash,
         fullName: data.fullName,
         role: data.role as any,
+        seniority: (data.seniority as any) || 'JUNIOR',  // ← ADD THIS (default JUNIOR)
         email: data.email,
         phone: data.phone,
         licenseNumber: data.licenseNumber,
@@ -50,7 +89,19 @@ export class AuthRepository {
         departmentId: data.departmentId,
         isActive: true,
       },
-      include: {
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        role: true,
+        seniority: true,  // ← ADD THIS
+        email: true,
+        phone: true,
+        licenseNumber: true,
+        specialization: true,
+        departmentId: true,
+        isActive: true,
+        createdAt: true,
         department: {
           select: {
             id: true,

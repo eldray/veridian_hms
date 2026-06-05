@@ -103,7 +103,7 @@ export class DepartmentRepository {
                 contact: true
               }
             },
-            doctor: {
+            clinician: {
               select: {
                 fullName: true,
                 specialization: true

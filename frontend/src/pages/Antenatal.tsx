@@ -1,6 +1,8 @@
 // src/pages/Antenatal.tsx - WITH BED/WARD ASSIGNMENT FOR MATERNAL ADMISSIONS
+// MODIFIED: Diagnosis and Procedure sections are now side by side in the Clinical tab
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
 import { useDeliveryStore } from '../store/deliveryStore';
 import { usePostnatalStore } from '../store/postnatalStore';
@@ -10,8 +12,8 @@ import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { useWardStore } from '../store/wardStore'; // ✅ ADD THIS
-import { useAdmissionStore } from '../store/admissionStore'; // ✅ ADD THIS
+import { useWardStore } from '../store/wardStore';
+import { useAdmissionStore } from '../store/admissionStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
 import NewAttendanceModal from '../components/NewAttendanceModal';
@@ -29,6 +31,7 @@ import {
   Scan, FileText, Activity, AlertCircle, Plus, Trash2, Edit, User, Calendar,
   Baby, Heart, Droplet, Shield, CheckCircle, Clock, AlertTriangle, Syringe,
   Ruler, Weight, TrendingUp, Eye, Hospital, Users, Bed, Building2, Moon, Sun,
+  ClipboardList,
 } from 'lucide-react';
 
 const getEntityId = (e: { id?: string; _id?: string } | null) => e?._id || e?.id;
@@ -126,6 +129,17 @@ const TD: React.FC<{ children: React.ReactNode; className?: string }> = ({ child
 );
 const TDp: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <td className="px-3 py-2 text-[var(--text-primary)] text-xs font-medium">{children}</td>
+);
+
+// NoteCard component - moved to top level
+const NoteCard: React.FC<{ author: string; date?: string; text?: string }> = ({ author, date, text }) => (
+  <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+    <div className="flex items-center justify-between mb-1.5">
+      <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{author}</span>
+      {date && <span className="text-[9px] text-[var(--text-tertiary)]">{new Date(date).toLocaleString()}</span>}
+    </div>
+    {text && <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{text}</p>}
+  </div>
 );
 
 // ── Modal shell ───────────────────────────────────────────────────────────────
@@ -346,6 +360,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
 // ═════════════════════════════════════════════════════════════════════════════
 export default function Antenatal() {
   const navigate = useNavigate();
+  const { attendanceId: urlAttendanceId } = useParams();
   const { success, error: toastError } = useToast();
   const { user } = useAuthStore();
 
@@ -388,6 +403,11 @@ export default function Antenatal() {
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
   const [selectedPostnatal, setSelectedPostnatal]   = useState<any>(null);
   const [showPostnatalDetails, setShowPostnatalDetails] = useState(false);
+
+  const [physicianNoteText, setPhysicianNoteText] = useState('');
+  const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
 
   // Bed/Ward Admission States
   const [showBedWardModal, setShowBedWardModal] = useState(false);
@@ -450,41 +470,73 @@ export default function Antenatal() {
     setRefreshing(true);
     try {
       await Promise.all([
-        loadPatients(), getAttendances(), getStockItems(), getDiagnoses(),
-        getLabTestTemplates(), getProcedureTemplates(), getScanTemplates(),
-        getDeliveries(), getPostnatals(),
+        loadPatients(),
+        getAttendances(),
+        getStockItems(),
+        getDiagnoses(),
+        getLabTestTemplates(),
+        getProcedureTemplates(),
+        getScanTemplates(),
+        getDeliveries(),
+        getPostnatals(),
       ]);
-    } catch (err: any) { toastError('Load failed', err.message); }
-    finally { setRefreshing(false); setIsLoading(false); }
+    } catch (err: any) { 
+      toastError('Load failed', err.message); 
+    } finally { 
+      setRefreshing(false); 
+      setIsLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
+    if (!urlAttendanceId || !attendances.length) return;
+    const att = attendances.find(a => a.id === urlAttendanceId || a._id === urlAttendanceId);
+    if (!att) return;
+    const patientId = att.patientId || att.patient?.id || att.patient?._id;
+    if (patientId) setSelectedPatientId(patientId);
+    setSelectedAttendanceId(urlAttendanceId);
+  }, [urlAttendanceId, attendances]);
+
+  useEffect(() => {
     if (!selectedAttendanceId) return;
-    getVitalsByAttendance(selectedAttendanceId).then(v => setLatestVitals(v?.length ? v[v.length - 1] : null)).catch(() => setLatestVitals(null));
-    getAttendance(selectedAttendanceId);
+    getAttendance(selectedAttendanceId).then(att => {
+      if (!att) return;
+      setPhysicianNotes((att as any).physicianNotes || []);
+      setTreatmentNotes((att as any).treatmentNotes || []);
+      setTreatmentPlan('');
+      setPhysicianNoteText('');
+    });
   }, [selectedAttendanceId]);
 
   useEffect(() => {
-    if (!selectedPatientId) return;
+    if (!selectedPatientId) {
+      setSelectedAttendanceId('');
+      setLatestVitals(null);
+      return;
+    }
     getBooking(selectedPatientId).catch(() => {});
     getDeliveries({ patientId: selectedPatientId }).catch(() => {});
     getPostnatals({ patientId: selectedPatientId }).catch(() => {});
   }, [selectedPatientId]);
 
-  useEffect(() => { if (currentBooking?.id) getANCVisitsByBooking(currentBooking.id); }, [currentBooking]);
+  useEffect(() => {
+    if (currentBooking?.id) getANCVisitsByBooking(currentBooking.id);
+  }, [currentBooking?.id]);
 
   useEffect(() => {
     if (!currentAttendance?.attendanceType) return;
     const t = currentAttendance.attendanceType;
-    if (t === 'antenatal') setActiveTab('anc');
-    else if (t === 'delivery') setActiveTab('delivery');
+    if (t === 'antenatal')  setActiveTab('anc');
+    else if (t === 'delivery')  setActiveTab('delivery');
     else if (t === 'postnatal') setActiveTab('postnatal');
     else setActiveTab('clinical');
   }, [currentAttendance?.attendanceType, selectedAttendanceId]);
 
-  useEffect(() => { if (!selectedPatientId) setActiveTab('clinical'); }, [selectedPatientId]);
+  useEffect(() => {
+    if (!selectedPatientId) setActiveTab('clinical');
+  }, [selectedPatientId]);
 
   const handleClearSelection = () => { setSelectedPatientId(''); setSelectedAttendanceId(''); };
 
@@ -567,9 +619,48 @@ export default function Antenatal() {
     if (selectedAttendanceId) { await getAttendance(selectedAttendanceId); await calculateBill(selectedAttendanceId); }
   };
 
+  const handleSavePhysicianNote = async () => {
+    if (!selectedAttendanceId || !physicianNoteText.trim()) return;
+    const newNote = {
+      author: user?.fullName || 'Midwife',
+      date: new Date().toISOString(),
+      text: physicianNoteText.trim(),
+    };
+    const updatedNotes = [...physicianNotes, newNote];
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        physicianNotes: updatedNotes,
+        updatedById: user?.id,
+      });
+      setPhysicianNotes(updatedNotes);
+      setPhysicianNoteText('');
+      success('Saved', 'Note added');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Save failed', err.message); }
+  };
+  
+  const handleSaveTreatmentNote = async () => {
+    if (!selectedAttendanceId || !treatmentPlan.trim()) return;
+    const newNote = {
+      author: user?.fullName || 'Midwife',
+      date: new Date().toISOString(),
+      text: treatmentPlan.trim(),
+    };
+    const updatedNotes = [...treatmentNotes, newNote];
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        treatmentNotes: updatedNotes,
+        updatedById: user?.id,
+      });
+      setTreatmentNotes(updatedNotes);
+      setTreatmentPlan('');
+      success('Saved', 'Treatment note added');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Save failed', err.message); }
+  };
+
   // ─── MATERNAL ADMISSION HANDLERS ───────────────────────────────────────────
   
-  // Handle Antenatal Admission (for observation during pregnancy)
   const handleAdmitForObservation = () => {
     setPendingAdmissionType('antenatal_observation');
     setShowBedWardModal(true);
@@ -580,18 +671,13 @@ export default function Antenatal() {
     
     setIsProcessingAdmission(true);
     try {
-      // Update bed to occupied
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
-
-      // Create admission record
       await createAdmission({
         attendanceId: selectedAttendanceId,
         admissionType: 'antenatal_observation',
         admissionSource: 'antenatal',
         admissionDate: new Date().toISOString(),
       });
-
-      // Update attendance
       await updateAttendance(selectedAttendanceId, {
         encounterCategory: 'ipd',
         status: 'admitted',
@@ -601,7 +687,6 @@ export default function Antenatal() {
         medicalNotes: `${currentAttendance.medicalNotes || ''}\n\n[Antenatal Admission] Admitted for observation/monitoring. Bed: ${bedNumber}, Ward: ${wardName}`,
         updatedById: user?.id
       });
-
       success('Admitted', `Patient admitted for antenatal observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
       await getAdmissions();
@@ -614,7 +699,6 @@ export default function Antenatal() {
     }
   };
 
-  // Handle Delivery Admission (active labor)
   const handleAdmitForDelivery = () => {
     setPendingAdmissionType('delivery');
     setShowBedWardModal(true);
@@ -626,14 +710,12 @@ export default function Antenatal() {
     setIsProcessingAdmission(true);
     try {
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
-
       await createAdmission({
         attendanceId: selectedAttendanceId,
         admissionType: 'delivery',
         admissionSource: 'antenatal',
         admissionDate: new Date().toISOString(),
       });
-
       await updateAttendance(selectedAttendanceId, {
         encounterCategory: 'ipd',
         status: 'admitted',
@@ -644,7 +726,6 @@ export default function Antenatal() {
         medicalNotes: `${currentAttendance.medicalNotes || ''}\n\n[Delivery Admission] Patient admitted in active labor. Bed: ${bedNumber}, Ward: ${wardName}`,
         updatedById: user?.id
       });
-
       success('Admitted', `Patient admitted for delivery to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
       await getAdmissions();
@@ -657,7 +738,6 @@ export default function Antenatal() {
     }
   };
 
-  // Handle Postpartum Observation
   const handleAdmitForPostpartum = () => {
     setPendingAdmissionType('postpartum_observation');
     setShowBedWardModal(true);
@@ -669,14 +749,12 @@ export default function Antenatal() {
     setIsProcessingAdmission(true);
     try {
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
-
       await createAdmission({
         attendanceId: selectedAttendanceId,
         admissionType: 'postpartum_observation',
         admissionSource: 'delivery',
         admissionDate: new Date().toISOString(),
       });
-
       await updateAttendance(selectedAttendanceId, {
         encounterCategory: 'ipd',
         status: 'admitted',
@@ -687,7 +765,6 @@ export default function Antenatal() {
         medicalNotes: `${currentAttendance.medicalNotes || ''}\n\n[Postpartum] Patient admitted for postpartum observation (24-72 hours). Bed: ${bedNumber}, Ward: ${wardName}`,
         updatedById: user?.id
       });
-
       success('Admitted', `Patient admitted for postpartum observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
       await getAdmissions();
@@ -700,7 +777,6 @@ export default function Antenatal() {
     }
   };
 
-  // Maternal Action Buttons Component
   const getMaternalActionButtons = () => {
     const status = currentAttendance?.status;
     const admissionType = currentAttendance?.admissionType;
@@ -762,7 +838,6 @@ export default function Antenatal() {
     </div>
   );
 
-  // Tab definitions — only show type-specific tabs when attendance matches
   const tabs = [
     { key: 'clinical',  label: 'Clinical',  icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length + labTestsList.length + medicationsList.length, always: true },
     ...(currentAttendance?.attendanceType === 'antenatal'  ? [{ key: 'anc',      label: 'ANC Visits', icon: <Baby     className="w-3.5 h-3.5" />, count: currentVisits.length,                                                           always: false }] : []),
@@ -771,7 +846,6 @@ export default function Antenatal() {
     { key: 'vitals',   label: 'Vitals',    icon: <Activity className="w-3.5 h-3.5" />, count: undefined, always: true },
   ] as const;
 
-  // Payment badge
   const paymentCls = currentAttendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
     : currentAttendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
     : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
@@ -858,7 +932,6 @@ export default function Antenatal() {
                 {new Date(currentAttendance.dateTime || currentAttendance.createdAt || '').toLocaleDateString()}
               </span>
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${paymentCls}`}>{paymentLabel}</span>
-              {/* Maternal Action Buttons */}
               {getMaternalActionButtons()}
             </div>
           </div>
@@ -913,41 +986,68 @@ export default function Antenatal() {
               {/* ── CLINICAL TAB ── */}
               {activeTab === 'clinical' && (
                 <div className="p-4 space-y-4">
-                  {/* ... clinical tab content (same as before) ... */}
-                  <SectionCard
-                    icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                    title="Diagnosis (ICD-10)" count={diagnosesList.length}
-                    action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
-                  >
-                    {diagnosesList.length === 0 ? <EmptySlate icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" /> : (
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                          <tr><TH>Diagnosis</TH><TH>ICD-10</TH><TH>Type</TH><TH>By</TH><TH>Date</TH><TH></TH></tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-color)]">
-                          {diagnosesList.map((item: any) => {
-                            const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
-                            const cfg: Record<string, { label: string; cls: string }> = {
-                              provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-                              primary:     { label: 'Primary',     cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-                              additional:  { label: 'Additional',  cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
-                            };
-                            const c = cfg[t] ?? cfg.additional;
-                            return (
-                              <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <TDp>{item.Diagnosis?.name}{item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}</TDp>
-                                <TD className="font-mono">{item.Diagnosis?.icdCode || '—'}</TD>
-                                <TD><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></TD>
-                                <TD>{item.createdBy?.fullName || '—'}</TD>
-                                <TD>{new Date(item.createdAt).toLocaleDateString()}</TD>
-                                <TD>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</TD>
+                  {/* MODIFIED: Diagnosis and Procedures are now side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Diagnosis Section */}
+                    <SectionCard
+                      icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                      title="Diagnosis (ICD-10)" count={diagnosesList.length}
+                      action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
+                    >
+                      {diagnosesList.length === 0 ? <EmptySlate icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" /> : (
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr><TH>Diagnosis</TH><TH>ICD-10</TH><TH>Type</TH><TH>By</TH><TH>Date</TH><TH></TH></tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {diagnosesList.map((item: any) => {
+                              const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
+                              const cfg: Record<string, { label: string; cls: string }> = {
+                                provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
+                                primary:     { label: 'Primary',     cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                                additional:  { label: 'Additional',  cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+                              };
+                              const c = cfg[t] ?? cfg.additional;
+                              return (
+                                <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                  <TDp>{item.Diagnosis?.name}{item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}</TDp>
+                                  <TD className="font-mono">{item.Diagnosis?.icdCode || '—'}</TD>
+                                  <TD><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></TD>
+                                  <TD>{item.createdBy?.fullName || '—'}</TD>
+                                  <TD>{new Date(item.createdAt).toLocaleDateString()}</TD>
+                                  <TD>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</TD>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </SectionCard>
+
+                    {/* Procedures Section - Now side by side with Diagnosis */}
+                    <SectionCard icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />} title="Procedures"
+                      count={proceduresList.length} countCls="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
+                      action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}>
+                      {proceduresList.length === 0 ? <EmptySlate icon={<Scissors className="w-8 h-8" />} label="No procedures scheduled" /> : (
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr><TH>Procedure</TH><TH>Scheduled</TH><TH>Status</TH><TH>By</TH><TH></TH></tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {proceduresList.map((p: any) => (
+                              <tr key={p.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <TDp>{p.ServiceCatalog?.name || p.name}</TDp>
+                                <TD>{p.scheduledDate ? new Date(p.scheduledDate).toLocaleString() : '—'}</TD>
+                                <TD><StatusBadge status={p.status} /></TD>
+                                <TD>{p.requestedBy || '—'}</TD>
+                                <TD>{canAddEntries && p.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', p.id)} />}</TD>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </SectionCard>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </SectionCard>
+                  </div>
 
                   {/* Lab tests + results */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1007,30 +1107,6 @@ export default function Antenatal() {
                         )}
                     </SectionCard>
                   </div>
-
-                  {/* Procedures */}
-                  <SectionCard icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />} title="Procedures"
-                    count={proceduresList.length} countCls="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
-                    action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}>
-                    {proceduresList.length === 0 ? <EmptySlate icon={<Scissors className="w-8 h-8" />} label="No procedures scheduled" /> : (
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                          <tr><TH>Procedure</TH><TH>Scheduled</TH><TH>Status</TH><TH>By</TH><TH></TH></tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-color)]">
-                          {proceduresList.map((p: any) => (
-                            <tr key={p.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                              <TDp>{p.ServiceCatalog?.name || p.name}</TDp>
-                              <TD>{p.scheduledDate ? new Date(p.scheduledDate).toLocaleString() : '—'}</TD>
-                              <TD><StatusBadge status={p.status} /></TD>
-                              <TD>{p.requestedBy || '—'}</TD>
-                              <TD>{canAddEntries && p.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', p.id)} />}</TD>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </SectionCard>
 
                   {/* Medications */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1126,7 +1202,6 @@ export default function Antenatal() {
               {/* ── ANC TAB ── */}
               {activeTab === 'anc' && (
                 <div className="p-4 space-y-4">
-                  {/* Pregnancy stats strip */}
                   {hasActiveBooking && (
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {[
@@ -1146,7 +1221,6 @@ export default function Antenatal() {
                     </div>
                   )}
 
-                  {/* IPTp strip */}
                   {hasActiveBooking && currentVisits.length > 0 && (
                     <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]">
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -1162,7 +1236,6 @@ export default function Antenatal() {
                     </div>
                   )}
 
-                  {/* ANC Visits table */}
                   <SectionCard
                     icon={<Baby className="w-4 h-4 text-pink-600" />}
                     title={`ANC Visit History (${currentVisits.length})`}
@@ -1213,7 +1286,6 @@ export default function Antenatal() {
                       )}
                   </SectionCard>
 
-                  {/* Malaria + Danger signs */}
                   {currentVisits.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
@@ -1352,17 +1424,25 @@ export default function Antenatal() {
           </div>
 
           {/* RIGHT SIDEBAR */}
-          <div className="w-64 xl:w-72 flex-shrink-0 sticky top-4">
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
-              style={{ maxHeight: 'calc(100vh - 120px)', boxShadow: 'var(--shadow-sm)' }}>
-
+          <div className="w-64 xl:w-72 flex-shrink-0">
+            <div
+              className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
+              style={{
+                position: 'sticky',
+                top: '80px',
+                height: 'calc(100vh - 100px)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
                 <Baby className="w-4 h-4 text-pink-500" />
                 <span className="text-xs font-semibold text-[var(--text-primary)]">Pregnancy Overview</span>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[var(--bg-main)]"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}>
+              <div
+                className="overflow-y-auto p-3 space-y-3 bg-[var(--bg-main)]"
+                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+              >
                 {hasActiveBooking ? (
                   <>
                     <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)] space-y-2">
@@ -1391,10 +1471,10 @@ export default function Antenatal() {
                         <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                           <p className="text-[10px] font-bold text-pink-500 uppercase tracking-wider mb-2">Last Visit (#{last.visitNumber})</p>
                           {[
-                            { l: 'Date', v: new Date(last.visitDate).toLocaleDateString() },
+                            { l: 'Date',   v: new Date(last.visitDate).toLocaleDateString() },
                             { l: 'Weight', v: last.weight ? `${last.weight}kg` : '—' },
-                            { l: 'BP', v: last.bloodPressure || '—' },
-                            { l: 'FHR', v: last.fetalHeartRate || '—' },
+                            { l: 'BP',     v: last.bloodPressure || '—' },
+                            { l: 'FHR',    v: last.fetalHeartRate || '—' },
                           ].map((r, i) => (
                             <div key={i} className="flex items-center justify-between mt-1">
                               <span className="text-[10px] text-[var(--text-tertiary)]">{r.l}</span>
@@ -1415,36 +1495,91 @@ export default function Antenatal() {
                 )}
               </div>
 
-              {/* Divider */}
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
+              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
                 <div className="flex-1 h-px bg-[var(--border-color)]" />
                 <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                  <FileText className="w-3 h-3" /> Visit Notes
+                  <ClipboardList className="w-3 h-3" /> Clinical Notes
                 </span>
                 <div className="flex-1 h-px bg-[var(--border-color)]" />
               </div>
 
-              <div className="overflow-y-auto p-3 space-y-2.5 bg-[var(--bg-main)]"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent', minHeight: '80px' }}>
-                {currentVisits.length > 0
-                  ? [...currentVisits].reverse().slice(0, 5).map((v: any) => (
-                      <div key={v.id} className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-bold text-pink-500">Visit #{v.visitNumber}</span>
-                          <span className="text-[9px] text-[var(--text-tertiary)]">{new Date(v.visitDate).toLocaleDateString()}</span>
-                        </div>
-                        {v.generalObservations
-                          ? <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{v.generalObservations}</p>
-                          : <p className="text-[11px] text-[var(--text-secondary)] italic">GA: {v.gestationalAgeWeeks||'—'}wks · BP: {v.bloodPressure||'—'} · FHR: {v.fetalHeartRate||'—'}</p>}
-                        {v.nextAppointment && (
-                          <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Next: {new Date(v.nextAppointment).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  : <p className="text-center text-[11px] text-[var(--text-tertiary)] pt-6">No visit notes yet</p>}
+              <div
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+              >
+                {physicianNotes.length > 0 ? (
+                  [...physicianNotes].reverse().map((note, i) => (
+                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                  ))
+                ) : (
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-4">No clinical notes yet</p>
+                )}
               </div>
+
+              {canAddEntries && (
+                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <textarea
+                    value={physicianNoteText}
+                    onChange={e => setPhysicianNoteText(e.target.value)}
+                    rows={2}
+                    placeholder="Add clinical note…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                      focus:outline-none focus:ring-1 focus:ring-pink-400 resize-none
+                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
+                  />
+                  <button
+                    onClick={handleSavePhysicianNote}
+                    disabled={!physicianNoteText.trim()}
+                    className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold
+                      bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40 transition-all"
+                  >
+                    Add Note
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
+                <div className="flex-1 h-px bg-[var(--border-color)]" />
+                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                  <FileText className="w-3 h-3" /> Treatment Plan
+                </span>
+                <div className="flex-1 h-px bg-[var(--border-color)]" />
+              </div>
+
+              <div
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+              >
+                {treatmentNotes.length > 0 ? (
+                  [...treatmentNotes].reverse().map((note, i) => (
+                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                  ))
+                ) : (
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-4">No treatment notes yet</p>
+                )}
+              </div>
+
+              {canAddEntries && (
+                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <textarea
+                    value={treatmentPlan}
+                    onChange={e => setTreatmentPlan(e.target.value)}
+                    rows={2}
+                    placeholder="Add treatment note…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                      focus:outline-none focus:ring-1 focus:ring-pink-400 resize-none
+                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
+                  />
+                  <button
+                    onClick={handleSaveTreatmentNote}
+                    disabled={!treatmentPlan.trim()}
+                    className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold
+                      bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40 transition-all"
+                  >
+                    Add Note
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1577,27 +1712,18 @@ export default function Antenatal() {
               { l: 'TT Given', v: selectedVisit.ttGiven ? `Yes (Dose ${selectedVisit.ttDoseNumber})` : 'No' },
               { l: 'ITN Given', v: selectedVisit.itnGiven ? 'Yes' : 'No' },
               { l: 'Iron/Folate', v: selectedVisit.ironGiven || selectedVisit.folateGiven ? 'Yes' : 'No' },
-              { l: 'IPTp Given', v: selectedVisit.iptpGiven ? `Yes (Dose ${selectedVisit.iptpDoseNumber})` : 'No' },
-              { l: 'TT Given', v: selectedVisit.ttGiven ? `Yes (Dose ${selectedVisit.ttDoseNumber})` : 'No' },
-              { l: 'ITN Given', v: selectedVisit.itnGiven ? 'Yes' : 'No' },
-              { l: 'Iron/Folate', v: selectedVisit.ironGiven || selectedVisit.folateGiven ? 'Yes' : 'No' },
-              
-              // ✅ ADD THESE NEW FIELDS:
               { l: 'Malaria Test', v: selectedVisit.malariaTestDone ? `Done (${selectedVisit.malariaTestResult||'—'})` : 'Not done' },
               { l: 'Malaria Treated', v: selectedVisit.malariaTreatmentGiven ? 'Yes' : 'No' },
               { l: 'Danger Signs', v: selectedVisit.dangerSignsPresent ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : 'No' },
               { l: 'Referral Made', v: selectedVisit.referralMade ? 'Yes' : 'No' },
             ].map(r => <DetailRow key={r.l} label={r.l} value={r.v} />)}
           </div>
-          {/* Show danger signs list if present */}
           {selectedVisit.dangerSignsPresent && selectedVisit.dangerSignsList?.length > 0 && (
             <div className="mt-4 px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Danger Signs Recorded</p>
               <p className="text-xs text-[var(--icon-red-text)]">{selectedVisit.dangerSignsList.join(', ')}</p>
             </div>
           )}
-          
-          {/* Show referral details if present */}
           {selectedVisit.referralMade && (
             <div className="mt-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Referral Details</p>
@@ -1643,7 +1769,6 @@ export default function Antenatal() {
                 <p className="text-xs text-[var(--icon-red-text)]">{selectedDelivery.complications}</p>
               </div>
             )}
-            {/* Complications */}
             {selectedDelivery.maternalComplications?.length > 0 && (
               <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Complications</p>
@@ -1651,7 +1776,6 @@ export default function Antenatal() {
               </div>
             )}
       
-            {/* ✅ NEW: Newborns Section (Essential Newborn Care) */}
             {selectedDelivery.Newborn?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <p className="text-xs font-bold text-[var(--text-primary)] mb-2">Newborns ({selectedDelivery.Newborn.length})</p>
@@ -1666,8 +1790,6 @@ export default function Antenatal() {
                         <div><span className="text-[var(--text-tertiary)]">APGAR 5min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore5min||'—'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Resuscitation:</span> <span className={`font-medium ${baby.resuscitation ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>{baby.resuscitation ? 'Yes' : 'No'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Outcome:</span> <span className="font-medium text-[var(--text-primary)]">{baby.outcome?.replace(/_/g,' ')}</span></div>
-                        
-                        {/* ✅ NEW: Essential Newborn Care (GHS Form A) */}
                         <div><span className="text-[var(--text-tertiary)]">BF 30min:</span> <span className={`font-medium ${baby.breastfeedingWithin30Min ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.breastfeedingWithin30Min ? 'Yes' : 'No'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Eye Prophylaxis:</span> <span className={`font-medium ${baby.eyeProphylaxisGiven ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.eyeProphylaxisGiven ? 'Yes' : 'No'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Cord Care:</span> <span className="font-medium text-[var(--text-primary)]">{baby.cordCareMethod?.replace(/_/g,' ') || '—'}</span></div>
@@ -1713,8 +1835,6 @@ export default function Antenatal() {
                 { l: 'Blood Pressure',   v: selectedPostnatal.bloodPressure },
                 { l: 'Temperature',      v: selectedPostnatal.temperature ? `${selectedPostnatal.temperature}°C` : null },
                 { l: 'Pulse',            v: selectedPostnatal.pulse },
-                
-                // ✅ ADD THESE NEW FIELDS:
                 { l: 'Baby Condition', v: selectedPostnatal.babyCondition },
                 { l: 'Baby Weight', v: selectedPostnatal.babyWeight ? `${selectedPostnatal.babyWeight}kg` : '—' },
                 { l: 'Baby Temperature', v: selectedPostnatal.babyTemperature ? `${selectedPostnatal.babyTemperature}°C` : '—' },
@@ -1747,45 +1867,34 @@ export default function Antenatal() {
                 <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap">{selectedPostnatal.notes}</p>
               </div>
             )}
-                  {/* Complications */}
-          {selectedPostnatal.maternalComplications?.length > 0 && (
-            <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Maternal Complications</p>
-              <p className="text-xs text-[var(--icon-red-text)]">{selectedPostnatal.maternalComplications.join(', ')}</p>
-            </div>
-          )}
+            {selectedPostnatal.maternalComplications?.length > 0 && (
+              <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-red-text)] mb-1">⚠ Maternal Complications</p>
+                <p className="text-xs text-[var(--icon-red-text)]">{selectedPostnatal.maternalComplications.join(', ')}</p>
+              </div>
+            )}
           
-          {/* Danger Signs */}
-          {(selectedPostnatal.maternalDangerSigns?.length > 0 || selectedPostnatal.babyDangerSigns?.length > 0) && (
-            <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-orange-text)] mb-1">⚠ Danger Signs</p>
-              {selectedPostnatal.maternalDangerSigns?.length > 0 && (
-                <p className="text-xs text-[var(--icon-orange-text)]">Maternal: {selectedPostnatal.maternalDangerSigns.join(', ')}</p>
-              )}
-              {selectedPostnatal.babyDangerSigns?.length > 0 && (
-                <p className="text-xs text-[var(--icon-orange-text)] mt-1">Baby: {selectedPostnatal.babyDangerSigns.join(', ')}</p>
-              )}
-            </div>
-          )}
+            {(selectedPostnatal.maternalDangerSigns?.length > 0 || selectedPostnatal.babyDangerSigns?.length > 0) && (
+              <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-orange-text)] mb-1">⚠ Danger Signs</p>
+                {selectedPostnatal.maternalDangerSigns?.length > 0 && (
+                  <p className="text-xs text-[var(--icon-orange-text)]">Maternal: {selectedPostnatal.maternalDangerSigns.join(', ')}</p>
+                )}
+                {selectedPostnatal.babyDangerSigns?.length > 0 && (
+                  <p className="text-xs text-[var(--icon-orange-text)] mt-1">Baby: {selectedPostnatal.babyDangerSigns.join(', ')}</p>
+                )}
+              </div>
+            )}
           
-          {/* Next Visit */}
-          {selectedPostnatal.nextVisitDate && (
-            <div className="mt-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Next Visit</p>
-              <p className="text-xs text-[var(--text-primary)]">
-                {new Date(selectedPostnatal.nextVisitDate).toLocaleDateString()} 
-                {selectedPostnatal.nextVisitType && ` (${selectedPostnatal.nextVisitType.replace(/_/g,' ')})`}
-              </p>
-            </div>
-          )}
-          
-          {/* Notes */}
-          {selectedPostnatal.notes && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Notes</p>
-              <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap">{selectedPostnatal.notes}</p>
-            </div>
-          )}
+            {selectedPostnatal.nextVisitDate && (
+              <div className="mt-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Next Visit</p>
+                <p className="text-xs text-[var(--text-primary)]">
+                  {new Date(selectedPostnatal.nextVisitDate).toLocaleDateString()} 
+                  {selectedPostnatal.nextVisitType && ` (${selectedPostnatal.nextVisitType.replace(/_/g,' ')})`}
+                </p>
+              </div>
+            )}
           </div>
         </ModalShell>
       )}

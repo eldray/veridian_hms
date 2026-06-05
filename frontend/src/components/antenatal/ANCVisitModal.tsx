@@ -91,7 +91,7 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
     partnerName: '',
     partnerContact: '',
     malePartnerInvolved: false,
-    partnerHIVStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown'
+    partnerHIVStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown',
     emergencyContact: '',
     emergencyContactPhone: '',
     notes: ''
@@ -186,7 +186,7 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
         partnerName: formData.partnerName,
         partnerContact: formData.partnerContact,
         malePartnerInvolved: formData.malePartnerInvolved,
-        partnerHIVStatus: formData.partnerHIVStatus || undefined
+        partnerHIVStatus: formData.partnerHIVStatus || undefined,
         emergencyContact: formData.emergencyContact,
         emergencyContactPhone: formData.emergencyContactPhone,
         notes: formData.notes

@@ -496,7 +496,7 @@ export interface MaternalWorklistItem {
   edd?: string;
   // Delivery specific
   deliveryDate?: Date;
-  deliveryType?: DeliveryType;
+  deliveryType?: 'spontaneous_vertex' | 'forceps_assisted' | 'vacuum_assisted' | 'cesarean_section';
   // Postnatal specific
   postnatalDay?: number;
   complaints?: string;
