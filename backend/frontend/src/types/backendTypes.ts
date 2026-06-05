@@ -1,6 +1,6 @@
 // AUTO-GENERATED from Prisma schema
 // DO NOT EDIT MANUALLY
-// Generated on: 2026-05-04T22:50:48.692Z
+// Generated on: 2026-06-05T20:44:34.635Z
 export enum GDRGMDC {
   ASUR = 'ASUR',
   DENT = 'DENT',
@@ -128,93 +128,68 @@ export enum MorbidityGroup {
   re_attendances = 're_attendances',
   referrals = 'referrals',
 }
-export enum DiagnosisTypeEnum {
-  provisional = 'provisional',
-  primary = 'primary',
-  additional = 'additional',
+export enum BatchStatus {
+  draft = 'draft',
+  generated = 'generated',
+  submitted = 'submitted',
+  exported = 'exported',
 }
-export enum GHSReportType {
-  opd_morbidity = 'opd_morbidity',
-  opd_attendance = 'opd_attendance',
-  ipd_morbidity = 'ipd_morbidity',
-  idsr = 'idsr',
-  form_a_morbidity = 'form_a_morbidity',
-  form_a_services = 'form_a_services',
-  form_a_complete = 'form_a_complete',
-  malaria_data = 'malaria_data',
-  monthly_summary = 'monthly_summary',
+export enum ProformaInvoiceStatus {
+  DRAFT = 'DRAFT',
+  SENT = 'SENT',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  CONVERTED = 'CONVERTED',
+  EXPIRED = 'EXPIRED',
 }
-export enum MalariaCommodityType {
-  asaq_below_1yr = 'asaq_below_1yr',
-  asaq_1_5yrs = 'asaq_1_5yrs',
-  asaq_6_13yrs = 'asaq_6_13yrs',
-  asaq_14_plus = 'asaq_14_plus',
-  al_0_3yrs = 'al_0_3yrs',
-  al_4_8yrs = 'al_4_8yrs',
-  al_9_13yrs = 'al_9_13yrs',
-  al_14_plus = 'al_14_plus',
-  dhap_40_320mg = 'dhap_40_320mg',
-  quinine_tablet = 'quinine_tablet',
-  quinine_injection = 'quinine_injection',
-  artesunate_injection_30mg = 'artesunate_injection_30mg',
-  artesunate_injection_60mg = 'artesunate_injection_60mg',
-  artesunate_injection_120mg = 'artesunate_injection_120mg',
-  arthemeter_injection_40mg = 'arthemeter_injection_40mg',
-  arthemeter_injection_80mg = 'arthemeter_injection_80mg',
-  rectal_artesunate_50mg = 'rectal_artesunate_50mg',
-  rectal_artesunate_200mg = 'rectal_artesunate_200mg',
-  rdt_kits = 'rdt_kits',
-  sp = 'sp',
+export enum CommunicationType {
+  APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
+  APPOINTMENT_CONFIRMATION = 'APPOINTMENT_CONFIRMATION',
+  LAB_RESULT_READY = 'LAB_RESULT_READY',
+  PRESCRIPTION_READY = 'PRESCRIPTION_READY',
+  PAYMENT_REMINDER = 'PAYMENT_REMINDER',
+  BILL_NOTIFICATION = 'BILL_NOTIFICATION',
+  WELCOME_MESSAGE = 'WELCOME_MESSAGE',
+  GENERAL_NOTIFICATION = 'GENERAL_NOTIFICATION',
+  CUSTOM = 'CUSTOM',
 }
-export enum DeliveryType {
-  spontaneous_vertex = 'spontaneous_vertex',
-  assisted_breech = 'assisted_breech',
-  vacuum = 'vacuum',
-  forceps = 'forceps',
-  caesarean_section = 'caesarean_section',
-  multiple = 'multiple',
+export enum CommunicationStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  READ = 'READ',
+  FAILED = 'FAILED',
 }
-export enum DeliveryOutcome {
-  live_birth = 'live_birth',
-  stillbirth_fresh = 'stillbirth_fresh',
-  stillbirth_macerated = 'stillbirth_macerated',
-  neonatal_death = 'neonatal_death',
+export enum CommunicationChannelType {
+  SMS = 'SMS',
+  WHATSAPP = 'WHATSAPP',
+  EMAIL = 'EMAIL',
 }
-export enum PlaceOfDelivery {
-  hospital = 'hospital',
-  health_centre = 'health_centre',
-  clinic = 'clinic',
-  home = 'home',
-  en_route = 'en_route',
+export enum FPMethod {
+  pill_coc = 'pill_coc',
+  pill_pop = 'pill_pop',
+  injectable_dmpa = 'injectable_dmpa',
+  injectable_net_en = 'injectable_net_en',
+  condom_male = 'condom_male',
+  condom_female = 'condom_female',
+  implant_implanon = 'implant_implanon',
+  implant_jadelle = 'implant_jadelle',
+  iud_copper = 'iud_copper',
+  iud_hormonal = 'iud_hormonal',
+  female_sterilization = 'female_sterilization',
+  male_sterilization = 'male_sterilization',
+  lam = 'lam',
+  withdrawal = 'withdrawal',
+  calendar = 'calendar',
+  other_traditional = 'other_traditional',
+  emergency_contraception = 'emergency_contraception',
 }
-export enum MaternalOutcome {
-  alive = 'alive',
-  dead_direct_cause = 'dead_direct_cause',
-  dead_indirect_cause = 'dead_indirect_cause',
-  dead_unknown = 'dead_unknown',
-}
-export enum NewbornOutcome {
-  alive = 'alive',
-  dead_within_24hrs = 'dead_within_24hrs',
-  dead_1_7days = 'dead_1_7days',
-  dead_8_28days = 'dead_8_28days',
-  referred_out = 'referred_out',
-}
-export enum AbortionType {
-  spontaneous = 'spontaneous',
-  induced_safe = 'induced_safe',
-  induced_unsafe = 'induced_unsafe',
-  septic = 'septic',
-  incomplete = 'incomplete',
-  complete = 'complete',
-  missed = 'missed',
-  recurrent = 'recurrent',
-}
-export enum AbortionMethod {
-  medical = 'medical',
-  surgical_d_and_c = 'surgical_d_and_c',
-  surgical_mva = 'surgical_mva',
-  other = 'other',
+export enum FPMethodCategory {
+  modern_short_acting = 'modern_short_acting',
+  modern_long_acting = 'modern_long_acting',
+  permanent = 'permanent',
+  traditional = 'traditional',
+  emergency = 'emergency',
 }
 export enum AdmissionType {
   elective = 'elective',
@@ -240,10 +215,6 @@ export enum PresentOnAdmission {
   N = 'N',
   U = 'U',
 }
-export enum SecondaryDiagnosisType {
-  comorbidity = 'comorbidity',
-  complication = 'complication',
-}
 export enum AttendanceType {
   emergency_acute = 'emergency_acute',
   antenatal = 'antenatal',
@@ -258,6 +229,7 @@ export enum PaymentMode {
   cash = 'cash',
   nhis = 'nhis',
   private_insurance = 'private_insurance',
+  corporate = 'corporate',
 }
 export enum AttendanceStatus {
   pending = 'pending',
@@ -305,6 +277,7 @@ export enum FacilityType {
 export enum InsuranceType {
   nhis = 'nhis',
   private = 'private',
+  corporate = 'corporate',
 }
 export enum ServiceType {
   consultation = 'consultation',
@@ -367,9 +340,9 @@ export enum ScanPriority {
   urgent = 'urgent',
 }
 export enum DiagnosisType {
-  principal = 'principal',
-  secondary = 'secondary',
-  comorbidity = 'comorbidity',
+  provisional = 'provisional',
+  primary = 'primary',
+  additional = 'additional',
 }
 export enum AppointmentStatus {
   scheduled = 'scheduled',
@@ -400,6 +373,8 @@ export enum NotificationType {
   appointment = 'appointment',
   billing = 'billing',
   clinical = 'clinical',
+  sms = 'sms',
+  whatsapp = 'whatsapp',
 }
 export enum NotificationPriority {
   low = 'low',
@@ -451,13 +426,9 @@ export enum BodyPart {
   spine = 'spine',
   extremities = 'extremities',
   breast = 'breast',
+  eye = 'eye',
+  skeleton = 'skeleton',
   other = 'other',
-}
-export enum DiagnosisVariant {
-  adult = 'adult',
-  child = 'child',
-  complicated = 'complicated',
-  uncomplicated = 'uncomplicated',
 }
 export enum ProcedureCategory {
   surgical = 'surgical',
@@ -511,6 +482,8 @@ export enum ScanCategory {
   mammography = 'mammography',
   nuclear = 'nuclear',
   pet_scan = 'pet_scan',
+  dental_xray = 'dental_xray',
+  nuclear_medicine = 'nuclear_medicine',
   other = 'other',
 }
 export enum SpecimenType {
@@ -589,14 +562,6 @@ export enum PreAuthStatus {
   cancelled = 'cancelled',
   expired = 'expired',
 }
-export enum BatchStatus {
-  draft = 'draft',
-  submitted = 'submitted',
-  acknowledged = 'acknowledged',
-  partially_paid = 'partially_paid',
-  paid = 'paid',
-  disputed = 'disputed',
-}
 export enum ClaimSubmissionMethod {
   portal = 'portal',
   paper = 'paper',
@@ -629,6 +594,117 @@ export enum AntenatalRisk {
   low = 'low',
   medium = 'medium',
   high = 'high',
+}
+export enum GHSReportType {
+  opd_morbidity = 'opd_morbidity',
+  opd_attendance = 'opd_attendance',
+  ipd_morbidity = 'ipd_morbidity',
+  idsr = 'idsr',
+  form_a_morbidity = 'form_a_morbidity',
+  form_a_services = 'form_a_services',
+  form_a_complete = 'form_a_complete',
+  malaria_data = 'malaria_data',
+  monthly_summary = 'monthly_summary',
+}
+export enum MalariaCommodityType {
+  asaq_below_1yr = 'asaq_below_1yr',
+  asaq_1_5yrs = 'asaq_1_5yrs',
+  asaq_6_13yrs = 'asaq_6_13yrs',
+  asaq_14_plus = 'asaq_14_plus',
+  al_0_3yrs = 'al_0_3yrs',
+  al_4_8yrs = 'al_4_8yrs',
+  al_9_13yrs = 'al_9_13yrs',
+  al_14_plus = 'al_14_plus',
+  dhap_40_320mg = 'dhap_40_320mg',
+  quinine_tablet = 'quinine_tablet',
+  quinine_injection = 'quinine_injection',
+  artesunate_injection_30mg = 'artesunate_injection_30mg',
+  artesunate_injection_60mg = 'artesunate_injection_60mg',
+  artesunate_injection_120mg = 'artesunate_injection_120mg',
+  arthemeter_injection_40mg = 'arthemeter_injection_40mg',
+  arthemeter_injection_80mg = 'arthemeter_injection_80mg',
+  rectal_artesunate_50mg = 'rectal_artesunate_50mg',
+  rectal_artesunate_200mg = 'rectal_artesunate_200mg',
+  rdt_kits = 'rdt_kits',
+  sp = 'sp',
+}
+export enum DeliveryType {
+  spontaneous_vertex = 'spontaneous_vertex',
+  assisted_breech = 'assisted_breech',
+  vacuum = 'vacuum',
+  forceps = 'forceps',
+  caesarean_section = 'caesarean_section',
+  multiple = 'multiple',
+}
+export enum DeliveryOutcome {
+  live_birth = 'live_birth',
+  stillbirth_fresh = 'stillbirth_fresh',
+  stillbirth_macerated = 'stillbirth_macerated',
+  neonatal_death = 'neonatal_death',
+}
+export enum MaternalOutcome {
+  alive = 'alive',
+  dead_direct_cause = 'dead_direct_cause',
+  dead_indirect_cause = 'dead_indirect_cause',
+  dead_unknown = 'dead_unknown',
+}
+export enum NewbornOutcome {
+  alive = 'alive',
+  dead_within_24hrs = 'dead_within_24hrs',
+  dead_1_7days = 'dead_1_7days',
+  dead_8_28days = 'dead_8_28days',
+  referred_out = 'referred_out',
+}
+export enum AbortionType {
+  spontaneous = 'spontaneous',
+  induced_safe = 'induced_safe',
+  induced_unsafe = 'induced_unsafe',
+  septic = 'septic',
+  incomplete = 'incomplete',
+  complete = 'complete',
+  missed = 'missed',
+  recurrent = 'recurrent',
+}
+export enum AbortionMethod {
+  medical = 'medical',
+  surgical_d_and_c = 'surgical_d_and_c',
+  surgical_mva = 'surgical_mva',
+  other = 'other',
+}
+export enum PatientClassification {
+  NEW = 'NEW',
+  OLD = 'OLD',
+}
+export enum DiagnosisClassification {
+  NEW_DIAGNOSIS = 'NEW_DIAGNOSIS',
+  OLD_DIAGNOSIS = 'OLD_DIAGNOSIS',
+}
+export enum CordCareMethod {
+  dry_cord = 'dry_cord',
+  chlorhexidine = 'chlorhexidine',
+  methylated_spirit = 'methylated_spirit',
+  alcohol = 'alcohol',
+  other = 'other',
+}
+export enum Seniority {
+  TRAINEE = 'TRAINEE',
+  JUNIOR = 'JUNIOR',
+  SENIOR = 'SENIOR',
+  PRINCIPAL = 'PRINCIPAL',
+}
+export enum PlaceOfDelivery {
+  private_hospital = 'private_hospital',
+  government_hospital = 'government_hospital',
+  health_centre = 'health_centre',
+  clinic = 'clinic',
+  chag_facility = 'chag_facility',
+  private_midwife = 'private_midwife',
+  tba_trained = 'tba_trained',
+  tba_untrained = 'tba_untrained',
+  home = 'home',
+  en_route = 'en_route',
+  mines_facility = 'mines_facility',
+  quasi_govt_institution = 'quasi_govt_institution',
 }
 
 export interface AuditLog {
@@ -703,6 +779,7 @@ export interface ServicePricing {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
+    corporatePrice: number;
     vatRate: number;
     isTaxable: boolean;
     effectiveDate: string;
@@ -746,6 +823,8 @@ export interface ServiceCatalog {
     procedures: Procedure[];
     medications: Medication[];
     BillLineItem: BillLineItem[];
+    ProformaInvoiceItem: ProformaInvoiceItem[];
+    gdrgProcedureLinks: GDRGTariffProcedure[];
 }
 
 export interface Patient {
@@ -766,7 +845,10 @@ export interface Patient {
     insuranceProviderId?: string | null;
     createdAt: string;
     updatedAt: string;
-    Admission: Admission[];
+    nhisNumber?: string | null;
+    nhisExpiryDate?: string | null;
+    nhisActive: boolean;
+    phoneNumber?: string | null;
     Attendance: Attendance[];
     Bill: Bill[];
     InsuranceClaim: InsuranceClaim[];
@@ -774,10 +856,13 @@ export interface Patient {
     appointments: Appointment[];
     NHISEligibilityCheck: NHISEligibilityCheck[];
     ReferralRecord: ReferralRecord[];
+    antenatalBookings: AntenatalBooking[];
     PatientWaiver: PatientWaiver[];
     deliveryRecords: DeliveryRecord[];
     abortionRecords: AbortionRecord[];
     postnatalRecords: PostnatalRecord[];
+    proformaInvoices: ProformaInvoice[];
+    familyPlanningServices: FamilyPlanningService[];
 }
 
 export interface NHISEligibilityCheck {
@@ -811,6 +896,7 @@ export interface InsuranceProvider {
     Patient: Patient[];
     InsurancePlan: InsurancePlan[];
     PreAuthorisationRequest: PreAuthorisationRequest[];
+    CorporateAccount: CorporateAccount[];
 }
 
 export interface InsurancePlan {
@@ -856,14 +942,26 @@ export interface Attendance {
     attendanceNumber: string;
     patientId: string;
     insuranceProviderId?: string | null;
+    corporateAccountId?: string | null;
     bedId?: string | null;
+    appointmentId?: string | null;
     wardId?: string | null;
     dateTime: string;
     nhisCCC?: string | null;
     nhisEligibilityCheckId?: string | null;
+    referralId?: string | null;
+    nhisCCCCode?: string | null;
+    nhisCCCGeneratedAt?: string | null;
+    nhisCCCValidUntil?: string | null;
     complaints: string;
     medicalNotes?: string | null;
     gdrgCategory?: string | null;
+    historyPresentingComplaint?: string | null;
+    onsetDurationQuality?: string | null;
+    physicalExamination?: string | null;
+    treatmentPlan?: string | null;
+    followUpDate?: string | null;
+    familyPlanningServices: FamilyPlanningService[];
     antenatalBookings: AntenatalBooking[];
     currentAntenatalBookings: AntenatalBooking[];
     antenatalVisits: ANCVisit[];
@@ -888,11 +986,12 @@ export interface Attendance {
     Vitals: Vitals[];
     NHISEligibilityCheck: NHISEligibilityCheck[];
     PreAuthorisationRequest: PreAuthorisationRequest[];
-    ReferralRecord: ReferralRecord[];
     WardChargeRecord: WardChargeRecord[];
     deliveryRecords: DeliveryRecord[];
     abortionRecords: AbortionRecord[];
     postnatalRecords: PostnatalRecord[];
+    proformaInvoices: ProformaInvoice[];
+    corporateEmployeeId?: string | null;
 }
 
 export interface LabTest {
@@ -959,6 +1058,14 @@ export interface Procedure {
     updatedAt: string;
 }
 
+export interface GDRGTariffProcedure {
+    gdrgTariffId: string;
+    procedureId: string;
+    isPrimary: boolean;
+    mappedCode?: string | null;
+    createdAt: string;
+}
+
 export interface Medication {
     id: string;
     attendanceId: string;
@@ -983,6 +1090,7 @@ export interface Medication {
     dispensedUnitCost?: number | null;
     createdAt: string;
     updatedAt: string;
+    administeredDoses?: any | null;
 }
 
 export interface Vitals {
@@ -1005,6 +1113,32 @@ export interface Vitals {
     updatedAt: string;
 }
 
+export interface Ward {
+    id: string;
+    wardName: string;
+    wardType: string;
+    totalBeds: number;
+    occupiedBeds: number;
+    isActive: boolean;
+    isNHISCovered: boolean;
+    nhisRequiresAuth: boolean;
+    isPrivateInsExempted: boolean;
+    isPending: boolean;
+    requiresAuthorization: boolean;
+    tariffCode?: string | null;
+    vatRate: number;
+    isTaxable: boolean;
+    dailyCashRate: number;
+    dailyNHISRate: number;
+    dailyInsuranceRate: number;
+    createdAt: string;
+    updatedAt: string;
+    Attendance: Attendance[];
+    Bed: Bed[];
+    ServiceCatalog: ServiceCatalog[];
+    WardChargeRecord: WardChargeRecord[];
+}
+
 export interface GDRGTariff {
     id: string;
     gdrgCode: string;
@@ -1017,6 +1151,7 @@ export interface GDRGTariff {
     nhisServiceCode?: string | null;
     isZoomCode: boolean;
     allowsAddOn: boolean;
+    attendanceTypes: AttendanceType[];
     isAntenatal: boolean;
     isDelivery: boolean;
     effectiveFrom: string;
@@ -1027,6 +1162,7 @@ export interface GDRGTariff {
     updatedAt: string;
     diagnoses: GDRGTariffDiagnosis[];
     ServiceCatalog: ServiceCatalog[];
+    procedures: GDRGTariffProcedure[];
 }
 
 export interface GDRGTariffDiagnosis {
@@ -1050,9 +1186,7 @@ export interface Diagnosis {
     createdAt: string;
     updatedAt: string;
     gdrgTariffDiagnoses: GDRGTariffDiagnosis[];
-    Admission: Admission[];
-    AdmissionSecondaryDiagnosis: AdmissionSecondaryDiagnosis[];
-    AttendanceDiagnosis: AttendanceDiagnosis[];
+    attendanceDiagnoses: AttendanceDiagnosis[];
     ServiceCatalog: ServiceCatalog[];
 }
 
@@ -1060,7 +1194,6 @@ export interface AttendanceDiagnosis {
     id: string;
     attendanceId: string;
     diagnosisId: string;
-    primary: boolean;
     notes?: string | null;
     date: string;
     createdById: string;
@@ -1083,6 +1216,7 @@ export interface Bill {
     patientPayable: number;
     paidAmount: number;
     balance: number;
+    corporateAccountId?: string | null;
     insuranceProviderId?: string | null;
     preAuthNumber?: string | null;
     claimNumber?: string | null;
@@ -1154,10 +1288,11 @@ export interface Payment {
 export interface InsuranceClaim {
     id: string;
     claimNumber: string;
-    billId: string;
+    billId?: string | null;
     patientId: string;
-    insuranceProviderId: string;
     attendanceId: string;
+    insuranceProviderId: string;
+    corporateAccountId?: string | null;
     totalClaimAmount: number;
     approvedAmount?: number | null;
     rejectedAmount?: number | null;
@@ -1166,35 +1301,38 @@ export interface InsuranceClaim {
     approvalDate?: string | null;
     paymentDate?: string | null;
     preAuthNumber?: string | null;
-    batchId?: string | null;
     diagnosisCodes: String[];
     procedureCodes: String[];
     labTestCodes: String[];
     serviceCodes: String[];
     scanCodes: String[];
+    principalGDRG?: string | null;
+    claimCheckCode?: string | null;
+    typeOfService?: string | null;
+    typeOfAttendance?: string | null;
+    serviceOutcome?: string | null;
+    mdcCode?: string | null;
+    datesOfService: String[];
+    medicationCodes: String[];
     gdrgCodes: String[];
     nhisServiceCodes: String[];
+    metadata?: any | null;
     notes?: string | null;
     createdById: string;
     updatedById?: string | null;
     createdAt: string;
     updatedAt: string;
+    batchId?: string | null;
 }
 
-export interface ClaimSubmissionBatch {
+export interface ClaimBatch {
     id: string;
     batchNumber: string;
-    insuranceProviderId: string;
-    claimPeriodStart: string;
-    claimPeriodEnd: string;
-    totalClaims: number;
-    totalClaimAmount: number;
-    submissionDate?: string | null;
-    nhiaReferenceNumber?: string | null;
-    portalBatchId?: string | null;
-    acknowledgedAt?: string | null;
-    notes?: string | null;
-    submittedById?: string | null;
+    batchDate: string;
+    description?: string | null;
+    totalAmount: number;
+    xmlGeneratedAt?: string | null;
+    xmlFilePath?: string | null;
     createdById: string;
     createdAt: string;
     updatedAt: string;
@@ -1212,6 +1350,7 @@ export interface WardChargeRecord {
     nhisPrice: number;
     cashPrice: number;
     insurancePrice: number;
+    corporatePrice: number;
     isBilled: boolean;
     billLineItemId?: string | null;
     createdAt: string;
@@ -1219,63 +1358,16 @@ export interface WardChargeRecord {
 
 export interface Admission {
     id: string;
+    attendanceId: string;
     admissionNumber: string;
-    patientId: string;
-    attendanceId?: string | null;
-    wardId: string;
-    bedId: string;
     admissionDate: string;
-    admissionTime: string;
-    admittingDoctor: string;
-    reasonForAdmission: string;
-    diagnosis: string;
-    status: string;
     dischargeDate?: string | null;
-    dischargeTime?: string | null;
-    dischargeSummary?: string | null;
     dailyNotes?: any | null;
-    createdBy: string;
-    lengthOfStay: number;
-    principalDiagnosisId: string;
-    principalIcdCode: string;
     createdAt: string;
     updatedAt: string;
-    AdmissionSecondaryDiagnosis: AdmissionSecondaryDiagnosis[];
-    Bill: Bill[];
-}
-
-export interface AdmissionSecondaryDiagnosis {
-    id: string;
-    admissionId: string;
-    diagnosisId: string;
-    icdCode: string;
-    createdAt: string;
-}
-
-export interface Ward {
-    id: string;
-    wardName: string;
-    wardType: string;
-    totalBeds: number;
-    occupiedBeds: number;
-    isNHISCovered: boolean;
-    nhisRequiresAuth: boolean;
-    isPrivateInsExempted: boolean;
-    isPending: boolean;
-    requiresAuthorization: boolean;
-    tariffCode?: string | null;
-    vatRate: number;
-    isTaxable: boolean;
-    dailyCashRate: number;
-    dailyNHISRate: number;
-    dailyInsuranceRate: number;
-    createdAt: string;
-    updatedAt: string;
-    Admission: Admission[];
-    Attendance: Attendance[];
-    Bed: Bed[];
-    ServiceCatalog: ServiceCatalog[];
-    WardChargeRecord: WardChargeRecord[];
+    bills: Bill[];
+    deliveryRecords: DeliveryRecord[];
+    proformaInvoices: ProformaInvoice[];
 }
 
 export interface Bed {
@@ -1286,7 +1378,6 @@ export interface Bed {
     currentPatientId?: string | null;
     createdAt: string;
     updatedAt: string;
-    Admission: Admission[];
     Attendance: Attendance[];
 }
 
@@ -1313,17 +1404,21 @@ export interface ReferralRecord {
 export interface AntenatalBooking {
     id: string;
     patientId: string;
-    pregnancyNumber: number;
     attendanceId: string;
     currentAttendanceId?: string | null;
     bookingDate: string;
     lmp?: string | null;
     edd?: string | null;
     gestationalAgeWeeks?: number | null;
+    gestationalAgeAtBooking?: number | null;
     gravida: number;
     para: number;
     previousCSection: boolean;
     previousComplications?: string | null;
+    bloodGroup?: string | null;
+    hivStatus?: string | null;
+    hbLevel?: number | null;
+    vdrl?: string | null;
     iptpDoses: any;
     iptp1Date?: string | null;
     iptp2Date?: string | null;
@@ -1407,15 +1502,25 @@ export interface PostnatalRecord {
     deliveryRecordId?: string | null;
     examinationDate: string;
     dayNumber: number;
+    maternalCondition?: string | null;
     maternalComplications: any;
     bloodPressure?: string | null;
     temperature?: number | null;
     pulse?: number | null;
     fundalHeight?: number | null;
+    lochia?: string | null;
+    perinealCondition?: string | null;
+    caesareanWound?: string | null;
+    breastfeedingStatus?: string | null;
     breastfeedingDifficulties: any;
+    latching?: string | null;
+    babyCondition?: string | null;
     babyWeight?: number | null;
     babyTemperature?: number | null;
+    babyFeeding?: string | null;
     jaundice: boolean;
+    jaundiceSeverity?: string | null;
+    cordCondition?: string | null;
     bcgGiven: boolean;
     opv0Given: boolean;
     hepB0Given: boolean;
@@ -1427,6 +1532,7 @@ export interface PostnatalRecord {
     referredTo?: string | null;
     referralReason?: string | null;
     nextVisitDate?: string | null;
+    nextVisitType?: string | null;
     notes?: string | null;
     createdById: string;
     createdAt: string;
@@ -1572,6 +1678,7 @@ export interface Invoice {
     updatedAt: string;
     InvoiceItem: InvoiceItem[];
     StockTransaction: StockTransaction[];
+    corporateAccountId?: string | null;
 }
 
 export interface InvoiceItem {
@@ -1650,15 +1757,13 @@ export interface Appointment {
     id: string;
     appointmentNumber: string;
     patientId: string;
-    doctorId?: string | null;
+    clinicianId?: string | null;
     departmentId?: string | null;
     title: string;
     description?: string | null;
     appointmentDate: string;
     appointmentTime: string;
     duration: number;
-    isNHIS: boolean;
-    nhisCCC?: string | null;
     reminderSent: boolean;
     checkedIn: boolean;
     checkedInAt?: string | null;
@@ -1686,6 +1791,16 @@ export interface Hospital {
     nhisContactEmail?: string | null;
     ghsDistrictCode?: string | null;
     ghaHFCode?: string | null;
+    nhisApiBaseUrl?: string | null;
+    nhisApiClientId?: string | null;
+    nhisApiClientSecret?: string | null;
+    nhisApiTokenEndpoint?: string | null;
+    nhisApiEligibilityEndpoint?: string | null;
+    nhisApiCccEndpoint?: string | null;
+    nhisApiActive: boolean;
+    nhisApiLastTokenRefresh?: string | null;
+    nhisApiAccessToken?: string | null;
+    nhisApiTokenExpiresAt?: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -1701,6 +1816,7 @@ export interface User {
     licenseNumber?: string | null;
     specialization?: string | null;
     isActive: boolean;
+    version: number;
     createdAt: string;
     updatedAt: string;
     departmentId?: string | null;
@@ -1732,8 +1848,7 @@ export interface User {
     ServiceCatalog: ServiceCatalog[];
     ServiceRendered: ServiceRendered[];
     Vitals: Vitals[];
-    doctorAppointments: Appointment[];
-    notifications: Notification[];
+    clinicianAppointments: Appointment[];
     AuditLog: AuditLog[];
     ReportExecution: ReportExecution[];
     DocumentTemplate: DocumentTemplate[];
@@ -1741,8 +1856,8 @@ export interface User {
     NHISEligibilityCheck: NHISEligibilityCheck[];
     PreAuthorisationRequest_requested: PreAuthorisationRequest[];
     PreAuthorisationRequest_updated: PreAuthorisationRequest[];
-    ClaimSubmissionBatch_submitted: ClaimSubmissionBatch[];
-    ClaimSubmissionBatch_created: ClaimSubmissionBatch[];
+    refreshTokens: RefreshToken[];
+    claimBatchesCreated: ClaimBatch[];
     BillLineItem_voided: BillLineItem[];
     PatientWaiver_requested: PatientWaiver[];
     PatientWaiver_approved: PatientWaiver[];
@@ -1753,12 +1868,27 @@ export interface User {
     deliveryRecords: DeliveryRecord[];
     antenatalBookingsCreated: AntenatalBooking[];
     postnatalRecords: PostnatalRecord[];
+    notificationsReceived: Notification[];
+    notificationsSent: Notification[];
+    proformaInvoicesCreated: ProformaInvoice[];
+    proformaInvoicesApproved: ProformaInvoice[];
     abortionRecords: AbortionRecord[];
+    familyPlanningServicesProvided: FamilyPlanningService[];
+}
+
+export interface RefreshToken {
+    id: string;
+    userId: string;
+    token: string;
+    expiresAt: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface Notification {
     id: string;
     userId: string;
+    senderId?: string | null;
     title: string;
     message: string;
     actionType?: string | null;
@@ -1768,6 +1898,7 @@ export interface Notification {
     isArchived: boolean;
     createdAt: string;
     readAt?: string | null;
+    updatedAt: string;
 }
 
 export interface ServiceRendered {
@@ -1845,6 +1976,11 @@ export interface DeliveryRecord {
     createdAt: string;
     updatedAt: string;
     antenatalBookingId?: string | null;
+    malePartnerPresentANC: boolean;
+    malePartnerPresentDelivery: boolean;
+    malePartnerPresentPNC: boolean;
+    maternalDeathsAudited: boolean;
+    auditNotes?: string | null;
     Newborn: NewbornRecord[];
     abortionRecordId?: string | null;
     postnatalRecords: PostnatalRecord[];
@@ -1860,6 +1996,10 @@ export interface NewbornRecord {
     anomalies: String[];
     referredTo?: string | null;
     createdAt: string;
+    breastfeedingWithin30Min: boolean;
+    eyeProphylaxisGiven: boolean;
+    babyWeightAt6to10Days?: number | null;
+    weightAt6to10DaysDate?: string | null;
 }
 
 export interface AbortionRecord {
@@ -1871,7 +2011,160 @@ export interface AbortionRecord {
     complication?: string | null;
     createdById: string;
     createdAt: string;
+    postAbortionFPCounselled: boolean;
+    postAbortionFPAccepted: boolean;
     deliveryRecords: DeliveryRecord[];
+}
+
+export interface ProformaInvoice {
+    id: string;
+    referenceNumber: string;
+    patientId: string;
+    attendanceId?: string | null;
+    admissionId?: string | null;
+    subtotal: number;
+    discount: number;
+    taxAmount: number;
+    totalAmount: number;
+    validityDays: number;
+    expiresAt?: string | null;
+    notes?: string | null;
+    termsAndConditions?: string | null;
+    createdById: string;
+    approvedById?: string | null;
+    approvedAt?: string | null;
+    convertedToBillId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    items: ProformaInvoiceItem[];
+    corporateAccountId?: string | null;
+}
+
+export interface ProformaInvoiceItem {
+    id: string;
+    proformaInvoiceId: string;
+    serviceCatalogId?: string | null;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+    vatAmount: number;
+    totalPrice: number;
+    isInsuranceCovered: boolean;
+    insuranceCoverage: number;
+    patientResponsibility: number;
+}
+
+export interface CommunicationChannel {
+    id: string;
+    name: string;
+    provider: string;
+    apiKey?: string | null;
+    apiSecret?: string | null;
+    senderId?: string | null;
+    isActive: boolean;
+    settings?: any | null;
+    createdAt: string;
+    updatedAt: string;
+    templates: CommunicationTemplate[];
+    logs: CommunicationLog[];
+}
+
+export interface CommunicationTemplate {
+    id: string;
+    channelId: string;
+    name: string;
+    subject?: string | null;
+    body: string;
+    variables?: any | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    logs: CommunicationLog[];
+}
+
+export interface CommunicationLog {
+    id: string;
+    channelId: string;
+    templateId?: string | null;
+    recipient: string;
+    message: string;
+    sentAt?: string | null;
+    deliveredAt?: string | null;
+    readAt?: string | null;
+    failedAt?: string | null;
+    failureReason?: string | null;
+    metadata?: any | null;
+    cost?: number | null;
+    providerMessageId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface FamilyPlanningService {
+    id: string;
+    patientId: string;
+    serviceDate: string;
+    isNewAcceptor: boolean;
+    counsellingGiven: boolean;
+    informedConsent: boolean;
+    sideEffects?: string | null;
+    contraindications?: string | null;
+    nextFollowUpDate?: string | null;
+    followUpStatus?: string | null;
+    isPostpartum: boolean;
+    isPostAbortion: boolean;
+    postpartumWeeks?: number | null;
+    cypFactor: number;
+    providedById: string;
+    notes?: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CorporateAccount {
+    id: string;
+    companyName: string;
+    registrationNumber?: string | null;
+    taxId?: string | null;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address?: string | null;
+    creditLimit: number;
+    currentBalance: number;
+    paymentTerms: number;
+    discountPercentage: number;
+    isActive: boolean;
+    insuranceProviderId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    bills: Bill[];
+    employees: CorporateEmployee[];
+    invoices: Invoice[];
+    proformaInvoices: ProformaInvoice[];
+    Attendance: Attendance[];
+    InsuranceClaim: InsuranceClaim[];
+}
+
+export interface CorporateEmployee {
+    id: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string;
+    otherNames?: string | null;
+    dateOfBirth?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    department?: string | null;
+    position?: string | null;
+    enrollmentDate: string;
+    endDate?: string | null;
+    isActive: boolean;
+    accountId: string;
+    createdAt: string;
+    updatedAt: string;
+    attendances: Attendance[];
 }
 // Common API Response Types
 export interface ApiResponse<T> {
