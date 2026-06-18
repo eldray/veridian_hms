@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
+import { useDepartmentStore } from '../store/departmentStore';
+import { useWardStore } from '../store/wardStore';
 import { useToast } from '../store/toastStore';
 import { 
   Plus, 
@@ -47,7 +49,8 @@ interface RequisitionItem {
 interface Requisition {
   id: string;
   requisitionNumber: string;
-  requestingDepartmentId: string;
+  requestingDepartmentId?: string | null;
+  requestingWardId?: string | null;
   requestedById: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -60,7 +63,8 @@ interface Requisition {
   notes?: string;
   createdAt: string;
   updatedAt: string;
-  departments?: { name: string };
+  departments?: { name: string } | null;
+  ward?: { wardName: string } | null;
   User_Requisition_requestedByIdToUser?: { fullName: string; role: string };
   User_Requisition_approvedByIdToUser?: { fullName: string };
   User_Requisition_fulfilledByIdToUser?: { fullName: string };
@@ -79,6 +83,8 @@ export default function RequisitionManagement() {
     isLoading
   } = useStockStore();
   const { user, hasRole } = useAuthStore();
+  const { departments, getDepartments } = useDepartmentStore();
+  const { wards, getWards } = useWardStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -98,6 +104,9 @@ export default function RequisitionManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [formData, setFormData] = useState({
+    requesterType: 'department' as 'department' | 'ward',
+    requestingDepartmentId: '',
+    requestingWardId: '',
     purpose: '',
     urgency: 'routine' as 'routine' | 'urgent' | 'emergency',
     requiredDate: '',
@@ -117,7 +126,9 @@ export default function RequisitionManagement() {
     try {
       await Promise.all([
         getRequisitions(),
-        getStockItems()
+        getStockItems(),
+        getDepartments(),
+        getWards()
       ]);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -130,7 +141,8 @@ export default function RequisitionManagement() {
     const matchesSearch = 
       requisition.requisitionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       requisition.purpose?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      requisition.departments?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      requisition.departments?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      requisition.ward?.wardName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || requisition.status === statusFilter;
     const matchesUrgency = urgencyFilter === 'all' || requisition.urgency === urgencyFilter;
@@ -156,6 +168,17 @@ export default function RequisitionManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate requester (a department OR a ward is required by backend)
+    const isWard = formData.requesterType === 'ward';
+    if (isWard && !formData.requestingWardId) {
+      toastError('Validation', 'Please select a requesting ward');
+      return;
+    }
+    if (!isWard && !formData.requestingDepartmentId) {
+      toastError('Validation', 'Please select a requesting department');
+      return;
+    }
+
     // Validate at least one item
     const validItems = formData.requisitionItems.filter(item => item.stockItemId && item.quantityRequested > 0);
     if (validItems.length === 0) {
@@ -164,8 +187,12 @@ export default function RequisitionManagement() {
     }
 
     try {
+      // Send only the relevant requester id; requesterType is UI-only
+      const { requesterType, requestingDepartmentId, requestingWardId, ...rest } = formData;
       const submitData = {
-        ...formData,
+        ...rest,
+        requestingDepartmentId: isWard ? undefined : requestingDepartmentId,
+        requestingWardId: isWard ? requestingWardId : undefined,
         requisitionItems: validItems
       };
       await createRequisition(submitData);
@@ -210,6 +237,9 @@ export default function RequisitionManagement() {
 
   const resetForm = () => {
     setFormData({
+      requesterType: 'department',
+      requestingDepartmentId: user?.departmentId || '',
+      requestingWardId: '',
       purpose: '',
       urgency: 'routine',
       requiredDate: '',
@@ -396,7 +426,7 @@ export default function RequisitionManagement() {
             )}
           </button>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
@@ -607,7 +637,7 @@ export default function RequisitionManagement() {
             </button>
           ) : (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => { resetForm(); setShowForm(true); }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
@@ -650,7 +680,7 @@ export default function RequisitionManagement() {
                             {requisition.purpose || 'No purpose specified'}
                           </div>
                           <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                            {requisition.departments?.name || 'Department not specified'}
+                            {requisition.departments?.name || requisition.ward?.wardName || 'Requester not specified'}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -836,6 +866,53 @@ export default function RequisitionManagement() {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Requisition Header */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Requesting from *
+                  </label>
+                  {/* Requester type toggle: Department or Ward */}
+                  <div className="inline-flex mb-2 rounded-lg border border-[var(--border-color)] overflow-hidden">
+                    {(['department', 'ward'] as const).map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, requesterType: type })}
+                        className={`px-4 py-1.5 text-sm capitalize transition-colors ${
+                          formData.requesterType === type
+                            ? 'bg-[var(--icon-cyan-text)] text-white'
+                            : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  {formData.requesterType === 'department' ? (
+                    <select
+                      required
+                      value={formData.requestingDepartmentId}
+                      onChange={e => setFormData({ ...formData, requestingDepartmentId: e.target.value })}
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    >
+                      <option value="">Select department...</option>
+                      {departments.map(dept => (
+                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      required
+                      value={formData.requestingWardId}
+                      onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    >
+                      <option value="">Select ward...</option>
+                      {wards.map(ward => (
+                        <option key={ward.id} value={ward.id}>{ward.wardName}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Purpose *
@@ -1023,8 +1100,8 @@ export default function RequisitionManagement() {
                   <p className="text-sm text-[var(--text-primary)] mt-0.5">{selectedRequisition.purpose || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)]">Department</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-0.5">{selectedRequisition.departments?.name || '—'}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{selectedRequisition.ward?.wardName ? 'Ward' : 'Department'}</p>
+                  <p className="text-sm text-[var(--text-primary)] mt-0.5">{selectedRequisition.departments?.name || selectedRequisition.ward?.wardName || '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)]">Requested By</p>

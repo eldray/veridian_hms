@@ -15,11 +15,12 @@ export class RequisitionRepository {
   }
 
   async findAll(params: RequisitionQueryParams) {
-    const { departmentId, status, urgency, page = 1, limit = 50 } = params;
+    const { departmentId, wardId, status, urgency, page = 1, limit = 50 } = params;
 
     const where: Prisma.RequisitionWhereInput = {};
 
     if (departmentId) where.requestingDepartmentId = departmentId;
+    if (wardId) where.requestingWardId = wardId;
     if (status) where.status = status;
     if (urgency) where.urgency = urgency;
 
@@ -31,6 +32,9 @@ export class RequisitionRepository {
         include: {
           departments: {
             select: { name: true, id: true }
+          },
+          ward: {
+            select: { wardName: true, id: true }
           },
           User_Requisition_requestedByIdToUser: {
             select: { fullName: true, role: true, id: true }
@@ -73,6 +77,9 @@ export class RequisitionRepository {
         departments: {
           select: { name: true, id: true }
         },
+        ward: {
+          select: { wardName: true, id: true }
+        },
         User_Requisition_requestedByIdToUser: {
           select: { fullName: true, role: true, username: true }
         },
@@ -105,7 +112,8 @@ export class RequisitionRepository {
     return this.prisma.requisition.create({
       data: {
         requisitionNumber,
-        requestingDepartmentId: data.requestingDepartmentId,
+        requestingDepartmentId: data.requestingDepartmentId || null,
+        requestingWardId: data.requestingWardId || null,
         purpose: data.purpose || null,
         urgency: data.urgency,
         requiredDate: data.requiredDate ? new Date(data.requiredDate) : null,
@@ -135,6 +143,9 @@ export class RequisitionRepository {
         },
         departments: {
           select: { name: true }
+        },
+        ward: {
+          select: { wardName: true }
         },
         User_Requisition_requestedByIdToUser: {
           select: { fullName: true }
@@ -172,6 +183,9 @@ export class RequisitionRepository {
       include: {
         departments: {
           select: { name: true }
+        },
+        ward: {
+          select: { wardName: true }
         },
         User_Requisition_requestedByIdToUser: {
           select: { fullName: true }
@@ -270,6 +284,9 @@ export class RequisitionRepository {
       include: {
         departments: {
           select: { name: true }
+        },
+        ward: {
+          select: { wardName: true }
         },
         RequisitionItem: {
           include: {

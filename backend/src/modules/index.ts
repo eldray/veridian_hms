@@ -143,7 +143,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   
   app.use('/scan-templates', createScanTemplateRoutes(prisma));
   console.log('✅ Scan Template routes mounted at /scan-templates');
-  
+
   app.use('/procedures', createProcedureRoutes(prisma));
   console.log('✅ Procedure routes mounted at /procedures');
 

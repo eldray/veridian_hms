@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { EncounterController } from './EncounterController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { uploadScanImages, handleUploadError } from '../../middleware/uploadMiddleware';
 
 export function createEncounterRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -84,6 +85,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.delete('/:encounterId/lab-tests/:labTestId', controller.removeLabTest);
 
   router.post('/:id/scans', controller.addScan);
+  router.post('/scans/:scanId/upload-images', uploadScanImages, handleUploadError, controller.uploadScanImages);
   router.put('/scans/:scanId/status', controller.updateScanStatus);
   router.delete('/:encounterId/scans/:scanId', controller.removeScan);
 

@@ -12,12 +12,17 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "cd backend && npm run dev",
-    "start": "concurrently \"npm run client\" \"npm run server\""
+    "start": "concurrently \"npm run client\" \"npm run server\"",
+    "start:public": "concurrently \"npm run client\" \"npm run server:public\"",
+    "server:public": "cd backend && node server.js",
+    "tunnel": "npx ngrok http 3000",
+    "full-start": "concurrently \"npm run client\" \"cd backend && npm run dev\" \"npx ngrok http 3000\""
   },
   "dependencies": {
     "concurrently": "^9.1.2"
   },
   "devDependencies": {
-    "baseline-browser-mapping": "^2.10.38"
+    "baseline-browser-mapping": "^2.10.38",
+    "ngrok": "^5.0.0"
   }
 }

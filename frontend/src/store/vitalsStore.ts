@@ -1,8 +1,9 @@
 // stores/vitalsStore.ts - FIXED VERSION
 import { create } from 'zustand';
 import {
-  addVitalsToAttendance,
-  getVitalsByAttendance,
+  // API renamed attendance → encounter; alias back to keep this store's method names.
+  addVitalsToEncounter as addVitalsToAttendance,
+  getVitalsByEncounter as getVitalsByAttendance,
   updateVitals,
 } from '../api';
 
@@ -59,7 +60,8 @@ export const useVitalsStore = create<VitalsState>((set, get) => ({
   updateVitals: async (attendanceId, vitalsId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedVitals = await updateVitals(attendanceId, vitalsId, data);
+      // api.updateVitals signature is (vitalsId, data); attendanceId is unused here.
+      const updatedVitals = await updateVitals(vitalsId, data);
       set(state => ({
         vitals: state.vitals.map(v =>
           v.id === vitalsId ? updatedVitals : v

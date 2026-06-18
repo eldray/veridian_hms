@@ -17,7 +17,7 @@ const app = express();
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: true,
   credentials: true
 }));
 
@@ -45,7 +45,7 @@ app.use((req, res) => {
 // Global error handler
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('🚨 Global error handler:', error);
-  
+
   res.status(error.status || 500).json({
     success: false,
     message: error.message || 'Internal server error',
@@ -60,24 +60,24 @@ const runSeedScript = async () => {
   try {
     console.log('🌱 Checking if database needs seeding...');
     console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    
+
     // Import and run seed script
     const { seedDatabase } = await import('./seed/seedData');
     const result = await seedDatabase();
-    
+
     if (result.testData?.seeded) {
       console.log('✅ New data was seeded successfully');
     } else {
       console.log('ℹ️ Database already has data, no seeding needed');
     }
-    
+
     return result;
   } catch (error) {
     console.error('❌ Database seeding failed:', error);
-    
+
     // Check if it's a "already seeded" error or a real error
     if (error instanceof Error && (
-      error.message.includes('already seeded') || 
+      error.message.includes('already seeded') ||
       error.message.includes('already exists') ||
       error.message.includes('Real data detected')
     )) {
@@ -100,7 +100,7 @@ const startServer = async () => {
 
   // ✅ UPDATED: Only run seed in development or if explicitly enabled
   const shouldRunSeed = process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true';
-  
+
   if (shouldRunSeed) {
     console.log('🔧 Running database initialization...');
     await runSeedScript();
@@ -123,12 +123,12 @@ const startServer = async () => {
     console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
-    
+
     // Additional info for development
     if (process.env.NODE_ENV === 'development') {
       console.log('\n👤 Test User Credentials:');
       console.log('   - doctor1 / doctor123');
-      console.log('   - nurse1 / nurse123'); 
+      console.log('   - nurse1 / nurse123');
       console.log('   - admin / admin123');
       console.log('\n📋 Test Patients: PAT-10000, PAT-10001');
     }

@@ -44,83 +44,90 @@ interface ReportsState {
   error: string | null;
 
   // ── GHS ──────────────────────────────────────
-  opdReport:                any | null;
-  ipdReport:                any | null;
-  idsrReport:               any | null;
-  malariaReport:            any | null;
-  formAReport:              any | null;
+  opdReport: any | null;
+  ipdReport: any | null;
+  idsrReport: any | null;
+  malariaReport: any | null;
+  formAReport: any | null;
   morbidityMortalityReport: any | null;
-  topDiagnoses:             any[] | null;
-  familyPlanningReport:     any | null;
-  consultingRoomRegister:   any | null;
+  topDiagnoses: any[] | null;
+  familyPlanningReport: any | null;
+  consultingRoomRegister: any | null;
 
   // ── Financial / clinical ──────────────────────
-  financialReport:       any | null;
+  financialReport: any | null;
   insuranceClaimsReport: any | null;
-  clinicalReport:        any | null;
-  attendanceReport:      any | null;
-  revenueReport:         any | null;
-  demographicReport:     any | null;
+  clinicalReport: any | null;
+  attendanceReport: any | null;
+  revenueReport: any | null;
+  demographicReport: any | null;
 
   // ── Clinical detail ───────────────────────────
-  labReport:       any | null;
-  scanReport:      any | null;
+  labReport: any | null;
+  scanReport: any | null;
   procedureReport: any | null;
-  medicationReport:any | null;
-  vitalsReport:    any | null;
+  medicationReport: any | null;
+  vitalsReport: any | null;
 
   // ── NHIS ─────────────────────────────────────
-  nhisExpiryReport:  any | null;
+  nhisExpiryReport: any | null;
   nhisClaimsSummary: any | null;
 
   // ── Submissions ───────────────────────────────
-  submissions:       any[];
+  submissions: any[];
   currentSubmission: any | null;
 
   // ── Actions: GHS ─────────────────────────────
-  getGHSOPDReport:              (filters: ReportFilter) => Promise<void>;
-  getGHSIPDReport:              (filters: ReportFilter) => Promise<void>;
-  getGHSIDSRReport:             (filters: ReportFilter) => Promise<void>;
-  getGHSMalariaReport:          (filters: ReportFilter) => Promise<void>;
-  getGHSFormAReport:            (filters: ReportFilter) => Promise<void>;
-  getMorbidityMortalityReport:  (filters: ReportFilter) => Promise<void>;
-  getTopDiagnoses:              (filters: ReportFilter, limit?: number) => Promise<void>;
-  getFamilyPlanningReport:      (filters: ReportFilter) => Promise<void>;
-  getConsultingRoomRegister:    (params: { startDate?: string; endDate?: string; period?: 'daily' | 'weekly' | 'monthly' }) => Promise<void>;
+  getGHSOPDReport: (filters: ReportFilter) => Promise<void>;
+  getGHSIPDReport: (filters: ReportFilter) => Promise<void>;
+  getGHSIDSRReport: (filters: ReportFilter) => Promise<void>;
+  getGHSMalariaReport: (filters: ReportFilter) => Promise<void>;
+  getGHSFormAReport: (filters: ReportFilter) => Promise<void>;
+  getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
+  getTopDiagnoses: (filters: ReportFilter, limit?: number) => Promise<void>;
+  getFamilyPlanningReport: (filters: ReportFilter) => Promise<void>;
+  getConsultingRoomRegister: (params: { startDate?: string; endDate?: string; period?: 'daily' | 'weekly' | 'monthly' }) => Promise<void>;
 
   // ── Actions: Financial / clinical ────────────
-  getFinancialReport:       (filters: ReportFilter) => Promise<void>;
+  getFinancialReport: (filters: ReportFilter) => Promise<void>;
   getInsuranceClaimsReport: (filters: ReportFilter) => Promise<void>;
-  getClinicalReport:        (filters: ReportFilter) => Promise<void>;
-  getAttendanceReport:      (filters: ReportFilter) => Promise<void>;
-  getRevenueReport:         (filters: ReportFilter) => Promise<void>;
-  getDemographicReport:     (filters: ReportFilter) => Promise<void>;
+  getClinicalReport: (filters: ReportFilter) => Promise<void>;
+  getAttendanceReport: (filters: ReportFilter) => Promise<void>;
+  getRevenueReport: (filters: ReportFilter) => Promise<void>;
+  getDemographicReport: (filters: ReportFilter) => Promise<void>;
 
   // ── Actions: Clinical detail ──────────────────
-  getLabReport:        (filters: ReportFilter) => Promise<void>;
-  getScanReport:       (filters: ReportFilter) => Promise<void>;
-  getProcedureReport:  (filters: ReportFilter) => Promise<void>;
+  getLabReport: (filters: ReportFilter) => Promise<void>;
+  getScanReport: (filters: ReportFilter) => Promise<void>;
+  getProcedureReport: (filters: ReportFilter) => Promise<void>;
   getMedicationReport: (filters: ReportFilter) => Promise<void>;
-  getVitalsReport:     (filters: ReportFilter) => Promise<void>;
+  getVitalsReport: (filters: ReportFilter) => Promise<void>;
 
   // ── Actions: NHIS ─────────────────────────────
-  getNhisExpiryReport:  (params: { daysThreshold?: number; startDate?: string; endDate?: string }) => Promise<void>;
+  getNhisExpiryReport: (params: { daysThreshold?: number; startDate?: string; endDate?: string }) => Promise<void>;
   getNhisClaimsSummary: (params: { startDate?: string; endDate?: string; expiryStatus?: string }) => Promise<void>;
 
   // ── Actions: Export / submissions ────────────
-  exportReport:       (data: { reportType: string; format: string; filters: ReportFilter; data: any }) => Promise<any>;
-  exportReportToCSV:  (reportType: string, filters: ReportFilter) => Promise<Blob>;
+  exportReport: (data: { reportType: string; format: string; filters: ReportFilter; data: any }) => Promise<any>;
+  exportReportToCSV: (reportType: string, filters: ReportFilter) => Promise<Blob>;
   getReportSubmissions: (filters?: any) => Promise<void>;
-  getReportById:       (id: string) => Promise<void>;
-  clearError:          () => void;
-  clearReports:        () => void;
+  getReportById: (id: string) => Promise<void>;
+  clearError: () => void;
+  clearReports: () => void;
 }
 
 // ── Helper to unwrap API response ────────────────────────────────────────────
 // In reportsStore.ts, update the unwrap helper:
+// In reportsStore.ts
+// In reportsStore.ts
 const unwrap = (response: any) => {
-  // If response has data.data (double nested)
-  if (response?.data?.data) return response.data.data;
+  // If response has success and data property (standard API response)
+  if (response?.success && response?.data) {
+    // If data has nested data (double nested)
+    if (response.data.data) return response.data.data;
+    // Otherwise return response.data
+    return response.data;
+  }
   // If response has data property and it contains facility (single nested)
   if (response?.data?.facility) return response.data;
   // If response itself has facility (direct)
@@ -131,7 +138,7 @@ const unwrap = (response: any) => {
 
 export const useReportsStore = create<ReportsState>((set) => ({
   isLoading: false,
-  error:     null,
+  error: null,
 
   // initial state
   opdReport: null, ipdReport: null, idsrReport: null, malariaReport: null,

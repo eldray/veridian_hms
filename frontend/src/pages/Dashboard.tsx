@@ -1,156 +1,230 @@
-// src/pages/Dashboard.tsx - WITH SENIORITY DISPLAY
+// src/pages/Dashboard.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import { getDashboardStats, getEncounters } from '../api';
+import { RefreshCw, AlertCircle, Calendar, ChevronDown, X } from 'lucide-react';
+
 import {
-  getDashboardStats,
-  getEncounters,
-} from '../api';
+  getRoleDashboard, STAT_CATALOG, SENIORITY_CONFIG, EMPTY_STATS,
+  QUICK_ACTIONS as QUICK_ACTION_LOOKUP,
+  type DashboardStats, type PanelSpec,
+} from '../config/dashboardConfig';
 import {
-  RefreshCw,
-  AlertCircle,
-  Clock,
-  Users,
-  Calendar,
-  BedDouble,
-  DollarSign,
-  Shield,
-  Package,
-  User,
-  UserPlus,
-  Pill,
-  BarChart3,
-  Stethoscope,
-  FileText,
-  Activity,
-  Heart,
-  CreditCard,
-  Hospital,
-  TrendingUp,
-  GraduationCap,
-} from 'lucide-react';
-import type { PaymentMode, Seniority } from '../types';
+  StatCard, WorklistPanel, RecentActivity, TopDiagnoses,
+  FinanceSummary, StockAlerts,
+  NurseSummary, MidwifeSummary, LabSummary, ScanSummary, RecordsSummary,
+} from '../components/dashboard/DashboardPanels';
+import { DiagnosesAndAttendance } from '../components/dashboard/DiagnosesAndAttendance';
+import { DashboardDateContext, type DatePreset, type DateRange } from '../context/DashboardDateContext';
+import type { Seniority } from '../types';
 
-// ============================================
-// SENIORITY CONFIGURATION
-// ============================================
+// ── helpers ───────────────────────────────────────────────────────────────────
 
-const SENIORITY_CONFIG: Record<Seniority, { label: string; color: string; icon: any; level: number }> = {
-  TRAINEE: { 
-    label: 'Trainee', 
-    color: 'bg-purple-100 text-purple-700 border-purple-200',
-    icon: GraduationCap,
-    level: 0
-  },
-  JUNIOR: { 
-    label: 'Junior Staff', 
-    color: 'bg-blue-100 text-blue-700 border-blue-200',
-    icon: User,
-    level: 1
-  },
-  SENIOR: { 
-    label: 'Senior Staff', 
-    color: 'bg-orange-100 text-orange-700 border-orange-200',
-    icon: TrendingUp,
-    level: 2
-  },
-  PRINCIPAL: { 
-    label: 'Principal', 
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    icon: Shield,
-    level: 3
+const today = () => new Date().toISOString().split('T')[0];
+
+const presetRange = (preset: DatePreset): DateRange => {
+  const now = new Date();
+  const ymd = (d: Date) => d.toISOString().split('T')[0];
+
+  if (preset === 'week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { startDate: ymd(start), endDate: ymd(end) };
   }
-};
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-const fmtTime = (d: string) => {
-  try { return new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
-  catch { return '—'; }
-};
-
-const patientFullName = (att: any) => {
-  const p = att?.patient ?? att?.Patient;
-  if (!p) return 'Unknown Patient';
-  return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
-};
-
-const getStatusStyle = (status: string): { bg: string; color: string } => {
-  const styles: Record<string, { bg: string; color: string }> = {
-    completed: { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
-    paid: { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
-    discharged: { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
-    cancelled: { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
-    admitted: { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
-    scheduled: { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
-    pending: { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
-    in_progress: { bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
-    partial: { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' },
-  };
-  return styles[status] || { bg: 'var(--bg-main)', color: 'var(--text-secondary)' };
-};
-
-const paymentModeIcon = (mode: PaymentMode) => {
-  switch (mode) {
-    case 'nhis': return <Shield className="w-3 h-3" style={{ color: 'var(--icon-green-text)' }} />;
-    case 'private_insurance': return <Hospital className="w-3 h-3" style={{ color: 'var(--icon-cyan-text)' }} />;
-    default: return <CreditCard className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />;
+  if (preset === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { startDate: ymd(start), endDate: ymd(end) };
   }
+  // today (and custom initial value)
+  return { startDate: today(), endDate: today() };
 };
 
-const paymentModeLabel = (mode: PaymentMode) =>
-  ({ cash: 'Cash', nhis: 'NHIS', private_insurance: 'Insurance' }[mode] ?? 'Cash');
+const fmtDate = (s: string) =>
+  new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-// ✅ ADD: Get seniority badge component
 const getSeniorityBadge = (seniority: Seniority) => {
   const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-      <Icon className="w-3 h-3" />
-      {config.label}
+      <Icon className="w-3 h-3" />{config.label}
     </span>
   );
 };
 
-// ============================================
-// STAT CARD COMPONENT
-// ============================================
+// ── Date toggle component ─────────────────────────────────────────────────────
 
-const StatCard = ({
-  to, label, value, sub, Icon, bg, color, loading,
+const PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function DateToggle({
+  preset, dateRange, onChange,
 }: {
-  to: string; label: string; value: React.ReactNode; sub?: string;
-  Icon: React.ComponentType<any>; bg: string; color: string; loading: boolean;
-}) => (
-  <Link
-    to={to}
-    className="rounded-xl p-4 border transition-all hover:shadow-sm"
-    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
-  >
-    <div className="flex items-center justify-between mb-2">
-      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-        {label}
-      </span>
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: bg }}>
-        <Icon className="w-4 h-4" style={{ color }} />
-      </div>
-    </div>
-    {loading ? (
-      <div className="h-7 rounded animate-pulse w-16" style={{ background: 'var(--bg-main)' }} />
-    ) : (
-      <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-    )}
-    {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
-  </Link>
-);
+  preset: DatePreset;
+  dateRange: DateRange;
+  onChange: (preset: DatePreset, range: DateRange) => void;
+}) {
+  const [showCustom, setShowCustom] = useState(false);
+  const [draft, setDraft] = useState<DateRange>(dateRange);
+  const popRef = useRef<HTMLDivElement>(null);
 
-// ============================================
-// MAIN DASHBOARD COMPONENT
-// ============================================
+  // Close popover on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) {
+        setShowCustom(false);
+      }
+    };
+    if (showCustom) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCustom]);
+
+  const handlePreset = (p: DatePreset) => {
+    if (p === 'custom') { setShowCustom(true); return; }
+    setShowCustom(false);
+    onChange(p, presetRange(p));
+  };
+
+  const applyCustom = () => {
+    if (!draft.startDate || !draft.endDate) return;
+    if (draft.startDate > draft.endDate) return;
+    onChange('custom', draft);
+    setShowCustom(false);
+  };
+
+  const rangeLabel = preset === 'custom'
+    ? `${fmtDate(dateRange.startDate)} – ${fmtDate(dateRange.endDate)}`
+    : PRESETS.find(p => p.key === preset)?.label ?? 'Today';
+
+  return (
+    <div className="relative flex items-center gap-1" ref={popRef}>
+      {/* Preset pills */}
+      <div className="flex items-center gap-0.5 rounded-lg border p-0.5"
+        style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+        {PRESETS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => handlePreset(key)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${preset === key
+                ? 'text-white shadow-sm'
+                : 'hover:bg-[var(--bg-card)]'
+              }`}
+            style={preset === key
+              ? { background: 'var(--icon-cyan-text)', color: '#fff' }
+              : { color: 'var(--text-secondary)' }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Active range badge */}
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+        <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
+        <span style={{ color: 'var(--text-primary)' }}>{rangeLabel}</span>
+      </div>
+
+      {/* Custom date range popover */}
+      {showCustom && (
+        <div className="absolute top-full right-0 mt-2 z-50 rounded-xl border shadow-lg p-4 w-72"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Custom range</p>
+            <button onClick={() => setShowCustom(false)}
+              className="p-1 rounded hover:bg-[var(--bg-main)] transition-colors">
+              <X className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1"
+                style={{ color: 'var(--text-tertiary)' }}>From</label>
+              <input
+                type="date"
+                value={draft.startDate}
+                max={draft.endDate || today()}
+                onChange={e => setDraft(d => ({ ...d, startDate: e.target.value }))}
+                className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1"
+                style={{
+                  background: 'var(--bg-main)', borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--icon-cyan-text)',
+                }}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1"
+                style={{ color: 'var(--text-tertiary)' }}>To</label>
+              <input
+                type="date"
+                value={draft.endDate}
+                min={draft.startDate}
+                max={today()}
+                onChange={e => setDraft(d => ({ ...d, endDate: e.target.value }))}
+                className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1"
+                style={{
+                  background: 'var(--bg-main)', borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+
+            {/* Quick shortcuts */}
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              {[
+                { label: 'Last 7 days', days: 7 },
+                { label: 'Last 14 days', days: 14 },
+                { label: 'Last 30 days', days: 30 },
+                { label: 'Last 90 days', days: 90 },
+              ].map(({ label, days }) => (
+                <button
+                  key={days}
+                  onClick={() => {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(end.getDate() - (days - 1));
+                    setDraft({
+                      startDate: start.toISOString().split('T')[0],
+                      endDate: end.toISOString().split('T')[0],
+                    });
+                  }}
+                  className="px-2 py-1 text-[10px] rounded-md border transition-colors hover:bg-[var(--bg-main)]"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={applyCustom}
+              disabled={!draft.startDate || !draft.endDate || draft.startDate > draft.endDate}
+              className="w-full py-2 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
+              style={{ background: 'var(--icon-cyan-text)' }}
+            >
+              Apply range
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Dashboard page
+// ═════════════════════════════════════════════════════════════════════════════
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -158,34 +232,34 @@ export default function Dashboard() {
   const toastErrorRef = useRef(toastError);
   toastErrorRef.current = toastError;
 
-  const hasRole = useCallback(
-    (roles: string[]) => roles.includes(user?.role ?? ''),
-    [user]
-  );
+  const role = user?.role ?? '';
+  const config = getRoleDashboard(role);
 
-  const [stats, setStats] = useState({
-    totalPatients: 0,
-    todayVisits: 0,
-    activeAdmissions: 0,
-    pendingBills: 0,
-    pendingClaims: 0,
-    lowStockItems: 0,
-    totalRevenue: 0,
-    scheduledAppointments: 0,
-    completedProcedures: 0,
-  });
-  const [recentAttendances, setRecentAttendances] = useState<any[]>([]);
+  const needsRecent =
+    config.rightPanel.type === 'recent' || config.leftPanel?.type === 'recent';
+
+  // ── Date state ────────────────────────────────────────────────────────────
+  const [preset, setPreset] = useState<DatePreset>('today');
+  const [dateRange, setDateRange] = useState<DateRange>(presetRange('today'));
+
+  const handleDateChange = (p: DatePreset, r: DateRange) => {
+    setPreset(p);
+    setDateRange(r);
+  };
+
+  // ── Stats state ───────────────────────────────────────────────────────────
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [topDiagnoses, setTopDiagnoses] = useState<any[]>([]);
+  const [recentAttendances, setRecentAttendances] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  
+
   const currentRequestId = useRef(0);
   const refreshingRef = useRef(false);
 
   const loadData = useCallback(async () => {
     if (refreshingRef.current) return;
-
     const requestId = ++currentRequestId.current;
     refreshingRef.current = true;
     setIsLoading(true);
@@ -194,54 +268,52 @@ export default function Dashboard() {
 
     try {
       const [statsResult, recentResult] = await Promise.allSettled([
-        getDashboardStats(),
-        getEncounters({ limit: 12 }),
+        getDashboardStats({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          period: preset !== 'custom' ? preset : undefined,
+        }),
+        needsRecent ? getEncounters({ limit: 12 }) : Promise.resolve(null),
       ]);
 
       if (currentRequestId.current !== requestId) return;
-
-      const errors: string[] = [];
+      const errs: string[] = [];
 
       if (statsResult.status === 'fulfilled') {
-        const statsResponse = statsResult.value;
-        if (statsResponse?.success && statsResponse?.data) {
-          const data = statsResponse.data;
+        const resp = statsResult.value;
+        if (resp?.success && resp?.data) {
+          const d = resp.data;
           setStats({
-            totalPatients: data.totalPatients || 0,
-            todayVisits: data.todayVisits || 0,
-            activeAdmissions: data.activeAdmissions || 0,
-            pendingBills: data.pendingBills || 0,
-            pendingClaims: data.pendingClaims || 0,
-            lowStockItems: data.lowStockItems || 0,
-            totalRevenue: Number(data.totalRevenue) || 0,
-            scheduledAppointments: data.scheduledAppointments || 0,
-            completedProcedures: data.completedProcedures || 0,
+            totalPatients: d.totalPatients || 0,
+            todayVisits: d.todayVisits || 0,
+            activeAdmissions: d.activeAdmissions || 0,
+            pendingBills: d.pendingBills || 0,
+            pendingClaims: d.pendingClaims || 0,
+            lowStockItems: d.lowStockItems || 0,
+            totalRevenue: Number(d.totalRevenue) || 0,
+            scheduledAppointments: d.scheduledAppointments || 0,
+            completedProcedures: d.completedProcedures || 0,
           });
-          setTopDiagnoses(data.topDiagnoses ?? []);
+          setTopDiagnoses(d.topDiagnoses ?? []);
         }
       } else {
-        console.error('Dashboard stats error:', statsResult.reason);
-        errors.push('Statistics');
+        errs.push('Statistics');
       }
 
-      if (recentResult.status === 'fulfilled') {
-        if (recentResult.value?.data) {
-          setRecentAttendances(recentResult.value.data);
-        }
-      } else {
-        console.error('Recent activity error:', recentResult.reason);
-        errors.push('Recent activity');
+      if (needsRecent && recentResult.status === 'fulfilled') {
+        if (recentResult.value?.data) setRecentAttendances(recentResult.value.data);
+      } else if (needsRecent) {
+        errs.push('Recent activity');
       }
 
-      if (errors.length > 0) {
+      if (errs.length > 0) {
         toastErrorRef.current(
-          errors.length === 2 ? 'Load failed' : 'Partial load',
-          `Could not load: ${errors.join(', ')}`
+          errs.length > 1 ? 'Load failed' : 'Partial load',
+          `Could not load: ${errs.join(', ')}`
         );
-        setErrors(errors.map((e) => `Failed to load ${e.toLowerCase()}`));
+        setErrors(errs.map(e => `Failed to load ${e.toLowerCase()}`));
       }
     } catch (err: any) {
-      console.error('Dashboard error:', err);
       if (currentRequestId.current === requestId) {
         toastErrorRef.current('Load failed', err.message || 'Failed to load dashboard data.');
         setErrors(['Failed to load dashboard data']);
@@ -253,14 +325,27 @@ export default function Dashboard() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [needsRecent, dateRange, preset]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Reload whenever date changes
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const handleRefresh = () => {
-    loadData();
+  // ── Panel renderer ────────────────────────────────────────────────────────
+  const renderPanel = (spec: PanelSpec, key: string) => {
+    switch (spec.type) {
+      case 'worklist': return <WorklistPanel key={key} kind={spec.kind} />;
+      case 'recent': return <RecentActivity key={key} items={recentAttendances} loading={isLoading} />;
+      case 'diagnoses': return <TopDiagnoses key={key} items={topDiagnoses} loading={isLoading} />;
+      case 'finance': return <FinanceSummary key={key} stats={stats} loading={isLoading} />;
+      case 'stock': return <StockAlerts key={key} lowStock={stats.lowStockItems} loading={isLoading} />;
+      case 'diagnoses-attendance': return <DiagnosesAndAttendance key={key} />;
+      case 'nurse-summary': return <NurseSummary key={key} />;
+      case 'midwife-summary': return <MidwifeSummary key={key} />;
+      case 'lab-summary': return <LabSummary key={key} />;
+      case 'scan-summary': return <ScanSummary key={key} />;
+      case 'records-summary': return <RecordsSummary key={key} />;
+      default: return null;
+    }
   };
 
   if (!user) {
@@ -275,179 +360,122 @@ export default function Dashboard() {
     );
   }
 
-  const statCards = [
-    { to: '/dashboard/patients', label: 'Total Patients', value: stats.totalPatients.toLocaleString(), sub: 'Registered', Icon: Users, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)', show: true },
-    { to: '/dashboard/attendance', label: "Today's Visits", value: stats.todayVisits, sub: 'Consultations', Icon: Calendar, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', show: true },
-    { to: '/dashboard/admissions', label: 'Active Admissions', value: stats.activeAdmissions, sub: 'In-patients', Icon: BedDouble, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', show: true },
-    { to: '/dashboard/billing', label: 'Pending Bills', value: stats.pendingBills, sub: 'Unpaid', Icon: FileText, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', show: hasRole(['admin', 'accounts']) },
-    { to: '/dashboard/appointments', label: 'Scheduled Today', value: stats.scheduledAppointments, sub: 'Appointments', Icon: Activity, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)', show: true },
-    { to: '/dashboard/insurance-claims', label: 'Pending Claims', value: stats.pendingClaims, sub: 'Awaiting process', Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', show: hasRole(['admin', 'accounts']) },
-    { to: '/dashboard/stock', label: 'Low Stock Items', value: stats.lowStockItems, sub: 'Need reorder', Icon: Package, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)', show: hasRole(['admin', 'pharmacist']) },
-    { to: '/dashboard/billing', label: "Today's Revenue", value: `₵${stats.totalRevenue.toFixed(2)}`, sub: 'Collected', Icon: DollarSign, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', show: hasRole(['admin', 'accounts']) },
-  ].filter((s) => s.show);
+  const statCards = config.cards.map(k => ({ key: k, ...STAT_CATALOG[k] }));
+  const quickActions = config.quickActions
+    .map(k => ({ key: k, ...(QUICK_ACTION_LOOKUP[k]) }))
+    .filter(a => a.path);
 
-  const quickActions = [
-    { icon: UserPlus, label: 'New Patient', path: '/dashboard/patients', bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)', roles: ['admin','doctor','nurse','midwife','records','pharmacist','sonographer'] },
-    { icon: Calendar, label: 'Attendance', path: '/dashboard/attendance', bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', roles: ['admin','doctor','nurse','midwife','pharmacist','records','sonographer'] },
-    { icon: BedDouble, label: 'Admissions', path: '/dashboard/admissions', bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', roles: ['admin','doctor','nurse','midwife'] },
-    { icon: DollarSign, label: 'Billing', path: '/dashboard/billing', bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', roles: ['admin','accounts'] },
-    { icon: Pill, label: 'Pharmacy', path: '/dashboard/pharmacy', bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', roles: ['admin','pharmacist','doctor'] },
-    { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)', roles: ['admin','accounts','records'] },
-  ].filter((a) => a.roles.includes(user.role ?? ''));
+  // ── Stat card label adapts to period ─────────────────────────────────────
+  const visitLabel = preset === 'today' ? "Today's Visits"
+    : preset === 'week' ? "This Week's Visits"
+      : preset === 'month' ? "This Month's Visits"
+        : "Visits";
+  const revLabel = preset === 'today' ? "Today's Revenue"
+    : preset === 'week' ? "Week's Revenue"
+      : preset === 'month' ? "Month's Revenue"
+        : "Revenue";
 
   return (
-    <div className="p-6" style={{ height: '100vh', background: 'var(--bg-main)', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflow: 'hidden' }}>
-      {/* Header - WITH SENIORITY DISPLAY */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
+    <DashboardDateContext.Provider value={{ preset, dateRange }}>
+      <div className="p-6" style={{ height: '100vh', background: 'var(--bg-main)', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflow: 'hidden' }}>
+
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Dashboard Overview</h1>
+              {user.seniority && getSeniorityBadge(user.seniority)}
+            </div>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              Welcome back, {user.fullName}
+            </p>
+          </div>
+
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Dashboard Overview</h1>
-            {/* ✅ ADD Seniority Badge next to welcome message */}
-            {user.seniority && getSeniorityBadge(user.seniority)}
+            {/* Date toggle */}
+            <DateToggle preset={preset} dateRange={dateRange} onChange={handleDateChange} />
+
+            {/* Refresh */}
+            <button onClick={loadData} disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all disabled:opacity-50"
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Welcome back, {user.fullName}
-          </p>
         </div>
-        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all disabled:opacity-50" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
 
-      {/* Error banner */}
-      {errors.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0" style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}>
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" style={{ color: 'var(--icon-yellow-text)' }} />
-            <p className="text-sm" style={{ color: 'var(--icon-yellow-text)' }}>{errors.join(', ')}</p>
-          </div>
-          <button onClick={handleRefresh} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-80" style={{ background: 'var(--icon-yellow-text)' }}>Retry</button>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* LEFT column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-          
-          {/* Stat cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(statCards.length, 4)}, 1fr)`, gap: '0.75rem', flexShrink: 0 }}>
-            {statCards.map((s) => (
-              <StatCard key={s.label} {...s} loading={isLoading} />
-            ))}
-          </div>
-
-          {/* Top Diagnoses - Using backend aggregated data */}
-          {topDiagnoses.length > 0 && (
-            <div className="rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', flexShrink: 0 }}>
-              <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Top Diagnoses (Last 30 Days)</p>
-                </div>
-                <Heart className="w-4 h-4" style={{ color: 'var(--icon-red-text)' }} />
-              </div>
-
-              <div className="p-4">
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[1,2,3,4,5].map((i) => (<div key={i} className="h-10 rounded-lg animate-pulse" style={{ background: 'var(--bg-main)' }} />))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {topDiagnoses.slice(0, 10).map((t, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-main)' }}>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold" style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>{i + 1}</div>
-                        <div className="flex-1">
-                          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.disease}</span>
-                          {t.icdCode && t.icdCode !== '—' && (
-                            <span className="text-[10px] ml-2" style={{ color: 'var(--text-tertiary)' }}>({t.icdCode})</span>
-                          )}
-                        </div>
-                        <span className="text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>{t.patients} cases</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* ── Error banner ────────────────────────────────────────────────── */}
+        {errors.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0"
+            style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" style={{ color: 'var(--icon-yellow-text)' }} />
+              <p className="text-sm" style={{ color: 'var(--icon-yellow-text)' }}>{errors.join(', ')}</p>
             </div>
-          )}
+            <button onClick={loadData}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-80"
+              style={{ background: 'var(--icon-yellow-text)' }}>Retry</button>
+          </div>
+        )}
 
-          {/* Quick actions */}
-          <div className="rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', flexShrink: 0, marginTop: 'auto' }}>
-            <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Frequent operations</p>
-            </div>
-            <div className="p-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(quickActions.length, 6)}, 1fr)`, gap: '0.75rem' }}>
-              {quickActions.map((a) => (
-                <Link key={a.path} to={a.path} className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all hover:shadow-sm" style={{ background: a.bg, borderColor: 'var(--border-color)', color: a.color }}>
-                  <a.icon className="w-5 h-5" style={{ color: a.color }} />
-                  <span className="text-xs font-medium text-center leading-tight" style={{ color: a.color }}>{a.label}</span>
-                </Link>
+        {/* ── Grid ────────────────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+
+          {/* LEFT */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+
+            {/* Stat cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Math.max(statCards.length, 1), 4)}, 1fr)`, gap: '0.75rem', flexShrink: 0 }}>
+              {statCards.map(s => (
+                <StatCard
+                  key={s.key}
+                  to={s.to}
+                  label={s.key === 'todayVisits' ? visitLabel : s.key === 'totalRevenue' ? revLabel : s.label}
+                  value={s.value(stats)}
+                  sub={s.sub}
+                  Icon={s.Icon}
+                  bg={s.bg}
+                  color={s.color}
+                  loading={isLoading}
+                />
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* RIGHT column - Recent Activity */}
-        <div className="rounded-xl border flex flex-col" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent Activity</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Latest patient visits</p>
-            </div>
-            <div className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>{recentAttendances.length}</div>
-          </div>
+            {/* Secondary / left panel */}
+            {config.leftPanel && (
+              <div style={{ flexShrink: 0, minHeight: 220, maxHeight: 360, display: 'flex' }}>
+                {renderPanel(config.leftPanel, 'left')}
+              </div>
+            )}
 
-          <div className="flex-1 overflow-y-auto p-3" style={{ minHeight: 0, maxHeight: '100%' }}>
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1,2,3,4,5].map((i) => (<div key={i} className="h-14 rounded-lg animate-pulse" style={{ background: 'var(--bg-main)' }} />))}
-              </div>
-            ) : recentAttendances.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                <Stethoscope className="w-10 h-10 mb-3" style={{ color: 'var(--text-tertiary)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No visits recorded</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Patient visits will appear here</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {recentAttendances.map((att) => {
-                  const name = patientFullName(att);
-                  const patient = att.patient ?? att.Patient ?? {};
-                  const ss = getStatusStyle(att.status || 'pending');
-                  return (
-                    <Link key={att.id} to={`/dashboard/attendance/${att.id}`} className="flex flex-col gap-1.5 p-3 rounded-lg border transition-all" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--text-primary)' }}>{name}</p>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {paymentModeIcon(att.paymentMode)}
-                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{paymentModeLabel(att.paymentMode)}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}>{patient.folderNumber || '—'}</span>
-                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{att.attendanceNumber || '—'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: ss.bg, color: ss.color }}>
-                            {(att.status || 'pending').charAt(0).toUpperCase() + (att.status || 'pending').slice(1)}
-                          </span>
-                          <div className="flex items-center gap-0.5">
-                            <Clock className="w-2.5 h-2.5" style={{ color: 'var(--text-tertiary)' }} />
-                            <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{fmtTime(att.dateTime || att.createdAt)}</span>
-                          </div>
-                        </div>
-                      </div>
+            {/* Quick actions */}
+            {quickActions.length > 0 && (
+              <div className="rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', flexShrink: 0, marginTop: 'auto' }}>
+                <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Frequent operations</p>
+                </div>
+                <div className="p-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(quickActions.length, 6)}, 1fr)`, gap: '0.75rem' }}>
+                  {quickActions.map(a => (
+                    <Link key={a.key} to={a.path}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all hover:shadow-sm"
+                      style={{ background: a.bg, borderColor: 'var(--border-color)', color: a.color }}>
+                      <a.icon className="w-5 h-5" style={{ color: a.color }} />
+                      <span className="text-xs font-medium text-center leading-tight" style={{ color: a.color }}>{a.label}</span>
                     </Link>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             )}
           </div>
+
+          {/* RIGHT */}
+          <div style={{ minHeight: 0, height: '100%' }}>
+            {renderPanel(config.rightPanel, 'right')}
+          </div>
         </div>
       </div>
-    </div>
+    </DashboardDateContext.Provider>
   );
 }

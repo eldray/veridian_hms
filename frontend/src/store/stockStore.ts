@@ -1,7 +1,6 @@
 // stores/stockStore.ts - COMPLETE FIXED VERSION with PurchaseInvoices
 import { create } from 'zustand';
-import api from '../api';
-import { 
+import {
   getStockItems as apiGetStockItems,
   getStockItem as apiGetStockItem,
   createStockItem as apiCreateStockItem,
@@ -9,17 +8,24 @@ import {
   deleteStockItem as apiDeleteStockItem,
   getLowStockItems as apiGetLowStockItems,
   getStockCategories as apiGetStockCategories,
+  updateStockLevel as apiUpdateStockLevel,
+  getLowStockItems as apiGetLowStockItemsWithParams,
+  getStockItemTransactionHistory as apiGetStockItemTransactionHistory,
   getStockTransactions as apiGetStockTransactions,
   getStockTransaction as apiGetStockTransaction,
   createStockTransaction as apiCreateStockTransaction,
   updateStockTransaction as apiUpdateStockTransaction,
   getStockMovementReport as apiGetStockMovementReport,
   getRequisitions as apiGetRequisitions,
+  getRequisition as apiGetRequisition,
   createRequisition as apiCreateRequisition,
+  updateRequisition as apiUpdateRequisition,
   deleteRequisition as apiDeleteRequisition,
   // ✅ RENAMED: Invoices → PurchaseInvoices
   getPurchaseInvoices as apiGetPurchaseInvoices,
+  getPurchaseInvoice as apiGetPurchaseInvoice,
   createPurchaseInvoice as apiCreatePurchaseInvoice,
+  updatePurchaseInvoice as apiUpdatePurchaseInvoice,
   deletePurchaseInvoice as apiDeletePurchaseInvoice,
   updateRequisitionStatus,
   approveRequisitionItems,
@@ -87,7 +93,8 @@ interface StockTransaction {
 interface Requisition {
   id: string;
   requisitionNumber: string;
-  requestingDepartmentId: string;
+  requestingDepartmentId?: string | null;
+  requestingWardId?: string | null;
   requestedById: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -100,7 +107,8 @@ interface Requisition {
   notes?: string;
   createdAt: string;
   updatedAt: string;
-  departments?: { name: string };
+  departments?: { name: string } | null;
+  ward?: { wardName: string } | null;
   RequisitionItem?: any[];
 }
 
@@ -117,6 +125,11 @@ interface PurchaseInvoice {
   updatedAt: string;
   InvoiceItem?: any[];
   StockTransaction?: any[];
+  receivedAtDepartmentId?: string;
+  receivedAtDepartment?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface Pagination {
@@ -225,59 +238,99 @@ export const useStockStore = create<StockState>((set, get) => ({
 
   // ==================== STOCK ITEMS ====================
   
-  getStockItems: async (filters = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      const allItems: StockItem[] = [];
-      let currentPage = 1;
-      const limit = 500;
-      let hasMore = true;
+// In stockStore.ts - FIXED getStockItems function
+
+getStockItems: async (filters = {}) => {
+  set({ isLoading: true, error: null });
+  try {
+    const allItems: StockItem[] = [];
+    let currentPage = 1;
+    const limit = 500; // Request up to 500 per page
+    let hasMore = true;
+    let totalItems = 0;
+    
+    console.log('📦 Fetching stock items with filters:', filters);
+    
+    while (hasMore) {
+      const response = await apiGetStockItems({ 
+        ...filters, 
+        page: currentPage, 
+        limit 
+      });
       
-      while (hasMore) {
-        const response = await apiGetStockItems({ 
-          ...filters, 
-          page: currentPage, 
-          limit 
-        });
-        
-        const items = extractItems(response, 'stockItems');
-        
-        // ✅ Normalize data: convert string numbers to actual numbers
-        const normalizedItems = (items as any[]).map(item => ({
-          ...item,
-          costPrice: Number(item.costPrice) || 0,
-          currentStock: Number(item.currentStock) || 0,
-          reorderLevel: Number(item.reorderLevel) || 0,
-        }));
-        
-        allItems.push(...normalizedItems as StockItem[]);
-        
-        const total = response?.pagination?.total || response?.total || items.length;
-        hasMore = allItems.length < total && items.length === limit;
-        currentPage++;
-        
-        if (currentPage > 10) break;
+      console.log(`📦 Page ${currentPage} response:`, response);
+      
+      // ✅ Extract items using the helper
+      let items = extractItems(response, 'stockItems');
+      
+      // ✅ If items is not an array, try to get it from response.data
+      if (!Array.isArray(items) && response?.data) {
+        items = Array.isArray(response.data) ? response.data : [];
       }
       
-      set({ 
-        stockItems: allItems,
-        pagination: {
-          page: 1,
-          limit: allItems.length,
-          total: allItems.length,
-          pages: 1
-        },
-        isLoading: false 
-      });
-    } catch (error: unknown) {
-      console.error('Failed to fetch stock items:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch stock items' 
-      });
-      throw error;
+      // ✅ If still not an array, try response.items
+      if (!Array.isArray(items) && response?.items) {
+        items = Array.isArray(response.items) ? response.items : [];
+      }
+      
+      // ✅ Final fallback
+      if (!Array.isArray(items)) {
+        items = [];
+      }
+      
+      console.log(`📦 Page ${currentPage} - Items extracted: ${items.length}`);
+      
+      // ✅ Normalize data: convert string numbers to actual numbers
+      const normalizedItems = items.map((item: any) => ({
+        ...item,
+        costPrice: Number(item.costPrice) || 0,
+        currentStock: Number(item.currentStock) || 0,
+        reorderLevel: Number(item.reorderLevel) || 0,
+      }));
+      
+      allItems.push(...normalizedItems as StockItem[]);
+      
+      // ✅ Get total from pagination
+      totalItems = response?.pagination?.total || 
+                   response?.data?.pagination?.total || 
+                   response?.total || 
+                   items.length;
+      
+      // ✅ Check if we have more pages
+      const itemsFetched = items.length;
+      hasMore = allItems.length < totalItems && itemsFetched === limit;
+      
+      // ✅ Safety: Don't make more than 20 requests
+      if (currentPage > 20) {
+        console.warn('⚠️ Reached maximum page limit (20), stopping pagination');
+        break;
+      }
+      
+      currentPage++;
     }
-  },
+    
+    console.log(`✅ Total stock items loaded: ${allItems.length}`);
+    
+    set({ 
+      stockItems: allItems,
+      pagination: {
+        page: 1,
+        limit: allItems.length,
+        total: allItems.length,
+        pages: 1
+      },
+      isLoading: false 
+    });
+  } catch (error: unknown) {
+    console.error('❌ Failed to fetch stock items:', error);
+    set({ 
+      stockItems: [],
+      isLoading: false, 
+      error: (error as any).response?.data?.message || 'Failed to fetch stock items' 
+    });
+    throw error;
+  }
+},
 
   getStockItem: async (id: string) => {
     set({ isLoading: true, error: null });
@@ -400,13 +453,13 @@ export const useStockStore = create<StockState>((set, get) => ({
   updateStockLevel: async (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await api.patch(`/stock-items/${id}/stock-level`, data);
+      const result = await apiUpdateStockLevel(id, data);
       // Refresh stock items to get updated data
       await get().getStockItems();
       // Also refresh low stock alerts
       await get().getLowStockItems();
       set({ isLoading: false });
-      return result.data;
+      return result;
     } catch (error: unknown) {
       console.error('Failed to update stock level:', error);
       set({ 
@@ -422,8 +475,9 @@ export const useStockStore = create<StockState>((set, get) => ({
     try {
       const results = [];
       for (const update of updates) {
-        const result = await api.patch(`/stock-items/${update.id}/stock-level`, update);
-        results.push(result.data);
+        const { id, ...data } = update;
+        const result = await apiUpdateStockLevel(id, data);
+        results.push(result);
       }
       // Refresh stock items
       await get().getStockItems();
@@ -557,10 +611,8 @@ export const useStockStore = create<StockState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // Use the same endpoint as getLowStockItems
-      const response = await api.get('/stock-items/low-stock', {
-        params: { limit: 5000 }
-      });
-      
+      const response = await apiGetLowStockItemsWithParams();
+
       const items = extractItems(response, 'lowStockItems');
       set({ lowStockAlerts: items as StockItem[], isLoading: false });
       return items as StockItem[];
@@ -577,14 +629,12 @@ export const useStockStore = create<StockState>((set, get) => ({
   getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 50) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/stock-items/${stockItemId}/transactions`, {
-        params: { page, limit }
-      });
-      const transactions = extractItems(response.data || response, 'transactions');
-      set({ 
+      const response = await apiGetStockItemTransactionHistory(stockItemId, { page, limit });
+      const transactions = extractItems(response, 'transactions');
+      set({
         transactions: transactions as StockTransaction[],
-        pagination: response.data?.pagination || response?.pagination || null,
-        isLoading: false 
+        pagination: response?.pagination || response?.meta || null,
+        isLoading: false
       });
       return transactions as StockTransaction[];
     } catch (error: unknown) {
@@ -647,8 +697,8 @@ export const useStockStore = create<StockState>((set, get) => ({
   getRequisition: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/requisitions/${id}`);
-      const requisition = response.data || response;
+      const response = await apiGetRequisition(id);
+      const requisition = response?.data || response;
       set({ isLoading: false });
       return requisition;
     } catch (error: unknown) {
@@ -685,8 +735,8 @@ export const useStockStore = create<StockState>((set, get) => ({
   updateRequisition: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.put(`/requisitions/${id}`, data);
-      const updatedRequisition = response.data || response;
+      const response = await apiUpdateRequisition(id, data);
+      const updatedRequisition = response?.data || response;
       const { requisitions } = get();
       set({ 
         requisitions: requisitions.map(req => req.id === id ? updatedRequisition : req),
@@ -815,7 +865,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       }
       
       set({ 
-        purchaseInvoices: allInvoices,
+        purchaseInvoices: allInvoices || [],  // ✅ Ensure it's always an array
         pagination: {
           page: 1,
           limit: allInvoices.length,
@@ -827,6 +877,7 @@ export const useStockStore = create<StockState>((set, get) => ({
     } catch (error: unknown) {
       console.error('Failed to fetch purchase invoices:', error);
       set({ 
+        purchaseInvoices: [],  // ✅ Set to empty array on error
         isLoading: false, 
         error: (error as any).response?.data?.message || 'Failed to fetch purchase invoices' 
       });
@@ -837,8 +888,8 @@ export const useStockStore = create<StockState>((set, get) => ({
   getPurchaseInvoice: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/purchase-invoices/${id}`);
-      const purchaseInvoice = response.data || response;
+      const response = await apiGetPurchaseInvoice(id);
+      const purchaseInvoice = response?.data || response;
       set({ isLoading: false });
       return purchaseInvoice;
     } catch (error: unknown) {
@@ -878,8 +929,8 @@ export const useStockStore = create<StockState>((set, get) => ({
   updatePurchaseInvoice: async (id: string, data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.put(`/purchase-invoices/${id}`, data);
-      const updatedPurchaseInvoice = response.data || response;
+      const response = await apiUpdatePurchaseInvoice(id, data);
+      const updatedPurchaseInvoice = response?.data || response;
       const { purchaseInvoices } = get();
       set({ 
         purchaseInvoices: purchaseInvoices.map(inv => inv.id === id ? updatedPurchaseInvoice : inv),

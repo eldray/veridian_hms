@@ -14,7 +14,8 @@ export interface ApprovedItemDTO {
 }
 
 export interface CreateRequisitionDTO {
-  requestingDepartmentId: string;
+  requestingDepartmentId?: string;
+  requestingWardId?: string;
   purpose?: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -39,6 +40,7 @@ export interface ApproveRequisitionItemsDTO {
 
 export interface RequisitionQueryParams {
   departmentId?: string;
+  wardId?: string;
   status?: string;
   urgency?: string;
   page?: number;
@@ -48,11 +50,16 @@ export interface RequisitionQueryParams {
 export interface RequisitionResponse {
   id: string;
   requisitionNumber: string;
-  requestingDepartmentId: string;
+  requestingDepartmentId: string | null;
+  requestingWardId: string | null;
   departments: {
     id: string;
     name: string;
-  };
+  } | null;
+  ward: {
+    id: string;
+    wardName: string;
+  } | null;
   purpose: string | null;
   urgency: string;
   status: string;

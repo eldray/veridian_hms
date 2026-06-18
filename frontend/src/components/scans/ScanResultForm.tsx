@@ -57,18 +57,17 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
           formData.append('images', image);
         });
         
-        // You'll need to implement this API endpoint
-        const response = await fetch(`/api/scans/${scan.id}/upload-images`, {
+        const response = await fetch(`/api/encounters/scans/${scan.id}/upload-images`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: formData
         });
-        
+
         const data = await response.json();
-        if (data.success) {
-          uploadedImageUrls = data.imageUrls;
+        if (response.ok && data.success) {
+          uploadedImageUrls = data.data?.imageUrls || [];
         } else {
           toastError('Upload failed', data.message || 'Could not upload images');
           setUploading(false);

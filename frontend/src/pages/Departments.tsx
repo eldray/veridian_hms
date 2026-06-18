@@ -1,5 +1,5 @@
 // src/pages/Departments.tsx - REDESIGNED
-import { useEffect, useState } from 'react';
+import { useEffect, useState, React } from 'react';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -14,10 +14,10 @@ import { useNavigate } from 'react-router-dom';
 
 // ── Seniority Badge ───────────────────────────────────────────────────────────
 const SENIORITY_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
-  TRAINEE:   { label: 'Trainee',   bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', icon: GraduationCap },
-  JUNIOR:    { label: 'Junior',    bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]',   icon: User          },
-  SENIOR:    { label: 'Senior',    bg: 'bg-[var(--icon-orange-bg)]', text: 'text-[var(--icon-orange-text)]', icon: TrendingUp    },
-  PRINCIPAL: { label: 'Principal', bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]', icon: Shield        },
+  TRAINEE: { label: 'Trainee', bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', icon: GraduationCap },
+  JUNIOR: { label: 'Junior', bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]', icon: User },
+  SENIOR: { label: 'Senior', bg: 'bg-[var(--icon-orange-bg)]', text: 'text-[var(--icon-orange-text)]', icon: TrendingUp },
+  PRINCIPAL: { label: 'Principal', bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]', icon: Shield },
 };
 
 const SeniorityBadge = ({ seniority }: { seniority: string }) => {
@@ -87,24 +87,24 @@ export default function Departments() {
     getDepartmentUsers, assignUserToDepartment, removeUserFromDepartment,
     eligibleHeads, departmentUsers, isLoading,
   } = useDepartmentStore();
-  const { user }               = useAuthStore();
-  const { success, error }     = useToast();
-  const navigate               = useNavigate();
+  const { user } = useAuthStore();
+  const { success, error } = useToast();
+  const navigate = useNavigate();
 
-  const [searchTerm, setSearchTerm]   = useState('');
-  const [viewMode, setViewMode]       = useState<'grid' | 'list'>('list');
-  const [showForm, setShowForm]       = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [showForm, setShowForm] = useState(false);
   const [editingDept, setEditingDept] = useState<any>(null);
 
-  const [showHeadModal, setShowHeadModal]     = useState(false);
-  const [showStaffModal, setShowStaffModal]   = useState(false);
-  const [selectedDept, setSelectedDept]       = useState<any>(null);
-  const [selectedUserId, setSelectedUserId]   = useState('');
+  const [showHeadModal, setShowHeadModal] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [selectedDept, setSelectedDept] = useState<any>(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
 
-  const [loadingUsers, setLoadingUsers]     = useState(false);
-  const [allUsers, setAllUsers]             = useState<any[]>([]);
-  const [assigningUser, setAssigningUser]   = useState(false);
-  const [removingId, setRemovingId]         = useState<string | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [assigningUser, setAssigningUser] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '', description: '', color: '#0891b2', icon: 'building', isActive: true,
@@ -282,7 +282,7 @@ export default function Departments() {
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
       {isLoading ? (
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
-          {[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}
+          {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex flex-col items-center justify-center py-16 gap-3">
@@ -322,9 +322,8 @@ export default function Departments() {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{dept.name}</h3>
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold mt-0.5 ${
-                          dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold mt-0.5 ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
+                          }`}>
                           {dept.isActive ? <CheckCircle className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
                           {dept.isActive ? 'Active' : 'Inactive'}
                         </span>
@@ -412,9 +411,8 @@ export default function Departments() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-xs font-semibold text-[var(--text-primary)]">{dept.name}</p>
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                        dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
+                        }`}>
                         {dept.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -625,13 +623,13 @@ export default function Departments() {
           <form id="dept-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Name *</p>
-              <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
+              <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g. Cardiology, Pediatrics…" className={inputCls} />
             </div>
 
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Description</p>
-              <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
+              <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
                 rows={3} placeholder="Brief description of this department…"
                 className={`${inputCls} resize-none`} />
             </div>
@@ -640,14 +638,14 @@ export default function Departments() {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Color</p>
                 <div className="flex items-center gap-2">
-                  <input type="color" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})}
+                  <input type="color" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })}
                     className="w-10 h-9 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] cursor-pointer p-0.5" />
                   <span className="text-xs font-mono text-[var(--text-secondary)]">{formData.color}</span>
                 </div>
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Icon</p>
-                <select value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className={inputCls}>
+                <select value={formData.icon} onChange={e => setFormData({ ...formData, icon: e.target.value })} className={inputCls}>
                   <option value="building">Building</option>
                   <option value="users">Users</option>
                   <option value="calendar">Calendar</option>
@@ -669,7 +667,7 @@ export default function Departments() {
             </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer">
-              <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({...formData, isActive: e.target.checked})}
+              <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
                 className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]" />
               <div>
                 <p className="text-xs font-semibold text-[var(--text-primary)]">Active Department</p>

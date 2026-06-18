@@ -135,6 +135,9 @@ export default function UserManagement() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Role
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">
+                    Department
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">
                     License/PIN
                   </th>
@@ -173,11 +176,19 @@ export default function UserManagement() {
                         <Shield className="w-3 h-3 mr-1" />
                         {user.role?.replace('_', ' ').toUpperCase()}
                       </span>
+                      {user.seniority && (
+                        <div className="text-xs font-medium text-gray-600 mt-1 capitalize">
+                          {user.seniority.toLowerCase()}
+                        </div>
+                      )}
                       {user.specialization && (
                         <div className="text-xs text-gray-500 mt-1">
                           {user.specialization}
                         </div>
                       )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
+                      {user.department?.name || '—'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                       {user.licenseNumber || '-'}

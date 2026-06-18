@@ -2,6 +2,7 @@
 import {
   PrismaClient,
   UserRole,
+  Seniority,
   Gender,
   PaymentMode,
   AdmissionType,
@@ -626,14 +627,48 @@ export const seedTestData = async (force: boolean = false) => {
       { username: 'records1',     password: hashPassword('records123'),   fullName: 'Records Officer Kwame Osei', role: UserRole.records,   email: 'records@hospital.com',     phone: '+233244555555' },
     ];
 
+    // Map each test user to a home department + seniority.
+    // The "records" user is the store keeper, placed in the Main Store.
+    const deptByName = async (name: string) =>
+      (await prisma.department.findFirst({ where: { name } }))?.id ?? null;
+
+    const [mainStoreId, medicalId, obsGynId, labId, radiologyId, pharmacyId] = await Promise.all([
+      deptByName('Main Store'),
+      deptByName('Medical'),
+      deptByName('Obstetrics & Gynecology'),
+      deptByName('Laboratory'),
+      deptByName('Radiology'),
+      deptByName('Pharmacy'),
+    ]);
+
+    const userPlacement: Record<string, { departmentId: string | null; seniority: Seniority }> = {
+      doctor1:      { departmentId: medicalId,   seniority: Seniority.SENIOR },
+      nurse1:       { departmentId: medicalId,   seniority: Seniority.JUNIOR },
+      midwife1:     { departmentId: obsGynId,    seniority: Seniority.SENIOR },
+      lab1:         { departmentId: labId,       seniority: Seniority.JUNIOR },
+      sonographer1: { departmentId: radiologyId, seniority: Seniority.JUNIOR },
+      pharma1:      { departmentId: pharmacyId,  seniority: Seniority.SENIOR },
+      accounts1:    { departmentId: null,        seniority: Seniority.SENIOR },
+      records1:     { departmentId: mainStoreId, seniority: Seniority.SENIOR },
+    };
+
     for (const userData of testUsersData) {
+      const placement = userPlacement[userData.username] ?? { departmentId: null, seniority: Seniority.JUNIOR };
       await prisma.user.upsert({
         where: { username: userData.username },
-        create: { ...userData, isActive: true },
-        update: {},
+        create: {
+          ...userData,
+          isActive: true,
+          seniority: placement.seniority,
+          departmentId: placement.departmentId,
+        },
+        update: {
+          seniority: placement.seniority,
+          departmentId: placement.departmentId,
+        },
       });
     }
-    console.log('✅ Test users created/verified');
+    console.log('✅ Test users created/verified (with departments + seniority)');
 
     // =============== GET CORE DATA REFERENCES ===============
     const admin = await prisma.user.findUnique({ where: { username: 'admin' } });

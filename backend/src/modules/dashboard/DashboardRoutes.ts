@@ -9,11 +9,7 @@ export function createDashboardRoutes(prisma: PrismaClient): Router {
 
   router.use(protect);
 
-  // Specific routes BEFORE dynamic params (though none exist here, good practice)
-  router.get('/stats/weekly', controller.getWeeklyStats);
-  router.get('/stats/monthly', controller.getMonthlyStats);
-  
-  // General stats
+  // Single unified stats endpoint — period/date handled via query params
   router.get('/stats', controller.getDashboardStats);
 
   return router;

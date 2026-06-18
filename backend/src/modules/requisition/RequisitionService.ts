@@ -46,7 +46,19 @@ export class RequisitionService extends BaseService {
   }
 
   async createRequisition(data: CreateRequisitionDTO, userId: string) {
-    this.logInfo('Creating new requisition', { departmentId: data.requestingDepartmentId, urgency: data.urgency });
+    this.logInfo('Creating new requisition', {
+      departmentId: data.requestingDepartmentId,
+      wardId: data.requestingWardId,
+      urgency: data.urgency
+    });
+
+    // ✅ Requester must be exactly one of: a department OR a ward
+    if (!data.requestingDepartmentId && !data.requestingWardId) {
+      throw new Error('A requesting department or ward is required');
+    }
+    if (data.requestingDepartmentId && data.requestingWardId) {
+      throw new Error('Provide either a requesting department or a ward, not both');
+    }
 
     if (!data.requisitionItems || data.requisitionItems.length === 0) {
       throw new Error('At least one item is required');

@@ -438,6 +438,7 @@ export const seedCoreData = async (force: boolean = false) => {
       { name: 'Laboratory', description: 'Diagnostic Laboratory', color: '#F59E0B', icon: 'flask' },
       { name: 'Pharmacy', description: 'Medication Dispensing', color: '#06B6D4', icon: 'pill' },
       { name: 'Emergency', description: 'Emergency Medicine', color: '#EF4444', icon: 'alert-triangle' },
+      { name: 'Main Store', description: 'Central medical store / warehouse', color: '#64748B', icon: 'warehouse', isStore: true },
     ];
 
     const departments = Array.isArray(departmentsData) ? departmentsData : defaultDepartments;
@@ -450,8 +451,11 @@ export const seedCoreData = async (force: boolean = false) => {
           color: dept.color || '#3B82F6',
           icon: dept.icon || 'default',
           isActive: true,
+          isStore: dept.isStore ?? false,
         },
-        update: {},
+        update: {
+          isStore: dept.isStore ?? false,
+        },
       });
     }
     console.log(`✅ ${departments.length} departments configured`);
@@ -816,6 +820,69 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ Completed ${file} - ${items.length} items processed`);
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
+
+    // ============================================================
+    // STEP 12b: PLACE ALL STOCK INTO THE MAIN STORE
+    // Creates an opening StockBatch + opening StockTransaction per item,
+    // located in the "Main Store" department, so requisitions and stock
+    // movements can be exercised against real, department-held inventory.
+    // ============================================================
+    const mainStore = await prisma.department.findFirst({ where: { name: 'Main Store' } });
+    if (!mainStore) {
+      console.warn('⚠️ Main Store department not found, skipping stock placement');
+    } else {
+      const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000); // ~2 years out
+      let placedCount = 0;
+
+      for (const [, stockItem] of stockItemMap) {
+        const quantity = stockItem.currentStock ?? 0;
+        if (quantity <= 0) continue;
+
+        try {
+          // Opening batch held by the Main Store
+          await prisma.stockBatch.upsert({
+            where: { stockItemId_batchNumber: { stockItemId: stockItem.id, batchNumber: 'OPENING' } },
+            create: {
+              stockItemId: stockItem.id,
+              batchNumber: 'OPENING',
+              expiryDate: openingExpiry,
+              quantity,
+              costPrice: stockItem.costPrice,
+              departmentId: mainStore.id,
+              isActive: true,
+            },
+            update: {
+              quantity,
+              departmentId: mainStore.id,
+            },
+          });
+
+          // Opening-balance transaction stamped to the Main Store (idempotent)
+          const existingTxn = await prisma.stockTransaction.findFirst({
+            where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE' },
+          });
+          if (!existingTxn) {
+            await prisma.stockTransaction.create({
+              data: {
+                stockItemId: stockItem.id,
+                transactionType: 'purchase',
+                quantity,
+                balanceAfter: quantity,
+                reference: 'OPENING-BALANCE',
+                notes: 'Opening stock balance (seed)',
+                performedBy: adminId,
+                departmentId: mainStore.id,
+              },
+            });
+          }
+
+          placedCount++;
+        } catch (error: any) {
+          console.error(`❌ Stock placement for ${stockItem.drugCode}:`, error.message);
+        }
+      }
+      console.log(`✅ Placed ${placedCount} stock items into Main Store (opening batches + transactions)`);
+    }
 
     // ============================================================
     // STEP 13: SERVICE CATALOG (NOW ALL DEPENDENCIES ARE READY)

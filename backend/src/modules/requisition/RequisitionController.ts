@@ -21,10 +21,11 @@ export class RequisitionController extends BaseController {
   // GET ALL REQUISITIONS
   getRequisitions = async (req: Request, res: Response) => {
     try {
-      const { departmentId, status, urgency, page, limit } = req.query;
+      const { departmentId, wardId, status, urgency, page, limit } = req.query;
 
       const params = {
         departmentId: departmentId as string | undefined,
+        wardId: wardId as string | undefined,
         status: status as string | undefined,
         urgency: urgency as string | undefined,
         page: page ? parseInt(page as string) : 1,

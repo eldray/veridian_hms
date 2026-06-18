@@ -200,6 +200,20 @@ export class EncounterController extends BaseController {
     return this.created(res, scan, 'Scan added successfully');
   });
 
+  // Uploads scan result images (multipart field "images"). The returned URLs are
+  // persisted onto the scan via the subsequent updateScanStatus call from the client.
+  uploadScanImages = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const files = (req.files as Express.Multer.File[]) || [];
+
+    if (files.length === 0) {
+      return this.badRequest(res, 'No images were uploaded.');
+    }
+
+    // Files are served statically at /uploads/scans/<filename> (see server.ts)
+    const imageUrls = files.map((file) => `/uploads/scans/${file.filename}`);
+    return this.ok(res, { imageUrls }, 'Scan images uploaded');
+  });
+
   updateScanStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { scanId } = req.params;
     const { status, result, findings, impression, imageUrls, performedById } = req.body;

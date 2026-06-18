@@ -24,6 +24,7 @@ import {
   TrendingUp,
   GraduationCap,
   AtSign,
+  Building2,
   Clock,
   CalendarPlus,
   FileText,
@@ -435,6 +436,11 @@ export default function UserProfile() {
                     </span>
                   </>
                 )}
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />
+                  {authUser.department?.name || 'No department'}
+                </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />

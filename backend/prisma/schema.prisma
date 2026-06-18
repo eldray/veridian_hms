@@ -783,6 +783,7 @@ model Ward {
   Bed              Bed[]
   ServiceCatalog   ServiceCatalog[]
   WardChargeRecord WardChargeRecord[]
+  Requisition      Requisition[]
 }
 
 // ============================================================
@@ -1675,7 +1676,8 @@ model StockTransaction {
 model Requisition {
   id                     String             @id @default(cuid())
   requisitionNumber      String             @unique
-  requestingDepartmentId String
+  requestingDepartmentId String?
+  requestingWardId       String?
   requestedById          String
   urgency                RequisitionUrgency @default(routine)
   requiredDate           DateTime?
@@ -1692,9 +1694,12 @@ model Requisition {
   User_Requisition_approvedByIdToUser  User?              @relation("Requisition_approvedByIdToUser", fields: [approvedById], references: [id])
   User_Requisition_fulfilledByIdToUser User?              @relation("Requisition_fulfilledByIdToUser", fields: [fulfilledById], references: [id])
   User_Requisition_requestedByIdToUser User               @relation("Requisition_requestedByIdToUser", fields: [requestedById], references: [id])
-  departments                          Department         @relation(fields: [requestingDepartmentId], references: [id])
+  departments                          Department?        @relation(fields: [requestingDepartmentId], references: [id])
+  ward                                 Ward?              @relation(fields: [requestingWardId], references: [id])
   RequisitionItem                      RequisitionItem[]
   StockTransaction                     StockTransaction[]
+
+  @@index([requestingWardId])
 }
 
 model RequisitionItem {

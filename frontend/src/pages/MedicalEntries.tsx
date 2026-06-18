@@ -24,12 +24,12 @@ import ODQInput from '../components/medical-entries/ODQInput';
 import { useAdmissionStore } from '../store/admissionStore';
 
 import {
-  ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info,Building2 , 
+  ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
   Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
   Hospital, User, Calendar, DollarSign, Clock, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
   Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
-  ArrowRight, ChevronDown, ChevronUp, Moon, Sun, Bed,
+  ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
@@ -75,13 +75,13 @@ const EmptyState: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const map: Record<string, string> = {
-    requested:   'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    scheduled:   'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-    prescribed:  'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-    dispensed:   'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    completed:   'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    cancelled:   'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-    pending:     'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
+    requested: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
+    scheduled: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
+    prescribed: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
+    dispensed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    completed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    cancelled: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+    pending: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
     in_progress: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
   };
   const cls = map[status?.toLowerCase()] ?? 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
@@ -143,9 +143,9 @@ const ScanResultForm: React.FC<{
   onClose: () => void;
   saving: boolean;
 }> = ({ scan, onSaveResult, onClose, saving }) => {
-  const [findings, setFindings]     = useState(scan.findings || '');
+  const [findings, setFindings] = useState(scan.findings || '');
   const [impression, setImpression] = useState(scan.impression || '');
-  const [result, setResult]         = useState(scan.result || '');
+  const [result, setResult] = useState(scan.result || '');
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -237,7 +237,7 @@ const PatientStatusBadge: React.FC<{ attendance: any; admissionType?: string }> 
       </span>
     );
   }
-  
+
   // IPD formal admission
   if (status === 'admitted' && category === 'ipd') {
     return (
@@ -247,7 +247,7 @@ const PatientStatusBadge: React.FC<{ attendance: any; admissionType?: string }> 
       </span>
     );
   }
-  
+
   // Day surgery (daycase)
   if (category === 'daycase') {
     return (
@@ -257,7 +257,7 @@ const PatientStatusBadge: React.FC<{ attendance: any; admissionType?: string }> 
       </span>
     );
   }
-  
+
   // OPD
   if (category === 'opd' || !category) {
     return (
@@ -347,7 +347,7 @@ const BedWardSelectionModal: React.FC<{
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-2xl border border-[var(--border-color)] overflow-hidden"
         style={{ boxShadow: 'var(--shadow-md)' }}>
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
           <div className="flex items-center gap-2">
@@ -389,11 +389,10 @@ const BedWardSelectionModal: React.FC<{
                       <button
                         key={ward.id}
                         onClick={() => handleWardSelect(ward.id, ward.wardName)}
-                        className={`p-3 rounded-lg border text-left transition-all ${
-                          isSelected 
+                        className={`p-3 rounded-lg border text-left transition-all ${isSelected
                             ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]/20 ring-1 ring-[var(--icon-cyan-text)]'
                             : 'border-[var(--border-color)] hover:border-[var(--icon-cyan-text)] hover:bg-[var(--bg-main)]'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-[var(--text-primary)]">{ward.wardName}</span>
@@ -439,11 +438,10 @@ const BedWardSelectionModal: React.FC<{
                         <button
                           key={bed.id}
                           onClick={() => handleBedSelect(bed.id, bed.bedNumber)}
-                          className={`p-2 rounded-lg border text-center transition-all ${
-                            selectedBedId === bed.id
+                          className={`p-2 rounded-lg border text-center transition-all ${selectedBedId === bed.id
                               ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]/20 ring-1 ring-[var(--icon-cyan-text)]'
                               : 'border-[var(--border-color)] hover:border-[var(--icon-cyan-text)] hover:bg-[var(--bg-main)]'
-                          }`}
+                            }`}
                         >
                           <Bed className="w-4 h-4 mx-auto mb-1 text-[var(--text-secondary)]" />
                           <span className="text-xs font-semibold text-[var(--text-primary)]">Bed {bed.bedNumber}</span>
@@ -567,32 +565,32 @@ export default function MedicalEntries() {
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
 
-  const [isLoading, setIsLoading]             = useState(true);
-  const [refreshing, setRefreshing]           = useState(false);
-  const [selectedPatientId, setSelectedPatientId]       = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
-  const [latestVitals, setLatestVitals]       = useState<any>(null);
-  const [scanResultFor, setScanResultFor]     = useState<any>(null);
-  const [savingResult, setSavingResult]       = useState(false);
-  const [showWorklist, setShowWorklist]       = useState(false);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
+  const [scanResultFor, setScanResultFor] = useState<any>(null);
+  const [savingResult, setSavingResult] = useState(false);
+  const [showWorklist, setShowWorklist] = useState(false);
   const [showDetentionModal, setShowDetentionModal] = useState(false);
-    // Bed/Ward selection modal state
+  // Bed/Ward selection modal state
   const [showBedWardModal, setShowBedWardModal] = useState(false);
   const [pendingAdmissionType, setPendingAdmissionType] = useState<'day_surgery' | 'detention' | 'ipd' | null>(null);
-  const [detentionHours, setDetentionHours]   = useState(24);
+  const [detentionHours, setDetentionHours] = useState(24);
   const [detentionReason, setDetentionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [presentedComplaints, setPresentedComplaints] = useState('');
-  const [hpc, setHpc]                         = useState('');
-  const [odq, setOdq]                         = useState('');
-  const [physicalExam, setPhysicalExam]       = useState('');
-  const [treatmentPlan, setTreatmentPlan]     = useState('');
-  const [followUpDate, setFollowUpDate]       = useState('');
+  const [hpc, setHpc] = useState('');
+  const [odq, setOdq] = useState('');
+  const [physicalExam, setPhysicalExam] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
   const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [physicianNoteText, setPhysicianNoteText] = useState('');
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
-  const [modalType, setModalType]             = useState<ModalType>(null);
+  const [modalType, setModalType] = useState<ModalType>(null);
 
   const loadData = async () => {
     setRefreshing(true);
@@ -625,7 +623,7 @@ export default function MedicalEntries() {
     setSelectedAttendanceId(attendanceId);
     getAttendance(attendanceId)
       .then(att => { if (att?.patientId) setSelectedPatientId(att.patientId); })
-      .catch(() => {});
+      .catch(() => { });
   }, [attendanceId]);
 
   useEffect(() => {
@@ -659,18 +657,18 @@ export default function MedicalEntries() {
     });
   }, [selectedAttendanceId]);
 
-  const selectedPatient  = patients.find(p => getEntityId(p) === selectedPatientId)
+  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId)
     || (currentAttendance as any)?.Patient || null;
-  const canAddEntries    = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 
-  const diagnosesList    = currentAttendance?.AttendanceDiagnosis || [];
-  const labTestsList     = currentAttendance?.LabTest || [];
-  const proceduresList   = currentAttendance?.Procedure || [];
-  const medicationsList  = currentAttendance?.Medication || [];
-  const scansList        = currentAttendance?.Scan || [];
-  const dispensedMeds    = medicationsList.filter(m => m.status === 'dispensed');
-  const requestedScans   = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
-  const completedScans   = scansList.filter(s => s.status === 'completed');
+  const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
+  const labTestsList = currentAttendance?.LabTest || [];
+  const proceduresList = currentAttendance?.Procedure || [];
+  const medicationsList = currentAttendance?.Medication || [];
+  const scansList = currentAttendance?.Scan || [];
+  const dispensedMeds = medicationsList.filter(m => m.status === 'dispensed');
+  const requestedScans = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
+  const completedScans = scansList.filter(s => s.status === 'completed');
 
   const handleClearSelection = () => {
     setSelectedPatientId(''); setSelectedAttendanceId('');
@@ -750,32 +748,32 @@ export default function MedicalEntries() {
 
   const executeDaySurgery = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessing(true);
     try {
       // Update the bed to occupied
-      await updateBed(bedId, { 
-        isOccupied: true, 
-        currentPatientId: selectedPatientId 
+      await updateBed(bedId, {
+        isOccupied: true,
+        currentPatientId: selectedPatientId
       });
 
       // Update attendance
-      await updateAttendance(selectedAttendanceId, { 
-        encounterCategory: 'daycase', 
+      await updateAttendance(selectedAttendanceId, {
+        encounterCategory: 'daycase',
         status: 'admitted',
         attendanceType: 'surgery',
         bedId: bedId,
         wardId: wardId,
-        updatedById: user?.id 
+        updatedById: user?.id
       });
-      
+
       success('Day Surgery', `Patient assigned to Bed ${bedNumber} in ${wardName} for day surgery`);
       await getAttendance(selectedAttendanceId);
       await getAttendances();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
-    } catch (err: any) { 
-      toastError('Day Surgery Failed', err.response?.data?.message || err.message); 
+    } catch (err: any) {
+      toastError('Day Surgery Failed', err.response?.data?.message || err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -790,13 +788,13 @@ export default function MedicalEntries() {
 
   const executeDetention = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessing(true);
     try {
       // Update the bed to occupied
-      await updateBed(bedId, { 
-        isOccupied: true, 
-        currentPatientId: selectedPatientId 
+      await updateBed(bedId, {
+        isOccupied: true,
+        currentPatientId: selectedPatientId
       });
 
       // Create admission with detention_observation type
@@ -806,18 +804,18 @@ export default function MedicalEntries() {
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
       });
-      
+
       // Update attendance
-      await updateAttendance(selectedAttendanceId, { 
-        encounterCategory: 'ipd', 
+      await updateAttendance(selectedAttendanceId, {
+        encounterCategory: 'ipd',
         status: 'admitted',
         admissionType: 'detention_observation',
         bedId: bedId,
         wardId: wardId,
         medicalNotes: `${currentAttendance.medicalNotes || ''}\n\n[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
-        updatedById: user?.id 
+        updatedById: user?.id
       });
-      
+
       success('Detained', `Patient placed under observation for ${detentionHours} hours in Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
       await getAttendances();
@@ -826,8 +824,8 @@ export default function MedicalEntries() {
       setPendingAdmissionType(null);
       setDetentionHours(24);
       setDetentionReason('');
-    } catch (err: any) { 
-      toastError('Detention Failed', err.response?.data?.message || err.message); 
+    } catch (err: any) {
+      toastError('Detention Failed', err.response?.data?.message || err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -841,13 +839,13 @@ export default function MedicalEntries() {
 
   const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessing(true);
     try {
       // Update the bed to occupied
-      await updateBed(bedId, { 
-        isOccupied: true, 
-        currentPatientId: selectedPatientId 
+      await updateBed(bedId, {
+        isOccupied: true,
+        currentPatientId: selectedPatientId
       });
 
       // Create formal admission
@@ -857,25 +855,25 @@ export default function MedicalEntries() {
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
       });
-      
+
       // Update attendance
-      await updateAttendance(selectedAttendanceId, { 
-        encounterCategory: 'ipd', 
+      await updateAttendance(selectedAttendanceId, {
+        encounterCategory: 'ipd',
         status: 'admitted',
         admissionType: 'emergency',
         bedId: bedId,
         wardId: wardId,
-        updatedById: user?.id 
+        updatedById: user?.id
       });
-      
+
       success('Admitted', `Patient admitted to Bed ${bedNumber} in ${wardName} as formal IPD`);
       await getAttendance(selectedAttendanceId);
       await getAdmissions();
       await getFormalIPDPatients();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
-    } catch (err: any) { 
-      toastError('Admission Failed', err.response?.data?.message || err.message); 
+    } catch (err: any) {
+      toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -907,14 +905,14 @@ export default function MedicalEntries() {
         decisionReason: 'Clinical deterioration requiring full admission',
         clinicalNotes: treatmentPlan || 'Patient requires continued care beyond observation period'
       });
-      
+
       success('Converted', 'Patient converted to formal IPD admission');
       await getAttendance(selectedAttendanceId);
       await getAdmissions();
       await getDetentionPatients();
       await getFormalIPDPatients();
-    } catch (err: any) { 
-      toastError('Conversion Failed', err.response?.data?.message || err.message); 
+    } catch (err: any) {
+      toastError('Conversion Failed', err.response?.data?.message || err.message);
     }
   };
 
@@ -922,16 +920,16 @@ export default function MedicalEntries() {
   const handleDischargeFromObservation = async () => {
     if (!selectedAttendanceId || !currentAttendance) return;
     try {
-      await updateAttendance(selectedAttendanceId, { 
+      await updateAttendance(selectedAttendanceId, {
         status: 'discharged',
         bedId: null,
-        updatedById: user?.id 
+        updatedById: user?.id
       });
       success('Discharged', 'Patient discharged from observation');
       await getAttendance(selectedAttendanceId);
       await getDetentionPatients();
-    } catch (err: any) { 
-      toastError('Discharge Failed', err.message); 
+    } catch (err: any) {
+      toastError('Discharge Failed', err.message);
     }
   };
 
@@ -939,11 +937,11 @@ export default function MedicalEntries() {
     if (!selectedAttendanceId) return;
     try {
       const fn: Record<string, () => Promise<void>> = {
-        diagnosis:  () => removeDiagnosis(selectedAttendanceId, id),
-        lab:        () => removeLabTest(selectedAttendanceId, id),
-        procedure:  () => removeProcedure(selectedAttendanceId, id),
+        diagnosis: () => removeDiagnosis(selectedAttendanceId, id),
+        lab: () => removeLabTest(selectedAttendanceId, id),
+        procedure: () => removeProcedure(selectedAttendanceId, id),
         medication: () => removeMedication(selectedAttendanceId, id),
-        scan:       () => removeScan(selectedAttendanceId, id),
+        scan: () => removeScan(selectedAttendanceId, id),
       };
       await fn[type]?.();
       success('Removed', `${type} entry deleted`);
@@ -970,13 +968,13 @@ export default function MedicalEntries() {
       case 'bp': {
         const [s, d] = String(value).split('/').map(Number);
         if (s > 140 || d > 90) return 'text-[var(--icon-red-text)]';
-        if (s < 90  || d < 60) return 'text-[var(--icon-yellow-text)]';
+        if (s < 90 || d < 60) return 'text-[var(--icon-yellow-text)]';
         return 'text-[var(--icon-green-text)]';
       }
-      case 'temp':  return value > 38 ? 'text-[var(--icon-red-text)]' : value < 35 ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-green-text)]';
+      case 'temp': return value > 38 ? 'text-[var(--icon-red-text)]' : value < 35 ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-green-text)]';
       case 'pulse': return (value > 100 || value < 60) ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]';
-      case 'spo2':  return value < 95 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]';
-      default:      return 'text-[var(--text-primary)]';
+      case 'spo2': return value < 95 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]';
+      default: return 'text-[var(--text-primary)]';
     }
   };
 
@@ -990,9 +988,9 @@ export default function MedicalEntries() {
     const category = currentAttendance?.encounterCategory;
     const status = currentAttendance?.status;
     const admissionType = currentAttendance?.admissionType;
-    
+
     if (status === 'discharged' || status === 'completed') return null;
-    
+
     // Detention/Observation patient
     if (category === 'ipd' && admissionType === 'detention_observation') {
       return (
@@ -1016,7 +1014,7 @@ export default function MedicalEntries() {
         </div>
       );
     }
-    
+
     // Formal IPD patient
     if (status === 'admitted' && category === 'ipd') {
       return (
@@ -1030,7 +1028,7 @@ export default function MedicalEntries() {
         </button>
       );
     }
-    
+
     // Not admitted yet - show options
     return (
       <div className="flex gap-2">
@@ -1075,14 +1073,14 @@ export default function MedicalEntries() {
   // ─── Payment mode badge ───────────────────────────────────────────────────
   const paymentBadge = (() => {
     const mode = currentAttendance?.paymentMode;
-    if (mode === 'nhis')             return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
+    if (mode === 'nhis') return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
     if (mode === 'private_insurance') return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
     return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
   })();
 
   const paymentLabel = (() => {
     const mode = currentAttendance?.paymentMode;
-    if (mode === 'nhis')             return 'NHIS';
+    if (mode === 'nhis') return 'NHIS';
     if (mode === 'private_insurance') return 'PRIVATE INS.';
     return 'CASH';
   })();
@@ -1090,10 +1088,10 @@ export default function MedicalEntries() {
   // ─── Status badge class ───────────────────────────────────────────────────
   const statusBadgeClass = (() => {
     const s = currentAttendance?.status;
-    if (s === 'admitted')  return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
+    if (s === 'admitted') return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
     if (s === 'completed') return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
-    if (s === 'pending')   return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-    if (s === 'discharged')return 'bg-[var(--icon-gray-bg)] text-[var(--text-secondary)]';
+    if (s === 'pending') return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
+    if (s === 'discharged') return 'bg-[var(--icon-gray-bg)] text-[var(--text-secondary)]';
     return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
   })();
 
@@ -1264,9 +1262,9 @@ export default function MedicalEntries() {
                 </span>
 
                 {/* Patient Type Badge */}
-                <PatientStatusBadge 
-                  attendance={currentAttendance} 
-                  admissionType={currentAttendance.admissionType} 
+                <PatientStatusBadge
+                  attendance={currentAttendance}
+                  admissionType={currentAttendance.admissionType}
                 />
 
                 {/* Balance warning */}
@@ -1288,13 +1286,13 @@ export default function MedicalEntries() {
               style={{ boxShadow: 'var(--shadow-sm)' }}>
               <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
                 {[
-                  { icon: <Gauge  className="w-3.5 h-3.5 text-blue-500" />, value: latestVitals.bloodPressure || '—', label: 'BP', type: 'bp' },
+                  { icon: <Gauge className="w-3.5 h-3.5 text-blue-500" />, value: latestVitals.bloodPressure || '—', label: 'BP', type: 'bp' },
                   { icon: <Thermometer className="w-3.5 h-3.5 text-orange-500" />, value: latestVitals.temperature ? `${latestVitals.temperature}°` : '—', label: 'Temp', type: 'temp' },
-                  { icon: <Heart  className="w-3.5 h-3.5 text-red-500" />,  value: latestVitals.pulse || '—', label: 'Pulse', type: 'pulse' },
-                  { icon: <Wind   className="w-3.5 h-3.5 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp', type: null },
+                  { icon: <Heart className="w-3.5 h-3.5 text-red-500" />, value: latestVitals.pulse || '—', label: 'Pulse', type: 'pulse' },
+                  { icon: <Wind className="w-3.5 h-3.5 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp', type: null },
                   { icon: <Droplets className="w-3.5 h-3.5 text-sky-500" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO₂', type: 'spo2' },
                   { icon: <Weight className="w-3.5 h-3.5 text-amber-500" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight', type: null },
-                  { icon: <Ruler  className="w-3.5 h-3.5 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height', type: null },
+                  { icon: <Ruler className="w-3.5 h-3.5 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height', type: null },
                   { icon: <Activity className="w-3.5 h-3.5 text-violet-500" />, value: latestVitals.bmi || '—', label: 'BMI', type: null },
                   { icon: <Activity className="w-3.5 h-3.5 text-indigo-500" />, value: latestVitals.muac || '—', label: 'MUAC', type: null },
                 ].map((v, i) => (
@@ -1376,7 +1374,7 @@ export default function MedicalEntries() {
 
               {/* The rest of the sections remain the same as your original */}
               {/* ... (Diagnosis, Lab, Procedures, Medications, Scans sections) ... */}
-              
+
               {/* ── INVESTIGATIONS ─────────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -1400,11 +1398,10 @@ export default function MedicalEntries() {
                               {t.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 line-clamp-1">{t.notes}</p>}
                             </TdPrimary>
                             <Td>
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                t.priority === 'stat'   ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
-                                t.priority === 'urgent' ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' :
-                                'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                              }`}>{t.priority || 'routine'}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${t.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
+                                  t.priority === 'urgent' ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' :
+                                    'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                                }`}>{t.priority || 'routine'}</span>
                             </Td>
                             <Td><StatusBadge status={t.status} /></Td>
                             <Td>{t.requestedAt ? new Date(t.requestedAt).toLocaleDateString() : t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</Td>
@@ -1460,8 +1457,8 @@ export default function MedicalEntries() {
                           const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
                           const cfg: Record<string, { label: string; cls: string }> = {
                             provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-                            primary:     { label: 'Primary',     cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-                            additional:  { label: 'Additional',  cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+                            primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                            additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
                           };
                           const c = cfg[t] ?? cfg.additional;
                           return (
@@ -1599,11 +1596,10 @@ export default function MedicalEntries() {
                             <TdPrimary>{scan.scanType || scan.ServiceCatalog?.name}</TdPrimary>
                             <Td>{scan.bodyPart || '—'}</Td>
                             <Td>
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                scan.priority === 'stat'   ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
-                                scan.priority === 'urgent' ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' :
-                                'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                              }`}>{scan.priority || 'routine'}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${scan.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
+                                  scan.priority === 'urgent' ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' :
+                                    'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                                }`}>{scan.priority || 'routine'}</span>
                             </Td>
                             <Td><StatusBadge status={scan.status} /></Td>
                             <Td>{new Date(scan.requestedAt).toLocaleDateString()}</Td>
@@ -1702,106 +1698,106 @@ export default function MedicalEntries() {
               </div>
             </div>
 
-          {/* RIGHT SIDEBAR */}
-          <div className="w-72 xl:w-80 flex-shrink-0">
-            <div
-              className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
-              style={{
-                position: 'sticky',
-                top: '80px',
-                height: 'calc(100vh - 100px)',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              {/* ── PHYSICIAN NOTES ── */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-                <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
-              </div>
-
-              {/* Logged notes list */}
+            {/* RIGHT SIDEBAR */}
+            <div className="w-72 xl:w-80 flex-shrink-0">
               <div
-                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
-                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+                className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
+                style={{
+                  position: 'sticky',
+                  top: '80px',
+                  height: 'calc(100vh - 100px)',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
               >
-                {physicianNotes.length > 0 ? (
-                  [...physicianNotes].reverse().map((note, i) => (
-                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
-                  ))
-                ) : (
-                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
-                )}
-              </div>
+                {/* ── PHYSICIAN NOTES ── */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                  <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
+                </div>
 
-              {/* Physician notes input */}
-              {canAddEntries && (
-                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                  <textarea
-                    value={physicianNoteText}
-                    onChange={e => setPhysicianNoteText(e.target.value)}
-                    rows={3}
-                    placeholder="Add physician note…"
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                {/* Logged notes list */}
+                <div
+                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                  style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+                >
+                  {physicianNotes.length > 0 ? (
+                    [...physicianNotes].reverse().map((note, i) => (
+                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                    ))
+                  ) : (
+                    <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
+                  )}
+                </div>
+
+                {/* Physician notes input */}
+                {canAddEntries && (
+                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                    <textarea
+                      value={physicianNoteText}
+                      onChange={e => setPhysicianNoteText(e.target.value)}
+                      rows={3}
+                      placeholder="Add physician note…"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                       focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
                       text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                  />
-                  <button
-                    onClick={handleSavePhysicianNote}
-                    disabled={!physicianNoteText.trim()}
-                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
+                    />
+                    <button
+                      onClick={handleSavePhysicianNote}
+                      disabled={!physicianNoteText.trim()}
+                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
                       bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
-                  >
-                    Add Note
-                  </button>
-                </div>
-              )}
-
-              {/* ── DIVIDER ── */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
-                <div className="flex-1 h-px bg-[var(--border-color)]" />
-                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                  <FileText className="w-3 h-3" /> Treatment Plan
-                </span>
-                <div className="flex-1 h-px bg-[var(--border-color)]" />
-              </div>
-
-              {/* Logged treatment notes */}
-              <div
-                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
-                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-              >
-                {treatmentNotes.length > 0 ? (
-                  [...treatmentNotes].reverse().map((note, i) => (
-                    <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
-                  ))
-                ) : (
-                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
+                    >
+                      Add Note
+                    </button>
+                  </div>
                 )}
-              </div>
 
-              {/* Treatment plan input */}
-              {canAddEntries && (
-                <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                  <textarea
-                    value={treatmentPlan}
-                    onChange={e => setTreatmentPlan(e.target.value)}
-                    rows={3}
-                    placeholder="Add treatment note…"
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                {/* ── DIVIDER ── */}
+                <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
+                  <div className="flex-1 h-px bg-[var(--border-color)]" />
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                    <FileText className="w-3 h-3" /> Treatment Plan
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--border-color)]" />
+                </div>
+
+                {/* Logged treatment notes */}
+                <div
+                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                  style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
+                >
+                  {treatmentNotes.length > 0 ? (
+                    [...treatmentNotes].reverse().map((note, i) => (
+                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                    ))
+                  ) : (
+                    <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
+                  )}
+                </div>
+
+                {/* Treatment plan input */}
+                {canAddEntries && (
+                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                    <textarea
+                      value={treatmentPlan}
+                      onChange={e => setTreatmentPlan(e.target.value)}
+                      rows={3}
+                      placeholder="Add treatment note…"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                       focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
                       text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                  />
-                  <button
-                    onClick={handleSaveTreatmentNote}
-                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
+                    />
+                    <button
+                      onClick={handleSaveTreatmentNote}
+                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
                       bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
-                  >
-                    Add Note
-                  </button>
-                </div>
-              )}
+                    >
+                      Add Note
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
           </div>
         </>
       ) : selectedPatientId && !selectedAttendanceId ? (
@@ -1847,7 +1843,7 @@ export default function MedicalEntries() {
       )}
     </div>
 
-    
+
   );
 }
 

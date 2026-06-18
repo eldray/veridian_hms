@@ -1,0 +1,861 @@
+
+> hospital-backend@1.0.0 seed
+> tsx src/seed/seedData.ts --force
+
+🔗 Starting Diagnosis ↔ GDRG link seeding...
+
+🔗 Starting ProcedureTemplate ↔ GDRGTariff link seeding...
+
+ℹ️  NOTE: GDRGTariffProcedure.procedureId references ServiceCatalog.id
+   Resolving via ServiceCatalog.procedureTemplateId → ProcedureTemplate.procedureCode
+
+📋 Found 0 diagnoses and 0 GDRG tariffs in DB
+
+
+════════════════════════════════════════════
+✅  SEED COMPLETE
+    Links created/updated : 0
+    Diagnoses not found   : 502
+    GDRGs not found       : 0
+    Mappings processed    : 502
+════════════════════════════════════════════
+
+⚠️  Warnings / Errors:
+   ⚠️  Diagnosis not found: ICD A80.9
+   ⚠️  Diagnosis not found: ICD A39.0
+   ⚠️  Diagnosis not found: ICD A39.4
+   ⚠️  Diagnosis not found: ICD G00.9
+   ⚠️  Diagnosis not found: ICD G00.1
+   ⚠️  Diagnosis not found: ICD G00.2
+   ⚠️  Diagnosis not found: ICD G00.3
+   ⚠️  Diagnosis not found: ICD G03.9
+   ⚠️  Diagnosis not found: ICD A87.9
+   ⚠️  Diagnosis not found: ICD A17.0
+   ⚠️  Diagnosis not found: ICD A33
+   ⚠️  Diagnosis not found: ICD A37.0
+   ⚠️  Diagnosis not found: ICD A37.9
+   ⚠️  Diagnosis not found: ICD A36.9
+   ⚠️  Diagnosis not found: ICD B05.9
+   ⚠️  Diagnosis not found: ICD A95.9
+   ⚠️  Diagnosis not found: ICD A35
+   ⚠️  Diagnosis not found: ICD A15.0
+   ⚠️  Diagnosis not found: ICD A15.1
+   ⚠️  Diagnosis not found: ICD A15.2
+   ⚠️  Diagnosis not found: ICD A15.3
+   ⚠️  Diagnosis not found: ICD A15.6
+   ⚠️  Diagnosis not found: ICD A16.2
+   ⚠️  Diagnosis not found: ICD A19.9
+   ⚠️  Diagnosis not found: ICD B50.8
+   ⚠️  Diagnosis not found: ICD B51.9
+   ⚠️  Diagnosis not found: ICD B52.9
+   ⚠️  Diagnosis not found: ICD B54
+   ⚠️  Diagnosis not found: ICD B50.0
+   ⚠️  Diagnosis not found: ICD A01.0
+   ⚠️  Diagnosis not found: ICD A01.1
+   ⚠️  Diagnosis not found: ICD A01.2
+   ⚠️  Diagnosis not found: ICD A01.3
+   ⚠️  Diagnosis not found: ICD A00.9
+   ⚠️  Diagnosis not found: ICD A03.0
+   ⚠️  Diagnosis not found: ICD A03.1
+   ⚠️  Diagnosis not found: ICD A03.2
+   ⚠️  Diagnosis not found: ICD A03.3
+   ⚠️  Diagnosis not found: ICD A03.8
+   ⚠️  Diagnosis not found: ICD A03.9
+   ⚠️  Diagnosis not found: ICD A04.5
+   ⚠️  Diagnosis not found: ICD A06.0
+   ⚠️  Diagnosis not found: ICD A06.1
+   ⚠️  Diagnosis not found: ICD A06.4
+   ⚠️  Diagnosis not found: ICD A07.1
+   ⚠️  Diagnosis not found: ICD A07.2
+   ⚠️  Diagnosis not found: ICD A08.4
+   ⚠️  Diagnosis not found: ICD A09
+   ⚠️  Diagnosis not found: ICD B15.9
+   ⚠️  Diagnosis not found: ICD B16.9
+   ⚠️  Diagnosis not found: ICD B18.1
+   ⚠️  Diagnosis not found: ICD B18.2
+   ⚠️  Diagnosis not found: ICD Z22.5
+   ⚠️  Diagnosis not found: ICD B65.9
+   ⚠️  Diagnosis not found: ICD B72
+   ⚠️  Diagnosis not found: ICD B73.0
+   ⚠️  Diagnosis not found: ICD B74.9
+   ⚠️  Diagnosis not found: ICD A31.1
+   ⚠️  Diagnosis not found: ICD A30.9
+   ⚠️  Diagnosis not found: ICD B24
+   ⚠️  Diagnosis not found: ICD B20.0
+   ⚠️  Diagnosis not found: ICD Z21
+   ⚠️  Diagnosis not found: ICD B26.9
+   ⚠️  Diagnosis not found: ICD B76.9
+   ⚠️  Diagnosis not found: ICD B77.9
+   ⚠️  Diagnosis not found: ICD B79
+   ⚠️  Diagnosis not found: ICD B01.9
+   ⚠️  Diagnosis not found: ICD J06.9
+   ⚠️  Diagnosis not found: ICD J00
+   ⚠️  Diagnosis not found: ICD J01.90
+   ⚠️  Diagnosis not found: ICD J32.9
+   ⚠️  Diagnosis not found: ICD J02.9
+   ⚠️  Diagnosis not found: ICD J02.0
+   ⚠️  Diagnosis not found: ICD J03.90
+   ⚠️  Diagnosis not found: ICD J04.0
+   ⚠️  Diagnosis not found: ICD J20.9
+   ⚠️  Diagnosis not found: ICD J18.9
+   ⚠️  Diagnosis not found: ICD J18.1
+   ⚠️  Diagnosis not found: ICD J18.0
+   ⚠️  Diagnosis not found: ICD J13
+   ⚠️  Diagnosis not found: ICD J21.9
+   ⚠️  Diagnosis not found: ICD A40.9
+   ⚠️  Diagnosis not found: ICD A41.0
+   ⚠️  Diagnosis not found: ICD A41.9
+   ⚠️  Diagnosis not found: ICD E43
+   ⚠️  Diagnosis not found: ICD E44.0
+   ⚠️  Diagnosis not found: ICD E44.1
+   ⚠️  Diagnosis not found: ICD E46
+   ⚠️  Diagnosis not found: ICD E64.0
+   ⚠️  Diagnosis not found: ICD E66.9
+   ⚠️  Diagnosis not found: ICD E66.3
+   ⚠️  Diagnosis not found: ICD E66.01
+   ⚠️  Diagnosis not found: ICD D50.9
+   ⚠️  Diagnosis not found: ICD D51.9
+   ⚠️  Diagnosis not found: ICD D52.9
+   ⚠️  Diagnosis not found: ICD E01.8
+   ⚠️  Diagnosis not found: ICD E02
+   ⚠️  Diagnosis not found: ICD E50.9
+   ⚠️  Diagnosis not found: ICD E55.9
+   ⚠️  Diagnosis not found: ICD E54
+   ⚠️  Diagnosis not found: ICD E52
+   ⚠️  Diagnosis not found: ICD I10
+   ⚠️  Diagnosis not found: ICD I11.9
+   ⚠️  Diagnosis not found: ICD I12.9
+   ⚠️  Diagnosis not found: ICD I20.9
+   ⚠️  Diagnosis not found: ICD I20.8
+   ⚠️  Diagnosis not found: ICD I20.0
+   ⚠️  Diagnosis not found: ICD I21.9
+   ⚠️  Diagnosis not found: ICD I21.0
+   ⚠️  Diagnosis not found: ICD I21.4
+   ⚠️  Diagnosis not found: ICD I25.9
+   ⚠️  Diagnosis not found: ICD I50.9
+   ⚠️  Diagnosis not found: ICD I50.1
+   ⚠️  Diagnosis not found: ICD I48.91
+   ⚠️  Diagnosis not found: ICD I48.0
+   ⚠️  Diagnosis not found: ICD I48.2
+   ⚠️  Diagnosis not found: ICD I46.9
+   ⚠️  Diagnosis not found: ICD I42.9
+   ⚠️  Diagnosis not found: ICD I09.9
+   ⚠️  Diagnosis not found: ICD R07.9
+   ⚠️  Diagnosis not found: ICD Q24.9
+   ⚠️  Diagnosis not found: ICD Q21.0
+   ⚠️  Diagnosis not found: ICD Q21.1
+   ⚠️  Diagnosis not found: ICD I64
+   ⚠️  Diagnosis not found: ICD E10.9
+   ⚠️  Diagnosis not found: ICD E11.9
+   ⚠️  Diagnosis not found: ICD Z79.4
+   ⚠️  Diagnosis not found: ICD Z79.84
+   ⚠️  Diagnosis not found: ICD E10.319
+   ⚠️  Diagnosis not found: ICD E10.40
+   ⚠️  Diagnosis not found: ICD E10.621
+   ⚠️  Diagnosis not found: ICD E10.10
+   ⚠️  Diagnosis not found: ICD E10.22
+   ⚠️  Diagnosis not found: ICD E11.319
+   ⚠️  Diagnosis not found: ICD E11.40
+   ⚠️  Diagnosis not found: ICD E11.621
+   ⚠️  Diagnosis not found: ICD E11.65
+   ⚠️  Diagnosis not found: ICD E11.10
+   ⚠️  Diagnosis not found: ICD E11.22
+   ⚠️  Diagnosis not found: ICD E11.69
+   ⚠️  Diagnosis not found: ICD M06.9
+   ⚠️  Diagnosis not found: ICD M05.9
+   ⚠️  Diagnosis not found: ICD M19.90
+   ⚠️  Diagnosis not found: ICD M17.9
+   ⚠️  Diagnosis not found: ICD M16.9
+   ⚠️  Diagnosis not found: ICD M10.9
+   ⚠️  Diagnosis not found: ICD M1A.9
+   ⚠️  Diagnosis not found: ICD D57.3
+   ⚠️  Diagnosis not found: ICD J45.909
+   ⚠️  Diagnosis not found: ICD J45.20
+   ⚠️  Diagnosis not found: ICD J45.40
+   ⚠️  Diagnosis not found: ICD J45.50
+   ⚠️  Diagnosis not found: ICD J45.901
+   ⚠️  Diagnosis not found: ICD J44.9
+   ⚠️  Diagnosis not found: ICD J44.1
+   ⚠️  Diagnosis not found: ICD J43.9
+   ⚠️  Diagnosis not found: ICD J42
+   ⚠️  Diagnosis not found: ICD C50.919
+   ⚠️  Diagnosis not found: ICD C53.9
+   ⚠️  Diagnosis not found: ICD C81.9
+   ⚠️  Diagnosis not found: ICD C85.90
+   ⚠️  Diagnosis not found: ICD C83.7
+   ⚠️  Diagnosis not found: ICD C61
+   ⚠️  Diagnosis not found: ICD C22.0
+   ⚠️  Diagnosis not found: ICD C22.9
+   ⚠️  Diagnosis not found: ICD C00.9
+   ⚠️  Diagnosis not found: ICD C02.9
+   ⚠️  Diagnosis not found: ICD C06.9
+   ⚠️  Diagnosis not found: ICD C15.9
+   ⚠️  Diagnosis not found: ICD C16.9
+   ⚠️  Diagnosis not found: ICD C18.9
+   ⚠️  Diagnosis not found: ICD C20
+   ⚠️  Diagnosis not found: ICD C25.9
+   ⚠️  Diagnosis not found: ICD C32.9
+   ⚠️  Diagnosis not found: ICD C34.90
+   ⚠️  Diagnosis not found: ICD C56
+   ⚠️  Diagnosis not found: ICD C67.9
+   ⚠️  Diagnosis not found: ICD C64.9
+   ⚠️  Diagnosis not found: ICD C43.9
+   ⚠️  Diagnosis not found: ICD C44.9
+   ⚠️  Diagnosis not found: ICD C73
+   ⚠️  Diagnosis not found: ICD C91.00
+   ⚠️  Diagnosis not found: ICD C92.00
+   ⚠️  Diagnosis not found: ICD C91.10
+   ⚠️  Diagnosis not found: ICD C92.10
+   ⚠️  Diagnosis not found: ICD C90.0
+   ⚠️  Diagnosis not found: ICD C69.2
+   ⚠️  Diagnosis not found: ICD C64
+   ⚠️  Diagnosis not found: ICD D24.9
+   ⚠️  Diagnosis not found: ICD F20.9
+   ⚠️  Diagnosis not found: ICD F25.9
+   ⚠️  Diagnosis not found: ICD F23.9
+   ⚠️  Diagnosis not found: ICD F22.0
+   ⚠️  Diagnosis not found: ICD F31.3
+   ⚠️  Diagnosis not found: ICD F31.2
+   ⚠️  Diagnosis not found: ICD F31.9
+   ⚠️  Diagnosis not found: ICD F32.9
+   ⚠️  Diagnosis not found: ICD F33.9
+   ⚠️  Diagnosis not found: ICD F41.1
+   ⚠️  Diagnosis not found: ICD F41.0
+   ⚠️  Diagnosis not found: ICD F41.9
+   ⚠️  Diagnosis not found: ICD F42.9
+   ⚠️  Diagnosis not found: ICD F43.10
+   ⚠️  Diagnosis not found: ICD F43.0
+   ⚠️  Diagnosis not found: ICD F43.22
+   ⚠️  Diagnosis not found: ICD F43.21
+   ⚠️  Diagnosis not found: ICD F44.9
+   ⚠️  Diagnosis not found: ICD F48.9
+   ⚠️  Diagnosis not found: ICD F10.20
+   ⚠️  Diagnosis not found: ICD F10.239
+   ⚠️  Diagnosis not found: ICD F12.20
+   ⚠️  Diagnosis not found: ICD F17.200
+   ⚠️  Diagnosis not found: ICD F11.20
+   ⚠️  Diagnosis not found: ICD F84.0
+   ⚠️  Diagnosis not found: ICD F84.5
+   ⚠️  Diagnosis not found: ICD F90.9
+   ⚠️  Diagnosis not found: ICD F79
+   ⚠️  Diagnosis not found: ICD F91.3
+   ⚠️  Diagnosis not found: ICD F91.9
+   ⚠️  Diagnosis not found: ICD F81.9
+   ⚠️  Diagnosis not found: ICD F95.2
+   ⚠️  Diagnosis not found: ICD Q90.9
+   ⚠️  Diagnosis not found: ICD G40.909
+   ⚠️  Diagnosis not found: ICD G40.3
+   ⚠️  Diagnosis not found: ICD G40.1
+   ⚠️  Diagnosis not found: ICD G40.901
+   ⚠️  Diagnosis not found: ICD R56.00
+   ⚠️  Diagnosis not found: ICD G80.9
+   ⚠️  Diagnosis not found: ICD G80.0
+   ⚠️  Diagnosis not found: ICD G80.1
+   ⚠️  Diagnosis not found: ICD H10.9
+   ⚠️  Diagnosis not found: ICD H10.1
+   ⚠️  Diagnosis not found: ICD H10.021
+   ⚠️  Diagnosis not found: ICD B30.9
+   ⚠️  Diagnosis not found: ICD H00.019
+   ⚠️  Diagnosis not found: ICD H16.0
+   ⚠️  Diagnosis not found: ICD H01.009
+   ⚠️  Diagnosis not found: ICD H26.9
+   ⚠️  Diagnosis not found: ICD H25.9
+   ⚠️  Diagnosis not found: ICD H40.9
+   ⚠️  Diagnosis not found: ICD H40.11
+   ⚠️  Diagnosis not found: ICD H40.0
+   ⚠️  Diagnosis not found: ICD A71.9
+   ⚠️  Diagnosis not found: ICD H66.90
+   ⚠️  Diagnosis not found: ICD H65.0
+   ⚠️  Diagnosis not found: ICD H66.0
+   ⚠️  Diagnosis not found: ICD H66.1
+   ⚠️  Diagnosis not found: ICD H70.9
+   ⚠️  Diagnosis not found: ICD H60.9
+   ⚠️  Diagnosis not found: ICD H60.5
+   ⚠️  Diagnosis not found: ICD H61.2
+   ⚠️  Diagnosis not found: ICD K02.9
+   ⚠️  Diagnosis not found: ICD K04.7
+   ⚠️  Diagnosis not found: ICD S09.90XA
+   ⚠️  Diagnosis not found: ICD K05.6
+   ⚠️  Diagnosis not found: ICD K06.8
+   ⚠️  Diagnosis not found: ICD B37.0
+   ⚠️  Diagnosis not found: ICD K13.7
+   ⚠️  Diagnosis not found: ICD K74.60
+   ⚠️  Diagnosis not found: ICD K70.9
+   ⚠️  Diagnosis not found: ICD K70.30
+   ⚠️  Diagnosis not found: ICD K76.0
+   ⚠️  Diagnosis not found: ICD K76.9
+   ⚠️  Diagnosis not found: ICD N39.0
+   ⚠️  Diagnosis not found: ICD N10
+   ⚠️  Diagnosis not found: ICD N30.00
+   ⚠️  Diagnosis not found: ICD R30.0
+   ⚠️  Diagnosis not found: ICD L01.0
+   ⚠️  Diagnosis not found: ICD L02.91
+   ⚠️  Diagnosis not found: ICD L03.119
+   ⚠️  Diagnosis not found: ICD L03.115
+   ⚠️  Diagnosis not found: ICD L03.211
+   ⚠️  Diagnosis not found: ICD L03.9
+   ⚠️  Diagnosis not found: ICD L20.9
+   ⚠️  Diagnosis not found: ICD L25.9
+   ⚠️  Diagnosis not found: ICD L40.9
+   ⚠️  Diagnosis not found: ICD L70.0
+   ⚠️  Diagnosis not found: ICD L50.9
+   ⚠️  Diagnosis not found: ICD L29.9
+   ⚠️  Diagnosis not found: ICD B35.4
+   ⚠️  Diagnosis not found: ICD B35.0
+   ⚠️  Diagnosis not found: ICD B35.3
+   ⚠️  Diagnosis not found: ICD B36.0
+   ⚠️  Diagnosis not found: ICD B86
+   ⚠️  Diagnosis not found: ICD B85.2
+   ⚠️  Diagnosis not found: ICD B37.9
+   ⚠️  Diagnosis not found: ICD B02.9
+   ⚠️  Diagnosis not found: ICD B02.32
+   ⚠️  Diagnosis not found: ICD B00.9
+   ⚠️  Diagnosis not found: ICD B07.0
+   ⚠️  Diagnosis not found: ICD B08.1
+   ⚠️  Diagnosis not found: ICD A46
+   ⚠️  Diagnosis not found: ICD D23.9
+   ⚠️  Diagnosis not found: ICD E70.3
+   ⚠️  Diagnosis not found: ICD L89.90
+   ⚠️  Diagnosis not found: ICD L97.909
+   ⚠️  Diagnosis not found: ICD N00.9
+   ⚠️  Diagnosis not found: ICD N18.1
+   ⚠️  Diagnosis not found: ICD N18.2
+   ⚠️  Diagnosis not found: ICD N18.3
+   ⚠️  Diagnosis not found: ICD N18.4
+   ⚠️  Diagnosis not found: ICD N18.5
+   ⚠️  Diagnosis not found: ICD N17.9
+   ⚠️  Diagnosis not found: ICD N04.9
+   ⚠️  Diagnosis not found: ICD N94.9
+   ⚠️  Diagnosis not found: ICD N83.20
+   ⚠️  Diagnosis not found: ICD N92.0
+   ⚠️  Diagnosis not found: ICD N94.6
+   ⚠️  Diagnosis not found: ICD N80.9
+   ⚠️  Diagnosis not found: ICD D25.9
+   ⚠️  Diagnosis not found: ICD D26.0
+   ⚠️  Diagnosis not found: ICD N73.9
+   ⚠️  Diagnosis not found: ICD N97.9
+   ⚠️  Diagnosis not found: ICD N87.0
+   ⚠️  Diagnosis not found: ICD N87.1
+   ⚠️  Diagnosis not found: ICD N87.2
+   ⚠️  Diagnosis not found: ICD O00.9
+   ⚠️  Diagnosis not found: ICD O20.9
+   ⚠️  Diagnosis not found: ICD O20.0
+   ⚠️  Diagnosis not found: ICD O03.4
+   ⚠️  Diagnosis not found: ICD O21.1
+   ⚠️  Diagnosis not found: ICD O98.61
+   ⚠️  Diagnosis not found: ICD O14.90
+   ⚠️  Diagnosis not found: ICD O14.0
+   ⚠️  Diagnosis not found: ICD O14.1
+   ⚠️  Diagnosis not found: ICD O15.9
+   ⚠️  Diagnosis not found: ICD O24.4
+   ⚠️  Diagnosis not found: ICD O46.90
+   ⚠️  Diagnosis not found: ICD O44.00
+   ⚠️  Diagnosis not found: ICD O45.9
+   ⚠️  Diagnosis not found: ICD O42.90
+   ⚠️  Diagnosis not found: ICD O48.0
+   ⚠️  Diagnosis not found: ICD O66.9
+   ⚠️  Diagnosis not found: ICD O68
+   ⚠️  Diagnosis not found: ICD O80
+   ⚠️  Diagnosis not found: ICD O82
+   ⚠️  Diagnosis not found: ICD O81.0
+   ⚠️  Diagnosis not found: ICD O81.4
+   ⚠️  Diagnosis not found: ICD O72.1
+   ⚠️  Diagnosis not found: ICD O73.0
+   ⚠️  Diagnosis not found: ICD O86.0
+   ⚠️  Diagnosis not found: ICD Z34.00
+   ⚠️  Diagnosis not found: ICD Z39.0
+   ⚠️  Diagnosis not found: ICD O99.011
+   ⚠️  Diagnosis not found: ICD F53.0
+   ⚠️  Diagnosis not found: ICD A54.9
+   ⚠️  Diagnosis not found: ICD A51.0
+   ⚠️  Diagnosis not found: ICD A51.3
+   ⚠️  Diagnosis not found: ICD A60.9
+   ⚠️  Diagnosis not found: ICD A56.0
+   ⚠️  Diagnosis not found: ICD A59.0
+   ⚠️  Diagnosis not found: ICD B37.3
+   ⚠️  Diagnosis not found: ICD N34.2
+   ⚠️  Diagnosis not found: ICD R36.9
+   ⚠️  Diagnosis not found: ICD N89.8
+   ⚠️  Diagnosis not found: ICD A63.0
+   ⚠️  Diagnosis not found: ICD N40.0
+   ⚠️  Diagnosis not found: ICD N40.1
+   ⚠️  Diagnosis not found: ICD N41.9
+   ⚠️  Diagnosis not found: ICD N52.9
+   ⚠️  Diagnosis not found: ICD N50.819
+   ⚠️  Diagnosis not found: ICD N43.3
+   ⚠️  Diagnosis not found: ICD N46.9
+   ⚠️  Diagnosis not found: ICD Z31.41
+   ⚠️  Diagnosis not found: ICD V89.2XXA
+   ⚠️  Diagnosis not found: ICD S06.9X0A
+   ⚠️  Diagnosis not found: ICD S72.90XA
+   ⚠️  Diagnosis not found: ICD S82.90XA
+   ⚠️  Diagnosis not found: ICD S52.90XA
+   ⚠️  Diagnosis not found: ICD S42.009A
+   ⚠️  Diagnosis not found: ICD S93.409A
+   ⚠️  Diagnosis not found: ICD S63.509A
+   ⚠️  Diagnosis not found: ICD W18.30XA
+   ⚠️  Diagnosis not found: ICD S01.90XA
+   ⚠️  Diagnosis not found: ICD S80.91XA
+   ⚠️  Diagnosis not found: ICD T17.208A
+   ⚠️  Diagnosis not found: ICD T16.XXA
+   ⚠️  Diagnosis not found: ICD T15.90XA
+   ⚠️  Diagnosis not found: ICD S61.209A
+   ⚠️  Diagnosis not found: ICD T22.009A
+   ⚠️  Diagnosis not found: ICD T20.00XA
+   ⚠️  Diagnosis not found: ICD W54.0XXA
+   ⚠️  Diagnosis not found: ICD W56.41XA
+   ⚠️  Diagnosis not found: ICD T63.001A
+   ⚠️  Diagnosis not found: ICD W53.81XA
+   ⚠️  Diagnosis not found: ICD W55.89XA
+   ⚠️  Diagnosis not found: ICD T63.2X1A
+   ⚠️  Diagnosis not found: ICD T60.91XA
+   ⚠️  Diagnosis not found: ICD T58.01XA
+   ⚠️  Diagnosis not found: ICD T56.0X1A
+   ⚠️  Diagnosis not found: ICD T74.21XA
+   ⚠️  Diagnosis not found: ICD Y08.XXXA
+   ⚠️  Diagnosis not found: ICD R50.9
+   ⚠️  Diagnosis not found: ICD R50.82
+   ⚠️  Diagnosis not found: ICD Z03.89
+   ⚠️  Diagnosis not found: ICD E03.9
+   ⚠️  Diagnosis not found: ICD E03.1
+   ⚠️  Diagnosis not found: ICD E05.90
+   ⚠️  Diagnosis not found: ICD E05.0
+   ⚠️  Diagnosis not found: ICD E01.8
+   ⚠️  Diagnosis not found: ICD I26.9
+   ⚠️  Diagnosis not found: ICD G82.20
+   ⚠️  Diagnosis not found: ICD G82.50
+   ⚠️  Diagnosis not found: ICD R55
+   ⚠️  Diagnosis not found: ICD E86.9
+   ⚠️  Diagnosis not found: ICD K35.80
+   ⚠️  Diagnosis not found: ICD K35.2
+   ⚠️  Diagnosis not found: ICD K40.90
+   ⚠️  Diagnosis not found: ICD K42.9
+   ⚠️  Diagnosis not found: ICD K43.9
+   ⚠️  Diagnosis not found: ICD K64.9
+   ⚠️  Diagnosis not found: ICD K60.0
+   ⚠️  Diagnosis not found: ICD K81.0
+   ⚠️  Diagnosis not found: ICD K81.1
+   ⚠️  Diagnosis not found: ICD K80.20
+   ⚠️  Diagnosis not found: ICD K85.90
+   ⚠️  Diagnosis not found: ICD K86.1
+   ⚠️  Diagnosis not found: ICD K64.9
+   ⚠️  Diagnosis not found: ICD K25.9
+   ⚠️  Diagnosis not found: ICD K26.9
+   ⚠️  Diagnosis not found: ICD K27.9
+   ⚠️  Diagnosis not found: ICD R10.9
+   ⚠️  Diagnosis not found: ICD R10.13
+   ⚠️  Diagnosis not found: ICD R10.11
+   ⚠️  Diagnosis not found: ICD R10.2
+   ⚠️  Diagnosis not found: ICD R11.2
+   ⚠️  Diagnosis not found: ICD R19.7
+   ⚠️  Diagnosis not found: ICD M86.9
+   ⚠️  Diagnosis not found: ICD M00.9
+   ⚠️  Diagnosis not found: ICD Z34.00
+   ⚠️  Diagnosis not found: ICD P36.9
+   ⚠️  Diagnosis not found: ICD P59.9
+   ⚠️  Diagnosis not found: ICD P59.8
+   ⚠️  Diagnosis not found: ICD P22.0
+   ⚠️  Diagnosis not found: ICD P21.9
+   ⚠️  Diagnosis not found: ICD P05.9
+   ⚠️  Diagnosis not found: ICD P07.30
+   ⚠️  Diagnosis not found: ICD P52.9
+   ⚠️  Diagnosis not found: ICD P39.8
+   ⚠️  Diagnosis not found: ICD Q36.9
+   ⚠️  Diagnosis not found: ICD Q35.9
+   ⚠️  Diagnosis not found: ICD Q05.9
+   ⚠️  Diagnosis not found: ICD Q03.9
+   ⚠️  Diagnosis not found: ICD R51
+   ⚠️  Diagnosis not found: ICD R42
+   ⚠️  Diagnosis not found: ICD R53.83
+   ⚠️  Diagnosis not found: ICD R60.9
+   ⚠️  Diagnosis not found: ICD R06.02
+   ⚠️  Diagnosis not found: ICD R05
+   ⚠️  Diagnosis not found: ICD R31.9
+   ⚠️  Diagnosis not found: ICD K59.00
+   ⚠️  Diagnosis not found: ICD R42
+   ⚠️  Diagnosis not found: ICD Z00.00
+   ⚠️  Diagnosis not found: ICD Z23
+   ⚠️  Diagnosis not found: ICD Z20.9
+   ⚠️  Diagnosis not found: ICD Z22.9
+   ⚠️  Diagnosis not found: ICD T67.01XA
+   ⚠️  Diagnosis not found: ICD M54.5
+   ⚠️  Diagnosis not found: ICD M54.2
+   ⚠️  Diagnosis not found: ICD M54.3
+   ⚠️  Diagnosis not found: ICD M51.9
+   ⚠️  Diagnosis not found: ICD M51.16
+   ⚠️  Diagnosis not found: ICD M81.0
+   ⚠️  Diagnosis not found: ICD M79.1
+   ⚠️  Diagnosis not found: ICD M71.9
+   ⚠️  Diagnosis not found: ICD M77.9
+   ⚠️  Diagnosis not found: ICD G56.00
+   ⚠️  Diagnosis not found: ICD M32.9
+   ⚠️  Diagnosis not found: ICD M34.9
+   ⚠️  Diagnosis not found: ICD G20
+   ⚠️  Diagnosis not found: ICD G30.9
+   ⚠️  Diagnosis not found: ICD F03.90
+   ⚠️  Diagnosis not found: ICD G43.909
+   ⚠️  Diagnosis not found: ICD G43.109
+   ⚠️  Diagnosis not found: ICD G44.209
+   ⚠️  Diagnosis not found: ICD I83.9
+   ⚠️  Diagnosis not found: ICD I80.209
+   ⚠️  Diagnosis not found: ICD J03.90
+   ⚠️  Diagnosis not found: ICD H52.7
+   ⚠️  Diagnosis not found: ICD H52.1
+   ⚠️  Diagnosis not found: ICD H52.4
+   ⚠️  Diagnosis not found: ICD E70.3
+   ⚠️  Diagnosis not found: ICD G35
+   ⚠️  Diagnosis not found: ICD G61.0
+   ⚠️  Diagnosis not found: ICD G70.0
+   ⚠️  Diagnosis not found: ICD G51.0
+   ⚠️  Diagnosis not found: ICD G50.0
+   ⚠️  Diagnosis not found: ICD G25.0
+   ⚠️  Diagnosis not found: ICD G04.9
+   ⚠️  Diagnosis not found: ICD K56.609
+   ⚠️  Diagnosis not found: ICD K51.90
+   ⚠️  Diagnosis not found: ICD K50.90
+   ⚠️  Diagnosis not found: ICD K58.9
+   ⚠️  Diagnosis not found: ICD K58.0
+   ⚠️  Diagnosis not found: ICD E87.8
+   ⚠️  Diagnosis not found: ICD E87.6
+   ⚠️  Diagnosis not found: ICD E87.5
+   ⚠️  Diagnosis not found: ICD E87.1
+   ⚠️  Diagnosis not found: ICD E87.0
+   ⚠️  Diagnosis not found: ICD H90.3
+   ⚠️  Diagnosis not found: ICD H90.1
+   ⚠️  Diagnosis not found: ICD H72.9
+📋 Found:
+   0 procedure templates
+   0 ServiceCatalog rows with procedureTemplateId
+   0 templates resolved to a ServiceCatalog ID
+   0 GDRG tariffs
+
+
+════════════════════════════════════════════
+✅  SEED COMPLETE
+    Links created/updated      : 0
+    Templates not in DB        : 314
+    No ServiceCatalog entry    : 0
+    GDRGs not in DB            : 0
+    Templates w/o mapping      : 0
+    Mappings processed         : 314
+════════════════════════════════════════════
+
+💡 TIP: "No ServiceCatalog entry" means the ProcedureTemplate exists
+   but has no ServiceCatalog row with procedureTemplateId pointing to it.
+   Run your ServiceCatalog seed first, then re-run this script.
+
+⚠️  Warnings / Errors:
+   ⚠️  ProcedureTemplate not found: ASUR01A
+   ⚠️  ProcedureTemplate not found: ASUR02A
+   ⚠️  ProcedureTemplate not found: ASUR03A
+   ⚠️  ProcedureTemplate not found: ASUR04A
+   ⚠️  ProcedureTemplate not found: ASUR05A
+   ⚠️  ProcedureTemplate not found: ASUR06A
+   ⚠️  ProcedureTemplate not found: ASUR07A
+   ⚠️  ProcedureTemplate not found: ASUR08A
+   ⚠️  ProcedureTemplate not found: ASUR09A
+   ⚠️  ProcedureTemplate not found: ASUR10A
+   ⚠️  ProcedureTemplate not found: ASUR11A
+   ⚠️  ProcedureTemplate not found: ASUR12A
+   ⚠️  ProcedureTemplate not found: ASUR13A
+   ⚠️  ProcedureTemplate not found: ASUR14A
+   ⚠️  ProcedureTemplate not found: ASUR15A
+   ⚠️  ProcedureTemplate not found: ASUR16A
+   ⚠️  ProcedureTemplate not found: ASUR17A
+   ⚠️  ProcedureTemplate not found: ASUR18A
+   ⚠️  ProcedureTemplate not found: ASUR19A
+   ⚠️  ProcedureTemplate not found: ASUR20A
+   ⚠️  ProcedureTemplate not found: ASUR21A
+   ⚠️  ProcedureTemplate not found: ASUR22A
+   ⚠️  ProcedureTemplate not found: ASUR23A
+   ⚠️  ProcedureTemplate not found: ASUR24A
+   ⚠️  ProcedureTemplate not found: ASUR25A
+   ⚠️  ProcedureTemplate not found: ASUR27A
+   ⚠️  ProcedureTemplate not found: ASUR28A
+   ⚠️  ProcedureTemplate not found: ASUR29A
+   ⚠️  ProcedureTemplate not found: ASUR30A
+   ⚠️  ProcedureTemplate not found: ASUR31A
+   ⚠️  ProcedureTemplate not found: ASUR32A
+   ⚠️  ProcedureTemplate not found: ASUR33A
+   ⚠️  ProcedureTemplate not found: ASUR34A
+   ⚠️  ProcedureTemplate not found: ASUR35A
+   ⚠️  ProcedureTemplate not found: ASUR36A
+   ⚠️  ProcedureTemplate not found: ASUR37A
+   ⚠️  ProcedureTemplate not found: DENT01A
+   ⚠️  ProcedureTemplate not found: DENT01C
+   ⚠️  ProcedureTemplate not found: DENT02A
+   ⚠️  ProcedureTemplate not found: DENT03A
+   ⚠️  ProcedureTemplate not found: DENT03C
+   ⚠️  ProcedureTemplate not found: DENT04A
+   ⚠️  ProcedureTemplate not found: DENT04C
+   ⚠️  ProcedureTemplate not found: DENT05A
+   ⚠️  ProcedureTemplate not found: DENT05C
+   ⚠️  ProcedureTemplate not found: DENT06A
+   ⚠️  ProcedureTemplate not found: DENT06C
+   ⚠️  ProcedureTemplate not found: DENT07A
+   ⚠️  ProcedureTemplate not found: DENT07C
+   ⚠️  ProcedureTemplate not found: DENT08A
+   ⚠️  ProcedureTemplate not found: DENT08C
+   ⚠️  ProcedureTemplate not found: DENT09A
+   ⚠️  ProcedureTemplate not found: DENT09C
+   ⚠️  ProcedureTemplate not found: DENT10A
+   ⚠️  ProcedureTemplate not found: DENT10C
+   ⚠️  ProcedureTemplate not found: DENT11A
+   ⚠️  ProcedureTemplate not found: DENT11C
+   ⚠️  ProcedureTemplate not found: DENT12A
+   ⚠️  ProcedureTemplate not found: DENT12C
+   ⚠️  ProcedureTemplate not found: DENT13A
+   ⚠️  ProcedureTemplate not found: DENT13C
+   ⚠️  ProcedureTemplate not found: DENT14A
+   ⚠️  ProcedureTemplate not found: DENT14C
+   ⚠️  ProcedureTemplate not found: DENT15A
+   ⚠️  ProcedureTemplate not found: DENT15C
+   ⚠️  ProcedureTemplate not found: DENT16A
+   ⚠️  ProcedureTemplate not found: DENT16C
+   ⚠️  ProcedureTemplate not found: DENT17A
+   ⚠️  ProcedureTemplate not found: DENT17C
+   ⚠️  ProcedureTemplate not found: DENT18A
+   ⚠️  ProcedureTemplate not found: DENT18C
+   ⚠️  ProcedureTemplate not found: DENT19A
+   ⚠️  ProcedureTemplate not found: DENT19C
+   ⚠️  ProcedureTemplate not found: DENT20A
+   ⚠️  ProcedureTemplate not found: DENT20C
+   ⚠️  ProcedureTemplate not found: DENT21A
+   ⚠️  ProcedureTemplate not found: DENT21C
+   ⚠️  ProcedureTemplate not found: DENT22A
+   ⚠️  ProcedureTemplate not found: DENT22C
+   ⚠️  ProcedureTemplate not found: DENT23A
+   ⚠️  ProcedureTemplate not found: DENT23C
+   ⚠️  ProcedureTemplate not found: DENT24A
+   ⚠️  ProcedureTemplate not found: DENT24C
+   ⚠️  ProcedureTemplate not found: ENTH01A
+   ⚠️  ProcedureTemplate not found: ENTH01C
+   ⚠️  ProcedureTemplate not found: ENTH02A
+   ⚠️  ProcedureTemplate not found: ENTH02C
+   ⚠️  ProcedureTemplate not found: ENTH05A
+   ⚠️  ProcedureTemplate not found: ENTH05C
+   ⚠️  ProcedureTemplate not found: ENTH06A
+   ⚠️  ProcedureTemplate not found: ENTH06C
+   ⚠️  ProcedureTemplate not found: ENTH07A
+   ⚠️  ProcedureTemplate not found: ENTH07C
+   ⚠️  ProcedureTemplate not found: ENTH08A
+   ⚠️  ProcedureTemplate not found: ENTH08C
+   ⚠️  ProcedureTemplate not found: ENTH09A
+   ⚠️  ProcedureTemplate not found: ENTH09C
+   ⚠️  ProcedureTemplate not found: ENTH10A
+   ⚠️  ProcedureTemplate not found: ENTH10C
+   ⚠️  ProcedureTemplate not found: ENTH12A
+   ⚠️  ProcedureTemplate not found: ENTH12C
+   ⚠️  ProcedureTemplate not found: ENTH13A
+   ⚠️  ProcedureTemplate not found: ENTH13C
+   ⚠️  ProcedureTemplate not found: ENTH14A
+   ⚠️  ProcedureTemplate not found: ENTH14C
+   ⚠️  ProcedureTemplate not found: ENTH15A
+   ⚠️  ProcedureTemplate not found: ENTH15C
+   ⚠️  ProcedureTemplate not found: ENTH16A
+   ⚠️  ProcedureTemplate not found: ENTH16C
+   ⚠️  ProcedureTemplate not found: ENTH17A
+   ⚠️  ProcedureTemplate not found: ENTH17C
+   ⚠️  ProcedureTemplate not found: ENTH18A
+   ⚠️  ProcedureTemplate not found: ENTH18C
+   ⚠️  ProcedureTemplate not found: ENTH19A
+   ⚠️  ProcedureTemplate not found: ENTH19C
+   ⚠️  ProcedureTemplate not found: ENTH20A
+   ⚠️  ProcedureTemplate not found: ENTH20C
+   ⚠️  ProcedureTemplate not found: ENTH21A
+   ⚠️  ProcedureTemplate not found: ENTH21C
+   ⚠️  ProcedureTemplate not found: ENTH22A
+   ⚠️  ProcedureTemplate not found: ENTH22C
+   ⚠️  ProcedureTemplate not found: ENTH23A
+   ⚠️  ProcedureTemplate not found: ENTH23C
+   ⚠️  ProcedureTemplate not found: ENTH24A
+   ⚠️  ProcedureTemplate not found: ENTH24C
+   ⚠️  ProcedureTemplate not found: OBGY01A
+   ⚠️  ProcedureTemplate not found: OBGY02A
+   ⚠️  ProcedureTemplate not found: OBGY03A
+   ⚠️  ProcedureTemplate not found: OBGY04A
+   ⚠️  ProcedureTemplate not found: OBGY05A
+   ⚠️  ProcedureTemplate not found: OBGY06A
+   ⚠️  ProcedureTemplate not found: OBGY07A
+   ⚠️  ProcedureTemplate not found: OBGY08A
+   ⚠️  ProcedureTemplate not found: OBGY09A
+   ⚠️  ProcedureTemplate not found: OBGY10A
+   ⚠️  ProcedureTemplate not found: OBGY11A
+   ⚠️  ProcedureTemplate not found: OBGY12A
+   ⚠️  ProcedureTemplate not found: OBGY13A
+   ⚠️  ProcedureTemplate not found: OBGY14A
+   ⚠️  ProcedureTemplate not found: OBGY15A
+   ⚠️  ProcedureTemplate not found: OBGY16A
+   ⚠️  ProcedureTemplate not found: OBGY17A
+   ⚠️  ProcedureTemplate not found: OBGY18A
+   ⚠️  ProcedureTemplate not found: OBGY19A
+   ⚠️  ProcedureTemplate not found: OBGY20A
+   ⚠️  ProcedureTemplate not found: OBGY21A
+   ⚠️  ProcedureTemplate not found: OBGY22A
+   ⚠️  ProcedureTemplate not found: OBGY23A
+   ⚠️  ProcedureTemplate not found: OBGY24A
+   ⚠️  ProcedureTemplate not found: OBGY25A
+   ⚠️  ProcedureTemplate not found: OBGY26A
+   ⚠️  ProcedureTemplate not found: OBGY27A
+   ⚠️  ProcedureTemplate not found: OBGY28A
+   ⚠️  ProcedureTemplate not found: OBGY29A
+   ⚠️  ProcedureTemplate not found: OBGY30A
+   ⚠️  ProcedureTemplate not found: OBGY31A
+   ⚠️  ProcedureTemplate not found: OBGY32A
+   ⚠️  ProcedureTemplate not found: OBGY34A
+   ⚠️  ProcedureTemplate not found: OBGY35A
+   ⚠️  ProcedureTemplate not found: OBGY36A
+   ⚠️  ProcedureTemplate not found: OBGY38A
+   ⚠️  ProcedureTemplate not found: OBGY39A
+   ⚠️  ProcedureTemplate not found: OBGY40A
+   ⚠️  ProcedureTemplate not found: OPHT01A
+   ⚠️  ProcedureTemplate not found: OPHT01C
+   ⚠️  ProcedureTemplate not found: OPHT02A
+   ⚠️  ProcedureTemplate not found: OPHT02C
+   ⚠️  ProcedureTemplate not found: OPHT03A
+   ⚠️  ProcedureTemplate not found: OPHT03C
+   ⚠️  ProcedureTemplate not found: OPHT04A
+   ⚠️  ProcedureTemplate not found: OPHT04C
+   ⚠️  ProcedureTemplate not found: OPHT05A
+   ⚠️  ProcedureTemplate not found: OPHT05C
+   ⚠️  ProcedureTemplate not found: OPHT06A
+   ⚠️  ProcedureTemplate not found: OPHT06C
+   ⚠️  ProcedureTemplate not found: OPHT07A
+   ⚠️  ProcedureTemplate not found: OPHT07C
+   ⚠️  ProcedureTemplate not found: OPHT08A
+   ⚠️  ProcedureTemplate not found: OPHT08C
+   ⚠️  ProcedureTemplate not found: OPHT09A
+   ⚠️  ProcedureTemplate not found: OPHT09C
+   ⚠️  ProcedureTemplate not found: OPHT10A
+   ⚠️  ProcedureTemplate not found: OPHT10C
+   ⚠️  ProcedureTemplate not found: OPHT18A
+   ⚠️  ProcedureTemplate not found: ORTH01A
+   ⚠️  ProcedureTemplate not found: ORTH01C
+   ⚠️  ProcedureTemplate not found: ORTH02A
+   ⚠️  ProcedureTemplate not found: ORTH02C
+   ⚠️  ProcedureTemplate not found: ORTH03A
+   ⚠️  ProcedureTemplate not found: ORTH03C
+   ⚠️  ProcedureTemplate not found: ORTH04A
+   ⚠️  ProcedureTemplate not found: ORTH04C
+   ⚠️  ProcedureTemplate not found: ORTH05A
+   ⚠️  ProcedureTemplate not found: ORTH05C
+   ⚠️  ProcedureTemplate not found: ORTH07A
+   ⚠️  ProcedureTemplate not found: ORTH07C
+   ⚠️  ProcedureTemplate not found: ORTH08A
+   ⚠️  ProcedureTemplate not found: ORTH08C
+   ⚠️  ProcedureTemplate not found: ORTH09A
+   ⚠️  ProcedureTemplate not found: ORTH09C
+   ⚠️  ProcedureTemplate not found: ORTH10A
+   ⚠️  ProcedureTemplate not found: ORTH10C
+   ⚠️  ProcedureTemplate not found: ORTH11A
+   ⚠️  ProcedureTemplate not found: ORTH11C
+   ⚠️  ProcedureTemplate not found: ORTH12A
+   ⚠️  ProcedureTemplate not found: ORTH12C
+   ⚠️  ProcedureTemplate not found: ORTH14A
+   ⚠️  ProcedureTemplate not found: ORTH14C
+   ⚠️  ProcedureTemplate not found: ORTH15A
+   ⚠️  ProcedureTemplate not found: ORTH15C
+   ⚠️  ProcedureTemplate not found: ORTH16A
+   ⚠️  ProcedureTemplate not found: ORTH16C
+   ⚠️  ProcedureTemplate not found: ORTH17A
+   ⚠️  ProcedureTemplate not found: ORTH17C
+   ⚠️  ProcedureTemplate not found: ORTH18A
+   ⚠️  ProcedureTemplate not found: ORTH18C
+   ⚠️  ProcedureTemplate not found: ORTH19A
+   ⚠️  ProcedureTemplate not found: ORTH19C
+   ⚠️  ProcedureTemplate not found: ORTH20A
+   ⚠️  ProcedureTemplate not found: ORTH20C
+   ⚠️  ProcedureTemplate not found: ORTH22A
+   ⚠️  ProcedureTemplate not found: ORTH22C
+   ⚠️  ProcedureTemplate not found: ORTH23A
+   ⚠️  ProcedureTemplate not found: ORTH23C
+   ⚠️  ProcedureTemplate not found: ORTH24A
+   ⚠️  ProcedureTemplate not found: ORTH24C
+   ⚠️  ProcedureTemplate not found: ORTH25A
+   ⚠️  ProcedureTemplate not found: ORTH25C
+   ⚠️  ProcedureTemplate not found: ORTH26A
+   ⚠️  ProcedureTemplate not found: ORTH26C
+   ⚠️  ProcedureTemplate not found: ORTH27A
+   ⚠️  ProcedureTemplate not found: ORTH27C
+   ⚠️  ProcedureTemplate not found: PSUR01C
+   ⚠️  ProcedureTemplate not found: PSUR02C
+   ⚠️  ProcedureTemplate not found: PSUR03C
+   ⚠️  ProcedureTemplate not found: PSUR04C
+   ⚠️  ProcedureTemplate not found: PSUR05C
+   ⚠️  ProcedureTemplate not found: PSUR06C
+   ⚠️  ProcedureTemplate not found: PSUR07C
+   ⚠️  ProcedureTemplate not found: PSUR08C
+   ⚠️  ProcedureTemplate not found: PSUR09C
+   ⚠️  ProcedureTemplate not found: PSUR10C
+   ⚠️  ProcedureTemplate not found: PSUR11C
+   ⚠️  ProcedureTemplate not found: PSUR12C
+   ⚠️  ProcedureTemplate not found: PSUR14C
+   ⚠️  ProcedureTemplate not found: PSUR15C
+   ⚠️  ProcedureTemplate not found: PSUR16C
+   ⚠️  ProcedureTemplate not found: PSUR17C
+   ⚠️  ProcedureTemplate not found: PSUR18C
+   ⚠️  ProcedureTemplate not found: PSUR19C
+   ⚠️  ProcedureTemplate not found: PSUR20C
+   ⚠️  ProcedureTemplate not found: PSUR21C
+   ⚠️  ProcedureTemplate not found: PSUR23C
+   ⚠️  ProcedureTemplate not found: PSUR24C
+   ⚠️  ProcedureTemplate not found: PSUR25C
+   ⚠️  ProcedureTemplate not found: PSUR27C
+   ⚠️  ProcedureTemplate not found: PSUR28C
+   ⚠️  ProcedureTemplate not found: RSURO1A
+   ⚠️  ProcedureTemplate not found: RSURO1C
+   ⚠️  ProcedureTemplate not found: RSURO2A
+   ⚠️  ProcedureTemplate not found: RSURO2C
+   ⚠️  ProcedureTemplate not found: RSURO3A
+   ⚠️  ProcedureTemplate not found: RSURO3C
+   ⚠️  ProcedureTemplate not found: RSURO4A
+   ⚠️  ProcedureTemplate not found: RSURO4C
+   ⚠️  ProcedureTemplate not found: RSURO5A
+   ⚠️  ProcedureTemplate not found: RSURO5C
+   ⚠️  ProcedureTemplate not found: RSURO6A
+   ⚠️  ProcedureTemplate not found: RSURO6C
+   ⚠️  ProcedureTemplate not found: RSURO7A
+   ⚠️  ProcedureTemplate not found: RSURO7C
+   ⚠️  ProcedureTemplate not found: RSURO8A
+   ⚠️  ProcedureTemplate not found: RSURO8C
+   ⚠️  ProcedureTemplate not found: RSURO9A
+   ⚠️  ProcedureTemplate not found: RSURO9C
+   ⚠️  ProcedureTemplate not found: RSUR10A
+   ⚠️  ProcedureTemplate not found: RSUR10C
+   ⚠️  ProcedureTemplate not found: RSUR11A
+   ⚠️  ProcedureTemplate not found: RSUR11C
+   ⚠️  ProcedureTemplate not found: RSUR12A
+   ⚠️  ProcedureTemplate not found: RSUR12C
+   ⚠️  ProcedureTemplate not found: RSUR13A
+   ⚠️  ProcedureTemplate not found: RSUR13C
+   ⚠️  ProcedureTemplate not found: RSUR14A
+   ⚠️  ProcedureTemplate not found: RSUR14C
+   ⚠️  ProcedureTemplate not found: RSUR15A
+   ⚠️  ProcedureTemplate not found: RSUR15C
+   ⚠️  ProcedureTemplate not found: ZOOM01A
+   ⚠️  ProcedureTemplate not found: ZOOM01C
+   ⚠️  ProcedureTemplate not found: ZOOM02A
+   ⚠️  ProcedureTemplate not found: ZOOM02C
+   ⚠️  ProcedureTemplate not found: ZOOM03A
+   ⚠️  ProcedureTemplate not found: ZOOM03C
+   ⚠️  ProcedureTemplate not found: ZOOM04A
+   ⚠️  ProcedureTemplate not found: ZOOM04C
+   ⚠️  ProcedureTemplate not found: ZOOM05A
+   ⚠️  ProcedureTemplate not found: ZOOM05C
+   ⚠️  ProcedureTemplate not found: ZOOM06A
+   ⚠️  ProcedureTemplate not found: ZOOM06C
+   ⚠️  ProcedureTemplate not found: ZOOM07A
+   ⚠️  ProcedureTemplate not found: ZOOM07C
+   ⚠️  ProcedureTemplate not found: ZOOM08A
+   ⚠️  ProcedureTemplate not found: ZOOM09A
+   ⚠️  ProcedureTemplate not found: ZOOM10A
+   ⚠️  ProcedureTemplate not found: ZOOM11A
+   ⚠️  ProcedureTemplate not found: ZOOM12A
+   ⚠️  ProcedureTemplate not found: ZOOM13A
+   ⚠️  ProcedureTemplate not found: surg01L
+   ⚠️  ProcedureTemplate not found: surg02L
+   ⚠️  ProcedureTemplate not found: surg12L
+   ⚠️  ProcedureTemplate not found: surg17L
+   ⚠️  ProcedureTemplate not found: dent04M
+   ⚠️  ProcedureTemplate not found: neuro01A
+   ⚠️  ProcedureTemplate not found: urol01A

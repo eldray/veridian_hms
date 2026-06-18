@@ -1,8 +1,10 @@
-// src/pages/InvoiceManagement.tsx - COMPLETE FIXED VERSION
-import { useEffect, useState } from 'react';
+// src/pages/InvoiceManagement.tsx - COMPLETE UPDATED VERSION WITH SEARCHABLE ITEMS
+
+import { useEffect, useState, useRef } from 'react';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
+import { useDepartmentStore } from '../store/departmentStore';
 import { 
   Plus, 
   Search, 
@@ -23,7 +25,8 @@ import {
   DollarSign,
   AlertCircle,
   CheckCircle,
-  Printer
+  Printer,
+  ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,19 +58,156 @@ interface Invoice {
   User?: {
     fullName: string;
   };
+  receivedAtDepartmentId?: string;
+  receivedAtDepartment?: {
+    id: string;
+    name: string;
+  };
 }
+
+// ==========================================
+// SEARCHABLE STOCK ITEM SELECT COMPONENT
+// ==========================================
+
+interface SearchableStockItemSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  items: any[];
+  placeholder?: string;
+}
+
+function SearchableStockItemSelect({ value, onChange, items, placeholder = 'Search for an item...' }: SearchableStockItemSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLabel, setSelectedLabel] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Update selected label when value changes
+  useEffect(() => {
+    if (value) {
+      const selected = items.find(item => item.id === value);
+      if (selected) {
+        setSelectedLabel(`${selected.name} (${selected.currentStock} ${selected.unitOfMeasure} available)`);
+      } else {
+        setSelectedLabel('');
+      }
+    } else {
+      setSelectedLabel('');
+    }
+  }, [value, items]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter items based on search
+  const filteredItems = items.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.category || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelect = (item: any) => {
+    onChange(item.id);
+    setSelectedLabel(`${item.name} (${item.currentStock} ${item.unitOfMeasure} available)`);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg cursor-pointer flex items-center justify-between hover:border-[var(--icon-cyan-text)] transition-colors"
+      >
+        <span className={`text-sm ${selectedLabel ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-[var(--border-color)]">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, code, or category..."
+                className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--icon-cyan-text)]"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div className="text-xs text-[var(--text-tertiary)] mt-1">
+              {filteredItems.length} of {items.length} items found
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {filteredItems.length === 0 ? (
+              <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
+                {searchTerm ? 'No matching items found' : 'No items available'}
+              </div>
+            ) : (
+              filteredItems.map((item) => {
+                const isSelected = value === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelect(item)}
+                    className={`w-full text-left px-3 py-2 hover:bg-[var(--bg-main)] transition-colors ${
+                      isSelected ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-sm">{item.name}</span>
+                        <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
+                          <span>Stock: {item.currentStock} {item.unitOfMeasure}</span>
+                          {item.drugCode && <span>• Code: {item.drugCode}</span>}
+                          {item.category && <span>• {item.category}</span>}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 
 export default function InvoiceManagement() {
   const {
-    invoices,
+    purchaseInvoices,
     stockItems,
-    getInvoices,
+    getPurchaseInvoices,
     getStockItems,
-    createInvoice,
-    updateInvoice,
-    deleteInvoice,
+    createPurchaseInvoice,
+    updatePurchaseInvoice,
+    deletePurchaseInvoice,
     isLoading
   } = useStockStore();
+  const { departments, getDepartments } = useDepartmentStore();
   const { user, hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
@@ -93,6 +233,7 @@ export default function InvoiceManagement() {
     invoiceDate: new Date().toISOString().split('T')[0],
     totalAmount: 0,
     notes: '',
+    receivedAtDepartmentId: '',
     invoiceItems: [{
       stockItemId: '',
       quantity: 1,
@@ -109,8 +250,9 @@ export default function InvoiceManagement() {
   const loadData = async () => {
     try {
       await Promise.all([
-        getInvoices(),
-        getStockItems()
+        getPurchaseInvoices(),
+        getStockItems(),
+        getDepartments()
       ]);
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -118,17 +260,20 @@ export default function InvoiceManagement() {
     }
   };
 
+  // Get invoices with fallback
+  const invoices = purchaseInvoices || [];
+
   // Get unique suppliers for filter
   const getUniqueSuppliers = () => {
     const suppliers = new Set(invoices.map(inv => inv.supplierName).filter(Boolean));
     return Array.from(suppliers).sort();
   };
 
-  // Filter invoices
+  // Filter invoices with fallback
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = 
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.supplierName.toLowerCase().includes(searchTerm.toLowerCase());
+      invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.supplierName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesSupplier = supplierFilter === 'all' || invoice.supplierName === supplierFilter;
     
@@ -164,6 +309,7 @@ export default function InvoiceManagement() {
       const submitData = {
         ...formData,
         totalAmount: calculateTotal(),
+        receivedAtDepartmentId: formData.receivedAtDepartmentId || undefined,
         invoiceItems: validItems.map(item => ({
           stockItemId: item.stockItemId,
           quantity: item.quantity,
@@ -174,10 +320,10 @@ export default function InvoiceManagement() {
       };
       
       if (editingInvoice) {
-        await updateInvoice(editingInvoice.id, submitData);
+        await updatePurchaseInvoice(editingInvoice.id, submitData);
         success('Updated', 'Invoice updated successfully');
       } else {
-        await createInvoice(submitData);
+        await createPurchaseInvoice(submitData);
         success('Created', 'Invoice created and stock updated');
       }
       
@@ -194,7 +340,7 @@ export default function InvoiceManagement() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this invoice? This will reverse all stock movements.')) return;
     try {
-      await deleteInvoice(id);
+      await deletePurchaseInvoice(id);
       success('Deleted', 'Invoice deleted and stock reversed');
       await loadData();
     } catch (err: any) {
@@ -211,6 +357,7 @@ export default function InvoiceManagement() {
       invoiceDate: invoice.invoiceDate.split('T')[0],
       totalAmount: invoice.totalAmount,
       notes: invoice.notes || '',
+      receivedAtDepartmentId: invoice.receivedAtDepartmentId || '',
       invoiceItems: invoice.InvoiceItem?.map(item => ({
         stockItemId: item.stockItemId,
         quantity: item.quantity,
@@ -235,6 +382,7 @@ export default function InvoiceManagement() {
       invoiceDate: new Date().toISOString().split('T')[0],
       totalAmount: 0,
       notes: '',
+      receivedAtDepartmentId: '',
       invoiceItems: [{
         stockItemId: '',
         quantity: 1,
@@ -361,7 +509,7 @@ export default function InvoiceManagement() {
           .total { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; }
           .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }
         </style>
-      </thead>
+      </head>
       <body>
         <div class="header">
           <h1>PURCHASE INVOICE</h1>
@@ -406,13 +554,16 @@ export default function InvoiceManagement() {
 
   const hasActiveFilters = searchTerm !== '' || supplierFilter !== 'all';
 
-  // Calculate summary stats
+  // Calculate summary stats with fallback
   const summaryStats = {
     totalInvoices: invoices.length,
-    totalSpent: invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+    totalSpent: invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
     uniqueSuppliers: getUniqueSuppliers().length,
     totalItems: invoices.reduce((sum, inv) => sum + (inv.InvoiceItem?.length || 0), 0)
   };
+
+  // Filter active items for dropdown
+  const activeStockItems = stockItems.filter(item => item.isActive);
 
   return (
     <div className="space-y-6 p-6">
@@ -660,6 +811,7 @@ export default function InvoiceManagement() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Invoice #</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Supplier</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Received At</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Amount</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Items</th>
@@ -680,6 +832,11 @@ export default function InvoiceManagement() {
                           <Building className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
                           <span className="text-sm text-[var(--text-primary)]">{invoice.supplierName}</span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-[var(--text-secondary)]">
+                          {invoice.receivedAtDepartment?.name || '—'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -807,7 +964,7 @@ export default function InvoiceManagement() {
         </>
       )}
 
-      {/* Create/Edit Invoice Modal */}
+      {/* Create/Edit Invoice Modal with Searchable Items */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => {
           setShowForm(false);
@@ -831,7 +988,7 @@ export default function InvoiceManagement() {
             
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Invoice Header */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Invoice Number *
@@ -839,10 +996,11 @@ export default function InvoiceManagement() {
                   <input 
                     type="text" 
                     required 
+                    disabled={!!editingInvoice}
                     placeholder="INV-001"
                     value={formData.invoiceNumber}
                     onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
                   />
                 </div>
                 <div>
@@ -860,6 +1018,23 @@ export default function InvoiceManagement() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Received At Department/Store *
+                  </label>
+                  <select
+                    required
+                    disabled={!!editingInvoice}
+                    value={formData.receivedAtDepartmentId}
+                    onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]"
+                  >
+                    <option value="">Select department...</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Invoice Date *
                   </label>
                   <input 
@@ -872,19 +1047,30 @@ export default function InvoiceManagement() {
                 </div>
               </div>
 
-              {/* Invoice Items */}
+              {/* Invoice Items with Searchable Select */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
-                  <button
-                    type="button"
-                    onClick={addInvoiceItem}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add Item
-                  </button>
+                  {!editingInvoice && (
+                    <button
+                      type="button"
+                      onClick={addInvoiceItem}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Item
+                    </button>
+                  )}
                 </div>
+
+                {editingInvoice && (
+                  <div className="mb-4 flex items-start gap-2.5 p-3 bg-[var(--icon-yellow-bg)]/20 border border-[var(--icon-yellow-bg)]/30 rounded-lg text-xs text-[var(--text-secondary)]">
+                    <AlertCircle className="w-4.5 h-4.5 text-[var(--icon-yellow-text)] shrink-0 mt-0.5" />
+                    <span>
+                      Items cannot be modified after an invoice is created to preserve stock logs. To change items, please close this form, delete the invoice, and create a new one.
+                    </span>
+                  </div>
+                )}
                 
                 <div className="space-y-3">
                   {formData.invoiceItems.map((item, index) => (
@@ -893,19 +1079,19 @@ export default function InvoiceManagement() {
                         <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                           Stock Item *
                         </label>
-                        <select 
-                          required
-                          value={item.stockItemId}
-                          onChange={e => updateInvoiceItem(index, 'stockItemId', e.target.value)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                        >
-                          <option value="">Select Item</option>
-                          {stockItems.filter(i => i.isActive).map(stockItem => (
-                            <option key={stockItem.id} value={stockItem.id}>
-                              {stockItem.name} ({stockItem.currentStock} {stockItem.unitOfMeasure} in stock)
-                            </option>
-                          ))}
-                        </select>
+                        {/* ✅ SEARCHABLE SELECT */}
+                        {editingInvoice ? (
+                          <div className="w-full px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-sm font-medium">
+                            {getStockItemName(item.stockItemId)}
+                          </div>
+                        ) : (
+                          <SearchableStockItemSelect
+                            value={item.stockItemId}
+                            onChange={(value) => updateInvoiceItem(index, 'stockItemId', value)}
+                            items={activeStockItems}
+                            placeholder="Search for an item..."
+                          />
+                        )}
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
@@ -915,9 +1101,10 @@ export default function InvoiceManagement() {
                           type="number" 
                           min="1" 
                           required 
+                          disabled={!!editingInvoice}
                           value={item.quantity}
                           onChange={e => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -929,9 +1116,10 @@ export default function InvoiceManagement() {
                           step="0.01" 
                           min="0" 
                           required 
+                          disabled={!!editingInvoice}
                           value={item.unitCost}
                           onChange={e => updateInvoiceItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -941,9 +1129,10 @@ export default function InvoiceManagement() {
                         <input 
                           type="text" 
                           placeholder="Optional"
+                          disabled={!!editingInvoice}
                           value={item.batchNumber}
                           onChange={e => updateInvoiceItem(index, 'batchNumber', e.target.value)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
                         />
                       </div>
                       <div className="md:col-span-2 flex gap-2">
@@ -953,12 +1142,13 @@ export default function InvoiceManagement() {
                           </label>
                           <input 
                             type="date" 
+                            disabled={!!editingInvoice}
                             value={item.expiryDate}
                             onChange={e => updateInvoiceItem(index, 'expiryDate', e.target.value)}
-                            className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                            className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
                           />
                         </div>
-                        {formData.invoiceItems.length > 1 && (
+                        {!editingInvoice && formData.invoiceItems.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeInvoiceItem(index)}
@@ -1057,6 +1247,10 @@ export default function InvoiceManagement() {
                 <div>
                   <p className="text-xs text-[var(--text-secondary)]">Supplier</p>
                   <p className="text-sm font-medium text-[var(--text-primary)] mt-0.5">{selectedInvoice.supplierName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">Received At Department</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)] mt-0.5">{selectedInvoice.receivedAtDepartment?.name || '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)]">Invoice Date</p>
