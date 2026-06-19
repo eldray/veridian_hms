@@ -1,1 +1,41 @@
-test
+DATABASE_URL="postgresql://postgres@localhost:5432/veridian_hms?schema=public"
+
+# JWT Secret
+JWT_SECRET="your-jwt-secret-key"
+
+FACILITY_NAME=General Hospital
+FACILITY_CODE=GH001
+FACILITY_TYPE=Secondary
+FACILITY_ADDRESS="123 Medical Center Drive, Accra"
+FACILITY_PHONE="+233241234567"
+FACILITY_EMAIL="info@hospital.gov.gh"
+
+NHIS_ACCREDITATION_NUMBER=your_accreditation_number
+ECLAIM_AUTH_NUMBER=12345
+
+# Server
+PORT=5000
+NODE_ENV=development
+
+# Client
+CLIENT_URL=http://localhost:3000
+
+# Seeding Control
+RUN_SEED=true                    # Enable/disable auto-seeding on startup
+ENABLE_SEEDING=true             # Master switch for seeding
+SEED_TEST_DATA=true             # Control test data seeding separately
+FORCE_CORE_SEED=false           # Force core data re-seeding
+
+# ─────────────────────────────────────────────────────────────
+# Hubtel — SMS & WhatsApp delivery
+# Set HUBTEL_ENABLED=true and fill credentials to send for real.
+# While false (or blank), messages are still queued/logged as PENDING.
+# ─────────────────────────────────────────────────────────────
+HUBTEL_ENABLED=false
+HUBTEL_CLIENT_ID=
+HUBTEL_CLIENT_SECRET=
+HUBTEL_SENDER_ID=                # Approved SMS sender name (max 11 chars)
+HUBTEL_SMS_URL=https://sms.hubtel.com/v1/messages/send
+# WhatsApp (needs a provisioned WhatsApp Business number + Meta-approved templates on Hubtel)
+HUBTEL_WHATSAPP_URL=
+HUBTEL_WHATSAPP_FROM=
