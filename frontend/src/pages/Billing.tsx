@@ -1,6 +1,6 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
@@ -44,7 +44,8 @@ const formatDateOnly = (dateString: string) => {
   }
 };
 
-const formatCurrency = (amount: number) => `₵${amount?.toFixed(2) ?? '0.00'}`;
+const formatCurrency = (amount: number | string | null | undefined) =>
+  `₵${Number(amount || 0).toFixed(2)}`;
 
 const getPaymentModeIcon = (mode: PaymentMode) => {
   switch (mode) {
@@ -95,6 +96,7 @@ const getWaiverTypeLabel = (type: string) => {
 };
 
 export default function Billing() {
+  const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
   // Tab state
@@ -245,7 +247,7 @@ export default function Billing() {
   // Helper to get patient name from bill
   const getPatientName = useCallback((patient: any) => {
     if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   }, []);
 
   const getPatientFromBill = useCallback((bill: any) => {
@@ -485,14 +487,23 @@ export default function Billing() {
             {filteredBills.length} bill(s) · Total: {formatCurrency(stats.totalAmount)} · Waivers: {formatCurrency(stats.totalWaiverAmount)}
           </p>
         </div>
-        <button
-          onClick={loadData}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/dashboard/estimates')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+          >
+            <FileText className="w-4 h-4" />
+            Estimates
+          </button>
+          <button
+            onClick={loadData}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Stat Cards */}

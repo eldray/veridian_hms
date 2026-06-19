@@ -1,4 +1,4 @@
-// src/store/settingsStore.ts - CORRECTED VERSION
+// src/store/settingsStore.ts - CORRECTED VERSION (Settings only, no User management)
 import { create } from 'zustand';
 import {
   // Hospital Management
@@ -8,25 +8,15 @@ import {
   getHospitalNHISSettings,
   updateHospitalNHISSettings,
 
-  // User Management
-  getAllUsers,
-  updateUser,
-  deactivateUser,
-  getUsers,
-  getUserStats,
-  getUsersByDepartment,
-  updateUserDepartment,
-  register,
-
   // Backup & Restore
   createBackup,
   restoreBackup,
   getBackupList,
   downloadBackup,
   deleteBackup,
-  getBackupStats,  // ✅ ADD THIS (needs to be added to api/index.ts)
+  getBackupStats,
 } from '../api';
-import type { User, Hospital, BackupFile, Seniority } from '../types';
+import type { Hospital, BackupFile } from '../types';
 
 interface NHISConfig {
   providerId: string;
@@ -37,32 +27,8 @@ interface NHISConfig {
   isActive: boolean;
 }
 
-// Seniority options type
-export interface SeniorityOption {
-  value: Seniority;
-  label: string;
-  level: number;
-}
-
-// Seniority levels for hierarchy
-export const SENIORITY_LEVELS: Record<Seniority, number> = {
-  TRAINEE: 0,
-  JUNIOR: 1,
-  SENIOR: 2,
-  PRINCIPAL: 3
-};
-
-// Seniority options for dropdowns
-export const SENIORITY_OPTIONS: SeniorityOption[] = [
-  { value: 'TRAINEE', label: 'Trainee', level: 0 },
-  { value: 'JUNIOR', label: 'Junior Staff', level: 1 },
-  { value: 'SENIOR', label: 'Senior Staff', level: 2 },
-  { value: 'PRINCIPAL', label: 'Principal', level: 3 }
-];
-
 interface SettingsState {
   hospital: Hospital | null;
-  users: User[];
   backups: BackupFile[];
   backupStats: {
     totalBackups: number;
@@ -76,7 +42,6 @@ interface SettingsState {
   error: string | null;
   pagination: any;
   nhisConfig: NHISConfig;
-  userStats: any;
 
   // Hospital Management
   getHospitalDetails: () => Promise<void>;
@@ -84,35 +49,6 @@ interface SettingsState {
   getHospital: () => Promise<void>;
   loadHospitalOnStartup: () => Promise<void>;
   clearHospital: () => void;
-
-  // User Management
-  getAllUsers: (filters?: any) => Promise<void>;
-  updateUser: (userId: string, data: Partial<User>) => Promise<User>;
-  deactivateUser: (userId: string) => Promise<void>;
-  getUsers: (filters?: any) => Promise<void>;
-  getUserStats: () => Promise<void>;
-  getUsersByDepartment: (departmentId: string) => Promise<User[]>;
-  updateUserDepartment: (userId: string, departmentId: string) => Promise<void>;
-  
-  // User creation with seniority
-  createUser: (userData: {
-    username: string;
-    password: string;
-    fullName: string;
-    role: string;
-    seniority?: Seniority;
-    email?: string;
-    phone?: string;
-    licenseNumber?: string;
-    specialization?: string;
-    departmentId?: string;
-  }) => Promise<User>;
-  
-  // Update user seniority
-  updateUserSeniority: (userId: string, seniority: Seniority) => Promise<void>;
-  
-  // Get users by seniority level
-  getUsersBySeniority: (minSeniority: Seniority) => User[];
 
   // Backup & Restore
   createBackup: () => Promise<any>;
@@ -131,7 +67,6 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   hospital: null,
-  users: [],
   backups: [],
   backupStats: null,
   isLoading: false,
@@ -145,7 +80,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     claimEndpoint: '',
     isActive: false
   },
-  userStats: null,
 
   // ==========================================
   // Hospital Management
@@ -216,205 +150,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   // ==========================================
-  // User Management
-  // ==========================================
-
-  getAllUsers: async (filters = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await getAllUsers(filters);
-      const users = response.users || response.data || response;
-      
-      const usersWithSeniority = Array.isArray(users) 
-        ? users.map((user: User) => ({
-            ...user,
-            seniority: user.seniority || 'JUNIOR'
-          }))
-        : users;
-      
-      set({
-        users: usersWithSeniority,
-        pagination: response.pagination || null,
-        isLoading: false
-      });
-    } catch (error: unknown) {
-      console.error('Failed to fetch users:', error);
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to fetch users'
-      });
-      throw error;
-    }
-  },
-
-  updateUser: async (userId: string, data: Partial<User>) => {
-    set({ isLoading: true, error: null });
-    try {
-      const updatedUser = await updateUser(userId, data);
-      const users = get().users.map(user =>
-        user.id === userId ? { ...updatedUser, seniority: updatedUser.seniority || user.seniority } : user
-      );
-      set({ users, isLoading: false });
-      return updatedUser;
-    } catch (error: unknown) {
-      console.error('Failed to update user:', error);
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to update user'
-      });
-      throw error;
-    }
-  },
-
-  deactivateUser: async (userId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await deactivateUser(userId);
-      const users = get().users.map(user =>
-        user.id === userId ? { ...user, isActive: false } : user
-      );
-      set({ users, isLoading: false });
-    } catch (error: unknown) {
-      console.error('Failed to deactivate user:', error);
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to deactivate user'
-      });
-      throw error;
-    }
-  },
-
-  getUsers: async (filters = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await getUsers(filters);
-      const users = response.users || response.data || response;
-      
-      const usersWithSeniority = Array.isArray(users)
-        ? users.map((user: User) => ({
-            ...user,
-            seniority: user.seniority || 'JUNIOR'
-          }))
-        : users;
-      
-      set({
-        users: usersWithSeniority,
-        pagination: response.pagination || null,
-        isLoading: false
-      });
-    } catch (error: unknown) {
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to fetch users'
-      });
-      throw error;
-    }
-  },
-
-  getUserStats: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const stats = await getUserStats();
-      set({ userStats: stats, isLoading: false });
-    } catch (error: unknown) {
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to fetch user stats'
-      });
-      throw error;
-    }
-  },
-
-  getUsersByDepartment: async (departmentId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const users = await getUsersByDepartment(departmentId);
-      set({ isLoading: false });
-      return users;
-    } catch (error: unknown) {
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to fetch department users'
-      });
-      throw error;
-    }
-  },
-
-  updateUserDepartment: async (userId: string, departmentId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await updateUserDepartment(userId, departmentId);
-
-      const updatedUsers = get().users.map(user =>
-        user.id === userId ? { ...user, departmentId } : user
-      );
-
-      set({ users: updatedUsers, isLoading: false });
-    } catch (error: unknown) {
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to update user department'
-      });
-      throw error;
-    }
-  },
-
-  createUser: async (userData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await register({
-        ...userData,
-        seniority: userData.seniority || 'JUNIOR'
-      });
-      
-      const newUser = response.user || response.data?.user || response;
-      
-      await get().getAllUsers();
-      
-      set({ isLoading: false });
-      return newUser;
-    } catch (error: unknown) {
-      console.error('Failed to create user:', error);
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to create user'
-      });
-      throw error;
-    }
-  },
-
-  updateUserSeniority: async (userId: string, seniority: Seniority) => {
-    set({ isLoading: true, error: null });
-    try {
-      const updatedUser = await updateUser(userId, { seniority });
-      
-      const users = get().users.map(user =>
-        user.id === userId ? { ...user, seniority: updatedUser.seniority || seniority } : user
-      );
-      
-      set({ users, isLoading: false });
-    } catch (error: unknown) {
-      console.error('Failed to update user seniority:', error);
-      set({
-        isLoading: false,
-        error: (error as any).response?.data?.message || 'Failed to update user seniority'
-      });
-      throw error;
-    }
-  },
-
-  getUsersBySeniority: (minSeniority: Seniority) => {
-    const users = get().users;
-    const minLevel = SENIORITY_LEVELS[minSeniority];
-    
-    return users.filter(user => {
-      const userLevel = SENIORITY_LEVELS[user.seniority as Seniority] || 0;
-      return userLevel >= minLevel && user.isActive;
-    });
-  },
-
-  // ==========================================
-  // Backup & Restore - CORRECTED
+  // Backup & Restore
   // ==========================================
 
   createBackup: async () => {
@@ -451,7 +187,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getBackupList(page, limit);
-      // Backend returns: { success: true, data: backups[], pagination: {...} }
       const backups = response?.data || [];
       const pagination = response?.pagination;
       

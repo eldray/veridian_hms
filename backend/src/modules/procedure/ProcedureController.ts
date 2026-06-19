@@ -1,117 +1,86 @@
-// modules/procedure/ProcedureController.ts
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { ProcedureService } from './ProcedureService';
+import { AuthRequest } from '../../middleware/authMiddleware';
 import { CreateProcedureTemplateRequest, UpdateProcedureTemplateRequest } from './ProcedureTypes';
-import { AuthRequest } from '../../types/auth';
 
 export class ProcedureController extends BaseController {
   private procedureService: ProcedureService;
 
-  constructor(prisma: any) {
-    super();  // ✅ FIXED - BaseController doesn't need prisma
+  constructor(prisma: PrismaClient) {
+    super();
     this.procedureService = new ProcedureService(prisma);
   }
 
-  getProcedureTemplates = async (req: Request, res: Response) => {
+  getProcedureTemplates = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.procedureService.getTemplates({
+      category: req.query.category as string, department: req.query.department as string,
+      isActive: req.query.isActive as string, page: req.query.page as string, limit: req.query.limit as string
+    });
+    return this.ok(res, result.templates, 'Procedure templates retrieved', result.pagination);
+  });
+
+  getProcedureTemplateById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { category, department, isActive, page = 1, limit = 10000 } = req.query;
-
-      const result = await this.procedureService.getTemplates({
-        category: category as string,
-        department: department as string,
-        isActive: isActive as string,
-        page: page as string,
-        limit: limit as string
-      });
-
-      return this.ok(res, result.templates, 'Procedure templates retrieved', result.pagination);
-    } catch (error: any) {
-      return this.error(res, error);
-    }
-  };
-
-  getProcedureTemplateById = async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const template = await this.procedureService.getTemplateById(id);
+      const template = await this.procedureService.getTemplateById(req.params.id);
       return this.ok(res, template, 'Procedure template retrieved');
-    } catch (error: any) {
-      return this.error(res, error);
+    } catch (e: any) {
+      if (e.message.includes('not found')) return this.notFound(res, 'Procedure template');
+      throw e;
     }
-  };
+  });
 
-  createProcedureTemplate = async (req: Request, res: Response) => {
+  createProcedureTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) return this.unauthorized(res, 'User not authenticated');
+    
     try {
-      const userId = (req as AuthRequest).user?.id;
-      if (!userId) {
-        return this.unauthorized(res, 'User not authenticated');
-      }
-
-      const data: CreateProcedureTemplateRequest = req.body;
-      const template = await this.procedureService.createTemplate(data, userId);
-
+      const template = await this.procedureService.createTemplate(req.body as CreateProcedureTemplateRequest, userId);
       return this.created(res, template, 'Procedure template created');
-    } catch (error: any) {
-      return this.error(res, error);
+    } catch (e: any) {
+      if (e.message.includes('already exists')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  updateProcedureTemplate = async (req: Request, res: Response) => {
+  updateProcedureTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) return this.unauthorized(res, 'User not authenticated');
+
     try {
-      const { id } = req.params;
-      const userId = (req as AuthRequest).user?.id;
-      const data: UpdateProcedureTemplateRequest = { ...req.body, id };
-
-      const template = await this.procedureService.updateTemplate(id, data, userId);
-
+      const template = await this.procedureService.updateTemplate(req.params.id, { ...req.body, id: req.params.id } as UpdateProcedureTemplateRequest, userId);
       return this.ok(res, template, 'Procedure template updated');
-    } catch (error: any) {
-      return this.error(res, error);
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('already exists')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  deleteProcedureTemplate = async (req: Request, res: Response) => {
+  deleteProcedureTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      await this.procedureService.deleteTemplate(id);
+      await this.procedureService.deleteTemplate(req.params.id);
       return this.ok(res, null, 'Procedure template deleted');
-    } catch (error: any) {
-      return this.error(res, error);
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Cannot delete')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  getProcedureCategories = async (req: Request, res: Response) => {
-    try {
-      const categories = await this.procedureService.getCategories();
-      return this.ok(res, categories, 'Procedure categories retrieved');
-    } catch (error: any) {
-      return this.error(res, error);
-    }
-  };
+  getProcedureCategories = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const categories = await this.procedureService.getCategories();
+    return this.ok(res, categories, 'Procedure categories retrieved');
+  });
 
-  getProcedureDepartments = async (req: Request, res: Response) => {
-    try {
-      const departments = await this.procedureService.getDepartments();
-      return this.ok(res, departments, 'Procedure departments retrieved');
-    } catch (error: any) {
-      return this.error(res, error);
-    }
-  };
+  getProcedureDepartments = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const departments = await this.procedureService.getDepartments();
+    return this.ok(res, departments, 'Procedure departments retrieved');
+  });
 
-  bulkUpdateProcedureTemplates = async (req: Request, res: Response) => {
-    try {
-      const { ids, isActive } = req.body;
-
-      if (!ids || !Array.isArray(ids)) {
-        return this.badRequest(res, 'ids array is required');
-      }
-
-      const count = await this.procedureService.bulkUpdate(ids, isActive !== undefined ? isActive : true);
-
-      return this.ok(res, { count }, `${count} procedure templates updated`);
-    } catch (error: any) {
-      return this.error(res, error);
-    }
-  };
+  bulkUpdateProcedureTemplates = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { ids, isActive } = req.body;
+    if (!ids || !Array.isArray(ids)) return this.badRequest(res, 'ids array is required');
+    const count = await this.procedureService.bulkUpdate(ids, isActive !== undefined ? isActive : true);
+    return this.ok(res, { count }, `${count} procedure templates updated`);
+  });
 }

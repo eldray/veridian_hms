@@ -1,268 +1,104 @@
-// InsuranceProviderController.ts
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { validationResult } from 'express-validator';
+import { PrismaClient, InsuranceType } from '@prisma/client';
+import { BaseController } from '../../shared/base/BaseController';
 import { InsuranceProviderService } from './InsuranceProviderService';
-import { CreateInsuranceProviderDTO, UpdateInsuranceProviderDTO } from './InsuranceProviderTypes';
-import { InsuranceType } from '@prisma/client';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-export class InsuranceProviderController {
-  private insuranceProviderService: InsuranceProviderService;
+export class InsuranceProviderController extends BaseController {
+  private service: InsuranceProviderService;
 
-  constructor(insuranceProviderService?: InsuranceProviderService) {
-    this.insuranceProviderService = insuranceProviderService || new InsuranceProviderService();
+  constructor(prisma: PrismaClient) { // ✅ Accept prisma via Dependency Injection
+    super();
+    this.service = new InsuranceProviderService(prisma);
   }
 
-  getInsuranceProviders = async (req: AuthRequest, res: Response) => {
+  getInsuranceProviders = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { isActive = 'true', type } = req.query;
-
       const filters: any = {};
-      if (isActive !== undefined) {
-        filters.isActive = isActive === 'true';
-      }
-      if (type) {
-        filters.type = type as InsuranceType;
-      }
+      if (req.query.isActive !== undefined) filters.isActive = req.query.isActive === 'true';
+      if (req.query.type) filters.type = req.query.type as InsuranceType;
 
-      const providers = await this.insuranceProviderService.getAllProviders(filters);
-
-      res.json({
-        success: true,
-        data: providers
-      });
-    } catch (error) {
-      console.error('Error fetching insurance providers:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching insurance providers',
-        error: error instanceof Error ? error.message : error
-      });
+      const providers = await this.service.getAllProviders(filters);
+      return this.ok(res, providers, 'Insurance providers retrieved');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  getInsuranceProviderById = async (req: AuthRequest, res: Response) => {
+  getInsuranceProviderById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const provider = await this.insuranceProviderService.getProviderById(id);
-
-      if (!provider) {
-        return res.status(404).json({
-          success: false,
-          message: 'Insurance provider not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: provider
-      });
-    } catch (error) {
-      console.error('Error fetching insurance provider:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching insurance provider',
-        error: error instanceof Error ? error.message : error
-      });
+      const provider = await this.service.getProviderById(req.params.id);
+      if (!provider) return this.notFound(res, 'Insurance provider');
+      return this.ok(res, provider, 'Insurance provider retrieved');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  createInsuranceProvider = async (req: AuthRequest, res: Response) => {
+  createInsuranceProvider = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          errors: errors.array(),
-          message: 'Validation failed'
-        });
-      }
-
-      const { name, type, coveragePercentage, contactInfo } = req.body;
-
-      const providerData: CreateInsuranceProviderDTO = {
-        name,
-        type: type as InsuranceType,
-        coveragePercentage: parseFloat(coveragePercentage),
-        contactInfo: contactInfo || null
-      };
-
-      const provider = await this.insuranceProviderService.createProvider(providerData);
-
-      res.status(201).json({
-        success: true,
-        data: provider,
-        message: 'Insurance provider created successfully'
-      });
-    } catch (error: any) {
-      console.error('Error creating insurance provider:', error);
-      
-      if (error.message.includes('already exists')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: 'Error creating insurance provider',
-        error: error.message
-      });
+      // ✅ BaseController.error() automatically catches Prisma P2002 (Duplicate Name)
+      const provider = await this.service.createProvider(req.body);
+      return this.created(res, provider, 'Insurance provider created successfully');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  updateInsuranceProvider = async (req: AuthRequest, res: Response) => {
+  updateInsuranceProvider = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          errors: errors.array(),
-          message: 'Validation failed'
-        });
-      }
-
-      const { id } = req.params;
-      const updateData: UpdateInsuranceProviderDTO = req.body;
-
-      const provider = await this.insuranceProviderService.updateProvider(id, updateData);
-
-      res.json({
-        success: true,
-        data: provider,
-        message: 'Insurance provider updated successfully'
-      });
-    } catch (error: any) {
-      if (error.message === 'Insurance provider not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'Insurance provider not found'
-        });
-      }
-
-      if (error.message.includes('already exists')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message
-        });
-      }
-
-      console.error('Error updating insurance provider:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error updating insurance provider',
-        error: error.message
-      });
+      // ✅ BaseController.error() automatically catches Prisma P2025 (Not Found) and P2002 (Duplicate Name)
+      const provider = await this.service.updateProvider(req.params.id, req.body);
+      return this.ok(res, provider, 'Insurance provider updated successfully');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  deleteInsuranceProvider = async (req: AuthRequest, res: Response) => {
+  deleteInsuranceProvider = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-
-      await this.insuranceProviderService.deleteProvider(id);
-
-      res.json({
-        success: true,
-        message: 'Insurance provider deleted successfully'
-      });
-    } catch (error: any) {
-      if (error.message === 'Insurance provider not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'Insurance provider not found'
-        });
-      }
-
-      if (error.message.includes('Cannot delete')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message
-        });
-      }
-
-      console.error('Error deleting insurance provider:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error deleting insurance provider',
-        error: error.message
-      });
+      // ✅ BaseController.error() automatically catches Prisma P2025 (Not Found) 
+      // and P2003 (Foreign Key Constraint if patients/bills exist)
+      await this.service.deleteProvider(req.params.id);
+      return this.ok(res, null, 'Insurance provider deleted successfully');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  toggleInsuranceProviderStatus = async (req: AuthRequest, res: Response) => {
+  toggleInsuranceProviderStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-
-      const provider = await this.insuranceProviderService.toggleProviderStatus(id);
-
+      const provider = await this.service.toggleProviderStatus(req.params.id);
       const action = provider.isActive ? 'activated' : 'deactivated';
-
-      res.json({
-        success: true,
-        data: provider,
-        message: `Insurance provider ${action} successfully`
-      });
-    } catch (error: any) {
-      if (error.message === 'Insurance provider not found') {
-        return res.status(404).json({
-          success: false,
-          message: 'Insurance provider not found'
-        });
-      }
-
-      console.error('Error toggling insurance provider status:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error toggling insurance provider status',
-        error: error.message
-      });
+      return this.ok(res, provider, `Insurance provider ${action} successfully`);
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  getInsuranceProviderStats = async (req: AuthRequest, res: Response) => {
+  getInsuranceProviderStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-
-      const stats = await this.insuranceProviderService.getProviderStats(id);
-
-      if (!stats) {
-        return res.status(404).json({
-          success: false,
-          message: 'Insurance provider not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: stats
-      });
-    } catch (error) {
-      console.error('Error fetching insurance provider statistics:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching insurance provider statistics',
-        error: error instanceof Error ? error.message : error
-      });
+      const stats = await this.service.getProviderStats(req.params.id);
+      if (!stats) return this.notFound(res, 'Insurance provider');
+      return this.ok(res, stats, 'Statistics retrieved');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  getInsuranceTypes = async (req: AuthRequest, res: Response) => {
+  getInsuranceTypes = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const types = await this.insuranceProviderService.getInsuranceTypes();
-      
-      res.json({
-        success: true,
-        data: types
-      });
-    } catch (error) {
-      console.error('Error fetching insurance types:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching insurance types',
-        error: error instanceof Error ? error.message : error
-      });
+      const types = await this.service.getInsuranceTypes();
+      return this.ok(res, types, 'Insurance types retrieved');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 }

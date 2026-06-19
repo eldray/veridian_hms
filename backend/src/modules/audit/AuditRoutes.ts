@@ -1,51 +1,30 @@
 import { Router } from 'express';
-import { AuditController } from './AuditController';
+import { UserRole } from '@prisma/client'; // ✅ Import UserRole
+import { auditController } from './AuditController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export const AuditRoutes = () => {
+export function createAuditRoutes(): Router {
   const router = Router();
-  const controller = new AuditController();
 
   // All audit routes require authentication and admin role
   router.use(protect);
-  router.use(requireRole(['admin']));
+  
+  // ✅ Explicitly type the array to prevent TypeScript underlines
+  const adminRoles: UserRole[] = ['admin'];
+  router.use(requireRole(adminRoles));
 
-  /**
-   * @route   GET /api/audit/logs
-   * @desc    Get all audit logs with pagination and filters
-   * @access  Private (Admin only)
-   */
-  router.get('/logs', controller.getLogs);
-
-  /**
-   * @route   GET /api/audit/logs/entity/:entityType/:entityId
-   * @desc    Get audit logs for a specific entity
-   * @access  Private (Admin only)
-   */
-  router.get('/logs/entity/:entityType/:entityId', controller.getEntityLogs);
-
-  /**
-   * @route   GET /api/audit/logs/user/:userId
-   * @desc    Get audit logs for a specific user
-   * @access  Private (Admin only)
-   */
-  router.get('/logs/user/:userId', controller.getUserLogs);
-
-  /**
-   * @route   GET /api/audit/logs/:id
-   * @desc    Get a specific audit log entry
-   * @access  Private (Admin only)
-   */
-  router.get('/logs/:id', controller.getLogById);
-
-  /**
-   * @route   GET /api/audit/logs/export
-   * @desc    Export audit logs to CSV/JSON
-   * @access  Private (Admin only)
-   */
-  router.get('/logs/export', controller.exportLogs);
+  // ==========================================
+  // ✅ FIXED ROUTE ORDER: Specific routes MUST come before dynamic :id routes
+  // ==========================================
+  router.get('/logs/export', auditController.exportLogs);
+  router.get('/logs/entity/:entityType/:entityId', auditController.getEntityLogs);
+  router.get('/logs/user/:userId', auditController.getUserLogs);
+  
+  // Dynamic routes last
+  router.get('/logs', auditController.getLogs);
+  router.get('/logs/:id', auditController.getLogById);
 
   return router;
-};
+}
 
-export default AuditRoutes;
+export default createAuditRoutes;

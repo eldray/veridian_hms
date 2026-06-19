@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
+import { getPatientName } from '../utils/patient';
 import {
   ArrowLeft, Receipt, DollarSign, CreditCard, Eye, Printer,
   ChevronLeft, ChevronRight, FileText, User, Calendar,
@@ -640,7 +641,7 @@ export default function PatientBillingItems() {
           </div>
           <h1 className="text-xl font-bold text-gray-900">Patient Billing Items</h1>
           <p className="text-sm text-gray-500 mt-1">
-            View and manage all billable items for {patient?.surname} {patient?.otherNames}
+            View and manage all billable items for {getPatientName(patient)}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             {patientBills.length} bill(s) · Folder: {patient?.folderNumber}
@@ -668,7 +669,7 @@ export default function PatientBillingItems() {
                 <User className="w-5 h-5 text-teal-600" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">{patient.surname} {patient.otherNames}</h2>
+                <h2 className="font-semibold text-gray-900">{getPatientName(patient)}</h2>
                 <div className="flex flex-wrap gap-3 mt-1">
                   <span className="text-xs text-gray-500">Folder: {patient.folderNumber}</span>
                   {patient.contact && <span className="text-xs text-gray-500">Contact: {patient.contact}</span>}

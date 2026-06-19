@@ -1,5 +1,3 @@
-// modules/appointment/AppointmentTypes.ts
-
 import { AppointmentType, AppointmentStatus, UserRole } from '@prisma/client';
 
 export interface CreateAppointmentDTO {
@@ -8,8 +6,7 @@ export interface CreateAppointmentDTO {
   departmentId: string;
   title: string;
   description?: string;
-  appointmentDate: Date;
-  appointmentTime: string;
+  scheduledAt: Date; // ✅ FIXED: Combined date and time to match schema
   duration?: number;
   type: AppointmentType;
 }
@@ -17,8 +14,7 @@ export interface CreateAppointmentDTO {
 export interface UpdateAppointmentDTO {
   status?: AppointmentStatus;
   type?: AppointmentType;
-  appointmentDate?: Date;
-  appointmentTime?: string;
+  scheduledAt?: Date; // ✅ FIXED
   duration?: number;
   title?: string;
   description?: string;
@@ -37,41 +33,4 @@ export interface AppointmentFilters {
   dateTo?: Date;
   page?: number;
   limit?: number;
-}
-
-export interface AppointmentSummary {
-  id: string;
-  appointmentNumber: string;
-  title: string;
-  appointmentDate: Date;
-  appointmentTime: string;
-  status: AppointmentStatus;
-  type: AppointmentType;
-  patient: {
-    id: string;
-    surname: string;
-    otherNames: string;
-    folderNumber: string;
-  };
-  clinician: {
-    id: string;
-    fullName: string;
-    role: UserRole;
-  };
-  department: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface AppointmentResponse {
-  success: boolean;
-  data?: any;
-  message?: string;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
 }

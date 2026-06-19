@@ -107,7 +107,7 @@ interface AttendanceState {
   isOPD: (attendance: Attendance) => boolean;
 
   // Core operations
-  getAttendances: (filters?: any) => Promise<void>;
+  getAttendances: (filters?: any) => Promise<Attendance[]>;
   getAttendance: (id: string) => Promise<Attendance>;
   createAttendance: (data: any) => Promise<Attendance>;
   updateAttendance: (id: string, data: any) => Promise<void>;
@@ -208,6 +208,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       }
 
       set({ attendances, pagination, isLoading: false });
+      return attendances;
     } catch (error: any) {
       console.error('Error fetching attendances:', error);
       set({ error: error.message || 'Failed to fetch attendances', isLoading: false });

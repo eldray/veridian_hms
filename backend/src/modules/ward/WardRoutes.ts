@@ -1,45 +1,33 @@
-// routes/wardRoutes.ts - FIXED
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client'; // ✅ Import UserRole
 import { WardController } from './WardController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createWardRoutes(prisma: PrismaClient): Router {
   const router = Router();
-  const controller = new WardController(prisma);  // ✅ Pass prisma to controller
+  const controller = new WardController(prisma);
 
-  // All routes are protected
   router.use(protect);
 
-  // GET /api/wards - Get all wards
-  router.get('/', controller.getWards.bind(controller));
+  // ✅ FIXED: Explicitly type the arrays to prevent TypeScript underlines
+  const adminRoles: UserRole[] = ['admin'];
+  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
 
-  // GET /api/wards/stats - Get ward statistics
-  router.get('/stats', controller.getStats.bind(controller));
+  // Specific routes first
+  router.get('/stats', requireRole(readRoles), controller.getStats);
+  router.get('/available-beds', requireRole(readRoles), controller.getAvailableBeds);
+  router.get('/corporate-eligible', requireRole(readRoles), controller.getCorporateEligibleWards);
+  router.get('/occupancy-report', requireRole(readRoles), controller.getOccupancyReport);
+  router.post('/:id/calculate-charge', requireRole(readRoles), controller.calculateCharge);
 
-  // GET /api/wards/available-beds - Get available beds
-  router.get('/available-beds', controller.getAvailableBeds.bind(controller));
-
-  // GET /api/wards/corporate-eligible - Get corporate eligible wards
-  router.get('/corporate-eligible', controller.getCorporateEligibleWards.bind(controller));
-
-  // GET /api/wards/occupancy-report - Get occupancy report
-  router.get('/occupancy-report', controller.getOccupancyReport.bind(controller));
-
-  // POST /api/wards/:id/calculate-charge - Calculate charge
-  router.post('/:id/calculate-charge', controller.calculateCharge.bind(controller));
-
-  // GET /api/wards/:id - Get ward by ID
-  router.get('/:id', controller.getWardById.bind(controller));
-
-  // POST /api/wards - Create new ward (admin only)
-  router.post('/', requireRole(['admin']), controller.createWard.bind(controller));
-
-  // PUT /api/wards/:id - Update ward (admin only)
-  router.put('/:id', requireRole(['admin']), controller.updateWard.bind(controller));
-
-  // DELETE /api/wards/:id - Delete ward (admin only)
-  router.delete('/:id', requireRole(['admin']), controller.deleteWard.bind(controller));
+  // Dynamic routes
+  router.get('/', requireRole(readRoles), controller.getWards);
+  router.get('/:id', requireRole(readRoles), controller.getWardById);
+  
+  // Write access restricted to Admin
+  router.post('/', requireRole(adminRoles), controller.createWard);
+  router.put('/:id', requireRole(adminRoles), controller.updateWard);
+  router.delete('/:id', requireRole(adminRoles), controller.deleteWard);
 
   return router;
 }

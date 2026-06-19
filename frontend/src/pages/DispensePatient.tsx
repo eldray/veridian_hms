@@ -1,4 +1,4 @@
-// src/pages/DispensePatient.tsx - Dispense Page for Specific Patient (WITH PatientAttendanceSelector)
+// src/pages/DispensePatient.tsx - REDESIGNED
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -10,175 +10,126 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { getPatientName } from '../utils/patient';
 import {
-  ChevronLeft,
-  Pill,
-  CheckCircle,
-  Package,
-  Printer,
-  RefreshCw,
-  AlertCircle,
-  User,
-  TrendingUp,
-  X,
-  Plus,
-  FileText,
-  UserCircle,
-  Zap,
-  AlertTriangle,
-  Clock,
-  Calendar,
-  Bed,
-  Phone,
-  Mail,
-  MapPin,
-  Syringe,
-  History,
-  Eye,
-  Building,
-  CreditCard,
-  Shield,
-  Stethoscope
+  ChevronLeft, Pill, CheckCircle, Package, Printer, RefreshCw,
+  AlertCircle, User, X, Plus, FileText, Zap, History,
+  Calendar, Clock, MessageSquare,
 } from 'lucide-react';
+import SendDocumentModal from '../components/SendDocumentModal';
 
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
-  entity?.id || entity?._id;
+const getEntityId = (entity: { id?: string; _id?: string } | null) => entity?.id || entity?._id;
 
-const getStatusBadge = (status: string) => {
-  const config: Record<string, { bg: string; text: string; label: string }> = {
-    prescribed:   { bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', label: 'Prescribed' },
-    dispensed:    { bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]',  label: 'Dispensed' },
-    administered: { bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]',   label: 'Administered' },
-    cancelled:    { bg: 'bg-[var(--icon-red-bg)]',    text: 'text-[var(--icon-red-text)]',    label: 'Cancelled' },
+// ── Status badge ──────────────────────────────────────────────────────────────
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const map: Record<string, string> = {
+    prescribed:   'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
+    dispensed:    'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    administered: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
+    cancelled:    'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
   };
-  const c = config[status] || config.prescribed;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.label}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status] || map.prescribed}`}>
+      {status?.charAt(0).toUpperCase() + status?.slice(1)}
     </span>
   );
 };
 
-// Stats Card Component
-const StatCard = ({ title, value, icon: Icon, color }: any) => (
-  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
-      </div>
-      <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center`}>
-        <Icon className="w-5 h-5" />
-      </div>
+// ── Stock level indicator ─────────────────────────────────────────────────────
+const StockLevel: React.FC<{ available: number; needed: number; unit: string }> = ({ available, needed, unit }) => {
+  const ok = available >= needed;
+  const low = available > 0 && available < needed;
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ok ? 'bg-[var(--icon-green-text)]' : low ? 'bg-[var(--icon-yellow-text)]' : 'bg-[var(--icon-red-text)]'}`} />
+      <span className={`text-xs font-semibold ${ok ? 'text-[var(--icon-green-text)]' : low ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-red-text)]'}`}>
+        {available}
+      </span>
+      <span className="text-[10px] text-[var(--text-tertiary)]">{unit}</span>
     </div>
-  </div>
-);
+  );
+};
 
-// Dispense Quantity Modal
-const DispenseQuantityModal: React.FC<{
-  medication: any;
-  stockItem: any;
-  onConfirm: (quantity: number) => void;
-  onClose: () => void;
-  isProcessing: boolean;
+// ── Dispense modal ────────────────────────────────────────────────────────────
+const DispenseModal: React.FC<{
+  medication: any; stockItem: any;
+  onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
   const [quantity, setQuantity] = useState(medication.quantity || 1);
-  const maxQuantity = stockItem?.currentStock || medication.quantity || 1;
-  const totalCost = (medication.unitCost || stockItem?.costPrice || 0) * quantity;
+  const max = stockItem?.currentStock || medication.quantity || 1;
+  const unitCost = medication.unitCost || stockItem?.costPrice || 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md border border-[var(--border-color)] shadow-xl">
-        <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
-          <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-sm">
-            <Package className="w-4 h-4 text-[var(--icon-green-text)]" />
-            Dispense Medication
-          </h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg transition-colors">
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-sm border border-[var(--border-color)] overflow-hidden" style={{ boxShadow: 'var(--shadow-md)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[var(--icon-green-bg)] flex items-center justify-center">
+              <Package className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
+            </div>
+            <p className="text-sm font-bold text-[var(--text-primary)]">Confirm Dispense</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--border-color)] transition-all">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
-            <p className="font-semibold text-[var(--text-primary)] text-sm">{medication.name}</p>
-            <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--text-secondary)]">
-              <span>{medication.dosage || 'As directed'}</span>
-              <span>·</span>
-              <span>{medication.frequency || 'As prescribed'}</span>
-              <span>·</span>
-              <span>{medication.duration || 'As needed'}</span>
+          {/* Drug info */}
+          <div className="px-3 py-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
+            <p className="text-xs font-bold text-[var(--text-primary)]">{medication.name}</p>
+            <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
+              {[medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' · ') || 'As directed'}
+            </p>
+          </div>
+
+          {/* Quantity */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Quantity</p>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                className="w-8 h-8 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-sm font-bold">
+                −
+              </button>
+              <input type="number" value={quantity} min={1} max={max}
+                onChange={e => setQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), max))}
+                className="w-20 text-center px-3 py-2 text-sm font-bold border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-green-text)]" />
+              <button onClick={() => setQuantity(q => Math.min(max, q + 1))}
+                className="w-8 h-8 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-sm font-bold">
+                +
+              </button>
+              <span className="text-[11px] text-[var(--text-tertiary)]">of {max} available</span>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
-              Quantity to dispense
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => {
-                  let val = parseInt(e.target.value);
-                  if (isNaN(val)) val = 1;
-                  val = Math.min(Math.max(val, 1), maxQuantity);
-                  setQuantity(val);
-                }}
-                min={1}
-                max={maxQuantity}
-                className="w-28 px-3 py-2 text-center text-lg font-bold bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
-              />
-              <span className="text-sm text-[var(--text-secondary)]">
-                Available:{' '}
-                <strong className="text-[var(--icon-green-text)]">{maxQuantity}</strong>{' '}
-                {stockItem?.unitOfMeasure || 'units'}
-              </span>
+          {/* Cost summary */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="px-3 py-2 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
+              <p className="text-[10px] text-[var(--text-tertiary)]">Unit cost</p>
+              <p className="text-sm font-bold text-[var(--text-primary)]">GHS {unitCost.toFixed(2)}</p>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-[var(--icon-green-bg)] border border-[var(--border-color)]">
+              <p className="text-[10px] text-[var(--icon-green-text)]">Total</p>
+              <p className="text-sm font-bold text-[var(--icon-green-text)]">GHS {(unitCost * quantity).toFixed(2)}</p>
             </div>
           </div>
 
           {medication.instructions && (
-            <p className="text-sm text-[var(--text-secondary)]">
-              <span className="font-medium text-[var(--text-primary)]">Instructions:</span>{' '}
-              {medication.instructions}
+            <p className="text-[11px] text-[var(--text-secondary)] px-3 py-2 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
+              <span className="font-semibold text-[var(--text-primary)]">Note: </span>{medication.instructions}
             </p>
           )}
 
-          <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 border border-[var(--border-color)]">
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Unit cost:</span>
-              <span className="font-medium text-[var(--text-primary)]">
-                GHS {(medication.unitCost || stockItem?.costPrice || 0).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm mt-1">
-              <span className="text-[var(--text-secondary)]">Total cost:</span>
-              <span className="font-bold text-[var(--icon-green-text)]">
-                GHS {totalCost.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-            >
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">
               Cancel
             </button>
-            <button
-              onClick={() => onConfirm(quantity)}
-              disabled={isProcessing}
-              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 text-white bg-[var(--icon-green-text)] hover:opacity-90 disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm Dispense
-                </>
-              )}
+            <button onClick={() => onConfirm(quantity)} disabled={isProcessing}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all">
+              {isProcessing
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <><CheckCircle className="w-3.5 h-3.5" /> Dispense</>}
             </button>
           </div>
         </div>
@@ -187,6 +138,7 @@ const DispenseQuantityModal: React.FC<{
   );
 };
 
+// ═════════════════════════════════════════════════════════════════════════════
 export default function DispensePatient() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -196,75 +148,47 @@ export default function DispensePatient() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [dispensingId, setDispensingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [showSendRx, setShowSendRx] = useState(false);
   const [isPrescribeModalOpen, setIsPrescribeModalOpen] = useState(false);
-  const [dispenseModal, setDispenseModal] = useState<{
-    isOpen: boolean;
-    medication: any;
-    stockItem: any;
-  }>({ isOpen: false, medication: null, stockItem: null });
+  const [dispenseModal, setDispenseModal] = useState<{ isOpen: boolean; medication: any; stockItem: any }>({
+    isOpen: false, medication: null, stockItem: null,
+  });
 
-  const { 
-    attendances, 
-    getAttendances, 
-    updateMedicationStatus,
-    getAttendance,
-    calculateBill 
-  } = useAttendanceStore();
+  const { attendances, getAttendances, updateMedicationStatus, getAttendance, calculateBill } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
 
-  // Get patient from location state or fetch by ID
   const [patient, setPatient] = useState<any>(null);
   const [attendance, setAttendance] = useState<any>(null);
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
 
   const loadData = async () => {
+    setRefreshing(true);
     try {
-      setRefreshing(true);
       await Promise.all([loadPatients(), getAttendances(), getStockItems()]);
-      
       let foundPatient = location.state?.patient;
-      
-      if (!foundPatient && id) {
-        foundPatient = patients.find(p => p.id === id);
-      }
-      
+      if (!foundPatient && id) foundPatient = patients.find(p => p.id === id);
       if (foundPatient) {
         setPatient(foundPatient);
         setSelectedPatientId(foundPatient.id);
-        
-        // Get all attendances for this patient
-        const patientAttendances = attendances.filter(a => a.patientId === foundPatient.id);
-        setAllAttendances(patientAttendances);
-        
-        // Set initial attendance from location state or most recent
-        const initialAttendanceId = location.state?.attendanceId;
-        if (initialAttendanceId) {
-          const foundAttendance = attendances.find(a => a.id === initialAttendanceId);
-          if (foundAttendance) {
-            setSelectedAttendanceId(initialAttendanceId);
-            setAttendance(foundAttendance);
-            const prescribedMeds = (foundAttendance.Medication || []).filter((m: any) => m.status === 'prescribed');
-            setPrescriptions(prescribedMeds);
-          }
-        } else if (patientAttendances.length > 0) {
-          // Select most recent attendance
-          const mostRecent = patientAttendances.sort((a, b) => 
-            new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-          )[0];
-          setSelectedAttendanceId(mostRecent.id);
-          setAttendance(mostRecent);
-          const prescribedMeds = (mostRecent.Medication || []).filter((m: any) => m.status === 'prescribed');
-          setPrescriptions(prescribedMeds);
+        const patientAtts = attendances.filter(a => a.patientId === foundPatient.id);
+        setAllAttendances(patientAtts);
+        const initId = location.state?.attendanceId;
+        const pick = initId
+          ? attendances.find(a => a.id === initId)
+          : patientAtts.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
+        if (pick) {
+          setSelectedAttendanceId(pick.id);
+          setAttendance(pick);
+          setPrescriptions((pick.Medication || []).filter((m: any) => m.status === 'prescribed'));
         }
       }
-      
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -273,44 +197,28 @@ export default function DispensePatient() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [id]);
+  useEffect(() => { loadData(); }, [id]);
 
-  // Handle attendance change
-  const handleAttendanceChange = (attendanceId: string) => {
-    const newAttendance = allAttendances.find(a => a.id === attendanceId);
-    if (newAttendance) {
-      setSelectedAttendanceId(attendanceId);
-      setAttendance(newAttendance);
-      const prescribedMeds = (newAttendance.Medication || []).filter((m: any) => m.status === 'prescribed');
-      setPrescriptions(prescribedMeds);
+  const handleAttendanceChange = (attId: string) => {
+    const att = allAttendances.find(a => a.id === attId);
+    if (att) {
+      setSelectedAttendanceId(attId);
+      setAttendance(att);
+      setPrescriptions((att.Medication || []).filter((m: any) => m.status === 'prescribed'));
     }
   };
 
-  const handleClearSelection = () => {
-    setSelectedAttendanceId('');
-    setAttendance(null);
-    setPrescriptions([]);
-  };
+  const getStockFor = (med: any) => stockItems.find(s => s.id === med.stockItemId);
 
-  const getStockItemForMedication = (medication: any) => {
-    return stockItems.find(s => s.id === medication.stockItemId);
-  };
-
-  const handleDispenseClick = (medication: any) => {
-    const stockItem = getStockItemForMedication(medication);
-    if (!stockItem || stockItem.currentStock < 1) {
-      toastError('Low stock', `Only ${stockItem?.currentStock || 0} available`);
-      return;
-    }
-    setDispenseModal({ isOpen: true, medication, stockItem });
+  const handleDispenseClick = (med: any) => {
+    const stock = getStockFor(med);
+    if (!stock || stock.currentStock < 1) { toastError('Out of stock', `${med.name} has no stock`); return; }
+    setDispenseModal({ isOpen: true, medication: med, stockItem: stock });
   };
 
   const handleConfirmDispense = async (quantity: number) => {
     const { medication, stockItem } = dispenseModal;
     if (!attendance?.id || !medication) return;
-
     setDispensingId(medication.id);
     try {
       await updateMedicationStatus(attendance.id, medication.id, {
@@ -321,21 +229,9 @@ export default function DispensePatient() {
         dispensedUnitCost: stockItem?.costPrice || medication.unitCost || 0,
         batchNumber: stockItem?.batchNumber || null,
       });
-      
-      success(medication.name, `Dispensed ${quantity} unit(s) successfully`);
-      
-      await Promise.all([
-        getAttendances(),
-        getStockItems(),
-        getAttendance(attendance.id),
-        calculateBill(attendance.id),
-      ]);
-      
-      const updatedPrescriptions = prescriptions.map(p => 
-        p.id === medication.id ? { ...p, status: 'dispensed' } : p
-      );
-      setPrescriptions(updatedPrescriptions);
-      
+      success(medication.name, `${quantity} unit(s) dispensed`);
+      await Promise.all([getAttendances(), getStockItems(), getAttendance(attendance.id), calculateBill(attendance.id)]);
+      setPrescriptions(p => p.map(m => m.id === medication.id ? { ...m, status: 'dispensed' } : m));
     } catch (err: any) {
       toastError('Dispense failed', err.response?.data?.message || err.message);
     } finally {
@@ -344,461 +240,371 @@ export default function DispensePatient() {
     }
   };
 
-  const handlePrintPrescription = async (medication?: any) => {
-    if (!attendance?.id || !patient) {
-      toastError('Error', 'Missing required information');
-      return;
-    }
-    
-    const medsToPrint = medication ? [medication] : prescriptions;
-    if (medsToPrint.length === 0) {
-      toastError('No prescriptions', 'No medications to print');
-      return;
-    }
-    
-    setPrintingId(medication?.id || 'all');
+  const handlePrint = async (med?: any) => {
+    if (!attendance?.id || !patient) { toastError('Error', 'Missing required info'); return; }
+    const meds = med ? [med] : prescriptions.filter(m => m.status === 'prescribed');
+    if (!meds.length) { toastError('Nothing to print', 'No prescribed medications'); return; }
+    setPrintingId(med?.id || 'all');
     try {
-      const medicationsData = medsToPrint.map((med: any) => ({
-        name: med.name,
-        dosage: med.dosage || 'As directed',
-        frequency: med.frequency || 'As prescribed',
-        duration: med.duration || 'As needed',
-        quantity: med.quantity || 1,
-        route: med.route || 'oral',
-        instructions: med.instructions,
-        notes: med.notes,
-        prescribedAt: med.prescribedAt || new Date().toISOString(),
-      }));
-      
-      const htmlContent = generatePDF(
-        'combinedPrescription',
-        {
-          medications: medicationsData,
-          patient: {
-            ...patient,
-            fullName: `${patient.surname} ${patient.otherNames}`,
-          },
-          attendance: attendance,
-          prescriberName: user?.fullName || 'Unknown',
-        },
-        hospital
-      );
-      
-      openPrintWindow(htmlContent, `Prescription_${patient.folderNumber}`);
-      success('Prescription ready', 'Print window opened');
-    } catch {
-      toastError('Print failed', 'Could not generate prescription');
-    } finally {
-      setPrintingId(null);
-    }
-  };
-
-  const handlePrescribeSuccess = async () => {
-    setIsPrescribeModalOpen(false);
-    await Promise.all([
-      getAttendances(),
-      getAttendance(attendance?.id),
-      calculateBill(attendance?.id),
-    ]);
-    success('Medication prescribed', 'Prescription added successfully');
-    await loadData();
+      const html = generatePDF('combinedPrescription', {
+        medications: meds.map((m: any) => ({ name: m.name, dosage: m.dosage || 'As directed', frequency: m.frequency, duration: m.duration, quantity: m.quantity || 1, route: m.route || 'oral', instructions: m.instructions, prescribedAt: m.prescribedAt || new Date().toISOString() })),
+        patient: { ...patient, fullName: getPatientName(patient) },
+        attendance,
+        prescriberName: user?.fullName || 'Unknown',
+      }, hospital);
+      openPrintWindow(html, `Rx_${patient.folderNumber}`);
+      success('Print ready', 'Prescription opened');
+    } catch { toastError('Print failed', 'Could not generate prescription'); }
+    finally { setPrintingId(null); }
   };
 
   const canDispense = attendance && ['pending', 'admitted'].includes(attendance.status);
+  const prescribedMeds = prescriptions.filter(m => m.status === 'prescribed');
+  const dispensedHistory = useMemo(() => (attendance?.Medication || [])
+    .filter((m: any) => m.status === 'dispensed')
+    .sort((a: any, b: any) => new Date(b.dispensedAt).getTime() - new Date(a.dispensedAt).getTime()), [attendance]);
 
-  // Calculate age
-  const calculateAge = (dateOfBirth: string): number => {
-    if (!dateOfBirth) return 0;
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
+  const calcAge = (dob: string) => {
+    if (!dob) return 0;
+    const today = new Date(), b = new Date(dob);
+    let age = today.getFullYear() - b.getFullYear();
+    if (today.getMonth() < b.getMonth() || (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
     return age;
   };
 
-  // Get dispensed medications history
-  const dispensedHistory = useMemo(() => {
-    if (!attendance?.Medication) return [];
-    return attendance.Medication.filter((m: any) => m.status === 'dispensed')
-      .sort((a: any, b: any) => new Date(b.dispensedAt).getTime() - new Date(a.dispensedAt).getTime());
-  }, [attendance]);
+  const paymentCls = attendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+    : attendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
+    : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
+  const paymentLabel = attendance?.paymentMode === 'nhis' ? 'NHIS'
+    : attendance?.paymentMode === 'private_insurance' ? 'Private Ins.' : 'Cash';
 
-  const prescribedMeds = prescriptions.filter(m => m.status === 'prescribed');
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Patient Data...</h2>
-        </div>
+  // ── Loading ──────────────────────────────────────────────────────────────
+  if (isLoading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-2 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-[var(--text-secondary)]">Loading patient data…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!patient) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
-          <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
-          <button
-            onClick={() => navigate('/dashboard/dispense')}
-            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
-          >
-            Back to Waiting List
-          </button>
-        </div>
+  if (!patient) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-10">
+        <AlertCircle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3 opacity-60" />
+        <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Patient not found</p>
+        <p className="text-xs text-[var(--text-secondary)] mb-4">The patient record doesn't exist.</p>
+        <button onClick={() => navigate('/dashboard/dispense')}
+          className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+          Back to Waiting List
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  const patientFullName = `${patient.surname} ${patient.otherNames}`;
+  const patientName = getPatientName(patient);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
+    <div className="space-y-4">
+
+      {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard/dispense')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
+          <button onClick={() => navigate('/dashboard/dispense')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
+            <ChevronLeft className="w-3.5 h-3.5" /> Waiting List
           </button>
-          <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center">
-            <Pill className="w-5 h-5 text-[var(--icon-green-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Dispense Medication</h1>
-            <p className="text-sm text-[var(--text-secondary)]">{patientFullName}</p>
+          <div className="h-5 w-px bg-[var(--border-color)]" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[var(--icon-green-bg)] flex items-center justify-center">
+              <Pill className="w-4 h-4 text-[var(--icon-green-text)]" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Dispense Medications</h1>
+              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">{patientName}</p>
+            </div>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsPrescribeModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-all text-sm"
-            disabled={!canDispense}
-          >
-            <Plus className="w-4 h-4" />
-            Prescribe New
-          </button>
-          {prescribedMeds.length > 0 && (
-            <button
-              onClick={() => handlePrintPrescription()}
-              disabled={printingId === 'all'}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm disabled:opacity-50"
-            >
-              <Printer className="w-4 h-4" />
-              Print All
+          {canDispense && (
+            <button onClick={() => setIsPrescribeModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
+              <Plus className="w-3.5 h-3.5" /> Add Prescription
             </button>
           )}
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+          {prescribedMeds.length > 0 && (
+            <button onClick={() => handlePrint()} disabled={printingId === 'all'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
+              <Printer className="w-3.5 h-3.5" /> Print All
+            </button>
+          )}
+          {prescribedMeds.length > 0 && (
+            <button onClick={() => setShowSendRx(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-green-200 text-green-700 hover:bg-green-50 transition-all">
+              <MessageSquare className="w-3.5 h-3.5" /> Send Rx
+            </button>
+          )}
+          <button onClick={loadData} disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Patient & Attendance Selector */}
+      <SendDocumentModal
+        open={showSendRx}
+        onClose={() => setShowSendRx(false)}
+        patient={patient}
+        documentType="prescription"
+        entityId={attendance?.id || selectedAttendanceId}
+      />
+
+      {/* ── PATIENT SELECTOR ────────────────────────────────────────────── */}
       <PatientAttendanceSelector
         patients={[patient]}
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={(patientId) => {
-          setSelectedPatientId(patientId);
-          setAllAttendances(attendances.filter(a => a.patientId === patientId));
-          setSelectedAttendanceId('');
-          setAttendance(null);
-          setPrescriptions([]);
-        }}
-        onAttendanceSelect={(attendanceId) => handleAttendanceChange(attendanceId)}
-        onClearSelection={handleClearSelection}
+        onPatientSelect={pid => { setSelectedPatientId(pid); setAllAttendances(attendances.filter(a => a.patientId === pid)); setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
+        onAttendanceSelect={handleAttendanceChange}
+        onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
       />
 
-      {/* Patient Information Card */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-            Patient Information
-          </h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Full Name</p>
-              <p className="text-sm font-medium text-[var(--text-primary)] mt-1">{patientFullName}</p>
+      {/* ── PATIENT BANNER ──────────────────────────────────────────────── */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-[var(--icon-green-text)]" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Folder Number</p>
-              <p className="text-sm font-mono text-[var(--text-primary)] mt-1">{patient.folderNumber}</p>
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">{patientName}</h2>
+              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                {patient.folderNumber} · {calcAge(patient.dateOfBirth)}y · {patient.gender} · {patient.contact}
+              </p>
             </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Age & Gender</p>
-              <p className="text-sm text-[var(--text-primary)] mt-1 capitalize">{calculateAge(patient.dateOfBirth)} years • {patient.gender}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Contact</p>
-              <p className="text-sm text-[var(--text-primary)] mt-1">{patient.contact}</p>
-            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {attendance && (
               <>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Ward / Bed</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-1">
-                    {attendance.ward?.wardName || '—'} / {attendance.bed?.bedNumber || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Admission Date</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-1">
-                    {new Date(attendance.dateTime).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Status</p>
-                  <div className="mt-1">{getStatusBadge(attendance.status)}</div>
-                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${paymentCls}`}>{paymentLabel}</span>
+                <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
+                  #{attendance.attendanceNumber || '—'}
+                </span>
+                <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)] flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(attendance.dateTime || attendance.createdAt).toLocaleDateString()}
+                </span>
+                <StatusBadge status={attendance.status} />
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Read-only warning */}
-      {selectedAttendanceId && !attendance && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-          <p className="text-sm text-[var(--icon-yellow-text)]">
-            Please select an attendance to view and dispense medications.
-          </p>
-        </div>
-      )}
-
+      {/* ── ALERT BANNERS ───────────────────────────────────────────────── */}
       {attendance && !canDispense && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-          <p className="text-sm text-[var(--icon-yellow-text)]">
-            This visit is <strong>{attendance.status}</strong>. Medications can be viewed but not dispensed.
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]">
+          <AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] flex-shrink-0" />
+          <p className="text-xs font-medium text-[var(--icon-yellow-text)]">
+            This visit is <strong>{attendance.status}</strong> — medications can be viewed but not dispensed.
           </p>
         </div>
       )}
 
-      {/* No Attendance Selected */}
-      {!selectedAttendanceId && patient && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-8 text-center">
-          <Calendar className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--text-secondary)]">Please select an attendance from the dropdown above to view prescriptions.</p>
+      {!selectedAttendanceId && (
+        <div className="flex flex-col items-center justify-center gap-3 py-14 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <Calendar className="w-9 h-9 text-[var(--text-tertiary)] opacity-40" />
+          <p className="text-sm font-semibold text-[var(--text-primary)]">No visit selected</p>
+          <p className="text-xs text-[var(--text-tertiary)]">Select a visit above to view prescriptions</p>
         </div>
       )}
 
-      {/* Stats Cards - Only show when attendance selected */}
       {selectedAttendanceId && attendance && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard 
-            title="To Dispense" 
-            value={prescribedMeds.length} 
-            icon={Pill}
-            color="bg-[var(--icon-purple-bg)]"
-          />
-          <StatCard 
-            title="Dispensed" 
-            value={dispensedHistory.length} 
-            icon={CheckCircle}
-            color="bg-[var(--icon-green-bg)]"
-          />
-          <StatCard 
-            title="Total Prescribed" 
-            value={prescribedMeds.length + dispensedHistory.length} 
-            icon={FileText}
-            color="bg-[var(--icon-cyan-bg)]"
-          />
-        </div>
-      )}
-
-      {/* Prescribed Medications Table - Only show when attendance selected */}
-      {selectedAttendanceId && attendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Package className="w-4 h-4 text-[var(--icon-purple-text)]" />
-              Prescribed Medications ({prescribedMeds.length})
-            </h2>
+        <>
+          {/* ── STATS STRIP ───────────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'To dispense', value: prescribedMeds.length, icon: <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />, bg: 'bg-[var(--icon-purple-bg)]' },
+              { label: 'Dispensed', value: dispensedHistory.length, icon: <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />, bg: 'bg-[var(--icon-green-bg)]' },
+              { label: 'Total prescribed', value: prescribedMeds.length + dispensedHistory.length, icon: <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />, bg: 'bg-[var(--icon-cyan-bg)]' },
+            ].map(s => (
+              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-4 py-3 flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>{s.icon}</div>
+                <div>
+                  <p className="text-xl font-bold text-[var(--text-primary)] leading-none">{s.value}</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{s.label}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          
-          {prescribedMeds.length === 0 ? (
-            <div className="p-8 text-center">
-              <Package className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-              <p className="text-[var(--text-secondary)]">No prescribed medications for this visit</p>
-              {canDispense && (
-                <button
-                  onClick={() => setIsPrescribeModalOpen(true)}
-                  className="mt-3 text-[var(--icon-cyan-text)] text-sm hover:underline"
-                >
-                  Prescribe new medication
-                </button>
-              )}
+
+          {/* ── PRESCRIBED MEDICATIONS ────────────────────────────────── */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Prescribed Medications</span>
+                {prescribedMeds.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]">
+                    {prescribedMeds.length}
+                  </span>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Medication</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Dosage</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Frequency</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Stock</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Qty</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Instructions</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {prescribedMeds.map((med) => {
-                    const stockItem = getStockItemForMedication(med);
-                    const stockAvailable = stockItem?.currentStock || 0;
-                    const hasStock = stockAvailable >= (med.quantity || 1);
-                    const isLowStock = stockAvailable > 0 && stockAvailable < (med.quantity || 1);
-                    
-                    return (
-                      <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-[var(--text-primary)]">{med.name}</p>
-                          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            Prescribed: {new Date(med.prescribedAt).toLocaleDateString()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">{med.dosage || '—'}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">{med.frequency || '—'}</td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <span className={`font-medium ${hasStock ? 'text-[var(--icon-green-text)]' : isLowStock ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-red-text)]'}`}>
-                              {stockAvailable}
-                            </span>
-                            <span className="text-xs text-[var(--text-tertiary)]">{stockItem?.unitOfMeasure || 'units'}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center font-medium text-[var(--text-primary)]">
-                          {med.quantity || 1}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-[var(--text-secondary)] max-w-xs block truncate">
-                            {med.instructions || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handlePrintPrescription(med)}
-                              disabled={printingId === med.id}
-                              className="p-1.5 text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors"
-                              title="Print Prescription"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                            {canDispense && hasStock && (
-                              <button
-                                onClick={() => handleDispenseClick(med)}
-                                disabled={dispensingId === med.id}
-                                className="px-3 py-1.5 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-                              >
-                                {dispensingId === med.id ? (
-                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <Zap className="w-3 h-3" />
-                                )}
-                                Dispense
-                              </button>
-                            )}
-                            {canDispense && isLowStock && (
-                              <button
-                                onClick={() => handleDispenseClick(med)}
-                                disabled={dispensingId === med.id}
-                                className="px-3 py-1.5 bg-[var(--icon-yellow-text)] text-white rounded-lg hover:opacity-90 text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-                              >
-                                Dispense ({stockAvailable} left)
-                              </button>
-                            )}
-                            {canDispense && stockAvailable === 0 && (
-                              <span className="text-xs text-[var(--icon-red-text)]">Out of stock</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            {prescribedMeds.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="opacity-20"><Package className="w-10 h-10" /></div>
+                <p className="text-xs text-[var(--text-tertiary)]">No pending prescriptions for this visit</p>
+                {canDispense && (
+                  <button onClick={() => setIsPrescribeModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
+                    <Plus className="w-3.5 h-3.5" /> Add Prescription
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border-color)]">
+                {prescribedMeds.map((med: any) => {
+                  const stock = getStockFor(med);
+                  const avail = stock?.currentStock || 0;
+                  const needed = med.quantity || 1;
+                  const hasStock = avail >= needed;
+                  const lowStock = avail > 0 && avail < needed;
+                  const noStock = avail === 0;
+
+                  return (
+                    <div key={med.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors group">
+                      {/* Drug info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-[var(--text-primary)]">{med.name}</p>
+                        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
+                          {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
+                        </p>
+                        {med.instructions && (
+                          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 italic truncate max-w-xs">{med.instructions}</p>
+                        )}
+                      </div>
+
+                      {/* Qty needed */}
+                      <div className="text-center w-16 flex-shrink-0">
+                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">Needed</p>
+                        <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
+                      </div>
+
+                      {/* Stock */}
+                      <div className="w-24 flex-shrink-0">
+                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">In stock</p>
+                        <StockLevel available={avail} needed={needed} unit={stock?.unitOfMeasure || 'units'} />
+                      </div>
+
+                      {/* Prescribed date */}
+                      <div className="hidden md:block w-24 flex-shrink-0">
+                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">Prescribed</p>
+                        <p className="text-[11px] text-[var(--text-secondary)]">
+                          {med.prescribedAt ? new Date(med.prescribedAt).toLocaleDateString() : '—'}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => handlePrint(med)} disabled={printingId === med.id}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-40">
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+
+                        {canDispense && hasStock && (
+                          <button onClick={() => handleDispenseClick(med)} disabled={dispensingId === med.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all">
+                            {dispensingId === med.id
+                              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
+                          </button>
+                        )}
+                        {canDispense && lowStock && (
+                          <button onClick={() => handleDispenseClick(med)} disabled={dispensingId === med.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all">
+                            <Zap className="w-3.5 h-3.5" /> Partial ({avail})
+                          </button>
+                        )}
+                        {canDispense && noStock && (
+                          <span className="text-xs font-semibold text-[var(--icon-red-text)] px-3 py-1.5 rounded-lg bg-[var(--icon-red-bg)]">Out of stock</span>
+                        )}
+                        {!canDispense && (
+                          <span className="text-[10px] text-[var(--text-tertiary)]">Read only</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── DISPENSED HISTORY ─────────────────────────────────────── */}
+          {dispensedHistory.length > 0 && (
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                <History className="w-4 h-4 text-[var(--icon-green-text)]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Dispensed This Visit</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
+                  {dispensedHistory.length}
+                </span>
+              </div>
+              <div className="divide-y divide-[var(--border-color)]">
+                {dispensedHistory.map((med: any) => (
+                  <div key={med.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-[var(--text-primary)]">{med.name}</p>
+                      <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{med.dosage || '—'}</p>
+                    </div>
+                    <div className="text-center w-16 flex-shrink-0">
+                      <p className="text-[10px] text-[var(--text-tertiary)]">Qty</p>
+                      <p className="text-xs font-bold text-[var(--icon-green-text)]">{med.quantity || 1}</p>
+                    </div>
+                    <div className="w-28 flex-shrink-0">
+                      <p className="text-[10px] text-[var(--text-tertiary)]">Total</p>
+                      <p className="text-xs font-semibold text-[var(--text-primary)]">
+                        GHS {((med.dispensedUnitCost || 0) * (med.quantity || 1)).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="hidden md:block flex-shrink-0">
+                      <p className="text-[10px] text-[var(--text-tertiary)]">Dispensed by</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{med.dispensedBy?.fullName || '—'}</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1 justify-end">
+                        <Clock className="w-3 h-3" />
+                        {med.dispensedAt ? new Date(med.dispensedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </p>
+                      <p className="text-[10px] text-[var(--text-tertiary)]">
+                        {med.dispensedAt ? new Date(med.dispensedAt).toLocaleDateString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total row */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">Total dispensed value</span>
+                <span className="text-sm font-bold text-[var(--icon-green-text)]">
+                  GHS {dispensedHistory.reduce((sum: number, m: any) => sum + (m.dispensedUnitCost || 0) * (m.quantity || 1), 0).toFixed(2)}
+                </span>
+              </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Dispensed History Table - Only show when attendance selected */}
-      {selectedAttendanceId && attendance && dispensedHistory.length > 0 && (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <History className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Recently Dispensed
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Medication</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Quantity</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase">Unit Cost</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase">Total</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Dispensed By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {dispensedHistory.map((med: any) => (
-                  <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap">
-                      {new Date(med.dispensedAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--text-primary)]">{med.name}</p>
-                      <p className="text-xs text-[var(--text-secondary)]">{med.dosage}</p>
-                    </td>
-                    <td className="px-4 py-3 text-center font-medium text-[var(--icon-green-text)]">
-                      {med.quantity || 1}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[var(--text-secondary)]">
-                      GHS {(med.dispensedUnitCost || 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-[var(--text-primary)]">
-                      GHS {((med.dispensedUnitCost || 0) * (med.quantity || 1)).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-[var(--text-secondary)]">
-                      {med.dispensedBy?.fullName || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Dispense Modal */}
+      {/* ── MODALS ──────────────────────────────────────────────────────── */}
       {dispenseModal.isOpen && dispenseModal.medication && (
-        <DispenseQuantityModal
+        <DispenseModal
           medication={dispenseModal.medication}
           stockItem={dispenseModal.stockItem}
           onConfirm={handleConfirmDispense}
@@ -807,15 +613,19 @@ export default function DispensePatient() {
         />
       )}
 
-      {/* Prescribe Modal */}
       {attendance && (
         <MedicationModal
           isOpen={isPrescribeModalOpen}
           onClose={() => setIsPrescribeModalOpen(false)}
-          onSuccess={handlePrescribeSuccess}
+          onSuccess={async () => {
+            setIsPrescribeModalOpen(false);
+            await Promise.all([getAttendances(), getAttendance(attendance?.id), calculateBill(attendance?.id)]);
+            success('Added', 'Prescription added successfully');
+            await loadData();
+          }}
           attendanceId={attendance.id}
           stockItems={stockItems}
-          canAdd={canDispense}
+          canAdd={!!canDispense}
           userId={user?.id}
           userName={user?.fullName}
         />

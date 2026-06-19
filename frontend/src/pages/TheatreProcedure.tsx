@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft,
   Scissors,
@@ -96,7 +97,7 @@ export default function TheatreProcedure() {
     canAddMedicalEntries,
     calculateBill,
   } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
   const { procedureTemplates, getProcedureTemplates } = useMedicalServicesStore();
 
@@ -109,36 +110,42 @@ export default function TheatreProcedure() {
       setRefreshing(true);
       await Promise.all([
         loadPatients(),
-        getAttendances(),
         getProcedureTemplates(false)
       ]);
-      
-      let foundPatient = location.state?.patient;
-      
-      if (!foundPatient && id) {
-        foundPatient = patients.find(p => p.id === id);
-      }
-      
-      if (foundPatient) {
-        setPatient(foundPatient);
-        setSelectedPatientId(foundPatient.id);
-        
-        const patientAttendances = attendances.filter(a => a.patientId === foundPatient.id);
+
+      // Worklist navigates with :id = patientId plus state.{patient, attendanceId}.
+      const statePatient = location.state?.patient;
+      const patientId = statePatient?.id || id;
+      const initialAttendanceId = location.state?.attendanceId;
+
+      if (patientId) {
+        // Load THIS patient's attendances directly (complete + small) instead of
+        // filtering a paginated global list that may not contain the target.
+        const patientAttendances = await getAttendances({ patientId });
         setAllAttendances(patientAttendances);
-        
-        const initialAttendanceId = location.state?.attendanceId;
-        if (initialAttendanceId) {
-          setSelectedAttendanceId(initialAttendanceId);
-          await getAttendance(initialAttendanceId);
-        } else if (patientAttendances.length > 0) {
-          const mostRecent = patientAttendances.sort((a, b) => 
+
+        // Resolve the full patient; the default list only holds a page, so fall back
+        // to a direct fetch (or the navigation summary).
+        let foundPatient = patients.find(p => p.id === patientId) || statePatient || null;
+        if (!foundPatient || !foundPatient.surname) {
+          try { foundPatient = await fetchPatient(patientId); } catch { /* keep summary */ }
+        }
+        if (foundPatient) {
+          setPatient(foundPatient);
+          setSelectedPatientId(patientId);
+        }
+
+        const target =
+          (initialAttendanceId && patientAttendances.find(a => a.id === initialAttendanceId)) ||
+          [...patientAttendances].sort((a, b) =>
             new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
           )[0];
-          setSelectedAttendanceId(mostRecent.id);
-          await getAttendance(mostRecent.id);
+        if (target) {
+          setSelectedAttendanceId(target.id);
+          await getAttendance(target.id);
         }
       }
-      
+
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -408,7 +415,7 @@ export default function TheatreProcedure() {
     );
   }
 
-  const patientFullName = `${patient.surname} ${patient.otherNames}`;
+  const patientFullName = getPatientName(patient);
   const scheduledProcedures = procedures.filter((p: any) => p.status === 'scheduled');
   const inProgressProcedures = procedures.filter((p: any) => p.status === 'in_progress');
   const completedProcedures = procedures.filter((p: any) => p.status === 'completed');

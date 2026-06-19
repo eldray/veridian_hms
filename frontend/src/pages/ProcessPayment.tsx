@@ -18,9 +18,11 @@ import {
   User,
   Calendar,
   Tag,
-  CheckCircle
+  CheckCircle,
+  MessageSquare
 } from 'lucide-react';
 import type { PaymentMethod } from '../types';
+import SendDocumentModal from '../components/SendDocumentModal';
 
 export default function ProcessPayment() {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export default function ProcessPayment() {
   const [reference, setReference] = useState('');
   const [billingBreakdown, setBillingBreakdown] = useState<any>(null);
   const [isPageLoading, setIsPageLoading] = useState(true);
+  const [showSendReceipt, setShowSendReceipt] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -114,7 +117,7 @@ export default function ProcessPayment() {
 
   const getPatientName = (patient: any) => {
     if (!patient) return 'Unknown Patient';
-    return `${patient.surname} ${patient.otherNames}`.trim();
+    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   };
 
   if (isPageLoading) {
@@ -172,15 +175,32 @@ export default function ProcessPayment() {
               <p className="text-blue-100 text-sm mt-0.5">Bill: {bill.billNumber}</p>
             </div>
           </div>
-          <Link
-            to="/dashboard/billing"
-            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-sm font-medium"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Billing Dashboard
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSendReceipt(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-sm font-medium"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Send Receipt
+            </button>
+            <Link
+              to="/dashboard/billing"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-sm font-medium"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Billing Dashboard
+            </Link>
+          </div>
         </div>
       </div>
+
+      <SendDocumentModal
+        open={showSendReceipt}
+        onClose={() => setShowSendReceipt(false)}
+        patient={patient}
+        documentType="receipt"
+        entityId={bill.id}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Bill Summary & Breakdown */}

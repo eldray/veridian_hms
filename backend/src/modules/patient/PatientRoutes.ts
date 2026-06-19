@@ -1,41 +1,35 @@
-// modules/patient/PatientRoutes.ts
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { PatientController } from './PatientController';
+// ✅ ADDED: Security Middleware
+import { protect, requirePatientManagement } from '../../middleware/authMiddleware';
 
 export function createPatientRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new PatientController();
 
+  // ✅ ADDED: Apply authentication and authorization to ALL patient routes
+  router.use(protect, requirePatientManagement);
+
   // Search and list patients
-  router.get('/', controller.searchPatients.bind(controller));
+  router.get('/', controller.searchPatients);
+  router.get('/stats', controller.getStats);
+  router.get('/recent', controller.getRecentPatients);
+  router.get('/corporate/:corporateAccountId', controller.getPatientsByCorporateAccount);
+  router.get('/nhis/:nhisNumber', controller.getPatientByNHIS);
+  router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
+  router.get('/:id', controller.getPatientById);
+  router.post('/', controller.createPatient);
+  router.put('/:id', controller.updatePatient);
+  router.delete('/:id', controller.deletePatient);
 
-  // Get patient statistics
-  router.get('/stats', controller.getStats.bind(controller));
-
-  // Get recent patients
-  router.get('/recent', controller.getRecentPatients.bind(controller));
-
-  // ✅ NEW: Get patients by corporate account
-  router.get('/corporate/:corporateAccountId', controller.getPatientsByCorporateAccount.bind(controller));
-
-  // Get patient by NHIS number
-  router.get('/nhis/:nhisNumber', controller.getPatientByNHIS.bind(controller));
-
-  // ✅ NEW: Get patient corporate summary
-  router.get('/:id/corporate-summary', controller.getPatientCorporateSummary.bind(controller));
-
-  // Get patient by ID
-  router.get('/:id', controller.getPatientById.bind(controller));
-
-  // Create new patient
-  router.post('/', controller.createPatient.bind(controller));
-
-  // Update patient
-  router.put('/:id', controller.updatePatient.bind(controller));
-
-  // Delete patient
-  router.delete('/:id', controller.deletePatient.bind(controller));
+  // ==========================================
+  // NEW: EMR (Allergies & Histories) Routes
+  // ==========================================
+  router.post('/:id/allergies', controller.addAllergy);
+  router.get('/:id/allergies', controller.getAllergies);
+  router.post('/:id/medical-history', controller.addMedicalHistory);
+  router.get('/:id/medical-history', controller.getMedicalHistories);
 
   return router;
 }

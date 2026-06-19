@@ -1,302 +1,132 @@
-// modules/notification/NotificationRepository.ts
+import { PrismaClient } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 
-import { PrismaClient, NotificationType, NotificationPriority } from '@prisma/client';
-
-export class NotificationRepository {
-  private prisma: PrismaClient;
-
+export class NotificationRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
-    this.prisma = prisma;
+    super(prisma, 'notification');
   }
 
-  // ============================================
-  // FIND NOTIFICATIONS BY USER
-  // ============================================
-
-
-  async findByUser(
-    userId: string,
-    options: {
-      unreadOnly?: boolean;
-      page?: number;
-      limit?: number;
-    } = {}
-  ) {
+  async findByUser(userId: string, options: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
     const { unreadOnly = false, page = 1, limit = 20 } = options;
-  
-    const pageNum = Math.max(1, page);
-    const limitNum = Math.min(100, Math.max(1, limit));
-  
     const where: any = { userId };
-    if (unreadOnly) {
-      where.isRead = false;
-    }
-  
-    const skip = (pageNum - 1) * limitNum;
-  
-    const [notifications, total, unreadCount] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limitNum,
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              fullName: true,
-              role: true
-            }
-          },
-          sender: {
-            select: {
-              id: true,
-              username: true,
-              fullName: true,
-              role: true
-            }
-          }
-        }
+    if (unreadOnly) where.isRead = false;
+
+    // ✅ Optimized: findManyWithPagination already returns total. We only need one extra query for unreadCount.
+    const [paginatedResult, unreadCount] = await Promise.all([
+      this.findManyWithPagination({ 
+        where, page, limit, 
+        orderBy: { createdAt: 'desc' }, 
+        include: { sender: { select: { id: true, fullName: true, role: true } } } 
       }),
-      this.prisma.notification.count({ where }),
-      this.prisma.notification.count({ where: { userId, isRead: false } })
+      this.count({ userId, isRead: false })
     ]);
-  
-    return {
-      notifications,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      },
-      unreadCount
+
+    return { 
+      notifications: paginatedResult.data, 
+      pagination: { 
+        page: paginatedResult.page, 
+        limit: paginatedResult.limit, 
+        total: paginatedResult.total, 
+        totalPages: paginatedResult.totalPages // ✅ Aligned with BaseController
+      }, 
+      unreadCount 
     };
   }
-  
-  // ============================================
-  // GET NOTIFICATION STATS
-  // ============================================
 
   async getStats(userId: string) {
     const [total, unread, byType, byPriority] = await Promise.all([
-      this.prisma.notification.count({ where: { userId } }),
-      this.prisma.notification.count({ where: { userId, isRead: false } }),
-      this.prisma.notification.groupBy({
-        by: ['type'],
-        where: { userId },
-        _count: { id: true }
-      }),
-      this.prisma.notification.groupBy({
-        by: ['priority'],
-        where: { userId },
-        _count: { id: true }
-      })
+      this.count({ userId }), 
+      this.count({ userId, isRead: false }),
+      this.prisma.notification.groupBy({ by: ['type'], where: { userId }, _count: true }),
+      this.prisma.notification.groupBy({ by: ['priority'], where: { userId }, _count: true })
     ]);
 
-    const statsByType = byType.reduce((acc, stat) => {
-      acc[stat.type] = stat._count.id;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const statsByPriority = byPriority.reduce((acc, stat) => {
-      acc[stat.priority] = stat._count.id;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return {
-      total,
-      unread,
-      read: total - unread,
-      byType: statsByType,
-      byPriority: statsByPriority,
-      unreadPercentage: total > 0 ? Math.round((unread / total) * 100) : 0
+    const mapGroup = (arr: any[]) => arr.reduce((acc, s) => { acc[s.type || s.priority] = s._count; return acc; }, {} as Record<string, number>);
+    return { 
+      total, unread, read: total - unread, 
+      byType: mapGroup(byType), byPriority: mapGroup(byPriority), 
+      unreadPercentage: total > 0 ? Math.round((unread / total) * 100) : 0 
     };
   }
 
-  // ============================================
-  // GET UNREAD COUNT
-  // ============================================
-
-  async getUnreadCount(userId: string) {
-    return this.prisma.notification.count({
-      where: { userId, isRead: false }
-    });
+  async getUnreadCount(userId: string) { 
+    return this.count({ userId, isRead: false }); 
   }
-
-  // ============================================
-  // MARK AS READ
-  // ============================================
 
   async markAsRead(id: string, userId: string) {
-    const notification = await this.prisma.notification.findFirst({
-      where: { id, userId }
-    });
-
-    if (!notification) {
-      return null;
-    }
-
-    return this.prisma.notification.update({
-      where: { id },
-      data: {
-        isRead: true,
-        readAt: new Date()
-      }
+    // ✅ Let Prisma throw P2025 if not found, BaseController handles it
+    return this.getModel().update({ 
+      where: { id, userId }, 
+      data: { isRead: true, readAt: new Date() } 
     });
   }
 
-  // ============================================
-  // MARK ALL AS READ
-  // ============================================
-
   async markAllAsRead(userId: string) {
-    const result = await this.prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: {
-        isRead: true,
-        readAt: new Date()
-      }
+    const result = await this.getModel().updateMany({ 
+      where: { userId, isRead: false }, 
+      data: { isRead: true, readAt: new Date() } 
     });
-
     return { markedCount: result.count };
   }
 
-  // ============================================
-  // DELETE NOTIFICATION
-  // ============================================
-
   async delete(id: string, userId: string) {
-    const notification = await this.prisma.notification.findFirst({
-      where: { id, userId }
+    // ✅ Let Prisma throw P2025 if not found
+    await this.getModel().delete({ where: { id, userId } });
+  }
+
+  async create(data: any) {
+    return this.getModel().create({ 
+      data: { ...data, isRead: false, isArchived: false }, 
+      include: { sender: { select: { id: true, fullName: true, role: true } } } 
+    });
+  }
+
+  // ✅ FIXED: Memory leak prevented by limiting query to recent messages
+  async getConversations(userId: string) {
+    // Fetch only the most recent 200 messages to build the conversation list.
+    // Fetching ALL messages would crash the server for active users.
+    const recentMessages = await this.getModel().findMany({
+      where: { OR: [{ userId, senderId: { not: null } }, { senderId: userId }] },
+      orderBy: { createdAt: 'desc' },
+      take: 200, 
+      select: { userId: true, senderId: true, createdAt: true }
     });
 
-    if (!notification) {
-      return false;
+    const convMap = new Map<string, { count: number; lastMessageAt: Date }>();
+    for (const msg of recentMessages) {
+      const otherId = msg.userId === userId ? msg.senderId! : msg.userId;
+      if (!otherId) continue; 
+      
+      if (!convMap.has(otherId)) convMap.set(otherId, { count: 0, lastMessageAt: msg.createdAt });
+      const c = convMap.get(otherId)!;
+      c.count++;
+      if (msg.createdAt > c.lastMessageAt) c.lastMessageAt = msg.createdAt;
     }
 
-    await this.prisma.notification.delete({ where: { id } });
-    return true;
-  }
-
-  // ============================================
-  // CREATE NOTIFICATION
-  // ============================================
-
-  async create(data: {
-    userId: string;
-    senderId?: string | null;
-    title: string;
-    message: string;
-    type: NotificationType;
-    priority: NotificationPriority;
-    actionType?: string | null;
-    actionId?: string | null;
-    actionUrl?: string | null;
-  }) {
-    return this.prisma.notification.create({
-      data: {
-        ...data,
-        isRead: false,
-        isArchived: false
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            fullName: true,
-            role: true
-          }
-        }
-      }
+    const users = await this.prisma.user.findMany({ 
+      where: { id: { in: Array.from(convMap.keys()) } }, 
+      select: { id: true, fullName: true, role: true } 
     });
-  }
+    const userMap = new Map(users.map(u => [u.id, u]));
 
-  // ============================================
-  // GET CONVERSATIONS
-  // ============================================
-
-  async getConversations(userId: string) {
-    const conversations = await this.prisma.notification.groupBy({
-      by: ['senderId', 'userId'],
-      where: {
-        OR: [
-          { userId: userId },
-          { senderId: userId }
-        ],
-        type: 'system',
-        senderId: { not: null }
-      },
-      _count: {
-        id: true
-      },
-      _max: {
-        createdAt: true
-      }
-    });
-
-    const userIds = [...new Set(conversations.flatMap(c => [c.senderId, c.userId].filter(Boolean)))];
-    
-    const users = await this.prisma.user.findMany({
-      where: {
-        id: { in: userIds as string[] }
-      },
-      select: {
-        id: true,
-        fullName: true,
-        role: true,
-        isActive: true
-      }
-    });
-
-    return conversations.map(conv => {
-      const otherUserId = conv.senderId === userId ? conv.userId : conv.senderId;
-      const otherUser = users.find(u => u.id === otherUserId);
-      return {
-        userId: otherUserId,
-        userName: otherUser?.fullName || 'Unknown',
-        userRole: otherUser?.role,
-        messageCount: conv._count.id,
-        lastMessageAt: conv._max.createdAt
+    return Array.from(convMap.entries()).map(([otherId, data]) => {
+      const u = userMap.get(otherId);
+      return { 
+        userId: otherId, 
+        userName: u?.fullName || 'Unknown', 
+        userRole: u?.role, 
+        messageCount: data.count, 
+        lastMessageAt: data.lastMessageAt 
       };
     });
   }
 
-  // ============================================
-  // CLEANUP OLD NOTIFICATIONS
-  // ============================================
-
   async cleanupOldNotifications(daysToKeep: number) {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-
-    const result = await this.prisma.notification.deleteMany({
-      where: {
-        isRead: true,
-        createdAt: { lt: cutoffDate }
-      }
+    const cutoff = new Date(); 
+    cutoff.setDate(cutoff.getDate() - daysToKeep);
+    const result = await this.getModel().deleteMany({ 
+      where: { isRead: true, createdAt: { lt: cutoff } } 
     });
-
     return result.count;
-  }
-
-  // ============================================
-  // FIND BY ID AND USER
-  // ============================================
-
-  async findByIdAndUser(id: string, userId: string) {
-    return this.prisma.notification.findFirst({
-      where: { id, userId },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            fullName: true,
-            role: true
-          }
-        }
-      }
-    });
   }
 }

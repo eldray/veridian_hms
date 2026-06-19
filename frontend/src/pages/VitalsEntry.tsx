@@ -9,6 +9,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft,
   Activity,
@@ -143,20 +144,25 @@ export default function VitalsEntry() {
   
   const initialLoadDone = useRef(false);
 
-  const { 
-    attendances, 
-    getAttendances, 
-    addVitals, 
-    updateVitals, 
-    deleteVitals, 
+  const [navPatient, setNavPatient] = useState<any>(null);
+
+  const {
+    attendances,
+    getAttendances,
+    getAttendance,
+    addVitals,
+    updateVitals,
+    deleteVitals,
     getVitalsByAttendance,
-    canRecordVitals 
+    canRecordVitals
   } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
 
-  // Derived data
-  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId);
+  // Derived data — fall back to the directly-fetched patient when the default
+  // (paginated) patient list doesn't contain the worklist patient.
+  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId)
+    || (navPatient && getEntityId(navPatient) === selectedPatientId ? navPatient : undefined);
   const selectedAttendance = attendances.find(a => a.id === selectedAttendanceId);
   const canRecord = selectedAttendance ? canRecordVitals(selectedAttendance) : false;
   const isAntenatal = selectedAttendance?.attendanceType === 'antenatal';
@@ -230,32 +236,45 @@ export default function VitalsEntry() {
   // HANDLE NAVIGATION FROM WAITING LIST
   // ============================================
   
-  const processNavigationState = useCallback(() => {
-    if (location.state?.patient) {
-      const navPatient = location.state.patient;
-      const existingPatient = patients.find(p => 
-        p.id === navPatient.id || p.folderNumber === navPatient.folderNumber
-      );
-      
-      if (existingPatient) {
-        setSelectedPatientId(existingPatient.id);
-        
-        if (location.state.attendanceId) {
-          const attendance = attendances.find(a => a.id === location.state.attendanceId);
-          if (attendance) {
-            setSelectedAttendanceId(location.state.attendanceId);
-            loadVitals(location.state.attendanceId);
-          }
-        }
-      }
+  // Resolve the patient + attendance reliably from the route, fetching the specific
+  // records by id rather than searching paginated lists that may not contain them.
+  const autoSelectFromRoute = useCallback(async () => {
+    const statePatient = location.state?.patient;
+    let patientId: string | undefined = statePatient?.id;
+    let attendanceId: string | undefined = location.state?.attendanceId;
+
+    // No navigation state → the :id param is an attendance id (e.g. from Attendance Details).
+    if (!patientId && id) {
+      attendanceId = id;
+      try { const att = await getAttendance(id); patientId = att?.patientId; } catch { /* ignore */ }
     }
-  }, [location.state, patients, attendances]);
+    if (!patientId) return;
+
+    // Load THIS patient's attendances so the derived selectedAttendance resolves.
+    const patientAttendances = await getAttendances({ patientId });
+
+    // Resolve the full patient object (default list only holds a page).
+    let p = usePatientStore.getState().patients.find(x => x.id === patientId) || statePatient || null;
+    if (!p || !p.surname) { try { p = await fetchPatient(patientId); } catch { /* keep summary */ } }
+    if (p) setNavPatient(p);
+    setSelectedPatientId(patientId);
+
+    if (!attendanceId) {
+      attendanceId = [...patientAttendances].sort((a, b) =>
+        new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+      )[0]?.id;
+    }
+    if (attendanceId) {
+      setSelectedAttendanceId(attendanceId);
+      loadVitals(attendanceId);
+    }
+  }, [id, location.state, getAttendance, getAttendances, fetchPatient]);
 
   // ============================================
   // EFFECTS
   // ============================================
-  
-  // Initial load
+
+  // Initial data load (once) — populates the patient/attendance selector lists.
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
@@ -263,25 +282,11 @@ export default function VitalsEntry() {
     }
   }, []);
 
-  // Process navigation state after data is loaded
+  // Auto-select patient + attendance whenever the route target changes (after data is ready).
   useEffect(() => {
     if (isLoading) return;
-    processNavigationState();
-  }, [isLoading, processNavigationState]);
-
-  // Handle URL param
-  useEffect(() => {
-    if (isLoading || !attendances.length) return;
-    
-    if (id) {
-      const attendance = attendances.find(a => a.id === id);
-      if (attendance) {
-        setSelectedPatientId(attendance.patientId);
-        setSelectedAttendanceId(id);
-        loadVitals(id);
-      }
-    }
-  }, [id, isLoading, attendances]);
+    autoSelectFromRoute();
+  }, [id, location.key, isLoading, autoSelectFromRoute]);
 
   // Load vitals when selected attendance changes
   useEffect(() => {
@@ -301,6 +306,8 @@ export default function VitalsEntry() {
     setSelectedAttendanceId('');
     setVitalsList([]);
     setEditingVitals(null);
+    // Ensure this patient's attendances are loaded for the attendance dropdown.
+    getAttendances({ patientId }).catch(() => {});
   };
 
   const handleAttendanceSelect = (attendanceId: string) => {
@@ -450,7 +457,7 @@ export default function VitalsEntry() {
           <Calendar className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3 opacity-50" />
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Select an Attendance</h3>
           <p className="text-[var(--text-secondary)]">
-            Please select an attendance from the dropdown above to record vitals for {selectedPatient?.surname} {selectedPatient?.otherNames}.
+            Please select an attendance from the dropdown above to record vitals for {getPatientName(selectedPatient)}.
           </p>
           {patientAttendances.length === 0 && (
             <p className="text-sm text-[var(--icon-red-text)] mt-2">
@@ -483,7 +490,7 @@ export default function VitalsEntry() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                    {selectedPatient?.surname} {selectedPatient?.otherNames}
+                    {getPatientName(selectedPatient)}
                   </h3>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
                     <span>{calculateAge(selectedPatient?.dateOfBirth)} years • {selectedPatient?.gender}</span>

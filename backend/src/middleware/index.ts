@@ -1,31 +1,16 @@
 // Re-export all middleware
-export * from './authMiddleware';  // ✅ Changed from './auth' to './authMiddleware'
-export * from './concurrency';     // ✅ Includes rate limiter and optimistic lock
-export * from './audit';           // ✅ Audit logging middleware
-export * from './transaction';     // ✅ Transaction middleware
+export * from './authMiddleware';  
+export * from './concurrency';     
+export * from './audit';           
+export * from './transaction';     
 
-// Default exports (if needed)
+// Grouped exports for clean imports (e.g., import { authMiddleware } from '../middleware')
 import { withTransaction, secureOperation } from './transaction';
-import { auditFinancialEvent, logFinancialMutation } from './audit';
+import { auditFinancialEvent, auditBillOperation, auditPaymentOperation } from './audit';
 import { withOptimisticLock, createRateLimiter } from './concurrency';
-import { protect, requireRole } from './authMiddleware';
+import { protect, requireRole, requirePermission, requireMinSeniority } from './authMiddleware';
 
-export const transactionMiddleware = {
-  withTransaction,
-  secureOperation
-};
-
-export const auditMiddleware = {
-  auditFinancialEvent,
-  logFinancialMutation
-};
-
-export const concurrencyMiddleware = {
-  withOptimisticLock,
-  createRateLimiter
-};
-
-export const authMiddleware = {
-  protect,
-  requireRole
-};
+export const transactionMiddleware = { withTransaction, secureOperation };
+export const auditMiddleware = { auditFinancialEvent, auditBillOperation, auditPaymentOperation };
+export const concurrencyMiddleware = { withOptimisticLock, createRateLimiter };
+export const authMiddleware = { protect, requireRole, requirePermission, requireMinSeniority };

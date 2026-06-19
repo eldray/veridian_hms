@@ -1,6 +1,6 @@
-// src/components/vitals/PatientAttendanceSelector.tsx - WITH AUTO-SELECT
+// src/components/vitals/PatientAttendanceSelector.tsx - FIXED VERSION
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle } from 'lucide-react';
+import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
 
 interface PatientAttendanceSelectorProps {
   patients: any[];
@@ -10,8 +10,77 @@ interface PatientAttendanceSelectorProps {
   onPatientSelect: (patientId: string) => void;
   onAttendanceSelect: (attendanceId: string) => void;
   onClearSelection: () => void;
-  autoSelectMostRecent?: boolean; // ✅ NEW: Option to auto-select most recent attendance
+  autoSelectMostRecent?: boolean;
 }
+
+// ✅ Normalize patient data - extract from possible nested structures
+const normalizePatient = (patient: any): any => {
+  if (!patient) return null;
+  
+  // If patient has a data property (nested response)
+  if (patient.data && patient.data.id) {
+    return patient.data;
+  }
+  
+  // If patient has a patient property
+  if (patient.patient && patient.patient.id) {
+    return patient.patient;
+  }
+  
+  // Already flat
+  return patient;
+};
+
+// ✅ Safe getters
+const getPatientId = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.id || '';
+};
+
+const getPatientSurname = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.surname || '';
+};
+
+const getPatientOtherNames = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.otherNames || '';
+};
+
+const getPatientFullName = (patient: any): string => {
+  const surname = getPatientSurname(patient);
+  const otherNames = getPatientOtherNames(patient);
+  if (surname || otherNames) {
+    return `${surname} ${otherNames}`.trim();
+  }
+  const normalized = normalizePatient(patient);
+  return normalized?.fullName || normalized?.name || 'Unknown Patient';
+};
+
+const getPatientFolderNumber = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.folderNumber || '';
+};
+
+const getPatientContact = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.contact || '';
+};
+
+const getPatientAge = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.age || normalized?.ageDisplay || '';
+};
+
+const getPatientGender = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.gender || '';
+};
+
+const getPatientPaymentMode = (patient: any): string => {
+  const normalized = normalizePatient(patient);
+  return normalized?.paymentMode || '';
+};
 
 export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps> = ({
   patients,
@@ -21,7 +90,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   onPatientSelect,
   onAttendanceSelect,
   onClearSelection,
-  autoSelectMostRecent = true, // ✅ Default to true
+  autoSelectMostRecent = true,
 }) => {
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
@@ -31,28 +100,50 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   const patientDropdownRef = useRef<HTMLDivElement>(null);
   const attendanceDropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+  // ✅ Normalize patients array
+  const normalizedPatients = React.useMemo(() => {
+    return patients.map(p => normalizePatient(p)).filter(p => p);
+  }, [patients]);
 
-  // Filter patients based on search
-  const filteredPatients = patients.filter(patient => {
-    const fullName = `${patient.surname} ${patient.otherNames}`.toLowerCase();
+  // ✅ Find selected patient
+  const selectedPatient = React.useMemo(() => {
+    if (!selectedPatientId || !normalizedPatients.length) return null;
+    return normalizedPatients.find(p => p.id === selectedPatientId);
+  }, [normalizedPatients, selectedPatientId]);
+
+  // ✅ Sync search input with selected patient name
+  useEffect(() => {
+    if (selectedPatient) {
+      setPatientSearch(getPatientFullName(selectedPatient));
+    }
+  }, [selectedPatient]);
+
+  // ✅ Filter patients based on search
+  const filteredPatients = normalizedPatients.filter(patient => {
+    const fullName = getPatientFullName(patient).toLowerCase();
+    const folderNumber = getPatientFolderNumber(patient).toLowerCase();
+    const contact = getPatientContact(patient).toLowerCase();
     const search = patientSearch.toLowerCase();
+    
     return fullName.includes(search) || 
-           patient.folderNumber?.toLowerCase().includes(search) ||
-           patient.contact?.toLowerCase().includes(search);
+           folderNumber.includes(search) ||
+           contact.includes(search);
   });
 
-  // Filter attendances for selected patient (sorted by most recent first)
+  // Filter attendances for selected patient
   const patientAttendances = attendances
-    .filter(a => a.patientId === selectedPatientId)
+    .filter(a => {
+      const attendancePatientId = a.patientId || a.patient?.id;
+      return attendancePatientId === selectedPatientId;
+    })
     .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />;
-      case 'completed': return <CheckCircle className="w-3 h-3 text-green-500" />;
-      case 'admitted': return <Activity className="w-3 h-3 text-red-500" />;
-      default: return <Clock className="w-3 h-3 text-gray-400" />;
+      case 'pending': return <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />;
+      case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'admitted': return <Activity className="w-3.5 h-3.5 text-rose-500" />;
+      default: return <Clock className="w-3.5 h-3.5 text-slate-400" />;
     }
   };
 
@@ -60,11 +151,10 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
     return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
   };
 
-  // ✅ AUTO-SELECT MOST RECENT ATTENDANCE WHEN PATIENT IS SELECTED
+  // Auto-select most recent attendance
   useEffect(() => {
     if (autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId) {
-      const mostRecentAttendance = patientAttendances[0];
-      onAttendanceSelect(mostRecentAttendance.id);
+      onAttendanceSelect(patientAttendances[0].id);
     }
   }, [selectedPatientId, patientAttendances, selectedAttendanceId, onAttendanceSelect, autoSelectMostRecent]);
 
@@ -86,7 +176,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
 
   const handlePatientSelect = (patient: any) => {
     onPatientSelect(patient.id);
-    setPatientSearch(`${patient.surname} ${patient.otherNames}`);
+    setPatientSearch(getPatientFullName(patient));
     setShowPatientDropdown(false);
   };
 
@@ -101,16 +191,21 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
     onAttendanceSelect('');
   };
 
+  // Debug log
+  console.log('🔍 PatientAttendanceSelector - normalizedPatients:', normalizedPatients.length);
+  console.log('🔍 Selected patient:', selectedPatient);
+  console.log('🔍 Selected patient name:', selectedPatient ? getPatientFullName(selectedPatient) : 'none');
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Patient Search Box */}
       <div className="relative">
-        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1">
-          <User className="w-3 h-3" />
-          Patient
+        <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-2">
+          <User className="w-4 h-4 text-indigo-500" />
+          Select Patient
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             ref={patientInputRef}
             type="text"
@@ -121,15 +216,15 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
               if (selectedPatientId) clearPatient();
             }}
             onFocus={() => setShowPatientDropdown(true)}
-            placeholder="Search by name, folder #, or phone..."
-            className="w-full pl-9 pr-8 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] transition-all"
+            placeholder="Search by name, folder number, or phone..."
+            className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-slate-800 placeholder-slate-400 transition-all"
           />
-          {patientSearch && (
+          {patientSearch && selectedPatientId && (
             <button
               onClick={clearPatient}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-[var(--bg-card)]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-100"
             >
-              <X className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+              <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
             </button>
           )}
         </div>
@@ -138,60 +233,63 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         {showPatientDropdown && patientSearch && (
           <div 
             ref={patientDropdownRef}
-            className="absolute z-20 w-full mt-1 max-h-64 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg"
+            className="absolute z-20 w-full mt-1 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg"
           >
             {filteredPatients.length > 0 ? (
               filteredPatients.map((patient) => (
                 <button
                   key={patient.id}
                   onClick={() => handlePatientSelect(patient)}
-                  className="w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-all"
+                  className="w-full text-left p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-[var(--text-primary)] text-sm">
-                        {patient.surname} {patient.otherNames}
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-800">
+                        {getPatientFullName(patient)}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--text-secondary)]">
-                        <span className="font-mono">#{patient.folderNumber}</span>
-                        <span>•</span>
-                        <span>{patient.contact}</span>
-                        <span>•</span>
-                        <span>{patient.age || '?'}y • {patient.gender === 'male' ? '♂' : '♀'}</span>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                        {getPatientFolderNumber(patient) && <span className="font-mono">#{getPatientFolderNumber(patient)}</span>}
+                        {getPatientContact(patient) && <span>📞 {getPatientContact(patient)}</span>}
+                        {getPatientAge(patient) && <span>🎂 {getPatientAge(patient)}y</span>}
+                        {getPatientGender(patient) && <span>{getPatientGender(patient) === 'male' ? '♂ Male' : getPatientGender(patient) === 'female' ? '♀ Female' : ''}</span>}
                       </div>
                     </div>
-                    {patient.paymentMode === 'nhis' && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">NHIS</span>
+                    {getPatientPaymentMode(patient) === 'nhis' && (
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">NHIS</span>
                     )}
                   </div>
                 </button>
               ))
             ) : (
-              <div className="p-4 text-center text-[var(--text-secondary)] text-sm">
+              <div className="p-4 text-center text-slate-500 text-sm">
                 No patients found
               </div>
             )}
           </div>
         )}
 
-        {/* Selected Patient Display - Cute pill */}
+        {/* Selected Patient Display */}
         {selectedPatient && !patientSearch && (
-          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--icon-cyan-bg)]/10 rounded-full border border-[var(--icon-cyan-bg)]/30">
-              <div className="w-5 h-5 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-                <User className="w-3 h-3 text-[var(--icon-cyan-text)]" />
+          <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-800">
+                    {getPatientFullName(selectedPatient)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                    {getPatientFolderNumber(selectedPatient) && <span className="font-mono">#{getPatientFolderNumber(selectedPatient)}</span>}
+                    {getPatientContact(selectedPatient) && <span>• {getPatientContact(selectedPatient)}</span>}
+                    {getPatientAge(selectedPatient) && <span>• {getPatientAge(selectedPatient)} years</span>}
+                    {getPatientGender(selectedPatient) && <span>• {getPatientGender(selectedPatient) === 'male' ? 'Male' : 'Female'}</span>}
+                  </div>
+                </div>
               </div>
-              <span className="text-sm font-medium text-[var(--text-primary)]">
-                {selectedPatient.surname} {selectedPatient.otherNames}
-              </span>
-              <span className="text-xs text-[var(--text-secondary)] font-mono">
-                #{selectedPatient.folderNumber}
-              </span>
-              <button
-                onClick={clearPatient}
-                className="ml-1 p-0.5 rounded-full hover:bg-[var(--bg-main)]"
-              >
-                <X className="w-3 h-3 text-[var(--text-secondary)]" />
+              <button onClick={clearPatient} className="p-1.5 hover:bg-white rounded-lg transition-colors">
+                <X className="w-4 h-4 text-slate-400" />
               </button>
             </div>
           </div>
@@ -200,65 +298,55 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
 
       {/* Attendance Selector */}
       <div className="relative">
-        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1">
-          <Calendar className="w-3 h-3" />
-          Visit / Attendance
+        <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-amber-500" />
+          Select Visit / Attendance
           {autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId && (
-            <span className="text-[10px] text-[var(--icon-cyan-text)] animate-pulse">(Auto-selecting latest...)</span>
+            <span className="text-xs text-indigo-500 flex items-center gap-1 ml-2">
+              <Sparkles className="w-3 h-3" />
+              Auto-selecting latest...
+            </span>
           )}
         </label>
         
         {!selectedPatientId ? (
-          <div className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-tertiary)] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+          <div className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-400 flex items-center gap-2 cursor-not-allowed">
+            <span className="w-2 h-2 rounded-full bg-slate-300" />
             Select a patient first
           </div>
         ) : (
-          <>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              ref={attendanceInputRef}
+              type="text"
+              value={selectedAttendanceId ? patientAttendances.find(a => a.id === selectedAttendanceId)?.attendanceNumber || '' : ''}
+              onFocus={() => setShowAttendanceDropdown(true)}
+              placeholder={patientAttendances.length > 0 ? "Select a visit..." : "No visits found"}
+              readOnly
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-slate-800 placeholder-slate-400 cursor-pointer transition-all"
+            />
+            <button
+              onClick={() => setShowAttendanceDropdown(!showAttendanceDropdown)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+            >
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            </button>
+            
+            {selectedAttendanceId && (
               <button
-                ref={attendanceInputRef as any}
-                onClick={() => setShowAttendanceDropdown(!showAttendanceDropdown)}
-                className="w-full pl-9 pr-8 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all flex items-center justify-between"
+                onClick={clearAttendance}
+                className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-100"
               >
-                <span className="flex items-center gap-2">
-                  {selectedAttendanceId ? (
-                    <>
-                      {getStatusIcon(patientAttendances.find(a => a.id === selectedAttendanceId)?.status || '')}
-                      <span>
-                        {patientAttendances.find(a => a.id === selectedAttendanceId)?.attendanceNumber || 'Select visit'}
-                      </span>
-                      {patientAttendances.find(a => a.id === selectedAttendanceId)?.status === 'pending' && (
-                        <span className="text-xs text-yellow-600">(Active)</span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                      <span className="text-[var(--text-tertiary)]">
-                        {patientAttendances.length > 0 ? 'Select a visit' : 'No visits found'}
-                      </span>
-                    </>
-                  )}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
               </button>
-              {selectedAttendanceId && (
-                <button
-                  onClick={clearAttendance}
-                  className="absolute right-8 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-[var(--bg-card)]"
-                >
-                  <X className="w-3 h-3 text-[var(--text-tertiary)]" />
-                </button>
-              )}
-            </div>
+            )}
 
             {/* Attendance Dropdown */}
             {showAttendanceDropdown && (
               <div 
                 ref={attendanceDropdownRef}
-                className="absolute z-20 w-full mt-1 max-h-64 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg"
+                className="absolute z-20 w-full mt-1 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg"
               >
                 {patientAttendances.length > 0 ? (
                   patientAttendances.map((att) => (
@@ -268,46 +356,45 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                         onAttendanceSelect(att.id);
                         setShowAttendanceDropdown(false);
                       }}
-                      className={`w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-all ${
-                        selectedAttendanceId === att.id ? 'bg-[var(--icon-cyan-bg)]/5' : ''
+                      className={`w-full text-left p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors ${
+                        selectedAttendanceId === att.id ? 'bg-indigo-50' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-[var(--text-primary)] text-sm">
+                            <span className="font-medium text-slate-800">
                               {att.attendanceNumber}
                             </span>
                             {getStatusIcon(att.status)}
-                            <span className="text-xs text-[var(--text-secondary)]">
+                            <span className="text-xs text-slate-500">
                               {getStatusText(att.status)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-secondary)]">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                             <span>📅 {new Date(att.dateTime || att.createdAt).toLocaleDateString()}</span>
-                            <span>•</span>
                             <span>🏥 {att.attendanceType?.replace(/_/g, ' ') || 'General'}</span>
                           </div>
                           {att.complaints && (
-                            <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-1">
-                              {att.complaints.substring(0, 60)}...
+                            <p className="text-xs text-slate-500 mt-1 truncate max-w-md">
+                              {att.complaints}
                             </p>
                           )}
                         </div>
                         {att.paymentMode === 'nhis' && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">NHIS</span>
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">NHIS</span>
                         )}
                       </div>
                     </button>
                   ))
                 ) : (
-                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">
+                  <div className="p-4 text-center text-slate-500 text-sm">
                     No attendances found for this patient
                   </div>
                 )}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

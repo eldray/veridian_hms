@@ -1,192 +1,129 @@
-// modules/labTest/LabTestController.ts
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
+import { PrismaClient, ServiceCategory } from '@prisma/client';
+import { BaseController } from '../../shared/base/BaseController';
 import { LabTestService } from './LabTestService';
-import { ServiceCategory } from '@prisma/client';
-import { CreateLabTestDTO, UpdateLabTestDTO, BulkUpdateDTO } from './LabTestTypes';
 
-export class LabTestController {
+// Local AuthRequest definition to prevent import errors if global types aren't set
+interface AuthRequest extends Request {
+  user?: any;
+}
+
+export class LabTestController extends BaseController {
   private service: LabTestService;
 
-  constructor(service: LabTestService) {
-    this.service = service;
+  constructor(prisma: PrismaClient) {
+    super();
+    this.service = new LabTestService(prisma);
   }
 
-  // GET ALL LAB TESTS
-  getLabTests = async (req: Request, res: Response) => {
+  getLabTests = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    // ✅ Use BaseController's safe pagination parser (caps limit at 100 to prevent memory crashes)
+    const { page, limit } = this.getPaginationParams(req);
+    
+    const params = {
+      isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
+      category: req.query.category as string | undefined,
+      subType: req.query.subType as string | undefined,
+      page,
+      limit
+    };
+    
+    const result = await this.service.getAllLabTests(params);
+    
+    // ✅ Use BaseController's paginated response formatter
+    return this.paginated(
+      res, 
+      result.data, 
+      result.pagination, 
+      'Lab tests retrieved successfully'
+    );
+  });
+
+  getLabTestById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { isActive, category, subType, page, limit } = req.query;
-
-      const params = {
-        isActive: isActive !== undefined ? isActive === 'true' : undefined,
-        category: category as string | undefined,
-        subType: subType as string | undefined,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 10000
-      };
-
-      const result = await this.service.getAllLabTests(params);
-      res.json(result);
-    } catch (error) {
-      console.error('Error fetching lab tests:', error);
-      res.status(500).json({
-        message: 'Error fetching lab tests',
-        error: (error as Error).message
-      });
+      const template = await this.service.getLabTestById(req.params.id);
+      return this.ok(res, template, 'Lab test retrieved successfully');
+    } catch (e: any) {
+      // ✅ Use BaseController's error mapper (handles P2025 Not Found automatically)
+      return this.error(res, e);
     }
-  };
+  });
 
-  // GET LAB TEST BY ID
-  getLabTestById = async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const template = await this.service.getLabTestById(id);
-      res.json(template);
-    } catch (error) {
-      console.error('Error fetching lab test:', error);
-      res.status(404).json({
-        message: (error as Error).message || 'Lab test not found',
-        error: (error as Error).message
-      });
-    }
-  };
-
-  // CREATE LAB TEST
   createLabTest = [
-    body('name').notEmpty().withMessage('Lab test name is required'),
-    body('code').notEmpty().withMessage('Service code is required'),
-    body('serviceCategory').isIn(Object.values(ServiceCategory)).withMessage('Invalid category'),
-    body('cashPrice').isFloat({ min: 0 }).withMessage('Cash price must be a non-negative number'),
-    body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
-    body('insurancePrice').isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
-
-    async (req: Request, res: Response) => {
+    body('name').notEmpty(), 
+    body('code').notEmpty(), 
+    body('serviceCategory').isIn(Object.values(ServiceCategory)),
+    body('cashPrice').isNumeric({ min: 0 }), 
+    body('insurancePrice').isNumeric({ min: 0 }),
+    body('corporatePrice').optional().isNumeric({ min: 0 }), // ✅ Added corporatePrice
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      
       try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const data: CreateLabTestDTO = req.body;
-        const userId = (req as any).user?.id;
-
-        const template = await this.service.createLabTest(data, userId);
-        const templateWithPricing = await this.service.getLabTestById(template.id);
-
-        res.status(201).json(templateWithPricing);
-      } catch (error) {
-        console.error('Error creating lab test:', error);
-        res.status(500).json({
-          message: 'Error creating lab test',
-          error: (error as Error).message
-        });
+        const template = await this.service.createLabTest(req.body, req.user?.id);
+        return this.created(res, template, 'Lab test created successfully');
+      } catch (e: any) {
+        // ✅ BaseController.error() automatically catches Prisma P2002 (Duplicate Code) 
+        // and formats it as a 400 Bad Request.
+        return this.error(res, e);
       }
-    }
+    })
   ];
 
-  // UPDATE LAB TEST
   updateLabTest = [
-    body('name').optional().notEmpty().withMessage('Lab test name cannot be empty'),
-    body('code').optional().notEmpty().withMessage('Service code cannot be empty'),
-    body('serviceCategory').optional().isIn(Object.values(ServiceCategory)).withMessage('Invalid category'),
-    body('cashPrice').optional().isFloat({ min: 0 }).withMessage('Cash price must be a non-negative number'),
-    body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
-    body('insurancePrice').optional().isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
-
-    async (req: Request, res: Response) => {
+    body('cashPrice').optional().isNumeric({ min: 0 }), 
+    body('insurancePrice').optional().isNumeric({ min: 0 }),
+    body('corporatePrice').optional().isNumeric({ min: 0 }),
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      
       try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const data: UpdateLabTestDTO = req.body;
-
-        const template = await this.service.updateLabTest(id, data);
-        const templateWithPricing = await this.service.getLabTestById(template.id);
-
-        res.json(templateWithPricing);
-      } catch (error) {
-        console.error('Error updating lab test:', error);
-        res.status(500).json({
-          message: 'Error updating lab test',
-          error: (error as Error).message
-        });
+        const template = await this.service.updateLabTest(req.params.id, req.body);
+        return this.ok(res, template, 'Lab test updated successfully');
+      } catch (e: any) {
+        return this.error(res, e);
       }
-    }
+    })
   ];
 
-  // DELETE LAB TEST
-  deleteLabTest = async (req: Request, res: Response) => {
+  deleteLabTest = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      await this.service.deleteLabTest(id);
-      res.json({ message: 'Lab test deleted successfully' });
-    } catch (error) {
-      console.error('Error deleting lab test:', error);
-      res.status(500).json({
-        message: 'Error deleting lab test',
-        error: (error as Error).message
-      });
+      await this.service.deleteLabTest(req.params.id);
+      return this.ok(res, null, 'Lab test deleted successfully');
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 
-  // GET LAB TEST CATEGORIES
-  getLabTestCategories = async (req: Request, res: Response) => {
-    try {
-      const categories = await this.service.getLabTestCategories();
-      res.json(categories);
-    } catch (error) {
-      console.error('Error fetching lab test categories:', error);
-      res.status(500).json({
-        message: 'Error fetching lab test categories',
-        error: (error as Error).message
-      });
-    }
-  };
+  getLabTestCategories = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const categories = await this.service.getLabTestCategories();
+    return this.ok(res, categories, 'Categories retrieved');
+  });
 
-  // GET SPECIMEN TYPES
-  getSpecimenTypes = async (req: Request, res: Response) => {
-    try {
-      const specimenTypes = await this.service.getSpecimenTypes();
-      res.json(specimenTypes);
-    } catch (error) {
-      console.error('Error fetching specimen types:', error);
-      res.status(500).json({
-        message: 'Error fetching specimen types',
-        error: (error as Error).message
-      });
-    }
-  };
+  getLabTestSubCategories = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const subCategories = await this.service.getLabTestSubCategories();
+    return this.ok(res, subCategories, 'Sub-categories retrieved');
+  });
 
-  // GET LAB TEST METADATA FIELDS
-  getLabTestMetadataFields = async (req: Request, res: Response) => {
-    try {
-      const result = await this.service.getLabTestMetadataFields();
-      res.json(result);
-    } catch (error) {
-      console.error('Error fetching lab test metadata fields:', error);
-      res.status(500).json({
-        message: 'Error fetching lab test metadata fields',
-        error: (error as Error).message
-      });
-    }
-  };
+  getSpecimenTypes = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const types = await this.service.getSpecimenTypes();
+    return this.ok(res, types, 'Specimen types retrieved');
+  });
 
-  // BULK UPDATE LAB TESTS
-  bulkUpdateLabTests = async (req: Request, res: Response) => {
+  getLabTestMetadataFields = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.getLabTestMetadataFields();
+    return this.ok(res, result, 'Metadata fields retrieved');
+  });
+
+  bulkUpdateLabTests = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { ids, isActive } = req.body;
-      const data: BulkUpdateDTO = { ids, isActive };
-      const result = await this.service.bulkUpdateLabTests(data);
-      res.json(result);
-    } catch (error) {
-      console.error('Error bulk updating lab tests:', error);
-      res.status(500).json({
-        message: 'Error bulk updating lab tests',
-        error: (error as Error).message
-      });
+      const result = await this.service.bulkUpdateLabTests(req.body);
+      return this.ok(res, result, result.message);
+    } catch (e: any) {
+      return this.error(res, e);
     }
-  };
+  });
 }

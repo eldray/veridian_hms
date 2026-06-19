@@ -1,1611 +1,377 @@
-// modules/encounter/EncounterController.ts
 import { Request, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import { PrismaClient } from '@prisma/client'; // ✅ Added import
+import { BaseController } from '../../shared/base/BaseController';
 import { EncounterService } from './EncounterService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddMedicationDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO } from './EncounterTypes';
 
-export class EncounterController {
+export class EncounterController extends BaseController {
   private service: EncounterService;
 
-  constructor() {
-    this.service = new EncounterService();
+  // ✅ FIXED: Added prisma parameter and passed it to the service
+  constructor(prisma: PrismaClient) {
+    super();
+    this.service = new EncounterService(prisma);
+    console.log('✅ EncounterController initialized');
   }
 
   // ============================================
-  // CREATE ENCOUNTER
-  // ============================================
-  create = [
-    body('patientId').notEmpty().withMessage('Patient ID is required'),
-
-    body('attendanceType').isIn([
-      'emergency_acute',
-      'antenatal',
-      'postnatal',
-      'chronic_followup',
-      'specialist_consultation',
-      'delivery',
-      'surgery',
-      'general_consultation',
-    ]).withMessage('Valid attendance type is required'),
-
-    body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate'])
-      .withMessage('Valid payment mode is required'),
-
-    body('encounterCategory').optional().isIn(['opd', 'ipd', 'daycase'])
-      .withMessage('Valid encounter category is required'),
-
-    body('visitCategory').optional().isIn(['general', 'specialist', 'emergency', 'inpatient'])
-      .withMessage('Valid visit category is required'),
-
-    body('nhisCCC').optional().custom((value, { req }) => {
-      if (req.body.paymentMode === 'nhis') {
-        if (!value || !/^\d{5}$/.test(value)) {
-          throw new Error('NHIS CCC number must be exactly 5 digits');
-        }
-      }
-      return true;
-    }),
-
-    body('corporateAccountId').optional().custom((value, { req }) => {
-      if (req.body.paymentMode === 'corporate' && !value) {
-        throw new Error('Corporate Account ID is required for corporate payment mode');
-      }
-      return true;
-    }),
-
-    body('complaints').optional().isString(),
-    body('medicalNotes').optional().isString(),
-    body('historyPresentingComplaint').optional().isString(),
-    body('onsetDurationQuality').optional().isString(),
-    body('physicalExamination').optional().isString(),
-    body('treatmentPlan').optional().isString(),
-    body('followUpDate').optional().isISO8601().toDate(),
-    body('referringFacility').optional().isString(),
-    body('gdrgCategory').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const encounter = await this.service.createEncounter(req.body, user.id);
-
-        res.status(201).json({
-          success: true,
-          data: encounter,
-          message: 'Encounter created successfully',
-        });
-      } catch (error) {
-        console.error('Error creating encounter:', error);
-        res.status(500).json({
-          message: 'Error creating encounter',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // GET ALL ENCOUNTERS
-  // ============================================
-  getAll = async (req: AuthRequest, res: Response) => {
-    try {
-      const filters = {
-        patientId: req.query.patientId as string,
-        attendanceType: req.query.attendanceType as string,
-        encounterCategory: req.query.encounterCategory as string,
-        visitCategory: req.query.visitCategory as string,
-        status: req.query.status as 'pending' | 'completed' | 'cancelled' | 'admitted' | 'discharged' | undefined,
-        paymentMode: req.query.paymentMode as 'cash' | 'nhis' | 'private_insurance' | 'corporate' | undefined,
-        insuranceProviderId: req.query.insuranceProviderId as string,
-        wardId: req.query.wardId as string,
-        dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
-        dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 50,
-      };
-
-      const result = await this.service.getEncounters(filters);
-
-      res.json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      console.error('Error fetching encounters:', error);
-      res.status(500).json({
-        message: 'Error fetching encounters',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // GET ENCOUNTER BY ID
+  // CORE ENCOUNTER OPERATIONS
   // ============================================
 
-  getById = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      console.log('🔍 getById called with id:', id);  // ✅ Add this debug log
-      
-      if (id === 'daycase') {
-        // This should never happen if routes are ordered correctly
-        console.error('❌ "daycase" being treated as ID - route order issue!');
-        return res.status(400).json({ message: 'Invalid encounter ID' });
-      }
-      
-      const encounter = await this.service.getEncounterById(id);
-      res.json({
-        success: true,
-        data: encounter,
-      });
-    } catch (error) {
-      console.error('Error fetching encounter:', error);
-      res.status(404).json({
-        message: 'Encounter not found',
-        error: (error as Error).message,
-      });
-    }
-  };
-  // ============================================
-  // UPDATE ENCOUNTER
-  // ============================================
-// modules/encounter/EncounterController.ts - Update the update method
-
-update = [
-  body('attendanceType').optional().isIn([
-    'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup',
-    'specialist_consultation', 'delivery', 'surgery', 'general_consultation',
-  ]).withMessage('Valid attendance type is required'),
-
-  body('encounterCategory').optional().isIn(['opd', 'ipd', 'daycase'])
-    .withMessage('Valid encounter category is required'),
-
-  body('visitCategory').optional().isIn(['general', 'specialist', 'emergency', 'inpatient'])
-    .withMessage('Valid visit category is required'),
-
-  // ✅ ADD THESE MISSING FIELDS
-  body('complaints').optional().isString(),
-  body('medicalNotes').optional().isString(),
-  body('historyPresentingComplaint').optional().isString(),
-  body('onsetDurationQuality').optional().isString(),
-  body('physicalExamination').optional().isString(),
-  body('treatmentPlan').optional().isString(),
-  body('followUpDate').optional().isISO8601().toDate(),
-  body('gdrgCategory').optional().isString(),
-  body('referringFacility').optional().isString(),
-
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { id } = req.params;
-      const user = req.user;
-      if (!user) {
-        return res.status(401).json({ message: 'User authentication required' });
-      }
-
-      // ✅ Build update data with allowed fields only
-      const updateData: any = {};
-      
-      // Clinical fields
-      if (req.body.complaints !== undefined) updateData.complaints = req.body.complaints;
-      if (req.body.medicalNotes !== undefined) updateData.medicalNotes = req.body.medicalNotes;
-      if (req.body.historyPresentingComplaint !== undefined) updateData.historyPresentingComplaint = req.body.historyPresentingComplaint;
-      if (req.body.onsetDurationQuality !== undefined) updateData.onsetDurationQuality = req.body.onsetDurationQuality;
-      if (req.body.physicalExamination !== undefined) updateData.physicalExamination = req.body.physicalExamination;
-      if (req.body.treatmentPlan !== undefined) updateData.treatmentPlan = req.body.treatmentPlan;
-      if (req.body.followUpDate !== undefined) updateData.followUpDate = req.body.followUpDate;
-      if (req.body.referringFacility !== undefined) updateData.referringFacility = req.body.referringFacility;
-      
-      // Other fields
-      if (req.body.status !== undefined) updateData.status = req.body.status;
-      if (req.body.bedId !== undefined) updateData.bedId = req.body.bedId;
-      if (req.body.wardId !== undefined) updateData.wardId = req.body.wardId;
-      
-      // Always update updatedById and updatedAt
-      updateData.updatedById = user.id;
-      updateData.updatedAt = new Date();
-
-      const encounter = await this.service.updateEncounter(id, updateData, user.id);
-
-      res.json({
-        success: true,
-        data: encounter,
-        message: 'Encounter updated successfully',
-      });
-    } catch (error) {
-      console.error('Error updating encounter:', error);
-      res.status(500).json({
-        message: 'Error updating encounter',
-        error: (error as Error).message,
-      });
-    }
-  },
-];
-
-  // ============================================
-  // UPDATE ENCOUNTER STATUS
-  // ============================================
-  updateStatus = [
-    body('status').isIn(['pending', 'completed', 'cancelled', 'admitted', 'discharged'])
-      .withMessage('Valid status is required'),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { status } = req.body;
-
-        const encounter = await this.service.updateEncounterStatus(id, status);
-
-        res.json({
-          success: true,
-          data: encounter,
-          message: `Encounter status updated to ${status}`,
-        });
-      } catch (error) {
-        console.error('Error updating encounter status:', error);
-        res.status(500).json({
-          message: 'Error updating encounter status',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // ADD DIAGNOSIS
-  // ============================================
-  addDiagnosis = [
-    body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
-    body('diagnosisType').optional().isIn(['primary', 'additional', 'provisional'])
-      .withMessage('Valid diagnosis type required'),
-    body('notes').optional().isString(),
-    body('presentOnAdmission').optional().isIn(['Y', 'N', 'U'])
-      .withMessage('Present on admission must be Y, N, or U'),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { diagnosisId, diagnosisType = 'provisional', notes, presentOnAdmission } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const diagnosis = await this.service.addDiagnosis(id, {
-          diagnosisId,
-          diagnosisType: diagnosisType as 'primary' | 'additional' | 'provisional',
-          notes,
-          presentOnAdmission,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: diagnosis,
-          message: 'Diagnosis added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding diagnosis:', error);
-        res.status(500).json({
-          message: 'Error adding diagnosis',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // SET PRIMARY DIAGNOSIS
-  // ============================================
-  setPrimaryDiagnosis = [
-    body('diagnosisId').notEmpty().withMessage('Diagnosis ID is required'),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { diagnosisId } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const diagnosis = await this.service.setPrimaryDiagnosis(id, diagnosisId, user.id);
-
-        res.json({
-          success: true,
-          data: diagnosis,
-          message: 'Primary diagnosis set successfully',
-        });
-      } catch (error) {
-        console.error('Error setting primary diagnosis:', error);
-        res.status(500).json({
-          message: 'Error setting primary diagnosis',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE DIAGNOSIS
-  // ============================================
-  removeDiagnosis = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id, diagnosisId } = req.params;
-
-      await this.service.removeDiagnosis(id, diagnosisId);
-
-      res.json({
-        success: true,
-        message: 'Diagnosis removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing diagnosis:', error);
-      res.status(500).json({
-        message: 'Error removing diagnosis',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-
-// ============================================
-// GET VITALS BY ENCOUNTER ID
-// ============================================
-getVitalsByEncounter = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
+  create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const data: CreateEncounterDTO = req.body;
+    const user = req.user!;
     
-    const vitals = await this.service.getVitalsByEncounter(id);
-    
-    res.json({
-      success: true,
-      data: vitals,
-    });
-  } catch (error) {
-    console.error('Error fetching vitals:', error);
-    res.status(500).json({
-      message: 'Error fetching vitals',
-      error: (error as Error).message,
-    });
-  }
-};
-  // ============================================
-  // ADD VITALS
-  // ============================================
-  addVitals = [
-    body('bloodPressure').optional().isString(),
-    body('temperature').optional().isFloat(),
-    body('pulse').optional().isInt(),
-    body('respiration').optional().isInt(),
-    body('spo2').optional().isFloat(),
-    body('weight').optional().isFloat(),
-    body('height').optional().isFloat(),
-    body('muac').optional().isFloat(),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const { id } = req.params;
-        const {
-          bloodPressure, temperature, pulse, respiration,
-          spo2, weight, height, muac, notes,
-        } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const vitals = await this.service.addVitals(id, {
-          bloodPressure, temperature, pulse, respiration,
-          spo2, weight, height, muac, notes,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: vitals,
-          message: 'Vitals recorded successfully',
-        });
-      } catch (error) {
-        console.error('Error adding vitals:', error);
-        res.status(500).json({
-          message: 'Error adding vitals',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // UPDATE VITALS
-  // ============================================
-  updateVitals = [
-    body('bloodPressure').optional().isString(),
-    body('temperature').optional().isFloat(),
-    body('pulse').optional().isInt(),
-    body('respiration').optional().isInt(),
-    body('spo2').optional().isFloat(),
-    body('weight').optional().isFloat(),
-    body('height').optional().isFloat(),
-    body('muac').optional().isFloat(),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const { vitalsId } = req.params;
-        const updates = req.body;
-
-        const vitals = await this.service.updateVitals(vitalsId, updates);
-
-        res.json({
-          success: true,
-          data: vitals,
-          message: 'Vitals updated successfully',
-        });
-      } catch (error) {
-        console.error('Error updating vitals:', error);
-        res.status(500).json({
-          message: 'Error updating vitals',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // DELETE VITALS
-  // ============================================
-  deleteVitals = async (req: AuthRequest, res: Response) => {
-    try {
-      const { vitalsId } = req.params;
-
-      await this.service.deleteVitals(vitalsId);
-
-      res.json({
-        success: true,
-        message: 'Vitals deleted successfully',
-      });
-    } catch (error) {
-      console.error('Error deleting vitals:', error);
-      res.status(500).json({
-        message: 'Error deleting vitals',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADD PRESCRIPTION
-  // ============================================
-  addPrescription = [
-    body('stockItemId').notEmpty().withMessage('Stock item ID is required'),
-    body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
-    body('name').notEmpty().withMessage('Medication name is required'),
-    body('dosage').notEmpty().withMessage('Dosage is required'),
-    body('frequency').notEmpty().withMessage('Frequency is required'),
-    body('duration').notEmpty().withMessage('Duration is required'),
-    body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-    body('route').optional().isString(),
-    body('instructions').optional().isString(),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const {
-          stockItemId, serviceCatalogId, name, dosage,
-          frequency, duration, route, instructions, quantity, notes,
-        } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const prescription = await this.service.addPrescription(id, {
-          stockItemId, serviceCatalogId, name, dosage,
-          frequency, duration, route, instructions, quantity, notes,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: prescription,
-          message: 'Prescription added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding prescription:', error);
-        res.status(500).json({
-          message: 'Error adding prescription',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // DISPENSE MEDICATION
-  // ============================================
-  dispenseMedication = [
-    body('quantity').isInt({ min: 1 }).withMessage('Valid quantity is required'),
-    body('batchNumber').optional().isString(),
-    body('expiryDate').optional().isISO8601().toDate(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { encounterId, medicationId } = req.params;
-        const { quantity, batchNumber, expiryDate } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const medication = await this.service.dispenseMedication(
-          encounterId,
-          medicationId,
-          quantity,
-          user.id,
-          batchNumber,
-          expiryDate,
-        );
-
-        res.json({
-          success: true,
-          data: medication,
-          message: 'Medication dispensed successfully',
-        });
-      } catch (error) {
-        console.error('Error dispensing medication:', error);
-        res.status(500).json({
-          message: 'Error dispensing medication',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE MEDICATION
-  // ============================================
-  removeMedication = async (req: AuthRequest, res: Response) => {
-    try {
-      const { encounterId, medicationId } = req.params;
-
-      await this.service.removeMedication(encounterId, medicationId);
-
-      res.json({
-        success: true,
-        message: 'Medication removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing medication:', error);
-      res.status(500).json({
-        message: 'Error removing medication',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADD LAB TEST
-  // ============================================
-  addLabTest = [
-    body('templateId').notEmpty().withMessage('Lab test template ID is required'),
-    body('serviceCatalogId').optional().isString(),
-    body('priority').optional().isIn(['routine', 'urgent', 'stat'])
-      .withMessage('Valid priority is required'),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { templateId, serviceCatalogId, priority = 'routine', notes } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const labOrder = await this.service.addLabTest(id, {
-          templateId,
-          serviceCatalogId,
-          priority: priority as 'routine' | 'urgent' | 'stat',
-          notes,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: labOrder,
-          message: 'Lab order added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding lab order:', error);
-        res.status(500).json({
-          message: 'Error adding lab order',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // UPDATE LAB TEST STATUS
-  // ============================================
-  updateLabTestStatus = [
-    body('status').isIn(['requested', 'in_progress', 'completed', 'cancelled'])
-      .withMessage('Valid status is required'),
-    body('result').optional(),
-    body('normalRange').optional().isString(),
-    body('units').optional().isString(),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { labOrderId } = req.params;
-        const { status, result, normalRange, units, notes } = req.body;
-        const user = req.user;
-
-        const labOrder = await this.service.updateLabTestStatus(
-          labOrderId,
-          status,
-          { result, normalRange, units, notes },
-          user?.id,
-        );
-
-        res.json({
-          success: true,
-          data: labOrder,
-          message: 'Lab order status updated successfully',
-        });
-      } catch (error) {
-        console.error('Error updating lab order status:', error);
-        res.status(500).json({
-          message: 'Error updating lab order status',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE LAB ORDER
-  // ============================================
-  removeLabTest = async (req: AuthRequest, res: Response) => {
-    try {
-      const { encounterId, labOrderId } = req.params;
-
-      await this.service.removeLabTest(encounterId, labOrderId);
-
-      res.json({
-        success: true,
-        message: 'Lab order removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing lab order:', error);
-      res.status(500).json({
-        message: 'Error removing lab order',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADD SCAN
-  // ============================================
-  addScan = [
-    body('templateId').notEmpty().withMessage('Scan template ID is required'),
-    body('serviceCatalogId').optional().isString(),
-    body('priority').optional().isIn(['routine', 'urgent'])
-      .withMessage('Valid priority is required'),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { templateId, serviceCatalogId, priority = 'routine', notes } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const scan = await this.service.addScan(id, {
-          templateId,
-          serviceCatalogId,
-          priority: priority as 'routine' | 'urgent',
-          notes,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: scan,
-          message: 'Scan added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding scan:', error);
-        res.status(500).json({
-          message: 'Error adding scan',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // UPDATE SCAN STATUS
-  // ============================================
-  updateScanStatus = [
-    body('status').isIn(['requested', 'in_progress', 'completed', 'cancelled'])
-      .withMessage('Valid status is required'),
-    body('result').optional().isString(),
-    body('findings').optional().isString(),
-    body('impression').optional().isString(),
-    body('imageUrls').optional().isArray(),
-    body('performedById').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { scanId } = req.params;
-        const { status, result, findings, impression, imageUrls, performedById } = req.body;
-
-        const scan = await this.service.updateScanStatus(scanId, status, {
-          result, findings, impression, imageUrls, performedById,
-        });
-
-        res.json({
-          success: true,
-          data: scan,
-          message: 'Scan status updated successfully',
-        });
-      } catch (error) {
-        console.error('Error updating scan status:', error);
-        res.status(500).json({
-          message: 'Error updating scan status',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE SCAN
-  // ============================================
-  removeScan = async (req: AuthRequest, res: Response) => {
-    try {
-      const { encounterId, scanId } = req.params;
-
-      await this.service.removeScan(encounterId, scanId);
-
-      res.json({
-        success: true,
-        message: 'Scan removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing scan:', error);
-      res.status(500).json({
-        message: 'Error removing scan',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADD PROCEDURE
-  // ============================================
-  addProcedure = [
-    body('templateId').notEmpty().withMessage('Procedure template ID is required'),
-    body('serviceCatalogId').optional().isString(),
-    body('scheduledDate').optional().isISO8601().toDate(),
-    body('performedById').optional().isString(),
-    body('assistantId').optional().isString(),
-    body('notes').optional().isString(),
-    body('duration').optional().isInt({ min: 1 }),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const {
-          templateId, serviceCatalogId, scheduledDate,
-          performedById, assistantId, notes, duration,
-        } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const procedure = await this.service.addProcedure(id, {
-          templateId,
-          serviceCatalogId,
-          scheduledDate,
-          performedById,
-          assistantId,
-          notes,
-          duration,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: procedure,
-          message: 'Procedure added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding procedure:', error);
-        res.status(500).json({
-          message: 'Error adding procedure',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // UPDATE PROCEDURE STATUS
-  // ============================================
-  updateProcedureStatus = [
-    body('status').isIn(['scheduled', 'completed', 'cancelled'])
-      .withMessage('Valid status is required'),
-    body('performedById').optional().isString(),
-    body('notes').optional().isString(),
-    body('complications').optional().isString(),
-    body('outcome').optional().isString(),
-    body('anesthesiaNotes').optional().isString(),
-    body('intraOperativeNotes').optional().isString(),
-    body('postOperativeNotes').optional().isString(),
-    body('bloodLoss').optional().isInt({ min: 0 }),
-    body('duration').optional().isInt({ min: 1 }),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { procedureId } = req.params;
-        const {
-          status, performedById, notes, complications,
-          outcome, anesthesiaNotes, intraOperativeNotes,
-          postOperativeNotes, bloodLoss, duration,
-        } = req.body;
-
-        const procedure = await this.service.updateProcedureStatus(procedureId, status, {
-          performedById, notes, complications, outcome,
-          anesthesiaNotes, intraOperativeNotes, postOperativeNotes,
-          bloodLoss, duration,
-        });
-
-        res.json({
-          success: true,
-          data: procedure,
-          message: 'Procedure status updated successfully',
-        });
-      } catch (error) {
-        console.error('Error updating procedure status:', error);
-        res.status(500).json({
-          message: 'Error updating procedure status',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE PROCEDURE
-  // ============================================
-  removeProcedure = async (req: AuthRequest, res: Response) => {
-    try {
-      const { encounterId, procedureId } = req.params;
-
-      await this.service.removeProcedure(encounterId, procedureId);
-
-      res.json({
-        success: true,
-        message: 'Procedure removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing procedure:', error);
-      res.status(500).json({
-        message: 'Error removing procedure',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADD SERVICE TO ENCOUNTER
-  // ============================================
-  addService = [
-    body('serviceCatalogId').notEmpty().withMessage('Service catalog ID is required'),
-    body('quantity').optional().isInt({ min: 1 }).withMessage('Valid quantity is required'),
-    body('notes').optional().isString(),
-
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { id } = req.params;
-        const { serviceCatalogId, quantity = 1, notes } = req.body;
-        const user = req.user;
-
-        if (!user) {
-          return res.status(401).json({ message: 'User authentication required' });
-        }
-
-        const result = await this.service.addService(id, {
-          serviceCatalogId,
-          quantity,
-          notes,
-        }, user.id);
-
-        res.json({
-          success: true,
-          data: result,
-          message: 'Service added successfully',
-        });
-      } catch (error) {
-        console.error('Error adding service:', error);
-        res.status(500).json({
-          message: 'Error adding service',
-          error: (error as Error).message,
-        });
-      }
-    },
-  ];
-
-  // ============================================
-  // REMOVE SERVICE FROM ENCOUNTER
-  // ============================================
-  removeService = async (req: AuthRequest, res: Response) => {
-    try {
-      const { encounterId, serviceRenderedId } = req.params;
-
-      await this.service.removeService(encounterId, serviceRenderedId);
-
-      res.json({
-        success: true,
-        message: 'Service removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing service:', error);
-      res.status(500).json({
-        message: 'Error removing service',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-
-
-// ============================================
-// WORKLISTS (CLINICAL QUEUES) - Updated responses
-// ============================================
-
-getVitalsWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getVitalsWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, pending, recent, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching vitals worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-getMedicalWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getMedicalWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, pending, reviewed, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching medical worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-getLabWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getLabWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, pending, completed, inProgress, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching lab worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-getPharmacyWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getPharmacyWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, pending, dispensed, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching pharmacy worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-getRadiologyWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getRadiologyWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, pending, completed, inProgress, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching radiology worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-getProceduresWorklist = async (req: AuthRequest, res: Response) => {
-  try {
-    const worklist = await this.service.getProceduresWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist  // Returns { total, scheduled, inProgress, completed, data }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching procedures worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
-
-// Updated summary to work with new structures
-getWorklistSummary = async (req: AuthRequest, res: Response) => {
-  try {
-    const [vitals, medical, lab, pharmacy, scans, theatre] = await Promise.all([
-      this.service.getVitalsWorklist(),
-      this.service.getMedicalWorklist(),
-      this.service.getLabWorklist(),
-      this.service.getPharmacyWorklist(),
-      this.service.getRadiologyWorklist(),
-      this.service.getProceduresWorklist()
-    ]);
-
-    const summary = {
-      vitals: { 
-        count: vitals.pending, 
-        urgent: vitals.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      medical: { 
-        count: medical.pending, 
-        urgent: medical.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      lab: { 
-        count: lab.pending, 
-        urgent: lab.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      pharmacy: { 
-        count: pharmacy.pending, 
-        urgent: pharmacy.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      scans: { 
-        count: scans.pending, 
-        urgent: scans.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      theatre: { 
-        count: theatre.scheduled, 
-        urgent: theatre.data.filter((i: any) => i.priority === 'urgent').length 
-      },
-      total: vitals.pending + medical.pending + lab.pending + pharmacy.pending + scans.pending + theatre.scheduled
+    const encounter = await this.service.createEncounter(data, user.id);
+    return this.created(res, encounter, 'Encounter created successfully');
+  });
+
+  getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const filters = {
+      ...req.query,
+      page,
+      limit,
+      dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
+      dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined, // ✅ Fixed typo (was dateFrom)
     };
 
-    res.json({ success: true, data: summary });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching worklist summary', 
-      error: (error as Error).message 
-    });
-  }
-};
+    const result = await this.service.getEncounters(filters);
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Encounters retrieved');
+  });
 
-// ============================================
-// MATERNAL WORKLIST
-// ============================================
-getMaternalWorklist = async (req: AuthRequest, res: Response) => {
-  try {
+  getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const encounter = await this.service.getEncounterById(id);
+    return this.ok(res, encounter, 'Encounter retrieved successfully');
+  });
+
+  update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: UpdateEncounterDTO = req.body;
+    const user = req.user!;
+
+    const encounter = await this.service.updateEncounter(id, data, user.id);
+    return this.ok(res, encounter, 'Encounter updated successfully');
+  });
+
+  delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    await this.service.deleteEncounter(id);
+    return this.ok(res, null, 'Encounter deleted successfully');
+  });
+
+  updateStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const encounter = await this.service.updateEncounterStatus(id, status);
+    return this.ok(res, encounter, `Encounter status updated to ${status}`);
+  });
+
+  // ============================================
+  // DIAGNOSIS MANAGEMENT
+  // ============================================
+
+  addDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddDiagnosisDTO = req.body;
+    const user = req.user!;
+
+    const diagnosis = await this.service.addDiagnosis(id, data, user.id);
+    return this.created(res, diagnosis, 'Diagnosis added successfully');
+  });
+
+  setPrimaryDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { diagnosisId } = req.body;
+    const user = req.user!;
+
+    const diagnosis = await this.service.setPrimaryDiagnosis(id, diagnosisId, user.id);
+    return this.ok(res, diagnosis, 'Primary diagnosis set successfully');
+  });
+
+  removeDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id, diagnosisId } = req.params;
+    await this.service.removeDiagnosis(id, diagnosisId);
+    return this.ok(res, null, 'Diagnosis removed successfully');
+  });
+
+  // ============================================
+  // VITALS MANAGEMENT
+  // ============================================
+
+  getVitalsByEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const vitals = await this.service.getVitalsByEncounter(id);
+    return this.ok(res, vitals, 'Vitals retrieved successfully');
+  });
+
+  addVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddVitalsDTO = req.body;
+    const user = req.user!;
+
+    const vitals = await this.service.addVitals(id, data, user.id);
+    return this.created(res, vitals, 'Vitals recorded successfully');
+  });
+
+  updateVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { vitalsId } = req.params;
+    const vitals = await this.service.updateVitals(vitalsId, req.body);
+    return this.ok(res, vitals, 'Vitals updated successfully');
+  });
+
+  deleteVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { vitalsId } = req.params;
+    await this.service.deleteVitals(vitalsId);
+    return this.ok(res, null, 'Vitals deleted successfully');
+  });
+
+  // ============================================
+  // MEDICATION & PRESCRIPTIONS
+  // ============================================
+
+  addPrescription = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddMedicationDTO = req.body;
+    const user = req.user!;
+
+    const prescription = await this.service.addPrescription(id, data, user.id);
+    return this.created(res, prescription, 'Prescription added successfully');
+  });
+
+  dispenseMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, medicationId } = req.params;
+    const { quantity, batchNumber, expiryDate } = req.body;
+    const user = req.user!;
+
+    const medication = await this.service.dispenseMedication(encounterId, medicationId, quantity, user.id, batchNumber, expiryDate);
+    return this.ok(res, medication, 'Medication dispensed successfully');
+  });
+
+  updateMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, medicationId } = req.params;
+    const user = req.user!;
+    const medication = await this.service.updateMedication(encounterId, medicationId, req.body, user.id);
+    return this.ok(res, medication, 'Medication updated successfully');
+  });
+
+  removeMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, medicationId } = req.params;
+    await this.service.removeMedication(encounterId, medicationId);
+    return this.ok(res, null, 'Medication removed successfully');
+  });
+
+  // ============================================
+  // LAB & SCAN ORDERS
+  // ============================================
+
+  addLabTest = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddLabTestDTO = req.body;
+    const user = req.user!;
+
+    const labOrder = await this.service.addLabTest(id, data, user.id);
+    return this.created(res, labOrder, 'Lab order added successfully');
+  });
+
+  updateLabTestStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { labTestId } = req.params;
+    const { status, result, normalRange, units, notes } = req.body;
+    const user = req.user;
+
+    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes }, user?.id);
+    return this.ok(res, labOrder, 'Lab order status updated');
+  });
+
+  removeLabTest = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, labTestId } = req.params;
+    await this.service.removeLabTest(encounterId, labTestId);
+    return this.ok(res, null, 'Lab order removed successfully');
+  });
+
+  addScan = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddScanDTO = req.body;
+    const user = req.user!;
+
+    const scan = await this.service.addScan(id, data, user.id);
+    return this.created(res, scan, 'Scan added successfully');
+  });
+
+  updateScanStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { scanId } = req.params;
+    const { status, result, findings, impression, imageUrls, performedById } = req.body;
+    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls, performedById });
+    return this.ok(res, scan, 'Scan status updated');
+  });
+
+  removeScan = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, scanId } = req.params;
+    await this.service.removeScan(encounterId, scanId);
+    return this.ok(res, null, 'Scan removed successfully');
+  });
+
+  // ============================================
+  // PROCEDURES & SERVICES
+  // ============================================
+
+  addProcedure = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddProcedureDTO = req.body;
+    const user = req.user!;
+
+    const procedure = await this.service.addProcedure(id, data, user.id);
+    return this.created(res, procedure, 'Procedure added successfully');
+  });
+
+  updateProcedureStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { procedureId } = req.params;
+    const { status, ...updates } = req.body;
+    const procedure = await this.service.updateProcedureStatus(procedureId, status, updates);
+    return this.ok(res, procedure, 'Procedure status updated');
+  });
+
+  removeProcedure = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, procedureId } = req.params;
+    await this.service.removeProcedure(encounterId, procedureId);
+    return this.ok(res, null, 'Procedure removed successfully');
+  });
+
+  addService = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const data: AddServiceDTO = req.body;
+    const user = req.user!;
+
+    const result = await this.service.addService(id, data, user.id);
+    return this.created(res, result, 'Service added successfully');
+  });
+
+  removeService = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, serviceRenderedId } = req.params;
+    await this.service.removeService(encounterId, serviceRenderedId);
+    return this.ok(res, null, 'Service removed successfully');
+  });
+
+  // ============================================
+  // WORKLISTS (CLINICAL QUEUES)
+  // ============================================
+
+  getWorklistSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const summary = await this.service.getWorklistSummary();
+    return this.ok(res, summary, 'Worklist summary retrieved');
+  });
+
+  getVitalsWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getVitalsWorklist();
+    return this.ok(res, worklist, 'Vitals worklist retrieved');
+  });
+
+  getMedicalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getMedicalWorklist();
+    return this.ok(res, worklist, 'Medical worklist retrieved');
+  });
+
+  getLabWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getLabWorklist();
+    return this.ok(res, worklist, 'Lab worklist retrieved');
+  });
+
+  getPharmacyWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getPharmacyWorklist();
+    return this.ok(res, worklist, 'Pharmacy worklist retrieved');
+  });
+
+  getRadiologyWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getRadiologyWorklist();
+    return this.ok(res, worklist, 'Radiology worklist retrieved');
+  });
+
+  getProceduresWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getProceduresWorklist();
+    return this.ok(res, worklist, 'Procedures worklist retrieved');
+  });
+
+  getMaternalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const worklist = await this.service.getMaternalWorklist();
-    res.json({ 
-      success: true, 
-      ...worklist
-    });
-  } catch (error) {
-    console.error('Error fetching maternal worklist:', error);
-    res.status(500).json({ 
-      message: 'Error fetching maternal worklist', 
-      error: (error as Error).message 
-    });
-  }
-};
+    return this.ok(res, worklist, 'Maternal worklist retrieved');
+  });
 
   // ============================================
-  // DELETE ENCOUNTER
-  // ============================================
-  delete = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-
-      await this.service.deleteEncounter(id);
-
-      res.json({
-        success: true,
-        message: 'Encounter deleted successfully',
-      });
-    } catch (error) {
-      console.error('Error deleting encounter:', error);
-      res.status(500).json({
-        message: 'Error deleting encounter',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // GET ENCOUNTER STATISTICS
-  // ============================================
-  getStats = async (req: AuthRequest, res: Response) => {
-    try {
-      const { dateFrom, dateTo } = req.query;
-
-      const stats = await this.service.getEncounterStats(
-        dateFrom ? new Date(dateFrom as string) : undefined,
-        dateTo ? new Date(dateTo as string) : undefined,
-      );
-
-      res.json({
-        success: true,
-        data: stats,
-      });
-    } catch (error) {
-      console.error('Error fetching encounter statistics:', error);
-      res.status(500).json({
-        message: 'Error fetching encounter statistics',
-        error: (error as Error).message,
-      });
-    }
-  };
-
-  // ============================================
-  // ADMISSION ROUTES (Formal IPD)
+  // ADMISSION & DISCHARGE (IPD/DAYCASE)
   // ============================================
 
-  // CREATE FORMAL ADMISSION FROM IPD ENCOUNTER
-  createAdmission = [
-    body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
-    body('admissionType').optional().isIn(['emergency', 'elective', 'transfer']),
-    body('admissionSource').optional().isIn(['home', 'referral', 'another_facility', 'opd', 'emergency']),
+  createAdmission = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const user = req.user!;
+    const admission = await this.service.createFormalAdmission(req.body, user.id);
+    return this.created(res, admission, 'Formal admission created successfully');
+  });
 
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          res.status(400).json({ errors: errors.array() });
-          return;
-        }
+  getAllAdmissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.getAllAdmissions({ ...req.query, page, limit });
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Admissions retrieved');
+  });
 
-        const user = req.user;
-        if (!user) {
-          res.status(401).json({ message: 'User authentication required' });
-          return;
-        }
+  getFormalIPDPatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.getFormalIPDPatients({ ...req.query, page, limit });
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Formal IPD patients retrieved');
+  });
 
-        const admission = await this.service.createFormalAdmission(req.body, user.id);
+  getDetentionPatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.getDetentionPatients({ ...req.query, page, limit });
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Detention patients retrieved');
+  });
 
-        res.status(201).json({
-          success: true,
-          data: admission,
-          message: 'Formal admission created successfully'
-        });
-      } catch (error) {
-        console.error('Error creating admission:', error);
-        res.status(500).json({
-          message: 'Error creating admission',
-          error: (error as Error).message
-        });
-      }
-    }
-  ];
+  convertDetentionToIPD = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.convertDetentionToFormalIPD(id, req.body, user.id);
+    return this.ok(res, result.admission, result.message);
+  });
 
-// ============================================
-// ✅ UPDATE: GET ALL ADMISSIONS with filter options
-// ============================================
-  getAllAdmissions = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const {
-        status,
-        wardId,
-        admissionType,
-        excludeDetention,
-        dateFrom,
-        dateTo,
-        page = 1,
-        limit = 50
-      } = req.query;
+  dischargeEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.dischargeFromEncounter(id, req.body, user.id);
+    return this.ok(res, null, result.message);
+  });
 
-      const result = await this.service.getAllAdmissions({
-        status: status as any,
-        wardId: wardId as string,
-        admissionType: admissionType as any,
-        excludeDetention: excludeDetention === 'true',
-        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
-        dateTo: dateTo ? new Date(dateTo as string) : undefined,
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
-      });
+  getBedOccupancy = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const occupancy = await this.service.getBedOccupancy();
+    return this.ok(res, occupancy.data, 'Bed occupancy retrieved', { summary: occupancy.summary });
+  });
 
-      res.json({
-        success: true,
-        data: result.data,
-        pagination: result.pagination
-      });
-    } catch (error) {
-      console.error('Error fetching admissions:', error);
-      res.status(500).json({
-        message: 'Error fetching admissions',
-        error: (error as Error).message
-      });
-    }
-  };
+  getStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { dateFrom, dateTo } = req.query;
+    const stats = await this.service.getEncounterStats(
+      dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo ? new Date(dateTo as string) : undefined
+    );
+    return this.ok(res, stats, 'Encounter statistics retrieved');
+  });
 
-  // ADD DAILY NOTES TO ADMISSION
-  addDailyNotes = [
-    body('notes').notEmpty().withMessage('Notes are required'),
-    body('noteType').optional().isString(),
+  getDaycasePatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.getDaycasePatients({ ...req.query, page, limit }); 
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Daycase patients retrieved');
+  });
 
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
-        const user = req.user;
+  addDailyNotes = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.addDailyNotes(id, req.body, user.id);
+    return this.created(res, result.note, 'Daily notes added successfully');
+  });
 
-        if (!user) {
-          res.status(401).json({ message: 'User authentication required' });
-          return;
-        }
-
-        const result = await this.service.addDailyNotes(id, req.body, user.id);
-
-        res.json({
-          success: true,
-          data: result.note,
-          message: 'Daily notes added successfully'
-        });
-      } catch (error) {
-        console.error('Error adding daily notes:', error);
-        res.status(500).json({
-          message: 'Error adding daily notes',
-          error: (error as Error).message
-        });
-      }
-    }
-  ];
-
-
-// ============================================
-// ✅ NEW: CONVERT DETENTION TO FORMAL IPD
-// ============================================
-convertDetentionToIPD = [
-  body('admissionType').isIn(['elective', 'emergency', 'transfer']).withMessage('Valid admission type is required'),
-  body('clinicalNotes').optional().isString(),
-  body('decisionReason').optional().isString(),
-
-  async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({ errors: errors.array() });
-        return;
-      }
-
-      const { id } = req.params;
-      const user = req.user;
-
-      if (!user) {
-        res.status(401).json({ message: 'User authentication required' });
-        return;
-      }
-
-      const result = await this.service.convertDetentionToFormalIPD(id, req.body, user.id);
-
-      res.json({
-        success: true,
-        data: result.admission,
-        message: result.message
-      });
-    } catch (error) {
-      console.error('Error converting detention to IPD:', error);
-      res.status(500).json({
-        message: 'Error converting detention to IPD',
-        error: (error as Error).message
-      });
-    }
-  }
-];
-
-// ============================================
-// ✅ NEW: GET FORMAL IPD PATIENTS (excluding detention)
-// ============================================
-getFormalIPDPatients = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const {
-      status,
-      wardId,
-      page = 1,
-      limit = 50
-    } = req.query;
-
-    const result = await this.service.getFormalIPDPatients({
-      status: status as any,
-      wardId: wardId as string,
-      page: parseInt(page as string),
-      limit: parseInt(limit as string)
-    });
-
-    res.json({
-      success: true,
-      data: result.data,
-      pagination: result.pagination
-    });
-  } catch (error) {
-    console.error('Error fetching formal IPD patients:', error);
-    res.status(500).json({
-      message: 'Error fetching formal IPD patients',
-      error: (error as Error).message
-    });
-  }
-};
-
-
-// ============================================
-// ✅ NEW: GET DETENTION/OBSERVATION PATIENTS
-// ============================================
-getDetentionPatients = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const {
-      status,
-      wardId,
-      observationHours,
-      readyForDecision,
-      page = 1,
-      limit = 50
-    } = req.query;
-
-    const result = await this.service.getDetentionPatients({
-      status: status as any,
-      wardId: wardId as string,
-      observationHours: observationHours ? parseInt(observationHours as string) : undefined,
-      readyForDecision: readyForDecision === 'true',
-      page: parseInt(page as string),
-      limit: parseInt(limit as string)
-    });
-
-    res.json({
-      success: true,
-      data: result.data,
-      pagination: result.pagination,
-      summary: result.summary
-    });
-  } catch (error) {
-    console.error('Error fetching detention patients:', error);
-    res.status(500).json({
-      message: 'Error fetching detention patients',
-      error: (error as Error).message
-    });
-  }
-};
-
-  // ============================================
-  // DAYCASE/OBSERVATION ROUTES
-  // ============================================
-
-  // GET DAYCASE PATIENTS (Observation/Detention)
-  getDaycasePatients = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const {
-        status,
-        wardId,
-        page = 1,
-        limit = 50
-      } = req.query;
-
-      // Call the service method (not admissionService directly)
-      const result = await this.service.getDaycasePatients({
-        status: status as any,
-        wardId: wardId as string,
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
-      });
-
-      res.json({
-        success: true,
-        data: result.data,
-        pagination: result.pagination
-      });
-    } catch (error) {
-      console.error('Error fetching daycase patients:', error);
-      res.status(500).json({
-        message: 'Error fetching daycase patients',
-        error: (error as Error).message
-      });
-    }
-  };
-
-  // CONVERT DAYCASE TO IPD
-  convertDaycaseToIPD = [
-    body('admissionType').optional().isIn(['emergency', 'elective', 'transfer']),
-
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
-        const user = req.user;
-
-        if (!user) {
-          res.status(401).json({ message: 'User authentication required' });
-          return;
-        }
-
-        const admission = await this.service.convertDaycaseToIPD(id, req.body, user.id);
-
-        res.json({
-          success: true,
-          data: admission,
-          message: 'Daycase converted to IPD successfully'
-        });
-      } catch (error) {
-        console.error('Error converting daycase to IPD:', error);
-        res.status(500).json({
-          message: 'Error converting daycase to IPD',
-          error: (error as Error).message
-        });
-      }
-    }
-  ];
-
-  // ============================================
-  // DISCHARGE ROUTES
-  // ============================================
-
-  // DISCHARGE FROM ENCOUNTER (IPD or Daycase)
-  dischargeEncounter = [
-    body('dischargeStatus').optional().isIn(['home', 'transfer', 'expired', 'against_medical_advice']),
-    body('dischargeDate').optional().isISO8601(),
-    body('dischargeSummary').optional().isString(),
-
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
-        const user = req.user;
-
-        if (!user) {
-          res.status(401).json({ message: 'User authentication required' });
-          return;
-        }
-
-        const result = await this.service.dischargeFromEncounter(id, req.body, user.id);
-
-        res.json({
-          success: true,
-          message: result.message,
-          dischargeDate: result.dischargeDate
-        });
-      } catch (error) {
-        console.error('Error discharging patient:', error);
-        res.status(500).json({
-          message: 'Error discharging patient',
-          error: (error as Error).message
-        });
-      }
-    }
-  ];
-
-  // ============================================
-  // BED OCCUPANCY
-  // ============================================
-
-  // GET BED OCCUPANCY (All IPD + Daycase)
-  getBedOccupancy = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const occupants = await this.service.getBedOccupancy();
-
-      res.json({
-        success: true,
-        data: occupants.data,
-        summary: occupants.summary
-      });
-    } catch (error) {
-      console.error('Error fetching bed occupancy:', error);
-      res.status(500).json({
-        message: 'Error fetching bed occupancy',
-        error: (error as Error).message
-      });
-    }
-  };
+  // ✅ FIXED: Added the missing method that was causing the crash!
+  convertDaycaseToIPD = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.convertDaycaseToIPD(id, req.body, user.id);
+    return this.ok(res, result, 'Daycase converted to IPD successfully');
+  });
 }

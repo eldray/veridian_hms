@@ -1,49 +1,34 @@
-// modules/referral/ReferralRepository.ts
-import { PrismaClient, ReferralType, ReferralStatus, Priority } from '@prisma/client';
-import { 
-  CreateOutgoingReferralDTO, 
-  CreateIncomingReferralDTO, 
-  ReferralFilters 
-} from './ReferralTypes';
-import { getCounterService } from '../../services/CounterService'; // ✅ Import counter service
+import { PrismaClient, ReferralStatus } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
+import { CreateOutgoingReferralDTO, CreateIncomingReferralDTO, ReferralFilters } from './ReferralTypes';
+import { getCounterService } from '../../services/CounterService';
 
-export class ReferralRepository {
-  private prisma: PrismaClient;
-
+export class ReferralRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
-    this.prisma = prisma;
+    super(prisma, 'referralRecord');
   }
 
   async findAll(filters: ReferralFilters) {
     const {
-      referralType,
-      status,
-      patientId,
-      patientPaymentMode,
-      corporateAccountId,
-      insuranceProviderId,
-      dateFrom,
-      dateTo,
-      page = 1,
-      limit = 50
+      referralType, status, patientId, patientPaymentMode,
+      corporateAccountId, insuranceProviderId, dateFrom, dateTo,
+      page = 1, limit = 50
     } = filters;
 
     const where: any = {};
-
     if (referralType) where.referralType = referralType;
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
     
-    if (patientPaymentMode) {
-      where.patient = { paymentMode: patientPaymentMode };
-    }
+    if (patientPaymentMode) where.patient = { paymentMode: patientPaymentMode };
     
+    // ✅ FIXED: Filter by Attendance's corporateAccountId, NOT Patient's insuranceProviderId
     if (corporateAccountId) {
-      where.patient = { insuranceProviderId: corporateAccountId };
+      where.attendance = { corporateAccountId };
     }
     
     if (insuranceProviderId) {
-      where.patient = { insuranceProviderId };
+      where.attendance = { ...where.attendance, insuranceProviderId };
     }
 
     if (dateFrom || dateTo) {
@@ -57,344 +42,124 @@ export class ReferralRepository {
     const skip = (pageNum - 1) * limitNum;
 
     const [referrals, total] = await Promise.all([
-      this.prisma.referralRecord.findMany({
+      this.getModel().findMany({
         where,
         include: {
-          patient: {
-            select: {
-              id: true,
-              surname: true,
-              otherNames: true,
-              folderNumber: true,
-              contact: true,
-              dateOfBirth: true,
-              gender: true,
-              paymentMode: true,
-              nhisNumber: true,
-              insuranceProviderId: true
-            }
-          },
-          attendance: {
-            select: {
-              id: true,
-              attendanceNumber: true,
-              dateTime: true,
-              attendanceType: true,
-              encounterCategory: true,
-              paymentMode: true,
-              InsuranceProvider: {
-                select: {
-                  id: true,
-                  name: true,
-                  type: true
-                }
-              },
-              CorporateAccount: {
-                select: {
-                  id: true,
-                  companyName: true
-                }
-              }
-            }
-          },
-          createdBy: {
-            select: {
-              id: true,
-              fullName: true,
-              username: true,
-              role: true
-            }
-          }
+          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, dateOfBirth: true, gender: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true } },
+          attendance: { select: { id: true, attendanceNumber: true, dateTime: true, attendanceType: true, encounterCategory: true, paymentMode: true, InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } } } },
+          createdBy: { select: { id: true, fullName: true, username: true, role: true } }
         },
         orderBy: { referralDate: 'desc' },
-        skip,
-        take: limitNum
+        skip, take: limitNum
       }),
-      this.prisma.referralRecord.count({ where })
+      this.getModel().count({ where })
     ]);
 
-    const referralsWithFullName = referrals.map(ref => ({
+    const data = referrals.map(ref => ({
       ...ref,
-      patient: ref.patient ? {
-        ...ref.patient,
-        fullName: `${ref.patient.surname} ${ref.patient.otherNames}`.trim()
-      } : null
+      patient: ref.patient ? { ...ref.patient, fullName: `${ref.patient.surname} ${ref.patient.otherNames}`.trim() } : null
     }));
 
     return {
-      data: referralsWithFullName,
+      data,
       pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
+        page: pageNum, limit: limitNum, total,
+        totalPages: Math.ceil(total / limitNum) // ✅ Aligned with BaseController
       }
     };
   }
 
   async findById(id: string) {
-    const referral = await this.prisma.referralRecord.findUnique({
+    const referral = await this.getModel().findUnique({
       where: { id },
       include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            contact: true,
-            address: true,
-            dateOfBirth: true,
-            gender: true,
-            paymentMode: true,
-            nhisNumber: true,
-            insuranceProviderId: true,
-            InsuranceProvider: {
-              select: {
-                id: true,
-                name: true,
-                type: true
-              }
-            }
-          }
-        },
-        attendance: {
-          select: {
-            id: true,
-            attendanceNumber: true,
-            dateTime: true,
-            attendanceType: true,
-            encounterCategory: true,
-            paymentMode: true,
-            nhisCCC: true,
-            InsuranceProvider: {
-              select: {
-                id: true,
-                name: true,
-                type: true
-              }
-            },
-            CorporateAccount: {
-              select: {
-                id: true,
-                companyName: true
-              }
-            },
-            AttendanceDiagnosis: {
-              include: {
-                Diagnosis: {
-                  select: {
-                    name: true,
-                    icdCode: true,
-                    morbidityGroup: true
-                  }
-                }
-              }
-            },
-            Vitals: {
-              orderBy: { recordedAt: 'desc' },
-              take: 1
-            }
-          }
-        },
-        createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            role: true
-          }
-        }
+        patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, address: true, dateOfBirth: true, gender: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true, InsuranceProvider: { select: { id: true, name: true, type: true } } } },
+        attendance: { select: { id: true, attendanceNumber: true, dateTime: true, attendanceType: true, encounterCategory: true, paymentMode: true, nhisCCC: true, InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, AttendanceDiagnosis: { include: { Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } } } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } } },
+        createdBy: { select: { id: true, fullName: true, role: true } }
       }
     });
 
+    // ✅ Throw 404 error so BaseController handles it correctly
     if (!referral) {
-      throw new Error('Referral not found');
+      const err = new Error('Referral not found') as any;
+      err.status = 404;
+      throw err;
     }
 
     return {
       ...referral,
-      patient: referral.patient ? {
-        ...referral.patient,
-        fullName: `${referral.patient.surname} ${referral.patient.otherNames}`.trim()
-      } : null
+      patient: referral.patient ? { ...referral.patient, fullName: `${referral.patient.surname} ${referral.patient.otherNames}`.trim() } : null
     };
   }
 
   async createOutgoing(data: CreateOutgoingReferralDTO, createdById: string) {
-    const counterService = getCounterService(); // ✅ Get counter service instance
-    
-    return this.prisma.referralRecord.create({
+    return this.getModel().create({
       data: {
-        referralNumber: counterService.nextReferralNumber(), // ✅ Use counter service
-        patientId: data.patientId,
-        attendanceId: data.attendanceId,
-        referralType: 'outgoing',
-        referralReason: data.referralReason,
-        referredToFacility: data.referredToFacility,
-        referredToDoctor: data.referredToDoctor,
-        referredToDepartment: data.referredToDepartment,
-        urgency: data.urgency || 'routine',
-        referralNotes: data.referralNotes,
-        status: 'pending',
-        createdById
+        referralNumber: getCounterService().nextReferralNumber(),
+        patientId: data.patientId, attendanceId: data.attendanceId,
+        referralType: 'outgoing', referralReason: data.referralReason,
+        referredToFacility: data.referredToFacility, referredToDoctor: data.referredToDoctor,
+        referredToDepartment: data.referredToDepartment, urgency: data.urgency || 'routine',
+        referralNotes: data.referralNotes, status: 'pending', createdById
       },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            contact: true,
-            dateOfBirth: true,
-            gender: true,
-            paymentMode: true
-          }
-        },
-        attendance: {
-          select: {
-            id: true,
-            attendanceNumber: true,
-            dateTime: true,
-            paymentMode: true
-          }
-        },
-        createdBy: {
-          select: {
-            fullName: true,
-            role: true
-          }
-        }
-      }
+      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
     });
   }
 
   async createIncoming(data: CreateIncomingReferralDTO, createdById: string) {
-    const counterService = getCounterService(); // ✅ Get counter service instance
-    
-    return this.prisma.referralRecord.create({
+    return this.getModel().create({
       data: {
-        referralNumber: counterService.nextReferralNumber(), // ✅ Use counter service
-        patientId: data.patientId,
-        referralType: 'incoming',
-        referralReason: data.referralReason,
-        referredFromFacility: data.referredFromFacility,
-        referredFromDoctor: data.referredFromDoctor,
-        urgency: data.urgency || 'routine',
-        referralNotes: data.referralNotes,
-        status: 'pending',
-        createdById
+        referralNumber: getCounterService().nextReferralNumber(),
+        patientId: data.patientId, referralType: 'incoming',
+        referralReason: data.referralReason, referredFromFacility: data.referredFromFacility,
+        referredFromDoctor: data.referredFromDoctor, urgency: data.urgency || 'routine',
+        referralNotes: data.referralNotes, status: 'pending', createdById
       },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            contact: true,
-            dateOfBirth: true,
-            gender: true,
-            paymentMode: true
-          }
-        },
-        createdBy: {
-          select: {
-            fullName: true,
-            role: true
-          }
-        }
-      }
+      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
     });
   }
 
-  async updateStatus(id: string, status: ReferralStatus, notes?: { 
-    acceptanceNotes?: string; 
-    rejectedReason?: string;
-    outcomeNotes?: string;
-  }) {
+  async updateStatus(id: string, status: ReferralStatus, notes?: any) {
     const updateData: any = { status };
-    
-    if (status === 'accepted' && notes?.acceptanceNotes) {
-      updateData.acceptanceNotes = notes.acceptanceNotes;
-      updateData.acceptedAt = new Date();
-    } else if (status === 'rejected' && notes?.rejectedReason) {
-      updateData.rejectedReason = notes.rejectedReason;
-      updateData.rejectedAt = new Date();
-    } else if (status === 'completed') {
-      updateData.completedAt = new Date();
-    }
-    
-    if (notes?.outcomeNotes) {
-      updateData.outcomeNotes = notes.outcomeNotes;
-    }
+    if (status === 'accepted' && notes?.acceptanceNotes) { updateData.acceptanceNotes = notes.acceptanceNotes; updateData.acceptedAt = new Date(); }
+    else if (status === 'rejected' && notes?.rejectedReason) { updateData.rejectedReason = notes.rejectedReason; updateData.rejectedAt = new Date(); }
+    else if (status === 'completed') { updateData.completedAt = new Date(); }
+    if (notes?.outcomeNotes) updateData.outcomeNotes = notes.outcomeNotes;
 
-    return this.prisma.referralRecord.update({
-      where: { id },
-      data: updateData,
-      include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            contact: true,
-            paymentMode: true
-          }
-        }
-      }
-    });
-  }
-
-  async delete(id: string) {
-    return this.prisma.referralRecord.delete({
-      where: { id }
-    });
+    return this.getModel().update({ where: { id }, data: updateData, include: { patient: { select: { id: true, surname: true, otherNames: true } } } });
   }
 
   async findByPatient(patientId: string) {
-    return this.prisma.referralRecord.findMany({
+    return this.getModel().findMany({
       where: { patientId },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            paymentMode: true
-          }
-        },
-        attendance: {
-          select: {
-            id: true,
-            attendanceNumber: true,
-            dateTime: true
-          }
-        }
-      },
+      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, attendance: { select: { id: true, attendanceNumber: true, dateTime: true } } },
       orderBy: { referralDate: 'desc' }
     });
   }
 
+  // ✅ Optimized Stats Methods
   async getStats() {
-    const [total, pending, accepted, rejected, completed, urgent] = await Promise.all([
-      this.prisma.referralRecord.count(),
-      this.prisma.referralRecord.count({ where: { status: 'pending' } }),
-      this.prisma.referralRecord.count({ where: { status: 'accepted' } }),
-      this.prisma.referralRecord.count({ where: { status: 'rejected' } }),
-      this.prisma.referralRecord.count({ where: { status: 'completed' } }),
-      this.prisma.referralRecord.count({ where: { urgency: { in: ['urgent', 'stat'] } } })
+    const [total, pending, accepted, cancelled, completed, urgent] = await Promise.all([
+      this.getModel().count(),
+      this.getModel().count({ where: { status: 'pending' } }),
+      this.getModel().count({ where: { status: 'accepted' } }),
+      this.getModel().count({ where: { status: 'cancelled' } }),
+      this.getModel().count({ where: { status: 'completed' } }),
+      this.getModel().count({ where: { urgency: { in: ['urgent', 'stat'] } } })
     ]);
+    return { total, pending, accepted, cancelled, completed, urgent };
+  }
 
-    return {
-      total,
-      pending,
-      accepted,
-      rejected,
-      completed,
-      urgent
-    };
+  async getPendingCount() {
+    return this.getModel().count({ where: { status: 'pending' } });
+  }
+
+  async getUrgentList(limit: number = 10) {
+    return this.getModel().findMany({
+      where: { status: 'pending', urgency: { in: ['urgent', 'stat'] } },
+      orderBy: { referralDate: 'desc' },
+      take: limit,
+      select: { id: true, referralNumber: true, patient: { select: { surname: true, otherNames: true } }, urgency: true, referralDate: true }
+    });
   }
 }

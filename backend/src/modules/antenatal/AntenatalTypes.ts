@@ -17,6 +17,18 @@ export interface CreateAntenatalBookingInput {
   bookingBP?: string;
   previousCSection?: boolean;
   previousComplications?: string;
+  iptpDoses?: any;
+  ttDoses?: any;
+  iptp1Date?: Date;
+  iptp2Date?: Date;
+  iptp3Date?: Date;
+  iptp4Date?: Date;
+  iptp5Date?: Date;
+  tt1Date?: Date;
+  tt2Date?: Date;
+  tt3Date?: Date;
+  tt4Date?: Date;
+  tt5Date?: Date;
   createdById: string;
 }
 
@@ -45,6 +57,7 @@ export interface CreateANCVisitInput {
   visitNumber: number;
   visitDate: Date;
   gestationalAgeWeeks?: number;
+  gestationalAgeDays?: number; 
   weight?: number;
   bloodPressure?: string;
   fundalHeight?: number;

@@ -1,5 +1,3 @@
-// GDRGTypes.ts - TypeScript types and DTOs for GDRG module
-
 import { GDRGMDC } from '@prisma/client';
 
 export interface GDRGTariff {
@@ -51,17 +49,6 @@ export interface GetGDRGTariffsQuery {
   limit?: number;
 }
 
-export interface GetGDRGByCodeParams {
-  code: string;
-}
-
-export interface LookupGDRGByAgeQuery {
-  gdrgCode: string;
-  patientId?: string;
-  attendanceDate?: string;
-  ageInYears?: string;
-}
-
 export interface CreateGDRGTariffRequest {
   gdrgCode: string;
   mdc: GDRGMDC;
@@ -105,40 +92,7 @@ export interface UpdateGDRGTariffRequest {
   isDelivery?: boolean;
 }
 
-export interface DeleteGDRGTariffParams {
-  code: string;
-}
-
-export interface LinkDiagnosisToGDRGParams {
-  gdrgCode: string;
-}
-
-export interface LinkDiagnosisToGDRGRequest {
-  diagnosisId: string;
-  isPrimary?: boolean;
-  mappedIcdCode?: string;
-}
-
-export interface UnlinkDiagnosisFromGDRGParams {
-  gdrgCode: string;
-  diagnosisId: string;
-}
-
-export interface LinkProcedureToGDRGParams {
-  gdrgCode: string;
-}
-
-export interface LinkProcedureToGDRGRequest {
-  procedureId: string;
-  isPrimary?: boolean;
-  mappedCode?: string;
-}
-
-export interface UnlinkProcedureFromGDRGParams {
-  gdrgCode: string;
-  procedureId: string;
-}
-
+// ✅ UPDATED: Changed 'pages' to 'totalPages' to match BaseController.paginated()
 export interface GDRGResponse {
   success: boolean;
   data?: any;
@@ -148,6 +102,6 @@ export interface GDRGResponse {
     page: number;
     limit: number;
     total: number;
-    pages: number;
+    totalPages: number; 
   };
 }

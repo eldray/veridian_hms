@@ -1,9 +1,14 @@
 /**
  * Service Catalog Types
  * TypeScript types and interfaces for service catalog operations
+ * ALIGNED: Matches Prisma schema (1-to-N Historical Pricing) & Refactored Service Layer
  */
 
 import { ServiceType, ServiceCategory } from '@prisma/client';
+
+// ============================================
+// FILTERS & QUERY PARAMS
+// ============================================
 
 export interface ServiceCatalogFilters {
   serviceType?: ServiceType;
@@ -14,45 +19,60 @@ export interface ServiceCatalogFilters {
   limit?: number;
 }
 
+// ============================================
+// PRICING INTERFACE (Used in Responses)
+// ============================================
+
 export interface PricingInfo {
+  id: string; // ✅ ADDED: Needed for historical tracking
   cashPrice: number;
   nhisPrice: number;
   insurancePrice: number;
-  corporatePrice: number;  // ✅ ADDED
+  corporatePrice: number;
   vatRate: number;
   isTaxable: boolean;
   isActive: boolean;
   effectiveDate: Date;
-  expiryDate?: Date;       // ✅ ADDED
+  expiryDate?: Date;
 }
+
+// ============================================
+// DTOs (Flattened to match REST API payload)
+// ============================================
 
 export interface ServiceCatalogCreate {
   name: string;
   code: string;
   description?: string;
   serviceType: ServiceType;
-  serviceCategory: ServiceCategory;
+  serviceCategory?: ServiceCategory;
   subType?: string;
   unit?: string;
   isActive?: boolean;
   isPending?: boolean;
+  
+  // NHIS & Insurance Config
   nhisServiceCode?: string;
   isNHISCovered?: boolean;
   nhisCoverageType?: string;
   nhisRequiresAuth?: boolean;
   privateInsRequiresAuth?: boolean;
   isPrivateInsuranceExempted?: boolean;
+  
+  // Clinical Config
   requiresClinicalNotes?: boolean;
   metadata?: any;
   tariffCode?: string;
-  pricing?: {
-    cashPrice: number;
-    nhisPrice: number;
-    insurancePrice: number;
-    corporatePrice: number;  // ✅ ADDED
-    vatRate: number;
-    isTaxable: boolean;
-  };
+
+  // ✅ FLATTENED PRICING (Matches req.body structure in Service)
+  cashPrice: number;
+  nhisPrice?: number;
+  insurancePrice?: number;
+  corporatePrice?: number;
+  vatRate?: number;
+  isTaxable?: boolean;
+
+  // Relation IDs
   diagnosisId?: string;
   labTestTemplateId?: string;
   procedureTemplateId?: string;
@@ -72,6 +92,7 @@ export interface ServiceCatalogUpdate {
   subType?: string;
   unit?: string;
   isActive?: boolean;
+  
   nhisServiceCode?: string;
   isNHISCovered?: boolean;
   nhisCoverageType?: string;
@@ -81,14 +102,16 @@ export interface ServiceCatalogUpdate {
   requiresClinicalNotes?: boolean;
   metadata?: any;
   tariffCode?: string;
-  pricing?: Partial<{
-    cashPrice: number;
-    nhisPrice: number;
-    insurancePrice: number;
-    corporatePrice: number;  // ✅ ADDED
-    vatRate: number;
-    isTaxable: boolean;
-  }>;
+
+  // ✅ FLATTENED PRICING (Partial for updates)
+  cashPrice?: number;
+  nhisPrice?: number;
+  insurancePrice?: number;
+  corporatePrice?: number;
+  vatRate?: number;
+  isTaxable?: boolean;
+
+  // Relation IDs (Nullable to allow unlinking)
   diagnosisId?: string | null;
   labTestTemplateId?: string | null;
   procedureTemplateId?: string | null;
@@ -98,6 +121,10 @@ export interface ServiceCatalogUpdate {
   consultationTypeId?: string | null;
   gdrgTariffId?: string | null;
 }
+
+// ============================================
+// RESPONSE INTERFACES
+// ============================================
 
 export interface ServiceCatalogItem {
   id: string;
@@ -110,6 +137,7 @@ export interface ServiceCatalogItem {
   unit: string | null;
   isActive: boolean;
   isPending: boolean;
+  
   nhisServiceCode: string | null;
   isNHISCovered: boolean;
   nhisCoverageType: string;
@@ -119,17 +147,23 @@ export interface ServiceCatalogItem {
   requiresClinicalNotes: boolean;
   metadata: any | null;
   tariffCode: string | null;
+  
   createdAt: Date;
   updatedAt: Date;
+
+  // ✅ FIXED: pricing is flattened to a single object by the Service layer
   pricing: PricingInfo | null;
+
+  // ✅ FIXED: These are 1-to-1 relations, NOT arrays
   Diagnosis: any | null;
-  LabTestTemplate: any[];
-  ProcedureTemplate: any[];
-  ScanTemplate: any[];
-  StockItem: any[];
-  Ward: any[];
-  ConsultationType: any[];
+  LabTestTemplate: any | null;
+  ProcedureTemplate: any | null;
+  ScanTemplate: any | null;
+  StockItem: any | null;
+  Ward: any | null;
+  ConsultationType: any | null;
   User: any | null;
+  
   _count: {
     ServiceRendered: number;
     BillLineItem: number;
@@ -164,11 +198,7 @@ export interface ServiceCatalogStats {
 }
 
 export interface CostCalculationResponse {
-  service: {
-    id: string;
-    name: string;
-    code: string;
-  };
+  service: { id: string; name: string; code: string; };
   quantity: number;
   paymentMode: string;
   totalAmount: number;
@@ -180,7 +210,7 @@ export interface CostCalculationResponse {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
-    corporatePrice: number;  // ✅ ADDED
+    corporatePrice: number;
     vatRate: number;
     isTaxable: boolean;
   };
@@ -198,7 +228,7 @@ export interface CoverageCheckResponse {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
-    corporatePrice: number;  // ✅ ADDED
+    corporatePrice: number;
   };
   requiresAuthorization: boolean;
 }

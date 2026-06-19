@@ -1,140 +1,76 @@
-// modules/familyPlanning/FamilyPlanningService.ts
-
 import { PrismaClient } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
 import { FamilyPlanningRepository } from './FamilyPlanningRepository';
 import { CreateFPServiceInput, UpdateFPServiceInput, FPServiceFilters } from './FamilyPlanningTypes';
 
-export class FamilyPlanningService {
+export class FamilyPlanningService extends BaseService {
   private repository: FamilyPlanningRepository;
-  private prisma: PrismaClient;
 
-  constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
-    this.repository = new FamilyPlanningRepository(this.prisma);
+  constructor(prisma: PrismaClient) {
+    super('FamilyPlanningService');
+    this.repository = new FamilyPlanningRepository(prisma);
   }
 
-  // ===================== CREATE FP SERVICE =====================
   async createFPService(data: CreateFPServiceInput) {
-    // Validate method
-    const validMethods = [
-      'pill_coc', 'pill_pop', 'injectable_dmpa', 'injectable_net_en',
-      'condom_male', 'condom_female', 'implant_implanon', 'implant_jadelle',
-      'iud_copper', 'iud_hormonal', 'female_sterilization', 'male_sterilization',
-      'lam', 'withdrawal', 'calendar', 'other_traditional', 'emergency_contraception'
-    ];
+    // ✅ REMOVED manual patient/attendance existence checks!
+    // Because patientId and attendanceId are foreign keys in your schema, 
+    // Prisma will automatically throw a P2003 error if they don't exist.
+    // BaseController.error() automatically maps P2003 to a clean 400 Bad Request.
 
-    if (!validMethods.includes(data.method)) {
-      throw new Error('Invalid FP method');
-    }
-
-    // Validate category
-    const validCategories = [
-      'modern_short_acting', 'modern_long_acting', 'permanent', 'traditional', 'emergency'
-    ];
-
-    if (!validCategories.includes(data.methodCategory)) {
-      throw new Error('Invalid FP method category');
-    }
-
-    // Check if patient exists
-    const patient = await this.prisma.patient.findUnique({
-      where: { id: data.patientId },
-    });
-
-    if (!patient) {
-      throw new Error('Patient not found');
-    }
-
-    // If attendanceId provided, verify it exists
-    if (data.attendanceId) {
-      const attendance = await this.prisma.attendance.findUnique({
-        where: { id: data.attendanceId },
-      });
-
-      if (!attendance) {
-        throw new Error('Attendance not found');
-      }
-    }
-
-    // Check if this is truly a new acceptor (no previous FP services)
+    // Business logic: Check if this is truly a new acceptor
     if (data.isNewAcceptor) {
-      const existingServices = await this.prisma.familyPlanningService.count({
-        where: { patientId: data.patientId },
-      });
-
-      if (existingServices > 0) {
-        // Not a new acceptor, update the flag
-        data.isNewAcceptor = false;
+      const existingCount = await this.repository.count({ patientId: data.patientId });
+      if (existingCount > 0) {
+        data.isNewAcceptor = false; // Auto-correct if they already have a history
       }
     }
 
     return this.repository.createFPService(data);
   }
 
-  // ===================== GET FP SERVICES =====================
   async getFPServices(filters: FPServiceFilters) {
     return this.repository.getFPServices(filters);
   }
 
-  // ===================== GET FP SERVICE BY ID =====================
   async getFPServiceById(id: string) {
-    const service = await this.repository.getFPServiceById(id);
-    if (!service) {
-      throw new Error('FP service not found');
-    }
+    // ✅ Uses BaseRepository's findById. If not found, Prisma throws P2025 (mapped to 404).
+    const service = await this.repository.findById(id);
+    if (!service) throw new Error('FP service not found');
     return service;
   }
 
-  // ===================== GET CURRENT METHOD =====================
   async getCurrentMethodForPatient(patientId: string) {
     return this.repository.getCurrentMethodForPatient(patientId);
   }
 
-  // ===================== GET FP HISTORY =====================
   async getFPHistoryForPatient(patientId: string) {
     return this.repository.getFPHistoryForPatient(patientId);
   }
 
-  // ===================== UPDATE FP SERVICE =====================
   async updateFPService(id: string, data: UpdateFPServiceInput) {
-    const existing = await this.repository.getFPServiceById(id);
-    if (!existing) {
-      throw new Error('FP service not found');
-    }
-
-    return this.repository.updateFPService(id, data);
+    // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
+    return this.repository.update(id, data);
   }
 
-  // ===================== DELETE FP SERVICE =====================
   async deleteFPService(id: string) {
-    const existing = await this.repository.getFPServiceById(id);
-    if (!existing) {
-      throw new Error('FP service not found');
-    }
-
-    await this.repository.deleteFPService(id);
+    // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
+    await this.repository.delete(id);
   }
 
-  // ===================== STATISTICS =====================
   async getFPStatistics(startDate?: Date, endDate?: Date) {
     return this.repository.getFPStatistics(startDate, endDate);
   }
 
-  // ===================== METHOD MIX =====================
   async getMethodMix(startDate?: Date, endDate?: Date) {
     return this.repository.getMethodMix(startDate, endDate);
   }
 
-  // ===================== CLIENT DETAILS =====================
   async getFPClientDetails(patientId: string) {
     const details = await this.repository.getFPClientDetails(patientId);
-    if (!details) {
-      throw new Error('Patient not found or no FP services recorded');
-    }
+    if (!details) throw new Error('Patient not found or no FP services recorded');
     return details;
   }
 
-  // ===================== GHS FP REPORT =====================
   async getGHSFPReport(startDate: Date, endDate: Date) {
     return this.repository.getGHSFPReport(startDate, endDate);
   }

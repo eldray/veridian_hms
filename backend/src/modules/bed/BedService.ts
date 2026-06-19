@@ -1,71 +1,46 @@
+import { PrismaClient } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
 import { BedRepository } from './BedRepository';
-import { BedWithRelations, CreateBedInput, UpdateBedInput, BedFilter } from './BedTypes';
+import { CreateBedInput, UpdateBedInput, BedFilter } from './BedTypes';
 
-export class BedService {
+export class BedService extends BaseService {
   private bedRepository: BedRepository;
 
-  constructor(bedRepository: BedRepository) {
-    this.bedRepository = bedRepository;
+  constructor(prisma: PrismaClient) {
+    super('BedService');
+    this.bedRepository = new BedRepository(prisma);
   }
 
-  async getAllBeds(filter?: BedFilter, page: number = 1, limit: number = 50): Promise<{ beds: BedWithRelations[]; pagination: any }> {
+  async getAllBeds(filter?: BedFilter, page: number = 1, limit: number = 50) {
+    this.logInfo('Fetching beds', { filter, page, limit });
     const result = await this.bedRepository.findAll(filter, page, limit);
-    
-    return {
-      beds: result.beds,
-      pagination: {
-        page,
-        limit,
-        total: result.total,
-        pages: Math.ceil(result.total / limit)
-      }
-    };
+    return { beds: result.beds, total: result.total, page: result.page, limit: result.limit };
   }
 
-  async getBedById(id: string): Promise<BedWithRelations | null> {
+  async getBedById(id: string) {
     const bed = await this.bedRepository.findById(id);
-    if (!bed) {
-      throw new Error('Bed not found');
-    }
+    if (!bed) throw new Error('Bed not found');
     return bed;
   }
 
-  async createBed(data: CreateBedInput): Promise<BedWithRelations> {
-    // Check if ward exists
-    const wardExists = await this.bedRepository.wardExists(data.wardId);
-    if (!wardExists) {
-      throw new Error('Ward not found');
-    }
-
-    // Check if bed number already exists in the same ward
-    const existingBed = await this.bedRepository.findByWardAndBedNumber(
-      data.wardId,
-      data.bedNumber
-    );
-
-    if (existingBed) {
+  async createBed(data: CreateBedInput) {
+    this.logInfo('Creating bed', { wardId: data.wardId, bedNumber: data.bedNumber });
+    
+    if (!(await this.bedRepository.wardExists(data.wardId))) throw new Error('Ward not found');
+    if (await this.bedRepository.findByWardAndBedNumber(data.wardId, data.bedNumber)) {
       throw new Error(`Bed number ${data.bedNumber} already exists in this ward`);
     }
 
     return this.bedRepository.create(data);
   }
 
-  async updateBed(id: string, data: UpdateBedInput): Promise<BedWithRelations> {
+  async updateBed(id: string, data: UpdateBedInput) {
+    this.logInfo('Updating bed', { id });
     const existingBed = await this.bedRepository.findById(id);
-    
-    if (!existingBed) {
-      throw new Error('Bed not found');
-    }
+    if (!existingBed) throw new Error('Bed not found');
 
-    // Check for duplicate bed number if being updated
     if (data.bedNumber && data.bedNumber !== existingBed.bedNumber) {
-      const duplicateBed = await this.bedRepository.findDuplicateInWard(
-        existingBed.wardId,
-        data.bedNumber,
-        id
-      );
-
-      if (duplicateBed) {
+      if (await this.bedRepository.findDuplicateInWard(existingBed.wardId, data.bedNumber, id)) {
         throw new Error(`Bed number ${data.bedNumber} already exists in this ward`);
       }
     }
@@ -73,11 +48,12 @@ export class BedService {
     return this.bedRepository.update(id, data);
   }
 
-  async deleteBed(id: string): Promise<void> {
+  async deleteBed(id: string) {
+    this.logInfo('Deleting bed', { id });
     await this.bedRepository.delete(id);
   }
 
-  async getBedStats(): Promise<{ total: number; occupied: number; available: number }> {
+  async getBedStats() {
     return this.bedRepository.getStats();
   }
 }

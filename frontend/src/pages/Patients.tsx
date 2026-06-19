@@ -90,7 +90,7 @@ export default function Patients() {
   };
 
   const getPatientFullName = (patient: any) => {
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+    return patient?.name || patient?.fullName || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
   };
 
   // Apply search first, then date filter

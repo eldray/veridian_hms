@@ -82,6 +82,20 @@ export const config = {
     SMS_PROVIDER: process.env.SMS_PROVIDER,
   },
 
+  // Hubtel (SMS + WhatsApp provider)
+  hubtel: {
+    CLIENT_ID: process.env.HUBTEL_CLIENT_ID || '',
+    CLIENT_SECRET: process.env.HUBTEL_CLIENT_SECRET || '',
+    SENDER_ID: process.env.HUBTEL_SENDER_ID || '',
+    SMS_URL: process.env.HUBTEL_SMS_URL || 'https://sms.hubtel.com/v1/messages/send',
+    // WhatsApp is sent via Hubtel's messaging API; requires a provisioned WhatsApp
+    // Business number and Meta-approved templates on the Hubtel side.
+    WHATSAPP_URL: process.env.HUBTEL_WHATSAPP_URL || '',
+    WHATSAPP_FROM: process.env.HUBTEL_WHATSAPP_FROM || '',
+    // Master switch: when false, messages are queued (PENDING) but not dispatched.
+    ENABLED: process.env.HUBTEL_ENABLED === 'true',
+  },
+
   // Backup
   backup: {
     ENABLED: process.env.BACKUP_ENABLED === 'true',

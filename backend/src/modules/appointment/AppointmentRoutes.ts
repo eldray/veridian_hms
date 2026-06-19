@@ -1,27 +1,33 @@
-// modules/appointment/AppointmentRoutes.ts
-
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { AppointmentController } from './AppointmentController';
+import { UserRole } from '@prisma/client';
+import { appointmentController } from './AppointmentController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export function createAppointmentRoutes(prisma: PrismaClient): Router {
+export const createAppointmentRoutes = () => {
   const router = Router();
-  const controller = new AppointmentController(prisma);
-
   router.use(protect);
 
+  // Read access for clinical and records staff
+  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records'];
+  // Write access restricted to clinical and records staff
+  const writeRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records'];
+
   // Static routes first
-  router.get('/statistics', controller.getStatistics.bind(controller));
-  router.get('/stats', controller.getStatistics.bind(controller));
-  router.get('/schedule', controller.getClinicianSchedule.bind(controller));
-  router.get('/clinicians', controller.getAvailableClinicians.bind(controller));
-  router.get('/', controller.getAll.bind(controller));
-  router.get('/:id', controller.getById.bind(controller));
-  router.post('/', controller.create);
-  router.put('/:id', controller.update);
-  router.delete('/:id', controller.delete.bind(controller));
-  router.post('/:id/convert-to-attendance', controller.convertToAttendance);
+  router.get('/statistics', requireRole(readRoles), appointmentController.getStatistics);
+  router.get('/stats', requireRole(readRoles), appointmentController.getStatistics);
+  router.get('/schedule', requireRole(readRoles), appointmentController.getClinicianSchedule);
+  router.get('/available-slots', requireRole(readRoles), appointmentController.getAvailableSlots);
+  router.get('/clinicians', requireRole(readRoles), appointmentController.getAvailableClinicians);
+
+  // Dynamic routes
+  router.get('/', requireRole(readRoles), appointmentController.getAll);
+  router.get('/:id', requireRole(readRoles), appointmentController.getById);
+  router.post('/', requireRole(writeRoles), appointmentController.create);
+  router.put('/:id', requireRole(writeRoles), appointmentController.update);
+  router.delete('/:id', requireRole(['admin']), appointmentController.delete);
+
+  // Check-in / Conversion
+  router.post('/:id/convert-to-attendance', requireRole(writeRoles), appointmentController.convertToAttendance);
 
   return router;
-}
+};

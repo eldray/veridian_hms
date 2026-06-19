@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient, Department } from '@prisma/client';
-import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, DepartmentWithRelations, DepartmentStats } from './DepartmentTypes';
+import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, DepartmentWithRelations, DepartmentStats, SingleDepartmentStats } from './DepartmentTypes';
 
 export class DepartmentRepository {
   private prisma: PrismaClient;
@@ -90,7 +90,8 @@ export class DepartmentRepository {
         },
         appointments: {
           where: {
-            appointmentDate: {
+            // ✅ FIXED: Changed from appointmentDate to scheduledAt
+            scheduledAt: {
               gte: new Date()
             }
           },
@@ -111,7 +112,8 @@ export class DepartmentRepository {
             }
           },
           orderBy: {
-            appointmentDate: 'asc'
+            // ✅ FIXED: Changed from appointmentDate to scheduledAt
+            scheduledAt: 'asc'
           },
           take: 20
         },
@@ -176,7 +178,8 @@ export class DepartmentRepository {
   async getAppointmentCount(departmentId: string, fromDate?: Date): Promise<number> {
     const where: any = { departmentId };
     if (fromDate) {
-      where.appointmentDate = { gte: fromDate };
+      // ✅ FIXED: Changed from appointmentDate to scheduledAt
+      where.scheduledAt = { gte: fromDate };
     }
     const count = await this.prisma.appointment.count({ where });
     return count;
@@ -210,8 +213,55 @@ export class DepartmentRepository {
     };
   }
 
+  async getDepartmentStats(departmentId: string): Promise<SingleDepartmentStats | null> {
+    const department = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        head: {
+          select: { id: true, fullName: true, role: true },
+        },
+      },
+    });
+
+    if (!department) return null;
+
+    const now = new Date();
+
+    const [totalStaff, activeStaff, staffGroups, totalAppointments, upcomingAppointments] = await Promise.all([
+      this.prisma.user.count({ where: { departmentId } }),
+      this.prisma.user.count({ where: { departmentId, isActive: true } }),
+      this.prisma.user.groupBy({
+        by: ['role'],
+        where: { departmentId },
+        _count: { _all: true },
+      }),
+      this.prisma.appointment.count({ where: { departmentId } }),
+      this.prisma.appointment.count({ where: { departmentId, scheduledAt: { gte: now } } }),
+    ]);
+
+    const staffByRole: Record<string, number> = {};
+    staffGroups.forEach((group: any) => {
+      staffByRole[group.role] = group._count._all;
+    });
+
+    return {
+      departmentId: department.id,
+      name: department.name,
+      isActive: department.isActive,
+      totalStaff,
+      activeStaff,
+      inactiveStaff: totalStaff - activeStaff,
+      staffByRole,
+      totalAppointments,
+      upcomingAppointments,
+      head: department.head,
+    };
+  }
+
   async assignUserToDepartment(departmentId: string, userId: string): Promise<any> {
-    // Update the user's departmentId directly
     return this.prisma.user.update({
       where: { id: userId },
       data: { departmentId }
@@ -219,7 +269,6 @@ export class DepartmentRepository {
   }
 
   async removeUserFromDepartment(departmentId: string, userId: string): Promise<void> {
-    // Only remove if the user is in this department
     await this.prisma.user.update({
       where: { 
         id: userId,

@@ -1,50 +1,36 @@
-/**
- * Service Catalog Routes
- * Route definitions for service catalog operations
- */
-
 import { Router } from 'express';
-import { AuthRequest } from '../../middleware/authMiddleware';
 import { serviceCatalogController } from './ServiceCatalogController';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createServiceCatalogRoutes(): Router {
   const router = Router();
+  const c = serviceCatalogController;
 
-  // GET all services with filtering and pagination
-  router.get('/', (req: AuthRequest, res) => serviceCatalogController.getServiceCatalog(req, res));
-  
-  // GET services by category
-  router.get('/category/:category', (req: AuthRequest, res) => serviceCatalogController.getServicesByCategory(req, res));
-  
-  // GET NHIS services
-  router.get('/nhis', (req: AuthRequest, res) => serviceCatalogController.getNHISServices(req, res));
-  
-  // GET service statistics
-  router.get('/stats', (req: AuthRequest, res) => serviceCatalogController.getServiceStatistics(req, res));
-  
-  // GET single service by ID
-  router.get('/:id', (req: AuthRequest, res) => serviceCatalogController.getServiceCatalogById(req, res));
-  
-  // POST create new service
-  router.post('/', (req: AuthRequest, res) => serviceCatalogController.createServiceCatalog(req, res));
-  
-  // PUT update service
-  router.put('/:id', (req: AuthRequest, res) => serviceCatalogController.updateServiceCatalog(req, res));
-  
-  // PATCH toggle service status
-  router.patch('/:id/toggle', (req: AuthRequest, res) => serviceCatalogController.toggleServiceStatus(req, res));
-  
-  // PUT update pricing
-  router.put('/:id/pricing', (req: AuthRequest, res) => serviceCatalogController.updatePricing(req, res));
-  
-  // DELETE service
-  router.delete('/:id', (req: AuthRequest, res) => serviceCatalogController.deleteServiceCatalog(req, res));
-  
-  // POST bulk import
-  router.post('/bulk-import', (req: AuthRequest, res) => serviceCatalogController.bulkImportServices(req, res));
-  
-  // GET export services
-  router.get('/export', (req: AuthRequest, res) => serviceCatalogController.exportServices(req, res));
+  // ✅ Global Auth: All routes require authentication
+  router.use(protect);
+
+  // Public read access for all authenticated staff
+  router.get('/', c.getServiceCatalog);
+  router.get('/metadata', c.getServiceMetadata); // Catalog metadata for forms/filters (must precede /:id)
+  router.get('/category/:category', c.getServiceCatalog); // Reuses main logic with filter
+  router.get('/nhis', c.getNHISServices);
+  router.get('/nhis/:nhisCode', c.getServiceByNHISCode); // Single service by NHIS code (must precede /:id)
+  router.get('/stats', c.getServiceStatistics);
+  router.get('/nhis-readiness', c.getNHISReadinessReport);
+  router.get('/export', c.getServiceCatalog); // Reuses main logic
+  router.get('/:id', c.getServiceCatalogById);
+
+  // ✅ Restricted Write Access: Only Admins and Accounts can modify pricing/catalog
+  router.post('/', requireRole(['admin', 'accounts']), c.createServiceCatalog);
+  router.put('/:id', requireRole(['admin', 'accounts']), c.updateServiceCatalog);
+  router.patch('/:id/toggle', requireRole(['admin', 'accounts']), c.toggleServiceStatus);
+  router.put('/:id/pricing', requireRole(['admin', 'accounts']), c.updatePricing);
+  router.delete('/:id', requireRole(['admin']), c.deleteServiceCatalog);
+  router.post('/bulk-import', requireRole(['admin', 'accounts']), c.bulkImportServices);
+
+  // Clinical endpoints (Doctors/Nurses can check coverage/cost)
+  router.post('/check-coverage', c.checkServiceCoverage);
+  router.post('/calculate-cost', c.calculateServiceCost);
 
   return router;
 }

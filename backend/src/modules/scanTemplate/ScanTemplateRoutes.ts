@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { ScanTemplateController } from './ScanTemplateController';
 import { ScanTemplateService } from './ScanTemplateService';
 import { ScanTemplateRepository } from './ScanTemplateRepository';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createScanTemplateRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -12,32 +13,21 @@ export function createScanTemplateRoutes(prisma: PrismaClient): Router {
   const service = new ScanTemplateService(repository);
   const controller = new ScanTemplateController(service);
 
-  // GET all scan templates
-  router.get('/', controller.getScanTemplates as any);
+  // Add authentication middleware
+  router.use(protect);
 
-  // GET scan categories
-  router.get('/meta/categories', controller.getScanCategories as any);
+  // Specific routes FIRST (before /:id)
+  router.get('/meta/categories', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanCategories as any);
+  router.get('/meta/body-parts', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanBodyParts as any);
+  router.get('/meta/scan-types', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTypes as any);
+  router.post('/bulk-update', requireRole(['admin']), controller.bulkUpdateScanTemplates as any);
 
-  // GET scan body parts
-  router.get('/meta/body-parts', controller.getScanBodyParts as any);
-
-  // GET scan types
-  router.get('/meta/scan-types', controller.getScanTypes as any);
-
-  // GET scan template by ID
-  router.get('/:id', controller.getScanTemplateById as any);
-
-  // POST create scan template
-  router.post('/', controller.createScanTemplate);
-
-  // PUT update scan template
-  router.put('/:id', controller.updateScanTemplate);
-
-  // DELETE scan template
-  router.delete('/:id', controller.deleteScanTemplate as any);
-
-  // POST bulk update scan templates
-  router.post('/bulk-update', controller.bulkUpdateScanTemplates as any);
+  // Dynamic routes AFTER
+  router.get('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTemplates as any);
+  router.get('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTemplateById as any);
+  router.post('/', requireRole(['admin']), controller.createScanTemplate);
+  router.put('/:id', requireRole(['admin']), controller.updateScanTemplate);
+  router.delete('/:id', requireRole(['admin']), controller.deleteScanTemplate as any);
 
   return router;
 }

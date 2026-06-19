@@ -1,196 +1,85 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { AuditService } from './AuditService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+
+const prisma = new PrismaClient();
 
 export class AuditController extends BaseController {
   private auditService: AuditService;
 
   constructor() {
     super();
-    this.auditService = new AuditService();
-    this.getLogs = this.getLogs.bind(this);
-    this.getEntityLogs = this.getEntityLogs.bind(this);
-    this.getUserLogs = this.getUserLogs.bind(this);
-    this.getLogById = this.getLogById.bind(this);
-    this.exportLogs = this.exportLogs.bind(this);
+    this.auditService = new AuditService(prisma);
   }
 
-  /**
-   * GET /api/audit/logs
-   * Get all audit logs with pagination and filters
-   */
-  async getLogs(req: AuthRequest, res: Response): Promise<void> {
+  getLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const filters = {
+      entityType: req.query.entityType as string,
+      action: req.query.action as string,
+      userId: req.query.userId as string,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string,
+      page, limit
+    };
+
+    const logs = await this.auditService.getLogs(filters);
+    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, 'Audit logs retrieved successfully');
+  });
+
+  getEntityLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { entityType, entityId } = req.params;
+    const { page, limit } = this.getPaginationParams(req);
+
+    const logs = await this.auditService.getEntityLogs(entityType, entityId, { page, limit });
+    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, `Audit logs for ${entityType} retrieved successfully`);
+  });
+
+  getUserLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { userId } = req.params;
+    const { page, limit } = this.getPaginationParams(req);
+    const filters = {
+      page, limit,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string
+    };
+
+    const logs = await this.auditService.getUserLogs(userId, filters);
+    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, 'Audit logs for user retrieved successfully');
+  });
+
+  getLogById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { 
-        page = '1', 
-        limit = '20', 
-        entityType, 
-        action, 
-        userId,
-        startDate,
-        endDate
-      } = req.query;
-
-      const pageNum = Math.max(1, parseInt(page as string));
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
-
-      const filters = {
-        entityType: entityType as string,
-        action: action as string,
-        userId: userId as string,
-        startDate: startDate as string,
-        endDate: endDate as string,
-        page: pageNum,
-        limit: limitNum
-      };
-
-      const logs = await this.auditService.getLogs(filters);
-
-      res.json({
-        success: true,
-        data: logs.data,
-        pagination: logs.pagination,
-        message: 'Audit logs retrieved successfully'
-      });
-    } catch (error) {
-      console.error('Error fetching audit logs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching audit logs',
-        error: (error as Error).message
-      });
+      const log = await this.auditService.getLogById(req.params.id);
+      return this.ok(res, log, 'Audit log retrieved successfully');
+    } catch (error: any) {
+      if (error.message === 'Audit log not found') return this.notFound(res, 'Audit log');
+      throw error;
     }
-  }
+  });
 
-  /**
-   * GET /api/audit/logs/entity/:entityType/:entityId
-   * Get audit logs for a specific entity
-   */
-  async getEntityLogs(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const { entityType, entityId } = req.params;
-      const { page = '1', limit = '50' } = req.query;
+  exportLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const format = (req.query.format as string) || 'json';
+    const filters = {
+      format: format as 'json' | 'csv',
+      entityType: req.query.entityType as string,
+      action: req.query.action as string,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string
+    };
 
-      const pageNum = Math.max(1, parseInt(page as string));
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const exportData = await this.auditService.exportLogs(filters);
 
-      const logs = await this.auditService.getEntityLogs(entityType, entityId, {
-        page: pageNum,
-        limit: limitNum
-      });
-
-      res.json({
-        success: true,
-        data: logs.data,
-        pagination: logs.pagination,
-        message: `Audit logs for ${entityType} retrieved successfully`
-      });
-    } catch (error) {
-      console.error('Error fetching entity audit logs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching entity audit logs',
-        error: (error as Error).message
-      });
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
+      return res.send(exportData);
+    } else {
+      return this.ok(res, exportData, 'Audit logs exported successfully');
     }
-  }
-
-  /**
-   * GET /api/audit/logs/user/:userId
-   * Get audit logs for a specific user
-   */
-  async getUserLogs(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const { userId } = req.params;
-      const { page = '1', limit = '50', startDate, endDate } = req.query;
-
-      const pageNum = Math.max(1, parseInt(page as string));
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
-
-      const logs = await this.auditService.getUserLogs(userId, {
-        page: pageNum,
-        limit: limitNum,
-        startDate: startDate as string,
-        endDate: endDate as string
-      });
-
-      res.json({
-        success: true,
-        data: logs.data,
-        pagination: logs.pagination,
-        message: `Audit logs for user retrieved successfully`
-      });
-    } catch (error) {
-      console.error('Error fetching user audit logs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching user audit logs',
-        error: (error as Error).message
-      });
-    }
-  }
-
-  /**
-   * GET /api/audit/logs/:id
-   * Get a specific audit log entry
-   */
-  async getLogById(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const log = await this.auditService.getLogById(id);
-
-      res.json({
-        success: true,
-        data: log,
-        message: 'Audit log retrieved successfully'
-      });
-    } catch (error) {
-      console.error('Error fetching audit log:', error);
-      res.status(404).json({
-        success: false,
-        message: (error as Error).message
-      });
-    }
-  }
-
-  /**
-   * GET /api/audit/logs/export
-   * Export audit logs to CSV/JSON
-   */
-  async exportLogs(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const { format = 'json', entityType, action, startDate, endDate } = req.query;
-
-      const exportData = await this.auditService.exportLogs({
-        format: format as string,
-        entityType: entityType as string,
-        action: action as string,
-        startDate: startDate as string,
-        endDate: endDate as string
-      });
-
-      if (format === 'csv') {
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
-        res.send(exportData);
-      } else {
-        res.json({
-          success: true,
-          data: exportData,
-          message: 'Audit logs exported successfully'
-        });
-      }
-    } catch (error) {
-      console.error('Error exporting audit logs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error exporting audit logs',
-        error: (error as Error).message
-      });
-    }
-  }
+  });
 }
 
-export default new AuditController();
+export const auditController = new AuditController();

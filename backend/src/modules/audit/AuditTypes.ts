@@ -1,78 +1,23 @@
+import { AuditAction } from '@prisma/client';
+
 export interface AuditLogFilters {
   page?: number;
   limit?: number;
   entityType?: string;
-  action?: string;
+  action?: AuditAction | string; // ✅ Aligned with Prisma Enum
   userId?: string;
   startDate?: string;
   endDate?: string;
 }
 
-export interface AuditLogExportFilters {
+export interface AuditLogExportFilters extends AuditLogFilters {
   format?: 'json' | 'csv';
-  entityType?: string;
-  action?: string;
-  startDate?: string;
-  endDate?: string;
 }
 
-export interface AuditLogDTO {
-  id: string;
-  entityType: string;
-  entityId: string;
-  action: string;
-  performedById: string;
-  ipAddress: string | null;
-  userAgent: string | null;
-  previousState: any;
-  newState: any;
-  metadata: any;
-  timestamp: Date;
-  performedBy?: {
-    id: string;
-    fullName: string;
-    username: string;
-    email: string;
-    role: string;
-  };
-}
-
-export type AuditAction = 
-  | 'CREATE' 
-  | 'UPDATE' 
-  | 'DELETE' 
-  | 'LOGIN' 
-  | 'LOGOUT' 
-  | 'APPROVE' 
-  | 'REJECT'
-  | 'SUBMIT'
-  | 'VOID'
-  | 'EXPORT'
-  | 'IMPORT';
-
+// Keep AuditEntityType as string union since it's not a Prisma enum
 export type AuditEntityType =
-  | 'Patient'
-  | 'Attendance'
-  | 'Admission'
-  | 'Bill'
-  | 'Payment'
-  | 'Invoice'
-  | 'ProformaInvoice'
-  | 'InsuranceClaim'
-  | 'CorporateAccount'
-  | 'User'
-  | 'Department'
-  | 'ServiceCatalog'
-  | 'LabTest'
-  | 'Scan'
-  | 'Procedure'
-  | 'Medication'
-  | 'Diagnosis'
-  | 'Appointment'
-  | 'Ward'
-  | 'Bed'
-  | 'StockItem'
-  | 'Requisition'
-  | 'Waiver'
-  | 'Notification'
-  | 'Report';
+  | 'Patient' | 'Attendance' | 'Admission' | 'Bill' | 'Payment' | 'Invoice'
+  | 'ProformaInvoice' | 'InsuranceClaim' | 'CorporateAccount' | 'User'
+  | 'Department' | 'ServiceCatalog' | 'LabTest' | 'Scan' | 'Procedure'
+  | 'Medication' | 'Diagnosis' | 'Appointment' | 'Ward' | 'Bed'
+  | 'StockItem' | 'Requisition' | 'Waiver' | 'Notification' | 'Report';

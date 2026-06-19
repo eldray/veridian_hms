@@ -118,9 +118,9 @@ export default function PatientDetails() {
     }
   }, [currentPatient]);
 
-  // Get full name from surname + otherNames (ORIGINAL)
+  // Canonical name getter (handles name/fullName/surname+otherNames)
   const getPatientFullName = (patient: any) => {
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+    return patient?.name || patient?.fullName || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
   };
 
   // Filter patient attendances (ORIGINAL)
@@ -131,14 +131,29 @@ export default function PatientDetails() {
     console.log('🔍 Filtering attendances for patient:', patientId);
     console.log('📊 Total attendances to filter:', attendances.length);
 
-    const filtered = attendances.filter(attendance => {
+    const filtered = attendances.filter((attendance: any) => {
       if (attendance.patientId === patientId) return true;
       if (attendance.patient && attendance.patient.id === patientId) return true;
+      if (attendance.Patient && attendance.Patient.id === patientId) return true;
       return false;
     });
 
-    console.log('✅ Found attendances for patient:', filtered.length);
-    return filtered;
+    // The backend returns Prisma relation names (capitalized): AttendanceDiagnosis,
+    // Medication, LabTest, Procedure, Scan, Vitals, ServiceRendered. The UI reads the
+    // camelCase aliases, so normalize once here and every downstream consumer works.
+    const normalized = filtered.map((att: any) => ({
+      ...att,
+      diagnoses: att.diagnoses ?? att.AttendanceDiagnosis ?? [],
+      medications: att.medications ?? att.Medication ?? [],
+      labTests: att.labTests ?? att.LabTest ?? [],
+      procedures: att.procedures ?? att.Procedure ?? [],
+      scans: att.scans ?? att.Scan ?? [],
+      vitals: att.vitals ?? att.Vitals ?? [],
+      servicesRendered: att.servicesRendered ?? att.ServiceRendered ?? [],
+    }));
+
+    console.log('✅ Found attendances for patient:', normalized.length);
+    return normalized;
   }, [attendances, patient]);
 
   // ========== NEW: Aggregate all medical data across all visits ==========
@@ -275,9 +290,11 @@ export default function PatientDetails() {
     setRefreshing(true);
     try {
       console.log('🔄 Loading patient details for ID:', id);
-      await fetchPatient(id);
-      
-      if (currentPatient) {
+      // NOTE: use the returned patient, not the `currentPatient` closure value,
+      // which is stale (null) on the first render and would skip loading attendances.
+      const fetched = await fetchPatient(id);
+
+      if (fetched) {
         await Promise.all([
           getAttendances({ patientId: id }),
           getInsuranceProviders()
@@ -1049,9 +1066,9 @@ export default function PatientDetails() {
                 <Table heads={['Diagnosis', 'ICD-10', 'Type', 'Visit Date', 'Visit']}>
                   {allDiagnoses.map((diag, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <TdPrimary>{diag.diagnosis?.name || diag.icdCode}</TdPrimary>
-                      <Td className="font-mono">{diag.icdCode || diag.diagnosis?.icdCode}</Td>
-                      <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${diag.primary ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{diag.primary ? 'Primary' : 'Secondary'}</span></Td>
+                      <TdPrimary>{diag.Diagnosis?.name || diag.diagnosis?.name || diag.icdCode}</TdPrimary>
+                      <Td className="font-mono">{diag.icdCode || diag.Diagnosis?.icdCode || diag.diagnosis?.icdCode}</Td>
+                      <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${diag.diagnosisType === 'primary' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{diag.diagnosisType === 'primary' ? 'Primary' : 'Secondary'}</span></Td>
                       <Td>{formatDate(diag.attendanceDate)}</Td>
                       <Td><Link to={`/dashboard/attendance/${diag.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-xs">View →</Link></Td>
                     </tr>
@@ -1092,7 +1109,7 @@ export default function PatientDetails() {
                 <Table heads={['Test', 'Status', 'Request Date', 'Result', 'Visit']}>
                   {allLabTests.map((test, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <TdPrimary>{test.ServiceCatalog?.name || test.name}</TdPrimary>
+                      <TdPrimary>{test.LabTestTemplate?.name || test.ServiceCatalog?.name || test.name || '—'}</TdPrimary>
                       <Td><StatusBadge status={test.status} /></Td>
                       <Td>{formatDate(test.requestedAt || test.createdAt)}</Td>
                       <Td>{test.result ? (typeof test.result === 'object' ? 'Available' : test.result) : 'Pending'}</Td>
@@ -1113,7 +1130,7 @@ export default function PatientDetails() {
                 <Table heads={['Procedure', 'Scheduled Date', 'Status', 'Visit']}>
                   {allProcedures.map((proc, idx) => (
                     <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <TdPrimary>{proc.ServiceCatalog?.name || proc.name}</TdPrimary>
+                      <TdPrimary>{proc.ProcedureTemplate?.name || proc.ServiceCatalog?.name || proc.name || '—'}</TdPrimary>
                       <Td>{proc.scheduledDate ? formatDate(proc.scheduledDate) : '—'}</Td>
                       <Td><StatusBadge status={proc.status} /></Td>
                       <Td><Link to={`/dashboard/attendance/${proc.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-xs">View →</Link></Td>
@@ -1321,10 +1338,10 @@ export default function PatientDetails() {
                       <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-gray-900">{diag.diagnosis?.name || diag.icdCode}</p>
-                            <p className="text-xs text-gray-500">ICD-10: {diag.icdCode || diag.diagnosis?.icdCode}</p>
+                            <p className="font-medium text-gray-900">{diag.Diagnosis?.name || diag.diagnosis?.name || diag.icdCode}</p>
+                            <p className="text-xs text-gray-500">ICD-10: {diag.icdCode || diag.Diagnosis?.icdCode || diag.diagnosis?.icdCode}</p>
                           </div>
-                          {diag.primary && (
+                          {diag.diagnosisType === 'primary' && (
                             <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">
                               Primary
                             </span>
@@ -1377,7 +1394,7 @@ export default function PatientDetails() {
                   <div className="space-y-2">
                     {selectedAttendance.labTests.map((test: LabTest, idx: number) => (
                       <div key={idx} className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-                        <p className="font-medium text-gray-900">{test.ServiceCatalog?.name || 'Lab Test'}</p>
+                        <p className="font-medium text-gray-900">{test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Lab Test'}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-sm text-gray-600">
                             Status: <span className="font-medium">{test.status}</span>
@@ -1410,7 +1427,7 @@ export default function PatientDetails() {
                   <div className="space-y-2">
                     {selectedAttendance.procedures.map((proc: Procedure, idx: number) => (
                       <div key={idx} className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <p className="font-medium text-gray-900">{proc.name}</p>
+                        <p className="font-medium text-gray-900">{proc.ProcedureTemplate?.name || proc.name}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-sm text-gray-600">Status: {proc.status}</span>
                           {proc.performedAt && (

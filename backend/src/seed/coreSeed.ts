@@ -265,29 +265,51 @@ const createServicePricing = async (
   }
 ) => {
   try {
-    await prisma.servicePricing.upsert({
-      where: { serviceCatalogId },
-      create: {
-        serviceCatalogId,
-        cashPrice: pricing.cashPrice ?? 0,
-        nhisPrice: pricing.nhisPrice ?? 0,
-        insurancePrice: pricing.insurancePrice ?? 0,
-        corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
-        vatRate: 0,
-        isTaxable: false,
-        effectiveDate: new Date(),
-        isActive: true,
-      },
-      update: {
-        cashPrice: pricing.cashPrice ?? 0,
-        nhisPrice: pricing.nhisPrice ?? 0,
-        insurancePrice: pricing.insurancePrice ?? 0,
-        corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
-        isActive: true,
-      },
+    // First, check if a pricing record exists for this service with the same effective date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const existingPricing = await prisma.servicePricing.findFirst({
+      where: {
+        serviceCatalogId: serviceCatalogId,
+        effectiveDate: {
+          gte: today,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+        }
+      }
     });
+    
+    if (existingPricing) {
+      // Update existing
+      await prisma.servicePricing.update({
+        where: { id: existingPricing.id },
+        data: {
+          cashPrice: pricing.cashPrice ?? 0,
+          nhisPrice: pricing.nhisPrice ?? 0,
+          insurancePrice: pricing.insurancePrice ?? 0,
+          corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
+          isActive: true,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new
+      await prisma.servicePricing.create({
+        data: {
+          serviceCatalogId,
+          cashPrice: pricing.cashPrice ?? 0,
+          nhisPrice: pricing.nhisPrice ?? 0,
+          insurancePrice: pricing.insurancePrice ?? 0,
+          corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
+          vatRate: 0,
+          isTaxable: false,
+          effectiveDate: new Date(),
+          isActive: true,
+        }
+      });
+    }
   } catch (error: any) {
-    console.error(`❌ Error creating service pricing:`, error.message);
+    console.error(`❌ Error creating service pricing for ${serviceCatalogId}:`, error.message);
   }
 };
 
@@ -460,7 +482,83 @@ export const seedCoreData = async (force: boolean = false) => {
       });
     }
     console.log(`✅ ${providers.length} insurance providers configured`);
+// After STEP 4 (Insurance Providers), add:
 
+// ============================================================
+// STEP 4.5: CORPORATE ACCOUNTS (FROM JSON)
+// ============================================================
+const corporateAccountsData = readJSON('corporateAccounts.json');
+if (corporateAccountsData?.corporateAccounts) {
+  console.log('🏢 Seeding corporate accounts and employees...');
+  
+  for (const corp of corporateAccountsData.corporateAccounts) {
+    // Create/Update Insurance Provider for corporate
+    const insuranceProvider = await prisma.insuranceProvider.upsert({
+      where: { name: corp.companyName },
+      create: {
+        name: corp.companyName,
+        type: InsuranceType.corporate,
+        coveragePercentage: corp.insuranceProvider.coveragePercentage,
+        contactInfo: corp.insuranceProvider.contactInfo,
+        isActive: true,
+        claimSubmissionMethod: 'portal',
+      },
+      update: {},
+    });
+    
+    // Create/Update Corporate Account
+    const corporateAccount = await prisma.corporateAccount.upsert({
+      where: { registrationNumber: corp.registrationNumber },
+      create: {
+        companyName: corp.companyName,
+        registrationNumber: corp.registrationNumber,
+        taxId: corp.taxId,
+        contactPerson: corp.contactPerson,
+        email: corp.email,
+        phone: corp.phone,
+        address: corp.address,
+        creditLimit: corp.creditLimit,
+        currentBalance: 0,
+        paymentTerms: corp.paymentTerms,
+        discountPercentage: corp.discountPercentage,
+        isActive: true,
+        insuranceProviderId: insuranceProvider.id
+      },
+      update: {},
+    });
+    
+    // Create Employees
+    for (const emp of corp.employees) {
+      await prisma.corporateEmployee.upsert({
+        where: { 
+          accountId_employeeId: {
+            accountId: corporateAccount.id,
+            employeeId: emp.employeeId
+          }
+        },
+        create: {
+          employeeId: emp.employeeId,
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          otherNames: emp.otherNames,
+          dateOfBirth: new Date(emp.dateOfBirth),
+          gender: emp.gender === 'male' ? Gender.male : Gender.female,
+          phone: emp.phone,
+          email: emp.email,
+          department: emp.department,
+          position: emp.position,
+          enrollmentDate: new Date(),
+          isActive: true,
+          accountId: corporateAccount.id
+        },
+        update: {},
+      });
+    }
+    
+    console.log(`  ✅ Corporate account: ${corp.companyName} with ${corp.employees.length} employees`);
+  }
+  console.log(`✅ Corporate accounts seeded successfully`);
+}
     // ============================================================
     // STEP 5: DIAGNOSES (FROM JSON - MUST SEED BEFORE SERVICES)
     // ============================================================

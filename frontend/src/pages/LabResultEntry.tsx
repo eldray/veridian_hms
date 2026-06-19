@@ -27,8 +27,10 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
-  Save
+  Save,
+  MessageSquare
 } from 'lucide-react';
+import SendDocumentModal from '../components/SendDocumentModal';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
@@ -47,6 +49,10 @@ const getStatusBadge = (status: string) => {
     </span>
   );
 };
+
+// ✅ FIX: Helper to safely extract test name from nested relations
+const getTestName = (test: any): string => 
+  test?.name || test?.LabTestTemplate?.name || test?.ServiceCatalog?.name || 'Unknown Test';
 
 // Result Flag Helper
 const getResultFlag = (value: number | string, normalRange?: string): { flag: string; color: string } => {
@@ -93,7 +99,8 @@ const MultiParameterResultForm: React.FC<{
       setParameters(test.result.parameters);
     } else {
       // Default parameters based on test name
-      const name = test.name?.toLowerCase() || '';
+      // ✅ FIX: Use getTestName helper
+      const name = getTestName(test).toLowerCase();
       let defaultParams = [{ name: 'Result', value: '', normalRange: '', unit: '', required: true }];
       
       if (name.includes('full blood count') || name.includes('fbc') || name.includes('cbc')) {
@@ -147,7 +154,7 @@ const MultiParameterResultForm: React.FC<{
           <div className="sticky top-0 bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
             <h2 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
               <FlaskConical className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-              Enter Results: {test.name}
+              Enter Results: {getTestName(test)}
             </h2>
             <button onClick={onCancel} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
               <X className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -244,6 +251,7 @@ export default function LabResultEntry() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSendResult, setShowSendResult] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -263,7 +271,7 @@ export default function LabResultEntry() {
     updateLabTestStatus,
     canAddMedicalEntries 
   } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
   const { labTestTemplates, getLabTestTemplates } = useMedicalServicesStore();
 
@@ -277,42 +285,43 @@ export default function LabResultEntry() {
       setRefreshing(true);
       await Promise.all([
         loadPatients(),
-        getAttendances(),
         getLabTestTemplates(false)
       ]);
-      
-      let foundPatient = location.state?.patient;
-      
-      if (!foundPatient && id) {
-        foundPatient = patients.find(p => p.id === id);
-      }
-      
-      if (foundPatient) {
-        setPatient(foundPatient);
-        setSelectedPatientId(foundPatient.id);
-        
-        const patientAttendances = attendances.filter(a => a.patientId === foundPatient.id);
+
+      // Worklist navigates with :id = patientId plus state.{patient, attendanceId}.
+      const statePatient = location.state?.patient;
+      const patientId = statePatient?.id || id;
+      const initialAttendanceId = location.state?.attendanceId;
+
+      if (patientId) {
+        // Load THIS patient's attendances directly (complete + small) instead of
+        // searching a paginated global list that may not contain the target.
+        const patientAttendances = await getAttendances({ patientId });
         setAllAttendances(patientAttendances);
-        
-        const initialAttendanceId = location.state?.attendanceId;
-        if (initialAttendanceId) {
-          const foundAttendance = attendances.find(a => a.id === initialAttendanceId);
-          if (foundAttendance) {
-            setSelectedAttendanceId(initialAttendanceId);
-            setAttendance(foundAttendance);
-            const tests = foundAttendance.LabTest || [];
-            setLabTests(tests);
-          }
-        } else if (patientAttendances.length > 0) {
-          const mostRecent = patientAttendances.sort((a, b) => 
+
+        // Resolve the full patient object; the default patient list only holds a page,
+        // so fall back to a direct fetch (or the navigation summary).
+        let foundPatient = patients.find(p => p.id === patientId) || statePatient || null;
+        if (!foundPatient || !foundPatient.surname) {
+          try { foundPatient = await fetchPatient(patientId); } catch { /* keep summary */ }
+        }
+        if (foundPatient) {
+          setPatient(foundPatient);
+          setSelectedPatientId(patientId);
+        }
+
+        const target =
+          (initialAttendanceId && patientAttendances.find(a => a.id === initialAttendanceId)) ||
+          [...patientAttendances].sort((a, b) =>
             new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
           )[0];
-          setSelectedAttendanceId(mostRecent.id);
-          setAttendance(mostRecent);
-          setLabTests(mostRecent.LabTest || []);
+        if (target) {
+          setSelectedAttendanceId(target.id);
+          setAttendance(target);
+          setLabTests(target.LabTest || []);
         }
       }
-      
+
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -364,7 +373,8 @@ export default function LabResultEntry() {
     setNotes(test.notes || '');
     
     const multiParamTests = ['full blood count', 'fbc', 'cbc', 'liver', 'lft', 'renal', 'rft', 'kidney', 'lipid', 'thyroid'];
-    const testName = (test.name || '').toLowerCase();
+    // ✅ FIX: Use getTestName helper
+    const testName = getTestName(test).toLowerCase();
     const isMultiParam = multiParamTests.some(keyword => testName.includes(keyword));
     
     if (isMultiParam) {
@@ -379,11 +389,12 @@ export default function LabResultEntry() {
     try {
       await updateLabTestStatus(selectedAttendanceId, resultEntryTest.id, {
         status: 'completed',
-        result: { parameters, testName: resultEntryTest.name },
+        // ✅ FIX: Use getTestName helper
+        result: { parameters, testName: getTestName(resultEntryTest) },
         performedById: user?.id || '',
         completedAt: new Date().toISOString(),
       });
-      success('Results saved', `${resultEntryTest.name} completed`);
+      success('Results saved', `${getTestName(resultEntryTest)} completed`);
       setIsMultiParamModalOpen(false);
       setResultEntryTest(null);
       await loadData();
@@ -483,7 +494,9 @@ export default function LabResultEntry() {
     );
   }
 
-  const patientFullName = `${patient.surname} ${patient.otherNames}`;
+  // ✅ FIX: Handle both full Prisma objects (surname/otherNames) and normalized objects (name)
+  const patientFullName = patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  const patientAge = patient.age || calculateAge(patient.dateOfBirth);
 
   return (
     <div className="space-y-6 p-6">
@@ -514,6 +527,13 @@ export default function LabResultEntry() {
             Request Test
           </button>
           <button
+            onClick={() => setShowSendResult(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all text-sm"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Send Results
+          </button>
+          <button
             onClick={loadData}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
@@ -523,6 +543,14 @@ export default function LabResultEntry() {
           </button>
         </div>
       </div>
+
+      <SendDocumentModal
+        open={showSendResult}
+        onClose={() => setShowSendResult(false)}
+        patient={patient}
+        documentType="lab-result"
+        entityId={selectedAttendanceId}
+      />
 
       {/* Patient & Attendance Selector */}
       <PatientAttendanceSelector
@@ -572,7 +600,8 @@ export default function LabResultEntry() {
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Age & Gender</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-1 capitalize">{calculateAge(patient.dateOfBirth)} years • {patient.gender}</p>
+                  {/* ✅ FIX: Use safe patientAge and fallback for gender */}
+                  <p className="text-sm text-[var(--text-primary)] mt-1 capitalize">{patientAge} years • {patient.gender || '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Ward / Bed</p>
@@ -669,7 +698,8 @@ export default function LabResultEntry() {
                         test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700';
                       return (
                         <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                          <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{test.name}</td>
+                          {/* ✅ FIX: Use getTestName helper */}
+                          <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{getTestName(test)}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityColor}`}>
                               {test.priority || 'routine'}
@@ -718,7 +748,8 @@ export default function LabResultEntry() {
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {inProgressTests.map((test) => (
                       <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{test.name}</td>
+                        {/* ✅ FIX: Use getTestName helper */}
+                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{getTestName(test)}</td>
                         <td className="px-4 py-3 text-[var(--text-secondary)]">
                           {test.updatedAt ? new Date(test.updatedAt).toLocaleString() : '—'}
                         </td>
@@ -757,7 +788,8 @@ export default function LabResultEntry() {
                       <div className="bg-[var(--bg-main)] px-4 py-2 border-b border-[var(--border-color)]">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-semibold text-sm text-[var(--text-primary)]">{test.name}</h4>
+                            {/* ✅ FIX: Use getTestName helper */}
+                            <h4 className="font-semibold text-sm text-[var(--text-primary)]">{getTestName(test)}</h4>
                             <p className="text-[10px] text-[var(--text-secondary)]">
                               Completed: {test.completedAt ? new Date(test.completedAt).toLocaleString() : '—'}
                             </p>
@@ -888,7 +920,8 @@ export default function LabResultEntry() {
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-md w-full border border-[var(--border-color)]">
               <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)]">Enter Results: {resultEntryTest.name}</h3>
+                {/* ✅ FIX: Use getTestName helper */}
+                <h3 className="font-semibold text-[var(--text-primary)]">Enter Results: {getTestName(resultEntryTest)}</h3>
                 <button onClick={() => setResultEntryTest(null)} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
                   <X className="w-4 h-4 text-[var(--text-secondary)]" />
                 </button>

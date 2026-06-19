@@ -1,33 +1,51 @@
 // modules/corporate/CorporateRoutes.ts
 import { Router } from 'express';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { CorporateController } from './CorporateController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export function createCorporateRoutes(): Router {
+export function createCorporateRoutes(prisma: PrismaClient): Router {
   const router = Router();
-  const controller = new CorporateController();
+  
+  // ✅ FIXED: Pass prisma to controller
+  const controller = new CorporateController(prisma);
 
   // All routes require authentication
   router.use(protect);
 
-  // Corporate Account Routes
-  router.post('/', requireRole(['admin', 'accounts']), controller.createAccount);
-  router.get('/', requireRole(['admin', 'accounts', 'records']), controller.getAccounts);
-  router.get('/statistics', requireRole(['admin', 'accounts']), controller.getStatistics);
-  router.get('/:id', requireRole(['admin', 'accounts', 'records']), controller.getAccount);
-  router.put('/:id', requireRole(['admin', 'accounts']), controller.updateAccount);
-  router.delete('/:id', requireRole(['admin', 'accounts']), controller.deactivateAccount);
+  // ✅ FIXED: Explicitly type role arrays
+  const adminAccounts: UserRole[] = ['admin', 'accounts'];
+  const readRoles: UserRole[] = ['admin', 'accounts', 'records'];
+
+  // ============================================
+  // SPECIFIC ROUTES FIRST (BEFORE dynamic :id)
+  // ============================================
+
+  // Statistics
+  router.get('/statistics', requireRole(adminAccounts), controller.getStatistics);
+
+  // ✅ FIXED: Employee routes MUST come before /:id
+  // Otherwise /employees/123 gets caught by /:id with id="employees"
+  router.get('/employees/:id', requireRole(readRoles), controller.getEmployee);
+  router.put('/employees/:id', requireRole(adminAccounts), controller.updateEmployee);
+  router.delete('/employees/:id', requireRole(adminAccounts), controller.removeEmployee);
+
+  // ============================================
+  // CORPORATE ACCOUNT ROUTES
+  // ============================================
+  router.post('/', requireRole(adminAccounts), controller.createAccount);
+  router.get('/', requireRole(readRoles), controller.getAccounts);
+  router.get('/:id', requireRole(readRoles), controller.getAccount);
+  router.put('/:id', requireRole(adminAccounts), controller.updateAccount);
+  router.delete('/:id', requireRole(adminAccounts), controller.deactivateAccount);
 
   // Monthly Billing Routes
-  router.post('/:id/bills', requireRole(['admin', 'accounts']), controller.generateMonthlyBill);
-  router.get('/:id/bills', requireRole(['admin', 'accounts', 'records']), controller.getMonthlyBills);
+  router.post('/:id/bills', requireRole(adminAccounts), controller.generateMonthlyBill);
+  router.get('/:id/bills', requireRole(readRoles), controller.getMonthlyBills);
 
-  // Corporate Employee Routes
-  router.get('/:accountId/employees', requireRole(['admin', 'accounts', 'records']), controller.getEmployees);
-  router.post('/:accountId/employees', requireRole(['admin', 'accounts']), controller.addEmployee);
-  router.get('/employees/:id', requireRole(['admin', 'accounts', 'records']), controller.getEmployee);
-  router.put('/employees/:id', requireRole(['admin', 'accounts']), controller.updateEmployee);
-  router.delete('/employees/:id', requireRole(['admin', 'accounts']), controller.removeEmployee);
+  // Corporate Employee Routes (under account)
+  router.get('/:accountId/employees', requireRole(readRoles), controller.getEmployees);
+  router.post('/:accountId/employees', requireRole(adminAccounts), controller.addEmployee);
 
   return router;
 }

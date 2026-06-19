@@ -63,6 +63,8 @@ import StockTransactions from './pages/StockTransactions';
 import StockReports from './pages/StockReports';
 import PatientBillingItems from './pages/PatientBillingItems';
 import Referrals from './pages/Referrals';
+import Estimates from './pages/Estimates';
+import EstimateDetails from './pages/EstimateDetails';
 
 import './App.css';
 
@@ -100,7 +102,7 @@ const rolePermissions = {
   ],
   accounts: [
     'dashboard', 'billing', 'reports', 'process_payment', 'insurance_providers',
-    'insurance_claims', 'profile', 'invoices', 'stock_transactions'
+    'insurance_claims', 'profile', 'invoices', 'stock_transactions', 'corporate', 'estimates'
   ],
   sonographer: [
     'dashboard', 'patients', 'attendance', 'medical_entries', 'profile',
@@ -161,6 +163,10 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/appointments': 'appointments',
     '/dashboard/departments': 'departments',
     '/dashboard/referrals': 'referrals',
+    '/dashboard/corporate-accounts': 'corporate',
+    '/dashboard/corporate-accounts/:id': 'corporate',
+    '/dashboard/estimates': 'estimates',
+    '/dashboard/estimates/:id': 'estimates',
   };
 
   const permission = routeMap[routePath];
@@ -175,6 +181,8 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (routePath.match(/^\/dashboard\/requisitions\/[^/]+$/)) return perms?.includes('requisitions');
   if (routePath.match(/^\/dashboard\/dispense\/[^/]+$/)) return perms?.includes('pharmacy');
   if (routePath.match(/^\/dashboard\/medical-entries\/[^/]+$/)) return perms?.includes('medical_entries');
+  if (routePath.match(/^\/dashboard\/corporate-accounts\/[^/]+$/)) return perms?.includes('corporate');
+  if (routePath.match(/^\/dashboard\/estimates\/[^/]+$/)) return perms?.includes('estimates');
 
   return false;
 };
@@ -355,6 +363,10 @@ function App() {
           
           <Route path="/dashboard/corporate-accounts" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="/dashboard/corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+
+          {/* Estimates / Proforma Invoices */}
+          <Route path="estimates" element={<ProtectedRoute><Estimates /></ProtectedRoute>} />
+          <Route path="estimates/:id" element={<ProtectedRoute><EstimateDetails /></ProtectedRoute>} />
           
           {/* User & System routes */}
           <Route path="profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />

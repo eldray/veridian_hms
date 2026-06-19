@@ -1,4 +1,5 @@
-// src/modules/backup/BackupService.ts
+import { PrismaClient } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
 import { BackupRepository } from './BackupRepository';
 import { IBackupResult, IBackupListResponse } from './BackupTypes';
 import path from 'path';
@@ -8,43 +9,25 @@ import fs from 'fs/promises';
 
 const execPromise = util.promisify(exec);
 
-export class BackupService {
+export class BackupService extends BaseService {
   private backupRepository: BackupRepository;
   private backupDir: string;
-  private pgBinPath: string;
 
-  constructor() {
-    this.backupRepository = new BackupRepository();
+  constructor(prisma: PrismaClient) {
+    super('BackupService');
+    this.backupRepository = new BackupRepository(prisma);
     this.backupDir = path.join(process.cwd(), 'backups');
-    // ✅ Set PostgreSQL bin path
-    this.pgBinPath = 'C:\\Program Files\\PostgreSQL\\16\\bin';
   }
 
   private validateDatabaseUrl(): URL {
     const dbUrl = process.env.DATABASE_URL;
-    if (!dbUrl) {
-      throw new Error('DATABASE_URL is not defined in environment variables');
-    }
-    
-    try {
-      return new URL(dbUrl);
-    } catch (error) {
-      throw new Error('Invalid DATABASE_URL format');
-    }
-  }
-
-  private async checkCommandExists(command: string): Promise<boolean> {
-    try {
-      const { stdout } = await execPromise(`${command} --version`);
-      return true;
-    } catch {
-      return false;
-    }
+    if (!dbUrl) throw new Error('DATABASE_URL is not defined');
+    try { return new URL(dbUrl); } catch { throw new Error('Invalid DATABASE_URL format'); }
   }
 
   async createBackup(userId: string): Promise<IBackupResult> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `backup-${timestamp}.backup`;  // Changed extension
+    const filename = `backup-${timestamp}.backup`; // ✅ Custom format uses .backup
     const filePath = path.join(this.backupDir, filename);
 
     await this.backupRepository.ensureBackupDir();
@@ -59,54 +42,31 @@ export class BackupService {
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      const pgDumpPath = path.join(this.pgBinPath, 'pg_dump.exe');
+      // ✅ FIXED: Cross-platform command resolution (works on Linux/Docker/Windows)
+      const pgDumpCmd = process.env.PG_DUMP_PATH || 'pg_dump';
       
-      try {
-        await fs.access(pgDumpPath);
-      } catch {
-        throw new Error(`pg_dump not found at: ${pgDumpPath}`);
-      }
+      const command = `"${pgDumpCmd}" -h ${host} -p ${port} -U ${user} -d ${dbName} -f "${filePath}" --clean --if-exists --no-owner --no-privileges --format=custom`;
       
-      // ✅ Use custom format but with .backup extension
-      // pg_restore can restore this format
-      const command = `"${pgDumpPath}" -h ${host} -p ${port} -U ${user} -d ${dbName} -f "${filePath}" --clean --if-exists --no-owner --no-privileges --format=custom`;
-      
-      console.log(`📦 Running pg_dump from: ${pgDumpPath}`);
-      console.log(`📦 Backing up database: ${dbName}`);
-      
-      const { stdout, stderr } = await execPromise(command, { env });
+      this.logInfo('Running pg_dump', { dbName });
+      const { stderr } = await execPromise(command, { env });
       
       if (stderr && !stderr.includes('NOTICE') && !stderr.includes('WARNING')) {
-        console.warn('pg_dump warnings:', stderr);
+        this.logWarn('pg_dump warnings', { stderr });
       }
 
       const stats = await fs.stat(filePath);
-      
-      if (stats.size === 0) {
-        throw new Error('Backup file is empty - backup failed');
-      }
+      if (stats.size === 0) throw new Error('Backup file is empty - backup failed');
 
-      const result: IBackupResult = {
-        filename,
-        path: filePath,
-        size: stats.size,
-        createdAt: new Date().toISOString()
-      };
+      const result: IBackupResult = { filename, path: filePath, size: stats.size, createdAt: new Date().toISOString() };
 
       await this.backupRepository.saveBackupResult(result, userId);
       await this.backupRepository.cleanupOldBackups();
 
-      console.log(`✅ Backup created successfully: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+      this.logInfo('Backup created successfully', { filename, sizeMB: (stats.size / 1024 / 1024).toFixed(2) });
       return result;
     } catch (error: any) {
-      try {
-        await fs.access(filePath);
-        await fs.unlink(filePath);
-      } catch {
-        // File doesn't exist or can't be deleted
-      }
-      
-      console.error(`❌ Backup failed: ${error.message}`);
+      try { await fs.unlink(filePath); } catch {}
+      this.logError('Backup failed', error);
       throw new Error(`Database backup failed: ${error.message}`);
     }
   }
@@ -120,153 +80,69 @@ export class BackupService {
       const user = dbUrl.username;
       const password = dbUrl.password;
 
-      // Verify the backup file is valid
       const stats = await fs.stat(backupFilePath);
-      if (stats.size === 0) {
-        throw new Error('Backup file is empty');
-      }
+      if (stats.size === 0) throw new Error('Backup file is empty');
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      // ✅ Use pg_restore for custom format backups
-      const pgRestorePath = path.join(this.pgBinPath, 'pg_restore.exe');
+      // ✅ FIXED: Cross-platform command resolution
+      const pgRestoreCmd = process.env.PG_RESTORE_PATH || 'pg_restore';
+      const command = `"${pgRestoreCmd}" -h ${host} -p ${port} -U ${user} -d ${dbName} --clean --if-exists --no-owner --no-privileges "${backupFilePath}"`;
       
-      // Check if pg_restore exists
-      try {
-        await fs.access(pgRestorePath);
-      } catch {
-        throw new Error(`pg_restore not found at: ${pgRestorePath}. Please verify PostgreSQL installation.`);
-      }
-      
-      // ✅ Use pg_restore command for custom-format backups
-      const command = `"${pgRestorePath}" -h ${host} -p ${port} -U ${user} -d ${dbName} --clean --if-exists --no-owner --no-privileges "${backupFilePath}"`;
-      
-      console.log(`🔄 Running pg_restore from: ${pgRestorePath}`);
-      console.log(`🔄 Restoring to database: ${dbName}`);
-      console.log(`🔄 Backup file: ${backupFilePath}`);
-      
-      const { stdout, stderr } = await execPromise(command, { env });
-      
-      // Log any output for debugging
-      if (stdout) {
-        console.log('pg_restore stdout:', stdout);
-      }
-      if (stderr && !stderr.includes('WARNING')) {
-        console.log('pg_restore stderr:', stderr);
-      }
+      this.logInfo('Running pg_restore', { dbName });
+      await execPromise(command, { env });
 
-      // Log successful restore to audit trail
       const filename = path.basename(backupFilePath);
       await this.backupRepository.logRestoreOperation(filename, userId, true);
-
-      // Clean up uploaded file
       await this.backupRepository.deleteUploadedFile(backupFilePath);
 
-      console.log(`✅ Backup restored successfully from: ${filename}`);
+      this.logInfo('Backup restored successfully', { filename });
       return true;
     } catch (error: any) {
       const filename = path.basename(backupFilePath);
-      console.error(`❌ Restore error details:`, error.message);
-      if (error.stderr) {
-        console.error('pg_restore stderr output:', error.stderr);
-      }
-      if (error.stdout) {
-        console.error('pg_restore stdout output:', error.stdout);
-      }
+      this.logError('Restore failed', error);
       await this.backupRepository.logRestoreOperation(filename, userId, false, error.message);
       await this.backupRepository.deleteUploadedFile(backupFilePath);
       throw new Error(`Database restore failed: ${error.message}`);
     }
   }
 
-  async getBackupList(page: number = 1, limit: number = 50): Promise<{ backups: IBackupListResponse[]; pagination: any }> {
+  async getBackupList(page: number = 1, limit: number = 50) {
     const result = await this.backupRepository.getBackupList(page, limit);
     const totalSize = await this.backupRepository.getTotalBackupSize();
     
     return {
       backups: result.backups,
-      pagination: {
-        page,
-        limit,
-        total: result.total,
-        pages: Math.ceil(result.total / limit),
-        totalSize: totalSize,
-        totalSizeFormatted: this.formatBytes(totalSize)
-      }
+      pagination: { page, limit, total: result.total, pages: Math.ceil(result.total / limit), totalSize, totalSizeFormatted: this.formatBytes(totalSize) }
     };
   }
 
   async getBackupFilePath(filename: string): Promise<string> {
-    // Decode the filename in case it was URL encoded
-    const decodedFilename = decodeURIComponent(filename);
-    
-    if (!decodedFilename || decodedFilename.includes('..') || decodedFilename.includes('/') || decodedFilename.includes('\\')) {
-      throw new Error('Invalid filename format');
-    }
-    
-    if (!decodedFilename.startsWith('backup-') || !decodedFilename.endsWith('.sql')) {
+    const decoded = decodeURIComponent(filename);
+    if (!decoded.startsWith('backup-') || (!decoded.endsWith('.sql') && !decoded.endsWith('.backup'))) {
       throw new Error('Invalid backup file format');
     }
-    
-    const exists = await this.backupRepository.backupExists(decodedFilename);
-    if (!exists) {
-      throw new Error(`Backup file '${decodedFilename}' not found`);
-    }
-    return await this.backupRepository.getBackupFilePath(decodedFilename);
+    return this.backupRepository.getBackupFilePath(decoded);
   }
 
   async deleteBackup(filename: string): Promise<boolean> {
-    const decodedFilename = decodeURIComponent(filename);
-    
-    if (!decodedFilename.startsWith('backup-') || !decodedFilename.endsWith('.sql')) {
+    const decoded = decodeURIComponent(filename);
+    if (!decoded.startsWith('backup-') || (!decoded.endsWith('.sql') && !decoded.endsWith('.backup'))) {
       throw new Error('Invalid backup filename format');
     }
-    
-    if (decodedFilename.includes('..') || decodedFilename.includes('/') || decodedFilename.includes('\\')) {
-      throw new Error('Invalid filename format');
-    }
-    
-    const exists = await this.backupRepository.backupExists(decodedFilename);
-    if (!exists) {
-      throw new Error(`Backup file '${decodedFilename}' not found`);
-    }
-    
-    await this.backupRepository.deleteBackupFile(decodedFilename);
-    console.log(`🗑️ Backup deleted: ${decodedFilename}`);
+    await this.backupRepository.deleteBackupFile(decoded);
     return true;
   }
 
-  async getBackupStats(): Promise<{
-    totalBackups: number;
-    totalSize: number;
-    totalSizeFormatted: string;
-    oldestBackup: Date | null;
-    newestBackup: Date | null;
-    averageSize: number;
-  }> {
+  async getBackupStats() {
     const result = await this.backupRepository.getBackupList(1, 1000);
+    if (result.backups.length === 0) return { totalBackups: 0, totalSize: 0, totalSizeFormatted: '0 B', oldestBackup: null, newestBackup: null, averageSize: 0 };
     
-    if (result.backups.length === 0) {
-      return {
-        totalBackups: 0,
-        totalSize: 0,
-        totalSizeFormatted: '0 B',
-        oldestBackup: null,
-        newestBackup: null,
-        averageSize: 0
-      };
-    }
-    
-    const totalSize = result.backups.reduce((sum, backup) => sum + backup.size, 0);
-    const oldestBackup = result.backups[result.backups.length - 1]?.createdAt || null;
-    const newestBackup = result.backups[0]?.createdAt || null;
-    
+    const totalSize = result.backups.reduce((sum, b) => sum + b.size, 0);
     return {
-      totalBackups: result.total,
-      totalSize: totalSize,
-      totalSizeFormatted: this.formatBytes(totalSize),
-      oldestBackup: oldestBackup,
-      newestBackup: newestBackup,
+      totalBackups: result.total, totalSize, totalSizeFormatted: this.formatBytes(totalSize),
+      oldestBackup: result.backups[result.backups.length - 1]?.createdAt || null,
+      newestBackup: result.backups[0]?.createdAt || null,
       averageSize: totalSize / result.total
     };
   }

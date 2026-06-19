@@ -1,71 +1,67 @@
-// modules/antenatal/AntenatalRoutes.ts
 import { Router } from 'express';
+// ✅ 1. Import UserRole from Prisma
+import { PrismaClient, UserRole } from '@prisma/client'; 
 import { AntenatalController } from './AntenatalController';
-import { protect } from '../../middleware/authMiddleware';
+import { AntenatalService } from './AntenatalService';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
-const router = Router();
-let controller: AntenatalController;
+export function createAntenatalRoutes(prisma: PrismaClient): Router {
+  const router = Router();
+  const service = new AntenatalService(prisma);
+  const controller = new AntenatalController(service);
 
-export function createAntenatalRoutes(prisma: any): Router {
-  controller = new AntenatalController(prisma);
+  // ✅ Global Auth
+  router.use(protect);
 
-  // ============================================
-  // SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
-  // ============================================
-  
-  // ---------- STATISTICS ROUTES ----------
-  router.get('/stats/anc', protect, controller.getANCStatistics.bind(controller));
-  router.get('/stats/delivery', protect, controller.getDeliveryStatistics.bind(controller));
-  router.get('/stats/postnatal', protect, controller.getPostnatalStatistics.bind(controller));
-
-  // ---------- DELIVERY RECORD ROUTES ----------
-  router.get('/deliveries', protect, controller.getDeliveryRecords.bind(controller));
-  router.get('/deliveries/:id', protect, controller.getDeliveryRecord.bind(controller));
-  router.post('/deliveries', protect, controller.createDeliveryRecord);
-  router.put('/deliveries/:id', protect, controller.updateDeliveryRecord.bind(controller));
-  router.delete('/deliveries/:id', protect, controller.deleteDeliveryRecord.bind(controller));
-
-  // ---------- POSTNATAL RECORD ROUTES ----------
-  router.get('/postnatals', protect, controller.getPostnatalRecords.bind(controller));
-  router.get('/postnatal/:id', protect, controller.getPostnatalRecord.bind(controller));
-  router.post('/postnatal', protect, controller.createPostnatalRecord);
-  router.put('/postnatal/:id', protect, controller.updatePostnatalRecord.bind(controller));
-  router.delete('/postnatal/:id', protect, controller.deletePostnatalRecord.bind(controller));
-
-  // ---------- ANC VISIT ROUTES ----------
-  router.get('/bookings/:bookingId/visits', protect, controller.getANCVisitsByBooking.bind(controller));
-  router.get('/visits/:id', protect, controller.getANCVisitById.bind(controller));
-  router.post('/visits', protect, controller.createANCVisit);
-  router.put('/visits/:id', protect, controller.updateANCVisit);
-  router.delete('/visits/:id', protect, controller.deleteANCVisit.bind(controller));
-
-  // ---------- BOOKING BY ATTENDANCE (specific) ----------
-  router.get('/attendance/:attendanceId', protect, controller.getAntenatalByAttendance.bind(controller));
-
-  // ---------- ACTIVE BOOKING BY PATIENT (specific) ----------
-  router.get('/patient/:patientId/active', protect, controller.getActiveBookingByPatient.bind(controller));
+  // ✅ 2. Explicitly type the arrays as UserRole[]
+  // Read access for clinical and records staff
+  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records'];
+  // Write access restricted to clinical staff
+  const writeRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife'];
 
   // ============================================
-  // DYNAMIC ID ROUTES (LAST - catches :id parameters)
+  // SPECIFIC ROUTES FIRST
   // ============================================
   
-  // Get all antenatal bookings
-  router.get('/', protect, controller.getAntenatalBookings.bind(controller));
+  // Statistics
+  router.get('/stats/anc', requireRole(readRoles), controller.getANCStatistics);
+  router.get('/stats/delivery', requireRole(readRoles), controller.getDeliveryStatistics);
+  router.get('/stats/postnatal', requireRole(readRoles), controller.getPostnatalStatistics);
 
-  // Get single antenatal booking by ID (must be AFTER all specific routes)
-  router.get('/:id', protect, controller.getAntenatalBookingById.bind(controller));
+  // Deliveries
+  router.get('/deliveries', requireRole(readRoles), controller.getDeliveryRecords);
+  router.get('/deliveries/:id', requireRole(readRoles), controller.getDeliveryRecord);
+  router.post('/deliveries', requireRole(writeRoles), controller.createDeliveryRecord);
+  router.put('/deliveries/:id', requireRole(writeRoles), controller.updateDeliveryRecord);
+  router.delete('/deliveries/:id', requireRole(['admin']), controller.deleteDeliveryRecord);
 
-  // Create new antenatal booking
-  router.post('/', protect, controller.createAntenatalBooking);
+  // Postnatals
+  router.get('/postnatals', requireRole(readRoles), controller.getPostnatalRecords);
+  router.get('/postnatal/:id', requireRole(readRoles), controller.getPostnatalRecord);
+  router.post('/postnatal', requireRole(writeRoles), controller.createPostnatalRecord);
+  router.put('/postnatal/:id', requireRole(writeRoles), controller.updatePostnatalRecord);
+  router.delete('/postnatal/:id', requireRole(['admin']), controller.deletePostnatalRecord);
 
-  // Update antenatal booking
-  router.put('/:id', protect, controller.updateAntenatalBooking);
+  // ANC Visits
+  router.get('/bookings/:bookingId/visits', requireRole(readRoles), controller.getANCVisitsByBooking);
+  router.get('/visits/:id', requireRole(readRoles), controller.getANCVisitById);
+  router.post('/visits', requireRole(writeRoles), controller.createANCVisit);
+  router.put('/visits/:id', requireRole(writeRoles), controller.updateANCVisit);
+  router.delete('/visits/:id', requireRole(['admin']), controller.deleteANCVisit);
 
-  // Close antenatal booking
-  router.post('/:id/close', protect, controller.closeAntenatalBooking);
+  // Specific Bookings
+  router.get('/attendance/:attendanceId', requireRole(readRoles), controller.getAntenatalByAttendance);
+  router.get('/patient/:patientId/active', requireRole(readRoles), controller.getActiveBookingByPatient);
 
-  // Delete antenatal booking
-  router.delete('/:id', protect, controller.deleteAntenatalBooking.bind(controller));
+  // ============================================
+  // DYNAMIC ID ROUTES (LAST)
+  // ============================================
+  router.get('/', requireRole(readRoles), controller.getAntenatalBookings);
+  router.get('/:id', requireRole(readRoles), controller.getAntenatalBookingById);
+  router.post('/', requireRole(writeRoles), controller.createAntenatalBooking);
+  router.put('/:id', requireRole(writeRoles), controller.updateAntenatalBooking);
+  router.post('/:id/close', requireRole(writeRoles), controller.closeAntenatalBooking);
+  router.delete('/:id', requireRole(['admin']), controller.deleteAntenatalBooking);
 
   return router;
 }

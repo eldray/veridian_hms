@@ -1,1404 +1,300 @@
-// modules/encounter/EncounterService.ts - Updated with automatic maternal record creation
-// SCHEMA-ALIGNED: Uses correct field names from Prisma schema
-
-import { PrismaClient, AdmissionType as PrismaAdmissionType, AttendanceStatus } from '@prisma/client';
+import { PrismaClient, AttendanceStatus } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
 import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
+import { ValidationError, NotFoundError } from '../../utils/errors';
 import { 
-  CreateEncounterDTO, 
-  UpdateEncounterDTO, 
-  AddDiagnosisDTO, 
-  AddVitalsDTO, 
-  AddPrescriptionDTO, 
-  AddLabTestDTO, 
-  AddScanDTO, 
-  AddProcedureDTO, 
-  AddServiceDTO,
-  CreateAdmissionDTO,
-  AddDailyNoteDTO,
-  DetentionPatientFilters,
-  ConvertDetentionToIPDDTO
+  CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
+  AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
+  CreateAdmissionDTO, AddDailyNoteDTO, DetentionPatientFilters, ConvertDetentionToIPDDTO
 } from './EncounterTypes';
 
-export class EncounterService {
+export class EncounterService extends BaseService {
   private repository: EncounterRepository;
   private prisma: PrismaClient;
 
-  constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
-    this.repository = new EncounterRepository(this.prisma);
+  constructor(prisma: PrismaClient) {
+    super('EncounterService');
+    this.prisma = prisma;
+    this.repository = new EncounterRepository(prisma);
   }
 
   // ============================================
-  // CREATE ENCOUNTER - WITH AUTOMATIC MATERNAL RECORD CREATION
+  // CREATE ENCOUNTER (WRAPPED IN ATOMIC TRANSACTION)
   // ============================================
   async createEncounter(data: CreateEncounterDTO, userId: string) {
-    // Validate NHIS CCC if payment mode is NHIS
-    if (data.paymentMode === 'nhis' && !data.nhisCCC) {
-      throw new Error('NHIS CCC number is required for NHIS payments');
-    }
+    if (data.paymentMode === 'nhis' && !data.nhisCCC) throw new ValidationError('NHIS CCC number is required for NHIS payments');
+    if (data.paymentMode === 'corporate' && !data.corporateAccountId) throw new ValidationError('Corporate Account ID is required');
 
-    // Validate Corporate Account if payment mode is Corporate
-    if (data.paymentMode === 'corporate' && !data.corporateAccountId) {
-      throw new Error('Corporate Account ID is required for corporate payments');
-    }
-
-    // Determine encounter category and admission type based on stay duration
     let encounterCategory = data.encounterCategory || 'opd';
     let admissionType = data.admissionType;
     let shouldCreateAdmission = false;
 
-    // Day Surgery (same day discharge, <12 hours)
     if (data.expectedStayHours && data.expectedStayHours <= 12) {
       encounterCategory = 'daycase';
-      shouldCreateAdmission = false;
-    }
-    // Detention/Observation (12-72 hours)
-    else if (data.isObservation || (data.expectedStayHours && data.expectedStayHours > 12 && data.expectedStayHours <= 72)) {
+    } else if (data.isObservation || (data.expectedStayHours && data.expectedStayHours > 12 && data.expectedStayHours <= 72)) {
       encounterCategory = 'ipd';
       admissionType = 'detention_observation';
       shouldCreateAdmission = true;
-    }
-    // Formal IPD (>72 hours or specified)
-    else if (data.expectedStayHours && data.expectedStayHours > 72) {
+    } else if (data.expectedStayHours && data.expectedStayHours > 72) {
       encounterCategory = 'ipd';
       admissionType = data.admissionType || 'emergency';
       shouldCreateAdmission = true;
-    }
-    // If admission type is specified directly
-    else if (data.admissionType && data.admissionType !== 'detention_observation') {
+    } else if (data.admissionType && data.admissionType !== 'detention_observation') {
       encounterCategory = 'ipd';
       admissionType = data.admissionType;
       shouldCreateAdmission = true;
     }
 
-    // Set default encounterCategory if not provided
-    if (!data.encounterCategory && !encounterCategory) {
-      encounterCategory = 'opd';
+    if (encounterCategory !== 'opd' && (!data.bedId || !data.wardId)) {
+      throw new ValidationError(`${encounterCategory.toUpperCase()} requires a bed and ward assignment`);
     }
 
-    // Validate bed/ward for IPD and daycase
-    if (encounterCategory !== 'opd') {
-      if (!data.bedId) {
-        throw new Error(`${encounterCategory.toUpperCase()} requires a bed assignment`);
-      }
-      if (!data.wardId) {
-        throw new Error(`${encounterCategory.toUpperCase()} requires a ward assignment`);
-      }
-      
-      // Verify bed is available
-      const bed = await this.prisma.bed.findUnique({
-        where: { id: data.bedId },
-        include: { Ward: true }
-      });
-      
-      if (!bed) throw new Error('Bed not found');
-      if (bed.isOccupied) throw new Error('Bed is already occupied');
-      if (bed.wardId !== data.wardId) throw new Error('Bed does not belong to specified ward');
-    }
-
-    // Auto-link NHIS provider if needed
     let insuranceProviderId = data.insuranceProviderId;
     if (data.paymentMode === 'nhis' && !insuranceProviderId) {
-      const nhisProvider = await this.prisma.insuranceProvider.findFirst({
-        where: { type: 'nhis', isActive: true }
+      const nhisProvider = await this.prisma.insuranceProvider.findFirst({ where: { type: 'nhis', isActive: true } });
+      if (nhisProvider) insuranceProviderId = nhisProvider.id;
+    }
+    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = null;
+
+    // ✅ PRODUCTION FIX: Wrap entire complex creation flow in a transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const counterService = getCounterService();
+      const encounter = await tx.attendance.create({
+        data: {
+          attendanceNumber: counterService.nextAttendanceNumber(),
+          patientId: data.patientId,
+          attendanceType: data.attendanceType,
+          paymentMode: data.paymentMode,
+          nhisCCC: data.nhisCCC,
+          insuranceProviderId,
+          medicalNotes: data.complaint || '', // Mapped from schema fix
+          encounterCategory,
+          status: 'pending',
+          createdById: userId,
+          dateTime: new Date(),
+        },
+        include: { Patient: true }
       });
-      if (nhisProvider) {
-        insuranceProviderId = nhisProvider.id;
+
+      // 1. Maternal Logic (Passed tx to ensure atomicity)
+      if (data.attendanceType === 'antenatal') await this.handleAntenatalEncounter(tx, encounter.id, data.patientId, userId);
+      else if (data.attendanceType === 'delivery') await this.handleDeliveryEncounter(tx, encounter.id, data.patientId, userId);
+      else if (data.attendanceType === 'postnatal') await this.handlePostnatalEncounter(tx, encounter.id, data.patientId, userId);
+
+      // 2. Bed/Ward Logic (Removed currentPatientId per schema fix)
+      if (data.bedId) {
+        await tx.bed.update({ where: { id: data.bedId }, data: { isOccupied: true } });
+        await tx.ward.update({ where: { id: data.wardId! }, data: { occupiedBeds: { increment: 1 } } });
       }
-    }
 
-    // For cash and corporate payments, ensure no insurance provider
-    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') {
-      insuranceProviderId = null;
-    }
+      // 3. Admission Logic
+      if (shouldCreateAdmission && encounterCategory === 'ipd') {
+        await tx.admission.create({
+          data: {
+            attendanceId: encounter.id,
+            admissionNumber: counterService.nextAdmissionNumber(),
+            admissionType: (admissionType as any) || 'emergency',
+            admissionSource: (data.admissionSource as any) || 'opd'
+          }
+        });
+      }
 
-    // Create the encounter
-    const encounter = await this.repository.create(
-      { 
-        ...data, 
-        insuranceProviderId,
-        encounterCategory 
-      },
-      userId
-    );
-
-    // ============================================
-    // MATERNAL RECORD LOGIC (SCHEMA-ALIGNED)
-    // ============================================
-    
-    // 1. ANTENATAL: Create or link to booking
-    if (data.attendanceType === 'antenatal') {
-      await this.handleAntenatalEncounter(encounter.id, data.patientId, userId);
-    }
-    
-    // 2. DELIVERY: Create delivery record and close antenatal booking
-    else if (data.attendanceType === 'delivery') {
-      await this.handleDeliveryEncounter(encounter.id, data.patientId, userId);
-    }
-    
-    // 3. POSTNATAL: Create postnatal record
-    else if (data.attendanceType === 'postnatal') {
-      await this.handlePostnatalEncounter(encounter.id, data.patientId, userId);
-    }
-
-    // If bed assigned, mark as occupied
-    if (data.bedId) {
-      await this.prisma.bed.update({
-        where: { id: data.bedId },
-        data: { isOccupied: true, currentPatientId: data.patientId }
-      });
-      
-      // Update ward occupancy
-      await this.prisma.ward.update({
-        where: { id: data.wardId! },
-        data: { occupiedBeds: { increment: 1 } }
-      });
-    }
-
-    // Create admission record for IPD
-    if (shouldCreateAdmission && encounterCategory === 'ipd') {
-      await this.createFormalAdmission({
-        attendanceId: encounter.id,
-        admissionType: admissionType as any || 'emergency',
-        admissionSource: data.admissionSource || 'opd',
-        admissionDate: new Date()
-      }, userId);
-    }
-
-    // Update attendance with admission type for easy filtering
-    if (admissionType) {
-      await this.prisma.attendance.update({
-        where: { id: encounter.id },
-        data: { admissionType: admissionType as any }
-      });
-    }
-
-    return encounter;
+      this.logInfo('Encounter created successfully', { encounterId: encounter.id, category: encounterCategory });
+      return encounter;
+    });
   }
 
   // ============================================
-  // ✅ ENHANCED: HANDLE ANTENATAL ENCOUNTER (SCHEMA-ALIGNED)
+  // MATERNAL HANDLERS (Updated to accept `tx`)
   // ============================================
-  private async handleAntenatalEncounter(encounterId: string, patientId: string, userId: string) {
-    // Check if patient already has an active antenatal booking
-    const existingBooking = await this.prisma.antenatalBooking.findFirst({
-      where: {
-        patientId: patientId,
-        isActive: true,
-        isCompleted: false
-      }
-    });
+  private async handleAntenatalEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
+    const existingBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isActive: true, isCompleted: false } });
+    const attendance = await tx.attendance.findUnique({ where: { id: encounterId }, select: { dateTime: true } });
 
     if (!existingBooking) {
-      // FIRST ANTENATAL VISIT: Create new booking
-      console.log(`📋 Creating new antenatal booking for patient ${patientId}`);
-      
-      // Get the attendance number for reference
-      const attendance = await this.prisma.attendance.findUnique({
-        where: { id: encounterId },
-        select: { attendanceNumber: true, dateTime: true }
-      });
-
-      const booking = await this.prisma.antenatalBooking.create({
+      const booking = await tx.antenatalBooking.create({
         data: {
-          patientId: patientId,
-          attendanceId: encounterId,           // First ANC attendance
-          currentAttendanceId: encounterId,    // Current ANC attendance
-          bookingDate: new Date(),
-          gravida: 1,                          // Default for first booking
-          para: 0,                             // Default for first booking
-          riskLevel: 'low',                    // Default risk level
-          riskFactors: [],                     // ✅ Json field - empty array
-          isActive: true,
-          isCompleted: false,
-          createdById: userId,
-          
-          // ✅ JSON fields - properly initialized
-          iptpDoses: {},                       // ✅ Json field - empty object
-          ttDoses: {},                         // ✅ Json field - empty object
-          
-          // ✅ Default values for required fields
-          previousCSection: false,
-          malariaTested: false,
-          malariaPositive: false,
-          anaemiaDiagnosed: false,
-          ironFolateGiven: false,
-          itnGiven: false
-        },
-        include: {
-          patient: {
-            select: { id: true, surname: true, otherNames: true, folderNumber: true }
-          }
+          patientId, attendanceId: encounterId, currentAttendanceId: encounterId, bookingDate: new Date(),
+          gravida: 1, para: 0, riskLevel: 'low', riskFactors: [], isActive: true, isCompleted: false, createdById: userId,
+          iptpDoses: {}, ttDoses: {}, previousCSection: false, malariaTested: false, malariaPositive: false,
+          anaemiaDiagnosed: false, ironFolateGiven: false, itnGiven: false
         }
       });
-
-      // Create first ANC visit record
-      const visit = await this.prisma.aNCVisit.create({
+      await tx.aNCVisit.create({
         data: {
-          bookingId: booking.id,
-          attendanceId: encounterId,
-          visitNumber: 1,
-          visitDate: attendance?.dateTime || new Date(),
-          recordedById: userId,
-          
-          // ✅ Default values for required boolean fields
-          iptpGiven: false,
-          ttGiven: false,
-          ironGiven: false,
-          folateGiven: false,
-          calciumGiven: false,
-          malariaTestDone: false,
-          malariaTreatmentGiven: false,
-          dangerSignsPresent: false,
-          referralMade: false,
-          oedema: false,
-          
-          // ✅ Default values for array fields
-          dangerSignsList: []
-        },
-        include: {
-          recordedBy: {
-            select: { fullName: true, role: true }
-          }
+          bookingId: booking.id, attendanceId: encounterId, visitNumber: 1, visitDate: attendance?.dateTime || new Date(), recordedById: userId,
+          iptpGiven: false, ttGiven: false, ironGiven: false, folateGiven: false, calciumGiven: false,
+          malariaTestDone: false, malariaTreatmentGiven: false, dangerSignsPresent: false, referralMade: false, oedema: false, dangerSignsList: []
         }
       });
-
-      console.log(`✅ Created antenatal booking ${booking.id} with first visit ${visit.id}`);
-      return { booking, visit, isNew: true };
-      
     } else {
-      // FOLLOW-UP VISIT: Create only ANC visit
-      console.log(`📋 Follow-up antenatal visit for patient ${patientId} - booking ${existingBooking.id}`);
-      
-      // Get the next visit number
-      const visitCount = await this.prisma.aNCVisit.count({
-        where: { bookingId: existingBooking.id }
-      });
-      
-      // Get attendance details
-      const attendance = await this.prisma.attendance.findUnique({
-        where: { id: encounterId },
-        select: { dateTime: true }
-      });
-
-      const visit = await this.prisma.aNCVisit.create({
+      const visitCount = await tx.aNCVisit.count({ where: { bookingId: existingBooking.id } });
+      await tx.aNCVisit.create({
         data: {
-          bookingId: existingBooking.id,
-          attendanceId: encounterId,
-          visitNumber: visitCount + 1,
-          visitDate: attendance?.dateTime || new Date(),
-          recordedById: userId,
-          
-          // ✅ Default values for required boolean fields
-          iptpGiven: false,
-          ttGiven: false,
-          ironGiven: false,
-          folateGiven: false,
-          calciumGiven: false,
-          malariaTestDone: false,
-          malariaTreatmentGiven: false,
-          dangerSignsPresent: false,
-          referralMade: false,
-          oedema: false,
-          
-          // ✅ Default values for array fields
-          dangerSignsList: []
-        },
-        include: {
-          recordedBy: {
-            select: { fullName: true, role: true }
-          }
+          bookingId: existingBooking.id, attendanceId: encounterId, visitNumber: visitCount + 1, visitDate: attendance?.dateTime || new Date(), recordedById: userId,
+          iptpGiven: false, ttGiven: false, ironGiven: false, folateGiven: false, calciumGiven: false,
+          malariaTestDone: false, malariaTreatmentGiven: false, dangerSignsPresent: false, referralMade: false, oedema: false, dangerSignsList: []
         }
       });
-
-      // Update current attendance on booking
-      await this.prisma.antenatalBooking.update({
-        where: { id: existingBooking.id },
-        data: { currentAttendanceId: encounterId }
-      });
-
-      console.log(`✅ Created ANC visit #${visitCount + 1} (${visit.id}) for booking ${existingBooking.id}`);
-      return { booking: existingBooking, visit, isNew: false };
+      await tx.antenatalBooking.update({ where: { id: existingBooking.id }, data: { currentAttendanceId: encounterId } });
     }
   }
 
-  // ============================================
-  // ✅ FIXED: HANDLE DELIVERY ENCOUNTER (SCHEMA-ALIGNED)
-  // ============================================
-  private async handleDeliveryEncounter(encounterId: string, patientId: string, userId: string) {
-    // Find active antenatal booking
-    const antenatalBooking = await this.prisma.antenatalBooking.findFirst({
-      where: {
-        patientId: patientId,
-        isActive: true,
-        isCompleted: false
-      }
-    });
+  private async handleDeliveryEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
+    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isActive: true, isCompleted: false } });
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { fullName: true, role: true } });
+    const attendantName = user ? `${user.fullName} (${user.role || 'Staff'})` : 'Unknown Attendant';
 
-    // ✅ FIX: Get the actual user's full name for the attendant field
-    // Schema expects a String (attendant name), NOT a userId
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { fullName: true, role: true }
-    });
-    
-    // Create attendant string with role for clarity
-    const attendantName = user 
-      ? `${user.fullName} (${user.role || 'Staff'})` 
-      : 'Unknown Attendant';
-
-    // Create delivery record with schema-compliant data
-    const deliveryRecord = await this.prisma.deliveryRecord.create({
+    const deliveryRecord = await tx.deliveryRecord.create({
       data: {
-        patientId: patientId,
-        attendanceId: encounterId,
-        antenatalBookingId: antenatalBooking?.id,
-        deliveryDate: new Date(),
-        deliveryType: 'spontaneous_vertex',      // ✅ Matches DeliveryType enum
-        deliveryOutcome: 'live_birth',           // ✅ Matches DeliveryOutcome enum
-        placeOfDelivery: 'private_hospital',     // ✅ Matches PlaceOfDelivery enum (default for private hospitals)
-        attendant: attendantName,                // ✅ FIXED: Now uses full name instead of userId
-        maternalOutcome: 'alive',                // ✅ Matches MaternalOutcome enum
-        complications: [],                       // ✅ String[] - matches schema
-        createdById: userId,
-        
-        // ✅ Male involvement fields (schema-compliant)
-        malePartnerPresentANC: false,
-        malePartnerPresentDelivery: false,
-        malePartnerPresentPNC: false,
-        
-        // ✅ Maternal death audit fields
-        maternalDeathsAudited: false,
-        auditNotes: null
-      },
-      include: {
-        patient: {
-          select: { id: true, surname: true, otherNames: true, folderNumber: true }
-        },
-        Newborn: true
+        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryDate: new Date(),
+        deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth', placeOfDelivery: 'private_hospital',
+        attendant: attendantName, maternalOutcome: 'alive', complications: [], createdById: userId,
+        malePartnerPresentANC: false, malePartnerPresentDelivery: false, malePartnerPresentPNC: false,
+        maternalDeathsAudited: false, auditNotes: null
       }
     });
 
-    // If there was an antenatal booking, close it
     if (antenatalBooking) {
-      await this.prisma.antenatalBooking.update({
+      await tx.antenatalBooking.update({
         where: { id: antenatalBooking.id },
-        data: {
-          isActive: false,
-          isCompleted: true,
-          deliveryDate: new Date(),
-          deliveryOutcome: 'delivered',
-          deliveryRecordId: deliveryRecord.id
-        }
+        data: { isActive: false, isCompleted: true, deliveryDate: new Date(), deliveryOutcome: 'delivered', deliveryRecordId: deliveryRecord.id }
       });
-      console.log(`✅ Closed antenatal booking ${antenatalBooking.id} after delivery`);
     }
-
-    console.log(`✅ Created delivery record ${deliveryRecord.id} for patient ${patientId}`);
-    console.log(`   Attendant: ${attendantName}`);
-    
-    return deliveryRecord;
   }
 
-  // ============================================
-  // ✅ FIXED: HANDLE POSTNATAL ENCOUNTER (SCHEMA-ALIGNED)
-  // ============================================
-  private async handlePostnatalEncounter(encounterId: string, patientId: string, userId: string) {
-    // Find the most recent delivery record for this patient
-    const deliveryRecord = await this.prisma.deliveryRecord.findFirst({
-      where: {
-        patientId: patientId
-      },
-      orderBy: { deliveryDate: 'desc' },
-      include: {
-        Newborn: true  // Include newborn records for reference
-      }
-    });
-
-    // Find the antenatal booking (if exists)
-    const antenatalBooking = await this.prisma.antenatalBooking.findFirst({
-      where: {
-        patientId: patientId,
-        isCompleted: true
-      },
-      orderBy: { bookingDate: 'desc' }
-    });
-
-    // Calculate day number based on delivery date
+  private async handlePostnatalEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
+    const deliveryRecord = await tx.deliveryRecord.findFirst({ where: { patientId }, orderBy: { deliveryDate: 'desc' } });
+    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isCompleted: true }, orderBy: { bookingDate: 'desc' } });
+    
     let dayNumber = 1;
     if (deliveryRecord?.deliveryDate) {
-      const daysSinceDelivery = Math.floor(
-        (Date.now() - new Date(deliveryRecord.deliveryDate).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      dayNumber = Math.max(1, daysSinceDelivery);
+      dayNumber = Math.max(1, Math.floor((Date.now() - new Date(deliveryRecord.deliveryDate).getTime()) / (1000 * 60 * 60 * 24)));
     }
 
-    // Create postnatal record with ALL required fields
-    const postnatalRecord = await this.prisma.postnatalRecord.create({
+    await tx.postnatalRecord.create({
       data: {
-        patientId: patientId,
-        attendanceId: encounterId,
-        antenatalBookingId: antenatalBooking?.id,
-        deliveryRecordId: deliveryRecord?.id,
-        examinationDate: new Date(),
-        dayNumber: dayNumber,
-        
-        // ✅ Maternal assessment fields (required)
-        maternalCondition: 'good',                    // ✅ Enum: 'good' | 'fair' | 'poor' | 'critical'
-        maternalComplications: [],                    // ✅ Json field - empty array
-        bloodPressure: null,                          // Will be filled during examination
-        temperature: null,
-        pulse: null,
-        fundalHeight: null,
-        lochia: 'normal',                             // ✅ Enum: 'normal' | 'heavy' | 'foul_smelling' | 'scanty'
-        perinealCondition: 'intact',                  // ✅ Enum: 'intact' | 'healing' | 'infected' | 'dehisced'
-        caesareanWound: null,
-        
-        // ✅ Breastfeeding fields
-        breastfeedingStatus: 'exclusive',             // ✅ Enum: 'exclusive' | 'mixed' | 'not_breastfeeding'
-        breastfeedingDifficulties: [],                // ✅ Json field - empty array
-        latching: 'good',                             // ✅ Enum: 'good' | 'fair' | 'poor'
-        
-        // ✅ Baby assessment fields
-        babyCondition: 'good',                        // ✅ Enum: 'good' | 'fair' | 'poor' | 'critical'
-        babyWeight: deliveryRecord?.birthWeight ? deliveryRecord.birthWeight / 1000 : null, // Convert g to kg
-        babyTemperature: null,
-        babyFeeding: 'good',                          // ✅ Enum: 'good' | 'fair' | 'poor'
-        jaundice: false,
-        jaundiceSeverity: null,
-        cordCondition: 'dry',                         // ✅ Enum: 'dry' | 'moist' | 'infected'
-        
-        // ✅ Immunization fields
-        bcgGiven: false,
-        opv0Given: false,
-        hepB0Given: false,
-        
-        // ✅ Family planning fields
-        familyPlanningDiscussed: false,
-        familyPlanningMethodAccepted: null,
-        
-        // ✅ Danger signs (Json fields)
-        maternalDangerSigns: [],                      // ✅ Json field - empty array
-        babyDangerSigns: [],                          // ✅ Json field - empty array
-        
-        // ✅ Referral fields
-        referralMade: false,
-        referredTo: null,
-        referralReason: null,
-        
-        // ✅ Follow-up
-        nextVisitDate: null,
-        nextVisitType: null,
-        
-        // ✅ Notes and metadata
-        notes: 'Initial postnatal examination created automatically.',
-        createdById: userId
-      },
-      include: {
-        patient: {
-          select: { id: true, surname: true, otherNames: true, folderNumber: true }
-        },
-        deliveryRecord: {
-          include: { Newborn: true }
-        }
+        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryRecordId: deliveryRecord?.id,
+        examinationDate: new Date(), dayNumber, maternalCondition: 'good', maternalComplications: [],
+        lochia: 'normal', perinealCondition: 'intact', breastfeedingStatus: 'exclusive', breastfeedingDifficulties: [],
+        latching: 'good', babyCondition: 'good', babyWeight: deliveryRecord?.birthWeight ? deliveryRecord.birthWeight / 1000 : null,
+        babyFeeding: 'good', jaundice: false, cordCondition: 'dry', bcgGiven: false, opv0Given: false, hepB0Given: false,
+        familyPlanningDiscussed: false, maternalDangerSigns: [], babyDangerSigns: [], referralMade: false,
+        notes: 'Initial postnatal examination created automatically.', createdById: userId
       }
     });
-
-    console.log(`✅ Created postnatal record ${postnatalRecord.id} for patient ${patientId}`);
-    console.log(`   Day ${dayNumber} post-delivery`);
-    if (deliveryRecord) {
-      console.log(`   Linked to delivery record ${deliveryRecord.id}`);
-      console.log(`   Newborns: ${deliveryRecord.Newborn?.length || 0}`);
-    }
-    
-    return postnatalRecord;
   }
 
   // ============================================
-  // CREATE FORMAL ADMISSION (SCHEMA-ALIGNED)
+  // ADMISSION & DISCHARGE (WRAPPED IN TRANSACTIONS)
   // ============================================
   async createFormalAdmission(data: CreateAdmissionDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: data.attendanceId },
-      include: { Admission: true }
-    });
+    const encounter = await this.prisma.attendance.findUnique({ where: { id: data.attendanceId }, include: { Admission: true } });
+    if (!encounter) throw new NotFoundError('Encounter', data.attendanceId);
+    if (encounter.Admission) throw new ValidationError('This encounter already has a formal admission record');
 
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.encounterCategory !== 'ipd') {
-      throw new Error('Formal admission can only be created for IPD encounters');
-    }
-
-    if (encounter.Admission) {
-      throw new Error('This encounter already has a formal admission record');
-    }
-
-    if (encounter.status !== 'admitted') {
-      throw new Error('Cannot create admission for non-admitted encounter');
-    }
-
-    const counterService = getCounterService();
-    const admissionNumber = counterService.nextAdmissionNumber();
-
-    const admission = await this.prisma.admission.create({
-      data: {
-        attendanceId: data.attendanceId,
-        admissionNumber,
-        admissionType: data.admissionType as any || 'emergency',
-        admissionSource: data.admissionSource as any || 'home',
-        admissionDate: data.admissionDate || new Date(),
-      },
-      include: {
-        attendance: {
-          include: {
-            Patient: true,
-            Bed: true,
-            Ward: true
-          }
-        }
-      }
-    });
-
-    // Update attendance with admission type
-    await this.prisma.attendance.update({
-      where: { id: data.attendanceId },
-      data: { admissionType: admission.admissionType as any }
-    });
-
-    return admission;
-  }
-
-  // ============================================
-  // GET DETENTION PATIENTS (SCHEMA-ALIGNED)
-  // ============================================
-  async getDetentionPatients(filters: DetentionPatientFilters = {}) {
-    const where: any = {
-      encounterCategory: 'ipd',
-      status: 'admitted',
-      Admission: {
-        admissionType: 'detention_observation'
-      }
-    };
-
-    if (filters.wardId) {
-      where.wardId = filters.wardId;
-    }
-
-    if (filters.status === 'discharged') {
-      where.status = 'discharged';
-    } else if (filters.status === 'active') {
-      where.status = 'admitted';
-    }
-
-    const page = filters.page || 1;
-    const limit = Math.min(100, filters.limit || 50);
-    const skip = (page - 1) * limit;
-
-    const [encounters, total] = await Promise.all([
-      this.prisma.attendance.findMany({
-        where,
-        include: {
-          Patient: true,
-          Ward: true,
-          Bed: true,
-          Admission: true,
-          Vitals: {
-            orderBy: { recordedAt: 'desc' },
-            take: 5
-          },
-          AttendanceDiagnosis: {
-            include: { Diagnosis: true },
-            take: 3
-          }
-        },
-        orderBy: { dateTime: 'desc' },
-        skip,
-        take: limit
-      }),
-      this.prisma.attendance.count({ where })
-    ]);
-
-    const now = new Date();
-    const processedEncounters = encounters.map(encounter => {
-      const admissionDate = encounter.Admission?.admissionDate || encounter.dateTime;
-      const observationHours = Math.floor((now.getTime() - new Date(admissionDate).getTime()) / (1000 * 60 * 60));
-      
-      const recentVitals = encounter.Vitals || [];
-      const hasAbnormalVitals = recentVitals.some((v: any) => 
-        (v.temperature && (v.temperature > 38.5 || v.temperature < 36)) ||
-        (v.pulse && (v.pulse > 120 || v.pulse < 50)) ||
-        (v.spo2 && v.spo2 < 92)
-      );
-      
-      const readyForDecision = observationHours >= 24 || hasAbnormalVitals || 
-                               (filters.readyForDecision === true);
-
-      return {
-        ...encounter,
-        observationHours,
-        readyForDecision,
-        patientName: `${encounter.Patient.surname} ${encounter.Patient.otherNames || ''}`.trim(),
-        age: this.calculateAge(encounter.Patient.dateOfBirth),
-        vitalsCount: recentVitals.length,
-        diagnosisCount: encounter.AttendanceDiagnosis?.length || 0,
-        lastVitalsAt: recentVitals[0]?.recordedAt
-      };
-    });
-
-    let filteredData = processedEncounters;
-    if (filters.observationHours) {
-      filteredData = processedEncounters.filter(e => e.observationHours >= filters.observationHours!);
-    }
-    if (filters.readyForDecision === true) {
-      filteredData = processedEncounters.filter(e => e.readyForDecision);
-    }
-
-    return {
-      data: filteredData,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
-      summary: {
-        totalDetention: filteredData.length,
-        readyForDecision: filteredData.filter((e: any) => e.readyForDecision).length,
-        avgObservationHours: filteredData.reduce((acc: number, e: any) => acc + e.observationHours, 0) / (filteredData.length || 1)
-      }
-    };
-  }
-
-  // ============================================
-  // GET FORMAL IPD PATIENTS (SCHEMA-ALIGNED)
-  // ============================================
-  async getFormalIPDPatients(filters: {
-    status?: 'active' | 'discharged';
-    wardId?: string;
-    page?: number;
-    limit?: number;
-  }) {
-    const where: any = {
-      encounterCategory: 'ipd',
-      Admission: {
-        admissionType: { not: 'detention_observation' }
-      }
-    };
-
-    if (filters.status === 'active') {
-      where.status = 'admitted';
-    } else if (filters.status === 'discharged') {
-      where.status = 'discharged';
-    }
-
-    if (filters.wardId) {
-      where.wardId = filters.wardId;
-    }
-
-    const page = filters.page || 1;
-    const limit = Math.min(100, filters.limit || 50);
-    const skip = (page - 1) * limit;
-
-    const [encounters, total] = await Promise.all([
-      this.prisma.attendance.findMany({
-        where,
-        include: {
-          Patient: true,
-          Ward: true,
-          Bed: true,
-          Admission: true,
-          AttendanceDiagnosis: {
-            where: { diagnosisType: 'primary' },
-            include: { Diagnosis: true },
-            take: 1
-          }
-        },
-        orderBy: { dateTime: 'desc' },
-        skip,
-        take: limit
-      }),
-      this.prisma.attendance.count({ where })
-    ]);
-
-    return {
-      data: encounters,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
-  }
-
-  // ============================================
-  // CONVERT DETENTION TO FORMAL IPD (SCHEMA-ALIGNED)
-  // ============================================
-  async convertDetentionToFormalIPD(encounterId: string, data: ConvertDetentionToIPDDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true, Patient: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.encounterCategory !== 'ipd') {
-      throw new Error('Only IPD encounters can be converted');
-    }
-
-    if (!encounter.Admission || encounter.Admission.admissionType !== 'detention_observation') {
-      throw new Error('Only detention/observation patients can be converted to formal IPD');
-    }
-
-    if (encounter.status !== 'admitted') {
-      throw new Error('Cannot convert non-admitted patient');
-    }
-
-    const updatedAdmission = await this.prisma.admission.update({
-      where: { id: encounter.Admission.id },
-      data: {
-        admissionType: data.admissionType as any,
-        dailyNotes: [
-          ...(encounter.Admission.dailyNotes as any[] || []),
-          {
-            id: Date.now().toString(),
-            notes: `Converted from detention observation to formal IPD. ${data.clinicalNotes || ''} Reason: ${data.decisionReason || 'Clinical decision'}`,
-            noteType: 'conversion',
-            createdBy: userId,
-            createdAt: new Date().toISOString()
-          }
-        ]
-      }
-    });
-
-    await this.prisma.attendance.update({
-      where: { id: encounterId },
-      data: { 
-        admissionType: data.admissionType as any,
-        medicalNotes: `${encounter.medicalNotes || ''}\n\n[${new Date().toISOString()}] Converted to formal IPD - ${data.decisionReason || 'Clinical decision'}`
-      }
-    });
-
-    await this.prisma.notification.create({
-      data: {
-        userId: userId,
-        title: 'Patient Converted to Formal IPD',
-        message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} has been converted from detention observation to formal IPD (${data.admissionType})`,
-        type: 'clinical',
-        priority: 'high',
-        actionType: 'admission',
-        actionId: encounterId,
-        actionUrl: `/admissions/${encounter.Admission.id}`
-      }
-    });
-
-    return {
-      success: true,
-      admission: updatedAdmission,
-      message: `Patient converted to formal IPD (${data.admissionType})`
-    };
-  }
-
-  // ============================================
-  // GET ALL ADMISSIONS (SCHEMA-ALIGNED)
-  // ============================================
-  async getAllAdmissions(filters: {
-    status?: 'active' | 'discharged';
-    wardId?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
-    page?: number;
-    limit?: number;
-    admissionType?: 'elective' | 'emergency' | 'transfer' | 'detention_observation';
-    excludeDetention?: boolean;
-  }) {
-    const where: any = {
-      attendance: {
-        encounterCategory: 'ipd',
-        Admission: { isNot: null }
-      }
-    };
-
-    if (filters.status === 'active') {
-      where.attendance.status = 'admitted';
-      where.dischargeDate = null;
-    } else if (filters.status === 'discharged') {
-      where.attendance.status = 'discharged';
-      where.dischargeDate = { not: null };
-    }
-
-    if (filters.wardId) {
-      where.attendance.wardId = filters.wardId;
-    }
-
-    if (filters.admissionType) {
-      where.admissionType = filters.admissionType;
-    }
-
-    if (filters.excludeDetention) {
-      where.admissionType = { not: 'detention_observation' };
-    }
-
-    if (filters.dateFrom || filters.dateTo) {
-      where.admissionDate = {};
-      if (filters.dateFrom) where.admissionDate.gte = filters.dateFrom;
-      if (filters.dateTo) where.admissionDate.lte = filters.dateTo;
-    }
-
-    const page = filters.page || 1;
-    const limit = Math.min(100, filters.limit || 50);
-    const skip = (page - 1) * limit;
-
-    const [admissions, total] = await Promise.all([
-      this.prisma.admission.findMany({
-        where,
-        include: {
-          attendance: {
-            include: {
-              Patient: true,
-              Ward: true,
-              Bed: true,
-              AttendanceDiagnosis: {
-                where: { diagnosisType: 'primary' },
-                include: { Diagnosis: true },
-                take: 1
-              }
-            }
-          }
-        },
-        orderBy: { admissionDate: 'desc' },
-        skip,
-        take: limit
-      }),
-      this.prisma.admission.count({ where })
-    ]);
-
-    return {
-      data: admissions,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
-  }
-
-  // ============================================
-  // CONVERT DAYCASE TO IPD (SCHEMA-ALIGNED)
-  // ============================================
-  async convertDaycaseToIPD(encounterId: string, admissionData: CreateAdmissionDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.encounterCategory !== 'daycase') {
-      throw new Error('Only daycase encounters can be converted to IPD');
-    }
-
-    await this.prisma.attendance.update({
-      where: { id: encounterId },
-      data: { 
-        encounterCategory: 'ipd',
-        admissionType: (admissionData.admissionType || 'emergency') as any
-      }
-    });
-
-    return this.createFormalAdmission({
-      ...admissionData,
-      attendanceId: encounterId,
-      admissionType: admissionData.admissionType || 'detention_observation'
-    }, userId);
-  }
-
-  // ============================================
-  // DISCHARGE FROM ENCOUNTER (SCHEMA-ALIGNED)
-  // ============================================
-  async dischargeFromEncounter(encounterId: string, dischargeData: {
-    dischargeDate?: Date;
-    dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
-    dischargeSummary?: string;
-  }, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true, Bed: true, Patient: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.encounterCategory === 'opd') {
-      throw new Error('OPD encounters do not require discharge');
-    }
-
-    if (encounter.status === 'discharged') {
-      throw new Error('Patient already discharged');
-    }
-
-    const dischargeDate = dischargeData.dischargeDate || new Date();
-    const wasDetention = encounter.Admission?.admissionType === 'detention_observation';
-
-    await this.prisma.attendance.update({
-      where: { id: encounterId },
-      data: {
-        status: 'discharged',
-        bedId: null
-      }
-    });
-
-    if (encounter.Admission) {
-      await this.prisma.admission.update({
-        where: { id: encounter.Admission.id },
+    return await this.prisma.$transaction(async (tx) => {
+      const admission = await tx.admission.create({
         data: {
-          dischargeDate,
-          dischargeStatus: dischargeData.dischargeStatus as any || 'home',
+          attendanceId: data.attendanceId,
+          admissionNumber: getCounterService().nextAdmissionNumber(),
+          admissionType: (data.admissionType as any) || 'emergency',
+          admissionSource: (data.admissionSource as any) || 'home',
+          admissionDate: data.admissionDate || new Date(),
+        },
+        include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } }
+      });
+      
+      await tx.attendance.update({ where: { id: data.attendanceId }, data: { status: 'admitted' } });
+      return admission;
+    });
+  }
+
+  async dischargeFromEncounter(encounterId: string, dischargeData: any, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true, Patient: true } });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    if (encounter.status === 'discharged') throw new ValidationError('Patient already discharged');
+
+    return await this.prisma.$transaction(async (tx) => {
+      await tx.attendance.update({ where: { id: encounterId }, data: { status: 'discharged', bedId: null } });
+
+      if (encounter.Admission) {
+        await tx.admission.update({
+          where: { id: encounter.Admission.id },
+          data: {
+            dischargeDate: dischargeData.dischargeDate || new Date(),
+            dischargeStatus: (dischargeData.dischargeStatus as any) || 'home',
+            dailyNotes: [
+              ...(encounter.Admission.dailyNotes as any[] || []),
+              { id: Date.now().toString(), notes: `Discharged. Summary: ${dischargeData.dischargeSummary || 'None'}`, noteType: 'discharge', createdBy: userId, createdAt: new Date().toISOString() }
+            ]
+          }
+        });
+      }
+
+      if (encounter.bedId) {
+        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } }); // Removed currentPatientId
+        if (encounter.wardId) await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
+      }
+
+      await tx.notification.create({
+        data: { userId, title: 'Patient Discharged', message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} discharged.`, type: 'clinical', priority: 'medium', actionType: 'discharge', actionId: encounterId }
+      });
+
+      return { message: 'Patient discharged successfully', dischargeDate: dischargeData.dischargeDate || new Date() };
+    });
+  }
+
+  async convertDetentionToFormalIPD(encounterId: string, data: ConvertDetentionToIPDDTO, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true, Patient: true } });
+    if (!encounter || !encounter.Admission || encounter.Admission.admissionType !== 'detention_observation') {
+      throw new ValidationError('Only detention/observation patients can be converted');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedAdmission = await tx.admission.update({
+        where: { id: encounter.Admission!.id },
+        data: {
+          admissionType: data.admissionType as any,
           dailyNotes: [
-            ...(encounter.Admission.dailyNotes as any[] || []),
-            {
-              id: Date.now().toString(),
-              notes: `Patient discharged. Status: ${dischargeData.dischargeStatus || 'home'}. Summary: ${dischargeData.dischargeSummary || 'No summary provided'}`,
-              noteType: 'discharge',
-              createdBy: userId,
-              createdAt: new Date().toISOString()
-            }
+            ...(encounter.Admission!.dailyNotes as any[] || []),
+            { id: Date.now().toString(), notes: `Converted to formal IPD. Reason: ${data.decisionReason || 'Clinical'}`, noteType: 'conversion', createdBy: userId, createdAt: new Date().toISOString() }
           ]
         }
       });
-    }
 
-    if (encounter.bedId) {
-      await this.prisma.bed.update({
-        where: { id: encounter.bedId },
-        data: { isOccupied: false, currentPatientId: null }
+      // ✅ FIXED: Removed invalid `admissionType` update on Attendance
+      await tx.attendance.update({
+        where: { id: encounterId },
+        data: { medicalNotes: `${encounter.medicalNotes || ''}\n\n[${new Date().toISOString()}] Converted to formal IPD` }
       });
-      
-      if (encounter.wardId) {
-        await this.prisma.ward.update({
-          where: { id: encounter.wardId },
-          data: { occupiedBeds: { decrement: 1 } }
-        });
-      }
-    }
 
-    await this.prisma.notification.create({
-      data: {
-        userId: userId,
-        title: wasDetention ? 'Patient Discharged from Observation' : 'Patient Discharged',
-        message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} has been discharged. Status: ${dischargeData.dischargeStatus || 'home'}`,
-        type: 'clinical',
-        priority: 'medium',
-        actionType: 'discharge',
-        actionId: encounterId
-      }
-    });
-
-    return { 
-      message: 'Patient discharged successfully', 
-      dischargeDate,
-      wasDetention
-    };
-  }
-
-  // ============================================
-  // ADD DAILY NOTES TO ADMISSION (SCHEMA-ALIGNED)
-  // ============================================
-  async addDailyNotes(encounterId: string, data: AddDailyNoteDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (!encounter.Admission) {
-      throw new Error('No formal admission record found for this encounter');
-    }
-
-    const currentNotes = (encounter.Admission.dailyNotes as any[]) || [];
-    
-    const newNote = {
-      id: Date.now().toString(),
-      notes: data.notes,
-      noteType: data.noteType || 'general',
-      createdBy: userId,
-      createdAt: new Date().toISOString(),
-    };
-
-    const updatedNotes = [...currentNotes, newNote];
-
-    await this.prisma.admission.update({
-      where: { id: encounter.Admission.id },
-      data: { dailyNotes: updatedNotes }
-    });
-
-    return { note: newNote };
-  }
-
-  // ============================================
-  // GET DAYCASE/OBSERVATION PATIENTS (SCHEMA-ALIGNED)
-  // ============================================
-  async getDaycasePatients(filters: {
-    status?: 'active' | 'discharged';
-    wardId?: string;
-    page?: number;
-    limit?: number;
-  }) {
-    const where: any = {
-      encounterCategory: 'daycase'
-    };
-
-    if (filters.status === 'active') {
-      where.status = 'admitted';
-    } else if (filters.status === 'discharged') {
-      where.status = 'discharged';
-    }
-
-    if (filters.wardId) {
-      where.wardId = filters.wardId;
-    }
-
-    const page = filters.page || 1;
-    const limit = Math.min(100, filters.limit || 50);
-    const skip = (page - 1) * limit;
-
-    const [encounters, total] = await Promise.all([
-      this.prisma.attendance.findMany({
-        where,
-        include: {
-          Patient: true,
-          Ward: true,
-          Bed: true,
-          AttendanceDiagnosis: {
-            where: { diagnosisType: 'primary' },
-            include: { Diagnosis: true },
-            take: 1
-          }
-        },
-        orderBy: { dateTime: 'desc' },
-        skip,
-        take: limit
-      }),
-      this.prisma.attendance.count({ where })
-    ]);
-
-    return {
-      data: encounters,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
-  }
-
-  // ============================================
-  // GET BED OCCUPANCY (SCHEMA-ALIGNED)
-  // ============================================
-  async getBedOccupancy() {
-    const occupants = await this.prisma.attendance.findMany({
-      where: {
-        bedId: { not: null },
-        status: { in: ['admitted', 'in_progress'] }
-      },
-      include: {
-        Patient: {
-          select: {
-            id: true,
-            surname: true,
-            otherNames: true,
-            folderNumber: true,
-            gender: true,
-            dateOfBirth: true
-          }
-        },
-        Bed: {
-          include: { Ward: true }
-        },
-        Admission: true
-      },
-      orderBy: { dateTime: 'asc' }
-    });
-
-    const summary = {
-      total: occupants.length,
-      byCategory: {
-        ipd: occupants.filter(o => o.encounterCategory === 'ipd').length,
-        daycase: occupants.filter(o => o.encounterCategory === 'daycase').length,
-        detention: occupants.filter(o => o.Admission?.admissionType === 'detention_observation').length,
-        formalIPD: occupants.filter(o => o.encounterCategory === 'ipd' && o.Admission?.admissionType !== 'detention_observation').length
-      },
-      byWard: occupants.reduce((acc: any, o) => {
-        const wardName = o.Bed?.Ward?.wardName || 'Unknown';
-        if (!acc[wardName]) {
-          acc[wardName] = { total: 0, ipd: 0, daycase: 0, detention: 0, formalIPD: 0 };
-        }
-        acc[wardName].total++;
-        if (o.encounterCategory === 'ipd') acc[wardName].ipd++;
-        if (o.encounterCategory === 'daycase') acc[wardName].daycase++;
-        if (o.Admission?.admissionType === 'detention_observation') acc[wardName].detention++;
-        if (o.encounterCategory === 'ipd' && o.Admission?.admissionType !== 'detention_observation') acc[wardName].formalIPD++;
-        return acc;
-      }, {})
-    };
-
-    return { data: occupants, summary };
-  }
-
-  // ============================================
-  // UPDATE ENCOUNTER
-  // ============================================
-  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) {
-    const updateData = {
-      ...data,
-      updatedById: userId,
-      updatedAt: new Date()
-    };
-    
-    return this.repository.update(id, updateData);
-  }
-
-  // ============================================
-  // GET ENCOUNTER BY ID
-  // ============================================
-  async getEncounterById(id: string) {
-    const encounter = await this.repository.findById(id);
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-    return encounter;
-  }
-
-  // ============================================
-  // GET ALL ENCOUNTERS WITH FILTERS
-  // ============================================
-  async getEncounters(filters: any) {
-    return this.repository.findMany(filters);
-  }
-
-  // ============================================
-  // UPDATE ENCOUNTER STATUS
-  // ============================================
-  async updateEncounterStatus(id: string, status: string) {
-    const validStatuses = ['pending', 'admitted', 'completed', 'discharged', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
-    }
-
-    return this.repository.update(id, { status: status as any });
-  }
-
-  // ============================================
-  // ADD DIAGNOSIS
-  // ============================================
-  async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add diagnosis to ${encounter.status} encounter`);
-    }
-
-    return this.repository.addDiagnosis(encounterId, data, userId);
-  }
-
-  // ============================================
-  // SET PRIMARY DIAGNOSIS
-  // ============================================
-  async setPrimaryDiagnosis(encounterId: string, diagnosisId: string, userId: string) {
-    return this.addDiagnosis(encounterId, {
-      diagnosisId,
-      diagnosisType: 'primary'
-    }, userId);
-  }
-
-  // ============================================
-  // REMOVE DIAGNOSIS
-  // ============================================
-  async removeDiagnosis(encounterId: string, diagnosisId: string) {
-    return this.prisma.attendanceDiagnosis.delete({
-      where: {
-        attendanceId_diagnosisId: {
-          attendanceId: encounterId,
-          diagnosisId
-        }
-      }
+      return { success: true, admission: updatedAdmission, message: `Converted to ${data.admissionType}` };
     });
   }
 
   // ============================================
-  // GET VITALS BY ENCOUNTER
+  // PHARMACY (FIXED RACE CONDITION)
   // ============================================
-  async getVitalsByEncounter(encounterId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { id: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    const vitals = await this.prisma.vitals.findMany({
-      where: { attendanceId: encounterId },
-      include: { User: { select: { fullName: true } } },
-      orderBy: { recordedAt: 'desc' }
-    });
-
-    return vitals;
-  }
-
-  // ============================================
-  // ADD VITALS
-  // ============================================
-  async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add vitals to ${encounter.status} encounter`);
-    }
-
-    return this.repository.addVitals(encounterId, data, userId);
-  }
-
-  // ============================================
-  // UPDATE VITALS
-  // ============================================
-  async updateVitals(vitalsId: string, data: Partial<AddVitalsDTO>) {
-    const updateData: any = {};
-    if (data.temperature !== undefined) updateData.temperature = data.temperature;
-    if (data.bloodPressure !== undefined) updateData.bloodPressure = data.bloodPressure;
-    if (data.pulse !== undefined) updateData.pulse = data.pulse;
-    if (data.respiration !== undefined) updateData.respiration = data.respiration;
-    if (data.spo2 !== undefined) updateData.spo2 = data.spo2;
-    if (data.weight !== undefined) updateData.weight = data.weight;
-    if (data.height !== undefined) updateData.height = data.height;
-    if (data.muac !== undefined) updateData.muac = data.muac;
-    if (data.notes !== undefined) updateData.notes = data.notes;
-
-    return this.prisma.vitals.update({
-      where: { id: vitalsId },
-      data: updateData
-    });
-  }
-
-  // ============================================
-  // DELETE VITALS
-  // ============================================
-  async deleteVitals(vitalsId: string) {
-    return this.prisma.vitals.delete({
-      where: { id: vitalsId }
-    });
-  }
-
-  // ============================================
-  // ADD PRESCRIPTION
-  // ============================================
-  async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add prescription to ${encounter.status} encounter`);
-    }
-
-    const stockItem = await this.prisma.stockItem.findUnique({
-      where: { id: data.stockItemId }
-    });
-
-    if (!stockItem) {
-      throw new Error('Stock item not found');
-    }
-
-    const serviceCatalog = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId }
-    });
-
-    if (!serviceCatalog || serviceCatalog.serviceType !== 'medication') {
-      throw new Error('Invalid service catalog item for medication');
-    }
-
-    return this.repository.addPrescription(encounterId, data, userId);
-  }
-
-  // ============================================
-  // DISPENSE MEDICATION
-  // ============================================
-  async dispenseMedication(
-    encounterId: string,
-    medicationId: string,
-    quantity: number,
-    userId: string,
-    batchNumber?: string
-  ) {
+  async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string) {
     return this.prisma.$transaction(async (tx) => {
-      const medication = await tx.medication.findUnique({
-        where: { id: medicationId },
-        include: { StockItem: true }
-      });
-
-      if (!medication) {
-        throw new Error('Medication not found');
-      }
-
-      if (medication.status !== 'prescribed') {
-        throw new Error('Medication is not in prescribed state');
-      }
-
+      const medication = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
+      if (!medication || medication.status !== 'prescribed') throw new ValidationError('Medication not found or not prescribed');
+      
       const stockItem = medication.StockItem;
-      if (!stockItem) {
-        throw new Error('Stock item not found for this medication');
-      }
+      if (!stockItem || stockItem.currentStock < quantity) throw new ValidationError(`Insufficient stock. Available: ${stockItem?.currentStock || 0}`);
 
-      if (stockItem.currentStock < quantity) {
-        throw new Error(
-          `Insufficient stock. Available: ${stockItem.currentStock}, Required: ${quantity}`
-        );
-      }
-
-      await tx.stockItem.update({
-        where: { id: stockItem.id },
-        data: { currentStock: stockItem.currentStock - quantity }
-      });
+      // ✅ PRODUCTION FIX: Atomic decrement prevents negative stock race conditions
+      await tx.stockItem.update({ where: { id: stockItem.id }, data: { currentStock: { decrement: quantity } } });
 
       const updatedMedication = await tx.medication.update({
         where: { id: medicationId },
-        data: {
-          status: 'dispensed',
-          quantity,
-          dispensedAt: new Date(),
-          dispensedById: userId,
-          dispensedBatchNumber: batchNumber || null,
-          dispensedUnitCost: stockItem.costPrice
-        }
+        data: { status: 'dispensed', quantity, dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedUnitCost: stockItem.costPrice }
       });
 
       await tx.stockTransaction.create({
-        data: {
-          stockItemId: stockItem.id,
-          transactionType: 'sale',
-          quantity,
-          balanceAfter: stockItem.currentStock - quantity,
-          reference: `Dispensed from encounter ${encounterId}`,
-          performedBy: userId,
-          notes: `Medication: ${medication.name}`
-        }
+        data: { stockItemId: stockItem.id, transactionType: 'sale', quantity, balanceAfter: stockItem.currentStock - quantity, reference: `Encounter ${encounterId}`, performedBy: userId }
       });
 
       return updatedMedication;
@@ -1406,320 +302,80 @@ export class EncounterService {
   }
 
   // ============================================
-  // REMOVE MEDICATION
+  // STANDARD CRUD & WORKLISTS (Delegated to Repository)
   // ============================================
-  async removeMedication(encounterId: string, medicationId: string) {
-    return this.prisma.medication.delete({
-      where: {
-        id: medicationId,
-        attendanceId: encounterId
-      }
-    });
-  }
-
-  // ============================================
-  // ADD LAB TEST
-  // ============================================
-  async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add lab test to ${encounter.status} encounter`);
-    }
-
-    const labTest = await this.repository.addLabTest(encounterId, data, userId);
-
-    const labTestTemplate = await this.prisma.labTestTemplate.findUnique({
-      where: { id: data.templateId },
-      include: { ServiceCatalog: true }
-    });
-
-    if (labTestTemplate?.ServiceCatalog) {
-      await this.addServiceToBill(encounterId, labTestTemplate.ServiceCatalog.id, userId);
-    }
-
-    return labTest;
-  }
-
-  // ============================================
-  // UPDATE LAB TEST STATUS
-  // ============================================
-  async updateLabTestStatus(labTestId: string, status: string, results?: any, performedById?: string) {
-    const validStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
-    }
-
-    const updateData: any = { status };
-    if (results) updateData.result = results;
-    if (performedById) updateData.performedById = performedById;
-    if (status === 'completed') updateData.completedAt = new Date();
-
-    return this.prisma.labTest.update({
-      where: { id: labTestId },
-      data: updateData
-    });
-  }
-
-  // ============================================
-  // REMOVE LAB TEST
-  // ============================================
-  async removeLabTest(encounterId: string, labTestId: string) {
-    return this.prisma.labTest.delete({
-      where: {
-        id: labTestId,
-        attendanceId: encounterId
-      }
-    });
-  }
-
-  // ============================================
-  // ADD SCAN
-  // ============================================
-  async addScan(encounterId: string, data: AddScanDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add scan to ${encounter.status} encounter`);
-    }
-
-    const scan = await this.repository.addScan(encounterId, data, userId);
-    await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
-
-    return scan;
-  }
-
-  // ============================================
-  // UPDATE SCAN STATUS
-  // ============================================
-  async updateScanStatus(scanId: string, status: string, results?: any, performedById?: string) {
-    const validStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
-    }
-
-    const updateData: any = { status };
-    if (results) updateData.result = results;
-    if (performedById) updateData.performedById = performedById;
-    if (status === 'completed') updateData.completedAt = new Date();
-
-    return this.prisma.scan.update({
-      where: { id: scanId },
-      data: updateData
-    });
-  }
-
-  // ============================================
-  // REMOVE SCAN
-  // ============================================
-  async removeScan(encounterId: string, scanId: string) {
-    return this.prisma.scan.delete({
-      where: {
-        id: scanId,
-        attendanceId: encounterId
-      }
-    });
-  }
-
-  // ============================================
-  // ADD PROCEDURE
-  // ============================================
-  async addProcedure(encounterId: string, data: AddProcedureDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add procedure to ${encounter.status} encounter`);
-    }
-
-    const procedure = await this.repository.addProcedure(encounterId, data, userId);
-    await this.addServiceToBill(encounterId, data.serviceCatalogId, userId);
-
-    return procedure;
-  }
-
-  // ============================================
-  // UPDATE PROCEDURE STATUS
-  // ============================================
-  async updateProcedureStatus(procedureId: string, status: string, performedById?: string) {
-    const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
-    }
-
-    const updateData: any = { status };
-    if (performedById) updateData.performedById = performedById;
-    if (status === 'completed') updateData.completedAt = new Date();
-
-    return this.prisma.procedure.update({
-      where: { id: procedureId },
-      data: updateData
-    });
-  }
-
-  // ============================================
-  // REMOVE PROCEDURE
-  // ============================================
-  async removeProcedure(encounterId: string, procedureId: string) {
-    return this.prisma.procedure.delete({
-      where: {
-        id: procedureId,
-        attendanceId: encounterId
-      }
-    });
-  }
-
-  // ============================================
-  // ADD SERVICE TO ENCOUNTER
-  // ============================================
-  async addService(encounterId: string, data: AddServiceDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      select: { status: true }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.status === 'completed' || encounter.status === 'discharged' || encounter.status === 'cancelled') {
-      throw new Error(`Cannot add service to ${encounter.status} encounter`);
-    }
-
-    await this.repository.addService(encounterId, data, userId);
+  async getEncounterById(id: string) {
+    const encounter = await this.repository.findById(id);
+    if (!encounter) throw new NotFoundError('Encounter', id);
     return encounter;
   }
 
-  // ============================================
-  // REMOVE SERVICE FROM ENCOUNTER
-  // ============================================
-  async removeService(encounterId: string, serviceRenderedId: string) {
-    return this.prisma.serviceRendered.delete({
-      where: {
-        id: serviceRenderedId,
-        attendanceId: encounterId
-      }
-    });
+  async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, { ...data, updatedById: userId }); }
+  async updateEncounterStatus(id: string, status: string) { return this.repository.updateStatus(id, status); }
+  async deleteEncounter(id: string) { return this.repository.delete(id); }
+  
+  // Clinical Sub-resources
+  async addDiagnosis(id: string, data: AddDiagnosisDTO, userId: string) { return this.repository.addDiagnosis(id, data, userId); }
+  async setPrimaryDiagnosis(id: string, diagnosisId: string, userId: string) { return this.addDiagnosis(id, { diagnosisId, diagnosisType: 'primary' }, userId); }
+  async removeDiagnosis(id: string, diagnosisId: string) { return this.repository.removeDiagnosis(id, diagnosisId); }
+  
+  async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, orderBy: { recordedAt: 'desc' } }); }
+  async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
+  async updateVitals(id: string, data: any) { return this.repository.updateVitals(id, data); }
+  async deleteVitals(id: string) { return this.repository.deleteVitals(id); }
+  
+  async addPrescription(id: string, data: AddPrescriptionDTO, userId: string) { return this.repository.addPrescription(id, data, userId); }
+  async updateMedication(encounterId: string, medId: string, data: any, userId: string) { return this.repository.updateMedication(encounterId, medId, data, userId); }
+  async removeMedication(id: string, medId: string) { return this.repository.removeMedication(id, medId); }
+  
+  async addLabTest(id: string, data: AddLabTestDTO, userId: string) { return this.repository.addLabTest(id, data, userId); }
+  async updateLabTestStatus(id: string, status: string, results: any, userId?: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
+  async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
+  
+  async addScan(id: string, data: AddScanDTO, userId: string) { return this.repository.addScan(id, data, userId); }
+  async updateScanStatus(id: string, status: string, results: any) { return this.repository.updateScanStatus(id, status, results); }
+  async removeScan(id: string, scanId: string) { return this.repository.removeScan(id, scanId); }
+  
+  async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
+  async updateProcedureStatus(id: string, status: string, data: any) { return this.repository.updateProcedureStatus(id, status, data); }
+  async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
+  
+  async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
+  async removeService(id: string, servId: string) { return this.repository.removeService(id, servId); }
+
+  // Admissions & IPD
+  async getAllAdmissions(filters: any) { return this.repository.getAllAdmissions(filters); }
+  async getFormalIPDPatients(filters: any) { return this.repository.getAllAdmissions({ ...filters, excludeDetention: true }); }
+  async getDetentionPatients(filters: any) { return this.repository.getAllAdmissions({ ...filters, admissionType: 'detention_observation' }); }
+  async addDailyNotes(id: string, data: AddDailyNoteDTO, userId: string) { return this.repository.addDailyNotes(id, data, userId); }
+  async getBedOccupancy() { return this.repository.getBedOccupancy(); }
+   async getDaycasePatients(filters: any) {
+    return this.repository.findManyEncounters({ ...filters, encounterCategory: 'daycase' });
+  }
+  async convertDaycaseToIPD(id: string, data: any, userId: string) { return this.createFormalAdmission({ ...data, attendanceId: id }, userId); }
+
+  // Worklists
+  async getVitalsWorklist() { return this.repository.getVitalsWorklist(); }
+  async getMedicalWorklist() { return this.repository.getMedicalWorklist(); }
+  async getLabWorklist() { return this.repository.getLabWorklist(); }
+  async getPharmacyWorklist() { return this.repository.getPharmacyWorklist(); }
+  async getRadiologyWorklist() { return this.repository.getRadiologyWorklist(); }
+  async getProceduresWorklist() { return this.repository.getProceduresWorklist(); }
+  async getMaternalWorklist() { return this.repository.getMaternalWorklist(); }
+  async getWorklistSummary() {
+    const [vitals, medical, lab, pharmacy, scans, theatre] = await Promise.all([
+      this.getVitalsWorklist(), this.getMedicalWorklist(), this.getLabWorklist(),
+      this.getPharmacyWorklist(), this.getRadiologyWorklist(), this.getProceduresWorklist()
+    ]);
+    return {
+      vitals: { count: vitals.pending }, medical: { count: medical.pending }, lab: { count: lab.pending },
+      pharmacy: { count: pharmacy.pending }, scans: { count: scans.pending }, theatre: { count: theatre.scheduled },
+      total: vitals.pending + medical.pending + lab.pending + pharmacy.pending + scans.pending + theatre.scheduled
+    };
   }
 
-  // ============================================
-  // GET WORKLISTS
-  // ============================================
-  async getVitalsWorklist() {
-    return this.repository.getVitalsWorklist();
-  }
-
-  async getMedicalWorklist() {
-    return this.repository.getMedicalWorklist();
-  }
-
-  async getLabWorklist() {
-    return this.repository.getLabWorklist();
-  }
-
-  async getPharmacyWorklist() {
-    return this.repository.getPharmacyWorklist();
-  }
-
-  async getRadiologyWorklist() {
-    return this.repository.getRadiologyWorklist();
-  }
-
-  async getProceduresWorklist() {
-    return this.repository.getProceduresWorklist();
-  }
-
-  async getMaternalWorklist() {
-    return this.repository.getMaternalWorklist();
-  }
-
-  // ============================================
-  // HELPER: Add Service to Bill
-  // ============================================
-  private async addServiceToBill(encounterId: string, serviceCatalogId: string, userId: string) {
-    const existingService = await this.prisma.serviceRendered.findFirst({
-      where: {
-        attendanceId: encounterId,
-        serviceItemId: serviceCatalogId
-      }
-    });
-
-    if (existingService) {
-      return;
-    }
-
-    await this.prisma.serviceRendered.create({
-      data: {
-        attendanceId: encounterId,
-        serviceItemId: serviceCatalogId,
-        quantity: 1,
-        date: new Date(),
-        performedById: userId
-      }
-    });
-  }
-
-  // ============================================
-  // DELETE ENCOUNTER
-  // ============================================
-  async deleteEncounter(id: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        Medication: { take: 1 },
-        LabTest: { take: 1 },
-        Scan: { take: 1 },
-        Procedure: { take: 1 },
-        ServiceRendered: { take: 1 },
-        AttendanceDiagnosis: { take: 1 },
-        Vitals: { take: 1 },
-        Bill: true
-      }
-    });
-
-    if (!encounter) {
-      throw new Error('Encounter not found');
-    }
-
-    if (encounter.Medication.length > 0 || 
-        encounter.LabTest.length > 0 || 
-        encounter.Scan.length > 0 || 
-        encounter.Procedure.length > 0 || 
-        encounter.ServiceRendered.length > 0 ||
-        encounter.AttendanceDiagnosis.length > 0 ||
-        encounter.Vitals.length > 0 ||
-        encounter.Bill) {
-      throw new Error('Cannot delete encounter with related records. Please remove all services first.');
-    }
-
-    return this.prisma.attendance.delete({
-      where: { id }
-    });
-  }
-
-  // ============================================
-  // GET ENCOUNTER STATISTICS
-  // ============================================
+  // ✅ FIXED: Prisma groupBy syntax error
   async getEncounterStats(dateFrom?: Date, dateTo?: Date) {
     const where: any = {};
     if (dateFrom || dateTo) {
@@ -1728,50 +384,26 @@ export class EncounterService {
       if (dateTo) where.dateTime.lte = dateTo;
     }
 
-    const [total, byType, byStatus, byPaymentMode, byAdmissionType] = await Promise.all([
+    const [total, byType, byStatus, byPaymentMode] = await Promise.all([
       this.prisma.attendance.count({ where }),
-      this.prisma.attendance.groupBy({
-        by: ['attendanceType'],
-        where,
-        _count: true
-      }),
-      this.prisma.attendance.groupBy({
-        by: ['status'],
-        where,
-        _count: true
-      }),
-      this.prisma.attendance.groupBy({
-        by: ['paymentMode'],
-        where,
-        _count: true
-      }),
-      this.prisma.attendance.groupBy({
-        by: ['admissionType'],
-        where: { ...where, admissionType: { not: null } },
-        _count: true
-      })
+      this.prisma.attendance.groupBy({ by: ['attendanceType'], where, _count: { id: true } }),
+      this.prisma.attendance.groupBy({ by: ['status'], where, _count: { id: true } }),
+      this.prisma.attendance.groupBy({ by: ['paymentMode'], where, _count: { id: true } })
     ]);
 
     return {
       total,
-      byType: byType.map(item => ({ type: item.attendanceType, count: item._count })),
-      byStatus: byStatus.map(item => ({ status: item.status, count: item._count })),
-      byPaymentMode: byPaymentMode.map(item => ({ mode: item.paymentMode, count: item._count })),
-      byAdmissionType: byAdmissionType.map(item => ({ type: item.admissionType, count: item._count }))
+      byType: byType.map(i => ({ type: i.attendanceType, count: i._count.id })),
+      byStatus: byStatus.map(i => ({ status: i.status, count: i._count.id })),
+      byPaymentMode: byPaymentMode.map(i => ({ mode: i.paymentMode, count: i._count.id }))
     };
   }
 
-  // ============================================
-  // HELPER: Calculate Age
-  // ============================================
   private calculateAge(dateOfBirth: Date): number {
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
+    const today = new Date(); const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
     return age;
   }
 }

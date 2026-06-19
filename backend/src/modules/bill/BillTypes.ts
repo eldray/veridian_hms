@@ -1,53 +1,29 @@
-import { Bill, BillLineItem, BillStatus, PaymentMode } from '@prisma/client';
+import { Bill, BillLineItem, BillStatus, PaymentMode, PaymentMethod } from '@prisma/client';
 
+// ✅ FIXED: Aligned with actual Prisma schema field names
 export interface BillWithRelations extends Bill {
-  Patient?: {
-    id: string;
-    surname: string;
-    otherNames: string;
-    folderNumber: string | null;
-  };
-  Attendance?: {
-    id: string;
-    visitNumber: string;
-    serviceType: string;
-  };
+  Patient?: { id: string; surname: string; otherNames: string; folderNumber: string | null; contact?: string; };
+  Attendance?: { id: string; attendanceNumber: string; attendanceType: string; dateTime?: Date; }; // ✅ Fixed field names
   BillLineItem?: BillLineItemWithRelations[];
-  payments?: Payment[];
-  waiver?: PatientWaiver | null;
+  Payment?: PaymentRecord[]; // ✅ Renamed to avoid conflict
 }
 
 export interface BillLineItemWithRelations extends BillLineItem {
-  serviceCatalog?: {
-    id: string;
-    name: string;
-    code: string;
-    serviceType: string;
-    amount: number;
-  };
-  voidedBy?: {
-    id: string;
-    fullName: string;
-  };
+  serviceCatalog?: { id: string; name: string; code: string; serviceType: string; };
+  voidedBy?: { id: string; fullName: string; };
 }
 
-export interface Payment {
+// ✅ FIXED: Aligned with actual Prisma Payment model
+export interface PaymentRecord {
   id: string;
   billId: string;
-  amount: number;
-  paymentMode: PaymentMode;
-  paymentDate: Date;
-  referenceNumber: string | null;
-  paidBy: string | null;
+  amount: any; // Decimal
+  paymentMethod: PaymentMethod; // ✅ Fixed from paymentMode
+  transactionDate: Date;        // ✅ Fixed from paymentDate
+  reference: string | null;     // ✅ Fixed from referenceNumber
+  receivedById: string;         // ✅ Fixed from paidBy
   notes: string | null;
   createdAt: Date;
-}
-
-export interface PatientWaiver {
-  id: string;
-  billId: string | null;
-  amountApproved: number;
-  status: string;
 }
 
 export interface CreateBillInput {
@@ -69,11 +45,11 @@ export interface UpdateBillInput {
   notes?: string;
 }
 
+// ✅ FIXED: Aligned with Prisma Payment model
 export interface AddPaymentInput {
   amount: number;
-  paymentMode: PaymentMode;
-  referenceNumber?: string;
-  paidBy?: string;
+  paymentMethod: PaymentMethod; // ✅ Fixed from paymentMode
+  reference?: string;           // ✅ Fixed from referenceNumber
   notes?: string;
 }
 
@@ -84,31 +60,8 @@ export interface BillFilter {
   dateFrom?: Date;
   dateTo?: Date;
   attendanceId?: string;
-}
-
-export interface BillStatistics {
-  period: {
-    start: Date;
-    end: Date;
-    type: string;
-  };
-  summary: {
-    totalBills: number;
-    totalAmount: number;
-    totalPaid: number;
-    totalPending: number;
-    collectionRate: number;
-  };
-  byPaymentMode: Array<{
-    paymentMode: PaymentMode;
-    _count: { id: number };
-    _sum: { totalAmount: number; paidAmount: number };
-  }>;
-  byStatus: Array<{
-    status: BillStatus;
-    _count: { id: number };
-    _sum: { totalAmount: number; paidAmount: number };
-  }>;
+  page?: number;
+  limit?: number;
 }
 
 export interface VoidLineItemInput {

@@ -1,101 +1,39 @@
-// HospitalRepository.ts
 import { PrismaClient, Hospital } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
+import { CreateHospitalDTO, UpdateHospitalDTO } from './HospitalTypes';
 
-export class HospitalRepository {
-  private prisma: PrismaClient;
-
+export class HospitalRepository extends BaseRepository<Hospital, CreateHospitalDTO, UpdateHospitalDTO> {
+  // ✅ Kept your exact optional Prisma injection pattern
   constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
+    super(prisma || new PrismaClient(), 'hospital');
   }
 
   async findAll(orderBy: { [key: string]: 'asc' | 'desc' } = { name: 'asc' }): Promise<Hospital[]> {
-    return this.prisma.hospital.findMany({
-      orderBy
-    });
+    return this.getModel().findMany({ orderBy });
   }
 
-  async findById(id: string): Promise<Hospital | null> {
-    return this.prisma.hospital.findUnique({
-      where: { id }
-    });
-  }
+  // findById is automatically inherited from BaseRepository
 
   async findActive(): Promise<Hospital | null> {
-    return this.prisma.hospital.findFirst({
-      where: { isActive: true }
-    });
+    return this.getModel().findFirst({ where: { isActive: true } });
   }
 
   async getActiveHospital(): Promise<Hospital | null> {
-    return this.prisma.hospital.findFirst({
-      where: { isActive: true }
-    });
+    return this.getModel().findFirst({ where: { isActive: true } });
   }
 
-  async create(data: {
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-    nhisFacilityCode: string;
-    nhisFacilityType: string;
-    nhisAccreditationNumber?: string;
-    nhisAccreditationDate?: Date;
-    nhisAccreditationExpiry?: Date;
-    nhisContactPerson?: string;
-    nhisContactPhone?: string;
-    nhisContactEmail?: string;
-    isActive: boolean;
-  }): Promise<Hospital> {
-    return this.prisma.hospital.create({
-      data
-    });
-  }
+  // create, update, and delete are automatically inherited from BaseRepository!
 
-  async update(id: string, data: Partial<{
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-    nhisFacilityCode: string;
-    nhisFacilityType: string;
-    nhisAccreditationNumber?: string;
-    nhisAccreditationDate?: Date;
-    nhisAccreditationExpiry?: Date;
-    nhisContactPerson?: string;
-    nhisContactPhone?: string;
-    nhisContactEmail?: string;
-    isActive: boolean;
-  }>): Promise<Hospital> {
-    return this.prisma.hospital.update({
-      where: { id },
-      data
-    });
-  }
+  // ✅ FIXED: Prisma requires a unique field for .update(). 
+  // We must find the active hospital first, then update it by its unique ID.
+  async updateActive(data: any): Promise<Hospital> {
+    const activeHospital = await this.getModel().findFirst({ where: { isActive: true } });
+    
+    if (!activeHospital) {
+      throw new Error('No active hospital found to update');
+    }
 
-  async updateActive(data: Partial<{
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-    nhisFacilityCode: string;
-    nhisFacilityType: string;
-    nhisAccreditationNumber?: string;
-    nhisAccreditationDate?: Date;
-    nhisAccreditationExpiry?: Date;
-    nhisContactPerson?: string;
-    nhisContactPhone?: string;
-    nhisContactEmail?: string;
-  }>): Promise<Hospital> {
-    return this.prisma.hospital.update({
-      where: { isActive: true },
-      data
-    });
-  }
-
-  async delete(id: string): Promise<Hospital> {
-    return this.prisma.hospital.delete({
-      where: { id }
-    });
+    // Uses the inherited update method from BaseRepository
+    return this.update(activeHospital.id, data); 
   }
 }

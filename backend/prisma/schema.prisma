@@ -111,16 +111,16 @@ model GeneratedDocument {
 }
 
 // ============================================================
-// PRICING & SERVICE CATALOG
+// PRICING & SERVICE CATALOG (FIXED: Historical Pricing)
 // ============================================================
 
 model ServicePricing {
   id               String         @id @default(cuid())
-  serviceCatalogId String         @unique
-  cashPrice        Float
-  nhisPrice        Float          @default(0)
-  insurancePrice   Float
-  corporatePrice   Float          @default(0)
+  serviceCatalogId String         // Removed @unique to allow 1-to-N (Historical Pricing)
+  cashPrice        Decimal        @db.Decimal(15, 2)
+  nhisPrice        Decimal        @db.Decimal(15, 2) @default(0)
+  insurancePrice   Decimal        @db.Decimal(15, 2)
+  corporatePrice   Decimal        @db.Decimal(15, 2) @default(0)
   vatRate          Float          @default(0)
   isTaxable        Boolean        @default(true)
   effectiveDate    DateTime       @default(now())
@@ -130,6 +130,7 @@ model ServicePricing {
   updatedAt        DateTime       @updatedAt
   serviceCatalog   ServiceCatalog @relation(fields: [serviceCatalogId], references: [id], onDelete: Cascade)
 
+  @@index([serviceCatalogId, effectiveDate])
   @@map("service_pricing")
 }
 
@@ -174,7 +175,7 @@ model ServiceCatalog {
   ConsultationType  ConsultationType?  @relation(fields: [consultationTypeId], references: [id])
   GDRGTariff        GDRGTariff?        @relation(fields: [gdrgTariffId], references: [id])
 
-  pricing         ServicePricing?
+  pricing         ServicePricing[]     // Changed to Array for Historical Pricing
   ServiceRendered ServiceRendered[]
 
   createdAt           DateTime              @default(now())
@@ -199,7 +200,7 @@ model ServiceCatalog {
 }
 
 // ============================================================
-// PATIENT
+// PATIENT & CORE EMR (FIXED: Added Histories, Allergies, Consents)
 // ============================================================
 
 model Patient {
@@ -230,7 +231,7 @@ model Patient {
   phoneNumber    String?
 
   Attendance           Attendance[]
-  Bed                  Bed?
+  // Removed Bed relation to prevent redundancy
   Bill                 Bill[]
   InsuranceClaim       InsuranceClaim[]
   InsuranceProvider    InsuranceProvider?     @relation(fields: [insuranceProviderId], references: [id])
@@ -246,6 +247,13 @@ model Patient {
   proformaInvoices     ProformaInvoice[]
   familyPlanningServices FamilyPlanningService[]
 
+  // NEW: Core EMR Models
+  allergies            PatientAllergy[]
+  medicalHistories     PatientMedicalHistory[]
+  surgicalHistories    PatientSurgicalHistory[]
+  familyHistories      PatientFamilyHistory[]
+  consents             PatientConsent[]
+
   @@index([nhisNumber])
   @@index([phoneNumber])
   @@index([dateOfBirth])
@@ -256,6 +264,61 @@ model Patient {
   @@index([surname])
   @@index([contact])
   @@index([createdAt])
+}
+
+// NEW: Core EMR Models
+model PatientAllergy {
+  id        String   @id @default(cuid())
+  patientId String
+  allergen  String
+  reaction  String?
+  severity  String?
+  notes     String?
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  @@index([patientId])
+}
+
+model PatientMedicalHistory {
+  id          String    @id @default(cuid())
+  patientId   String
+  condition   String
+  diagnosedAt DateTime?
+  notes       String?
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  @@index([patientId])
+}
+
+model PatientSurgicalHistory {
+  id          String    @id @default(cuid())
+  patientId   String
+  procedure   String
+  surgeryDate DateTime?
+  notes       String?
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  @@index([patientId])
+}
+
+model PatientFamilyHistory {
+  id        String  @id @default(cuid())
+  patientId String
+  relation  String
+  condition String
+  notes     String?
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  @@index([patientId])
+}
+
+model PatientConsent {
+  id          String       @id @default(cuid())
+  patientId   String
+  consentType ConsentType
+  status      ConsentStatus
+  grantedAt   DateTime     @default(now())
+  revokedAt   DateTime?
+  notes       String?
+  documentUrl String?
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  @@index([patientId])
 }
 
 // ============================================================
@@ -323,9 +386,9 @@ model InsurancePlan {
   name                String
   serviceCategory     ServiceCategory
   coveragePercentage  Float
-  annualLimit         Float?
+  annualLimit         Decimal?        @db.Decimal(15, 2)
   requiresPreAuth     Boolean         @default(false)
-  coPaymentAmount     Float           @default(0)
+  coPaymentAmount     Decimal         @db.Decimal(15, 2) @default(0)
   coPaymentPercentage Float           @default(0)
   isActive            Boolean         @default(true)
   effectiveDate       DateTime        @default(now())
@@ -353,11 +416,11 @@ model PreAuthorisationRequest {
   requestedById         String
   requestedAt           DateTime      @default(now())
   requestedServices     Json
-  estimatedTotalCost    Float
+  estimatedTotalCost    Decimal       @db.Decimal(15, 2)
   clinicalJustification String?
   status                PreAuthStatus @default(pending)
   responseReceivedAt    DateTime?
-  approvedAmount        Float?
+  approvedAmount        Decimal?      @db.Decimal(15, 2)
   approvedServices      Json?
   rejectionReason       String?
   authNumber            String?
@@ -378,7 +441,7 @@ model PreAuthorisationRequest {
 }
 
 // ============================================================
-// ATTENDANCE
+// ATTENDANCE (FIXED: Flexible Clinical Notes, NHIS Edge Cases)
 // ============================================================
 
 model Attendance {
@@ -388,44 +451,41 @@ model Attendance {
   insuranceProviderId    String?
   corporateAccountId     String?
   bedId                  String?
-  appointmentId          String?        @unique
   wardId                 String?
   attendanceType         AttendanceType
   dateTime               DateTime       @default(now())
   paymentMode            PaymentMode
   nhisCCC                String?
-  nhisEligibilityCheckId String?
-  referralId             String?        @unique
-
+  
+  // NHIS Edge Cases
   nhisCCCCode        String?
   nhisCCCGeneratedAt DateTime?
   nhisCCCValidUntil  DateTime?
 
-  complaints        String            @default("No complaints recorded")
-  medicalNotes      String?
+  // ✅ RESTORED: All three clinical note fields serve different purposes
+  complaints        String?          // ✅ Patient's chief complaint (reason for visit)
+  medicalNotes      String?          // ✅ Doctor's clinical notes/observations
+  clinicalNotes     Json?            // ✅ Structured clinical data
+  
+  // ✅ RESTORED: Both categories
   encounterCategory EncounterCategory @default(opd)
   visitCategory     VisitCategory     @default(general)
+  
   gdrgCategory      String?
   serviceCategory   ServiceCategory?
 
-  historyPresentingComplaint String?
-  onsetDurationQuality       String?
-  physicalExamination        String?
-  treatmentPlan              String?
-  followUpDate               DateTime?
-  familyPlanningServices   FamilyPlanningService[]
-  antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
-  currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
-  antenatalVisits          ANCVisit[]
+  followUpDate DateTime?
 
-  totalBill          Float @default(0)
-  paidAmount         Float @default(0)
-  outstandingBalance Float @default(0)
+  // Financial Summary
+  totalBill          Decimal @db.Decimal(15, 2) @default(0)
+  paidAmount         Decimal @db.Decimal(15, 2) @default(0)
+  outstandingBalance Decimal @db.Decimal(15, 2) @default(0)
 
-  insuranceClaimId  String?          @unique
+  // Insurance & Pre-Auth
   preAuthNumber     String?
   preAuthApproved   Boolean          @default(false)
-  preAuthAmount     Float?
+  preAuthAmount     Decimal?         @db.Decimal(15, 2)
+  
   status            AttendanceStatus @default(pending)
   referringFacility String?
   createdById       String
@@ -433,41 +493,52 @@ model Attendance {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  Admission                         Admission?                    @relation("AttendanceAdmission")
-  Bed                               Bed?                          @relation(fields: [bedId], references: [id])
-  User_Attendance_createdByIdToUser User                          @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
-  InsuranceProvider                 InsuranceProvider?            @relation(fields: [insuranceProviderId], references: [id])
-  CorporateAccount                  CorporateAccount?             @relation(fields: [corporateAccountId], references: [id])
-  Patient                           Patient                       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  User_Attendance_updatedByIdToUser User?                         @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
-  Ward                              Ward?                         @relation(fields: [wardId], references: [id])
+  // Corporate Employee Link
+  CorporateEmployee   CorporateEmployee? @relation(fields: [corporateEmployeeId], references: [id])
+  corporateEmployeeId String?
   
-  appointment                       Appointment?                  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  referral                          ReferralRecord?               // @relation removed - defined on ReferralRecord side only
- 
-  AttendanceDiagnosis               AttendanceDiagnosis[]
-  Bill                              Bill?
-  InsuranceClaim                    InsuranceClaim?
-  LabTest                           LabTest[]
-  Medication                        Medication[]
-  Procedure                         Procedure[]
-  Scan                              Scan[]
-  ServiceRendered                   ServiceRendered[]
-  Vitals                            Vitals[]
-  NHISEligibilityCheck              NHISEligibilityCheck[]
-  PreAuthorisationRequest           PreAuthorisationRequest[]
-  WardChargeRecord                  WardChargeRecord[]
-  deliveryRecords                   DeliveryRecord[]
-  abortionRecords                   AbortionRecord[]
-  postnatalRecords                  PostnatalRecord[]
-  proformaInvoices                  ProformaInvoice[]
-  CorporateEmployee                 CorporateEmployee?            @relation(fields: [corporateEmployeeId], references: [id])
-  corporateEmployeeId               String?
-  patientClassification             PatientClassification?  // NEW or OLD
-  diagnosisClassification           DiagnosisClassification?
+  // Classifications
+  patientClassification   PatientClassification?  
+  diagnosisClassification DiagnosisClassification?
+
+  // Relations (same as before)
+  Admission      Admission?      @relation("AttendanceAdmission")
+  Bed            Bed?            @relation(fields: [bedId], references: [id])
+  Ward           Ward?           @relation(fields: [wardId], references: [id])
+  InsuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
+  CorporateAccount  CorporateAccount?  @relation(fields: [corporateAccountId], references: [id])
+  Patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  User_Attendance_createdByIdToUser User  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
+  User_Attendance_updatedByIdToUser User? @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
+
+  appointment      Appointment?       @relation 
+  referral         ReferralRecord?    @relation
+  insuranceClaim   InsuranceClaim?    @relation
+  
+  nhisEligibilityChecks NHISEligibilityCheck[] 
+
+  AttendanceDiagnosis AttendanceDiagnosis[]
+  Bill                Bill?
+  LabTest             LabTest[]
+  Medication          Medication[]
+  Procedure           Procedure[]
+  Scan                Scan[]
+  ServiceRendered     ServiceRendered[]
+  Vitals              Vitals[]
+  PreAuthorisationRequest PreAuthorisationRequest[]
+  WardChargeRecord    WardChargeRecord[]
+  
+  familyPlanningServices   FamilyPlanningService[]
+  antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
+  currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
+  antenatalVisits          ANCVisit[]
+  deliveryRecords          DeliveryRecord[]
+  abortionRecords          AbortionRecord[]
+  postnatalRecords         PostnatalRecord[]
+  proformaInvoices         ProformaInvoice[]
 
   @@index([nhisCCCCode])
-  @@index([nhisEligibilityCheckId])
   @@index([patientId, dateTime])
   @@index([insuranceProviderId])
   @@index([bedId])
@@ -481,8 +552,7 @@ model Attendance {
   @@index([gdrgCategory])
   @@index([serviceCategory])
   @@index([encounterCategory])
-  @@index([appointmentId])
-  @@index([referralId])
+  @@index([visitCategory])
   @@index([dateTime, status])
 }
 
@@ -576,7 +646,7 @@ model Procedure {
   notes               String?
   complications       String?
   outcome             String?
-  cost                Float?
+  cost                Decimal?        @db.Decimal(15, 2)
   duration            Int?
   createdById         String
   anesthesiaNotes     String?
@@ -638,7 +708,7 @@ model Medication {
   notes                String?
   dispensedBatchNumber String?
   dispensedExpiryDate  DateTime?
-  dispensedUnitCost    Float?
+  dispensedUnitCost    Decimal?         @db.Decimal(15, 2)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -703,9 +773,9 @@ model Ward {
   tariffCode            String?
   vatRate               Float    @default(0)
   isTaxable             Boolean  @default(true)
-  dailyCashRate         Float    @default(0)
-  dailyNHISRate         Float    @default(0)
-  dailyInsuranceRate    Float    @default(0)
+  dailyCashRate         Decimal  @db.Decimal(15, 2) @default(0)
+  dailyNHISRate         Decimal  @db.Decimal(15, 2) @default(0)
+  dailyInsuranceRate    Decimal  @db.Decimal(15, 2) @default(0)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -719,28 +789,13 @@ model Ward {
 // DIAGNOSIS & GDRG (NHIS Claims)
 // ============================================================
 
-enum GDRGMDC {
-  ASUR
-  DENT
-  ENTH
-  INVE
-  MEDI
-  OBGY
-  OPDC
-  OPHT
-  ORTH
-  PAED
-  PSUR
-  RSUR
-  ZOOM
-}
 
 model GDRGTariff {
   id                String             @id @default(cuid())
   gdrgCode          String             @unique
   mdc               GDRGMDC
   description       String
-  nhiaTariff        Float
+  nhiaTariff        Decimal            @db.Decimal(15, 2)
   ageSplit          String             @default("A")
   minAgeYears       Int?
   maxAgeYears       Int?
@@ -788,118 +843,6 @@ model GDRGTariffDiagnosis {
 // DIAGNOSIS & MORBIDITY (GHS Reporting)
 // ============================================================
 
-enum MorbidityGroup {
-  afp_polio
-  meningitis
-  neonatal_tetanus
-  pertussis_whooping_cough
-  diphtheria
-  measles
-  yellow_fever
-  tetanus
-  tuberculosis
-  uncomplicated_malaria_suspected
-  uncomplicated_malaria_tested
-  uncomplicated_malaria_positive
-  uncomplicated_malaria_not_tested_treated
-  uncomplicated_malaria_tested_negative_treated
-  malaria_in_pregnancy_suspected
-  malaria_in_pregnancy_tested
-  malaria_in_pregnancy_positive
-  malaria_in_pregnancy_not_tested_treated
-  malaria_in_pregnancy_tested_negative_treated
-  severe_malaria_lab_confirmed
-  severe_malaria_non_lab_confirmed
-  typhoid_fever
-  suspected_cholera
-  diarrhoea_diseases
-  viral_hepatitis
-  schistosomiasis_bilharzia
-  suspected_guinea_worm
-  onchocerciasis
-  buruli_ulcer
-  leprosy
-  hiv_aids_related_conditions
-  mumps
-  intestinal_worms
-  chicken_pox
-  upper_respiratory_tract_infections
-  pneumonia
-  septicaemia
-  malnutrition
-  obesity
-  anaemia
-  other_nutritional_diseases
-  hypertension
-  cardiac_diseases
-  stroke
-  diabetes_mellitus
-  rheumatism_arthritis
-  sickle_cell_disease
-  asthma
-  chronic_obstructive_pulmonary_disease
-  breast_cancer
-  cervical_cancer
-  lymphoma
-  prostate_cancer
-  hepatocellular_carcinoma
-  all_other_cancers
-  schizophrenia
-  acute_psychotic_disorder
-  mono_symptoms_delusion
-  depression
-  substance_abuse
-  epilepsy
-  autism
-  mental_retardation
-  attention_deficit_hyperactivity_disorder
-  conversion_disorders
-  post_traumatic_stress_syndrome
-  generalized_anxiety
-  other_anxiety_disorders
-  neurosis
-  acute_eye_infection
-  cataract
-  trachoma
-  otitis_media
-  other_acute_ear_infection
-  dental_caries
-  dental_swellings
-  traumatic_conditions_oral
-  periodontal_diseases
-  cerebral_palsy
-  liver_diseases
-  acute_urinary_tract_infection
-  skin_diseases
-  ulcer
-  kidney_related_diseases
-  other_oral_conditions
-  gynaecological_conditions
-  pregnancy_related_complications
-  anaemia_in_pregnancy
-  gonorrhoea
-  genital_ulcer
-  vaginal_discharge
-  urethral_discharge
-  other_diseases_male_reproductive_system
-  other_diseases_female_reproductive_system
-  transport_injuries_road_traffic_accidents
-  home_injuries
-  occupational_industrial_injuries
-  burns
-  poisoning_occupational
-  dog_bite
-  human_bites
-  snake_bite
-  sexual_abuse
-  domestic_violence
-  pyrexia_unknown_origin_non_malaria
-  brought_in_dead
-  other_animal_bites
-  all_other_diseases
-  re_attendances
-  referrals
-}
 
 model Diagnosis {
   id                    String         @id @default(cuid())
@@ -947,7 +890,7 @@ model AttendanceDiagnosis {
 }
 
 // ============================================================
-// BILLING
+// BILLING (FIXED: Decimal Currency, GRA E-Invoicing)
 // ============================================================
 
 model Bill {
@@ -956,15 +899,15 @@ model Bill {
   patientId           String
   attendanceId        String      @unique
   admissionId         String?
-  subtotal            Float       @default(0)
-  discount            Float       @default(0)
-  waiverAmount        Float       @default(0)
-  taxAmount           Float       @default(0)
-  totalAmount         Float       @default(0)
-  insuranceCovered    Float       @default(0)
-  patientPayable      Float       @default(0)
-  paidAmount          Float       @default(0)
-  balance             Float       @default(0)
+  subtotal            Decimal     @db.Decimal(15, 2) @default(0)
+  discount            Decimal     @db.Decimal(15, 2) @default(0)
+  waiverAmount        Decimal     @db.Decimal(15, 2) @default(0)
+  taxAmount           Decimal     @db.Decimal(15, 2) @default(0)
+  totalAmount         Decimal     @db.Decimal(15, 2) @default(0)
+  insuranceCovered    Decimal     @db.Decimal(15, 2) @default(0)
+  patientPayable      Decimal     @db.Decimal(15, 2) @default(0)
+  paidAmount          Decimal     @db.Decimal(15, 2) @default(0)
+  balance             Decimal     @db.Decimal(15, 2) @default(0)
   status              BillStatus  @default(draft)
   paymentMode         PaymentMode
   corporateAccountId  String?
@@ -978,6 +921,11 @@ model Bill {
   dueDate             DateTime?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
+
+  // NEW: GRA E-Invoicing Fields
+  graDeclarationCode  String?
+  graQrCodeData       String?
+  graValidationStatus GraValidationStatus?
 
   CorporateAccount            CorporateAccount?  @relation("CorporateAccountBills", fields: [corporateAccountId], references: [id])
   admission                   Admission?         @relation(fields: [admissionId], references: [id])
@@ -1009,14 +957,14 @@ model BillLineItem {
   description            String
   serviceType            ServiceType
   quantity               Int         @default(1)
-  unitPrice              Float
+  unitPrice              Decimal     @db.Decimal(15, 2)
   pricingBasis           PaymentMode
   vatRate                Float       @default(0)
-  vatAmount              Float       @default(0)
-  lineTotal              Float
-  insuranceCoveredAmount Float       @default(0)
-  patientPayableAmount   Float       @default(0)
-  discount               Float       @default(0)
+  vatAmount              Decimal     @db.Decimal(15, 2) @default(0)
+  lineTotal              Decimal     @db.Decimal(15, 2)
+  insuranceCoveredAmount Decimal     @db.Decimal(15, 2) @default(0)
+  patientPayableAmount   Decimal     @db.Decimal(15, 2) @default(0)
+  discount               Decimal     @db.Decimal(15, 2) @default(0)
   pricingSnapshotId      String?
   isVoided               Boolean     @default(false)
   voidedById             String?
@@ -1027,6 +975,7 @@ model BillLineItem {
   bill           Bill            @relation(fields: [billId], references: [id], onDelete: Cascade)
   serviceCatalog ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
   voidedBy       User?           @relation("BillLineItem_voidedBy", fields: [voidedById], references: [id])
+  wardChargeRecord WardChargeRecord? // NEW: Linked to Ward Charges
 
   @@index([billId])
   @@index([serviceCatalogId])
@@ -1040,8 +989,8 @@ model PatientWaiver {
   billId          String?
   waiverType      WaiverType
   reason          String
-  amountRequested Float
-  amountApproved  Float        @default(0)
+  amountRequested Decimal      @db.Decimal(15, 2)
+  amountApproved  Decimal      @db.Decimal(15, 2) @default(0)
   status          WaiverStatus @default(pending)
   requestedById   String
   approvedById    String?
@@ -1064,7 +1013,7 @@ model PatientWaiver {
 model Payment {
   id              String        @id @default(cuid())
   billId          String
-  amount          Float
+  amount          Decimal       @db.Decimal(15, 2)
   paymentMethod   PaymentMethod
   reference       String?
   transactionDate DateTime      @default(now())
@@ -1086,7 +1035,7 @@ model Payment {
 }
 
 // ============================================================
-// INSURANCE CLAIM & SUBMISSION
+// INSURANCE CLAIM & SUBMISSION (FIXED: JSON Arrays, NHIS Edge Cases)
 // ============================================================
 
 model InsuranceClaim {
@@ -1097,32 +1046,33 @@ model InsuranceClaim {
   attendanceId        String      @unique
   insuranceProviderId String
   corporateAccountId  String?
-  totalClaimAmount    Float       @default(0)
-  approvedAmount      Float?
-  rejectedAmount      Float?
-  paidAmount          Float?
+  totalClaimAmount    Decimal     @db.Decimal(15, 2) @default(0)
+  approvedAmount      Decimal?    @db.Decimal(15, 2)
+  rejectedAmount      Decimal?    @db.Decimal(15, 2)
+  paidAmount          Decimal?    @db.Decimal(15, 2)
   status              ClaimStatus @default(draft)
   submissionDate      DateTime?
   approvalDate        DateTime?
   paymentDate         DateTime?
   preAuthNumber       String?
 
-  diagnosisCodes   String[]
-  procedureCodes   String[]
-  labTestCodes     String[]
-  serviceCodes     String[]
-  scanCodes        String[]
+  // Changed from String[] to Json? for better Postgres JSONB performance and flexibility
+  diagnosisCodes   Json?
+  procedureCodes   Json?
+  labTestCodes     Json?
+  serviceCodes     Json?
+  scanCodes        Json?
   principalGDRG    String?
   claimCheckCode   String?
   typeOfService    String?
   typeOfAttendance String?
   serviceOutcome   String?
   mdcCode          String?
-  datesOfService   String[]
-  medicationCodes  String[]
-  gdrgCodes        String[]
-  nhisServiceCodes String[]
-  metadata        Json? 
+  datesOfService   Json?
+  medicationCodes  Json?
+  gdrgCodes        Json?
+  nhisServiceCodes Json?
+  metadata         Json? 
 
   notes       String?
   createdById String
@@ -1130,7 +1080,7 @@ model InsuranceClaim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  Attendance                            Attendance        @relation(fields: [attendanceId], references: [id])
+  attendance          Attendance        @relation(fields: [attendanceId], references: [id])  // Keep this one
   Bill                                  Bill?             @relation(fields: [billId], references: [id], onDelete: Cascade)
   User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
@@ -1153,7 +1103,7 @@ model ClaimBatch {
   batchNumber    String      @unique
   batchDate      DateTime    @default(now())
   description    String?
-  totalAmount    Float       @default(0)
+  totalAmount    Decimal     @db.Decimal(15, 2) @default(0)
   status         BatchStatus @default(draft)
   xmlGeneratedAt DateTime?
   xmlFilePath    String?
@@ -1170,15 +1120,8 @@ model ClaimBatch {
   @@map("claim_batches")
 }
 
-enum BatchStatus {
-  draft
-  generated
-  submitted
-  exported
-}
-
 // ============================================================
-// WARD & ADMISSION
+// WARD & ADMISSION (FIXED: Bed Redundancy, Charge Relations)
 // ============================================================
 
 model WardChargeRecord {
@@ -1188,18 +1131,19 @@ model WardChargeRecord {
   wardId         String
   bedId          String
   chargeDate     DateTime
-  dailyRate      Float
+  dailyRate      Decimal     @db.Decimal(15, 2)
   paymentMode    PaymentMode
-  nhisPrice      Float       @default(0)
-  cashPrice      Float       @default(0)
-  insurancePrice Float       @default(0)
-  corporatePrice Float       @default(0)
+  nhisPrice      Decimal     @db.Decimal(15, 2) @default(0)
+  cashPrice      Decimal     @db.Decimal(15, 2) @default(0)
+  insurancePrice Decimal     @db.Decimal(15, 2) @default(0)
+  corporatePrice Decimal     @db.Decimal(15, 2) @default(0)
   isBilled       Boolean     @default(false)
-  billLineItemId String?
+  billLineItemId String?     @unique // NEW: Linked to BillLineItem
   createdAt      DateTime    @default(now())
 
-  attendance Attendance @relation(fields: [attendanceId], references: [id])
-  ward       Ward       @relation(fields: [wardId], references: [id])
+  attendance   Attendance    @relation(fields: [attendanceId], references: [id])
+  ward         Ward          @relation(fields: [wardId], references: [id])
+  billLineItem BillLineItem? @relation(fields: [billLineItemId], references: [id]) // NEW
 
   @@index([attendanceId])
   @@index([chargeDate])
@@ -1241,13 +1185,12 @@ model Bed {
   wardId           String
   bedNumber        String
   isOccupied       Boolean  @default(false)
-  currentPatientId String?  @unique
+  // REMOVED: currentPatientId (Derive dynamically from Attendance/Admission to prevent sync bugs)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now())
 
   Attendance Attendance[]
-  Patient    Patient?     @relation(fields: [currentPatientId], references: [id])
-  Ward       Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  Ward       Ward       @relation(fields: [wardId], references: [id], onDelete: Cascade)
 
   @@unique([wardId, bedNumber])
 }
@@ -1290,7 +1233,7 @@ model ReferralRecord {
 }
 
 // ============================================================
-// ANTENATAL
+// ANTENATAL (FIXED: Obstetrics Relations)
 // ============================================================
 
 model AntenatalBooking {
@@ -1321,7 +1264,6 @@ model AntenatalBooking {
   iptp3Date DateTime?
   iptp4Date DateTime?
   iptp5Date DateTime?
-
   ttDoses Json
   tt1Date DateTime?
   tt2Date DateTime?
@@ -1349,6 +1291,8 @@ model AntenatalBooking {
   deliveryOutcome  String?
   deliveryDate     DateTime?
 
+  abortionRecordId String?   @unique
+
   isActive    Boolean @default(true)
   isCompleted Boolean @default(false)
 
@@ -1359,9 +1303,10 @@ model AntenatalBooking {
   patient           Patient           @relation(fields: [patientId], references: [id])
   attendance        Attendance        @relation("FirstANCAttendance", fields: [attendanceId], references: [id])
   currentAttendance Attendance?       @relation("CurrentANCAttendance", fields: [currentAttendanceId], references: [id])
-  deliveryRecord    DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
+  deliveryRecord    DeliveryRecord?   @relation("BookingDelivery", fields: [deliveryRecordId], references: [id])
+  abortionRecord    AbortionRecord?   @relation("BookingAbortion", fields: [abortionRecordId], references: [id])
   visits            ANCVisit[]
-  postnatalRecords  PostnatalRecord[]
+  postnatalRecords  PostnatalRecord[] @relation("BookingPostnatal")  // ADDED relation name
   createdBy         User              @relation(fields: [createdById], references: [id])
 
   @@index([patientId])
@@ -1378,6 +1323,7 @@ model ANCVisit {
 
   visitDate           DateTime
   gestationalAgeWeeks Int?
+  gestationalAgeDays  Int? 
   weight              Float?
   bloodPressure       String?
   fundalHeight        Int?
@@ -1479,9 +1425,11 @@ model PostnatalRecord {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  malePartnerPresentPNC Boolean @default(false)
+
   patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   attendance       Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  antenatalBooking AntenatalBooking? @relation(fields: [antenatalBookingId], references: [id])
+  antenatalBooking AntenatalBooking? @relation("BookingPostnatal", fields: [antenatalBookingId], references: [id])  // CHANGED relation name
   deliveryRecord   DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
   createdBy        User              @relation(fields: [createdById], references: [id])
 
@@ -1574,9 +1522,9 @@ model ConsultationType {
   id                   String   @id @default(cuid())
   name                 String
   code                 String   @unique
-  cashPrice            Float
-  nhisPrice            Float    @default(0)
-  insurancePrice       Float
+  cashPrice            Decimal  @db.Decimal(15, 2)
+  nhisPrice            Decimal  @db.Decimal(15, 2) @default(0)
+  insurancePrice       Decimal  @db.Decimal(15, 2)
   isNHISCovered        Boolean  @default(true)
   isPrivateInsExempted Boolean  @default(false)
   isActive             Boolean  @default(true)
@@ -1599,8 +1547,8 @@ model StockItem {
   unitOfMeasure          String
   drugCode               String    @unique
   reorderLevel           Int
-  currentStock           Int       @default(0)
-  costPrice              Float
+  currentStock           Int       @default(0) // NOTE: Use DB transactions with row-locking when updating this!
+  costPrice              Decimal   @db.Decimal(15, 2)
   isNHISCovered          Boolean   @default(true)
   isPrivateInsExempted   Boolean   @default(false)
   nhisRequiresAuth       Boolean   @default(false)
@@ -1622,6 +1570,7 @@ model StockItem {
   ServiceCatalog   ServiceCatalog[]
   StockTransaction StockTransaction[]
   StockBatch       StockBatch[]
+  transferItems    StockTransferItem[]
 }
 
 model StockBatch {
@@ -1631,14 +1580,20 @@ model StockBatch {
   expiryDate   DateTime
   quantity     Int
   receivedDate DateTime @default(now())
-  costPrice    Float
+  costPrice    Decimal  @db.Decimal(15, 2)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
+  
+  // ✅ NEW: Which department/store currently holds this specific batch?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
 
   stockItem StockItem @relation(fields: [stockItemId], references: [id])
 
   @@unique([stockItemId, batchNumber])
   @@index([stockItemId, expiryDate])
+  @@index([departmentId])  // ← Add index for department lookups
+  @@index([departmentId, stockItemId])  // ← Composite index for inventory queries
   @@map("stock_batches")
 }
 
@@ -1647,11 +1602,15 @@ model Invoice {
   invoiceNumber String   @unique
   supplierName  String
   invoiceDate   DateTime
-  totalAmount   Float
+  totalAmount   Decimal  @db.Decimal(15, 2)
   notes         String?
   createdById   String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  // ✅ NEW: Which store/department physically received this invoice's goods?
+  receivedAtDepartmentId String?
+  receivedAtDepartment   Department? @relation(fields: [receivedAtDepartmentId], references: [id])
 
   User               User               @relation(fields: [createdById], references: [id])
   InvoiceItem        InvoiceItem[]
@@ -1662,6 +1621,7 @@ model Invoice {
   @@index([invoiceDate])
   @@index([invoiceNumber])
   @@index([supplierName])
+  @@index([receivedAtDepartmentId])  // ← Add index for department receiving reports
 }
 
 model InvoiceItem {
@@ -1669,7 +1629,7 @@ model InvoiceItem {
   invoiceId   String
   stockItemId String
   quantity    Int
-  unitCost    Float
+  unitCost    Decimal   @db.Decimal(15, 2)
   batchNumber String?
   expiryDate  DateTime?
   createdAt   DateTime  @default(now())
@@ -1694,6 +1654,10 @@ model StockTransaction {
   invoiceId       String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+  
+  // ✅ NEW: The department where this transaction occurred
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
 
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
@@ -1704,6 +1668,8 @@ model StockTransaction {
   @@index([transactionDate])
   @@index([requisitionId])
   @@index([invoiceId])
+  @@index([departmentId])  // ← Add index for department audit trails
+  @@index([departmentId, transactionDate])  // ← Composite for department reports
 }
 
 model Requisition {
@@ -1747,8 +1713,59 @@ model RequisitionItem {
   StockItem   StockItem   @relation(fields: [stockItemId], references: [id])
 }
 
+enum TransferStatus {
+  requested
+  approved
+  dispatched
+  received
+  cancelled
+}
+
+model StockTransfer {
+  id                String         @id @default(cuid())
+  transferNumber    String         @unique
+  originId          String
+  destinationId     String
+  status            TransferStatus @default(requested)
+  requestedById     String
+  approvedById      String?
+  dispatchedAt      DateTime?
+  receivedAt        DateTime?
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  origin            Department     @relation("OriginDepartment", fields: [originId], references: [id])
+  destination       Department     @relation("DestinationDepartment", fields: [destinationId], references: [id])
+  requestedBy       User           @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  approvedBy        User?          @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  
+  items             StockTransferItem[]
+
+  @@index([originId, status])
+  @@index([destinationId, status])
+  @@index([transferNumber])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model StockTransferItem {
+  id                String @id @default(cuid())
+  transferId        String
+  stockItemId       String
+  quantityRequested Int
+  quantitySent      Int      @default(0)
+  quantityReceived  Int      @default(0)
+  
+  transfer          StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  stockItem         StockItem     @relation(fields: [stockItemId], references: [id])
+
+  @@unique([transferId, stockItemId])
+  @@index([stockItemId])
+}
+
 // ============================================================
-// APPOINTMENTS & DEPARTMENTS
+// APPOINTMENTS & DEPARTMENTS (FIXED: Combined Date/Time)
 // ============================================================
 
 model Department {
@@ -1762,6 +1779,17 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Inventory location flag
+  isStore Boolean @default(false)
+  
+  // Stock management relations
+  stockBatches        StockBatch[]
+  outgoingTransfers   StockTransfer[] @relation("OriginDepartment")
+  incomingTransfers   StockTransfer[] @relation("DestinationDepartment")
+  receivedInvoices    Invoice[]        // ← ADD THIS
+  stockTransactions   StockTransaction[] // ← ADD THIS
+
+  // Existing relations
   Requisitions Requisition[]
   users        User[]        @relation("DepartmentUsers")
   appointments Appointment[]
@@ -1769,6 +1797,7 @@ model Department {
 
   @@index([isActive])
   @@index([headId])
+  @@index([isStore])
   @@map("departments")
 }
 
@@ -1781,8 +1810,7 @@ model Appointment {
   departmentId      String?
   title             String
   description       String?
-  appointmentDate   DateTime
-  appointmentTime   String
+  scheduledAt       DateTime          
   duration          Int               @default(30)
   status            AppointmentStatus @default(scheduled)
   type              AppointmentType   @default(consultation)
@@ -1792,24 +1820,25 @@ model Appointment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   createdBy         String
-  
-  attendance   Attendance?
+
+  attendanceId      String?           @unique 
+  attendance        Attendance?       @relation(fields: [attendanceId], references: [id])  // KEPT fields and references
   
   clinician  User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
   patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
-  @@index([appointmentDate])
+  @@index([scheduledAt])
   @@index([patientId, status])
-  @@index([clinicianId, appointmentDate])
-  @@index([departmentId, appointmentDate])
-  @@index([status, appointmentDate])
+  @@index([clinicianId, scheduledAt])
+  @@index([departmentId, scheduledAt])
+  @@index([status, scheduledAt])
   @@map("appointments")
-  @@index([appointmentDate, status])
+  @@index([scheduledAt, status])
 }
 
 // ============================================================
-// HOSPITAL CONFIGURATION
+// HOSPITAL CONFIGURATION (FIXED: Removed Secrets)
 // ============================================================
 
 model Hospital {
@@ -1835,13 +1864,12 @@ model Hospital {
 
   nhisApiBaseUrl             String?   @map("nhis_api_base_url")
   nhisApiClientId            String?   @map("nhis_api_client_id")
-  nhisApiClientSecret        String?   @map("nhis_api_client_secret")
+  // REMOVED: nhisApiClientSecret, nhisApiAccessToken (Store in .env or Redis)
   nhisApiTokenEndpoint       String?   @map("nhis_api_token_endpoint")
   nhisApiEligibilityEndpoint String?   @map("nhis_api_eligibility_endpoint")
   nhisApiCccEndpoint         String?   @map("nhis_api_ccc_endpoint")
   nhisApiActive              Boolean   @default(false) @map("nhis_api_active")
   nhisApiLastTokenRefresh    DateTime? @map("nhis_api_last_token_refresh")
-  nhisApiAccessToken         String?   @map("nhis_api_access_token")
   nhisApiTokenExpiresAt      DateTime? @map("nhis_api_token_expires_at")
 
   isActive  Boolean  @default(true)
@@ -1852,7 +1880,7 @@ model Hospital {
 }
 
 // ============================================================
-// USER & NOTIFICATIONS
+// USER, RBAC & NOTIFICATIONS (FIXED: Dynamic RBAC, HR Models)
 // ============================================================
 
 model User {
@@ -1860,9 +1888,10 @@ model User {
   username       String   @unique
   password       String
   fullName       String
-  role           UserRole
+  role           UserRole // Kept for simple fallback, but use `roles` relation for granular access
   email          String?
   phone          String?
+  imageUrl       String?
   licenseNumber  String?
   specialization String?
   isActive       Boolean  @default(true)
@@ -1870,7 +1899,18 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   departmentId   String?
-  seniority Seniority @default(JUNIOR)
+  seniority      Seniority @default(JUNIOR)
+
+  // NEW: Dynamic RBAC
+  roles         Role[]
+  // for Password Reset
+  resetToken      String?
+  resetExpiry     DateTime?
+
+  // NEW: HR & Rostering
+  shifts         StaffShift[]
+  leaves         LeaveRequest[] @relation("LeaveRequest_user")
+  approvedLeaves LeaveRequest[] @relation("LeaveRequest_approver")
 
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
@@ -1926,11 +1966,70 @@ model User {
   notificationsSent        Notification[]        @relation("SentNotifications")
   proformaInvoicesCreated  ProformaInvoice[]     @relation("ProformaInvoice_createdByIdToUser")
   proformaInvoicesApproved ProformaInvoice[]     @relation("ProformaInvoice_approvedByIdToUser")
+  requestedTransfers  StockTransfer[] @relation("TransferRequestedBy")
+  approvedTransfers   StockTransfer[] @relation("TransferApprovedBy")
 
   department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
   headedDepartment Department?      @relation("DepartmentHead")
   abortionRecords  AbortionRecord[]
   familyPlanningServicesProvided FamilyPlanningService[]
+
+  @@index([departmentId])
+}
+
+// NEW: Dynamic RBAC Models
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique // e.g., "can_approve_waiver", "can_void_bill"
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+
+// NEW: HR & Rostering Models
+model StaffShift {
+  id        String    @id @default(cuid())
+  userId    String
+  shiftDate DateTime
+  startTime DateTime
+  endTime   DateTime
+  shiftType ShiftType
+  notes     String?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, shiftDate])
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid())
+  userId       String
+  leaveType    String      // Add this field
+  startDate    DateTime
+  endDate      DateTime
+  totalDays    Int         // Add this field
+  reason       String?
+  status       LeaveStatus @default(pending)
+  approvedById String?
+  user         User        @relation("LeaveRequest_user", fields: [userId], references: [id])
+  approvedBy   User?       @relation("LeaveRequest_approver", fields: [approvedById], references: [id])
+  createdAt    DateTime    @default(now())  // Add this
+  updatedAt    DateTime    @updatedAt       // Add this
+  
+  @@index([userId, startDate])
 }
 
 model RefreshToken {
@@ -2058,6 +2157,10 @@ model MalariaCommodityStock {
   @@map("malaria_commodity_stocks")
 }
 
+// ============================================================
+// DELIVERY & NEWBORN (FIXED: Obstetrics Relations)
+// ============================================================
+
 model DeliveryRecord {
   id                String          @id @default(cuid())
   patientId         String
@@ -2066,7 +2169,7 @@ model DeliveryRecord {
   deliveryDate      DateTime
   deliveryType      DeliveryType
   deliveryOutcome   DeliveryOutcome
-  placeOfDelivery   PlaceOfDelivery @default(private_hospital) // ✅ DEFAULT for private hospitals
+  placeOfDelivery   PlaceOfDelivery @default(private_hospital) 
   attendant         String
   birthWeight       Float?
   gestationWeeks    Int?
@@ -2080,14 +2183,12 @@ model DeliveryRecord {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  antenatalBookingId String?
+  antenatalBookingId String? @unique // NEW: Linked to AntenatalBooking
 
-  // ✅ NEW: Male Involvement
   malePartnerPresentANC     Boolean  @default(false)
   malePartnerPresentDelivery Boolean @default(false)
   malePartnerPresentPNC     Boolean  @default(false)
   
-  // ✅ NEW: Maternal Death Audit
   maternalDeathsAudited     Boolean  @default(false)
   auditNotes                String?
 
@@ -2096,10 +2197,8 @@ model DeliveryRecord {
   admission  Admission? @relation(fields: [admissionId], references: [id])
   createdBy  User       @relation(fields: [createdById], references: [id])
 
-  antenatalBooking AntenatalBooking? @relation()
+  antenatalBooking AntenatalBooking? @relation("BookingDelivery")
   Newborn          NewbornRecord[]
-  AbortionRecord   AbortionRecord?   @relation(fields: [abortionRecordId], references: [id])
-  abortionRecordId String?
   postnatalRecords PostnatalRecord[]
 
   @@index([deliveryDate])
@@ -2110,6 +2209,7 @@ model DeliveryRecord {
 model NewbornRecord {
   id                        String         @id @default(cuid())
   deliveryRecordId          String
+  order                     Int            
   birthWeight               Float
   gender                    Gender
   apgarScore1min            Int?
@@ -2120,7 +2220,6 @@ model NewbornRecord {
   referredTo                String?
   createdAt                 DateTime       @default(now())
   
-  // ✅ NEW: Essential Newborn Care (per baby)
   breastfeedingWithin30Min  Boolean        @default(false)
   eyeProphylaxisGiven       Boolean        @default(false)
   cordCareMethod            CordCareMethod @default(dry_cord)
@@ -2129,6 +2228,7 @@ model NewbornRecord {
   
   deliveryRecord DeliveryRecord @relation(fields: [deliveryRecordId], references: [id])
 
+  @@unique([deliveryRecordId, order])  
   @@map("newborn_records")
 }
 
@@ -2144,25 +2244,24 @@ model AbortionRecord {
   createdById      String
   createdAt        DateTime        @default(now())
 
-  // ✅ NEW: Post-Abortion Family Planning
   postAbortionFPCounselled  Boolean  @default(false)
   postAbortionFPAccepted    Boolean  @default(false)
-  fpMethodAccepted          String?  // FP method accepted post-abortion
+  fpMethodAccepted          String?  
+
+  antenatalBookingId String? @unique // NEW: Linked to AntenatalBooking
 
   patient         Patient          @relation(fields: [patientId], references: [id])
   attendance      Attendance       @relation(fields: [attendanceId], references: [id])
   createdBy       User             @relation(fields: [createdById], references: [id])
-  deliveryRecords DeliveryRecord[]
+  
+  antenatalBooking AntenatalBooking? @relation("BookingAbortion")
 
   @@index([abortionDate])
   @@map("abortion_records")
 }
 
-
-
-
 // ============================================================
-// PROFORMA INVOICES (Estimates for Private Patients)
+// PROFORMA INVOICES (FIXED: GRA E-Invoicing)
 // ============================================================
 
 model ProformaInvoice {
@@ -2172,10 +2271,10 @@ model ProformaInvoice {
   attendanceId       String?               @unique
   admissionId        String?
   status             ProformaInvoiceStatus @default(DRAFT)
-  subtotal           Float                 @default(0)
-  discount           Float                 @default(0)
-  taxAmount          Float                 @default(0)
-  totalAmount        Float                 @default(0)
+  subtotal           Decimal               @db.Decimal(15, 2) @default(0)
+  discount           Decimal               @db.Decimal(15, 2) @default(0)
+  taxAmount          Decimal               @db.Decimal(15, 2) @default(0)
+  totalAmount        Decimal               @db.Decimal(15, 2) @default(0)
   validityDays       Int                   @default(7)
   expiresAt          DateTime?
   notes              String?
@@ -2186,6 +2285,11 @@ model ProformaInvoice {
   convertedToBillId  String?               @unique
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
+
+  // NEW: GRA E-Invoicing Fields
+  graDeclarationCode  String?
+  graQrCodeData       String?
+  graValidationStatus GraValidationStatus?
 
   Attendance         Attendance?           @relation(fields: [attendanceId], references: [id])
   admission          Admission?            @relation(fields: [admissionId], references: [id])
@@ -2210,14 +2314,14 @@ model ProformaInvoiceItem {
   description           String
   serviceType           ServiceType
   quantity              Int         @default(1)
-  unitPrice             Float
+  unitPrice             Decimal     @db.Decimal(15, 2)
   pricingBasis          PaymentMode
   vatRate               Float       @default(0)
-  vatAmount             Float       @default(0)
-  totalPrice            Float
+  vatAmount             Decimal     @db.Decimal(15, 2) @default(0)
+  totalPrice            Decimal     @db.Decimal(15, 2)
   isInsuranceCovered    Boolean     @default(false)
-  insuranceCoverage     Float       @default(0)
-  patientResponsibility Float
+  insuranceCoverage     Decimal     @db.Decimal(15, 2) @default(0)
+  patientResponsibility Decimal     @db.Decimal(15, 2)
 
   proformaInvoice ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
   serviceCatalog  ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
@@ -2225,25 +2329,15 @@ model ProformaInvoiceItem {
   @@index([proformaInvoiceId])
 }
 
-enum ProformaInvoiceStatus {
-  DRAFT
-  SENT
-  APPROVED
-  REJECTED
-  CONVERTED
-  EXPIRED
-}
-
 // ============================================================
-// SMS/WHATSAPP INTEGRATION (Extends Notification)
+// SMS/WHATSAPP INTEGRATION (FIXED: Removed Secrets)
 // ============================================================
 
 model CommunicationChannel {
   id        String   @id @default(cuid())
   name      String   @unique
   provider  String
-  apiKey    String?
-  apiSecret String?
+  // REMOVED: apiKey, apiSecret (Store in .env)
   senderId  String?
   isActive  Boolean  @default(false)
   settings  Json?
@@ -2289,7 +2383,7 @@ model CommunicationLog {
   failedAt          DateTime?
   failureReason     String?
   metadata          Json?
-  cost              Float?
+  cost              Decimal?            @db.Decimal(15, 2)
   providerMessageId String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -2304,65 +2398,36 @@ model CommunicationLog {
   @@map("communication_logs")
 }
 
-enum CommunicationType {
-  APPOINTMENT_REMINDER
-  APPOINTMENT_CONFIRMATION
-  LAB_RESULT_READY
-  PRESCRIPTION_READY
-  PAYMENT_REMINDER
-  BILL_NOTIFICATION
-  WELCOME_MESSAGE
-  GENERAL_NOTIFICATION
-  CUSTOM
-}
-
-enum CommunicationStatus {
-  PENDING
-  SENT
-  DELIVERED
-  READ
-  FAILED
-}
-
-enum CommunicationChannelType {
-  SMS
-  WHATSAPP
-  EMAIL
-}
+// ============================================================
+// FAMILY PLANNING
+// ============================================================
 
 model FamilyPlanningService {
   id                String      @id @default(cuid())
   patientId         String
-  attendanceId      String?     // Link to encounter
+  attendanceId      String?     
   serviceDate       DateTime    @default(now())
   
-  // FP Method
   method            FPMethod
   methodCategory    FPMethodCategory
   isNewAcceptor     Boolean     @default(false)
   
-  // Counselling
   counsellingGiven  Boolean     @default(true)
   informedConsent   Boolean     @default(true)
   
-  // Clinical
   sideEffects       String?
   contraindications String?
-  medicalEligibilityCategory Int?  // WHO MEC category 1-4
+  medicalEligibilityCategory Int?  
   
-  // Follow-up
   nextFollowUpDate  DateTime?
   followUpStatus    String?
   
-  // Context
   isPostpartum      Boolean     @default(false)
   isPostAbortion    Boolean     @default(false)
   postpartumWeeks   Int?
   
-  // CYP (Couple Year Protection) calculation
   cypFactor         Float       @default(1.0)
   
-  // Provider
   providedById      String
   notes             String?
   
@@ -2380,45 +2445,8 @@ model FamilyPlanningService {
   @@map("family_planning_services")
 }
 
-enum FPMethod {
-  // Modern Short-Acting
-  pill_coc
-  pill_pop
-  injectable_dmpa
-  injectable_net_en
-  condom_male
-  condom_female
-  
-  // Modern Long-Acting
-  implant_implanon
-  implant_jadelle
-  iud_copper
-  iud_hormonal
-  
-  // Permanent
-  female_sterilization
-  male_sterilization
-  
-  // Traditional
-  lam
-  withdrawal
-  calendar
-  other_traditional
-  
-  // Emergency
-  emergency_contraception
-}
-
-enum FPMethodCategory {
-  modern_short_acting
-  modern_long_acting
-  permanent
-  traditional
-  emergency
-}
-
 // ============================================================
-// CORPORATE ACCOUNTS (Extended from Insurance)
+// CORPORATE ACCOUNTS
 // ============================================================
 
 model CorporateAccount {
@@ -2430,8 +2458,8 @@ model CorporateAccount {
   email               String
   phone               String
   address             String?
-  creditLimit         Float               @default(0)
-  currentBalance      Float               @default(0)
+  creditLimit         Decimal             @db.Decimal(15, 2) @default(0)
+  currentBalance      Decimal             @db.Decimal(15, 2) @default(0)
   paymentTerms        Int                 @default(30)
   discountPercentage  Float               @default(0)
   isActive            Boolean             @default(true)
@@ -2479,8 +2507,207 @@ model CorporateEmployee {
 }
 
 // ============================================================
-// ENUMS (Keep all existing enums at the end)
+// ENUMS 
 // ============================================================
+
+enum BatchStatus {
+  draft
+  generated
+  submitted
+  exported
+}
+
+enum ProformaInvoiceStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  CONVERTED
+  EXPIRED
+}
+
+enum CommunicationType {
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CONFIRMATION
+  LAB_RESULT_READY
+  PRESCRIPTION_READY
+  PAYMENT_REMINDER
+  BILL_NOTIFICATION
+  WELCOME_MESSAGE
+  GENERAL_NOTIFICATION
+  CUSTOM
+}
+
+enum CommunicationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum CommunicationChannelType {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum FPMethod {
+  pill_coc
+  pill_pop
+  injectable_dmpa
+  injectable_net_en
+  condom_male
+  condom_female
+  implant_implanon
+  implant_jadelle
+  iud_copper
+  iud_hormonal
+  female_sterilization
+  male_sterilization
+  lam
+  withdrawal
+  calendar
+  other_traditional
+  emergency_contraception
+}
+
+enum FPMethodCategory {
+  modern_short_acting
+  modern_long_acting
+  permanent
+  traditional
+  emergency
+}
+
+enum GDRGMDC {
+  ASUR
+  DENT
+  ENTH
+  INVE
+  MEDI
+  OBGY
+  OPDC
+  OPHT
+  ORTH
+  PAED
+  PSUR
+  RSUR
+  ZOOM
+}
+
+enum MorbidityGroup {
+  afp_polio
+  meningitis
+  neonatal_tetanus
+  pertussis_whooping_cough
+  diphtheria
+  measles
+  yellow_fever
+  tetanus
+  tuberculosis
+  uncomplicated_malaria_suspected
+  uncomplicated_malaria_tested
+  uncomplicated_malaria_positive
+  uncomplicated_malaria_not_tested_treated
+  uncomplicated_malaria_tested_negative_treated
+  malaria_in_pregnancy_suspected
+  malaria_in_pregnancy_tested
+  malaria_in_pregnancy_positive
+  malaria_in_pregnancy_not_tested_treated
+  malaria_in_pregnancy_tested_negative_treated
+  severe_malaria_lab_confirmed
+  severe_malaria_non_lab_confirmed
+  typhoid_fever
+  suspected_cholera
+  diarrhoea_diseases
+  viral_hepatitis
+  schistosomiasis_bilharzia
+  suspected_guinea_worm
+  onchocerciasis
+  buruli_ulcer
+  leprosy
+  hiv_aids_related_conditions
+  mumps
+  intestinal_worms
+  chicken_pox
+  upper_respiratory_tract_infections
+  pneumonia
+  septicaemia
+  malnutrition
+  obesity
+  anaemia
+  other_nutritional_diseases
+  hypertension
+  cardiac_diseases
+  stroke
+  diabetes_mellitus
+  rheumatism_arthritis
+  sickle_cell_disease
+  asthma
+  chronic_obstructive_pulmonary_disease
+  breast_cancer
+  cervical_cancer
+  lymphoma
+  prostate_cancer
+  hepatocellular_carcinoma
+  all_other_cancers
+  schizophrenia
+  acute_psychotic_disorder
+  mono_symptoms_delusion
+  depression
+  substance_abuse
+  epilepsy
+  autism
+  mental_retardation
+  attention_deficit_hyperactivity_disorder
+  conversion_disorders
+  post_traumatic_stress_syndrome
+  generalized_anxiety
+  other_anxiety_disorders
+  neurosis
+  acute_eye_infection
+  cataract
+  trachoma
+  otitis_media
+  other_acute_ear_infection
+  dental_caries
+  dental_swellings
+  traumatic_conditions_oral
+  periodontal_diseases
+  cerebral_palsy
+  liver_diseases
+  acute_urinary_tract_infection
+  skin_diseases
+  ulcer
+  kidney_related_diseases
+  other_oral_conditions
+  gynaecological_conditions
+  pregnancy_related_complications
+  anaemia_in_pregnancy
+  gonorrhoea
+  genital_ulcer
+  vaginal_discharge
+  urethral_discharge
+  other_diseases_male_reproductive_system
+  other_diseases_female_reproductive_system
+  transport_injuries_road_traffic_accidents
+  home_injuries
+  occupational_industrial_injuries
+  burns
+  poisoning_occupational
+  dog_bite
+  human_bites
+  snake_bite
+  sexual_abuse
+  domestic_violence
+  pyrexia_unknown_origin_non_malaria
+  brought_in_dead
+  other_animal_bites
+  all_other_diseases
+  re_attendances
+  referrals
+}
 
 enum AdmissionType {
   elective
@@ -2988,7 +3215,6 @@ enum DeliveryOutcome {
   neonatal_death
 }
 
-
 enum MaternalOutcome {
   alive
   dead_direct_cause
@@ -3048,7 +3274,7 @@ enum Seniority {
 }
 
 enum PlaceOfDelivery {
-  private_hospital        // DEFAULT for your system
+  private_hospital
   government_hospital
   health_centre
   clinic
@@ -3060,4 +3286,37 @@ enum PlaceOfDelivery {
   en_route
   mines_facility
   quasi_govt_institution
+}
+
+enum GraValidationStatus {
+  pending
+  validated
+  rejected
+}
+
+enum ConsentType {
+  treatment
+  data_sharing
+  research
+  nhis_claims
+  billing
+}
+
+enum ConsentStatus {
+  granted
+  revoked
+  expired
+}
+
+enum ShiftType {
+  morning
+  afternoon
+  night
+  on_call
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
 }

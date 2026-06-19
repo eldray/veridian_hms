@@ -67,7 +67,7 @@ export default function NewAttendanceModal({
 
   const getPatientFullName = (p: any) => {
     if (!p) return 'Unknown Patient';
-    return `${p.surname || ''} ${p.otherNames || ''}`.trim();
+    return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim();
   };
 
   // Load insurance providers

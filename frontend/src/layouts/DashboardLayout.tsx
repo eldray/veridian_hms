@@ -13,6 +13,7 @@ import {
   ClipboardList, Building, CreditCard, Warehouse, Calendar, Activity,
   ChevronLeft, ChevronRight, Sun, Moon, Baby, Scissors, Syringe,
   Clipboard, TrendingUp, Eye, Trash2, Microscope, HeartPulse, Scan,
+  Briefcase,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -39,6 +40,8 @@ const navigationItems = [
   { name: 'Referrals',       path: '/dashboard/referrals',          icon: Send,            roles: ['admin','doctor','nurse','midwife','records'] },
   { name: 'Billing',         path: '/dashboard/billing',            icon: DollarSign,      roles: ['admin','doctor','accounts'] },
   { name: 'Insurance',       path: '/dashboard/insurance-claims',   icon: Shield,          roles: ['admin','doctor','accounts'] },
+  { name: 'Corporate',       path: '/dashboard/corporate-accounts', icon: Briefcase,       roles: ['admin','accounts'] },
+  { name: 'Estimates',       path: '/dashboard/estimates',          icon: FileText,        roles: ['admin','accounts'] },
   { name: 'Departments',     path: '/dashboard/departments',        icon: Building,        roles: ['admin'] },
   { name: 'Reports',         path: '/dashboard/reports',            icon: TrendingUp,      roles: ['admin','accounts','records'] },
   { name: 'Settings',        path: '/dashboard/settings',           icon: Settings,        roles: ['admin','doctor'] },
@@ -60,7 +63,7 @@ const NAV_GROUPS = [
   },
   {
     label: 'Ward & Admin',
-    keys: ['Admissions', 'Referrals', 'Billing', 'Insurance', 'Departments'],
+    keys: ['Admissions', 'Referrals', 'Billing', 'Insurance', 'Corporate', 'Estimates', 'Departments'],
   },
   {
     label: 'Management',

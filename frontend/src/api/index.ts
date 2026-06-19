@@ -364,8 +364,8 @@ export const getProfile = () =>
 export const updateProfile = (data: any) => 
   api.put('/auth/profile', data).then(r => r.data.user || r.data);
 
-export const changePassword = (currentPassword: string, newPassword: string) => 
-  api.put('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  api.post('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // SETTINGS (Admin only)
@@ -376,15 +376,6 @@ export const getHospitalDetails = () =>
 
 export const updateHospitalDetails = (data: any) => 
   api.put('/settings/hospital', data).then(r => r.data);
-
-export const getAllUsers = () => 
-  api.get('/settings/users').then(r => handleResponse<User>(r.data));
-
-export const updateUser = (userId: string, data: any) => 
-  api.put(`/settings/users/${userId}`, data).then(r => r.data);
-
-export const deactivateUser = (userId: string) => 
-  api.put(`/settings/users/${userId}/deactivate`).then(r => r.data);
 
 export const getSystemSettings = () => 
   api.get('/settings').then(r => r.data);
@@ -397,20 +388,20 @@ export const updateSystemSettings = (data: any) =>
 // HOSPITAL INFO
 // ──────────────────────────────────────────────
 
-export const getHospitals = () => 
-  api.get('/hospitals').then(r => handleResponse<HospitalInfo>(r.data));
+export const getHospitals = () =>
+  api.get('/hospital').then(r => handleResponse<HospitalInfo>(r.data));
 
-export const getHospital = (id: string) => 
-  api.get(`/hospitals/${id}`).then(r => r.data);
+export const getHospital = (id: string) =>
+  api.get(`/hospital/${id}`).then(r => r.data);
 
-export const createHospital = (data: any) => 
-  api.post('/hospitals', data).then(r => r.data);
+export const createHospital = (data: any) =>
+  api.post('/hospital', data).then(r => r.data);
 
-export const updateHospital = (id: string, data: any) => 
-  api.put(`/hospitals/${id}`, data).then(r => r.data);
+export const updateHospital = (id: string, data: any) =>
+  api.put(`/hospital/${id}`, data).then(r => r.data);
 
-export const deleteHospital = (id: string) => 
-  api.delete(`/hospitals/${id}`).then(r => r.data);
+export const deleteHospital = (id: string) =>
+  api.delete(`/hospital/${id}`).then(r => r.data);
 
 
 // ──────────────────────────────────────────────
@@ -449,6 +440,84 @@ export const bulkVerifyNHISEligibility = (policyNumbers: string[]) =>
 export const generateCCC = (data: { policyNumber: string; encounterId: string; totalAmount: number }) => 
   api.post('/settings/nhis/generate-ccc', data).then(r => r.data);
 
+// ──────────────────────────────────────────────
+// USER MANAGEMENT (Separate module - NOT in settings)
+// ──────────────────────────────────────────────
+// api/index.ts - Keep register for public registration (if needed)
+// But create a separate adminCreateUser for admin user creation
+export const adminCreateUser = (userData: any) => 
+  api.post('/users', userData).then(r => r.data);  // Admin only endpoint
+
+export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) => 
+  api.get('/users', { params: filters }).then(r => {
+    const response = r.data;
+    if (response?.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
+  });
+
+export const getUserById = (userId: string) => 
+  api.get(`/users/${userId}`).then(r => r.data?.data || r.data);
+
+export const updateUser = (userId: string, data: any) => 
+  api.put(`/users/${userId}`, data).then(r => r.data?.data || r.data);
+
+export const deactivateUser = (userId: string) => 
+  api.patch(`/users/${userId}/deactivate`).then(r => r.data?.data || r.data);
+
+export const getUserProfile = () =>
+  api.get('/auth/profile').then(r => r.data?.data || r.data);
+
+export const updateUserProfile = (data: any) =>
+  api.put('/auth/profile', data).then(r => r.data?.data || r.data);
+
+export const changeUserPassword = (userId: string, data: { currentPassword: string; newPassword: string }) =>
+  api.post(`/auth/change-password`, data).then(r => r.data);
+
+export const getCurrentUserPermissions = () => 
+  api.get('/users/permissions').then(r => r.data);
+
+// ──────────────────────────────────────────────
+// SHIFT MANAGEMENT (via User module)
+// ──────────────────────────────────────────────
+
+export const getShifts = (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => 
+  api.get('/users/shifts', { params: filters }).then(r => r.data?.data || r.data);
+
+export const getShiftById = (shiftId: string) => 
+  api.get(`/users/shifts/${shiftId}`).then(r => r.data?.data || r.data);
+
+export const createShift = (data: { userId: string; shiftDate: string; startTime: string; endTime: string; shiftType?: 'morning' | 'afternoon' | 'night' | 'on_call'; notes?: string }) => 
+  api.post('/users/shifts', data).then(r => r.data?.data || r.data);
+
+export const updateShift = (shiftId: string, data: any) => 
+  api.put(`/users/shifts/${shiftId}`, data).then(r => r.data?.data || r.data);
+
+export const deleteShift = (shiftId: string) => 
+  api.delete(`/users/shifts/${shiftId}`).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// LEAVE MANAGEMENT (via User module)
+// ──────────────────────────────────────────────
+
+export const getLeaves = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => 
+  api.get('/users/leaves', { params: filters }).then(r => r.data?.data || r.data);
+
+export const getLeaveById = (leaveId: string) => 
+  api.get(`/users/leaves/${leaveId}`).then(r => r.data?.data || r.data);
+
+export const createLeave = (data: { leaveType: 'annual' | 'sick' | 'maternity' | 'paternity' | 'emergency' | 'unpaid'; startDate: string; endDate: string; reason?: string }) => 
+  api.post('/users/leaves', data).then(r => r.data?.data || r.data);
+
+export const updateLeave = (leaveId: string, data: { status?: 'pending' | 'approved' | 'rejected' | 'cancelled'; reason?: string }) => 
+  api.put(`/users/leaves/${leaveId}`, data).then(r => r.data?.data || r.data);
+
+export const deleteLeave = (leaveId: string) => 
+  api.delete(`/users/leaves/${leaveId}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // GDRG TARIFFS
@@ -899,8 +968,8 @@ export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: s
 export const addLabTestToEncounter = (encounterId: string, data: any) => 
   api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => r.data);
 
-export const updateLabTestInEncounter = (labTestId: string, data: any) => 
-  api.patch(`/encounters/lab-tests/${labTestId}`, data).then(r => r.data);
+export const updateLabTestInEncounter = (_attendanceId: string, labTestId: string, data: any) =>
+  api.put(`/encounters/lab-tests/${labTestId}/status`, data).then(r => r.data);
 
 export const removeLabTestFromEncounter = (encounterId: string, labTestId: string) => 
   api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => r.data);
@@ -909,8 +978,8 @@ export const removeLabTestFromEncounter = (encounterId: string, labTestId: strin
 export const addProcedureToEncounter = (encounterId: string, data: any) => 
   api.post(`/encounters/${encounterId}/procedures`, data).then(r => r.data);
 
-export const updateProcedureStatus = (procedureId: string, data: any) => 
-  api.patch(`/encounters/procedures/${procedureId}`, data).then(r => r.data);
+export const updateProcedureStatus = (_attendanceId: string, procedureId: string, data: any) =>
+  api.put(`/encounters/procedures/${procedureId}/status`, data).then(r => r.data);
 
 export const removeProcedureFromEncounter = (encounterId: string, procedureId: string) => 
   api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => r.data);
@@ -925,7 +994,7 @@ export const addMedicationToEncounter = async (encounterId: string, data: {
   route?: string; 
   instructions?: string 
 }) => {
-  const response = await api.post(`/encounters/${encounterId}/medications`, data);
+  const response = await api.post(`/encounters/${encounterId}/prescriptions`, data);
   return response.data;
 };
 
@@ -971,8 +1040,8 @@ export const addScanToEncounter = async (encounterId: string, data: { serviceCat
   return response.data;
 };
 
-export const updateScanStatus = async (scanId: string, data: any) => {
-  const response = await api.patch(`/encounters/scans/${scanId}`, data);
+export const updateScanStatus = async (_attendanceId: string, scanId: string, data: any) => {
+  const response = await api.put(`/encounters/scans/${scanId}/status`, data);
   return response.data;
 };
 
@@ -1115,8 +1184,8 @@ export const updateBill = (id: string, data: any) =>
 export const deleteBill = (id: string) => 
   api.delete(`/bills/${id}`).then(r => r.data);
 
-export const addPaymentToBill = (billId: string, data: any) => 
-  api.post(`/bills/${billId}/payments`, data).then(r => r.data);
+export const addPaymentToBill = (billId: string, data: any) =>
+  api.post(`/bills/${billId}/payment`, data).then(r => r.data);
 
 export const generateBillFromEncounter = (encounterId: string) => 
   api.post(`/bills/generate/${encounterId}`).then(r => r.data);
@@ -1127,8 +1196,8 @@ export const generateBillReport = (billId: string) =>
 export const getBillingBreakdownForBill = (billId: string) => 
   api.get(`/bills/${billId}/breakdown`).then(r => r.data);
 
-export const updateBillStatus = (billId: string, data: any) => 
-  api.patch(`/bills/${billId}/status`, data).then(r => r.data);
+export const updateBillStatus = (billId: string, data: any) =>
+  api.put(`/bills/${billId}`, data).then(r => r.data);
 
 export const getBillStatistics = () => 
   api.get('/bills/statistics').then(r => r.data);
@@ -1137,8 +1206,8 @@ export const getBillStatistics = () =>
 export const getBillLineItems = (billId: string) => 
   api.get(`/bills/${billId}/line-items`).then(r => r.data);
 
-export const voidBillLineItem = (lineItemId: string, data: { reason: string }) => 
-  api.delete(`/bills/line-items/${lineItemId}/void`, { data }).then(r => r.data);
+export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
+  api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // WAIVERS
@@ -1433,7 +1502,7 @@ export const getStockCategories = () =>
   api.get('/stock-items/categories').then(r => r.data);
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => 
-  api.patch(`/stock-items/${id}/stock-level`, data).then(r => r.data);
+  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
 
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) => 
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
@@ -1570,7 +1639,7 @@ export const getReferralsByPatient = async (patientId: string, params?: { page?:
 };
 
 export const getReferralStats = async (params?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/referrals/stats', { params });
+  const response = await api.get('/referrals/stats/summary', { params });
   return response.data;
 };
 
@@ -1695,8 +1764,8 @@ export const getLabTestSubCategories = () =>
 export const getSpecimenTypes = () => 
   api.get('/lab-tests/specimen-types').then(r => r.data);
 
-export const bulkUpdateLabTestTemplates = (data: any) => 
-  api.patch('/lab-tests/bulk-update', data).then(r => r.data);
+export const bulkUpdateLabTestTemplates = (data: any) =>
+  api.post('/lab-tests/bulk-update', data).then(r => r.data);
 
 
 // Procedure Templates
@@ -1851,7 +1920,7 @@ export const getServiceMetadata = () =>
   api.get('/services/metadata').then(r => r.data);
 
 export const getNHISReadinessReport = () => 
-  api.get('/services/nhis-report').then(r => r.data);
+  api.get('/services/nhis-readiness').then(r => r.data);
 
 export const getServiceByNHISCode = (nhisCode: string) => 
   api.get(`/services/nhis/${nhisCode}`).then(r => r.data);
@@ -1922,8 +1991,8 @@ export const assignDepartmentHead = (departmentId: string, userId: string) =>
 export const removeUserFromDepartment = (departmentId: string, userId: string) => 
   api.delete(`/departments/${departmentId}/users/${userId}`).then(r => r.data?.data || r.data);
 
-export const bulkUpdateDepartments = (data: any) => 
-  api.post('/departments/bulk-update', data).then(r => r.data);
+export const bulkUpdateDepartments = (data: any) =>
+  api.put('/departments/bulk/update', data).then(r => r.data);
 
 export const getEligibleDepartmentHeads = () => 
   api.get('/departments/eligible-heads').then(r => r.data);
@@ -2000,7 +2069,7 @@ export const markNotificationAsRead = (id: string) =>
   api.patch(`/notifications/${id}/read`).then(r => r.data);
 
 export const markAllNotificationsAsRead = () => 
-  api.patch('/notifications/read-all').then(r => r.data);
+  api.patch('/notifications/mark-all-read').then(r => r.data);
 
 export const deleteNotification = (id: string) => 
   api.delete(`/notifications/${id}`).then(r => r.data);
@@ -2080,11 +2149,11 @@ export const cleanupOldNotifications = async (daysToKeep: number = 30) => {
 // USER API WITH DEPARTMENT SUPPORT
 // ──────────────────────────────────────────────
 
-export const getUsersByDepartment = (departmentId: string) => 
-  api.get(`/users/department/${departmentId}`).then(r => r.data);
+export const getUsersByDepartment = (departmentId: string) =>
+  api.get(`/departments/${departmentId}/users`).then(r => r.data);
 
-export const updateUserDepartment = (userId: string, departmentId: string) => 
-  api.patch(`/users/${userId}/department`, { departmentId }).then(r => r.data);
+export const updateUserDepartment = (userId: string, departmentId: string) =>
+  api.put(`/users/${userId}`, { departmentId }).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // DASHBOARD STATISTICS
@@ -2213,8 +2282,8 @@ export const generatePrescription = (encounterId: string) =>
 export const getDocumentsByEntity = (entityType: string, entityId: string) => 
   api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data);
 
-export const downloadDocument = (documentId: string) => 
-  api.get(`/documents/download/${documentId}`, { 
+export const downloadDocument = (documentId: string) =>
+  api.get(`/documents/${documentId}/download`, {
     responseType: 'blob',
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -2996,14 +3065,21 @@ export const getEstimatesByCorporateAccount = (accountId: string) =>
 // COMMUNICATIONS (SMS/WhatsApp)
 // ──────────────────────────────────────────────
 
-export const sendSMS = (data: { to: string; message: string; channel?: 'sms' | 'whatsapp' }) => 
-  api.post('/communications/send', data).then(r => r.data);
+export const sendSMS = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
+  api.post('/communications/sms', data).then(r => r.data);
 
-export const getCommunicationChannels = () => 
+export const sendWhatsApp = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
+  api.post('/communications/whatsapp', data).then(r => r.data);
+
+// Unified helper: routes to the correct endpoint by channel
+export const sendMessage = (channel: 'sms' | 'whatsapp', data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
+  channel === 'whatsapp' ? sendWhatsApp(data) : sendSMS(data);
+
+export const getCommunicationChannels = () =>
   api.get('/communications/channels').then(r => r.data);
 
-export const getCommunicationLogs = (filters?: { channelId?: string; status?: string; startDate?: string; endDate?: string }) => 
-  api.get('/communications/logs', { params: filters }).then(r => r.data);
+export const getCommunicationLogs = (filters?: { channelId?: string; status?: string; startDate?: string; endDate?: string }) =>
+  api.get('/communications/history', { params: filters }).then(r => r.data);
 
 export const getCommunicationTemplates = (type?: string) => 
   api.get('/communications/templates', { params: { type } }).then(r => r.data);
@@ -3027,9 +3103,17 @@ export default {
   getUserSeniority,
   getSeniorityLabel,
 
+    // User Management (NEW - separate module)
+    adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
+  
+    // Shift Management (NEW)
+    getShifts, getShiftById, createShift, updateShift, deleteShift,
+    
+    // Leave Management (NEW)
+    getLeaves, getLeaveById, createLeave, updateLeave, deleteLeave,
+
   // Settings
-  getHospitalDetails, updateHospitalDetails, getAllUsers, updateUser, deactivateUser,
-  getSystemSettings, updateSystemSettings, 
+  getHospitalDetails, updateHospitalDetails, getSystemSettings, updateSystemSettings, 
   
   // NHIS SETTINGS
   getHospitalNHISSettings, updateHospitalNHISSettings,

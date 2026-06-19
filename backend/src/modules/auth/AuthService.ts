@@ -1,330 +1,147 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
-import {
-  LoginRequestDTO,
-  RegisterRequestDTO,
-  ChangePasswordRequestDTO,
-  AuthResponse,
-  TokenPayload,
-  LoginResult,
-  RegisterResult,
-  ValidateTokenResult,
-} from './AuthTypes';
+import { LoginRequestDTO, RegisterRequestDTO, ChangePasswordRequestDTO, AuthResponse, TokenPayload } from './AuthTypes';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+const REFRESH_TOKEN_EXPIRY = '7d';
 const SALT_ROUNDS = 12;
 
 export class AuthService {
   private repository: AuthRepository;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     this.repository = new AuthRepository(prisma);
+    this.prisma = prisma;
   }
 
-  async login(data: LoginRequestDTO): Promise<LoginResult> {
-    try {
-      console.log(`Login attempt for username: ${data.username}`);
-
-      const user = await this.repository.findByUsername(data.username);
-      
-      if (!user) {
-        console.log(`Login failed - user not found: ${data.username}`);
-        return { success: false, error: 'Invalid credentials' };
-      }
-
-      if (!user.isActive) {
-        console.log(`Login failed - account inactive: ${data.username}`);
-        return { success: false, error: 'Account is deactivated' };
-      }
-
-      const isValidPassword = await bcrypt.compare(data.password, user.password);
-      
-      if (!isValidPassword) {
-        console.log(`Login failed - invalid password: ${data.username}`);
-        return { success: false, error: 'Invalid credentials' };
-      }
-
-      const tokens = await this.generateTokens(
-        user.id, 
-        user.username, 
-        user.role,
-        user.seniority  // ← ADD THIS
-      );
-
-      await this.repository.updateLastLogin(user.id);
-
-      await this.repository.storeRefreshToken(
-        user.id,
-        tokens.refreshToken,
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      );
-
-      const response: AuthResponse = {
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          role: user.role,
-          seniority: user.seniority,  // ← ADD THIS
-          email: user.email || undefined,
-          phone: user.phone || undefined,
-          departmentId: user.departmentId || undefined,
-          isActive: user.isActive,
-          createdAt: user.createdAt,
-          lastLogin: user.updatedAt || undefined,
-        },
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: parseInt(JWT_EXPIRES_IN),
-        tokenType: 'Bearer',
-      };
-
-      console.log(`Login successful: ${data.username}`);
-      return { success: true, data: response };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: 'Authentication service unavailable' 
-      };
+  // ✅ FIX: Properly parse '24h', '7d' into seconds for the frontend
+  private parseExpiresIn(timeStr: string): number {
+    const match = timeStr.match(/^(\d+)([smhd])$/);
+    if (!match) return 86400; 
+    const val = parseInt(match[1]);
+    const unit = match[2];
+    switch (unit) {
+      case 's': return val;
+      case 'm': return val * 60;
+      case 'h': return val * 3600;
+      case 'd': return val * 86400;
+      default: return 86400;
     }
   }
 
-  async register(data: RegisterRequestDTO): Promise<RegisterResult> {
-    try {
-      console.log(`Registration attempt for username: ${data.username}`);
+  private async generateTokens(userId: string, username: string, role: string, seniority: Seniority, permissions: string[]) {
+    const payload: TokenPayload = { userId, username, role: role as any, seniority, permissions };
 
-      const exists = await this.repository.usernameExists(data.username);
-      if (exists) {
-        console.log(`Registration failed - username exists: ${data.username}`);
-        return { success: false, error: 'Username already registered' };
-      }
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-      const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
-
-      const user = await this.repository.createUser({
-        username: data.username,
-        passwordHash,
-        fullName: data.fullName,
-        role: data.role,
-        seniority: data.seniority || 'JUNIOR',  // ← ADD THIS (default JUNIOR)
-        email: data.email,
-        phone: data.phone,
-        licenseNumber: data.licenseNumber,
-        specialization: data.specialization,
-        departmentId: data.departmentId,
-      });
-
-      const tokens = await this.generateTokens(
-        user.id, 
-        user.username, 
-        user.role,
-        user.seniority  // ← ADD THIS
-      );
-
-      await this.repository.storeRefreshToken(
-        user.id,
-        tokens.refreshToken,
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      );
-
-      const response: AuthResponse = {
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          role: user.role,
-          seniority: user.seniority,  // ← ADD THIS
-          email: user.email || undefined,
-          phone: user.phone || undefined,
-          departmentId: user.departmentId || undefined,
-          isActive: user.isActive,
-          createdAt: user.createdAt,
-        },
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: parseInt(JWT_EXPIRES_IN),
-        tokenType: 'Bearer',
-      };
-
-      console.log(`Registration successful: ${data.username}`);
-      return { success: true, data: response };
-    } catch (error) {
-      console.error('Registration error:', error);
-      return { 
-        success: false, 
-        error: 'Registration service unavailable' 
-      };
-    }
+    return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
   }
 
-  async refreshToken(refreshToken: string): Promise<LoginResult> {
-    try {
-      const validation = await this.repository.validateRefreshToken(refreshToken);
-      
-      if (!validation.valid) {
-        console.log('Refresh token invalid or expired');
-        return { success: false, error: 'Invalid refresh token' };
-      }
-
-      const user = await this.repository.findById(validation.userId);
-      
-      if (!user || !user.isActive) {
-        console.log('User not found or inactive during refresh');
-        return { success: false, error: 'User not found' };
-      }
-
-      const tokens = await this.generateTokens(
-        user.id, 
-        user.username, 
-        user.role,
-        user.seniority  // ← ADD THIS
-      );
-
-      await this.repository.storeRefreshToken(
-        user.id,
-        tokens.refreshToken,
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      );
-
-      await this.repository.deleteRefreshToken(refreshToken);
-
-      const response: AuthResponse = {
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          role: user.role,
-          seniority: user.seniority,  // ← ADD THIS
-          email: user.email || undefined,
-          phone: user.phone || undefined,
-          departmentId: user.departmentId || undefined,
-          isActive: user.isActive,
-          createdAt: user.createdAt,
-          lastLogin: user.updatedAt || undefined,
-        },
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: parseInt(JWT_EXPIRES_IN),
-        tokenType: 'Bearer',
-      };
-
-      return { success: true, data: response };
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      return { 
-        success: false, 
-        error: 'Token refresh failed' 
-      };
-    }
-  }
-
-  async changePassword(userId: string, data: ChangePasswordRequestDTO): Promise<{ success: boolean; error?: string }> {
-    try {
-      const user = await this.repository.findById(userId);
-      
-      if (!user) {
-        return { success: false, error: 'User not found' };
-      }
-
-      const isValidPassword = await bcrypt.compare(data.currentPassword, user.password);
-      
-      if (!isValidPassword) {
-        return { success: false, error: 'Current password is incorrect' };
-      }
-
-      const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
-      await this.repository.changePassword(userId, newPasswordHash);
-
-      console.log(`Password changed successfully for user: ${userId}`);
-      return { success: true };
-    } catch (error) {
-      console.error('Password change error:', error);
-      return { success: false, error: 'Password change failed' };
-    }
-  }
-
-  async logout(refreshToken: string): Promise<{ success: boolean }> {
-    try {
-      await this.repository.deleteRefreshToken(refreshToken);
-      console.log('User logged out successfully');
-      return { success: true };
-    } catch (error) {
-      console.error('Logout error:', error);
-      return { success: false };
-    }
-  }
-
-  validateToken(token: string): ValidateTokenResult {
-    try {
-      const payload = jwt.verify(token, JWT_SECRET) as TokenPayload;
-      return { valid: true, payload };
-    } catch (error) {
-      return { 
-        valid: false, 
-        error: error instanceof Error ? error.message : 'Token validation failed' 
-      };
-    }
-  }
-
-  // UPDATED: Include seniority in token generation
-  private async generateTokens(
-    userId: string, 
-    username: string, 
-    role: string, 
-    seniority: Seniority  // ← ADD THIS PARAMETER
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  }> {
-    const payload: TokenPayload = { 
-      userId, 
-      username, 
-      role: role as any,
-      seniority  // ← ADD THIS
+  private mapUserResponse(user: any) {
+    return {
+      id: user.id, username: user.username, fullName: user.fullName, role: user.role,
+      seniority: user.seniority, email: user.email, phone: user.phone, imageUrl: user.imageUrl,
+      departmentId: user.departmentId, department: user.department, isActive: user.isActive, createdAt: user.createdAt
     };
-
-    const accessToken = jwt.sign(payload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
-
-    const refreshToken = jwt.sign(
-      { userId, type: 'refresh' },
-      JWT_SECRET,
-      { expiresIn: REFRESH_TOKEN_EXPIRY }
-    );
-
-    return { accessToken, refreshToken };
   }
 
-  async getUserProfile(userId: string) {
-    try {
-      const user = await this.repository.findById(userId);
-      
-      if (!user) {
-        return null;
-      }
+  async login(data: LoginRequestDTO) {
+    const user = await this.repository.findByUsername(data.username);
+    if (!user || !user.isActive) return { success: false, error: 'Invalid credentials or inactive account' };
 
-      return {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        seniority: user.seniority,  // ← ADD THIS
-        email: user.email,
-        phone: user.phone,
-        department: user.department,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        lastLogin: user.updatedAt,
-      };
-    } catch (error) {
-      console.error('Get user profile error:', error);
-      throw error;
-    }
+    const isValid = await bcrypt.compare(data.password, user.password);
+    if (!isValid) return { success: false, error: 'Invalid credentials' };
+
+    const permissions = this.repository.mapUserPermissions(user);
+    const tokens = await this.generateTokens(user.id, user.username, user.role, user.seniority, permissions);
+
+    await this.repository.updateLastLogin(user.id);
+    await this.repository.storeRefreshToken(user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000));
+
+    return {
+      success: true,
+      data: { user: this.mapUserResponse(user), ...tokens, tokenType: 'Bearer' }
+    };
+  }
+
+  async register(data: RegisterRequestDTO) {
+    if (await this.repository.usernameExists(data.username)) return { success: false, error: 'Username already exists' };
+
+    const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
+    const user = await this.repository.createUser({ ...data, passwordHash });
+
+    const permissions = this.repository.mapUserPermissions(user);
+    const tokens = await this.generateTokens(user.id, user.username, user.role, user.seniority, permissions);
+    await this.repository.storeRefreshToken(user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000));
+
+    return { success: true, data: { user: this.mapUserResponse(user), ...tokens, tokenType: 'Bearer' } };
+  }
+
+  // ✅ NEW: Moved from Controller
+  async updateProfile(userId: string, updateData: any, imageUrl?: string) {
+    if (imageUrl) updateData.imageUrl = imageUrl;
+    
+    const updatedUser = await this.repository.updateUser(userId, updateData);
+    const permissions = this.repository.mapUserPermissions(updatedUser);
+    
+    const tokens = await this.generateTokens(updatedUser.id, updatedUser.username, updatedUser.role, updatedUser.seniority, permissions);
+    await this.repository.storeRefreshToken(updatedUser.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000));
+
+    return { success: true, data: { user: this.mapUserResponse(updatedUser), ...tokens, tokenType: 'Bearer' } };
+  }
+
+  // ✅ NEW: Moved from Controller & Fixed Schema Crash
+  async forgotPassword(username: string) {
+    const user = await this.repository.findByUsername(username);
+    if (!user) return { success: true, message: 'If the account exists, a reset link was sent.' }; // Security best practice
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    await this.repository.updateUser(user.id, { resetToken, resetExpiry });
+    
+    // TODO: Send email/SMS with resetToken here
+    console.log(`🔑 Password reset token for ${username}: ${resetToken}`);
+
+    return { success: true, message: 'If the account exists, a reset link was sent.' };
+  }
+
+  async refreshToken(refreshToken: string) {
+    const validation = await this.repository.validateRefreshToken(refreshToken);
+    if (!validation.valid) return { success: false, error: 'Invalid refresh token' };
+
+    const user = await this.repository.findById(validation.userId);
+    if (!user || !user.isActive) return { success: false, error: 'User not found' };
+
+    const permissions = this.repository.mapUserPermissions(user);
+    const tokens = await this.generateTokens(user.id, user.username, user.role, user.seniority, permissions);
+    
+    await this.repository.storeRefreshToken(user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000));
+    await this.repository.deleteRefreshToken(refreshToken);
+
+    return { success: true, data: { user: this.mapUserResponse(user), ...tokens, tokenType: 'Bearer' } };
+  }
+
+  async changePassword(userId: string, data: ChangePasswordRequestDTO) {
+    const user = await this.repository.findById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+
+    const isValid = await bcrypt.compare(data.currentPassword, user.password);
+    if (!isValid) return { success: false, error: 'Current password is incorrect' };
+
+    const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
+    await this.repository.updateUser(userId, { password: newPasswordHash });
+    return { success: true };
+  }
+
+  async logout(refreshToken: string) {
+    await this.repository.deleteRefreshToken(refreshToken);
+    return { success: true };
   }
 }

@@ -1,37 +1,26 @@
-// modules/communication/CommunicationRoutes.ts
 import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { CommunicationController } from './CommunicationController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export function createCommunicationRoutes(): Router {
+export function createCommunicationRoutes(prisma: PrismaClient): Router {
   const router = Router();
-  const controller = new CommunicationController();
+  // ✅ Pass prisma to controller to maintain shared connection pool
+  const controller = new CommunicationController(prisma);
 
-  // All routes require authentication
   router.use(protect);
 
-  // SMS Routes
-  router.post(
-    '/sms',
-    requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
-    controller.sendSMS
-  );
+  // Provider readiness (is real delivery active?)
+  router.get('/provider-status', controller.getProviderStatus);
 
-  // WhatsApp Routes
-  router.post(
-    '/whatsapp',
-    requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']),
-    controller.sendWhatsApp
-  );
+  // SMS & WhatsApp Routes
+  router.post('/sms', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), controller.sendSMS);
+  router.post('/whatsapp', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), controller.sendWhatsApp);
 
-  // Bulk Messaging - restricted to admin and accounts
-  router.post(
-    '/bulk',
-    requireRole(['admin', 'accounts']),
-    controller.sendBulkMessage
-  );
+  // Bulk Messaging
+  router.post('/bulk', requireRole(['admin', 'accounts']), controller.sendBulkMessage);
 
-  // Template Management - restricted to admin and accounts
+  // Template Management
   router.get('/templates', requireRole(['admin', 'accounts']), controller.getTemplates);
   router.post('/templates', requireRole(['admin', 'accounts']), controller.createTemplate);
   router.put('/templates/:id', requireRole(['admin', 'accounts']), controller.updateTemplate);

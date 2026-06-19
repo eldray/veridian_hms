@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUserStore } from '../store/userStore'; 
 import { useToast } from '../store/toastStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
@@ -358,7 +359,7 @@ export default function Notifications() {
   } = useNotificationStore();
 
   const { user }                                          = useAuthStore();
-  const { users, getAllUsers, isLoading: isLoadingUsers } = useSettingsStore();
+  const { users, getAllUsers, isLoading: isLoadingUsers } = useUserStore();
   const { success, error: toastError }                   = useToast();
 
   const [searchTerm, setSearchTerm]               = useState('');

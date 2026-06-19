@@ -34,6 +34,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
 
 export default function InsuranceClaims() {
   const navigate = useNavigate();
@@ -115,7 +116,7 @@ export default function InsuranceClaims() {
 
   const getPatientFullName = (patient: any) => {
     if (!patient) return 'Unknown';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
+    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
   };
 
   // Get eligible attendances based on active tab
@@ -336,6 +337,9 @@ export default function InsuranceClaims() {
           </button>
         </div>
       </div>
+
+      {/* Section navigation */}
+      <InsuranceSectionTabs active="claims" />
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200">

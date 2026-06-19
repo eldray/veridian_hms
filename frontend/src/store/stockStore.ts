@@ -228,10 +228,9 @@ export const useStockStore = create<StockState>((set, get) => ({
   getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      // Request a large limit to get all items
       const allItems: StockItem[] = [];
       let currentPage = 1;
-      const limit = 500; // Get 500 items per request
+      const limit = 500;
       let hasMore = true;
       
       while (hasMore) {
@@ -242,14 +241,21 @@ export const useStockStore = create<StockState>((set, get) => ({
         });
         
         const items = extractItems(response, 'stockItems');
-        allItems.push(...(items as StockItem[]));
         
-        // Check if we've gotten all items
+        // ✅ Normalize data: convert string numbers to actual numbers
+        const normalizedItems = (items as any[]).map(item => ({
+          ...item,
+          costPrice: Number(item.costPrice) || 0,
+          currentStock: Number(item.currentStock) || 0,
+          reorderLevel: Number(item.reorderLevel) || 0,
+        }));
+        
+        allItems.push(...normalizedItems as StockItem[]);
+        
         const total = response?.pagination?.total || response?.total || items.length;
         hasMore = allItems.length < total && items.length === limit;
         currentPage++;
         
-        // Safety: Don't make more than 10 requests
         if (currentPage > 10) break;
       }
       
@@ -291,7 +297,13 @@ export const useStockStore = create<StockState>((set, get) => ({
   createStockItem: async (data: Partial<StockItem>) => {
     set({ isLoading: true, error: null });
     try {
-      const newStockItem = await apiCreateStockItem(data);
+      // ✅ Ensure numeric fields are numbers before sending to API
+      const normalizedData = {
+        ...data,
+        costPrice: Number(data.costPrice) || 0,
+        reorderLevel: Number(data.reorderLevel) || 0,
+      };
+      const newStockItem = await apiCreateStockItem(normalizedData);
       const { stockItems } = get();
       set({ 
         stockItems: [newStockItem, ...stockItems],

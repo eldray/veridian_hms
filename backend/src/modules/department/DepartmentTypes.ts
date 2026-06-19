@@ -62,6 +62,23 @@ export interface DepartmentStats {
   averageStaffPerDepartment: number;
 }
 
+export interface SingleDepartmentStats {
+  departmentId: string;
+  name: string;
+  isActive: boolean;
+  totalStaff: number;
+  activeStaff: number;
+  inactiveStaff: number;
+  staffByRole: Record<string, number>;
+  totalAppointments: number;
+  upcomingAppointments: number;
+  head: {
+    id: string;
+    fullName: string;
+    role: string;
+  } | null;
+}
+
 export interface DepartmentResponse {
   success: boolean;
   data?: DepartmentWithRelations | DepartmentWithRelations[];

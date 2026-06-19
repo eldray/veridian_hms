@@ -1,10 +1,4 @@
-// modules/diagnosis/DiagnosisTypes.ts
-
 import { MorbidityGroup } from '@prisma/client';
-
-// ============================================
-// DTOs - Data Transfer Objects
-// ============================================
 
 export interface CreateDiagnosisDTO {
   name: string;
@@ -38,15 +32,6 @@ export interface DiagnosisFilterDTO {
   searchField?: 'name' | 'icdCode' | 'morbidityGroup' | 'all';
 }
 
-export interface DiagnosisStatsDTO {
-  dateFrom?: Date;
-  dateTo?: Date;
-}
-
-// ============================================
-// Response Types
-// ============================================
-
 export interface DiagnosisResponse {
   id: string;
   name: string;
@@ -66,49 +51,24 @@ export interface DiagnosisWithRelations extends DiagnosisResponse {
   gdrgTariffDiagnoses?: Array<{
     id: string;
     gdrgTariff: {
-      id: string;
-      gdrgCode: string;
-      mdc: string;
-      description: string;
-      nhiaTariff: number;
-      ageSplit?: number;
-      minAgeYears?: number;
-      maxAgeYears?: number;
-      applicableLevels?: string[];
-      nhisServiceCode?: string;
-      isZoomCode: boolean;
-      effectiveFrom: Date;
-      effectiveTo?: Date;
-      isActive: boolean;
+      id: string; gdrgCode: string; mdc: string; description: string; nhiaTariff: number;
+      ageSplit?: string; minAgeYears?: number; maxAgeYears?: number; applicableLevels?: number[];
+      nhisServiceCode?: string; isZoomCode: boolean; effectiveFrom: Date; effectiveTo?: Date; isActive: boolean;
     };
   }>;
   ServiceCatalog?: Array<{
-    id: string;
-    name: string;
-    code: string;
-    serviceType: string;
-    serviceCategory: string;
-    pricing: Array<{
-      cashPrice: number;
-      nhisPrice: number;
-      insurancePrice: number;
-    }>;
+    id: string; name: string; code: string; serviceType: string; serviceCategory: string;
+    pricing: Array<{ cashPrice: number; nhisPrice: number; insurancePrice: number; }>;
   }>;
 }
 
 export interface DiagnosisStatsResponse {
-  total: number;
-  active: number;
-  inactive: number;
-  byMorbidityGroup: Array<{
-    morbidityGroup: MorbidityGroup;
-    _count: number;
-  }>;
-  recentAdditions: number;
-  diagnosesWithGDRG: number;
-  gdrgCoverage: string;
+  total: number; active: number; inactive: number;
+  byMorbidityGroup: Array<{ morbidityGroup: MorbidityGroup; _count: number; }>;
+  recentAdditions: number; diagnosesWithGDRG: number; gdrgCoverage: string;
 }
 
+// ✅ UPDATED: Changed 'pages' to 'totalPages' to match BaseController.paginated()
 export interface PaginatedResponse<T> {
   success: boolean;
   data: T | T[];
@@ -116,6 +76,6 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     total: number;
-    pages: number;
+    totalPages: number; 
   };
 }

@@ -418,7 +418,7 @@ export default function AdmissionDetails() {
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</p>
                     <p className="text-base font-semibold text-gray-900 mt-0.5">
-                      {patient ? `${patient.surname} ${patient.otherNames}` : 'Unknown Patient'}
+                      {patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'Unknown Patient'}
                     </p>
                   </div>
                   <div>
@@ -831,7 +831,7 @@ export default function AdmissionDetails() {
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">Discharge Patient</h3>
               <p className="text-sm text-gray-500 mt-1">
-                Please confirm discharge details for {patient ? `${patient.surname} ${patient.otherNames}` : 'patient'}
+                Please confirm discharge details for {patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'patient'}
               </p>
             </div>
             <div className="p-6 space-y-4">

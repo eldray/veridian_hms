@@ -1,77 +1,56 @@
-// InsuranceProviderRoutes.ts
 import { Router } from 'express';
-import { InsuranceProviderController } from './InsuranceProviderController';
+import { UserRole, InsuranceType, PrismaClient } from '@prisma/client';
+import { InsuranceProviderController } from './InsuranceProviderController'; // ✅ Import class, not singleton
 import { body } from 'express-validator';
-import { InsuranceType } from '@prisma/client';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
-export const createInsuranceProviderRoutes = (controller?: InsuranceProviderController): Router => {
+export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { // ✅ Accept prisma
   const router = Router();
-  const insuranceProviderController = controller || new InsuranceProviderController();
+  const controller = new InsuranceProviderController(prisma); // ✅ Instantiate with prisma
+  
+  router.use(protect);
+  
+  const adminRoles: UserRole[] = ['admin'];
+  const readRoles: UserRole[] = ['admin', 'accounts', 'records', 'doctor', 'nurse'];
 
-  // GET all insurance providers
-  router.get('/', insuranceProviderController.getInsuranceProviders.bind(insuranceProviderController));
+  // ==========================================
+  // SPECIFIC ROUTES FIRST
+  // ==========================================
+  router.get('/types', requireRole(readRoles), controller.getInsuranceTypes);
 
-  // GET insurance provider by ID
-  router.get('/:id', insuranceProviderController.getInsuranceProviderById.bind(insuranceProviderController));
-
-  // CREATE insurance provider
+  // ==========================================
+  // DYNAMIC ID ROUTES
+  // ==========================================
+  router.get('/', requireRole(readRoles), controller.getInsuranceProviders);
+  router.get('/:id', requireRole(readRoles), controller.getInsuranceProviderById);
+  router.get('/:id/stats', requireRole(readRoles), controller.getInsuranceProviderStats);
+  
+  // Write access restricted to Admin/Accounts
   router.post(
-    '/',
+    '/', 
+    requireRole(['admin', 'accounts']),
     [
-      body('name')
-        .notEmpty().withMessage('Name is required')
-        .trim()
-        .isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-      body('type')
-        .isIn(Object.values(InsuranceType))
-        .withMessage('Valid type is required'),
-      body('coveragePercentage')
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('Coverage percentage must be between 0 and 100'),
-      body('contactInfo')
-        .optional()
-        .isObject()
-        .withMessage('Contact info must be a valid object'),
-    ],
-    insuranceProviderController.createInsuranceProvider.bind(insuranceProviderController)
+      body('name').notEmpty().trim().isLength({ min: 2 }),
+      body('type').isIn(Object.values(InsuranceType)),
+      body('coveragePercentage').isFloat({ min: 0, max: 100 }),
+      body('contactInfo').optional().isObject()
+    ], 
+    controller.createInsuranceProvider
   );
-
-  // UPDATE insurance provider
+  
   router.put(
-    '/:id',
+    '/:id', 
+    requireRole(['admin', 'accounts']),
     [
-      body('name')
-        .optional()
-        .notEmpty().withMessage('Name cannot be empty')
-        .trim()
-        .isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-      body('type')
-        .optional()
-        .isIn(Object.values(InsuranceType))
-        .withMessage('Valid type is required'),
-      body('coveragePercentage')
-        .optional()
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('Coverage percentage must be between 0 and 100'),
-      body('contactInfo')
-        .optional()
-        .isObject()
-        .withMessage('Contact info must be a valid object'),
-    ],
-    insuranceProviderController.updateInsuranceProvider.bind(insuranceProviderController)
+      body('name').optional().notEmpty().trim().isLength({ min: 2 }),
+      body('type').optional().isIn(Object.values(InsuranceType)),
+      body('coveragePercentage').optional().isFloat({ min: 0, max: 100 })
+    ], 
+    controller.updateInsuranceProvider
   );
-
-  // DELETE insurance provider
-  router.delete('/:id', insuranceProviderController.deleteInsuranceProvider.bind(insuranceProviderController));
-
-  // TOGGLE insurance provider status
-  router.patch('/:id/toggle-status', insuranceProviderController.toggleInsuranceProviderStatus.bind(insuranceProviderController));
-
-  // GET insurance provider statistics
-  router.get('/:id/stats', insuranceProviderController.getInsuranceProviderStats.bind(insuranceProviderController));
-
-  // GET insurance types
-  router.get('/types', insuranceProviderController.getInsuranceTypes.bind(insuranceProviderController));
+  
+  router.delete('/:id', requireRole(adminRoles), controller.deleteInsuranceProvider);
+  router.patch('/:id/toggle-status', requireRole(['admin', 'accounts']), controller.toggleInsuranceProviderStatus);
 
   return router;
-};
+}

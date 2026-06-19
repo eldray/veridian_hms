@@ -252,6 +252,35 @@ export class DepartmentController {
     }
   };
 
+  // Per-department statistics (scoped to a single department id).
+  getDepartmentStats = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const stats = await this.service.getDepartmentStats(id);
+
+      res.json({
+        success: true,
+        data: stats,
+        message: 'Department statistics retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Error fetching department statistics:', error);
+      if ((error as Error).message === 'Department not found') {
+        res.status(404).json({
+          success: false,
+          message: 'Department not found'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Error fetching department statistics',
+          error: (error as Error).message
+        });
+      }
+    }
+  };
+
   getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -355,28 +384,26 @@ export class DepartmentController {
     }
   };
 
-// DepartmentController.ts - Add new method to get eligible department heads
+  // ✅ FIXED: This method is now INSIDE the class
+  getEligibleHeads = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const eligibleUsers = await this.service.getEligibleDepartmentHeads();
 
-// Add this method to the DepartmentController class
-getEligibleHeads = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const eligibleUsers = await this.service.getEligibleDepartmentHeads();
-
-    res.json({
-      success: true,
-      data: eligibleUsers,
-      count: eligibleUsers.length,
-      message: 'Eligible department heads retrieved successfully'
-    });
-  } catch (error) {
-    console.error('Error fetching eligible department heads:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching eligible department heads',
-      error: (error as Error).message
-    });
-  }
-};
+      res.json({
+        success: true,
+        data: eligibleUsers,
+        count: eligibleUsers.length,
+        message: 'Eligible department heads retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Error fetching eligible department heads:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching eligible department heads',
+        error: (error as Error).message
+      });
+    }
+  };
 
   bulkUpdate = [
     body('departmentIds').isArray().withMessage('Department IDs must be an array'),
@@ -413,4 +440,4 @@ getEligibleHeads = async (req: AuthRequest, res: Response): Promise<void> => {
       }
     }
   ];
-}
+} // ✅ Class closes here

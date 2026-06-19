@@ -1,80 +1,15 @@
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { BaseController } from '../../shared/base/BaseController';
 import { BillService } from './BillService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { CreateBillInput, AddPaymentInput, VoidLineItemInput } from './BillTypes';
 
-const billService = new BillService();
+const prisma = new PrismaClient();
+const billService = new BillService(prisma);
 
-const handleError = (res: Response, message: string, error: any, statusCode = 500) => {
-  console.error(`❌ ${message}:`, error);
-  res.status(statusCode).json({
-    success: false,
-    message,
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined
-  });
-};
-
-export const getBills = async (req: AuthRequest, res: Response) => {
-  try {
-    const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
-
-    const filters: any = {};
-    if (patientId) filters.patientId = patientId as string;
-    
-    if (status) {
-      if (typeof status === 'string' && status.includes(',')) {
-        filters.status = status.split(',').map((s: string) => s.trim());
-      } else {
-        filters.status = status;
-      }
-    }
-    
-    if (paymentMode) filters.paymentMode = paymentMode as string;
-    if (dateFrom) filters.dateFrom = new Date(dateFrom as string);
-    if (dateTo) filters.dateTo = new Date(dateTo as string);
-
-    const result = await billService.getAllBills(filters, pageNum, limitNum);
-
-    res.json({
-      success: true,
-      data: result.bills,
-      pagination: {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: Math.ceil(result.total / result.limit)
-      }
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching bills', error);
-  }
-};
-
-export const getBillById = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const bill = await billService.getBillById(id);
-
-    res.json({
-      success: true,
-      data: bill
-    });
-  } catch (error: any) {
-    if (error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error fetching bill', error);
-  }
-};
-
-// Validation rules for create bill
+// ✅ Kept your exact validation arrays
 export const createBillValidation = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one line item is required'),
@@ -84,316 +19,209 @@ export const createBillValidation = [
   body('paymentMode').optional().isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Invalid payment mode')
 ];
 
-export const createBill = async (req: AuthRequest, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-        message: 'Validation failed'
-      });
-    }
-
-    const body: CreateBillInput = req.body;
-
-    if (!req.user?.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'User authentication required'
-      });
-    }
-
-    const bill = await billService.createBill(body, req.user.id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Bill created successfully',
-      data: bill
-    });
-  } catch (error: any) {
-    if (error.message.includes('required') || error.message.includes('must be') || error.message.includes('cannot be')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error creating bill', error);
-  }
-};
-
-// Validation rules for update bill
 export const updateBillValidation = [
   body('totalAmount').optional().isFloat({ min: 0 }).withMessage('Total amount must be non-negative'),
   body('status').optional().isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Invalid status'),
   body('notes').optional().isString()
 ];
 
-export const updateBill = async (req: AuthRequest, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-        message: 'Validation failed'
-      });
-    }
-
-    const { id } = req.params;
-    const updateData = req.body;
-
-    const bill = await billService.updateBill(id, updateData);
-
-    res.json({
-      success: true,
-      message: 'Bill updated successfully',
-      data: bill
-    });
-  } catch (error: any) {
-    if (error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    if (error.message.includes('cannot be')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error updating bill', error);
-  }
-};
-
-export const deleteBill = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    await billService.deleteBill(id);
-
-    res.json({
-      success: true,
-      message: 'Bill deleted successfully'
-    });
-  } catch (error: any) {
-    if (error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error deleting bill', error);
-  }
-};
-
-// Validation rules for add payment
 export const addPaymentValidation = [
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
-  body('paymentMode').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment mode'),
-  body('referenceNumber').optional().isString(),
+  body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
+  body('reference').optional().isString(),
   body('notes').optional().isString()
 ];
 
-export const addPaymentToBill = async (req: AuthRequest, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-        message: 'Validation failed'
-      });
-    }
-
-    const { id } = req.params;
-    const paymentData: AddPaymentInput = req.body;
-
-    if (!req.user?.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'User authentication required'
-      });
-    }
-
-    const result = await billService.addPayment(id, paymentData, req.user.id);
-
-    res.json({
-      success: true,
-      message: 'Payment added successfully',
-      data: result
-    });
-  } catch (error: any) {
-    if (error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    if (error.message.includes('must be') || error.message.includes('Cannot add payment')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error adding payment', error);
-  }
-};
-
-// Validation rules for void line item
 export const voidLineItemValidation = [
   body('reason').notEmpty().withMessage('Void reason is required')
 ];
 
-export const voidBillLineItem = async (req: AuthRequest, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-        message: 'Validation failed'
-      });
-    }
-
-    const { lineItemId } = req.params;
-    const { reason }: VoidLineItemInput = req.body;
-
-    if (!req.user?.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'User authentication required'
-      });
-    }
-
-    const result = await billService.voidLineItem(lineItemId, req.user.id, reason);
-
-    const updatedBill = await billService.getBillById(result.billId);
-
-    res.json({
-      success: true,
-      message: 'Bill line item voided successfully',
-      data: {
-        voidedItem: result,
-        updatedBill
-      }
-    });
-  } catch (error: any) {
-    if (error.message === 'Line item not found' || error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    if (error.message.includes('required') || error.message.includes('already voided')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error voiding bill line item', error);
-  }
-};
-
-export const getBillStatistics = async (req: AuthRequest, res: Response) => {
-  try {
-    const { period, dateFrom, dateTo } = req.query;
-
-    let startDate: Date | undefined;
-    let endDate: Date | undefined;
-
-    if (dateFrom && dateTo) {
-      startDate = new Date(dateFrom as string);
-      endDate = new Date(dateTo as string);
-    }
-
-    const stats = await billService.getStatistics(startDate, endDate);
-
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    handleError(res, 'Error fetching bill statistics', error);
-  }
-};
-
-export const getBillLineItems = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const lineItems = await billService.getLineItems(id);
-    const bill = await billService.getBillById(id);
-
-    res.json({
-      success: true,
-      data: {
-        bill: {
-          id: bill?.id,
-          billNumber: bill?.billNumber,
-          status: bill?.status,
-          totalAmount: bill?.totalAmount,
-          paidAmount: bill?.paidAmount,
-          balance: bill?.balance
-        },
-        lineItems,
-        summary: {
-          totalItems: lineItems.length,
-          subtotal: lineItems.reduce((sum, i) => sum + (i.lineTotal || 0), 0),
-          insuranceCovered: lineItems.reduce((sum, i) => sum + (i.insuranceCoveredAmount || 0), 0),
-          patientPayable: lineItems.reduce((sum, i) => sum + (i.patientPayableAmount || 0), 0)
-        }
-      }
-    });
-  } catch (error: any) {
-    if (error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    handleError(res, 'Error fetching bill line items', error);
-  }
-};
-
-// Validation rules for apply waiver
 export const applyWaiverValidation = [
   body('waiverId').notEmpty().withMessage('Waiver ID is required')
 ];
 
-export const applyWaiverToBill = async (req: AuthRequest, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-        message: 'Validation failed'
-      });
-    }
+export class BillController extends BaseController {
+  
+  getBills = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
 
-    const { billId } = req.params;
-    const { waiverId } = req.body;
+    const filters: any = { page: pageNum, limit: limitNum };
+    if (patientId) filters.patientId = patientId;
+    if (status) filters.status = typeof status === 'string' && status.includes(',') ? status.split(',').map((s: string) => s.trim()) : status;
+    if (paymentMode) filters.paymentMode = paymentMode;
+    if (dateFrom) filters.dateFrom = new Date(dateFrom as string);
+    if (dateTo) filters.dateTo = new Date(dateTo as string);
 
-    const result = await billService.applyWaiver(billId, waiverId);
+    const result = await billService.getAllBills(filters, pageNum, limitNum);
+    return this.paginated(res, result.bills, { page: pageNum, limit: limitNum, total: result.total }, 'Bills retrieved successfully');
+  });
 
-    res.json({
-      success: true,
-      message: `Waiver applied successfully`,
-      data: result
-    });
-  } catch (error: any) {
-    if (error.message === 'Waiver not found' || error.message === 'Bill not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
+  getBillById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      const bill = await billService.getBillById(req.params.id);
+      return this.ok(res, bill, 'Bill retrieved successfully');
+    } catch (error: any) {
+      if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      throw error;
     }
-    if (error.message.includes('approved') || error.message.includes('belong')) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
+  });
+
+  createBill = [
+    ...createBillValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+
+      const bill = await billService.createBill(req.body as CreateBillInput, req.user.id);
+      return this.created(res, bill, 'Bill created successfully');
+    })
+  ];
+
+  updateBill = [
+    ...updateBillValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+
+      try {
+        const bill = await billService.updateBill(req.params.id, req.body);
+        return this.ok(res, bill, 'Bill updated successfully');
+      } catch (error: any) {
+        if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        throw error;
+      }
+    })
+  ];
+
+  deleteBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      await billService.deleteBill(req.params.id);
+      return this.ok(res, null, 'Bill deleted successfully');
+    } catch (error: any) {
+      if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      throw error;
     }
-    handleError(res, 'Error applying waiver to bill', error);
-  }
-};
+  });
+
+  addPaymentToBill = [
+    ...addPaymentValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+
+      try {
+        const result = await billService.addPayment(req.params.id, req.body as AddPaymentInput, req.user.id);
+        return this.ok(res, result, 'Payment added successfully');
+      } catch (error: any) {
+        if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        throw error;
+      }
+    })
+  ];
+
+  voidBillLineItem = [
+    ...voidLineItemValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+
+      try {
+        const { reason }: VoidLineItemInput = req.body;
+        const result = await billService.voidLineItem(req.params.lineItemId, req.user.id, reason);
+        const updatedBill = await billService.getBillById(result.billId);
+        return this.ok(res, { voidedItem: result, updatedBill }, 'Bill line item voided successfully');
+      } catch (error: any) {
+        if (error.message === 'Line item not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
+        throw error;
+      }
+    })
+  ];
+
+  getBillStatistics = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { dateFrom, dateTo } = req.query;
+    const startDate = dateFrom ? new Date(dateFrom as string) : undefined;
+    const endDate = dateTo ? new Date(dateTo as string) : undefined;
+    const stats = await billService.getStatistics(startDate, endDate);
+    return this.ok(res, stats, 'Statistics retrieved successfully');
+  });
+
+  getBillLineItems = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      const lineItems = await billService.getLineItems(req.params.id);
+      const bill = await billService.getBillById(req.params.id);
+
+      // ✅ FIXED: Safely parse Decimals for summary calculation
+      const toNum = (val: any) => val ? parseFloat(val.toString()) : 0;
+
+      return this.ok(res, {
+        bill: { id: bill?.id, billNumber: bill?.billNumber, status: bill?.status, totalAmount: bill?.totalAmount, paidAmount: bill?.paidAmount, balance: bill?.balance },
+        lineItems,
+        summary: {
+          totalItems: lineItems.length,
+          subtotal: lineItems.reduce((sum, i) => sum + toNum(i.lineTotal), 0),
+          insuranceCovered: lineItems.reduce((sum, i) => sum + toNum(i.insuranceCoveredAmount), 0),
+          patientPayable: lineItems.reduce((sum, i) => sum + toNum(i.patientPayableAmount), 0)
+        }
+      }, 'Line items retrieved successfully');
+    } catch (error: any) {
+      if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      throw error;
+    }
+  });
+
+  getBillBreakdown = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      const breakdown = await billService.getBreakdown(req.params.id);
+      return this.ok(res, breakdown, 'Billing breakdown retrieved successfully');
+    } catch (error: any) {
+      if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      throw error;
+    }
+  });
+
+  getBillReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      const report = await billService.getReport(req.params.id);
+      return this.ok(res, report, 'Bill report generated successfully');
+    } catch (error: any) {
+      if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      throw error;
+    }
+  });
+
+  generateBillFromEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+    try {
+      const bill = await billService.generateFromEncounter(req.params.encounterId, req.user.id);
+      return this.created(res, bill, 'Bill generated from encounter successfully');
+    } catch (error: any) {
+      if (error.message === 'Encounter not found') return this.notFound(res, 'Encounter');
+      if (error.message === 'A bill already exists for this encounter') return this.conflict(res, error.message);
+      throw error;
+    }
+  });
+
+  applyWaiverToBill = [
+    ...applyWaiverValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+
+      try {
+        const { waiverId } = req.body;
+        const result = await billService.applyWaiver(req.params.billId, waiverId);
+        return this.ok(res, result, 'Waiver applied successfully');
+      } catch (error: any) {
+        if (error.message === 'Waiver not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
+        throw error;
+      }
+    })
+  ];
+}
+
+export const billController = new BillController();

@@ -1,7 +1,29 @@
-// cron/wardChargeCron.ts - Daily Ward Charge Generation (CORPORATE SUPPORT ADDED)
+// cron/wardChargeCron.ts - Daily Ward Charge Generation (ALL BUGS FIXED)
 import { PrismaClient, PaymentMode } from '@prisma/client';
+import { getCounterService } from '../services/CounterService';
 
 const prisma = new PrismaClient();
+
+// ✅ Helper to safely convert Prisma Decimal objects to JS numbers
+const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+
+// ✅ Resolve a real system actor for auto-generated bills.
+// Bill.createdById is a REQUIRED foreign key to User, so a literal 'system'
+// string violates the FK constraint. Attribute system bills to an admin user.
+let cachedSystemUserId: string | null = null;
+const getSystemUserId = async (): Promise<string> => {
+  if (cachedSystemUserId) return cachedSystemUserId;
+  const admin = await prisma.user.findFirst({
+    where: { role: 'admin', isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true }
+  });
+  if (!admin) {
+    throw new Error('No active admin user found to attribute system-generated ward-charge bills to');
+  }
+  cachedSystemUserId = admin.id;
+  return cachedSystemUserId;
+};
 
 export interface WardChargeResult {
   chargesCreated: number;
@@ -10,8 +32,10 @@ export interface WardChargeResult {
 }
 
 export class WardChargeService {
-  
-  // Generate daily ward charges for all active admissions
+
+  // ==========================================
+  // GENERATE DAILY WARD CHARGES
+  // ==========================================
   static async generateDailyWardCharges(chargeDate: Date = new Date()): Promise<WardChargeResult> {
     const result: WardChargeResult = {
       chargesCreated: 0,
@@ -19,13 +43,12 @@ export class WardChargeService {
       totalAmount: 0
     };
 
-    // Create clean date objects without mutating input
     const startOfDay = new Date(chargeDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(chargeDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Get all active admissions (not discharged)
+    // ✅ FIXED: Include all necessary relations through Attendance
     const activeAdmissions = await prisma.admission.findMany({
       where: {
         dischargeDate: null
@@ -37,11 +60,10 @@ export class WardChargeService {
             Bill: true,
             InsuranceProvider: true,
             CorporateAccount: true,
-            Ward: true,
-            Bed: true  // Ward is accessed through Attendance
+            Ward: true,      // ✅ Ward is on Attendance
+            Bed: true        // ✅ Bed is on Attendance
           }
-        },
-      
+        }
       }
     });
 
@@ -49,10 +71,10 @@ export class WardChargeService {
 
     for (const admission of activeAdmissions) {
       try {
-        // Check using clean date objects
+        // ✅ FIXED: Check if charge already exists for this date
         const existingCharge = await prisma.wardChargeRecord.findFirst({
           where: {
-            admissionId: admission.id,
+            attendanceId: admission.attendanceId,
             chargeDate: {
               gte: startOfDay,
               lt: endOfDay
@@ -65,8 +87,9 @@ export class WardChargeService {
           continue;
         }
 
-        // Handle missing attendance or bill
-        if (!admission.Attendance) {
+        // ✅ FIXED: Access all fields through attendance, not admission
+        const attendance = admission.attendance;
+        if (!attendance) {
           console.error(`❌ Admission ${admission.id} has no attendance record`);
           result.errors.push({
             admissionId: admission.id,
@@ -75,75 +98,78 @@ export class WardChargeService {
           continue;
         }
 
-        // Determine daily rate based on payment mode (INCLUDING CORPORATE)
-        const paymentMode = admission.Attendance?.paymentMode || 'cash';
+        if (!attendance.Ward) {
+          console.error(`❌ Admission ${admission.id} has no ward assigned`);
+          result.errors.push({
+            admissionId: admission.id,
+            error: 'Missing ward assignment'
+          });
+          continue;
+        }
+
+        // ✅ FIXED: Determine daily rate based on payment mode
+        const paymentMode = attendance.paymentMode || 'cash';
+        const ward = attendance.Ward;
         let dailyRate = 0;
         let nhisPrice = 0;
         let cashPrice = 0;
         let insurancePrice = 0;
         let corporatePrice = 0;
 
+        // ✅ FIXED: Use toNumber() for all Decimal fields
+        const wardCashRate = toNumber(ward.dailyCashRate);
+        const wardNHISRate = toNumber(ward.dailyNHISRate);
+        const wardInsuranceRate = toNumber(ward.dailyInsuranceRate);
+
         switch (paymentMode) {
           case 'nhis':
-            dailyRate = admission.Ward.dailyNHISRate || admission.Ward.dailyCashRate * 0.8;
+            dailyRate = wardNHISRate > 0 ? wardNHISRate : wardCashRate * 0.8;
             nhisPrice = dailyRate;
-            cashPrice = 0;
-            insurancePrice = 0;
-            corporatePrice = 0;
             break;
-          
+
           case 'private_insurance':
-            dailyRate = admission.Ward.dailyInsuranceRate || admission.Ward.dailyCashRate * 0.9;
+            dailyRate = wardInsuranceRate > 0 ? wardInsuranceRate : wardCashRate * 0.9;
             insurancePrice = dailyRate;
-            nhisPrice = 0;
-            cashPrice = 0;
-            corporatePrice = 0;
             break;
-          
+
           case 'corporate':
-            dailyRate = admission.Ward.dailyInsuranceRate || admission.Ward.dailyCashRate * 0.85;
+            dailyRate = wardInsuranceRate > 0 ? wardInsuranceRate : wardCashRate * 0.85;
             corporatePrice = dailyRate;
-            insurancePrice = dailyRate;
-            nhisPrice = 0;
-            cashPrice = 0;
-            
+            insurancePrice = dailyRate; // Corporate uses insurance rate
             console.log(`🏢 Corporate ward charge for admission ${admission.id}: GHS ${dailyRate}`);
-            if (admission.Attendance.CorporateAccount) {
-              console.log(`   Corporate Account: ${admission.Attendance.CorporateAccount.companyName}`);
+            if (attendance.CorporateAccount) {
+              console.log(`   Corporate Account: ${attendance.CorporateAccount.companyName}`);
             }
             break;
-          
+
           case 'cash':
           default:
-            dailyRate = admission.Ward.dailyCashRate;
+            dailyRate = wardCashRate;
             cashPrice = dailyRate;
-            nhisPrice = 0;
-            insurancePrice = 0;
-            corporatePrice = 0;
             break;
         }
 
         if (dailyRate <= 0) {
-          console.warn(`⚠️ Daily rate is 0 for ward ${admission.Ward.wardName} with payment mode ${paymentMode}`);
-          dailyRate = admission.Ward.dailyCashRate;
+          console.warn(`⚠️ Daily rate is 0 for ward ${ward.wardName} with payment mode ${paymentMode}`);
+          dailyRate = wardCashRate;
           cashPrice = dailyRate;
           console.warn(`   Using fallback cash rate: GHS ${dailyRate}`);
         }
 
-        // Create ward charge record
+        // ✅ FIXED: Create ward charge with correct field references
         const wardCharge = await prisma.wardChargeRecord.create({
           data: {
-            attendanceId: admission.attendanceId!,
+            attendanceId: attendance.id,
             admissionId: admission.id,
-            wardId: admission.wardId,
-            bedId: admission.bedId,
+            wardId: ward.id,
+            bedId: attendance.bedId || '',
             chargeDate: startOfDay,
             dailyRate,
             paymentMode: paymentMode as PaymentMode,
             nhisPrice,
             cashPrice,
             insurancePrice,
-            corporatePrice,  // ✅ ADDED: corporatePrice field exists in schema
+            corporatePrice,
             isBilled: false
           }
         });
@@ -152,11 +178,11 @@ export class WardChargeService {
         result.totalAmount += dailyRate;
 
         // If there's an active bill, add this charge as a bill line item
-        if (admission.Attendance?.Bill && admission.Attendance.Bill.status !== 'paid') {
-          await this.addWardChargeToBill(wardCharge.id, admission.Attendance.Bill.id);
-        } else if (admission.Attendance && !admission.Attendance.Bill) {
+        if (attendance.Bill && attendance.Bill.status !== 'paid') {
+          await this.addWardChargeToBill(wardCharge.id, attendance.Bill.id);
+        } else if (attendance && !attendance.Bill) {
           console.log(`📝 Creating missing bill for admission ${admission.id}`);
-          const newBill = await this.createBillForAdmission(admission);
+          const newBill = await this.createBillForAdmission(admission, attendance);
           await this.addWardChargeToBill(wardCharge.id, newBill.id);
         }
 
@@ -175,24 +201,36 @@ export class WardChargeService {
     return result;
   }
 
-  // Create bill for admission
-  static async createBillForAdmission(admission: any): Promise<any> {
-    const paymentMode = admission.Attendance?.paymentMode || 'cash';
-    const corporateAccountId = admission.Attendance?.corporateAccountId || null;
-    
+  // ==========================================
+  // CREATE BILL FOR ADMISSION
+  // ==========================================
+  // ✅ FIXED: Accept attendance as parameter to access patientId, wardId, etc.
+  static async createBillForAdmission(admission: any, attendance: any): Promise<any> {
+    const paymentMode = attendance.paymentMode || 'cash';
+    const corporateAccountId = attendance.corporateAccountId || null;
+
+    // ✅ FIXED: Bill number is derived from the attendance number (one bill per attendance)
+    const billNumber = getCounterService().getBillNumberFromAttendance(attendance.attendanceNumber);
+    // ✅ FIXED: createdById must reference a real User row
+    const systemUserId = await getSystemUserId();
+
     return await prisma.bill.create({
       data: {
-        billNumber: `BILL-${Date.now()}-${admission.id}`,
-        patientId: admission.patientId,
-        attendanceId: admission.attendanceId!,
+        billNumber,
+        patientId: attendance.patientId,  // ✅ From attendance, not admission
+        attendanceId: attendance.id,
         admissionId: admission.id,
         billDate: new Date(),
         paymentMode: paymentMode as PaymentMode,
         corporateAccountId: corporateAccountId,
+        insuranceProviderId: attendance.insuranceProviderId,
         status: 'pending',
-        createdById: 'system',
+        createdById: systemUserId,
         subtotal: 0,
+        discount: 0,
+        taxAmount: 0,
         totalAmount: 0,
+        insuranceCovered: 0,
         patientPayable: 0,
         paidAmount: 0,
         balance: 0
@@ -200,7 +238,9 @@ export class WardChargeService {
     });
   }
 
-  // Add ward charge to bill as line item (with corporate support)
+  // ==========================================
+  // ADD WARD CHARGE TO BILL
+  // ==========================================
   static async addWardChargeToBill(wardChargeId: string, billId: string): Promise<void> {
     const wardCharge = await prisma.wardChargeRecord.findUnique({
       where: { id: wardChargeId },
@@ -224,37 +264,43 @@ export class WardChargeService {
       return;
     }
 
-    // Calculate insurance coverage and patient payable based on payment mode
+    // ✅ FIXED: Use toNumber() for all Decimal calculations
+    const dailyRate = toNumber(wardCharge.dailyRate);
+    const vatRate = toNumber(wardCharge.ward.vatRate);
+    const vatAmount = dailyRate * (vatRate / 100);
+    const lineTotal = dailyRate + vatAmount;
+
+    // Calculate insurance coverage and patient payable
     let insuranceCoveredAmount = 0;
     let patientPayableAmount = 0;
     let description = `Ward Charge - ${wardCharge.ward.wardName} - Day ${wardCharge.chargeDate.toISOString().split('T')[0]}`;
-    
+
     switch (wardCharge.paymentMode) {
       case 'nhis':
-        insuranceCoveredAmount = wardCharge.dailyRate;
+        insuranceCoveredAmount = lineTotal;
         patientPayableAmount = 0;
         description += ' (NHIS Covered)';
         break;
-      
+
       case 'private_insurance':
-        insuranceCoveredAmount = wardCharge.dailyRate;
+        insuranceCoveredAmount = lineTotal;
         patientPayableAmount = 0;
         description += ' (Private Insurance)';
         break;
-      
+
       case 'corporate':
-        insuranceCoveredAmount = wardCharge.dailyRate;
+        insuranceCoveredAmount = lineTotal;
         patientPayableAmount = 0;
         description += ' (Corporate Account)';
         if (wardCharge.attendance?.CorporateAccount) {
           description += ` - ${wardCharge.attendance.CorporateAccount.companyName}`;
         }
         break;
-      
+
       case 'cash':
       default:
         insuranceCoveredAmount = 0;
-        patientPayableAmount = wardCharge.dailyRate;
+        patientPayableAmount = lineTotal;
         description += ' (Cash)';
         break;
     }
@@ -266,14 +312,15 @@ export class WardChargeService {
         description,
         serviceType: 'ward',
         quantity: 1,
-        unitPrice: wardCharge.dailyRate,
+        unitPrice: dailyRate,
         pricingBasis: wardCharge.paymentMode,
-        vatRate: wardCharge.ward.vatRate || 0,
-        vatAmount: 0,
-        lineTotal: wardCharge.dailyRate,
+        vatRate,
+        vatAmount,
+        lineTotal,
         insuranceCoveredAmount,
         patientPayableAmount,
-        discount: 0
+        discount: 0,
+        isVoided: false
       }
     });
 
@@ -286,29 +333,46 @@ export class WardChargeService {
       }
     });
 
-    // Recalculate bill totals
+    // ✅ FIXED: Recalculate bill totals WITHOUT touching corporate balance
     await this.recalculateBillTotals(billId);
 
     console.log(`✅ Added ward charge to bill ${billId}, line item ${lineItem.id} (${wardCharge.paymentMode})`);
   }
 
-  // Recalculate bill totals after adding/removing charges (with corporate support)
+  // ==========================================
+  // RECALCULATE BILL TOTALS
+  // ==========================================
+  // ✅ FIXED: This function should ONLY recalculate bill fields,
+  // NOT increment corporate balance (that causes double-charging!)
   static async recalculateBillTotals(billId: string): Promise<void> {
     const lineItems = await prisma.billLineItem.findMany({
       where: { billId, isVoided: false }
     });
 
+    // ✅ FIXED: Use toNumber() for all Decimal math
+    const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
+    const insuranceCovered = lineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
+    const patientPayable = lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+    const totalAmount = subtotal;
+
     const bill = await prisma.bill.findUnique({
-      where: { id: billId },
-      include: { CorporateAccount: true }
+      where: { id: billId }
     });
 
-    const subtotal = lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
-    const insuranceCovered = lineItems.reduce((sum, item) => sum + item.insuranceCoveredAmount, 0);
-    const patientPayable = lineItems.reduce((sum, item) => sum + item.patientPayableAmount, 0);
-    const totalAmount = subtotal;
-    
-    const balance = patientPayable - (bill?.paidAmount || 0);
+    if (!bill) return;
+
+    const paidAmount = toNumber(bill.paidAmount);
+    const balance = patientPayable - paidAmount;
+
+    // ✅ FIXED: Correct status logic
+    let status: any = 'draft';
+    if (balance <= 0 && patientPayable > 0) {
+      status = 'paid';
+    } else if (paidAmount > 0 && balance > 0) {
+      status = 'partial';
+    } else if (patientPayable > 0) {
+      status = 'pending';
+    }
 
     await prisma.bill.update({
       where: { id: billId },
@@ -318,39 +382,61 @@ export class WardChargeService {
         insuranceCovered,
         patientPayable,
         balance,
-        status: balance <= 0 ? 'paid' : patientPayable > 0 ? 'pending' : 'draft'
+        status
       }
     });
-    
-    // Update corporate account balance if applicable
-    if (bill?.corporateAccountId && patientPayable > 0) {
-      await prisma.corporateAccount.update({
-        where: { id: bill.corporateAccountId },
-        data: {
-          currentBalance: {
-            increment: patientPayable
-          }
-        }
-      });
-      console.log(`🏢 Updated corporate account ${bill.corporateAccountId} balance: +GHS ${patientPayable}`);
-    }
+
+    // ✅ FIXED: REMOVED corporate balance increment from here!
+    // Corporate balance should ONLY be updated when a bill is FINALIZED/SENT,
+    // not every time totals are recalculated.
+    // The corporate account balance is managed separately when bills are submitted.
   }
 
-  // Generate ward charges for a date range (catch-up)
+  // ==========================================
+  // FINALIZE CORPORATE BILL (Called when bill is sent to corporate)
+  // ==========================================
+  // ✅ NEW: Separate method to handle corporate balance updates
+  static async finalizeCorporateBill(billId: string): Promise<void> {
+    const bill = await prisma.bill.findUnique({
+      where: { id: billId },
+      include: { CorporateAccount: true }
+    });
+
+    if (!bill || !bill.corporateAccountId) return;
+
+    const patientPayable = toNumber(bill.patientPayable);
+    if (patientPayable <= 0) return;
+
+    // ✅ Only increment corporate balance ONCE when bill is finalized
+    await prisma.corporateAccount.update({
+      where: { id: bill.corporateAccountId },
+      data: {
+        currentBalance: { increment: patientPayable }
+      }
+    });
+
+    console.log(`🏢 Updated corporate account ${bill.corporateAccountId} balance: +GHS ${patientPayable}`);
+  }
+
+  // ==========================================
+  // GENERATE WARD CHARGES FOR DATE RANGE
+  // ==========================================
   static async generateWardChargesForRange(startDate: Date, endDate: Date): Promise<WardChargeResult[]> {
     const results: WardChargeResult[] = [];
     const currentDate = new Date(startDate);
-    
+
     while (currentDate <= endDate) {
       const result = await this.generateDailyWardCharges(new Date(currentDate));
       results.push(result);
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return results;
   }
 
-  // Get ward charge summary for reporting (INCLUDING CORPORATE)
+  // ==========================================
+  // WARD CHARGE SUMMARY REPORT
+  // ==========================================
   static async getWardChargeSummary(startDate: Date, endDate: Date): Promise<any> {
     const charges = await prisma.wardChargeRecord.findMany({
       where: {
@@ -361,7 +447,7 @@ export class WardChargeService {
       },
       include: {
         ward: true,
-        admission: {
+        attendance: {
           include: {
             Patient: {
               select: {
@@ -370,14 +456,10 @@ export class WardChargeService {
                 folderNumber: true
               }
             },
-            Attendance: {
-              include: {
-                CorporateAccount: {
-                  select: {
-                    id: true,
-                    companyName: true
-                  }
-                }
+            CorporateAccount: {
+              select: {
+                id: true,
+                companyName: true
               }
             }
           }
@@ -386,36 +468,36 @@ export class WardChargeService {
       orderBy: { chargeDate: 'asc' }
     });
 
-    // Include corporate in summary
+    // ✅ FIXED: Use toNumber() for all financial calculations
     const summary = {
       period: { startDate, endDate },
       totalCharges: charges.length,
-      totalAmount: charges.reduce((sum, c) => sum + c.dailyRate, 0),
+      totalAmount: charges.reduce((sum, c) => sum + toNumber(c.dailyRate), 0),
       byPaymentMode: {
         cash: {
           count: charges.filter(c => c.paymentMode === 'cash').length,
-          amount: charges.filter(c => c.paymentMode === 'cash').reduce((sum, c) => sum + c.dailyRate, 0)
+          amount: charges.filter(c => c.paymentMode === 'cash').reduce((sum, c) => sum + toNumber(c.dailyRate), 0)
         },
         nhis: {
           count: charges.filter(c => c.paymentMode === 'nhis').length,
-          amount: charges.filter(c => c.paymentMode === 'nhis').reduce((sum, c) => sum + c.dailyRate, 0)
+          amount: charges.filter(c => c.paymentMode === 'nhis').reduce((sum, c) => sum + toNumber(c.dailyRate), 0)
         },
         private_insurance: {
           count: charges.filter(c => c.paymentMode === 'private_insurance').length,
-          amount: charges.filter(c => c.paymentMode === 'private_insurance').reduce((sum, c) => sum + c.dailyRate, 0)
+          amount: charges.filter(c => c.paymentMode === 'private_insurance').reduce((sum, c) => sum + toNumber(c.dailyRate), 0)
         },
         corporate: {
           count: charges.filter(c => c.paymentMode === 'corporate').length,
-          amount: charges.filter(c => c.paymentMode === 'corporate').reduce((sum, c) => sum + c.dailyRate, 0),
+          amount: charges.filter(c => c.paymentMode === 'corporate').reduce((sum, c) => sum + toNumber(c.dailyRate), 0),
           byCompany: charges
             .filter(c => c.paymentMode === 'corporate')
             .reduce((acc: any, charge) => {
-              const companyName = charge.admission?.Attendance?.CorporateAccount?.companyName || 'Unknown';
+              const companyName = charge.attendance?.CorporateAccount?.companyName || 'Unknown';
               if (!acc[companyName]) {
                 acc[companyName] = { count: 0, amount: 0 };
               }
               acc[companyName].count++;
-              acc[companyName].amount += charge.dailyRate;
+              acc[companyName].amount += toNumber(charge.dailyRate);
               return acc;
             }, {})
         }
@@ -426,16 +508,17 @@ export class WardChargeService {
           acc[wardName] = { count: 0, amount: 0 };
         }
         acc[wardName].count++;
-        acc[wardName].amount += charge.dailyRate;
+        acc[wardName].amount += toNumber(charge.dailyRate);
         return acc;
       }, {}),
       unbilledCharges: charges.filter(c => !c.isBilled).length,
       corporateInsights: {
         totalCorporateCharges: charges.filter(c => c.paymentMode === 'corporate').length,
-        totalCorporateAmount: charges.filter(c => c.paymentMode === 'corporate').reduce((sum, c) => sum + c.dailyRate, 0),
-        uniqueCompanies: new Set(charges
-          .filter(c => c.paymentMode === 'corporate' && c.admission?.Attendance?.CorporateAccount)
-          .map(c => c.admission?.Attendance?.CorporateAccount?.companyName)
+        totalCorporateAmount: charges.filter(c => c.paymentMode === 'corporate').reduce((sum, c) => sum + toNumber(c.dailyRate), 0),
+        uniqueCompanies: new Set(
+          charges
+            .filter(c => c.paymentMode === 'corporate' && c.attendance?.CorporateAccount)
+            .map(c => c.attendance?.CorporateAccount?.companyName)
         ).size
       }
     };
@@ -444,18 +527,21 @@ export class WardChargeService {
   }
 }
 
-// Cron job wrapper (to be called by your scheduler)
+// ==========================================
+// CRON JOB WRAPPER
+// ==========================================
 export async function runDailyWardChargeJob(): Promise<void> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   console.log(`🕐 Running daily ward charge job for ${today.toISOString().split('T')[0]}`);
-  
+
   try {
     const result = await WardChargeService.generateDailyWardCharges(today);
-    
+
     if (result.errors.length > 0) {
       console.error(`⚠️ Ward charge job completed with ${result.errors.length} errors`);
+      result.errors.forEach(e => console.error(`   - Admission ${e.admissionId}: ${e.error}`));
     } else {
       console.log(`✅ Ward charge job completed: ${result.chargesCreated} charges, GHS ${result.totalAmount}`);
     }
@@ -464,11 +550,13 @@ export async function runDailyWardChargeJob(): Promise<void> {
   }
 }
 
-// Manual run endpoint with corporate support
+// ==========================================
+// MANUAL RUN ENDPOINT
+// ==========================================
 export const manualRunWardCharges = async (req: any, res: any) => {
   try {
     const { date, startDate, endDate, paymentMode } = req.query;
-    
+
     let result;
     if (startDate && endDate) {
       result = await WardChargeService.generateWardChargesForRange(
@@ -479,7 +567,7 @@ export const manualRunWardCharges = async (req: any, res: any) => {
       const targetDate = date ? new Date(date as string) : new Date();
       result = await WardChargeService.generateDailyWardCharges(targetDate);
     }
-    
+
     if (paymentMode === 'corporate') {
       const summary = await WardChargeService.getWardChargeSummary(
         startDate ? new Date(startDate as string) : new Date(),
@@ -509,18 +597,20 @@ export const manualRunWardCharges = async (req: any, res: any) => {
   }
 };
 
-// Endpoint to get corporate ward charge report
+// ==========================================
+// CORPORATE WARD CHARGE REPORT ENDPOINT
+// ==========================================
 export const getCorporateWardChargeReport = async (req: any, res: any) => {
   try {
     const { startDate, endDate, companyId } = req.query;
-    
+
     const start = startDate ? new Date(startDate as string) : new Date(new Date().setDate(1));
     const end = endDate ? new Date(endDate as string) : new Date();
-    
+
     const summary = await WardChargeService.getWardChargeSummary(start, end);
-    
+
     let corporateCharges = summary.byPaymentMode.corporate;
-    
+
     if (companyId && corporateCharges.byCompany) {
       const companyCharges = await prisma.wardChargeRecord.findMany({
         where: {
@@ -532,21 +622,21 @@ export const getCorporateWardChargeReport = async (req: any, res: any) => {
         },
         include: {
           ward: true,
-          admission: {
+          attendance: {
             include: {
               Patient: true
             }
           }
         }
       });
-      
+
       corporateCharges = {
         count: companyCharges.length,
-        amount: companyCharges.reduce((sum, c) => sum + c.dailyRate, 0),
+        amount: companyCharges.reduce((sum, c) => sum + toNumber(c.dailyRate), 0),
         details: companyCharges
       };
     }
-    
+
     res.json({
       success: true,
       data: {

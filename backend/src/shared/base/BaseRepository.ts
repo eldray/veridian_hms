@@ -1,8 +1,3 @@
-/**
- * Base Repository for Enterprise Architecture
- * Provides common database operations using Prisma
- */
-
 import { PrismaClient } from '@prisma/client';
 
 export interface FindManyOptions<T> {
@@ -32,129 +27,69 @@ export abstract class BaseRepository<Model, CreateDTO, UpdateDTO> {
   }
 
   /**
-   * Get the model delegate from Prisma client
+   * ✅ PRODUCTION FIX: Get model delegate, optionally using a transaction client
    */
-  protected getModel(): any {
-    return (this.prisma as any)[this.modelName];
+  protected getModel(tx?: any): any {
+    return tx ? tx[this.modelName] : (this.prisma as any)[this.modelName];
   }
 
-  /**
-   * Find a record by ID
-   */
-  async findById(id: string, include?: any): Promise<Model | null> {
-    return this.getModel().findUnique({
-      where: { id },
-      include
-    });
+  async findById(id: string, include?: any, tx?: any): Promise<Model | null> {
+    return this.getModel(tx).findUnique({ where: { id }, include });
   }
 
-  /**
-   * Find many records with options
-   */
-  async findMany(options: FindManyOptions<any> = {}): Promise<Model[]> {
+  async findMany(options: FindManyOptions<any> = {}, tx?: any): Promise<Model[]> {
     const { where, orderBy, skip, take, include, select } = options;
-    
-    return this.getModel().findMany({
-      where,
-      orderBy,
-      skip,
-      take,
-      include,
-      select
-    });
+    return this.getModel(tx).findMany({ where, orderBy, skip, take, include, select });
   }
 
-  /**
-   * Find many records with pagination
-   */
   async findManyWithPagination(
-    options: FindManyOptions<any> & { page?: number; limit?: number } = {}
+    options: FindManyOptions<any> & { page?: number; limit?: number } = {},
+    tx?: any
   ): Promise<PaginationResult<Model>> {
     const { page = 1, limit = 10, ...findManyOptions } = options;
     const skip = (page - 1) * limit;
+    const model = this.getModel(tx);
 
     const [data, total] = await Promise.all([
-      this.getModel().findMany({
-        ...findManyOptions,
-        skip,
-        take: limit
-      }),
-      this.getModel().count({
-        where: findManyOptions.where
-      })
+      model.findMany({ ...findManyOptions, skip, take: limit }),
+      model.count({ where: findManyOptions.where })
     ]);
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  /**
-   * Create a new record
-   */
-  async create(data: CreateDTO): Promise<Model> {
-    return this.getModel().create({
-      data
-    });
+  async create(data: CreateDTO, tx?: any): Promise<Model> {
+    return this.getModel(tx).create({ data });
   }
 
-  /**
-   * Update a record by ID
-   */
-  async update(id: string, data: UpdateDTO): Promise<Model> {
-    return this.getModel().update({
-      where: { id },
-      data
-    });
+  async update(id: string, data: UpdateDTO, tx?: any): Promise<Model> {
+    return this.getModel(tx).update({ where: { id }, data });
   }
 
-  /**
-   * Delete a record by ID
-   */
-  async delete(id: string): Promise<Model> {
-    return this.getModel().delete({
-      where: { id }
-    });
+  async delete(id: string, tx?: any): Promise<Model> {
+    return this.getModel(tx).delete({ where: { id } });
   }
 
-  /**
-   * Count records
-   */
-  async count(where?: any): Promise<number> {
-    return this.getModel().count({ where });
+  async count(where?: any, tx?: any): Promise<number> {
+    return this.getModel(tx).count({ where });
   }
 
-  /**
-   * Check if a record exists
-   */
-  async exists(where: any): Promise<boolean> {
-    const count = await this.count(where);
+  async exists(where: any, tx?: any): Promise<boolean> {
+    const count = await this.count(where, tx);
     return count > 0;
   }
 
-  /**
-   * Find first record matching criteria
-   */
-  async findFirst(where: any, include?: any): Promise<Model | null> {
-    return this.getModel().findFirst({
-      where,
-      include
-    });
+  async findFirst(where: any, include?: any, tx?: any): Promise<Model | null> {
+    return this.getModel(tx).findFirst({ where, include });
   }
 
   /**
-   * Execute operations in a transaction
+   * ✅ PRODUCTION FIX: Safe, thread-safe transaction wrapper
+   * Usage: await this.repo.transaction(async (tx) => { await this.repo.create(data, tx); })
    */
-  async transaction<T>(fn: (tx: Omit<BaseRepository<Model, CreateDTO, UpdateDTO>, 'transaction'>) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
-      const txRepo = Object.create(Object.getPrototypeOf(this));
-      txRepo.prisma = tx;
-      txRepo.modelName = this.modelName;
-      return fn(txRepo);
+      return fn(tx);
     });
   }
 }

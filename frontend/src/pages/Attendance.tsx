@@ -12,6 +12,7 @@ import {
   DollarSign, CreditCard, Shield, Trash2, User, Filter, X
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
+import { getPatientName } from '../utils/patient';
 
 type DateFilterType = 'today' | 'yesterday' | 'custom';
 
@@ -91,18 +92,14 @@ export default function Attendance() {
     loadData();
   }, []);
 
-  // ✅ Get full name from surname + otherNames
-  const getPatientFullName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+// src/pages/Attendance.tsx - SIMPLIFIED findPatient
+  const findPatient = (attendance: any) => {
+    // ✅ Patient is already normalized in the store
+    return attendance.patient || null;
   };
 
-  const findPatient = (attendance: any) => {
-    if (attendance?.patient?.surname) return attendance.patient;
-    const pid = (typeof attendance.patientId === 'object' ? attendance.patientId.id : attendance.patientId) ||
-                (typeof attendance.patient === 'object' ? attendance.patient.id : null);
-    return pid ? patients.find(p => p.id === pid) : null;
-  };
+  // ✅ Canonical name getter (handles name/fullName/surname+otherNames)
+  const getPatientFullName = getPatientName;
 
   // ✅ Filter attendances by search AND date range
   const filteredAttendances = useMemo(() => {

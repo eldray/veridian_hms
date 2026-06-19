@@ -1,42 +1,34 @@
-// modules/labTest/LabTestRoutes.ts
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { LabTestController } from './LabTestController';
-import { LabTestService } from './LabTestService';
-import { LabTestRepository } from './LabTestRepository';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export function createLabTestRoutes(prisma: PrismaClient): Router {
   const router = Router();
-  const repository = new LabTestRepository(prisma);
-  const service = new LabTestService(repository);
-  const controller = new LabTestController(service);
+  const controller = new LabTestController(prisma);
 
-  // GET all lab tests
-  router.get('/', controller.getLabTests as any);
+  router.use(protect);
 
-  // GET lab test categories
-  router.get('/categories', controller.getLabTestCategories as any);
+  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts'];
+  const writeRoles: UserRole[] = ['admin', 'lab_tech', 'accounts'];
 
-  // GET specimen types
-  router.get('/specimen-types', controller.getSpecimenTypes as any);
+  // ==========================================
+  // SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
+  // ==========================================
+  router.get('/categories', requireRole(readRoles), controller.getLabTestCategories);
+  router.get('/sub-categories', requireRole(readRoles), controller.getLabTestSubCategories);
+  router.get('/specimen-types', requireRole(readRoles), controller.getSpecimenTypes);
+  router.get('/metadata-fields', requireRole(readRoles), controller.getLabTestMetadataFields);
+  router.post('/bulk-update', requireRole(writeRoles), controller.bulkUpdateLabTests);
 
-  // GET lab test metadata fields
-  router.get('/metadata-fields', controller.getLabTestMetadataFields as any);
-
-  // GET lab test by ID
-  router.get('/:id', controller.getLabTestById as any);
-
-  // POST create lab test
-  router.post('/', controller.createLabTest);
-
-  // PUT update lab test
-  router.put('/:id', controller.updateLabTest);
-
-  // DELETE lab test
-  router.delete('/:id', controller.deleteLabTest as any);
-
-  // POST bulk update lab tests
-  router.post('/bulk-update', controller.bulkUpdateLabTests as any);
+  // ==========================================
+  // DYNAMIC ID ROUTES (LAST)
+  // ==========================================
+  router.get('/', requireRole(readRoles), controller.getLabTests);
+  router.get('/:id', requireRole(readRoles), controller.getLabTestById);
+  router.post('/', requireRole(writeRoles), controller.createLabTest);
+  router.put('/:id', requireRole(writeRoles), controller.updateLabTest);
+  router.delete('/:id', requireRole(['admin']), controller.deleteLabTest);
 
   return router;
-} 
+}

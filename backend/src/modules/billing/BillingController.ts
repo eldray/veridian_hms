@@ -1,85 +1,48 @@
-/**
- * Billing Module Controller
- * Handles HTTP requests for billing management
- */
-
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { BillingService } from './BillingService';
 import { PrismaClient } from '@prisma/client';
+import { BaseController } from '../../shared/base/BaseController';
+import { BillingService } from './BillingService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-export class BillingController {
+export class BillingController extends BaseController {
   private service: BillingService;
 
   constructor(prisma: PrismaClient) {
+    super();
     this.service = new BillingService(prisma);
   }
 
   // ============================================
   // GET ALL BILLS WITH PAGINATION
   // ============================================
-  getAll = async (req: AuthRequest, res: Response) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+  getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
 
-      const filters = {
-        patientId: req.query.patientId as string,
-        status: req.query.status as any,
-        paymentMode: req.query.paymentMode as any,
-        dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
-        dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined,
-        page,
-        limit
-      };
+    const filters = {
+      patientId: req.query.patientId as string,
+      status: req.query.status as any,
+      paymentMode: req.query.paymentMode as any,
+      dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
+      dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined,
+      page, limit
+    };
 
-      const result = await this.service.getBills(filters);
-
-      res.json({
-        success: true,
-        data: result.bills,
-        pagination: {
-          currentPage: result.page,
-          totalPages: Math.ceil(result.total / result.limit),
-          totalBills: result.total,
-          hasNext: result.page < Math.ceil(result.total / result.limit),
-          hasPrev: result.page > 1
-        }
-      });
-    } catch (error) {
-      console.error('Error fetching bills:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching bills',
-        error: (error as Error).message
-      });
-    }
-  };
+    const result = await this.service.getBills(filters);
+    return this.paginated(res, result.bills, { page, limit, total: result.total }, 'Bills retrieved successfully');
+  });
 
   // ============================================
   // GET BILL BY ID
   // ============================================
-  getById = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      const bill = await this.service.getBillById(id);
-
-      res.json({
-        success: true,
-        data: bill
-      });
-    } catch (error) {
-      console.error('Error fetching bill:', error);
-      res.status(404).json({
-        success: false,
-        message: (error as Error).message
-      });
-    }
-  };
+  getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bill = await this.service.getBillById(req.params.id);
+    return this.ok(res, bill, 'Bill retrieved successfully');
+  });
 
   // ============================================
-  // CREATE BILL (Supports all 4 payment modes)
+  // CREATE BILL (Keeps your exact express-validator logic)
   // ============================================
   create = [
     body('patientId').notEmpty().withMessage('Patient ID is required'),
@@ -87,45 +50,17 @@ export class BillingController {
     body('paymentMode').isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Valid payment mode is required'),
     body('items').isArray({ min: 1 }).withMessage('At least one bill item is required'),
     body('corporateAccountId').optional().custom((value, { req }) => {
-      if (req.body.paymentMode === 'corporate' && !value) {
-        throw new Error('Corporate Account ID is required for corporate payment mode');
-      }
+      if (req.body.paymentMode === 'corporate' && !value) throw new Error('Corporate Account ID is required for corporate payment mode');
       return true;
     }),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, errors: errors.array() });
-        }
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ success: false, message: 'User authentication required' });
-        }
-
-        const { patientId, attendanceId, paymentMode, items, corporateAccountId } = req.body;
-
-        const bill = await this.service.createBill(
-          { patientId, attendanceId, paymentMode, items, corporateAccountId },
-          user.id
-        );
-
-        res.status(201).json({
-          success: true,
-          data: bill,
-          message: 'Bill created successfully'
-        });
-      } catch (error) {
-        console.error('Error creating bill:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error creating bill',
-          error: (error as Error).message
-        });
-      }
-    }
+      const bill = await this.service.createBill(req.body, req.user!.id);
+      return this.created(res, bill, 'Bill created successfully');
+    })
   ];
 
   // ============================================
@@ -135,41 +70,13 @@ export class BillingController {
     body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
     body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Valid payment method is required'),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, errors: errors.array() });
-        }
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ success: false, message: 'User authentication required' });
-        }
-
-        const { id } = req.params;
-        const { amount, paymentMethod, reference, notes } = req.body;
-
-        const result = await this.service.addPaymentToBill(
-          id,
-          { amount, paymentMethod, reference, notes },
-          user.id
-        );
-
-        res.json({
-          success: true,
-          data: result,
-          message: 'Payment added successfully'
-        });
-      } catch (error) {
-        console.error('Error adding payment:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error adding payment',
-          error: (error as Error).message
-        });
-      }
-    }
+      const result = await this.service.addPaymentToBill(req.params.id, req.body, req.user!.id);
+      return this.ok(res, result, 'Payment added successfully');
+    })
   ];
 
   // ============================================
@@ -178,82 +85,30 @@ export class BillingController {
   updateStatus = [
     body('status').isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Valid status is required'),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, errors: errors.array() });
-        }
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ success: false, message: 'User authentication required' });
-        }
-
-        const { id } = req.params;
-        const { status } = req.body;
-
-        const bill = await this.service.updateBillStatus(id, { status }, user.id);
-
-        res.json({
-          success: true,
-          data: bill,
-          message: 'Bill status updated successfully'
-        });
-      } catch (error) {
-        console.error('Error updating bill status:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error updating bill status',
-          error: (error as Error).message
-        });
-      }
-    }
+      const bill = await this.service.updateBillStatus(req.params.id, req.body, req.user!.id);
+      return this.ok(res, bill, 'Bill status updated successfully');
+    })
   ];
 
   // ============================================
-  // GET BILL STATISTICS (with corporate breakdown)
+  // GET BILL STATISTICS
   // ============================================
-  getStatistics = async (req: AuthRequest, res: Response) => {
-    try {
-      const { period = 'month' } = req.query;
-      const stats = await this.service.getStatistics(period as string);
-
-      res.json({
-        success: true,
-        data: stats
-      });
-    } catch (error) {
-      console.error('Error fetching bill statistics:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching bill statistics',
-        error: (error as Error).message
-      });
-    }
-  };
+  getStatistics = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const stats = await this.service.getStatistics((req.query.period as string) || 'month');
+    return this.ok(res, stats, 'Statistics retrieved successfully');
+  });
 
   // ============================================
   // GET BILL LINE ITEMS
   // ============================================
-  getLineItems = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      const result = await this.service.getLineItems(id);
-
-      res.json({
-        success: true,
-        data: result
-      });
-    } catch (error) {
-      console.error('Error fetching bill line items:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching bill line items',
-        error: (error as Error).message
-      });
-    }
-  };
+  getLineItems = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.getLineItems(req.params.id);
+    return this.ok(res, result, 'Line items retrieved successfully');
+  });
 
   // ============================================
   // VOID BILL LINE ITEM
@@ -261,37 +116,13 @@ export class BillingController {
   voidLineItem = [
     body('reason').notEmpty().withMessage('Void reason is required'),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, errors: errors.array() });
-        }
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-        const user = req.user;
-        if (!user) {
-          return res.status(401).json({ success: false, message: 'User authentication required' });
-        }
-
-        const { lineItemId } = req.params;
-        const { reason } = req.body;
-
-        const result = await this.service.voidLineItem(lineItemId, user.id, reason);
-
-        res.json({
-          success: true,
-          data: result,
-          message: 'Bill line item voided successfully'
-        });
-      } catch (error) {
-        console.error('Error voiding bill line item:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error voiding bill line item',
-          error: (error as Error).message
-        });
-      }
-    }
+      const result = await this.service.voidLineItem(req.params.lineItemId, req.user!.id, req.body.reason);
+      return this.ok(res, result, 'Bill line item voided successfully');
+    })
   ];
 
   // ============================================
@@ -300,31 +131,12 @@ export class BillingController {
   applyWaiver = [
     body('waiverId').notEmpty().withMessage('Waiver ID is required'),
 
-    async (req: AuthRequest, res: Response) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, errors: errors.array() });
-        }
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-        const { billId } = req.params;
-        const { waiverId } = req.body;
-
-        const result = await this.service.applyWaiver(billId, waiverId);
-
-        res.json({
-          success: true,
-          data: result,
-          message: 'Waiver applied successfully'
-        });
-      } catch (error) {
-        console.error('Error applying waiver:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Error applying waiver',
-          error: (error as Error).message
-        });
-      }
-    }
+      const result = await this.service.applyWaiver(req.params.billId, req.body.waiverId);
+      return this.ok(res, result, 'Waiver applied successfully');
+    })
   ];
 }

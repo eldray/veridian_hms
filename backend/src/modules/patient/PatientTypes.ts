@@ -1,4 +1,3 @@
-// modules/patient/PatientTypes.ts
 export interface CreatePatientDTO {
   folderNumber?: string;
   surname: string;
@@ -9,8 +8,8 @@ export interface CreatePatientDTO {
   address: string;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
   insuranceProviderId?: string;
-  corporateAccountId?: string;  // ✅ ADDED - for corporate patients
-  corporateEmployeeId?: string; // ✅ ADDED - if employee of corporate
+  corporateAccountId?: string;
+  corporateEmployeeId?: string;
   nhisNumber?: string;
   phoneNumber?: string;
   email?: string;
@@ -29,8 +28,8 @@ export interface PatientFilters {
   phone?: string;
   email?: string;
   gender?: string;
-  paymentMode?: string;  // ✅ ADDED - filter by payment mode
-  corporateAccountId?: string;  // ✅ ADDED - filter by corporate
+  paymentMode?: string;
+  corporateAccountId?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -45,8 +44,8 @@ export interface PatientSummary {
   gender: string;
   nhisNumber?: string;
   contact?: string;
-  paymentMode?: string;  // ✅ ADDED
-  corporateAccountId?: string;  // ✅ ADDED
+  paymentMode?: string;
+  corporateAccountId?: string;
   registeredAt: Date;
   lastVisit?: Date;
 }
@@ -63,13 +62,24 @@ export interface PatientResponse {
   address: string;
   paymentMode?: string;
   nhisNumber?: string;
-  corporateAccount?: {
-    id: string;
-    companyName: string;
-  };
-  insuranceProvider?: {
-    id: string;
-    name: string;
-  };
+  corporateAccount?: { id: string; companyName: string; };
+  insuranceProvider?: { id: string; name: string; };
   registeredAt: Date;
+}
+
+// ==========================================
+// NEW: EMR DTOs
+// ==========================================
+
+export interface CreateAllergyDTO {
+  allergen: string;
+  reaction?: string;
+  severity?: 'mild' | 'moderate' | 'severe';
+  notes?: string;
+}
+
+export interface CreateMedicalHistoryDTO {
+  condition: string;
+  diagnosedAt?: Date | string;
+  notes?: string;
 }

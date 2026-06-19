@@ -57,8 +57,7 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 
 const getPatientName = (patient: any): string => {
   if (!patient) return 'Unknown Patient';
-  if (patient.fullName) return patient.fullName;
-  return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
 };
 
 const calculateAge = (dateOfBirth: string): number => {

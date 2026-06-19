@@ -1,238 +1,97 @@
-// InsuranceProviderRepository.ts - FIXED
-import { PrismaClient, InsuranceProvider, InsuranceType } from '@prisma/client';
-import { ContactInfo, InsuranceProviderWithRelations } from './InsuranceProviderTypes';
+import { PrismaClient, InsuranceType } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 
-export class InsuranceProviderRepository {
-  private prisma: PrismaClient;
+const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
-  constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
+export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
+  constructor(prisma: PrismaClient) {
+    super(prisma, 'insuranceProvider');
   }
 
   async findAll(filters: { isActive?: boolean; type?: InsuranceType }) {
     const where: any = {};
-  
-    // ✅ ONLY filter by type if provided
-    if (filters.type) {
-      where.type = filters.type;
-    }
-  
-    // ✅ DO NOT filter by isActive here - return ALL providers
-    // Let the frontend handle filtering based on user preference
-  
-    return this.prisma.insuranceProvider.findMany({
-      where,
-      orderBy: { name: 'asc' },
+    if (filters.isActive !== undefined) where.isActive = filters.isActive;
+    if (filters.type) where.type = filters.type;
+
+    return this.getModel().findMany({
+      where, orderBy: { name: 'asc' },
       select: {
-        id: true,
-        name: true,
-        type: true,
-        coveragePercentage: true,
-        contactInfo: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            Patient: true,
-            Attendance: true,
-            Bill: true,
-            InsuranceClaim: true
-          }
-        }
+        id: true, name: true, type: true, coveragePercentage: true, contactInfo: true, isActive: true, createdAt: true, updatedAt: true,
+        _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } }
       }
     });
   }
 
-  async findById(id: string): Promise<InsuranceProviderWithRelations | null> {
-    // ✅ FIXED: Use correct relation names
-    return this.prisma.insuranceProvider.findUnique({
+  async findById(id: string) {
+    return this.getModel().findUnique({
       where: { id },
       include: {
-        Patient: {
-          select: {
-            id: true,
-            folderNumber: true,
-            surname: true,
-            otherNames: true,
-            contact: true
-          },
-          take: 10,
-          orderBy: { surname: 'asc' }
-        },
-        Attendance: {
-          select: {
-            id: true,
-            attendanceNumber: true,
-            attendanceType: true,
-            status: true,
-            dateTime: true
-          },
-          take: 10,
-          orderBy: { dateTime: 'desc' }
-        },
-        Bill: {
-          select: {
-            id: true,
-            billNumber: true,
-            totalAmount: true,
-            status: true,
-            billDate: true
-          },
-          take: 10,
-          orderBy: { billDate: 'desc' }
-        },
-        InsuranceClaim: {
-          select: {
-            id: true,
-            claimNumber: true,
-            totalClaimAmount: true,
-            status: true,
-            submissionDate: true
-          },
-          take: 10,
-          orderBy: { submissionDate: 'desc' }
-        },
-        _count: {
-          select: {
-            Patient: true,
-            Attendance: true,
-            Bill: true,
-            InsuranceClaim: true
-          }
-        }
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true }, take: 10, orderBy: { surname: 'asc' } },
+        Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, status: true, dateTime: true }, take: 10, orderBy: { dateTime: 'desc' } },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true, status: true, billDate: true }, take: 10, orderBy: { billDate: 'desc' } },
+        InsuranceClaim: { select: { id: true, claimNumber: true, totalClaimAmount: true, status: true, submissionDate: true }, take: 10, orderBy: { submissionDate: 'desc' } },
+        _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } }
       }
     });
   }
 
-  async findByName(name: string, excludeId?: string): Promise<InsuranceProvider | null> {
-    return this.prisma.insuranceProvider.findFirst({
-      where: {
-        name: { equals: name.trim(), mode: 'insensitive' },
-        isActive: true,
-        ...(excludeId ? { id: { not: excludeId } } : {})
-      }
-    });
-  }
-
-  async create(data: {
-    name: string;
-    type: InsuranceType;
-    coveragePercentage: number;
-    contactInfo?: ContactInfo | null;
-    isActive: boolean;
-  }): Promise<InsuranceProvider> {
-    return this.prisma.insuranceProvider.create({
+  async create(data: any) {
+    return this.getModel().create({
       data,
-      include: {
-        _count: {
-          select: {
-            Patient: true,
-            Attendance: true,
-            Bill: true,
-            InsuranceClaim: true
-          }
-        }
-      }
+      include: { _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } } }
     });
   }
 
-  async update(id: string, data: Partial<{
-    name: string;
-    type: InsuranceType;
-    coveragePercentage: number;
-    contactInfo?: ContactInfo | null;
-    isActive: boolean;
-  }>): Promise<InsuranceProvider> {
-    return this.prisma.insuranceProvider.update({
-      where: { id },
-      data,
-      include: {
-        _count: {
-          select: {
-            Patient: true,
-            Attendance: true,
-            Bill: true,
-            InsuranceClaim: true
-          }
-        }
-      }
+  async update(id: string, data: any) {
+    return this.getModel().update({
+      where: { id }, data,
+      include: { _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } } }
     });
   }
 
-  async delete(id: string): Promise<void> {
-    await this.prisma.insuranceProvider.delete({
-      where: { id }
-    });
-  }
-
-  async toggleStatus(id: string): Promise<InsuranceProvider> {
-    const provider = await this.prisma.insuranceProvider.findUnique({
-      where: { id }
-    });
-
+  async toggleStatus(id: string) {
+    const provider = await this.getModel().findUnique({ where: { id }, select: { isActive: true } });
+    
+    // ✅ FIXED: Throw a properly formatted 404 error so BaseController handles it correctly
     if (!provider) {
-      throw new Error('Insurance provider not found');
+      const err = new Error('Insurance provider not found') as any;
+      err.status = 404; 
+      throw err;
     }
-
-    return this.prisma.insuranceProvider.update({
-      where: { id },
-      data: {
-        isActive: !provider.isActive
-      }
-    });
+    
+    return this.getModel().update({ where: { id }, data: { isActive: !provider.isActive } });
   }
 
-  async findByIdWithStats(id: string): Promise<any> {
-    return this.prisma.insuranceProvider.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            Patient: true,
-            Attendance: true,
-            Bill: true,
-            InsuranceClaim: true
-          }
-        },
-        Bill: {
-          select: {
-            status: true,
-            totalAmount: true,
-            balance: true
-          }
-        },
-        InsuranceClaim: {
-          select: {
-            status: true,
-            totalClaimAmount: true,
-            approvedAmount: true
-          }
-        }
-      }
-    });
-  }
+  // ✅ Database-level aggregation prevents memory leaks and Decimal math crashes
+  async getProviderStats(id: string) {
+    const provider = await this.getModel().findUnique({ where: { id } });
+    if (!provider) return null;
 
-  async hasRelatedRecords(id: string): Promise<boolean> {
-    const provider = await this.prisma.insuranceProvider.findUnique({
-      where: { id },
-      include: {
-        Patient: { take: 1 },
-        Attendance: { take: 1 },
-        Bill: { take: 1 },
-        InsuranceClaim: { take: 1 }
-      }
-    });
+    const [counts, billAggs, claimAggs, billStatuses, claimStatuses] = await Promise.all([
+      this.getModel().findUnique({ where: { id }, select: { _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } } } }),
+      this.prisma.bill.aggregate({ where: { insuranceProviderId: id }, _sum: { totalAmount: true, balance: true } }),
+      this.prisma.insuranceClaim.aggregate({ where: { insuranceProviderId: id, status: { in: ['approved', 'paid'] } }, _sum: { totalClaimAmount: true, approvedAmount: true } }),
+      this.prisma.bill.groupBy({ by: ['status'], where: { insuranceProviderId: id }, _count: true }),
+      this.prisma.insuranceClaim.groupBy({ by: ['status'], where: { insuranceProviderId: id }, _count: true })
+    ]);
 
-    if (!provider) {
-      return false;
-    }
+    const billStatusMap: Record<string, number> = {};
+    billStatuses.forEach(s => { billStatusMap[s.status] = s._count; });
 
-    return (
-      provider.Patient.length > 0 ||
-      provider.Attendance.length > 0 ||
-      provider.Bill.length > 0 ||
-      provider.InsuranceClaim.length > 0
-    );
+    const claimStatusMap: Record<string, number> = {};
+    claimStatuses.forEach(s => { claimStatusMap[s.status] = s._count; });
+
+    return {
+      provider: { id: provider.id, name: provider.name, type: provider.type, coveragePercentage: toNumber(provider.coveragePercentage), isActive: provider.isActive },
+      counts: counts?._count || { Patient: 0, Attendance: 0, Bill: 0, InsuranceClaim: 0 },
+      financials: {
+        totalBilling: toNumber(billAggs._sum.totalAmount),
+        pendingBalance: toNumber(billAggs._sum.balance),
+        totalClaims: toNumber(claimAggs._sum.totalClaimAmount),
+        approvedClaims: toNumber(claimAggs._sum.approvedAmount)
+      },
+      billStatus: billStatusMap,
+      claimStatus: claimStatusMap
+    };
   }
 }

@@ -1,207 +1,268 @@
-// src/components/antenatal/ANCBookingModal.tsx
-import React, { useState } from 'react';
-import { X, Calendar, Heart, Ruler, Weight, Syringe, AlertTriangle, Droplet } from 'lucide-react';
+// src/components/antenatal/ANCVisitModal.tsx
+import React, { useState, useEffect } from 'react';
+import { X, Heart, Ruler, Weight, Syringe, AlertTriangle, Droplet, Calendar, Activity } from 'lucide-react';
 import { useAntenatalStore } from '../../store/antenatalStore';
+import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
 
-interface ANCBookingModalProps {
+interface ANCVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  patientId: string;
   attendanceId: string;
+  bookingId: string;  // The antenatal record ID
+  visitNumber?: number;
+  existingVisit?: any; // For edit mode
 }
 
-const PREVIOUS_COMPLICATIONS = [
-  'Pre-eclampsia',
-  'Gestational diabetes',
-  'Preterm delivery',
-  'Postpartum hemorrhage',
-  'Placenta previa',
-  'Placental abruption',
-  'Intrauterine growth restriction',
-  'Stillbirth',
-  'Neonatal death',
-  'Congenital anomalies'
-];
-
-export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
+export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  patientId,
-  attendanceId
+  attendanceId,
+  bookingId,
+  visitNumber = 1,
+  existingVisit
 }) => {
-  const { createBooking } = useAntenatalStore();
+  const { recordANCVisit, updateANCVisit } = useAntenatalStore();
+  const { user } = useAuthStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pregnancy' | 'history' | 'preventions'>('pregnancy');
+  
+  // Determine if this is edit mode
+  const isEditing = !!existingVisit;
 
-  // Form state
+  // Form state for ANC visit
   const [formData, setFormData] = useState({
-    // Pregnancy Information
-    lmp: '',
-    edd: '',
-    gestationalAgeWeeks: '',
-    eddByUltrasound: '',
+    // Visit Information
+    visitDate: existingVisit?.visitDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+    gestationalAgeWeeks: existingVisit?.gestationalAgeWeeks || '',
+    gestationalAgeDays: existingVisit?.gestationalAgeDays || '',
     
-    // Obstetric History
-    gravida: 1,
-    para: 0,
-    previousCSection: false,
-    previousComplications: [] as string[],
-    previousComplicationsOther: '',
+    // Maternal Measurements
+    weight: existingVisit?.weight || '',
+    bloodPressure: existingVisit?.bloodPressure || '',
+    fundalHeight: existingVisit?.fundalHeight || '',
+    fetalHeartRate: existingVisit?.fetalHeartRate || '',
+    presentation: existingVisit?.presentation || '',
     
-    // Medical History
-    chronicHypertension: false,
-    diabetesMellitus: false,
-    heartDisease: false,
-    renalDisease: false,
-    asthma: false,
-    epilepsy: false,
-    hivStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown',
-    syphilisStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown',
-    hepatitisBStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown',
+    // IPTp (Intermittent Preventive Treatment in pregnancy)
+    iptpGiven: existingVisit?.iptpGiven || false,
+    iptpDoseNumber: existingVisit?.iptpDoseNumber || 1,
     
-    // Booking Measurements
-    bookingWeight: '',
-    bookingHeight: '',
-    bookingBMI: '',
-    bookingBP: '',
-    bookingHb: '',
-    bloodGroup: '',
-    rhesusFactor: '' as '' | 'Positive' | 'Negative',
+    // TT (Tetanus Toxoid)
+    ttGiven: existingVisit?.ttGiven || false,
+    ttDoseNumber: existingVisit?.ttDoseNumber || 1,
     
-    // Preventions at Booking
-    ttStatus: '',
-    ttDoseGiven: false,
-    ttDoseNumber: '',
-    iptpGiven: false,
-    iptpDoseNumber: '',
-    ironGiven: false,
-    folateGiven: false,
-    itnGiven: false,
+    // Other Preventions
+    ironGiven: existingVisit?.ironGiven || false,
+    folateGiven: existingVisit?.folateGiven || false,
     
-    // Risk Assessment
-    riskLevel: 'low' as 'low' | 'medium' | 'high',
-    riskFactors: [] as string[],
+    // Malaria
+    malariaTestDone: existingVisit?.malariaTestDone || false,
+    malariaTestResult: existingVisit?.malariaTestResult || '',
+    malariaTreatmentGiven: existingVisit?.malariaTreatmentGiven || false,
     
-    // Additional Info
-    occupation: '',
-    partnerName: '',
-    partnerContact: '',
-    malePartnerInvolved: false,
-    partnerHIVStatus: '' as '' | 'Positive' | 'Negative' | 'Unknown',
-    emergencyContact: '',
-    emergencyContactPhone: '',
-    notes: ''
+    // Danger Signs
+    dangerSignsPresent: existingVisit?.dangerSignsPresent || false,
+    dangerSignsList: existingVisit?.dangerSignsList || [] as string[],
+    
+    // Referral
+    referralMade: existingVisit?.referralMade || false,
+    referredTo: existingVisit?.referredTo || '',
+    referralReason: existingVisit?.referralReason || '',
+    
+    // Notes
+    notes: existingVisit?.notes || ''
   });
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (isOpen && existingVisit) {
+      setFormData({
+        visitDate: existingVisit.visitDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        gestationalAgeWeeks: existingVisit.gestationalAgeWeeks || '',
+        gestationalAgeDays: existingVisit.gestationalAgeDays || '',
+        weight: existingVisit.weight || '',
+        bloodPressure: existingVisit.bloodPressure || '',
+        fundalHeight: existingVisit.fundalHeight || '',
+        fetalHeartRate: existingVisit.fetalHeartRate || '',
+        presentation: existingVisit.presentation || '',
+        iptpGiven: existingVisit.iptpGiven || false,
+        iptpDoseNumber: existingVisit.iptpDoseNumber || 1,
+        ttGiven: existingVisit.ttGiven || false,
+        ttDoseNumber: existingVisit.ttDoseNumber || 1,
+        ironGiven: existingVisit.ironGiven || false,
+        folateGiven: existingVisit.folateGiven || false,
+        malariaTestDone: existingVisit.malariaTestDone || false,
+        malariaTestResult: existingVisit.malariaTestResult || '',
+        malariaTreatmentGiven: existingVisit.malariaTreatmentGiven || false,
+        dangerSignsPresent: existingVisit.dangerSignsPresent || false,
+        dangerSignsList: existingVisit.dangerSignsList || [],
+        referralMade: existingVisit.referralMade || false,
+        referredTo: existingVisit.referredTo || '',
+        referralReason: existingVisit.referralReason || '',
+        notes: existingVisit.notes || ''
+      });
+    } else if (isOpen && !existingVisit) {
+      // Reset for new visit
+      setFormData({
+        visitDate: new Date().toISOString().split('T')[0],
+        gestationalAgeWeeks: '',
+        gestationalAgeDays: '',
+        weight: '',
+        bloodPressure: '',
+        fundalHeight: '',
+        fetalHeartRate: '',
+        presentation: '',
+        iptpGiven: false,
+        iptpDoseNumber: 1,
+        ttGiven: false,
+        ttDoseNumber: 1,
+        ironGiven: false,
+        folateGiven: false,
+        malariaTestDone: false,
+        malariaTestResult: '',
+        malariaTreatmentGiven: false,
+        dangerSignsPresent: false,
+        dangerSignsList: [],
+        referralMade: false,
+        referredTo: '',
+        referralReason: '',
+        notes: ''
+      });
+    }
+  }, [isOpen, existingVisit]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Auto-calculate EDD from LMP
-  if (field === 'lmp' && value) {
-      const lmp = new Date(value);
-      if (!isNaN(lmp.getTime())) {
-        const edd = new Date(lmp);
-        edd.setDate(edd.getDate() + 280);
-        const eddStr = edd.toISOString().split('T')[0];
-        setFormData(prev => ({ ...prev, edd: eddStr }));
-        
-        // Calculate gestational age in weeks
-        const today = new Date();
-        const diffTime = today.getTime() - lmp.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-        const weeks = Math.floor(diffDays / 7);
-        if (weeks >= 0 && weeks <= 42) {
-          setFormData(prev => ({ ...prev, gestationalAgeWeeks: weeks.toString() }));
-        }
-      }
-    }
-    
-    // Calculate BMI when weight and height are entered
-    if ((field === 'bookingWeight' || field === 'bookingHeight') && formData.bookingWeight && formData.bookingHeight) {
-      const weight = field === 'bookingWeight' ? parseFloat(value) : parseFloat(formData.bookingWeight);
-      const height = field === 'bookingHeight' ? parseFloat(value) : parseFloat(formData.bookingHeight);
-      if (weight && height && height > 0) {
-        const heightInMeters = height / 100;
-        const bmi = weight / (heightInMeters * heightInMeters);
-        setFormData(prev => ({ ...prev, bookingBMI: bmi.toFixed(1) }));
-      }
-    }
   };
 
-  const handleCheckboxArray = (field: string, value: string, checked: boolean) => {
-    const current = formData[field as keyof typeof formData] as string[];
+  const handleDangerSignsChange = (sign: string, checked: boolean) => {
+    const current = [...formData.dangerSignsList];
     if (checked) {
-      setFormData(prev => ({ ...prev, [field]: [...current, value] }));
+      current.push(sign);
     } else {
-      setFormData(prev => ({ ...prev, [field]: current.filter(v => v !== value) }));
+      const index = current.indexOf(sign);
+      if (index > -1) current.splice(index, 1);
     }
+    setFormData(prev => ({ ...prev, dangerSignsList: current }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
-      const data = {
-        patientId,
-        attendanceId,
-        lmp: formData.lmp || undefined,
-        edd: formData.edd || undefined,
-        gestationalAgeWeeks: formData.gestationalAgeWeeks ? parseInt(formData.gestationalAgeWeeks) : undefined,
-        gravida: formData.gravida,
-        para: formData.para,
-        previousCSection: formData.previousCSection,
-        previousComplications: [...formData.previousComplications, formData.previousComplicationsOther].filter(Boolean),
-        chronicHypertension: formData.chronicHypertension,
-        diabetesMellitus: formData.diabetesMellitus,
-        heartDisease: formData.heartDisease,
-        renalDisease: formData.renalDisease,
-        asthma: formData.asthma,
-        epilepsy: formData.epilepsy,
-        hivStatus: formData.hivStatus,
-        syphilisStatus: formData.syphilisStatus,
-        hepatitisBStatus: formData.hepatitisBStatus,
-        bookingWeight: formData.bookingWeight ? parseFloat(formData.bookingWeight) : undefined,
-        bookingHeight: formData.bookingHeight ? parseFloat(formData.bookingHeight) : undefined,
-        bookingBMI: formData.bookingBMI ? parseFloat(formData.bookingBMI) : undefined,
-        bookingBP: formData.bookingBP,
-        bookingHb: formData.bookingHb ? parseFloat(formData.bookingHb) : undefined,
-        bloodGroup: formData.bloodGroup,
-        rhesusFactor: formData.rhesusFactor,
-        ttStatus: formData.ttStatus,
-        ttDoseGiven: formData.ttDoseGiven,
-        ttDoseNumber: formData.ttDoseNumber ? parseInt(formData.ttDoseNumber) : undefined,
-        iptpGiven: formData.iptpGiven,
-        iptpDoseNumber: formData.iptpDoseNumber ? parseInt(formData.iptpDoseNumber) : undefined,
-        ironGiven: formData.ironGiven,
-        folateGiven: formData.folateGiven,
-        itnGiven: formData.itnGiven,
-        riskLevel: formData.riskLevel,
-        riskFactors: formData.riskFactors,
-        occupation: formData.occupation,
-        partnerName: formData.partnerName,
-        partnerContact: formData.partnerContact,
-        malePartnerInvolved: formData.malePartnerInvolved,
-        partnerHIVStatus: formData.partnerHIVStatus || undefined,
-        emergencyContact: formData.emergencyContact,
-        emergencyContactPhone: formData.emergencyContactPhone,
-        notes: formData.notes
+      // Helper function to convert date string to proper DateTime
+      const toDateTime = (dateStr: string) => {
+        if (!dateStr) return undefined;
+        // Convert "2026-06-05" to "2026-06-05T00:00:00.000Z"
+        return new Date(dateStr).toISOString();
       };
-
-      await createBooking(data);
-      success('Success', 'Pregnancy record created successfully');
+  
+      if (isEditing && existingVisit?.id) {
+        // For UPDATE - send ONLY the fields that changed/are allowed to update
+        const updateData: any = {};
+        
+        // Convert date to proper DateTime
+        if (formData.visitDate) updateData.visitDate = toDateTime(formData.visitDate);
+        if (formData.gestationalAgeWeeks) updateData.gestationalAgeWeeks = parseInt(formData.gestationalAgeWeeks);
+        if (formData.gestationalAgeDays) updateData.gestationalAgeDays = parseInt(formData.gestationalAgeDays);
+        if (formData.weight) updateData.weight = parseFloat(formData.weight);
+        if (formData.bloodPressure) updateData.bloodPressure = formData.bloodPressure;
+        if (formData.fundalHeight) updateData.fundalHeight = parseFloat(formData.fundalHeight);
+        if (formData.fetalHeartRate) updateData.fetalHeartRate = parseInt(formData.fetalHeartRate);
+        if (formData.presentation) updateData.presentation = formData.presentation;
+        
+        updateData.iptpGiven = formData.iptpGiven;
+        if (formData.iptpGiven) updateData.iptpDoseNumber = formData.iptpDoseNumber;
+        
+        updateData.ttGiven = formData.ttGiven;
+        if (formData.ttGiven) updateData.ttDoseNumber = formData.ttDoseNumber;
+        
+        updateData.itnGiven = formData.itnGiven;
+        updateData.ironGiven = formData.ironGiven;
+        updateData.folateGiven = formData.folateGiven;
+        
+        updateData.malariaTestDone = formData.malariaTestDone;
+        if (formData.malariaTestResult) updateData.malariaTestResult = formData.malariaTestResult;
+        updateData.malariaTreatmentGiven = formData.malariaTreatmentGiven;
+        
+        updateData.dangerSignsPresent = formData.dangerSignsPresent;
+        if (formData.dangerSignsList.length > 0) updateData.dangerSignsList = formData.dangerSignsList;
+        
+        updateData.referralMade = formData.referralMade;
+        if (formData.referredTo) updateData.referredTo = formData.referredTo;
+        if (formData.referralReason) updateData.referralReason = formData.referralReason;
+        
+        if (formData.notes) updateData.notes = formData.notes;
+        
+        console.log('Updating visit with data:', { id: existingVisit.id, data: updateData });
+        await updateANCVisit(existingVisit.id, updateData);
+        success('Success', 'ANC visit updated successfully');
+      } else {
+        // Create new visit
+        const createData = {
+          bookingId: bookingId,
+          attendanceId: attendanceId,
+          visitNumber: visitNumber,
+          visitDate: toDateTime(formData.visitDate), // Convert to DateTime
+          gestationalAgeWeeks: formData.gestationalAgeWeeks ? parseInt(formData.gestationalAgeWeeks) : undefined,
+          gestationalAgeDays: formData.gestationalAgeDays ? parseInt(formData.gestationalAgeDays) : undefined,
+          weight: formData.weight ? parseFloat(formData.weight) : undefined,
+          bloodPressure: formData.bloodPressure || undefined,
+          fundalHeight: formData.fundalHeight ? parseFloat(formData.fundalHeight) : undefined,
+          fetalHeartRate: formData.fetalHeartRate ? parseInt(formData.fetalHeartRate) : undefined,
+          presentation: formData.presentation || undefined,
+          iptpGiven: formData.iptpGiven,
+          iptpDoseNumber: formData.iptpGiven ? formData.iptpDoseNumber : undefined,
+          ttGiven: formData.ttGiven,
+          ttDoseNumber: formData.ttGiven ? formData.ttDoseNumber : undefined,
+          ironGiven: formData.ironGiven,
+          folateGiven: formData.folateGiven,
+          malariaTestDone: formData.malariaTestDone,
+          malariaTestResult: formData.malariaTestResult || undefined,
+          malariaTreatmentGiven: formData.malariaTreatmentGiven,
+          dangerSignsPresent: formData.dangerSignsPresent,
+          dangerSignsList: formData.dangerSignsList.length > 0 ? formData.dangerSignsList : undefined,
+          referralMade: formData.referralMade,
+          referredTo: formData.referredTo || undefined,
+          referralReason: formData.referralReason || undefined,
+          notes: formData.notes || undefined,
+          recordedById: user?.id // Make sure you have user from useAuthStore
+        };
+        
+        console.log('Creating ANC visit:', createData);
+        await recordANCVisit(createData);
+        success('Success', 'ANC visit recorded successfully');
+      }
+      
       onSuccess();
       onClose();
     } catch (err: any) {
-      toastError('Error', err.message);
+      console.error('Error details:', err);
+      console.error('Response data:', err.response?.data);
+      console.error('Validation errors:', err.response?.data?.errors);
+      toastError('Error', err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const dangerSignsOptions = [
+    'Severe headache',
+    'Blurred vision',
+    'Convulsions',
+    'Severe abdominal pain',
+    'Vaginal bleeding',
+    'Fever',
+    'Reduced fetal movement',
+    'Breathlessness',
+    'Swelling of hands/face',
+    'Ruptured membranes',
+    'Prolonged labor'
+  ];
 
   if (!isOpen) return null;
 
@@ -213,492 +274,349 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
           {/* Header */}
           <div className="sticky top-0 bg-[var(--bg-card)] px-6 py-4 border-b flex justify-between items-center z-10">
             <div>
-              <h2 className="text-xl font-bold text-pink-600">Create Pregnancy Record</h2>
-              <p className="text-sm text-[var(--text-secondary)]">Complete antenatal booking form</p>
+              <h2 className="text-xl font-bold text-pink-600">
+                {isEditing ? 'Edit ANC Visit' : `Record ANC Visit #${visitNumber}`}
+              </h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {isEditing ? 'Update antenatal visit information' : 'Record today\'s antenatal assessment'}
+              </p>
             </div>
             <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex border-b px-6">
-            <button
-              onClick={() => setActiveTab('pregnancy')}
-              className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'pregnancy' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              <Heart className="w-4 h-4" /> Pregnancy Details
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'history' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              <Calendar className="w-4 h-4" /> Obstetric History
-            </button>
-            <button
-              onClick={() => setActiveTab('preventions')}
-              className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'preventions' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              <Syringe className="w-4 h-4" /> Preventions & Risk
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Tab 1: Pregnancy Details */}
-            {activeTab === 'pregnancy' && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">LMP (Last Menstrual Period) *</label>
-                    <input
-                      type="date"
-                      value={formData.lmp}
-                      onChange={(e) => handleChange('lmp', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg focus:ring-2 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">EDD (Estimated Due Date)</label>
-                    <input
-                      type="date"
-                      value={formData.edd}
-                      onChange={(e) => handleChange('edd', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      placeholder="Auto-calculated from LMP"
-                    />
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">Auto-calculated from LMP (40 weeks)</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Gestational Age (weeks)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={formData.gestationalAgeWeeks}
-                      onChange={(e) => handleChange('gestationalAgeWeeks', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      placeholder="Auto-calculated from LMP"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Measurements at Booking</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Weight (kg)</label>
-                      <div className="flex items-center gap-2">
-                        <Weight className="w-4 h-4 text-[var(--text-secondary)]" />
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.bookingWeight}
-                          onChange={(e) => handleChange('bookingWeight', e.target.value)}
-                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                          placeholder="e.g., 65.5"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Height (cm)</label>
-                      <div className="flex items-center gap-2">
-                        <Ruler className="w-4 h-4 text-[var(--text-secondary)]" />
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={formData.bookingHeight}
-                          onChange={(e) => handleChange('bookingHeight', e.target.value)}
-                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                          placeholder="e.g., 160"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">BMI</label>
-                      <input
-                        type="text"
-                        value={formData.bookingBMI}
-                        readOnly
-                        className="w-full px-3 py-2 bg-gray-100 border rounded-lg"
-                        placeholder="Auto-calculated"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Blood Pressure</label>
-                      <input
-                        type="text"
-                        value={formData.bookingBP}
-                        onChange={(e) => handleChange('bookingBP', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                        placeholder="e.g., 120/80"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Hb Level (g/dL)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={formData.bookingHb}
-                        onChange={(e) => handleChange('bookingHb', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                        placeholder="e.g., 11.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Blood Group</label>
-                      <select
-                        value={formData.bloodGroup}
-                        onChange={(e) => handleChange('bloodGroup', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      >
-                        <option value="">Select</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Rhesus Factor</label>
-                      <select
-                        value={formData.rhesusFactor}
-                        onChange={(e) => handleChange('rhesusFactor', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      >
-                        <option value="">Select</option>
-                        <option value="Positive">Positive (+)</option>
-                        <option value="Negative">Negative (-)</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+            {/* Basic Visit Info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Visit Date *</label>
+                <input
+                  type="date"
+                  value={formData.visitDate}
+                  onChange={(e) => handleChange('visitDate', e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg focus:ring-2 focus:ring-pink-500"
+                  required
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium mb-1">Gestational Age (weeks)</label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.gestationalAgeWeeks}
+                  onChange={(e) => handleChange('gestationalAgeWeeks', e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                  placeholder="e.g., 24"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Gestational Age (days)</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="6"
+                  value={formData.gestationalAgeDays}
+                  onChange={(e) => handleChange('gestationalAgeDays', e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                  placeholder="e.g., 3"
+                />
+              </div>
+            </div>
 
-            {/* Tab 2: Obstetric History */}
-            {activeTab === 'history' && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Gravida (Total pregnancies) *</label>
+            {/* Maternal Measurements */}
+            <div className="border-t pt-4">
+              <h3 className="font-semibold flex items-center gap-2 mb-3">
+                <Activity className="w-4 h-4 text-pink-600" />
+                Maternal Assessment
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Weight (kg)</label>
+                  <div className="flex items-center gap-2">
+                    <Weight className="w-4 h-4 text-[var(--text-secondary)]" />
                     <input
                       type="number"
-                      min="1"
-                      value={formData.gravida}
-                      onChange={(e) => handleChange('gravida', parseInt(e.target.value) || 1)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Para (Total deliveries) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.para}
-                      onChange={(e) => handleChange('para', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      required
+                      step="0.1"
+                      value={formData.weight}
+                      onChange={(e) => handleChange('weight', e.target.value)}
+                      className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      placeholder="e.g., 70.5"
                     />
                   </div>
                 </div>
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.previousCSection}
-                    onChange={(e) => handleChange('previousCSection', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>Previous C-Section</span>
-                </label>
-
                 <div>
-                  <label className="block text-sm font-medium mb-2">Previous Complications</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg">
-                    {PREVIOUS_COMPLICATIONS.map(comp => (
-                      <label key={comp} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={formData.previousComplications.includes(comp)}
-                          onChange={(e) => handleCheckboxArray('previousComplications', comp, e.target.checked)}
-                          className="rounded"
-                        />
-                        {comp}
-                      </label>
-                    ))}
-                  </div>
+                  <label className="block text-sm font-medium mb-1">Blood Pressure</label>
                   <input
                     type="text"
-                    value={formData.previousComplicationsOther}
-                    onChange={(e) => handleChange('previousComplicationsOther', e.target.value)}
-                    placeholder="Other complications (specify)"
-                    className="mt-2 w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                    value={formData.bloodPressure}
+                    onChange={(e) => handleChange('bloodPressure', e.target.value)}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                    placeholder="e.g., 120/80"
                   />
                 </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Medical History</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[
-                      'chronicHypertension', 'diabetesMellitus', 'heartDisease',
-                      'renalDisease', 'asthma', 'epilepsy'
-                    ].map(condition => (
-                      <label key={condition} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={formData[condition as keyof typeof formData] as boolean}
-                          onChange={(e) => handleChange(condition, e.target.checked)}
-                          className="rounded"
-                        />
-                        <span className="text-sm capitalize">{condition.replace(/([A-Z])/g, ' $1').trim()}</span>
-                      </label>
-                    ))}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fundal Height (cm)</label>
+                  <div className="flex items-center gap-2">
+                    <Ruler className="w-4 h-4 text-[var(--text-secondary)]" />
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={formData.fundalHeight}
+                      onChange={(e) => handleChange('fundalHeight', e.target.value)}
+                      className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      placeholder="e.g., 28"
+                    />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">HIV Status</label>
-                    <select
-                      value={formData.hivStatus}
-                      onChange={(e) => handleChange('hivStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Select</option>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
-                      <option value="Unknown">Unknown</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Syphilis Status</label>
-                    <select
-                      value={formData.syphilisStatus}
-                      onChange={(e) => handleChange('syphilisStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Select</option>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
-                      <option value="Unknown">Unknown</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Hepatitis B Status</label>
-                    <select
-                      value={formData.hepatitisBStatus}
-                      onChange={(e) => handleChange('hepatitisBStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Select</option>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
-                      <option value="Unknown">Unknown</option>
-                    </select>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fetal Heart Rate (bpm)</label>
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-[var(--text-secondary)]" />
+                    <input
+                      type="number"
+                      value={formData.fetalHeartRate}
+                      onChange={(e) => handleChange('fetalHeartRate', e.target.value)}
+                      className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      placeholder="e.g., 140"
+                    />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Occupation</label>
-                    <input
-                      type="text"
-                      value={formData.occupation}
-                      onChange={(e) => handleChange('occupation', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Partner Name</label>
-                    <input
-                      type="text"
-                      value={formData.partnerName}
-                      onChange={(e) => handleChange('partnerName', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Partner Contact</label>
-                    <input
-                      type="text"
-                      value={formData.partnerContact}
-                      onChange={(e) => handleChange('partnerContact', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Partner HIV Status</label>
-                    <select
-                      value={formData.partnerHIVStatus}
-                      onChange={(e) => handleChange('partnerHIVStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Not tested</option>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
-                      <option value="Unknown">Unknown</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-3 mt-6">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.malePartnerInvolved}
-                        onChange={(e) => handleChange('malePartnerInvolved', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="font-medium">Male Partner Involved in ANC</span>
-                    </label>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Presentation</label>
+                  <select
+                    value={formData.presentation}
+                    onChange={(e) => handleChange('presentation', e.target.value)}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                  >
+                    <option value="">Select</option>
+                    <option value="cephalic">Cephalic (Head down)</option>
+                    <option value="breech">Breech</option>
+                    <option value="transverse">Transverse</option>
+                    <option value="oblique">Oblique</option>
+                  </select>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Tab 3: Preventions & Risk */}
-            {activeTab === 'preventions' && (
-              <div className="space-y-5">
-                <div className="border rounded-lg p-4 bg-green-50/20">
-                  <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <Syringe className="w-4 h-4 text-green-600" />
-                    Vaccinations & Preventions at Booking
-                  </h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.ttDoseGiven}
-                        onChange={(e) => handleChange('ttDoseGiven', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span>Tetanus Toxoid (TT) given at booking</span>
-                    </label>
-                    {formData.ttDoseGiven && (
-                      <div className="ml-6">
-                        <label className="block text-sm font-medium mb-1">TT Dose Number</label>
-                        <select
-                          value={formData.ttDoseNumber}
-                          onChange={(e) => handleChange('ttDoseNumber', e.target.value)}
-                          className="w-48 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                        >
-                          <option value="">Select dose</option>
-                          {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>TT{d}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.iptpGiven}
-                        onChange={(e) => handleChange('iptpGiven', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span>IPTp given at booking</span>
-                    </label>
-                    {formData.iptpGiven && (
-                      <div className="ml-6">
-                        <label className="block text-sm font-medium mb-1">IPTp Dose Number</label>
-                        <select
-                          value={formData.iptpDoseNumber}
-                          onChange={(e) => handleChange('iptpDoseNumber', e.target.value)}
-                          className="w-48 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                        >
-                          <option value="">Select dose</option>
-                          {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>Dose {d}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-4 pt-2">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.ironGiven}
-                          onChange={(e) => handleChange('ironGiven', e.target.checked)}
-                          className="rounded"
-                        />
-                        <span>Iron supplements given</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.folateGiven}
-                          onChange={(e) => handleChange('folateGiven', e.target.checked)}
-                          className="rounded"
-                        />
-                        <span>Folate supplements given</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.itnGiven}
-                          onChange={(e) => handleChange('itnGiven', e.target.checked)}
-                          className="rounded"
-                        />
-                        <span>ITN (mosquito net) given</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <AlertTriangle className="w-4 h-4 text-orange-600" />
-                    Risk Assessment
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Preventions */}
+            <div className="border-t pt-4">
+              <h3 className="font-semibold flex items-center gap-2 mb-3">
+                <Syringe className="w-4 h-4 text-green-600" />
+                Preventions & Treatments
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* IPTp */}
+                <div className="border rounded-lg p-3">
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.iptpGiven}
+                      onChange={(e) => handleChange('iptpGiven', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="font-medium">IPTp Given</span>
+                  </label>
+                  {formData.iptpGiven && (
                     <div>
-                      <label className="block text-sm font-medium mb-1">Risk Level</label>
+                      <label className="block text-sm font-medium mb-1">Dose Number</label>
                       <select
-                        value={formData.riskLevel}
-                        onChange={(e) => handleChange('riskLevel', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg ${
-                          formData.riskLevel === 'high' ? 'bg-red-50 border-red-300' :
-                          formData.riskLevel === 'medium' ? 'bg-yellow-50 border-yellow-300' :
-                          'bg-green-50 border-green-300'
-                        }`}
+                        value={formData.iptpDoseNumber}
+                        onChange={(e) => handleChange('iptpDoseNumber', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
                       >
-                        <option value="low">Low Risk</option>
-                        <option value="medium">Medium Risk</option>
-                        <option value="high">High Risk</option>
+                        <option value={1}>Dose 1</option>
+                        <option value={2}>Dose 2</option>
+                        <option value={3}>Dose 3</option>
+                        <option value={4}>Dose 4</option>
+                        <option value={5}>Dose 5</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Risk Factors</label>
-                      <input
-                        type="text"
-                        value={formData.riskFactors.join(', ')}
-                        onChange={(e) => handleChange('riskFactors', e.target.value.split(',').map(s => s.trim()))}
-                        placeholder="e.g., Advanced maternal age, Obesity, Multiple pregnancy"
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">Notes</label>
-                  <textarea
-                    rows={3}
-                    value={formData.notes}
-                    onChange={(e) => handleChange('notes', e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    placeholder="Additional clinical notes, concerns, or observations..."
-                  />
+                {/* TT */}
+                <div className="border rounded-lg p-3">
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.ttGiven}
+                      onChange={(e) => handleChange('ttGiven', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="font-medium">Tetanus Toxoid (TT) Given</span>
+                  </label>
+                  {formData.ttGiven && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Dose Number</label>
+                      <select
+                        value={formData.ttDoseNumber}
+                        onChange={(e) => handleChange('ttDoseNumber', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      >
+                        <option value={1}>Dose 1</option>
+                        <option value={2}>Dose 2</option>
+                        <option value={3}>Dose 3</option>
+                        <option value={4}>Dose 4</option>
+                        <option value={5}>Dose 5</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Supplements */}
+                <div className="border rounded-lg p-3">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.ironGiven}
+                      onChange={(e) => handleChange('ironGiven', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Iron supplements given</span>
+                  </label>
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.folateGiven}
+                      onChange={(e) => handleChange('folateGiven', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Folate supplements given</span>
+                  </label>
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.itnGiven}
+                      onChange={(e) => handleChange('itnGiven', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>ITN (mosquito net) given</span>
+                  </label>
+                </div>
+
+                {/* Malaria */}
+                <div className="border rounded-lg p-3">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.malariaTestDone}
+                      onChange={(e) => handleChange('malariaTestDone', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Malaria Test Done</span>
+                  </label>
+                  {formData.malariaTestDone && (
+                    <>
+                      <div className="mt-2">
+                        <label className="block text-sm font-medium mb-1">Test Result</label>
+                        <select
+                          value={formData.malariaTestResult}
+                          onChange={(e) => handleChange('malariaTestResult', e.target.value)}
+                          className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        >
+                          <option value="">Select result</option>
+                          <option value="Positive">Positive</option>
+                          <option value="Negative">Negative</option>
+                        </select>
+                      </div>
+                      {formData.malariaTestResult === 'Positive' && (
+                        <label className="flex items-center gap-2 mt-2">
+                          <input
+                            type="checkbox"
+                            checked={formData.malariaTreatmentGiven}
+                            onChange={(e) => handleChange('malariaTreatmentGiven', e.target.checked)}
+                            className="rounded"
+                          />
+                          <span>Treatment given</span>
+                        </label>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Danger Signs */}
+            <div className="border-t pt-4">
+              <label className="flex items-center gap-2 mb-3">
+                <input
+                  type="checkbox"
+                  checked={formData.dangerSignsPresent}
+                  onChange={(e) => handleChange('dangerSignsPresent', e.target.checked)}
+                  className="rounded"
+                />
+                <span className="font-semibold text-orange-600">Danger Signs Present</span>
+              </label>
+              
+              {formData.dangerSignsPresent && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border rounded-lg">
+                  {dangerSignsOptions.map(sign => (
+                    <label key={sign} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formData.dangerSignsList.includes(sign)}
+                        onChange={(e) => handleDangerSignsChange(sign, e.target.checked)}
+                        className="rounded"
+                      />
+                      {sign}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Referral */}
+            <div className="border-t pt-4">
+              <label className="flex items-center gap-2 mb-3">
+                <input
+                  type="checkbox"
+                  checked={formData.referralMade}
+                  onChange={(e) => handleChange('referralMade', e.target.checked)}
+                  className="rounded"
+                />
+                <span className="font-semibold text-blue-600">Referral Made</span>
+              </label>
+              
+              {formData.referralMade && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Referred To</label>
+                    <input
+                      type="text"
+                      value={formData.referredTo}
+                      onChange={(e) => handleChange('referredTo', e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      placeholder="e.g., Regional Hospital, Specialist"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Reason for Referral</label>
+                    <textarea
+                      rows={2}
+                      value={formData.referralReason}
+                      onChange={(e) => handleChange('referralReason', e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      placeholder="Reason for referral..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium mb-1">Clinical Notes</label>
+              <textarea
+                rows={3}
+                value={formData.notes}
+                onChange={(e) => handleChange('notes', e.target.value)}
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                placeholder="Additional clinical notes, observations, or instructions..."
+              />
+            </div>
 
             {/* Footer */}
             <div className="sticky bottom-0 bg-[var(--bg-card)] pt-4 border-t flex justify-end gap-3">
@@ -714,7 +632,7 @@ export const ANCVisitModal: React.FC<ANCBookingModalProps> = ({
                 disabled={loading}
                 className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50"
               >
-                {loading ? 'Creating...' : 'Create Pregnancy Record'}
+                {loading ? (isEditing ? 'Updating...' : 'Saving...') : (isEditing ? 'Update Visit' : 'Save Visit')}
               </button>
             </div>
           </form>

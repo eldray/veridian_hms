@@ -4,6 +4,7 @@ import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useNavigate, useParams } from 'react-router-dom';
+import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
 import {
   Plus,
   Search,
@@ -889,6 +890,9 @@ export default function CorporateAccounts() {
           </button>
         </div>
       </div>
+
+      {/* Section navigation */}
+      <InsuranceSectionTabs active="corporate" />
 
       {/* Filters and View Controls */}
       <div className="flex flex-col sm:flex-row gap-3">

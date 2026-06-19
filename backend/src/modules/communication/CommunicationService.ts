@@ -1,4 +1,5 @@
-// modules/communication/CommunicationService.ts
+import { PrismaClient } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
 import { CommunicationRepository } from './CommunicationRepository';
 import { 
   SendSMSDTO, 
@@ -8,19 +9,22 @@ import {
   CommunicationHistoryFilters
 } from './CommunicationTypes';
 
-export class CommunicationService {
-  private communicationRepository: CommunicationRepository;
+export class CommunicationService extends BaseService {
+  private repository: CommunicationRepository;
 
-  constructor() {
-    this.communicationRepository = new CommunicationRepository();
+  constructor(prisma: PrismaClient) {
+    super('CommunicationService');
+    this.repository = new CommunicationRepository(prisma);
   }
 
   async sendSMS(dto: SendSMSDTO) {
-    return this.communicationRepository.sendSMS(dto);
+    this.logInfo('Sending SMS', { recipient: dto.recipient });
+    return this.repository.sendSMS(dto);
   }
 
   async sendWhatsApp(dto: SendWhatsAppDTO) {
-    return this.communicationRepository.sendWhatsApp(dto);
+    this.logInfo('Sending WhatsApp', { recipient: dto.recipient });
+    return this.repository.sendWhatsApp(dto);
   }
 
   async sendBulkMessage(dto: SendBulkMessageDTO) {
@@ -30,33 +34,34 @@ export class CommunicationService {
     if (!dto.message && !dto.templateId) {
       throw new Error('Either message or templateId is required');
     }
-    return this.communicationRepository.sendBulkMessage(dto);
+    this.logInfo('Sending bulk message', { channel: dto.channelType, count: dto.recipients.length });
+    return this.repository.sendBulkMessage(dto);
   }
 
   async getTemplates(channelType?: string) {
-    return this.communicationRepository.getTemplates(channelType);
+    return this.repository.getTemplates(channelType);
   }
 
   async createTemplate(dto: CommunicationTemplateDTO) {
     if (!dto.name || !dto.body) {
       throw new Error('Name and body are required for template');
     }
-    return this.communicationRepository.createTemplate(dto);
+    return this.repository.createTemplate(dto);
   }
 
   async updateTemplate(id: string, dto: CommunicationTemplateDTO) {
-    return this.communicationRepository.updateTemplate(id, dto);
+    return this.repository.updateTemplate(id, dto);
   }
 
   async deleteTemplate(id: string) {
-    return this.communicationRepository.deleteTemplate(id);
+    return this.repository.deleteTemplate(id);
   }
 
   async getMessageHistory(filters: CommunicationHistoryFilters) {
-    return this.communicationRepository.getMessageHistory(filters);
+    return this.repository.getMessageHistory(filters);
   }
 
   async getMessageStats(startDate?: string, endDate?: string) {
-    return this.communicationRepository.getMessageStats(startDate, endDate);
+    return this.repository.getMessageStats(startDate, endDate);
   }
 }

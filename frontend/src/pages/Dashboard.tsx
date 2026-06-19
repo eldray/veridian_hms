@@ -75,7 +75,7 @@ const fmtTime = (d: string) => {
 const patientFullName = (att: any) => {
   const p = att?.patient ?? att?.Patient;
   if (!p) return 'Unknown Patient';
-  return `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
+  return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
 };
 
 const getStatusStyle = (status: string): { bg: string; color: string } => {

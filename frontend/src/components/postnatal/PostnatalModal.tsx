@@ -1,4 +1,4 @@
-// src/components/postnatal/PostnatalModal.tsx
+// src/components/postnatal/PostnatalModal.tsx - COMPLETE CORRECTED VERSION
 import React, { useState, useEffect } from 'react';
 import { X, Heart, Baby, Shield, AlertTriangle, ArrowLeft, Calendar } from 'lucide-react';
 import { usePostnatalStore } from '../../store/postnatalStore';
@@ -25,6 +25,7 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<'maternal' | 'baby' | 'family'>('maternal');
+  
   const [formData, setFormData] = useState({
     // Maternal assessment
     maternalCondition: 'good',
@@ -64,8 +65,8 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
     maternalDangerSigns: [] as string[],
     babyDangerSigns: [] as string[],
     
+    // Male involvement (GHS reporting)
     malePartnerPresentPNC: false,
-    exclusiveBFAtDischarge: false,  // ✅ Add comma here
     
     // Referral
     referralMade: false,
@@ -130,7 +131,6 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         maternalDangerSigns: existingPostnatal.maternalDangerSigns || [],
         babyDangerSigns: existingPostnatal.babyDangerSigns || [],
         malePartnerPresentPNC: existingPostnatal.malePartnerPresentPNC || false,
-        exclusiveBFAtDischarge: existingPostnatal.exclusiveBFAtDischarge || false,  // ✅ Add comma here
         referralMade: existingPostnatal.referralMade || false,
         referredTo: existingPostnatal.referredTo || '',
         referralReason: existingPostnatal.referralReason || '',
@@ -165,18 +165,24 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         patientId,
         examinationDate: new Date().toISOString(),
         dayNumber: existingPostnatal?.dayNumber || 1,
+        
+        // Maternal assessment fields
         maternalCondition: formData.maternalCondition,
-        maternalComplications: formData.maternalComplications,
-        bloodPressure: formData.bloodPressure,
+        maternalComplications: formData.maternalComplications.length > 0 ? formData.maternalComplications : [],
+        bloodPressure: formData.bloodPressure || undefined,
         temperature: formData.temperature ? parseFloat(formData.temperature) : undefined,
         pulse: formData.pulse ? parseInt(formData.pulse) : undefined,
         fundalHeight: formData.fundalHeight ? parseFloat(formData.fundalHeight) : undefined,
         lochia: formData.lochia,
         perinealCondition: formData.perinealCondition,
         caesareanWound: formData.caesareanWound,
+        
+        // Breastfeeding
         breastfeedingStatus: formData.breastfeedingStatus,
-        breastfeedingDifficulties: formData.breastfeedingDifficulties,
+        breastfeedingDifficulties: formData.breastfeedingDifficulties.length > 0 ? formData.breastfeedingDifficulties : [],
         latching: formData.latching,
+        
+        // Baby assessment
         babyCondition: formData.babyCondition,
         babyWeight: formData.babyWeight ? parseFloat(formData.babyWeight) : undefined,
         babyTemperature: formData.babyTemperature ? parseFloat(formData.babyTemperature) : undefined,
@@ -184,22 +190,34 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         jaundice: formData.jaundice,
         jaundiceSeverity: formData.jaundice ? formData.jaundiceSeverity : undefined,
         cordCondition: formData.cordCondition,
+        
+        // Immunizations
         bcgGiven: formData.bcgGiven,
         opv0Given: formData.opv0Given,
         hepB0Given: formData.hepB0Given,
+        
+        // Family Planning
         familyPlanningDiscussed: formData.familyPlanningDiscussed,
         familyPlanningMethodAccepted: formData.familyPlanningMethodAccepted || undefined,
-        maternalDangerSigns: formData.maternalDangerSigns,
-        babyDangerSigns: formData.babyDangerSigns,
-        malePartnerPresentPNC: formData.malePartnerPresentPNC,
-        exclusiveBFAtDischarge: formData.exclusiveBFAtDischarge,
         
+        // Danger signs
+        maternalDangerSigns: formData.maternalDangerSigns.length > 0 ? formData.maternalDangerSigns : [],
+        babyDangerSigns: formData.babyDangerSigns.length > 0 ? formData.babyDangerSigns : [],
+        
+        // Male involvement (GHS reporting)
+        malePartnerPresentPNC: formData.malePartnerPresentPNC,
+        
+        // Referral
         referralMade: formData.referralMade,
         referredTo: formData.referredTo || undefined,
         referralReason: formData.referralReason || undefined,
-        nextVisitDate: formData.nextVisitDate || undefined,
+        
+        // Follow-up
+        nextVisitDate: formData.nextVisitDate ? new Date(formData.nextVisitDate).toISOString() : undefined,
         nextVisitType: formData.nextVisitType as any,
-        notes: formData.notes
+        
+        // Notes
+        notes: formData.notes || undefined
       };
 
       if (existingPostnatal) {
@@ -212,7 +230,8 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      toastError('Error', err.message);
+      console.error('Postnatal save error:', err);
+      toastError('Error', err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -268,7 +287,7 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <Heart className="w-4 h-4" />
+              <Shield className="w-4 h-4" />
               Family Planning & Follow-up
             </button>
           </div>
@@ -627,7 +646,6 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
                           className="w-full md:w-64 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
                         >
                           <option value="">Select method</option>
-                          {/* Modern Methods */}
                           <optgroup label="Modern Methods">
                             <option value="pills_coc">Combined Oral Pills (COC)</option>
                             <option value="pills_pop">Progestin-Only Pills (POP)</option>
@@ -641,33 +659,20 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
                             <option value="condom_female">Female Condom</option>
                             <option value="female_sterilization">Female Sterilization</option>
                           </optgroup>
-                          {/* Traditional Methods */}
                           <optgroup label="Traditional Methods">
                             <option value="lam">Lactational Amenorrhea (LAM)</option>
                             <option value="withdrawal">Withdrawal</option>
                             <option value="calendar">Calendar/Rhythm</option>
                           </optgroup>
-                          {/* Emergency */}
                           <optgroup label="Emergency">
                             <option value="emergency_contraception">Emergency Contraception</option>
                           </optgroup>
                         </select>
                       </div>
-                      
-                      {/* ✅ NEW: Exclusive Breastfeeding at Discharge */}
-                      <label className="flex items-center gap-2 mt-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.exclusiveBFAtDischarge}
-                          onChange={(e) => handleChange('exclusiveBFAtDischarge', e.target.checked)}
-                          className="rounded"
-                        />
-                        <span className="text-sm font-medium">Exclusively Breastfeeding at Discharge</span>
-                      </label>
                     </div>
                   )}
                   
-                  {/* ✅ NEW: Male Partner Involvement in PNC */}
+                  {/* Male Partner Present During PNC - Only checkbox remaining */}
                   <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                     <label className="flex items-center gap-2">
                       <input
@@ -801,10 +806,10 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isLoading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Saving...' : (existingPostnatal ? 'Update Record' : 'Save Record')}
+                {loading || isLoading ? 'Saving...' : (existingPostnatal ? 'Update Record' : 'Save Record')}
               </button>
             </div>
           </form>

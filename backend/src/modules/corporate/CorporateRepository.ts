@@ -1,12 +1,18 @@
 // modules/corporate/CorporateRepository.ts
 import { PrismaClient } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
+import { getCounterService } from '../../services/CounterService';
 
-const prisma = new PrismaClient();
+// ✅ Helper to safely convert Prisma Decimal objects to JS numbers
+const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
-export class CorporateRepository {
-  
+export class CorporateRepository extends BaseRepository<any, any, any> {
+  constructor(prisma: PrismaClient) {
+    super(prisma, 'corporateAccount');
+  }
+
   async createAccount(dto: any) {
-    return prisma.corporateAccount.create({
+    return this.getModel().create({
       data: {
         companyName: dto.companyName,
         registrationNumber: dto.registrationNumber,
@@ -29,7 +35,7 @@ export class CorporateRepository {
   }
 
   async getAccount(id: string) {
-    return prisma.corporateAccount.findUnique({
+    return this.getModel().findUnique({
       where: { id },
       include: {
         insuranceProvider: true,
@@ -44,6 +50,13 @@ export class CorporateRepository {
         proformaInvoices: {
           take: 10,
           orderBy: { createdAt: 'desc' }
+        },
+        _count: {
+          select: {
+            employees: true,
+            bills: true,
+            proformaInvoices: true
+          }
         }
       }
     });
@@ -51,9 +64,9 @@ export class CorporateRepository {
 
   async getAccounts(filters: any) {
     const { search, insuranceProviderId, isActive, page = 1, limit = 20 } = filters;
-    
+
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { companyName: { contains: search, mode: 'insensitive' } },
@@ -62,13 +75,13 @@ export class CorporateRepository {
         { phone: { contains: search, mode: 'insensitive' } }
       ];
     }
-    
+
     if (insuranceProviderId) {
       where.insuranceProviderId = insuranceProviderId;
     }
-    
+
     if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
+      where.isActive = isActive === 'true' || isActive === true;
     }
 
     const pageNum = Math.max(1, Number(page));
@@ -76,14 +89,14 @@ export class CorporateRepository {
     const skip = (pageNum - 1) * limitNum;
 
     const [accounts, total] = await Promise.all([
-      prisma.corporateAccount.findMany({
+      this.getModel().findMany({
         where,
         include: {
           insuranceProvider: true,
           _count: {
             select: {
               employees: true,
-              invoices: true,
+              bills: true,
               proformaInvoices: true
             }
           }
@@ -92,7 +105,7 @@ export class CorporateRepository {
         take: limitNum,
         orderBy: { companyName: 'asc' }
       }),
-      prisma.corporateAccount.count({ where })
+      this.getModel().count({ where })
     ]);
 
     return {
@@ -107,7 +120,7 @@ export class CorporateRepository {
   }
 
   async updateAccount(id: string, dto: any) {
-    return prisma.corporateAccount.update({
+    return this.getModel().update({
       where: { id },
       data: dto,
       include: {
@@ -117,26 +130,26 @@ export class CorporateRepository {
   }
 
   async deactivateAccount(id: string) {
-    return prisma.corporateAccount.update({
+    return this.getModel().update({
       where: { id },
       data: { isActive: false }
     });
   }
 
   async addEmployee(accountId: string, dto: any) {
-    return prisma.corporateEmployee.create({
+    return this.prisma.corporateEmployee.create({
       data: {
         employeeId: dto.employeeId,
         firstName: dto.firstName,
         lastName: dto.lastName,
         otherNames: dto.otherNames,
-        dateOfBirth: dto.dateOfBirth,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
         gender: dto.gender,
         phone: dto.phone,
         email: dto.email,
         department: dto.department,
         position: dto.position,
-        enrollmentDate: dto.enrollmentDate || new Date(),
+        enrollmentDate: dto.enrollmentDate ? new Date(dto.enrollmentDate) : new Date(),
         isActive: true,
         accountId: accountId
       }
@@ -144,7 +157,7 @@ export class CorporateRepository {
   }
 
   async getEmployee(id: string) {
-    return prisma.corporateEmployee.findUnique({
+    return this.prisma.corporateEmployee.findUnique({
       where: { id },
       include: {
         account: {
@@ -157,14 +170,19 @@ export class CorporateRepository {
   }
 
   async updateEmployee(id: string, dto: any) {
-    return prisma.corporateEmployee.update({
+    const updateData: any = { ...dto };
+    if (dto.dateOfBirth) updateData.dateOfBirth = new Date(dto.dateOfBirth);
+    if (dto.enrollmentDate) updateData.enrollmentDate = new Date(dto.enrollmentDate);
+    if (dto.endDate) updateData.endDate = new Date(dto.endDate);
+
+    return this.prisma.corporateEmployee.update({
       where: { id },
-      data: dto
+      data: updateData
     });
   }
 
   async removeEmployee(id: string) {
-    return prisma.corporateEmployee.update({
+    return this.prisma.corporateEmployee.update({
       where: { id },
       data: {
         isActive: false,
@@ -174,15 +192,16 @@ export class CorporateRepository {
   }
 
   async getEmployees(accountId: string) {
-    return prisma.corporateEmployee.findMany({
-      where: { 
+    return this.prisma.corporateEmployee.findMany({
+      where: {
         accountId,
-        isActive: true 
+        isActive: true
       },
       orderBy: { lastName: 'asc' }
     });
   }
 
+  // ✅ FIXED: Decimal math for statistics
   async getStatistics() {
     const [
       totalAccounts,
@@ -192,19 +211,19 @@ export class CorporateRepository {
       totalOutstanding,
       accountsWithDebt
     ] = await Promise.all([
-      prisma.corporateAccount.count(),
-      prisma.corporateAccount.count({ where: { isActive: true } }),
-      prisma.corporateEmployee.count(),
-      prisma.corporateEmployee.count({ where: { isActive: true } }),
-      prisma.corporateAccount.aggregate({
+      this.getModel().count(),
+      this.getModel().count({ where: { isActive: true } }),
+      this.prisma.corporateEmployee.count(),
+      this.prisma.corporateEmployee.count({ where: { isActive: true } }),
+      this.getModel().aggregate({
         _sum: { currentBalance: true }
       }),
-      prisma.corporateAccount.count({
+      this.getModel().count({
         where: { currentBalance: { gt: 0 } }
       })
     ]);
 
-    const utilizationData = await prisma.corporateAccount.findMany({
+    const utilizationData = await this.getModel().findMany({
       where: { creditLimit: { gt: 0 } },
       select: {
         creditLimit: true,
@@ -212,9 +231,12 @@ export class CorporateRepository {
       }
     });
 
-    const avgUtilization = utilizationData.reduce((acc, account) => {
-      if (account.creditLimit > 0) {
-        return acc + (account.currentBalance / account.creditLimit);
+    // ✅ FIXED: Use toNumber() for Decimal math
+    const avgUtilization = utilizationData.reduce((acc: number, account: any) => {
+      const limit = toNumber(account.creditLimit);
+      const balance = toNumber(account.currentBalance);
+      if (limit > 0) {
+        return acc + (balance / limit);
       }
       return acc;
     }, 0) / (utilizationData.length || 1);
@@ -226,21 +248,20 @@ export class CorporateRepository {
       totalEmployees,
       activeEmployees,
       inactiveEmployees: totalEmployees - activeEmployees,
-      totalOutstanding: totalOutstanding._sum.currentBalance || 0,
+      totalOutstanding: toNumber(totalOutstanding._sum.currentBalance), // ✅ FIXED
       accountsWithDebt,
       averageCreditUtilization: Math.round(avgUtilization * 100)
     };
   }
 
+  // ✅ FIXED: Complete rewrite of monthly bill generation
   async generateMonthlyBill(dto: any) {
     const { accountId, month, year, discountPercentage, generatedById } = dto;
 
     // Get corporate account
-    const account = await prisma.corporateAccount.findUnique({
+    const account = await this.getModel().findUnique({
       where: { id: accountId },
-      include: {
-        employees: true
-      }
+      include: { employees: true }
     });
 
     if (!account) {
@@ -249,17 +270,20 @@ export class CorporateRepository {
 
     // Calculate date range for the month
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-    // Get employee IDs for matching
-    const employeeIds = account.employees.filter(e => e.isActive).map(e => e.employeeId);
+    // Build employee lookup map for reliable matching
+    // ✅ FIXED: Use email for matching (most reliable), fallback to employeeId in notes
+    const employeeMap = new Map<string, any>();
+    for (const emp of account.employees.filter((e: any) => e.isActive)) {
+      if (emp.email) employeeMap.set(emp.email.toLowerCase(), emp);
+      employeeMap.set(emp.employeeId, emp); // Also map by employee ID
+    }
 
-    // Find all completed attendances for corporate patients in the month
-    const attendances = await prisma.attendance.findMany({
+    // Find all attendances for this corporate account in the month
+    const attendances = await this.prisma.attendance.findMany({
       where: {
-        paymentMode: 'corporate',
         corporateAccountId: accountId,
-        status: 'completed',
         dateTime: {
           gte: startDate,
           lte: endDate
@@ -273,81 +297,149 @@ export class CorporateRepository {
               where: { isVoided: false }
             }
           }
+        },
+        AttendanceDiagnosis: {
+          include: { Diagnosis: true }
         }
+      },
+      orderBy: { dateTime: 'asc' }
+    });
+
+    // Group encounters by patient
+    const encountersByPatient = new Map<string, any[]>();
+    for (const att of attendances) {
+      if (!encountersByPatient.has(att.patientId)) {
+        encountersByPatient.set(att.patientId, []);
       }
-    });
+      encountersByPatient.get(att.patientId)!.push(att);
+    }
 
-    // Build encounter details
-    const encounters = attendances.map(attendance => {
-      const bill = attendance.Bill;
-      
-      const items = bill?.BillLineItem.map(item => ({
-        itemName: item.description,
-        category: 'General',
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.lineTotal
-      })) || [];
+    // ✅ FIXED: Create individual proforma invoices per patient
+    const proformaInvoices: any[] = [];
+    const allEncounters: any[] = [];
+    let grandSubtotal = 0;
+    let grandDiscount = 0;
+    let grandTotal = 0;
+    const discountPct = discountPercentage !== undefined 
+      ? Number(discountPercentage) 
+      : toNumber(account.discountPercentage);
 
-      const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+    for (const [patientId, patientAttendances] of encountersByPatient) {
+      const patient = patientAttendances[0].Patient;
+      if (!patient) continue;
 
-      return {
-        attendanceId: attendance.id,
-        patientName: `${attendance.Patient.surname} ${attendance.Patient.otherNames || ''}`.trim(),
-        employeeId: employeeIds.find(id => 
-          attendance.Patient.phone?.includes(id) || 
-          attendance.Patient.email?.includes(id)
-        ),
-        employeeName: account.employees.find(e => e.employeeId === employeeIds.find(id => 
-          attendance.Patient.phone?.includes(id) || 
-          attendance.Patient.email?.includes(id)
-        ))?.firstName,
-        visitDate: attendance.dateTime,
-        diagnosis: attendance.complaints,
-        items,
-        totalAmount
-      };
-    });
+      // Build encounter details for this patient
+      const patientEncounters = patientAttendances.map(att => {
+        const bill = att.Bill;
+        // ✅ FIXED: Use toNumber() for all Decimal fields
+        const items = (bill?.BillLineItem || []).map(item => ({
+          itemName: item.description,
+          category: item.serviceType || 'General',
+          quantity: item.quantity,
+          unitPrice: toNumber(item.unitPrice),
+          total: toNumber(item.lineTotal)
+        }));
 
-    // Calculate totals
-    const subtotal = encounters.reduce((sum, enc) => sum + enc.totalAmount, 0);
-    const discountPct = discountPercentage !== undefined ? discountPercentage : (account.discountPercentage || 0);
-    const discountAmount = subtotal * (discountPct / 100);
-    const totalAmount = subtotal - discountAmount;
+        const totalAmount = items.reduce((sum: number, item: any) => sum + item.total, 0);
 
-    // Create Proforma Invoice for the bill
-    const proformaInvoice = await prisma.proformaInvoice.create({
-      data: {
-        referenceNumber: `CORP-${year}-${String(month).padStart(2, '0')}-${Date.now()}`,
-        patientId: accountId, // Placeholder - actual patient ID would be needed
-        status: 'DRAFT',
-        totalAmount: totalAmount,
-        discount: discountAmount,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdById: generatedById,
-        notes: `Monthly billing for ${month}/${year}`,
-        metadata: {
-          billingMonth: month,
-          billingYear: year,
-          encounterCount: encounters.length,
-          subtotal: subtotal,
-          discountPercentage: discountPct
+        // ✅ FIXED: Reliable employee matching using email or employee ID
+        let matchedEmployee: any = null;
+        if (patient.email) {
+          matchedEmployee = employeeMap.get(patient.email.toLowerCase());
         }
-      }
-    });
+        if (!matchedEmployee && patient.contact) {
+          // Try matching by employeeId stored in contact field
+          matchedEmployee = employeeMap.get(patient.contact);
+        }
+
+        const diagnoses = (att.AttendanceDiagnosis || [])
+          .map((d: any) => d.Diagnosis?.name)
+          .filter(Boolean)
+          .join(', ');
+
+        return {
+          attendanceId: att.id,
+          patientName: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+          employeeId: matchedEmployee?.employeeId || null,
+          employeeName: matchedEmployee ? `${matchedEmployee.firstName} ${matchedEmployee.lastName}` : null,
+          visitDate: att.dateTime,
+          diagnosis: diagnoses || att.medicalNotes || null,
+          items,
+          totalAmount
+        };
+      });
+
+      // Calculate patient totals
+      // ✅ FIXED: All math uses toNumber()
+      const subtotal = patientEncounters.reduce((sum: number, enc: any) => sum + enc.totalAmount, 0);
+      const discountAmount = subtotal * (discountPct / 100);
+      const totalAmount = subtotal - discountAmount;
+
+      grandSubtotal += subtotal;
+      grandDiscount += discountAmount;
+      grandTotal += totalAmount;
+
+      // ✅ FIXED: Create proforma invoice with correct patientId AND corporateAccountId
+      const counterService = getCounterService();
+      const refNumber = `CORP-${year}-${String(month).padStart(2, '0')}-${counterService.nextProformaNumber()}`;
+
+      const proforma = await this.prisma.proformaInvoice.create({
+        data: {
+          referenceNumber: refNumber,
+          patientId: patient.id,           // ✅ FIXED: Actual patient ID
+          corporateAccountId: accountId,   // ✅ FIXED: Corporate account link
+          status: 'DRAFT',
+          subtotal,
+          discount: discountAmount,
+          taxAmount: 0,
+          totalAmount,
+          validityDays: account.paymentTerms || 30,
+          notes: `Monthly corporate billing for ${patient.surname} ${patient.otherNames || ''} - ${month}/${year}`,
+          termsAndConditions: `Payment terms: ${account.paymentTerms || 30} days. Discount: ${discountPct}%`,
+          createdById: generatedById,
+          items: {
+            create: patientEncounters.flatMap((enc: any) => 
+              enc.items.map((item: any) => ({
+                description: `${item.itemName} - Visit on ${new Date(enc.visitDate).toLocaleDateString()}`,
+                serviceType: item.category === 'General' ? 'miscellaneous' : item.category.toLowerCase(),
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                pricingBasis: 'corporate',
+                vatRate: 0,
+                vatAmount: 0,
+                totalPrice: item.total,
+                isInsuranceCovered: false,
+                insuranceCoverage: 0,
+                patientResponsibility: item.total
+              }))
+            )
+          }
+        }
+      });
+
+      proformaInvoices.push(proforma);
+      allEncounters.push(...patientEncounters);
+    }
 
     return {
       accountId,
       companyName: account.companyName,
       month,
       year,
-      encounters,
-      subtotal,
-      discountAmount,
+      period: { startDate, endDate },
+      encounters: allEncounters,
+      proformaInvoices: proformaInvoices.map(p => ({
+        id: p.id,
+        referenceNumber: p.referenceNumber,
+        patientId: p.patientId,
+        totalAmount: toNumber(p.totalAmount)
+      })),
+      subtotal: grandSubtotal,
+      discountAmount: grandDiscount,
       discountPercentage: discountPct,
-      totalAmount,
-      proformaInvoiceId: proformaInvoice.id,
+      totalAmount: grandTotal,
+      totalPatients: encountersByPatient.size,
+      totalEncounters: attendances.length,
       generatedAt: new Date()
     };
   }
@@ -359,12 +451,20 @@ export class CorporateRepository {
     const skip = (pageNum - 1) * limitNum;
 
     const [invoices, total] = await Promise.all([
-      prisma.proformaInvoice.findMany({
+      this.prisma.proformaInvoice.findMany({
         where: {
           corporateAccountId: accountId
         },
         include: {
-          User_createdBy: {
+          Patient: {
+            select: {
+              surname: true,
+              otherNames: true,
+              folderNumber: true
+            }
+          },
+          // ✅ FIXED: Use correct relation name from schema
+          User_proformaInvoicesCreated: {
             select: {
               fullName: true,
               username: true
@@ -375,10 +475,8 @@ export class CorporateRepository {
         skip,
         take: limitNum
       }),
-      prisma.proformaInvoice.count({
-        where: {
-          corporateAccountId: accountId
-        }
+      this.prisma.proformaInvoice.count({
+        where: { corporateAccountId: accountId }
       })
     ]);
 

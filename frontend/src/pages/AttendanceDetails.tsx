@@ -8,6 +8,7 @@ import { useToast } from '../store/toastStore';
 import { useBillingStore } from '../store/billingStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
+import { getPatientName } from '../utils/patient';
 import { 
   ArrowLeft, Edit, FileText, Pill, FlaskConical, Scissors, DollarSign, 
   User, Calendar, Stethoscope, Activity, CreditCard, Shield, 
@@ -169,11 +170,8 @@ export default function AttendanceDetails() {
     loadData();
   }, [id]);
 
-  // Get full name from surname + otherNames
-  const getPatientFullName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
-  };
+  // Canonical name getter (handles name/fullName/surname+otherNames)
+  const getPatientFullName = getPatientName;
 
   // ── Patient lookup ─────────────────────────────
   const findPatient = (attendance: any) => {

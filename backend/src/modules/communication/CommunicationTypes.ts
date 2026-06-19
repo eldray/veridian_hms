@@ -1,4 +1,4 @@
-// modules/communication/CommunicationTypes.ts
+import { CommunicationType, CommunicationStatus } from '@prisma/client';
 
 export interface SendSMSDTO {
   recipient: string;
@@ -29,7 +29,7 @@ export interface CommunicationTemplateDTO {
   name: string;
   body: string;
   channelType: 'SMS' | 'WHATSAPP';
-  type?: 'APPOINTMENT_REMINDER' | 'APPOINTMENT_CONFIRMATION' | 'LAB_RESULT_READY' | 'PRESCRIPTION_READY' | 'PAYMENT_REMINDER' | 'BILL_NOTIFICATION' | 'WELCOME_MESSAGE' | 'GENERAL_NOTIFICATION' | 'CUSTOM';
+  type?: CommunicationType;
   subject?: string;
   variables?: string[];
   isActive?: boolean;
@@ -41,7 +41,7 @@ export interface CommunicationLogResponse {
   templateId: string | null;
   recipient: string;
   message: string;
-  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  status: CommunicationStatus;
   sentAt: Date | null;
   deliveredAt: Date | null;
   readAt: Date | null;

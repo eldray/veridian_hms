@@ -93,7 +93,7 @@ export default function Appointments() {
   const patientOptions: SelectOption[] = useMemo(() => {
     return patients.map(patient => ({
       value: patient.id,
-      label: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+      label: patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim(),
       folderNumber: patient.folderNumber
     }));
   }, [patients]);
@@ -115,7 +115,7 @@ export default function Appointments() {
     if (!patient) return null;
     return {
       value: patient.id,
-      label: `${patient.surname} ${patient.otherNames || ''}`.trim()
+      label: patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
     };
   }, [patients, formData.patientId]);
 
@@ -205,7 +205,7 @@ export default function Appointments() {
   // Get patient name helper
   const getPatientName = (patient: any) => {
     if (!patient) return 'Unknown Patient';
-    return `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   };
 
   // Get patient by ID

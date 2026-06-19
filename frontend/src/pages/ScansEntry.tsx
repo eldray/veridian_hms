@@ -11,6 +11,7 @@ import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanc
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ScanResultForm } from '../components/scans/ScanResultForm';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft,
   Scan,
@@ -28,8 +29,10 @@ import {
   Eye,
   FileText,
   Printer,
-  Image
+  Image,
+  MessageSquare
 } from 'lucide-react';
+import SendDocumentModal from '../components/SendDocumentModal';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
@@ -130,6 +133,7 @@ export default function ScansEntry() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [showScanModal, setShowScanModal] = useState(false);
+  const [showSendResult, setShowSendResult] = useState(false);
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showResultForm, setShowResultForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,7 +148,7 @@ export default function ScansEntry() {
     canAddMedicalEntries,
     calculateBill,
   } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
   const { scanTemplates, getScanTemplates } = useMedicalServicesStore();
 
@@ -157,36 +161,42 @@ export default function ScansEntry() {
       setRefreshing(true);
       await Promise.all([
         loadPatients(),
-        getAttendances(),
         getScanTemplates(false)
       ]);
-      
-      let foundPatient = location.state?.patient;
-      
-      if (!foundPatient && id) {
-        foundPatient = patients.find(p => p.id === id);
-      }
-      
-      if (foundPatient) {
-        setPatient(foundPatient);
-        setSelectedPatientId(foundPatient.id);
-        
-        const patientAttendances = attendances.filter(a => a.patientId === foundPatient.id);
+
+      // Worklist navigates with :id = patientId plus state.{patient, attendanceId}.
+      const statePatient = location.state?.patient;
+      const patientId = statePatient?.id || id;
+      const initialAttendanceId = location.state?.attendanceId;
+
+      if (patientId) {
+        // Load THIS patient's attendances directly (complete + small) instead of
+        // filtering a paginated global list that may not contain the target.
+        const patientAttendances = await getAttendances({ patientId });
         setAllAttendances(patientAttendances);
-        
-        const initialAttendanceId = location.state?.attendanceId;
-        if (initialAttendanceId) {
-          setSelectedAttendanceId(initialAttendanceId);
-          await getAttendance(initialAttendanceId);
-        } else if (patientAttendances.length > 0) {
-          const mostRecent = patientAttendances.sort((a, b) => 
+
+        // Resolve the full patient; the default list only holds a page, so fall back
+        // to a direct fetch (or the navigation summary).
+        let foundPatient = patients.find(p => p.id === patientId) || statePatient || null;
+        if (!foundPatient || !foundPatient.surname) {
+          try { foundPatient = await fetchPatient(patientId); } catch { /* keep summary */ }
+        }
+        if (foundPatient) {
+          setPatient(foundPatient);
+          setSelectedPatientId(patientId);
+        }
+
+        const target =
+          (initialAttendanceId && patientAttendances.find(a => a.id === initialAttendanceId)) ||
+          [...patientAttendances].sort((a, b) =>
             new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
           )[0];
-          setSelectedAttendanceId(mostRecent.id);
-          await getAttendance(mostRecent.id);
+        if (target) {
+          setSelectedAttendanceId(target.id);
+          await getAttendance(target.id);
         }
       }
-      
+
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -327,7 +337,7 @@ export default function ScansEntry() {
           completedAt: scan.completedAt,
         })),
         patient: {
-          fullName: `${patient.surname} ${patient.otherNames}`,
+          fullName: getPatientName(patient),
           folderNumber: patient.folderNumber,
           contact: patient.contact,
           age: patient.age || calculateAge(patient.dateOfBirth),
@@ -402,7 +412,7 @@ export default function ScansEntry() {
     );
   }
 
-  const patientFullName = `${patient.surname} ${patient.otherNames}`;
+  const patientFullName = getPatientName(patient);
 
   return (
     <div className="space-y-6 p-6">
@@ -441,6 +451,14 @@ export default function ScansEntry() {
             Print ({completedScans.length})
           </button>
           <button
+            onClick={() => setShowSendResult(true)}
+            disabled={completedScans.length === 0}
+            className="flex items-center gap-2 px-3 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all disabled:opacity-50 text-sm"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Send Results
+          </button>
+          <button
             onClick={loadData}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
@@ -450,6 +468,14 @@ export default function ScansEntry() {
           </button>
         </div>
       </div>
+
+      <SendDocumentModal
+        open={showSendResult}
+        onClose={() => setShowSendResult(false)}
+        patient={patient}
+        documentType="scan-result"
+        entityId={selectedAttendanceId}
+      />
 
       {/* Patient & Attendance Selector */}
       <PatientAttendanceSelector

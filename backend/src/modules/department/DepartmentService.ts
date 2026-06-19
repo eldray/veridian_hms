@@ -2,7 +2,7 @@
 
 import { PrismaClient, Seniority } from '@prisma/client';
 import { DepartmentRepository } from './DepartmentRepository';
-import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, DepartmentStats } from './DepartmentTypes';
+import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters, DepartmentStats, SingleDepartmentStats } from './DepartmentTypes';
 
 export class DepartmentService {
   private repository: DepartmentRepository;
@@ -153,6 +153,14 @@ export class DepartmentService {
 
   async getStatistics(): Promise<DepartmentStats> {
     return this.repository.getStatistics();
+  }
+
+  async getDepartmentStats(id: string): Promise<SingleDepartmentStats> {
+    const stats = await this.repository.getDepartmentStats(id);
+    if (!stats) {
+      throw new Error('Department not found');
+    }
+    return stats;
   }
 
   async getUsersByDepartment(departmentId: string) {

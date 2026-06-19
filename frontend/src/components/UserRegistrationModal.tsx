@@ -1,6 +1,6 @@
-// src/components/UserRegistrationModal.tsx - UPDATED WITH SENIORITY
+// src/components/UserRegistrationModal.tsx - UPDATED TO USE USERSTORE
 import { useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useUserStore } from '../store/userStore';  // ✅ Use UserStore
 import { useToast } from '../store/toastStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
 
@@ -18,7 +18,7 @@ interface UserRegistrationModalProps {
 }
 
 export default function UserRegistrationModal({ onClose, onSuccess }: UserRegistrationModalProps) {
-  const { register, isLoading } = useAuthStore();
+  const { createUser, isLoading } = useUserStore();  // ✅ Use createUser from UserStore
   const { success, error } = useToast();
 
   const [formData, setFormData] = useState({
@@ -27,7 +27,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     confirmPassword: '',
     fullName: '',
     role: '' as any,
-    seniority: 'JUNIOR' as string, // ✅ ADD with default JUNIOR
+    seniority: 'JUNIOR' as string,
     email: '',
     phone: '',
     licenseNumber: '',
@@ -62,12 +62,12 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     }
 
     try {
-      await register({
+      await createUser({
         username: formData.username,
         password: formData.password,
         fullName: formData.fullName,
         role: formData.role,
-        seniority: formData.seniority, // ✅ ADD seniority
+        seniority: formData.seniority,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         licenseNumber: requiresLicense ? formData.licenseNumber : undefined,
@@ -87,7 +87,6 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Get selected seniority icon
   const SelectedIcon = SENIORITY_OPTIONS.find(opt => opt.value === formData.seniority)?.icon || User;
 
   return (
@@ -150,7 +149,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
           </div>
 
-          {/* ✅ NEW: Seniority Selection */}
+          {/* Seniority Selection */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
               <SelectedIcon className="w-4 h-4 inline mr-2" />

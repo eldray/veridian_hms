@@ -15,11 +15,13 @@ export default function EditInsuranceClaim() {
   useEffect(() => {
     const loadAndRedirect = async () => {
       try {
-        await getInsuranceClaim(id!);
-        
+        // Use the returned claim — `currentClaim` from the closure is stale here
+        // (still null on first load), which previously broke type detection.
+        const claim = await getInsuranceClaim(id!);
+
         // Redirect to correct edit page based on claim type
-        const claimType = currentClaim?.InsuranceProvider?.type;
-        
+        const claimType = claim?.InsuranceProvider?.type;
+
         if (claimType === 'nhis') {
           navigate(`/dashboard/insurance-claims/nhis/${id}/edit`, { replace: true });
         } else if (claimType === 'private') {

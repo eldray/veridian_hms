@@ -3,109 +3,59 @@ import { BaseService } from '../../shared/base/BaseService';
 import { AuditRepository } from './AuditRepository';
 import { AuditLogFilters, AuditLogExportFilters } from './AuditTypes';
 
-const prisma = new PrismaClient();
-
 export class AuditService extends BaseService {
   private auditRepository: AuditRepository;
 
-  constructor() {
-    super();
+  constructor(prisma: PrismaClient) {
+    super('AuditService'); // ✅ Passes service name for logging
     this.auditRepository = new AuditRepository(prisma);
   }
 
-  /**
-   * Get audit logs with pagination and filters
-   */
   async getLogs(filters: AuditLogFilters) {
-    try {
-      const logs = await this.auditRepository.getLogs(filters);
-      return {
-        data: logs.data,
-        pagination: logs.pagination
-      };
-    } catch (error: any) {
-      throw new Error(`Failed to retrieve audit logs: ${error.message}`);
-    }
+    this.logInfo('Fetching audit logs', { filters });
+    return this.auditRepository.getLogs(filters);
   }
 
-  /**
-   * Get audit logs for a specific entity
-   */
   async getEntityLogs(entityType: string, entityId: string, filters: Partial<AuditLogFilters>) {
-    try {
-      const logs = await this.auditRepository.getEntityLogs(entityType, entityId, filters);
-      return {
-        data: logs.data,
-        pagination: logs.pagination
-      };
-    } catch (error: any) {
-      throw new Error(`Failed to retrieve entity audit logs: ${error.message}`);
-    }
+    this.logInfo('Fetching entity audit logs', { entityType, entityId });
+    return this.auditRepository.getEntityLogs(entityType, entityId, filters);
   }
 
-  /**
-   * Get audit logs for a specific user
-   */
   async getUserLogs(userId: string, filters: Partial<AuditLogFilters>) {
-    try {
-      const logs = await this.auditRepository.getUserLogs(userId, filters);
-      return {
-        data: logs.data,
-        pagination: logs.pagination
-      };
-    } catch (error: any) {
-      throw new Error(`Failed to retrieve user audit logs: ${error.message}`);
-    }
+    this.logInfo('Fetching user audit logs', { userId });
+    return this.auditRepository.getUserLogs(userId, filters);
   }
 
-  /**
-   * Get a specific audit log by ID
-   */
   async getLogById(id: string) {
-    try {
-      const log = await this.auditRepository.getLogById(id);
-      if (!log) {
-        throw new Error('Audit log not found');
-      }
-      return log;
-    } catch (error: any) {
-      throw new Error(`Failed to retrieve audit log: ${error.message}`);
-    }
+    const log = await this.auditRepository.getLogById(id);
+    if (!log) throw new Error('Audit log not found');
+    return log;
   }
 
-  /**
-   * Export audit logs to CSV or JSON
-   */
   async exportLogs(filters: AuditLogExportFilters) {
-    try {
-      const logs = await this.auditRepository.exportLogs(filters);
+    this.logInfo('Exporting audit logs', { format: filters.format });
+    const logs = await this.auditRepository.exportLogs(filters);
+    
+    if (filters.format === 'csv') {
+      const csvRows = [
+        ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User', 'IP Address'].join(',')
+      ];
       
-      if (filters.format === 'csv') {
-        // Convert to CSV format
-        const csvRows = [
-          ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User', 'IP Address'].join(',')
-        ];
-        
-        logs.forEach(log => {
-          const row = [
-            log.timestamp,
-            log.action,
-            log.entityType,
-            log.entityId,
-            log.performedBy?.fullName || log.performedBy?.username || 'System',
-            log.ipAddress || 'N/A'
-          ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
-          csvRows.push(row);
-        });
-        
-        return csvRows.join('\n');
-      }
+      logs.forEach(log => {
+        const row = [
+          log.timestamp.toISOString(), // ✅ FIXED: Explicitly format Date to ISO string
+          log.action,
+          log.entityType,
+          log.entityId,
+          log.performedBy?.fullName || log.performedBy?.username || 'System',
+          log.ipAddress || 'N/A'
+        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+        csvRows.push(row);
+      });
       
-      return logs;
-    } catch (error: any) {
-      throw new Error(`Failed to export audit logs: ${error.message}`);
+      return csvRows.join('\n');
     }
+    
+    return logs;
   }
 }
-
-export default AuditService;

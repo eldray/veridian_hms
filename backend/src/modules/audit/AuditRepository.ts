@@ -1,24 +1,26 @@
-import { PrismaClient, AuditLog } from '@prisma/client';
+import { PrismaClient, AuditAction } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
 import { AuditLogFilters, AuditLogExportFilters } from './AuditTypes';
 
-export class AuditRepository {
-  private prisma: PrismaClient;
-
+export class AuditRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
-    this.prisma = prisma;
+    super(prisma, 'auditLog');
   }
 
-  /**
-   * Get audit logs with pagination and filters
-   */
+  private getBaseInclude() {
+    return {
+      performedBy: {
+        select: { id: true, fullName: true, username: true, email: true, role: true }
+      }
+    };
+  }
+
   async getLogs(filters: AuditLogFilters) {
     const { page = 1, limit = 20, entityType, action, userId, startDate, endDate } = filters;
-    
-    const skip = (page - 1) * limit;
     const where: any = {};
 
     if (entityType) where.entityType = entityType;
-    if (action) where.action = action;
+    if (action) where.action = action as AuditAction;
     if (userId) where.performedById = userId;
     if (startDate || endDate) {
       where.timestamp = {};
@@ -26,92 +28,22 @@ export class AuditRepository {
       if (endDate) where.timestamp.lte = new Date(endDate);
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { timestamp: 'desc' },
-        include: {
-          performedBy: {
-            select: {
-              id: true,
-              fullName: true,
-              username: true,
-              email: true,
-              role: true
-            }
-          }
-        }
-      }),
-      this.prisma.auditLog.count({ where })
-    ]);
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
+    // ✅ Uses BaseRepository pagination helper
+    return this.findManyWithPagination({
+      where, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
+    });
   }
 
-  /**
-   * Get audit logs for a specific entity
-   */
   async getEntityLogs(entityType: string, entityId: string, filters: Partial<AuditLogFilters>) {
     const { page = 1, limit = 50 } = filters;
-    const skip = (page - 1) * limit;
-
-    const where = {
-      entityType,
-      entityId
-    };
-
-    const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { timestamp: 'desc' },
-        include: {
-          performedBy: {
-            select: {
-              id: true,
-              fullName: true,
-              username: true,
-              email: true,
-              role: true
-            }
-          }
-        }
-      }),
-      this.prisma.auditLog.count({ where })
-    ]);
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
+    return this.findManyWithPagination({
+      where: { entityType, entityId }, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
+    });
   }
 
-  /**
-   * Get audit logs for a specific user
-   */
   async getUserLogs(userId: string, filters: Partial<AuditLogFilters>) {
     const { page = 1, limit = 50, startDate, endDate } = filters;
-    const skip = (page - 1) * limit;
-
-    const where: any = {
-      performedById: userId
-    };
+    const where: any = { performedById: userId };
 
     if (startDate || endDate) {
       where.timestamp = {};
@@ -119,111 +51,54 @@ export class AuditRepository {
       if (endDate) where.timestamp.lte = new Date(endDate);
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { timestamp: 'desc' },
-        include: {
-          performedBy: {
-            select: {
-              id: true,
-              fullName: true,
-              username: true,
-              email: true,
-              role: true
-            }
-          }
-        }
-      }),
-      this.prisma.auditLog.count({ where })
-    ]);
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
-  }
-
-  /**
-   * Get a specific audit log by ID
-   */
-  async getLogById(id: string) {
-    return this.prisma.auditLog.findUnique({
-      where: { id },
-      include: {
-        performedBy: {
-          select: {
-            id: true,
-            fullName: true,
-            username: true,
-            email: true,
-            role: true
-          }
-        }
-      }
+    return this.findManyWithPagination({
+      where, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
     });
   }
 
-  /**
-   * Export audit logs
-   */
+  async getLogById(id: string) {
+    return this.getModel().findUnique({ where: { id }, include: this.getBaseInclude() });
+  }
+
   async exportLogs(filters: AuditLogExportFilters) {
     const { entityType, action, startDate, endDate } = filters;
-    
     const where: any = {};
     if (entityType) where.entityType = entityType;
-    if (action) where.action = action;
+    if (action) where.action = action as AuditAction;
     if (startDate || endDate) {
       where.timestamp = {};
       if (startDate) where.timestamp.gte = new Date(startDate);
       if (endDate) where.timestamp.lte = new Date(endDate);
     }
 
-    return this.prisma.auditLog.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
-      include: {
-        performedBy: {
-          select: {
-            id: true,
-            fullName: true,
-            username: true,
-            email: true,
-            role: true
-          }
-        }
-      }
+    return this.getModel().findMany({
+      where, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
     });
   }
 
-  /**
-   * Create audit log entry
-   */
   async createAuditLog(data: {
     entityType: string;
     entityId: string;
-    action: string;
+    action: AuditAction;
     performedById: string;
     ipAddress?: string | null;
-    userAgent?: string | null;
     previousState?: any;
     newState?: any;
     metadata?: any;
   }) {
-    return this.prisma.auditLog.create({
+    // ✅ FIXED: Removed userAgent from top-level as it was moved to metadata in the schema
+    return this.getModel().create({
       data: {
-        ...data,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        action: data.action,
+        performedById: data.performedById,
+        ipAddress: data.ipAddress,
+        previousState: data.previousState,
+        newState: data.newState,
+        metadata: data.metadata, // userAgent should be passed inside here
         timestamp: new Date()
       }
     });
   }
 }
-
-export default AuditRepository;

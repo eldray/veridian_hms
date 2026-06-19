@@ -1,284 +1,128 @@
-// modules/proformaInvoice/ProformaInvoiceController.ts
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
-import { ProformaInvoiceService } from './ProformaInvoiceService'; // ✅ Add this import
-import { 
-  CreateProformaInvoiceDTO, 
-  UpdateProformaInvoiceDTO,
-  ProformaInvoiceFilters,
-  ConvertToBillDTO
-} from './ProformaInvoiceTypes';
+import { ProformaInvoiceService } from './ProformaInvoiceService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class ProformaInvoiceController extends BaseController {
   private proformaInvoiceService: ProformaInvoiceService;
 
-  constructor() {
-    super('ProformaInvoice');
-    this.proformaInvoiceService = new ProformaInvoiceService(); // ✅ Now ProformaInvoiceService is defined
+  constructor(prisma: PrismaClient) {
+    super();
+    this.proformaInvoiceService = new ProformaInvoiceService(prisma);
   }
 
-  /**
-   * @route   POST /api/estimates
-   * @desc    Create a new proforma invoice
-   * @access  Private (Billing Staff, Admin)
-   */
-  create = async (req: AuthRequest, res: Response): Promise<void> => {
+  create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.proformaInvoiceService.create(req.body, req.user!.id);
+    return this.created(res, result, 'Proforma invoice created successfully');
+  });
+
+  getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const filters = {
+      patientId: req.query.patientId as string, accountId: req.query.accountId as string,
+      status: req.query.status as any, encounterId: req.query.encounterId as string,
+      fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
+      toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
+      page: parseInt(req.query.page as string) || 1, limit: parseInt(req.query.limit as string) || 20
+    };
+    const result = await this.proformaInvoiceService.getAll(filters);
+    return this.paginated(res, result.data, { page: result.pagination.page, limit: result.pagination.limit, total: result.pagination.total }, 'Proforma invoices retrieved');
+  });
+
+  getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const data: CreateProformaInvoiceDTO = req.body;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const result = await this.proformaInvoiceService.create(data, userId);
-      this.handleSuccess(res, result, 201);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.getById(req.params.id);
+      return this.ok(res, result, 'Proforma invoice retrieved');
+    } catch (e: any) {
+      if (e.message.includes('not found')) return this.notFound(res, 'Proforma invoice');
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   GET /api/estimates
-   * @desc    Get all proforma invoices with filters
-   * @access  Private (Billing Staff, Admin)
-   */
-  getAll = async (req: AuthRequest, res: Response): Promise<void> => {
+  update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const filters: ProformaInvoiceFilters = {
-        patientId: req.query.patientId as string,
-        accountId: req.query.accountId as string,
-        status: req.query.status as any,
-        encounterId: req.query.encounterId as string,
-        fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
-        toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20,
-      };
-
-      const result = await this.proformaInvoiceService.getAll(filters);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.update(req.params.id, req.body, req.user!.id);
+      return this.ok(res, result, 'Proforma invoice updated');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only draft')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   GET /api/estimates/:id
-   * @desc    Get proforma invoice by ID
-   * @access  Private
-   */
-  getById = async (req: AuthRequest, res: Response): Promise<void> => {
+  send = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const result = await this.proformaInvoiceService.getById(id);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.send(req.params.id, req.user!.id);
+      return this.ok(res, result, 'Proforma invoice sent');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only draft')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   PUT /api/estimates/:id
-   * @desc    Update proforma invoice
-   * @access  Private (Billing Staff, Admin)
-   */
-  update = async (req: AuthRequest, res: Response): Promise<void> => {
+  accept = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const data: UpdateProformaInvoiceDTO = req.body;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const result = await this.proformaInvoiceService.update(id, data, userId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.accept(req.params.id, req.user!.id);
+      return this.ok(res, result, 'Proforma invoice accepted');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only sent') || e.message.includes('expired')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   POST /api/estimates/:id/send
-   * @desc    Send proforma invoice to patient/corporate account
-   * @access  Private (Billing Staff, Admin)
-   */
-  send = async (req: AuthRequest, res: Response): Promise<void> => {
+  reject = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const result = await this.proformaInvoiceService.send(id, userId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.reject(req.params.id, req.body.reason, req.user!.id);
+      return this.ok(res, result, 'Proforma invoice rejected');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only sent')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   POST /api/estimates/:id/accept
-   * @desc    Accept proforma invoice
-   * @access  Private
-   */
-  accept = async (req: AuthRequest, res: Response): Promise<void> => {
+  convertToBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const result = await this.proformaInvoiceService.accept(id, userId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      const result = await this.proformaInvoiceService.convertToBill(req.params.id, req.body, req.user!.id);
+      return this.created(res, result, 'Proforma invoice converted to bill');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only approved') || e.message.includes('already been converted')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   POST /api/estimates/:id/reject
-   * @desc    Reject proforma invoice
-   * @access  Private
-   */
-  reject = async (req: AuthRequest, res: Response): Promise<void> => {
+  delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
-      const userId = req.user?.id;
-      const { reason } = req.body;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const result = await this.proformaInvoiceService.reject(id, reason, userId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
+      await this.proformaInvoiceService.delete(req.params.id, req.user!.id);
+      return this.ok(res, { message: 'Proforma invoice deleted successfully' }, 'Proforma invoice deleted');
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('Only draft')) return this.badRequest(res, e.message);
+      throw e;
     }
-  };
+  });
 
-  /**
-   * @route   POST /api/estimates/:id/convert
-   * @desc    Convert proforma invoice to bill
-   * @access  Private (Billing Staff, Admin)
-   */
-  convertToBill = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const data: ConvertToBillDTO = req.body;
-      const userId = req.user?.id;
+  getStatistics = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const filters = {
+      patientId: req.query.patientId as string, accountId: req.query.accountId as string,
+      status: req.query.status as any,
+      fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
+      toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined
+    };
+    const result = await this.proformaInvoiceService.getStatistics(filters);
+    return this.ok(res, result, 'Statistics retrieved');
+  });
 
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
+  getExpiring = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const days = req.query.days ? parseInt(req.query.days as string) : 7;
+    const result = await this.proformaInvoiceService.getExpiringSoon(days);
+    return this.ok(res, result, 'Expiring invoices retrieved');
+  });
 
-      const result = await this.proformaInvoiceService.convertToBill(id, data, userId);
-      this.handleSuccess(res, result, 201);
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
+  getByPatient = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.proformaInvoiceService.getByPatientId(req.params.patientId);
+    return this.ok(res, result, 'Patient invoices retrieved');
+  });
 
-  /**
-   * @route   DELETE /api/estimates/:id
-   * @desc    Delete proforma invoice (only drafts)
-   * @access  Private (Admin)
-   */
-  delete = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        this.handleUnauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      await this.proformaInvoiceService.delete(id, userId);
-      this.handleSuccess(res, { message: 'Proforma invoice deleted successfully' });
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
-
-  /**
-   * @route   GET /api/estimates/statistics
-   * @desc    Get proforma invoice statistics
-   * @access  Private (Admin, Management)
-   */
-  getStatistics = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const filters: ProformaInvoiceFilters = {
-        patientId: req.query.patientId as string,
-        accountId: req.query.accountId as string,
-        status: req.query.status as any,
-        fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
-        toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
-      };
-
-      const result = await this.proformaInvoiceService.getStatistics(filters);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
-
-  /**
-   * @route   GET /api/estimates/expiring
-   * @desc    Get expiring proforma invoices
-   * @access  Private (Admin, Management)
-   */
-  getExpiring = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const days = req.query.days ? parseInt(req.query.days as string) : 7;
-      const result = await this.proformaInvoiceService.getExpiringSoon(days);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
-
-  /**
-   * @route   GET /api/estimates/patient/:patientId
-   * @desc    Get proforma invoices by patient
-   * @access  Private
-   */
-  getByPatient = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const { patientId } = req.params;
-      const result = await this.proformaInvoiceService.getByPatientId(patientId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
-
-  /**
-   * @route   GET /api/estimates/corporate/:accountId
-   * @desc    Get proforma invoices by corporate account
-   * @access  Private (Admin, Accounts)
-   */
-  getByCorporateAccount = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const { accountId } = req.params;
-      const result = await this.proformaInvoiceService.getByCorporateAccountId(accountId);
-      this.handleSuccess(res, result);
-    } catch (error: any) {
-      this.handleError(res, error);
-    }
-  };
+  getByCorporateAccount = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.proformaInvoiceService.getByCorporateAccountId(req.params.accountId);
+    return this.ok(res, result, 'Corporate invoices retrieved');
+  });
 }

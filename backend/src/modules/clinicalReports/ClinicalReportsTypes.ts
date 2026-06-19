@@ -1,54 +1,91 @@
-/**
- * Clinical Reports Module Types
- */
-
 export interface ClinicalReportFilters {
   startDate: Date;
   endDate: Date;
 }
 
-export interface LabReportData {
+export interface ClinicalReportPeriod {
+  startDate: Date;
+  endDate: Date;
+}
+
+// ── Lab Report ──────────────────────────────────────────────────────────────
+export interface LabReportSummary {
   totalTests: number;
-  completedTests: number;
-  pendingTests: number;
-  cancelledTests: number;
-  testsByCategory: Record<string, number>;
-  testsByPriority: Record<string, number>;
-  turnaroundTime: {
-    average: number;
-    median: number;
-  };
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  averageTurnaroundTime: number;
+}
+
+export interface LabReportData {
+  period: ClinicalReportPeriod;
+  summary: LabReportSummary;
+  topTests: Array<{ testName: string; count: number; positiveRate: number }>;
+  positivityRates: Array<{ testName: string; rate: string }>;
+}
+
+// ── Scan Report ─────────────────────────────────────────────────────────────
+export interface ScanReportSummary {
+  totalScans: number;
+  byStatus: Record<string, number>;
+  byType: Record<string, number>;
+  byBodyPart: Record<string, number>;
+  averageTurnaroundTime: number;
 }
 
 export interface ScanReportData {
-  totalScans: number;
-  completedScans: number;
-  pendingScans: number;
-  cancelledScans: number;
-  scansByType: Record<string, number>;
-  scansByBodyPart: Record<string, number>;
+  period: ClinicalReportPeriod;
+  summary: ScanReportSummary;
+  topScans: Array<{ scanName: string; count: number }>;
+}
+
+// ── Procedure Report ────────────────────────────────────────────────────────
+export interface ProcedureReportSummary {
+  totalProcedures: number;
+  byStatus: Record<string, number>;
+  byType: Record<string, number>;
 }
 
 export interface ProcedureReportData {
-  totalProcedures: number;
-  completedProcedures: number;
-  pendingProcedures: number;
-  cancelledProcedures: number;
-  proceduresByCategory: Record<string, number>;
-  proceduresByDepartment: Record<string, number>;
+  period: ClinicalReportPeriod;
+  summary: ProcedureReportSummary;
+  topProcedures: Array<{ procedureName: string; count: number }>;
+}
+
+// ── Medication Report ───────────────────────────────────────────────────────
+export interface MedicationReportSummary {
+  totalMedications: number;
+  byStatus: Record<string, number>;
+  byDrug: Record<string, number>;
+  totalQuantity: number;
 }
 
 export interface MedicationReportData {
-  totalPrescriptions: number;
-  dispensedPrescriptions: number;
-  pendingPrescriptions: number;
-  medicationsByCategory: Record<string, number>;
-  topMedications: Array<{ name: string; count: number }>;
+  period: ClinicalReportPeriod;
+  summary: MedicationReportSummary;
+  topMedications: Array<{ drugName: string; count: number }>;
+}
+
+// ── Vitals Report ───────────────────────────────────────────────────────────
+export interface VitalsReportSummary {
+  totalVitals: number;
+  uniquePatients: number;
+  averages: {
+    temperature: string;
+    pulse: number;
+    respiratoryRate: number;
+    oxygenSaturation: number;
+  };
+  abnormalFindings: {
+    hypertension: number;
+    fever: number;
+    tachycardia: number;
+    bradycardia: number;
+    hypoxia: number;
+  };
 }
 
 export interface VitalsReportData {
-  totalVitalsRecorded: number;
-  vitalsByType: Record<string, number>;
-  abnormalVitals: number;
-  vitalsByDepartment: Record<string, number>;
+  period: ClinicalReportPeriod;
+  summary: VitalsReportSummary;
+  monthlyTrends: Array<{ month: string; avgTemp: number; avgPulse: number }>;
 }

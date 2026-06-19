@@ -114,7 +114,7 @@ interface InsuranceState {
   // COMMON CLAIM FUNCTIONS
   // ==========================================
   getInsuranceClaims: (filters?: any) => Promise<void>;
-  getInsuranceClaim: (id: string) => Promise<void>;
+  getInsuranceClaim: (id: string) => Promise<any>;
   getClaimByAttendanceId: (attendanceId: string) => Promise<InsuranceClaim | null>;
   updateClaimDraft: (claimId: string, data: any) => Promise<InsuranceClaim>;
   finalizeClaim: (claimId: string) => Promise<InsuranceClaim>;
@@ -349,7 +349,9 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true });
     try {
       const claim = await apiGetInsuranceClaim(id);
-      set({ currentClaim: claim.data || claim, isLoading: false });
+      const resolved = claim.data || claim;
+      set({ currentClaim: resolved, isLoading: false });
+      return resolved;
     } catch (error: unknown) {
       console.error('Failed to fetch insurance claim:', error);
       set({ isLoading: false, error: error.message });

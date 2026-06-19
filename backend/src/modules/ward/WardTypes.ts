@@ -1,8 +1,3 @@
-/**
- * Ward Types
- * Type definitions for Ward module matching Prisma schema
- */
-
 import { PaymentMode } from '@prisma/client';
 
 export interface Ward {
@@ -19,20 +14,20 @@ export interface Ward {
   tariffCode: string | null;
   vatRate: number;
   isTaxable: boolean;
-  dailyCashRate: number;
-  dailyNHISRate: number;
-  dailyInsuranceRate: number;
+  dailyCashRate: any; // Decimal
+  dailyNHISRate: any; // Decimal
+  dailyInsuranceRate: any; // Decimal
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
+// ✅ FIXED: Removed currentPatientId to match schema
 export interface Bed {
   id: string;
   bedNumber: string;
   wardId: string;
   isOccupied: boolean;
-  currentPatientId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,39 +36,20 @@ export interface CreateWardDTO {
   wardName: string;
   wardType: string;
   totalBeds: number;
-  // Pricing fields
   dailyCashRate: number;
   dailyNHISRate?: number;
   dailyInsuranceRate?: number;
-  // Coverage flags
   isNHISCovered?: boolean;
   nhisRequiresAuth?: boolean;
   isPrivateInsExempted?: boolean;
   requiresAuthorization?: boolean;
-  // Tax fields
   vatRate?: number;
   isTaxable?: boolean;
   tariffCode?: string;
 }
 
-export interface UpdateWardDTO {
-  wardName?: string;
-  wardType?: string;
-  totalBeds?: number;
+export interface UpdateWardDTO extends Partial<CreateWardDTO> {
   isActive?: boolean;
-  // Pricing fields
-  dailyCashRate?: number;
-  dailyNHISRate?: number;
-  dailyInsuranceRate?: number;
-  // Coverage flags
-  isNHISCovered?: boolean;
-  nhisRequiresAuth?: boolean;
-  isPrivateInsExempted?: boolean;
-  requiresAuthorization?: boolean;
-  // Tax fields
-  vatRate?: number;
-  isTaxable?: boolean;
-  tariffCode?: string;
 }
 
 export interface WardFilters {
@@ -90,12 +66,11 @@ export interface WardWithAvailability extends Ward {
   occupancyRate: number;
   beds?: Bed[];
   currentAdmissions?: number;
-  // Pricing by payment mode
   pricingByPaymentMode: {
-    [PaymentMode.CASH]: number;
-    [PaymentMode.NHIS]: number;
-    [PaymentMode.PRIVATE_INSURANCE]: number;
-    [PaymentMode.CORPORATE]: number;
+    [PaymentMode.cash]: number;
+    [PaymentMode.nhis]: number;
+    [PaymentMode.private_insurance]: number;
+    [PaymentMode.corporate]: number;
   };
 }
 
@@ -106,30 +81,7 @@ export interface AvailableBedResponse {
   wardName: string;
   wardType: string;
   isWardActive: boolean;
-  dailyRates: {
-    cash: number;
-    nhis: number;
-    insurance: number;
-    corporate: number;
-  };
-}
-
-export interface WardStats {
-  totalWards: number;
-  activeWards: number;
-  totalBeds: number;
-  occupiedBeds: number;
-  availableBeds: number;
-  occupancyRate: number;
-  byPaymentMode: {
-    totalNHISCovered: number;
-    totalPrivateInsuranceCovered: number;
-    totalCashOnly: number;
-  };
-  revenueProjection: {
-    dailyAtFullOccupancy: number;
-    monthlyAtFullOccupancy: number;
-  };
+  dailyRates: { cash: number; nhis: number; insurance: number; corporate: number; };
 }
 
 export interface WardChargeCalculation {

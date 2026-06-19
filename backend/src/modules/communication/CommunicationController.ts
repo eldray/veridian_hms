@@ -1,108 +1,77 @@
-// modules/communication/CommunicationController.ts
 import { Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { CommunicationService } from './CommunicationService';
+import { HubtelProvider } from './HubtelProvider';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class CommunicationController extends BaseController {
-  private communicationService: CommunicationService;
+  private service: CommunicationService;
 
-  constructor() {
+  constructor(prisma: PrismaClient) {
     super();
-    this.communicationService = new CommunicationService();
+    this.service = new CommunicationService(prisma);
   }
 
-  sendSMS = async (req: AuthRequest, res: Response) => {
-    try {
-      const dto = req.body;
-      const result = await this.communicationService.sendSMS(dto);
-      this.created(res, result, 'SMS sent successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  sendSMS = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.sendSMS(req.body);
+    return this.created(res, result, 'SMS sent successfully');
+  });
 
-  sendWhatsApp = async (req: AuthRequest, res: Response) => {
-    try {
-      const dto = req.body;
-      const result = await this.communicationService.sendWhatsApp(dto);
-      this.created(res, result, 'WhatsApp message sent successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  sendWhatsApp = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.sendWhatsApp(req.body);
+    return this.created(res, result, 'WhatsApp message sent successfully');
+  });
 
-  sendBulkMessage = async (req: AuthRequest, res: Response) => {
-    try {
-      const dto = req.body;
-      const result = await this.communicationService.sendBulkMessage(dto);
-      this.created(res, result, 'Bulk messages queued successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  sendBulkMessage = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.sendBulkMessage(req.body);
+    return this.created(res, result, 'Bulk messages queued successfully');
+  });
 
-  getTemplates = async (req: AuthRequest, res: Response) => {
-    try {
-      const { channelType } = req.query;
-      const templates = await this.communicationService.getTemplates(channelType as string);
-      this.ok(res, templates, 'Templates retrieved successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  // Reports whether real SMS/WhatsApp delivery is currently active.
+  getProviderStatus = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    return this.ok(res, {
+      provider: 'Hubtel',
+      smsEnabled: HubtelProvider.smsReady(),
+      whatsappEnabled: HubtelProvider.whatsappReady(),
+    }, 'Communication provider status');
+  });
 
-  createTemplate = async (req: AuthRequest, res: Response) => {
-    try {
-      const dto = req.body;
-      const template = await this.communicationService.createTemplate(dto);
-      this.created(res, template, 'Template created successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  getTemplates = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { channelType } = req.query;
+    const templates = await this.service.getTemplates(channelType as string);
+    return this.ok(res, templates, 'Templates retrieved successfully');
+  });
 
-  updateTemplate = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      const dto = req.body;
-      const template = await this.communicationService.updateTemplate(id, dto);
-      this.ok(res, template, 'Template updated successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  createTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const template = await this.service.createTemplate(req.body);
+    return this.created(res, template, 'Template created successfully');
+  });
 
-  deleteTemplate = async (req: AuthRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      await this.communicationService.deleteTemplate(id);
-      this.ok(res, null, 'Template deleted successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  updateTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const template = await this.service.updateTemplate(req.params.id, req.body);
+    return this.ok(res, template, 'Template updated successfully');
+  });
 
-  getMessageHistory = async (req: AuthRequest, res: Response) => {
-    try {
-      const filters = req.query;
-      const history = await this.communicationService.getMessageHistory(filters);
-      this.ok(res, history.data, 'Message history retrieved successfully', { pagination: history.pagination });
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  deleteTemplate = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    await this.service.deleteTemplate(req.params.id);
+    return this.ok(res, null, 'Template deleted successfully');
+  });
 
-  getMessageStats = async (req: AuthRequest, res: Response) => {
-    try {
-      const { startDate, endDate } = req.query;
-      const stats = await this.communicationService.getMessageStats(
-        startDate as string,
-        endDate as string
-      );
-      this.ok(res, stats, 'Message statistics retrieved successfully');
-    } catch (error: any) {
-      this.error(res, error);
-    }
-  };
+  getMessageHistory = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    // ✅ Use BaseController's safe pagination parser
+    const { page, limit } = this.getPaginationParams(req);
+    const filters = { ...req.query, page, limit };
+    
+    const history = await this.service.getMessageHistory(filters);
+    
+    // ✅ Use BaseController's paginated response formatter
+    return this.paginated(res, history.data, history.pagination, 'Message history retrieved successfully');
+  });
+
+  getMessageStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { startDate, endDate } = req.query;
+    const stats = await this.service.getMessageStats(startDate as string, endDate as string);
+    return this.ok(res, stats, 'Message statistics retrieved successfully');
+  });
 }

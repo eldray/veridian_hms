@@ -15,6 +15,15 @@ export class ScanTemplateRepository {
     this.prisma = prisma;
   }
 
+  /**
+   * Helper method to flatten pricing array to single object
+   */
+  private flattenPricing(template: any) {
+    if (!template) return null;
+    template.pricing = template.pricing?.[0] || null;
+    return template;
+  }
+
   async findAll(params: ScanTemplateQueryParams) {
     const { isActive, category, bodyPart, scanType, page = 1, limit = 10000 } = params;
     
@@ -49,7 +58,11 @@ export class ScanTemplateRepository {
       this.prisma.serviceCatalog.findMany({
         where,
         include: {
-          pricing: true,
+          pricing: {
+            where: { isActive: true },
+            take: 1,
+            orderBy: { effectiveDate: 'desc' }
+          },
           scans: {
             select: {
               id: true,
@@ -66,17 +79,26 @@ export class ScanTemplateRepository {
       this.prisma.serviceCatalog.count({ where })
     ]);
 
-    return { templates, total, pageNum, limitNum };
+    return { 
+      templates: templates.map(t => this.flattenPricing(t)),
+      total, 
+      pageNum, 
+      limitNum 
+    };
   }
 
   async findById(id: string) {
-    return this.prisma.serviceCatalog.findUnique({
+    const template = await this.prisma.serviceCatalog.findUnique({
       where: {
         id,
         serviceType: 'scan'
       },
       include: {
-        pricing: true,
+        pricing: {
+          where: { isActive: true },
+          take: 1,
+          orderBy: { effectiveDate: 'desc' }
+        },
         scans: {
           include: {
             Attendance: {
@@ -99,6 +121,8 @@ export class ScanTemplateRepository {
         }
       }
     });
+
+    return this.flattenPricing(template);
   }
 
   async create(data: CreateScanTemplateDTO, userId: string | undefined) {
@@ -197,15 +221,24 @@ export class ScanTemplateRepository {
         data.nhisPrice !== undefined ||
         data.insurancePrice !== undefined
       ) {
-        await tx.servicePricing.update({
-          where: { serviceCatalogId: id },
+        // Expire old pricing
+        await tx.servicePricing.updateMany({
+          where: { serviceCatalogId: id, isActive: true },
+          data: { isActive: false, expiryDate: new Date() }
+        });
+
+        // Create new pricing record
+        const existingPricing = existingTemplate.pricing?.[0];
+        await tx.servicePricing.create({
           data: {
-            cashPrice: data.cashPrice !== undefined ? data.cashPrice : undefined,
-            nhisPrice: data.nhisPrice !== undefined ? data.nhisPrice : undefined,
-            insurancePrice: data.insurancePrice !== undefined ? data.insurancePrice : undefined,
-            vatRate: data.vatRate !== undefined ? data.vatRate : undefined,
-            isTaxable: data.isTaxable !== undefined ? data.isTaxable : undefined,
-            updatedAt: new Date()
+            serviceCatalogId: id,
+            cashPrice: data.cashPrice ?? existingPricing?.cashPrice ?? 0,
+            nhisPrice: data.nhisPrice ?? existingPricing?.nhisPrice ?? 0,
+            insurancePrice: data.insurancePrice ?? existingPricing?.insurancePrice ?? 0,
+            vatRate: data.vatRate ?? existingPricing?.vatRate ?? 0,
+            isTaxable: data.isTaxable ?? existingPricing?.isTaxable ?? true,
+            isActive: true,
+            effectiveDate: new Date()
           }
         });
       }
@@ -235,11 +268,10 @@ export class ScanTemplateRepository {
         throw new Error('Cannot delete scan template with associated scans');
       }
 
-      if (existingTemplate.pricing) {
-        await tx.servicePricing.delete({
-          where: { serviceCatalogId: id }
-        });
-      }
+      // Use deleteMany for 1-to-N relationship
+      await tx.servicePricing.deleteMany({
+        where: { serviceCatalogId: id }
+      });
 
       await tx.serviceCatalog.delete({
         where: { id }

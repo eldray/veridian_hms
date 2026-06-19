@@ -11,6 +11,7 @@ import { useToast } from '../store/toastStore';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { getPatientName } from '../utils/patient';
 
 import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
 import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
@@ -619,9 +620,13 @@ export default function MedicalEntries() {
 
   useEffect(() => {
     if (!attendanceId) return;
-    const att = attendances.find(a => a.id === attendanceId);
-    if (att) { setSelectedPatientId(att.patientId); setSelectedAttendanceId(attendanceId); getAttendance(attendanceId); }
-  }, [attendanceId, attendances]);
+    // Load the specific attendance directly (don't gate on the paginated global list,
+    // which may not contain it) and derive the patient from the loaded record.
+    setSelectedAttendanceId(attendanceId);
+    getAttendance(attendanceId)
+      .then(att => { if (att?.patientId) setSelectedPatientId(att.patientId); })
+      .catch(() => {});
+  }, [attendanceId]);
 
   useEffect(() => {
     if (!selectedAttendanceId) return;
@@ -654,7 +659,8 @@ export default function MedicalEntries() {
     });
   }, [selectedAttendanceId]);
 
-  const selectedPatient  = patients.find(p => getEntityId(p) === selectedPatientId);
+  const selectedPatient  = patients.find(p => getEntityId(p) === selectedPatientId)
+    || (currentAttendance as any)?.Patient || null;
   const canAddEntries    = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 
   const diagnosesList    = currentAttendance?.AttendanceDiagnosis || [];
@@ -1239,7 +1245,7 @@ export default function MedicalEntries() {
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-[var(--text-primary)] leading-tight">
-                    {selectedPatient?.surname} {selectedPatient?.otherNames}
+                    {getPatientName(selectedPatient)}
                   </h2>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                     {selectedPatient?.age || '—'} yrs · {selectedPatient?.gender} · {selectedPatient?.folderNumber} · {selectedPatient?.contact}

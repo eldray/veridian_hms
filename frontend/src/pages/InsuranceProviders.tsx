@@ -32,6 +32,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
 
 export default function InsuranceProviders() {
   const navigate = useNavigate();
@@ -410,6 +411,9 @@ export default function InsuranceProviders() {
           </button>
         </div>
       </div>
+
+      {/* Section navigation */}
+      <InsuranceSectionTabs active="providers" />
 
       {/* Filters and View Controls */}
       <div className="flex flex-col sm:flex-row gap-3">

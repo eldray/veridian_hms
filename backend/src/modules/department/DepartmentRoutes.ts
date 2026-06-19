@@ -38,6 +38,9 @@ export function createDepartmentRoutes(prisma: PrismaClient): Router {
   // Delete department (Admin only)
   router.delete('/:id', requireRole(['admin']), controller.delete.bind(controller));
 
+  // Get statistics for a single department
+  router.get('/:id/stats', controller.getDepartmentStats.bind(controller));
+
   // Get department users
   router.get('/:id/users', controller.getUsers.bind(controller));
 

@@ -1,95 +1,109 @@
-import { PrismaClient } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../types/auth.types';
+import { PrismaClient, AuditAction } from '@prisma/client';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
-/**
- * Audit logging middleware - records all data changes
- * Captures before and after states for complete audit trail
- */
-export const auditLog = (entityType: string, action: string) => {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-      const originalJson = res.json.bind(res);
-      
-      // Capture previous state for UPDATE/DELETE operations
-      let previousState = null;
-      if ((action === 'UPDATE' || action === 'DELETE') && req.params.id) {
-        const model = (prisma as any)[entityType.toLowerCase()];
-        if (model) {
-          previousState = await model.findUnique({
-            where: { id: req.params.id }
-          });
-        }
+export interface AuditLogOptions {
+  entityType: string;
+  action: AuditAction;
+  metadata?: Record<string, any>;
+  capturePreviousState?: boolean;
+  captureNewState?: boolean;
+}
+
+// Helper to capture entity state
+async function captureEntityState(entityType: string, entityId: string): Promise<any> {
+  const modelMap: Record<string, string> = {
+    'Bill': 'bill', 'Payment': 'payment', 'BillLineItem': 'billLineItem',
+    'InsuranceClaim': 'insuranceClaim', 'PatientWaiver': 'patientWaiver',
+    'Attendance': 'attendance', 'Admission': 'admission', 'Ward': 'ward'
+  };
+  const modelName = modelMap[entityType] || entityType.toLowerCase();
+  
+  try {
+    // @ts-ignore
+    return await (prisma as any)[modelName].findUnique({ where: { id: entityId } });
+  } catch (error) {
+    logger.error(`Failed to capture state for ${entityType}/${entityId}`, { error });
+    return null;
+  }
+}
+
+// Helper to create audit log entry
+async function createAuditLog(data: {
+  entityType: string; entityId: string; action: AuditAction;
+  performedById?: string; ipAddress?: string; previousState?: any;
+  newState?: any; metadata?: Record<string, any>;
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        entityType: data.entityType, entityId: data.entityId, action: data.action,
+        performedById: data.performedById || 'system', ipAddress: data.ipAddress,
+        previousState: data.previousState || null, newState: data.newState || null,
+        metadata: data.metadata || {}
       }
+    });
+  } catch (error) {
+    logger.error('Failed to create audit log', { error });
+  }
+}
 
-      res.json = (body: any) => {
-        // Only log successful operations
-        if (res.statusCode < 400) {
-          const auditData = {
-            entityType,
-            entityId: req.params.id || body?.id || 'unknown',
-            action,
-            performedById: req.user?.id || 'system',
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            previousState: action !== 'CREATE' ? previousState : null,
-            newState: action !== 'DELETE' ? body : null,
-            metadata: {
-              method: req.method,
-              path: req.path,
-              queryParams: req.query,
-              timestamp: new Date().toISOString()
-            }
-          };
+// Generic audit middleware for financial operations
+export const auditFinancialEvent = (options: AuditLogOptions) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const originalJson = res.json.bind(res);
+    const startTime = Date.now();
+    let previousState: any = null;
+    const entityId = (req.params.id || req.body.entityId || req.params.billId || req.params.claimId) as string;
+    const user = (req as any).user;
 
-          // Fire and forget - don't block the response
-          prisma.auditLog.create({
-            data: auditData
-          }).catch(err => {
-            console.error('Audit log creation failed:', err);
-          });
-        }
-        
-        return originalJson(body);
+    if (options.capturePreviousState && entityId && options.entityType) {
+      previousState = await captureEntityState(options.entityType, entityId);
+    }
+
+    res.json = function(body: any) {
+      const responseTime = Date.now() - startTime;
+      const metadata = {
+        ...options.metadata, method: req.method, url: req.originalUrl,
+        responseTime, statusCode: res.statusCode, userAgent: req.headers['user-agent']
       };
 
-      next();
-    } catch (error) {
-      console.error('Audit logging middleware error:', error);
-      next(error);
-    }
+      if (options.captureNewState && entityId && options.entityType && body?.success !== false) {
+        captureEntityState(options.entityType, entityId)
+          .then(state => createAuditLog({ ...options, entityId, performedById: user?.id, ipAddress: req.ip, previousState, newState: state, metadata }))
+          .catch(err => logger.error('Failed to capture new state for audit', { error: err }));
+      } else {
+        createAuditLog({ ...options, entityId, performedById: user?.id, ipAddress: req.ip, previousState, newState: null, metadata })
+          .catch(err => logger.error('Failed to create audit log', { error: err }));
+      }
+      return originalJson.call(this, body);
+    };
+    next();
   };
 };
 
-/**
- * Batch audit logging for multiple operations
- */
-export const batchAuditLog = async (
-  entityType: string,
-  action: string,
-  records: Array<{ id: string; data: any }>,
-  userId: string,
-  ipAddress?: string
-) => {
-  try {
-    const auditEntries = records.map(record => ({
-      entityType,
-      entityId: record.id,
-      action,
-      performedById: userId,
-      ipAddress,
-      newState: record.data,
-      timestamp: new Date().toISOString()
-    }));
+// Pre-configured middlewares for specific operations
+export const auditBillOperation = auditFinancialEvent({ entityType: 'Bill', action: 'update', capturePreviousState: true, captureNewState: true, metadata: { operation: 'bill_update' } });
+export const auditPaymentOperation = auditFinancialEvent({ entityType: 'Payment', action: 'create', capturePreviousState: false, captureNewState: true, metadata: { operation: 'payment_received' } });
+export const auditVoidOperation = auditFinancialEvent({ entityType: 'BillLineItem', action: 'void', capturePreviousState: true, captureNewState: true, metadata: { operation: 'void_line_item' } });
+export const auditClaimSubmission = auditFinancialEvent({ entityType: 'InsuranceClaim', action: 'submit', capturePreviousState: true, captureNewState: true, metadata: { operation: 'claim_submission' } });
 
-    await prisma.auditLog.createMany({
-      data: auditEntries
-    });
-  } catch (error) {
-    console.error('Batch audit logging failed:', error);
-  }
+// Utility functions for retrieving audit trails
+export const getAuditTrail = async (entityType: string, entityId: string) => {
+  return await prisma.auditLog.findMany({
+    where: { entityType, entityId },
+    include: { performedBy: { select: { id: true, fullName: true, username: true, role: true } } },
+    orderBy: { timestamp: 'desc' }
+  });
 };
 
-export default { auditLog, batchAuditLog };
+export const getUserAuditTrail = async (userId: string, limit = 100) => {
+  return await prisma.auditLog.findMany({
+    where: { performedById: userId },
+    include: { performedBy: { select: { id: true, fullName: true, username: true, role: true } } },
+    orderBy: { timestamp: 'desc' },
+    take: limit
+  });
+};

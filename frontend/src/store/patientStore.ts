@@ -42,17 +42,46 @@ const addFullNameToPatient = (patient: Patient): Patient => {
 
 // ✅ HELPER: Extract patient data from various API response formats
 const extractPatientData = (response: unknown): Patient => {
+  console.log('🔍 Extracting patient data from response:', JSON.stringify(response, null, 2));
+  
   let patientData: any;
   
-  // Handle nested response structures
-  if (response.data?.patient) {
-    patientData = response.data.patient;
-  } else if (response.patient) {
-    patientData = response.patient;
-  } else if (response.data) {
-    patientData = response.data;
-  } else {
-    patientData = response;
+  // Try different response structures
+  if (response && typeof response === 'object') {
+    // Case 1: { success: true, data: { patient: {...} } }
+    if ((response as any).data?.patient) {
+      patientData = (response as any).data.patient;
+      console.log('✅ Found patient in response.data.patient');
+    }
+    // Case 2: { success: true, data: {...} } (direct patient object)
+    else if ((response as any).data && (response as any).data.id) {
+      patientData = (response as any).data;
+      console.log('✅ Found patient in response.data');
+    }
+    // Case 3: { patient: {...} }
+    else if ((response as any).patient) {
+      patientData = (response as any).patient;
+      console.log('✅ Found patient in response.patient');
+    }
+    // Case 4: Direct patient object with id
+    else if ((response as any).id) {
+      patientData = response;
+      console.log('✅ Response is direct patient object');
+    }
+    // Case 5: { success: true, data: { data: {...} } } (nested)
+    else if ((response as any).data?.data?.id) {
+      patientData = (response as any).data.data;
+      console.log('✅ Found patient in response.data.data');
+    }
+    else {
+      console.warn('⚠️ Could not extract patient data from response:', response);
+      patientData = null;
+    }
+  }
+  
+  if (!patientData) {
+    console.error('❌ No patient data found in response');
+    throw new Error('No patient data found in response');
   }
   
   return addFullNameToPatient(patientData);
@@ -68,6 +97,8 @@ const extractPatientsArray = (response: unknown): Patient[] => {
     patientsArray = (response as any).patients;
   } else if (Array.isArray((response as any).data?.patients)) {
     patientsArray = (response as any).data.patients;
+  } else if (Array.isArray((response as any).data?.data)) {
+    patientsArray = (response as any).data.data;
   } else if (Array.isArray((response as any).data)) {
     patientsArray = (response as any).data;
   }
@@ -87,6 +118,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     try {
       console.log('🔄 Loading patients with filters:', filters);
       const response = await apiGetPatients(filters);
+      console.log('📡 API getPatients response:', response);
       
       const patients = extractPatientsArray(response);
       const pagination = response.pagination || response.data?.pagination || null;
@@ -99,7 +131,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       });
     } catch (error: unknown) {
       console.error('❌ Failed to load patients:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load patients';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to load patients';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -127,6 +159,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }
       
       const response = await apiCreatePatient(processedData);
+      console.log('📡 API createPatient response:', response);
+      
       const newPatient = extractPatientData(response);
       
       console.log('✅ Patient created:', newPatient.id);
@@ -139,7 +173,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       return newPatient;
     } catch (error: unknown) {
       console.error('❌ Failed to add patient:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to add patient';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to add patient';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -156,30 +190,43 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     if (!id || id === 'undefined' || id === 'null') {
       const errorMsg = 'Invalid patient ID: ID cannot be undefined or null';
       console.error('❌ Invalid patient ID:', id);
-      set({ error: errorMsg, isLoading: false });
+      set({ error: errorMsg, isLoading: false, currentPatient: null });
       throw new Error(errorMsg);
     }
 
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 Fetching patient:', id);
+      console.log('🔄 Fetching patient with ID:', id);
       const response = await apiGetPatient(id);
+      console.log('📡 API getPatient raw response:', JSON.stringify(response, null, 2));
       
       const patientData = extractPatientData(response);
       
-      console.log('✅ Patient fetched:', {
+      if (!patientData || !patientData.id) {
+        console.error('❌ Invalid patient data received:', patientData);
+        throw new Error('Invalid patient data received from server');
+      }
+      
+      console.log('✅ Patient fetched successfully:', {
         id: patientData.id,
-        fullName: patientData.fullName
+        fullName: patientData.fullName,
+        folderNumber: patientData.folderNumber
       });
       
-      set({ currentPatient: patientData, isLoading: false });
+      set({ 
+        currentPatient: patientData, 
+        isLoading: false,
+        error: null
+      });
+      
       return patientData;
     } catch (error: unknown) {
       console.error('❌ Failed to fetch patient:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch patient';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to fetch patient';
       set({ 
         error: errorMessage,
-        isLoading: false 
+        isLoading: false,
+        currentPatient: null
       });
       throw new Error(errorMessage);
     }
@@ -203,6 +250,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }
       
       const response = await apiUpdatePatient(id, processedData);
+      console.log('📡 API updatePatient response:', response);
+      
       const updatedPatient = extractPatientData(response);
       
       console.log('✅ Patient updated:', updatedPatient.id);
@@ -218,7 +267,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       return updatedPatient;
     } catch (error: unknown) {
       console.error('❌ Failed to update patient:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to update patient';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to update patient';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -242,7 +291,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }));
     } catch (error: unknown) {
       console.error('❌ Failed to delete patient:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete patient';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to delete patient';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -285,7 +334,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       return imageUrl;
     } catch (error: unknown) {
       console.error('❌ Failed to upload patient image:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload image';
+      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to upload image';
       set({ error: errorMessage, isLoading: false });
       throw new Error(errorMessage);
     }
@@ -303,7 +352,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         patient.contact?.includes(query) ||
         patient.folderNumber?.toLowerCase().includes(lowerQuery) ||
         patient.id?.toLowerCase().includes(lowerQuery) ||
-        patient.additionalInfo?.idNumber?.toLowerCase().includes(lowerQuery)
+        (patient as any).additionalInfo?.idNumber?.toLowerCase().includes(lowerQuery)
       );
     });
   },

@@ -1,5 +1,6 @@
-// src/components/UserEditModal.tsx - UPDATED WITH SENIORITY
+// src/components/UserEditModal.tsx - UPDATED TO USE USERSTORE
 import { useState, useEffect } from 'react';
+import { useUserStore } from '../store/userStore';  // ✅ Use UserStore
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
 
 // Seniority configuration
@@ -18,18 +19,20 @@ interface User {
   licenseNumber?: string;
   specialization?: string;
   role: string;
-  seniority?: string; // ✅ ADD seniority
+  seniority?: string;
   isActive: boolean;
 }
 
 interface UserEditModalProps {
   user: User;
-  onSave: (userData: Partial<User>) => void;
   onClose: () => void;
-  isLoading: boolean;
+  onSuccess: () => void;
 }
 
-export default function UserEditModal({ user, onSave, onClose, isLoading }: UserEditModalProps) {
+export default function UserEditModal({ user, onClose, onSuccess }: UserEditModalProps) {
+  const { updateUser, isLoading } = useUserStore();  // ✅ Use updateUser from UserStore
+  const { success, error } = useToast();
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -37,7 +40,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
     licenseNumber: '',
     specialization: '',
     role: '',
-    seniority: 'JUNIOR', // ✅ ADD seniority
+    seniority: 'JUNIOR',
     isActive: true
   });
 
@@ -50,15 +53,22 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
         licenseNumber: user.licenseNumber || '',
         specialization: user.specialization || '',
         role: user.role,
-        seniority: user.seniority || 'JUNIOR', // ✅ ADD seniority with default
+        seniority: user.seniority || 'JUNIOR',
         isActive: user.isActive
       });
     }
   }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    try {
+      await updateUser(user.id, formData);
+      success('User Updated', `${formData.fullName} has been updated successfully`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      error('Update Failed', err.response?.data?.message || 'Failed to update user');
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -134,7 +144,7 @@ export default function UserEditModal({ user, onSave, onClose, isLoading }: User
               </select>
             </div>
 
-            {/* ✅ NEW: Seniority */}
+            {/* Seniority */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <TrendingUp className="w-4 h-4 inline mr-2 text-amber-600" />

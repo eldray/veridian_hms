@@ -281,4 +281,5 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
 
   clearCurrentRecord: () => set({ currentRecord: null, currentVisits: [], currentVisit: null }),
   clearError: () => set({ error: null }),
+  
 }));

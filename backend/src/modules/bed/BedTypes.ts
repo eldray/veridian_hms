@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 export interface Bed {
   id: string;
   wardId: string;
@@ -9,14 +7,14 @@ export interface Bed {
   updatedAt: Date;
 }
 
+// ✅ FIXED: Removed direct Patient relation, added dynamic currentOccupant
 export interface BedWithRelations extends Bed {
   Ward?: {
     id: string;
     wardName: string;
     wardType: string;
-    isPending?: boolean;
   };
-  Patient?: {
+  currentOccupant?: {
     id: string;
     folderNumber: string;
     surname: string;
@@ -38,18 +36,3 @@ export interface BedFilter {
   wardId?: string;
   isOccupied?: boolean;
 }
-
-export interface BedStats {
-  total: number;
-  occupied: number;
-  available: number;
-}
-
-// Default export for convenience
-// Remove the interfaces from the object since they can't be used as values
-const exportedObject = {
-  // Only include actual values or constants here
-  // If you need to export types, they're already exported above with 'export'
-};
-
-export default exportedObject;

@@ -188,7 +188,9 @@ export default function Inventory() {
       medications: stockItems.filter(item => item.isMedication).length,
       lowStock: lowStock.length,
       expiring: expiring.length,
-      totalValue: stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0)
+      totalValue: stockItems.reduce((sum, item) => 
+        sum + (Number(item.costPrice || 0) * item.currentStock), 0
+      )
     };
 
     return { lowStockItems: lowStock, expiringItems: expiring, stats };
@@ -429,7 +431,7 @@ export default function Inventory() {
             <div>
               <p className="text-xs text-[var(--text-secondary)]">Inventory Value</p>
               <p className="text-xl font-bold text-[var(--icon-purple-text)]">
-                ₵{stats.totalValue.toFixed(0)}
+              ₵{(stats.totalValue / (stats.total || 1)).toFixed(2)}
               </p>
             </div>
           </div>
@@ -582,7 +584,7 @@ export default function Inventory() {
                           {item.reorderLevel}
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-medium text-[var(--text-primary)]">
-                          ₵{item.costPrice?.toFixed(2) || '0.00'}
+                        ₵{Number(item.costPrice || 0).toFixed(2)}
                         </td>
                         <td className="px-4 py-3">
                           {item.expiryDate ? (
