@@ -1,15 +1,13 @@
-// src/components/reports/FormAReportView.tsx
-// COMPLETE FORM A REPORT - Matches GHS Monthly Midwives Return format
-
+// src/components/reports/FormAReportView.tsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { 
   Download, Printer, FileText, Baby, Heart, Shield, 
-  Syringe, Droplet, AlertTriangle, Calendar, User,
-  Activity, TrendingUp, CheckCircle, XCircle, Eye,
+  Syringe, Droplet, Calendar, User,
+  Activity, TrendingUp, XCircle, Eye,
   Users, Hospital, Stethoscope, ClipboardList, Building2,
   Ambulance, Mic, Scissors, Droplets, TestTube
 } from 'lucide-react';
-import { useAntenatalStore } from '../../store/antenatalStore';
+import { useReportsStore } from '../../store/reportsStore';
 import { useToast } from '../../store/toastStore';
 
 interface FormAData {
@@ -114,8 +112,10 @@ interface FormAData {
 }
 
 export const FormAReportView: React.FC = () => {
-  const { ancReport, generateANCReport, isGeneratingReport } = useAntenatalStore();
+  // ✅ Use reportsStore - No isGeneratingReport, use isLoading
+  const { formAReport, getGHSFormAReport, isLoading } = useReportsStore();
   const { success, error: toastError } = useToast();
+  
   const [period, setPeriod] = useState<'monthly' | 'quarterly' | 'yearly' | 'custom'>('monthly');
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -131,6 +131,14 @@ export const FormAReportView: React.FC = () => {
     conductDelivery: false,
     babyFriendly: false
   });
+
+  // If formAReport from store has data, use it
+  useEffect(() => {
+    if (formAReport) {
+      setReportData(formAReport);
+      setShowPreview(true);
+    }
+  }, [formAReport]);
 
   const handleGenerate = async () => {
     try {
@@ -154,7 +162,8 @@ export const FormAReportView: React.FC = () => {
       params.facilityType = facilityType;
       params.emoncServices = emoncServices;
       
-      const result = await generateANCReport(params);
+      // ✅ Use getGHSFormAReport from reportsStore
+      const result = await getGHSFormAReport(params);
       setReportData({ ...result, facility: { ...result.facility, facilityType, emoncServices } });
       setShowPreview(true);
       success('Report Generated', 'GHS Form A report is ready');
@@ -275,6 +284,7 @@ export const FormAReportView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // ── Stat Card Component ───────────────────────────────────────────────────
   const StatCard = ({ label, value, icon: Icon, color, large = false }: any) => (
     <div className={`bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4 ${large ? 'col-span-2' : ''}`}>
       <div className="flex items-center justify-between">
@@ -300,7 +310,7 @@ export const FormAReportView: React.FC = () => {
     </div>
   );
 
-  // Selection UI before report is shown
+  // ── Report Preview ──────────────────────────────────────────────────────
   if (!showPreview) {
     return (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6">
@@ -388,8 +398,9 @@ export const FormAReportView: React.FC = () => {
           )}
         </div>
 
-        <button onClick={handleGenerate} disabled={isGeneratingReport} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 transition-all">
-          {isGeneratingReport ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating Report...</>) : (<><Eye className="w-5 h-5" /> Generate GHS Form A Report</>)}
+        {/* ✅ FIXED: Use isLoading from reportsStore */}
+        <button onClick={handleGenerate} disabled={isLoading} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 transition-all">
+          {isLoading ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating Report...</>) : (<><Eye className="w-5 h-5" /> Generate GHS Form A Report</>)}
         </button>
       </div>
     );
@@ -408,7 +419,7 @@ export const FormAReportView: React.FC = () => {
         <button onClick={handleExportCSV} className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"><Download className="w-4 h-4" /> Export CSV</button>
       </div>
 
-      {/* Report Content - PDF Style (Matches GHS Form A) */}
+      {/* Report Content - PDF Style */}
       <div id="form-a-report-content" className="bg-white text-gray-900 rounded-xl shadow-lg overflow-hidden print:shadow-none font-serif">
         
         {/* Header - GHS Official Format */}
@@ -426,7 +437,7 @@ export const FormAReportView: React.FC = () => {
           </div>
         </div>
 
-        {/* EMONC Services Section - From PDF */}
+        {/* EMONC Services Section */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <h3 className="font-bold text-sm uppercase tracking-wide text-gray-600 mb-3">EMONC Services</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -453,9 +464,7 @@ export const FormAReportView: React.FC = () => {
           </div>
         </div>
 
-        {/* ============================================ */}
         {/* SECTION 1: ANTENATAL CARE */}
-        {/* ============================================ */}
         <div className="p-5 border-b border-gray-200">
           <div className="mb-4">
             <h3 className="font-bold text-lg text-pink-700 flex items-center gap-2">
@@ -585,9 +594,7 @@ export const FormAReportView: React.FC = () => {
           </div>
         </div>
 
-        {/* ============================================ */}
-        {/* SECTION 2: DELIVERY */}
-        {/* ============================================ */}
+        {/* SECTION 2: DELIVERY SERVICES */}
         <div className="p-5 border-b border-gray-200">
           <div className="mb-4">
             <h3 className="font-bold text-lg text-blue-700 flex items-center gap-2">
@@ -599,7 +606,7 @@ export const FormAReportView: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.delivery.totalDeliveries}</div><div className="text-xs">Total Deliveries</div></div>
             <div className="text-center p-3 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-600">{reportData?.delivery.liveBirths}</div><div className="text-xs">Live Births</div></div>
-            <div className="text-center p-3 bg-red-50 rounded-lg"><div className="text-2xl font-bold text-red-600">{reportData?.delivery.stillbirthsFresh + reportData?.delivery.stillbirthsMacerated}</div><div className="text-xs">Stillbirths</div></div>
+            <div className="text-center p-3 bg-red-50 rounded-lg"><div className="text-2xl font-bold text-red-600">{(reportData?.delivery.stillbirthsFresh || 0) + (reportData?.delivery.stillbirthsMacerated || 0)}</div><div className="text-xs">Stillbirths</div></div>
             <div className="text-center p-3 bg-purple-50 rounded-lg"><div className="text-2xl font-bold text-purple-600">{reportData?.delivery.caesareanSection}</div><div className="text-xs">C-Section</div></div>
           </div>
 
@@ -659,9 +666,7 @@ export const FormAReportView: React.FC = () => {
           </div>
         </div>
 
-        {/* ============================================ */}
         {/* SECTION 3: POSTNATAL CARE */}
-        {/* ============================================ */}
         <div className="p-5">
           <div className="mb-4">
             <h3 className="font-bold text-lg text-green-700 flex items-center gap-2">
@@ -696,7 +701,7 @@ export const FormAReportView: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer - DHIS2 Data Entry Reference */}
+        {/* Footer */}
         <div className="text-center py-4 px-4 border-t-2 border-gray-300 text-xs text-gray-400 bg-gray-50">
           <p>Data Entry | DHIS2 - Form A (Monthly Midwives Return)</p>
           <p className="mt-1">Generated on {new Date(reportData?.generatedAt || '').toLocaleString()}</p>

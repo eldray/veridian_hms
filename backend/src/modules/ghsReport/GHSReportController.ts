@@ -1,3 +1,4 @@
+// src/modules/ghsReport/GHSReportController.ts - FIXED
 import { Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { AuthRequest } from '../../middleware/authMiddleware';
@@ -80,11 +81,43 @@ export class GHSReportController extends BaseController {
     return this.ok(res, result, 'Family planning report generated successfully');
   });
 
+  // ✅ FIXED: Properly parse dates for getTopDiagnoses
   getTopDiagnoses = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { startDate, endDate, limit } = req.query;
+    
+    // ✅ Convert string dates to Date objects
+    let start: Date;
+    let end: Date;
+    
+    if (startDate && typeof startDate === 'string') {
+      start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        return this.error(res, 'Invalid startDate format. Use ISO-8601 (YYYY-MM-DD)', 400);
+      }
+    } else {
+      start = new Date();
+      start.setDate(start.getDate() - 30); // Default to last 30 days
+    }
+    
+    if (endDate && typeof endDate === 'string') {
+      end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        return this.error(res, 'Invalid endDate format. Use ISO-8601 (YYYY-MM-DD)', 400);
+      }
+    } else {
+      end = new Date();
+    }
+    
+    // Set time boundaries
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    
     const result = await this.reportService.getTopDiagnoses(
-      startDate as string, endDate as string, limit ? parseInt(limit as string) : 10
+      start, 
+      end, 
+      limit ? parseInt(limit as string, 10) : 10
     );
+    
     return this.ok(res, { data: result }, 'Top diagnoses retrieved successfully');
   });
 

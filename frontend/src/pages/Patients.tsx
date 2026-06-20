@@ -1,4 +1,4 @@
-// src/pages/Patients.tsx - STRETCHED LAYOUT (same as Attendance)
+// src/pages/Patients.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -9,10 +9,10 @@ import {
   Search, Grid, List, RefreshCw, Users, Calendar, 
   Eye, Edit, ChevronLeft, ChevronRight, 
   Plus, Phone, User, Trash2, Stethoscope,
-  CalendarDays, Clock, Filter, X
+  CalendarDays, Clock, Filter, X, CreditCard
 } from 'lucide-react';
 
-type DateFilterType = 'today' | 'yesterday' | 'custom';
+type DateFilterType = 'all' | 'today' | 'yesterday' | 'custom';
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +25,7 @@ export default function Patients() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   
   // Date filter states
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -52,8 +52,13 @@ export default function Patients() {
     loadData();
   }, []);
 
-  // Filter patients by attendance date
+  // ✅ FIXED: Filter patients by attendance date
   const filterPatientsByDate = (patientsList: any[]) => {
+    // If 'all', return all patients (no filter)
+    if (dateFilter === 'all') {
+      return patientsList;
+    }
+
     if (dateFilter === 'today') {
       const today = new Date().toISOString().split('T')[0];
       return patientsList.filter(patient => {
@@ -90,17 +95,25 @@ export default function Patients() {
   };
 
   const getPatientFullName = (patient: any) => {
-    return patient?.name || patient?.fullName || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
+    return patient?.fullName || patient?.name || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
   };
 
-  // Apply search first, then date filter
+  // ✅ Apply search first, then date filter
   const searchedPatients = searchQuery ? searchPatients(searchQuery) : patients;
   const filteredPatients = filterPatientsByDate(searchedPatients);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+  // ✅ FIXED: Sort patients by creation date (newest first)
+  const sortedPatients = [...filteredPatients].sort((a, b) => {
+    // Use createdAt or registeredAt as fallback
+    const dateA = new Date(a.createdAt || a.registeredAt || 0);
+    const dateB = new Date(b.createdAt || b.registeredAt || 0);
+    return dateB.getTime() - dateA.getTime(); // Newest first
+  });
+
+  // Pagination - use sortedPatients
+  const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPatients = filteredPatients.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedPatients = sortedPatients.slice(startIndex, startIndex + itemsPerPage);
 
   const canRegister = hasRole(['admin', 'nurse', 'doctor']);
   const canDelete = hasRole(['admin']);
@@ -165,6 +178,7 @@ export default function Patients() {
 
   const getDateFilterLabel = () => {
     switch (dateFilter) {
+      case 'all': return 'All Patients';
       case 'today': return "Today's Patients";
       case 'yesterday': return "Yesterday's Patients";
       case 'custom': return `${customStartDate} to ${customEndDate}`;
@@ -176,7 +190,7 @@ export default function Patients() {
     const totalWithAttendances = patients.filter(p => p.attendances?.length > 0).length;
     return {
       totalPatients: patients.length,
-      filteredCount: filteredPatients.length,
+      filteredCount: sortedPatients.length,
       withAttendances: totalWithAttendances
     };
   };
@@ -259,6 +273,20 @@ export default function Patients() {
           <div className="flex gap-2">
             <button
               onClick={() => {
+                setDateFilter('all');
+                setCurrentPage(1);
+                setShowDatePicker(false);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                dateFilter === 'all'
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => {
                 setDateFilter('today');
                 setCurrentPage(1);
                 setShowDatePicker(false);
@@ -320,7 +348,7 @@ export default function Patients() {
           )}
           
           <div className="text-xs text-[var(--text-secondary)] ml-auto">
-            Showing: {getDateFilterLabel()}
+            Showing: {getDateFilterLabel()} • {sortedPatients.length} patients
           </div>
         </div>
       </div>
@@ -376,12 +404,12 @@ export default function Patients() {
       </div>
 
       {/* Stats Banner */}
-      {filteredPatients.length > 0 && (
+      {sortedPatients.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-sm font-semibold text-blue-800">
-                Showing {paginatedPatients.length} of {filteredPatients.length} patient records
+                Showing {paginatedPatients.length} of {sortedPatients.length} patient records
               </p>
               {searchQuery && (
                 <p className="text-xs text-blue-600 mt-0.5">
@@ -391,13 +419,13 @@ export default function Patients() {
             </div>
             <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
               <span className="bg-blue-100 px-2 py-1 rounded border border-blue-200">
-                Cash: {filteredPatients.filter(p => p.paymentMode === 'cash').length}
+                Cash: {sortedPatients.filter(p => p.paymentMode === 'cash').length}
               </span>
               <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
-                NHIS: {filteredPatients.filter(p => p.paymentMode === 'nhis').length}
+                NHIS: {sortedPatients.filter(p => p.paymentMode === 'nhis').length}
               </span>
               <span className="bg-purple-100 px-2 py-1 rounded border border-purple-200">
-                Private: {filteredPatients.filter(p => p.paymentMode === 'private_insurance').length}
+                Private: {sortedPatients.filter(p => p.paymentMode === 'private_insurance').length}
               </span>
             </div>
           </div>
@@ -405,7 +433,7 @@ export default function Patients() {
       )}
 
       {/* Empty State */}
-      {filteredPatients.length === 0 && (
+      {sortedPatients.length === 0 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <Users className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
@@ -414,9 +442,11 @@ export default function Patients() {
           <p className="text-[var(--text-secondary)] text-sm mb-4">
             {searchQuery 
               ? 'No patient records match your search criteria. Try adjusting your search terms.'
-              : dateFilter !== 'custom' 
-                ? `No patients had visits ${dateFilter === 'today' ? 'today' : 'yesterday'}.`
-                : `No patients had visits between ${customStartDate} and ${customEndDate}.`
+              : dateFilter === 'all'
+                ? 'No patient records found in the system.'
+                : dateFilter !== 'custom' 
+                  ? `No patients had visits ${dateFilter === 'today' ? 'today' : 'yesterday'}.`
+                  : `No patients had visits between ${customStartDate} and ${customEndDate}.`
             }
           </p>
           {searchQuery ? (
@@ -427,20 +457,20 @@ export default function Patients() {
               <X className="w-4 h-4" />
               Clear Search
             </button>
-          ) : dateFilter !== 'today' && (
+          ) : dateFilter !== 'all' && (
             <button
-              onClick={() => setDateFilter('today')}
+              onClick={() => setDateFilter('all')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
             >
-              <CalendarDays className="w-4 h-4" />
-              View Today's Patients
+              <Users className="w-4 h-4" />
+              View All Patients
             </button>
           )}
         </div>
       )}
 
       {/* Card View */}
-      {filteredPatients.length > 0 && viewMode === 'cards' && (
+      {sortedPatients.length > 0 && viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
             const patientId = getPatientId(patient);
@@ -493,6 +523,10 @@ export default function Patients() {
                       {getPaymentModeLabel(patient.paymentMode)}
                     </span>
                   </div>
+                  <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-xs">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Created: {new Date(patient.createdAt || patient.registeredAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
@@ -538,7 +572,7 @@ export default function Patients() {
       )}
 
       {/* List View (DEFAULT) */}
-      {filteredPatients.length > 0 && viewMode === 'list' && (
+      {sortedPatients.length > 0 && viewMode === 'list' && (
         <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
@@ -546,6 +580,7 @@ export default function Patients() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Contact</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment Mode</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Created</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Last Visit</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
               </tr>
@@ -557,6 +592,7 @@ export default function Patients() {
                 const lastVisit = patient.attendances?.[0]?.dateTime 
                   ? new Date(patient.attendances[0].dateTime).toLocaleDateString()
                   : 'Never';
+                const createdDate = new Date(patient.createdAt || patient.registeredAt).toLocaleDateString();
                 
                 return (
                   <tr key={patientId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
@@ -585,6 +621,9 @@ export default function Patients() {
                       <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
                         {getPaymentModeLabel(patient.paymentMode)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
+                      {createdDate}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
@@ -635,12 +674,12 @@ export default function Patients() {
       )}
 
       {/* Pagination */}
-      {filteredPatients.length > 0 && totalPages > 1 && (
+      {sortedPatients.length > 0 && totalPages > 1 && (
         <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="text-sm text-[var(--text-secondary)]">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredPatients.length)} of{' '}
-              {filteredPatients.length} patient records
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedPatients.length)} of{' '}
+              {sortedPatients.length} patient records
             </div>
             <div className="flex items-center gap-2">
               <button

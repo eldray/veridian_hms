@@ -1,4 +1,4 @@
-// modules/index.ts - COMPLETE MODULE REGISTRATION
+// modules/index.ts - COMPLETE MODULE REGISTRATION with Reports
 import { Express } from 'express';
 import { PrismaClient } from '@prisma/client';
 
@@ -31,8 +31,8 @@ import { createScanTemplateRoutes } from './scanTemplate/ScanTemplateRoutes';
 import { createProcedureRoutes } from './procedure/ProcedureRoutes';
 
 // Billing & Financial
-import { createBillRoutes } from './bill/BillRoutes';           // ✅ Individual bills
-import { createBillingRoutes } from './billing/BillingRoutes';   // ✅ Billing operations
+import { createBillRoutes } from './bill/BillRoutes';
+import { createBillingRoutes } from './billing/BillingRoutes';
 import { createProformaInvoiceRoutes } from './proformaInvoice/ProformaInvoiceRoutes';
 import { createWaiverRoutes } from './waiver/WaiverRoutes';
 
@@ -52,6 +52,8 @@ import { createPurchaseInvoiceRoutes } from './purchaseInvoice/PurchaseInvoiceRo
 import { createDashboardRoutes } from './dashboard/DashboardRoutes';
 import { createGHSReportRoutes } from './ghsReport/GHSReportRoutes';
 import { createClinicalReportsRoutes } from './clinicalReports/ClinicalReportsRoutes';
+// ✅ ADD THIS IMPORT
+import { createReportRoutes } from './report/ReportRoutes';
 
 // System & Configuration
 import { createHospitalRoutes } from './hospital/HospitalRoutes';
@@ -201,6 +203,10 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   
   app.use('/clinical-reports', createClinicalReportsRoutes(prisma));
   console.log('✅ Clinical Reports routes mounted at /clinical-reports');
+  
+  // ✅ ADD THIS - Report Routes
+  app.use('/reports', createReportRoutes(prisma));
+  console.log('✅ Report routes mounted at /reports');
 
   // ============================================
   // 11. SYSTEM & CONFIGURATION
@@ -235,7 +241,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('');
   console.log('✅ All modules registered successfully!');
   console.log('');
-  console.log('📊 Total Modules: 38+');
+  console.log('📊 Total Modules: 39+');
   console.log('🔐 All routes protected with JWT authentication');
   console.log('👥 Role-based access control enabled');
   console.log('');

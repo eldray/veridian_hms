@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';
+import FormAReportView from '../components/reports/ANCReportView';
 
 const AGE_GROUPS = [
   '<28d', '1-11m', '1-4', '5-9', '10-14', '15-17',
@@ -642,63 +643,14 @@ export default function Reports() {
     );
   };
 
-  const renderFormAReport = () => {
-    const report = formAReport as any;
-    if (!report) return <EmptyState message="No Form A data available" />;
-    return (
-      <div className="space-y-4">
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-5 text-center">
-          <p className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide">Ghana Health Service</p>
-          <p className="text-xs font-semibold text-[var(--text-secondary)] mt-1">Form A: Maternal Health Report</p>
-          <p className="text-[11px] text-[var(--text-tertiary)] mt-1">{report.facility?.name} · {report.period?.monthName} {report.period?.year}</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="ANC Registrants"  value={report.antenatal?.newRegistrants||0}  icon={UserCheck}color="green" />
-          <StatCard label="Total Deliveries" value={report.delivery?.totalDeliveries||0}   icon={Baby}     color="cyan"  />
-          <StatCard label="Live Births"      value={report.delivery?.liveBirths||0}         icon={Heart}    color="cyan"  />
-          <StatCard label="PNC Visits"       value={report.postnatal?.totalVisits||0}       icon={Activity} color="cyan"  />
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">
-          {(['antenatal','delivery','postnatal'] as const).map(t => (
-            <button key={t} onClick={() => setActiveFormATab(t)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold capitalize transition-all ${activeFormATab===t?'bg-pink-500 text-white':'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-        {activeFormATab === 'antenatal' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[{v:report.antenatal?.iptp?.dose3||0,l:'IPTp-3+'},{v:report.antenatal?.ttVaccination?.tt2Plus||0,l:'TT2+ Protected'},{v:report.antenatal?.itnDistributed||0,l:'ITN Distributed'},{v:report.antenatal?.firstVisits||0,l:'First ANC Visits'}].map(({v,l})=>(
-              <div key={l} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{v}</p>
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-1">{l}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {activeFormATab === 'delivery' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[{v:report.delivery?.spontaneousVertex||0,l:'Spontaneous Vertex'},{v:report.delivery?.caesareanSection||0,l:'Caesarean Section'},{v:report.delivery?.liveBirths||0,l:'Live Births'},{v:(report.delivery?.stillbirthsFresh||0)+(report.delivery?.stillbirthsMacerated||0),l:'Stillbirths'}].map(({v,l})=>(
-              <div key={l} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{v}</p>
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-1">{l}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {activeFormATab === 'postnatal' && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[{v:report.postnatal?.newMothers||0,l:'New Mothers'},{v:report.postnatal?.pncWithin48Hours||0,l:'PNC within 48h'},{v:report.postnatal?.exclusiveBreastfeeding||0,l:'Exclusive BF'}].map(({v,l})=>(
-              <div key={l} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{v}</p>
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-1">{l}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+// src/pages/Reports.tsx - Replace renderFormAReport
+const renderFormAReport = () => {
+  const report = formAReport as any;
+  if (!report) return <EmptyState message="No Form A data available" />;
+  
+  // Pass the complete report data to the FormAReportView component
+  return <FormAReportView data={report} />;
+};
 
   const renderIPDReport = () => {
     const report = ipdReport as any;

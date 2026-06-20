@@ -21,7 +21,30 @@ import {
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
 
 // Helper function to format currency
-const formatCurrency = (amount: number) => `₵${amount?.toFixed(2) ?? '0.00'}`;
+// ✅ ROBUST: Handles strings, numbers, null, undefined, and invalid values
+const formatCurrency = (amount: any): string => {
+  // Handle null, undefined, empty string
+  if (amount === null || amount === undefined || amount === '') {
+    return '₵0.00';
+  }
+  
+  // Convert to number if it's a string
+  let numAmount: number;
+  if (typeof amount === 'string') {
+    numAmount = parseFloat(amount.replace(/[^0-9.-]/g, '')); // Remove currency symbols
+  } else if (typeof amount === 'number') {
+    numAmount = amount;
+  } else {
+    return '₵0.00';
+  }
+  
+  // Check if it's a valid number
+  if (isNaN(numAmount) || !isFinite(numAmount)) {
+    return '₵0.00';
+  }
+  
+  return `₵${numAmount.toFixed(2)}`;
+};
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {

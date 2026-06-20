@@ -1,4 +1,4 @@
-// src/pages/Nursing.tsx
+// src/pages/Nursing.tsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -272,6 +272,34 @@ export default function Nursing() {
   const { stockItems, getStockItems } = useStockStore();
   const { wards, getWards, beds, getBeds } = useWardStore();
 
+  // ── ✅ FIXED: findPatient helper ──────────────────────────────────────────
+  const findPatient = useCallback((attendance: any) => {
+    if (!attendance) return null;
+    
+    // 1. Check if patient is directly attached
+    if (attendance.patient && typeof attendance.patient === 'object') {
+      return attendance.patient;
+    }
+    
+    // 2. Check if patientId is an object with patient data
+    if (attendance.patientId && typeof attendance.patientId === 'object') {
+      return attendance.patientId;
+    }
+    
+    // 3. If we have a patientId string, find it in the patients store
+    if (attendance.patientId && typeof attendance.patientId === 'string') {
+      const found = patients.find(p => p.id === attendance.patientId);
+      if (found) return found;
+    }
+    
+    // 4. Check for nested patient data in other fields
+    if (attendance.Patient && typeof attendance.Patient === 'object') {
+      return attendance.Patient;
+    }
+    
+    return null;
+  }, [patients]);
+
   // ── Derived: inpatient attendances ─────────────────────────────────────────
   const inpatients = useMemo(() =>
     attendances.filter(a =>
@@ -281,11 +309,12 @@ export default function Nursing() {
     [attendances]
   );
 
+  // ✅ FIXED: Use findPatient in filteredInpatients
   const filteredInpatients = useMemo(() => {
     if (!searchQuery.trim()) return inpatients;
     const q = searchQuery.toLowerCase();
     return inpatients.filter(a => {
-      const p = patients.find(pt => getEntityId(pt) === a.patientId);
+      const p = findPatient(a);
       const name = p ? getPatientName(p).toLowerCase() : '';
       return (
         name.includes(q) ||
@@ -293,18 +322,17 @@ export default function Nursing() {
         (p?.folderNumber || '').toLowerCase().includes(q)
       );
     });
-  }, [inpatients, patients, searchQuery]);
+  }, [inpatients, findPatient, searchQuery]);
 
   // ── Selected patient context ───────────────────────────────────────────────
   const selectedAtt     = useMemo(() => attendances.find(a => getEntityId(a) === selectedAttId), [attendances, selectedAttId]);
-  const selectedPatient = useMemo(() => patients.find(p => getEntityId(p) === selectedAtt?.patientId), [patients, selectedAtt]);
-  // NOTE: admissionType lives on the Admission record, NOT on Attendance in the schema
+  // ✅ FIXED: Use findPatient for selected patient
+  const selectedPatient = useMemo(() => selectedAtt ? findPatient(selectedAtt) : null, [selectedAtt, findPatient]);
   const activeAdmission = useMemo(() => admissions.find(a => a.attendanceId === selectedAttId && !a.dischargeDate), [admissions, selectedAttId]);
   const isAntenatal     = selectedAtt?.attendanceType === 'antenatal';
 
   const meds        = localMeds[selectedAttId]  || [];
   const tasks       = localTasks[selectedAttId] || [];
-  // Only show dispensed or administered meds (not prescribed — pharmacy handles that)
   const administrableMeds = meds.filter(m => m.status === 'dispensed' || m.status === 'administered');
 
   // ── Load data ──────────────────────────────────────────────────────────────
@@ -350,7 +378,7 @@ export default function Nursing() {
         setLatestVitals(sorted.length ? sorted[sorted.length - 1] : null);
       })
       .catch(() => { setVitalsList([]); setLatestVitals(null); });
-  }, [selectedAttId]);
+  }, [selectedAttId, getVitalsByAttendance]);
 
   // ── Select a patient ───────────────────────────────────────────────────────
   const handleSelectPatient = (attId: string) => {
@@ -389,7 +417,7 @@ export default function Nursing() {
 
       success(`${med.name}`, `Dose ${doseNumber} recorded`);
 
-      // Background sync — don't block the nurse
+      // Background sync
       updateMedicationStatus(selectedAttId, medicationId, {
         status: newStatus,
         administeredAt: new Date().toISOString(),
@@ -445,7 +473,7 @@ export default function Nursing() {
     }
   };
 
-  // ── Task management (local-first, saved to dailyNotes on handover) ─────────
+  // ── Task management ─────────────────────────────────────────────────────────
   const handleAddTask = (task: Omit<NursingTask, 'id'>) => {
     const newTask: NursingTask = {
       ...task,
@@ -471,7 +499,6 @@ export default function Nursing() {
 
   // ── Shift handover ─────────────────────────────────────────────────────────
   const handleHandoverComplete = async (data: any) => {
-    // Save handover notes as a daily note on each patient's admission
     const notesText = [
       `[SHIFT HANDOVER — ${data.currentShift} → ${data.nextShift}]`,
       `By: ${data.handedOverBy}`,
@@ -490,7 +517,6 @@ export default function Nursing() {
 
   // ── Dashboard stats ────────────────────────────────────────────────────────
   const dashboardStats = useMemo(() => {
-    // Count meds due across all patients
     let medsDue = 0;
     inpatients.forEach(a => {
       const meds = localMeds[a.id] || a.Medication || [];
@@ -499,7 +525,6 @@ export default function Nursing() {
       });
     });
 
-    // Critical alerts from selected patient's latest vitals
     let criticalAlerts = 0;
     if (latestVitals) {
       if (latestVitals.bloodPressure) {
@@ -619,14 +644,15 @@ export default function Nursing() {
                 </p>
               </div>
             ) : (
+              // ✅ FIXED: Use findPatient in render
               filteredInpatients.map(att => {
-                const patient   = patients.find(p => getEntityId(p) === att.patientId);
+                const patient = findPatient(att);
                 const admission = admissions.find(a => a.attendanceId === getEntityId(att) && !a.dischargeDate);
                 const isSelected = getEntityId(att) === selectedAttId;
-                const attMeds   = localMeds[att.id] || att.Medication || [];
-                const medsDue   = attMeds.filter((m: any) => m.status === 'dispensed' && isDoseDue(m)).length;
+                const attMeds = localMeds[att.id] || att.Medication || [];
+                const medsDue = attMeds.filter((m: any) => m.status === 'dispensed' && isDoseDue(m)).length;
                 const pendingTaskCount = (localTasks[att.id] || []).filter(t => t.status !== 'completed').length;
-                const patName   = getPatientName(patient);
+                const patName = patient ? getPatientName(patient) : 'Unknown Patient';
 
                 return (
                   <div
@@ -913,11 +939,11 @@ export default function Nursing() {
         onClose={() => setShowHandoverModal(false)}
         onComplete={handleHandoverComplete}
         patients={filteredInpatients.map(a => {
-          const p = patients.find(pt => getEntityId(pt) === a.patientId);
+          const p = findPatient(a);
           return {
             id: a.id!,
             patientId: a.patientId,
-            patient: p,                  // pass the full object — ShiftHandoverModal uses getPatientName
+            patient: p,
             patientName: p ? getPatientName(p) : 'Unknown',
             bedNumber: a.Bed?.bedNumber || a.bed?.bedNumber,
             admissionType: a.admissionType,

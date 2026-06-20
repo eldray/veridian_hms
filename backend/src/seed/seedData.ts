@@ -190,27 +190,6 @@ export const seedDatabase = async (force: boolean = false) => {
     if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
 
     // ========== STEP 5: MATERNITY DATA ==========
-    // ✅ FIX: Skip maternity seeding if test data already created it
-    const testDataCreated = testResult.success && !testResult.data?.skipped;
-    if (!testDataCreated || force) {
-      console.log('\n🤰 STEP 5: Maternity Data Seeding');
-      console.log('-----------------------------------');
-      console.log('   - Antenatal bookings');
-      console.log('   - ANC visits');
-      console.log('   - Delivery records');
-      console.log('   - Newborn records');
-      console.log('   - Postnatal visits');
-      
-      const maternityResult = await safeSeed('Maternity Data', () => seedMaternityData(force), force, 'maternityData', status);
-      results.maternityData = maternityResult;
-      if (!maternityResult.success) results.errors.push(`Maternity data: ${maternityResult.error || 'failed'}`);
-    } else {
-      console.log('\n🤰 STEP 5: Maternity Data Seeding');
-      console.log('-----------------------------------');
-      console.log('ℹ️ Maternity data already created by test data seeding. Skipping.');
-      results.maternityData = { success: true, data: { skipped: true, message: 'Already seeded by test data' } };
-    }
-
     // ========== SUMMARY ==========
     console.log('\n==================================================');
     if (results.errors.length > 0) {

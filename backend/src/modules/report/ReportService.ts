@@ -33,65 +33,97 @@ export class ReportService {
   }
 
   // ==================== DEMOGRAPHIC REPORT ====================
+
   async getDemographicReport(filters: ReportFilters) {
     const { startDate, endDate } = filters;
 
-    const patientWhere: any = {};
-    if (startDate || endDate) {
-      patientWhere.registeredAt = {};
-      if (startDate) patientWhere.registeredAt.gte = new Date(startDate);
-      if (endDate) patientWhere.registeredAt.lte = new Date(endDate);
-    }
-
-    const patients = await this.prisma.patient.findMany({
-      where: patientWhere,
-      select: {
-        id: true,
-        gender: true,
-        dateOfBirth: true,
-        paymentMode: true,
-        registeredAt: true,
-      },
-    });
-
-    const attendanceWhere: any = {};
+    // ✅ Get patients who had ATTENDANCES during the date range
+    let attendanceWhere: any = {};
     if (startDate || endDate) {
       attendanceWhere.dateTime = {};
       if (startDate) attendanceWhere.dateTime.gte = new Date(startDate);
       if (endDate) attendanceWhere.dateTime.lte = new Date(endDate);
     }
 
+    // Get distinct patient IDs from attendances during the period
     const attendances = await this.prisma.attendance.findMany({
       where: attendanceWhere,
-      select: { patientId: true, dateTime: true, paymentMode: true },
+      select: {
+        patientId: true,
+        dateTime: true,
+        paymentMode: true,
+        Patient: {
+          select: {
+            id: true,
+            gender: true,
+            dateOfBirth: true,
+            paymentMode: true,
+            registeredAt: true,
+          },
+        },
+      },
+      orderBy: { dateTime: 'asc' },
     });
 
+    // Get unique patients from these attendances
+    const patientMap = new Map();
+    let totalAttendances = 0;
+
+    for (const att of attendances) {
+      totalAttendances++;
+      if (att.Patient && !patientMap.has(att.Patient.id)) {
+        patientMap.set(att.Patient.id, att.Patient);
+      }
+    }
+
+    const patients = Array.from(patientMap.values());
+
+    // ✅ Also get patients who were registered during the period (for new patients count)
+    let registrationWhere: any = {};
+    if (startDate || endDate) {
+      registrationWhere.registeredAt = {};
+      if (startDate) registrationWhere.registeredAt.gte = new Date(startDate);
+      if (endDate) registrationWhere.registeredAt.lte = new Date(endDate);
+    }
+
+    const newPatients = await this.prisma.patient.count({
+      where: registrationWhere,
+    });
+
+    // ── Calculate statistics ──────────────────────────────────────────────────
     const genderDistribution = {
       male: patients.filter(p => p.gender === 'male').length,
       female: patients.filter(p => p.gender === 'female').length,
       other: patients.filter(p => p.gender === 'other').length,
     };
 
-    // GHS-aligned age groups (consistent with GHS report module)
+    // GHS-aligned age groups
     const ageGroups: Record<string, number> = {
       '<1 year': 0, '1-4 years': 0, '5-9 years': 0, '10-14 years': 0,
       '15-17 years': 0, '18-19 years': 0, '20-34 years': 0, '35-49 years': 0,
       '50-59 years': 0, '60-69 years': 0, '70+ years': 0,
     };
 
+    // Also track age groups with percentages
+    const ageGroupCounts: Record<string, number> = {};
+
     for (const patient of patients) {
       const age = this.calculateAge(patient.dateOfBirth);
-      if (age < 1)        ageGroups['<1 year']++;
-      else if (age < 5)   ageGroups['1-4 years']++;
-      else if (age < 10)  ageGroups['5-9 years']++;
-      else if (age < 15)  ageGroups['10-14 years']++;
-      else if (age < 18)  ageGroups['15-17 years']++;
-      else if (age < 20)  ageGroups['18-19 years']++;
-      else if (age < 35)  ageGroups['20-34 years']++;
-      else if (age < 50)  ageGroups['35-49 years']++;
-      else if (age < 60)  ageGroups['50-59 years']++;
-      else if (age < 70)  ageGroups['60-69 years']++;
-      else                ageGroups['70+ years']++;
+      let group: string;
+      if (age < 1)        group = '<1 year';
+      else if (age < 5)   group = '1-4 years';
+      else if (age < 10)  group = '5-9 years';
+      else if (age < 15)  group = '10-14 years';
+      else if (age < 18)  group = '15-17 years';
+      else if (age < 20)  group = '18-19 years';
+      else if (age < 35)  group = '20-34 years';
+      else if (age < 50)  group = '35-49 years';
+      else if (age < 60)  group = '50-59 years';
+      else if (age < 70)  group = '60-69 years';
+      else                group = '70+ years';
+      
+      ageGroups[group]++;
+      ageGroupCounts[group] = (ageGroupCounts[group] || 0) + 1;
     }
 
     const paymentModeDistribution = {
@@ -100,6 +132,13 @@ export class ReportService {
       private_insurance: patients.filter(p => p.paymentMode === 'private_insurance').length,
       corporate: patients.filter(p => p.paymentMode === 'corporate').length,
     };
+
+    // ── Payment mode breakdown from attendances ──────────────────────────────
+    const attendancePaymentMode: Record<string, number> = {};
+    for (const att of attendances) {
+      const mode = att.paymentMode || 'unknown';
+      attendancePaymentMode[mode] = (attendancePaymentMode[mode] || 0) + 1;
+    }
 
     return {
       reportType: 'DEMOGRAPHIC ANALYSIS REPORT' as const,
@@ -116,9 +155,10 @@ export class ReportService {
         paymentModeDistribution,
       },
       attendancePatterns: {
-        totalAttendances: attendances.length,
-        visitsPerPatient: attendances.length / Math.max(1, patients.length),
-        newPatients: 0,
+        totalAttendances: totalAttendances,
+        visitsPerPatient: patients.length > 0 ? Math.round((totalAttendances / patients.length) * 10) / 10 : 0,
+        newPatients: newPatients,
+        byPaymentMode: attendancePaymentMode,
       },
       generatedAt: new Date(),
     };

@@ -1,4 +1,4 @@
-// src/pages/Attendance.tsx - UPDATED with date filtering and default list view
+// src/pages/Attendance.tsx - FIXED VERSION
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -9,7 +9,7 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import { 
   Search, Grid, List, RefreshCw, Hospital, FileText, Users, Calendar, 
   Eye, Edit, ChevronLeft, ChevronRight, Pill, FlaskConical, Scissors, 
-  DollarSign, CreditCard, Shield, Trash2, User, Filter, X
+  DollarSign, CreditCard, Shield, Trash2, User, Filter, X, Building
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
 import { getPatientName } from '../utils/patient';
@@ -20,7 +20,6 @@ export default function Attendance() {
   const { success, error } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  // ✅ DEFAULT VIEW MODE IS 'list'
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -28,7 +27,6 @@ export default function Attendance() {
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   
-  // ✅ NEW: Date filter states
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -40,12 +38,46 @@ export default function Attendance() {
     deleteAttendance, 
     isLoading: attendancesLoading 
   } = useAttendanceStore();
+  
   const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
   const { hasRole } = useAuthStore();
 
   const isLoading = attendancesLoading || patientsLoading;
 
-  // ✅ Helper: Get date range based on filter
+  // ✅ FIXED: Find patient from multiple sources
+  const findPatient = (attendance: any) => {
+    if (!attendance) return null;
+    
+    // 1. Check if patient is directly attached
+    if (attendance.patient && typeof attendance.patient === 'object') {
+      return attendance.patient;
+    }
+    
+    // 2. Check if patientId is an object with patient data
+    if (attendance.patientId && typeof attendance.patientId === 'object') {
+      return attendance.patientId;
+    }
+    
+    // 3. If we have a patientId string, find it in the patients store
+    if (attendance.patientId && typeof attendance.patientId === 'string') {
+      const found = patients.find(p => p.id === attendance.patientId);
+      if (found) return found;
+    }
+    
+    // 4. Check for nested patient data in other fields
+    if (attendance.Patient && typeof attendance.Patient === 'object') {
+      return attendance.Patient;
+    }
+    
+    return null;
+  };
+
+  // ✅ Canonical name getter
+  const getPatientFullName = (patient: any) => {
+    if (!patient) return 'Unknown Patient';
+    return patient.fullName || patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  };
+
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -80,7 +112,6 @@ export default function Attendance() {
     try {
       setRefreshing(true);
       await Promise.all([getAttendances(), loadPatients()]);
-      success('Data refreshed', 'Attendance list is up-to-date.');
     } catch (e) {
       error('Refresh failed', 'Could not load attendance data.');
     } finally {
@@ -91,15 +122,6 @@ export default function Attendance() {
   useEffect(() => {
     loadData();
   }, []);
-
-// src/pages/Attendance.tsx - SIMPLIFIED findPatient
-  const findPatient = (attendance: any) => {
-    // ✅ Patient is already normalized in the store
-    return attendance.patient || null;
-  };
-
-  // ✅ Canonical name getter (handles name/fullName/surname+otherNames)
-  const getPatientFullName = getPatientName;
 
   // ✅ Filter attendances by search AND date range
   const filteredAttendances = useMemo(() => {
@@ -177,7 +199,6 @@ export default function Attendance() {
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
-  // ✅ Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, dateFilter, customStartDate, customEndDate]);
@@ -255,7 +276,6 @@ export default function Attendance() {
   const canEdit = hasRole(['admin', 'doctor', 'nurse']);
   const canDelete = hasRole(['admin']);
 
-  // ✅ Get date filter display text
   const getDateFilterDisplay = () => {
     switch (dateFilter) {
       case 'today': return 'Today';
@@ -277,10 +297,7 @@ export default function Attendance() {
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Management</h1>
           </div>
-          <button
-            disabled
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm"
-          >
+          <button disabled className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">
             <RefreshCw className="w-4 h-4 animate-spin" />
             Loading...
           </button>
@@ -334,10 +351,7 @@ export default function Attendance() {
           
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                setDateFilter('today');
-                setShowDatePicker(false);
-              }}
+              onClick={() => { setDateFilter('today'); setShowDatePicker(false); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'today'
                   ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
@@ -347,10 +361,7 @@ export default function Attendance() {
               Today
             </button>
             <button
-              onClick={() => {
-                setDateFilter('yesterday');
-                setShowDatePicker(false);
-              }}
+              onClick={() => { setDateFilter('yesterday'); setShowDatePicker(false); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'yesterday'
                   ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
@@ -360,10 +371,7 @@ export default function Attendance() {
               Yesterday
             </button>
             <button
-              onClick={() => {
-                setDateFilter('custom');
-                setShowDatePicker(true);
-              }}
+              onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                 dateFilter === 'custom'
                   ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
@@ -374,7 +382,6 @@ export default function Attendance() {
             </button>
           </div>
 
-          {/* Custom Date Range Picker */}
           {showDatePicker && dateFilter === 'custom' && (
             <div className="flex items-center gap-3 ml-auto">
               <input
@@ -382,7 +389,6 @@ export default function Attendance() {
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
                 className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-                placeholder="Start Date"
               />
               <span className="text-[var(--text-secondary)]">to</span>
               <input
@@ -390,7 +396,6 @@ export default function Attendance() {
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
                 className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-                placeholder="End Date"
               />
             </div>
           )}
@@ -482,7 +487,7 @@ export default function Attendance() {
         </div>
       )}
 
-      {/* Content - Default LIST VIEW */}
+      {/* Content */}
       {filteredAttendances.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
@@ -514,13 +519,13 @@ export default function Attendance() {
           )}
         </div>
       ) : viewMode === 'cards' ? (
-        // Cards View (Alternative)
+        // Cards View
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginated.map((attendance) => {
             const patient = findPatient(attendance);
             const attendanceId = attendance.id;
             const totalBill = attendance.totalBill || 0;
-            const fullName = getPatientFullName(patient);
+            const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
             
             return (
               <div key={attendanceId} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all duration-200 group">
@@ -635,9 +640,7 @@ export default function Attendance() {
           })}
         </div>
       ) : (
-        // ✅ DEFAULT LIST VIEW
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
-        {/* DEFAULT LIST VIEW */}
+        // ✅ LIST VIEW
         <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
@@ -657,11 +660,10 @@ export default function Attendance() {
                 const patient = findPatient(attendance);
                 const attendanceId = attendance.id;
                 const totalBill = attendance.totalBill || 0;
-                const fullName = getPatientFullName(patient);
+                const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
                 
                 return (
                   <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
-                    {/* Patient Name Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -673,28 +675,24 @@ export default function Attendance() {
                       </div>
                     </td>
                     
-                    {/* Folder Number Column (Patient Number) */}
                     <td className="px-4 py-3">
                       <p className="font-mono text-sm font-medium text-[var(--text-primary)]">
                         {patient?.folderNumber || 'N/A'}
                       </p>
                     </td>
                     
-                    {/* Attendance Number Column */}
                     <td className="px-4 py-3">
                       <p className="font-mono text-sm font-semibold text-[var(--icon-cyan-text)]">
                         {attendance.attendanceNumber}
                       </p>
                     </td>
                     
-                    {/* Date & Time Column */}
                     <td className="px-4 py-3">
                       <p className="text-sm text-[var(--text-primary)]">
                         {formatDate(attendance.dateTime || attendance.createdAt)}
                       </p>
                     </td>
                     
-                    {/* Type Column */}
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 text-xs">
                         <Hospital className="w-3 h-3 text-[var(--icon-cyan-text)]" />
@@ -702,7 +700,6 @@ export default function Attendance() {
                       </span>
                     </td>
                     
-                    {/* Payment Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 text-xs">
                         {getPaymentModeIcon(attendance.paymentMode)}
@@ -715,14 +712,12 @@ export default function Attendance() {
                       </div>
                     </td>
                     
-                    {/* Status Column */}
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
                         {(attendance.status || 'pending').charAt(0).toUpperCase() + (attendance.status || 'pending').slice(1)}
                       </span>
                     </td>
                     
-                    {/* Actions Column */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
@@ -757,7 +752,6 @@ export default function Attendance() {
               })}
             </tbody>
           </table>
-        </div>
         </div>
       )}
 

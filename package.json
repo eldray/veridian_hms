@@ -16,5 +16,8 @@
   },
   "dependencies": {
     "concurrently": "^9.1.2"
+  },
+  "devDependencies": {
+    "baseline-browser-mapping": "^2.10.38"
   }
 }

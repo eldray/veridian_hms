@@ -42,7 +42,7 @@ DROP DATABASE IF EXISTS hospital_db;
 DROP USER IF EXISTS hospital_user;
 
 -- Create the database
-CREATE DATABASE hospital_db;
+CREATE DATABASE veridian_hms;
 
 -- Create the user with a secure password
 CREATE USER hospital_user WITH PASSWORD 'hospital123';

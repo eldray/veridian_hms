@@ -1,3 +1,4 @@
+// src/modules/ghsReport/GHSReportRepository.ts - COMPLETE FIXED VERSION
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 
@@ -28,6 +29,56 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     return this.prisma.hospital.findFirst();
   }
 
+  // ── Delivery Report Data ──────────────────────────────────────────────────
+  async getDeliveryData(startDate: Date, endDate: Date) {
+    return this.prisma.deliveryRecord.findMany({
+      where: {
+        deliveryDate: { gte: startDate, lte: endDate },
+      },
+      include: {
+        patient: { select: { dateOfBirth: true, gender: true, folderNumber: true } },
+        attendance: { select: { paymentMode: true, attendanceNumber: true } },
+        Newborn: true,
+        antenatalBooking: true,
+      },
+      orderBy: { deliveryDate: 'asc' },
+    });
+  }
+
+  // ── ✅ FIXED: Family Planning Report Data ──────────────────────────────
+  async getFPData(startDate: Date, endDate: Date) {
+    const fpAttendances = await this.prisma.familyPlanningService.findMany({
+      where: {
+        serviceDate: { gte: startDate, lte: endDate },
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            dateOfBirth: true,
+            gender: true,
+            folderNumber: true,
+          },
+        },
+        attendance: {
+          include: {
+            Patient: true,
+            ServiceRendered: {
+              include: {
+                ServiceCatalog: true,
+              },
+            },
+          },
+        },
+        providedBy: {
+          select: { fullName: true, username: true },
+        },
+      },
+    });
+
+    return { fpAttendances };
+  }
+
   // ── Morbidity Report Data ─────────────────────────────────────────────────
   async getMorbidityData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
@@ -52,18 +103,62 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   // ── Form A Report Data ────────────────────────────────────────────────────
   async getFormAData(startDate: Date, endDate: Date) {
     return Promise.all([
-      this.prisma.antenatalBooking.findMany({ where: { bookingDate: { gte: startDate, lte: endDate }, isActive: true }, include: { patient: { select: { dateOfBirth: true } } } }),
-      this.prisma.aNCVisit.findMany({ where: { visitDate: { gte: startDate, lte: endDate } }, include: { booking: { include: { patient: true } } } }),
-      this.prisma.deliveryRecord.findMany({ where: { deliveryDate: { gte: startDate, lte: endDate } }, include: { Newborn: true, patient: { select: { dateOfBirth: true } }, attendance: { select: { paymentMode: true } } } }),
-      this.prisma.attendance.findMany({ where: { attendanceType: 'postnatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, Medication: true, AttendanceDiagnosis: { include: { Diagnosis: true } } } }),
-      this.prisma.attendance.findMany({ where: { attendanceType: 'antenatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, LabTest: { include: { LabTestTemplate: true } }, Medication: { include: { StockItem: true } } } }),
-      this.prisma.labTest.findMany({ where: { requestedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal'] } } }, include: { Attendance: { select: { attendanceType: true } }, LabTestTemplate: true } }),
-      this.prisma.medication.findMany({ where: { prescribedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal', 'delivery'] } } }, include: { Attendance: { select: { attendanceType: true } }, StockItem: true } }),
-      this.prisma.referralRecord.findMany({ where: { referralDate: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } } }, include: { attendance: { select: { attendanceType: true, Patient: { select: { dateOfBirth: true } } } }, patient: { select: { dateOfBirth: true } } } }),
-      this.prisma.abortionRecord.findMany({ where: { abortionDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } } } }),
-      this.prisma.vitals.findMany({ where: { recordedAt: { gte: startDate, lte: endDate }, height: { lt: 150 }, Attendance: { attendanceType: 'antenatal' } }, distinct: ['patientId'] }),
+      this.prisma.antenatalBooking.findMany({ 
+        where: { bookingDate: { gte: startDate, lte: endDate }, isActive: true }, 
+        include: { patient: { select: { dateOfBirth: true } } } 
+      }),
+      this.prisma.aNCVisit.findMany({ 
+        where: { visitDate: { gte: startDate, lte: endDate } }, 
+        include: { booking: { include: { patient: true } } } 
+      }),
+      this.prisma.deliveryRecord.findMany({ 
+        where: { deliveryDate: { gte: startDate, lte: endDate } }, 
+        include: { Newborn: true, patient: { select: { dateOfBirth: true } }, attendance: { select: { paymentMode: true } } } 
+      }),
+      this.prisma.attendance.findMany({ 
+        where: { attendanceType: 'postnatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, 
+        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, Medication: true, AttendanceDiagnosis: { include: { Diagnosis: true } } } 
+      }),
+      this.prisma.attendance.findMany({ 
+        where: { attendanceType: 'antenatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, 
+        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, LabTest: { include: { LabTestTemplate: true } }, Medication: { include: { StockItem: true } } } 
+      }),
+      this.prisma.labTest.findMany({ 
+        where: { requestedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal'] } } }, 
+        include: { Attendance: { select: { attendanceType: true } }, LabTestTemplate: true } 
+      }),
+      this.prisma.medication.findMany({ 
+        where: { prescribedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal', 'delivery'] } } }, 
+        include: { Attendance: { select: { attendanceType: true } }, StockItem: true } 
+      }),
+      this.prisma.referralRecord.findMany({ 
+        where: { 
+          referralDate: { gte: startDate, lte: endDate }, 
+          attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } } 
+        }, 
+        include: { 
+          attendance: { 
+            select: { attendanceType: true, Patient: { select: { dateOfBirth: true } } } 
+          }, 
+          patient: { select: { dateOfBirth: true } } 
+        } 
+      }),
+      this.prisma.abortionRecord.findMany({ 
+        where: { abortionDate: { gte: startDate, lte: endDate } }, 
+        include: { patient: { select: { dateOfBirth: true } } } 
+      }),
+      this.prisma.vitals.findMany({ 
+        where: { 
+          recordedAt: { gte: startDate, lte: endDate }, 
+          height: { lt: 150 }, 
+          Attendance: { attendanceType: 'antenatal' } 
+        }, 
+        distinct: ['patientId'] 
+      }),
       this.prisma.hospital.findFirst(),
-      this.prisma.newbornRecord.findMany({ where: { deliveryRecord: { deliveryDate: { gte: startDate, lte: endDate } } } })
+      this.prisma.newbornRecord.findMany({ 
+        where: { deliveryRecord: { deliveryDate: { gte: startDate, lte: endDate } } } 
+      })
     ]);
   }
 

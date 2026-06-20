@@ -1,4 +1,5 @@
-// stores/billingStore.ts - CORRECTED (No Duplicate)
+// src/store/billingStore.ts - FIXED VERSION
+
 import { create } from 'zustand';
 import { 
   getBills as apiGetBills,
@@ -19,6 +20,36 @@ import {
 
 import type { Bill, Pagination, Payment } from '../types';
 import type { BillFilters, BillStatistics, BillingBreakdown, BillLineItem } from '../types/billing';
+
+// ==========================================
+// ✅ HELPER: Parse numeric fields in bill data
+// ==========================================
+const parseBillAmounts = (bill: any): Bill => {
+  if (!bill) return bill;
+  
+  return {
+    ...bill,
+    subtotal: typeof bill.subtotal === 'string' ? parseFloat(bill.subtotal) : bill.subtotal,
+    totalAmount: typeof bill.totalAmount === 'string' ? parseFloat(bill.totalAmount) : bill.totalAmount,
+    paidAmount: typeof bill.paidAmount === 'string' ? parseFloat(bill.paidAmount) : bill.paidAmount,
+    balance: typeof bill.balance === 'string' ? parseFloat(bill.balance) : bill.balance,
+    discount: typeof bill.discount === 'string' ? parseFloat(bill.discount) : bill.discount,
+    waiverAmount: typeof bill.waiverAmount === 'string' ? parseFloat(bill.waiverAmount) : bill.waiverAmount,
+    taxAmount: typeof bill.taxAmount === 'string' ? parseFloat(bill.taxAmount) : bill.taxAmount,
+    insuranceCovered: typeof bill.insuranceCovered === 'string' ? parseFloat(bill.insuranceCovered) : bill.insuranceCovered,
+    patientPayable: typeof bill.patientPayable === 'string' ? parseFloat(bill.patientPayable) : bill.patientPayable,
+    // Parse line items if they exist
+    BillLineItem: bill.BillLineItem?.map((item: any) => ({
+      ...item,
+      unitPrice: typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice) : item.unitPrice,
+      lineTotal: typeof item.lineTotal === 'string' ? parseFloat(item.lineTotal) : item.lineTotal,
+      vatAmount: typeof item.vatAmount === 'string' ? parseFloat(item.vatAmount) : item.vatAmount,
+      insuranceCoveredAmount: typeof item.insuranceCoveredAmount === 'string' ? parseFloat(item.insuranceCoveredAmount) : item.insuranceCoveredAmount,
+      patientPayableAmount: typeof item.patientPayableAmount === 'string' ? parseFloat(item.patientPayableAmount) : item.patientPayableAmount,
+      discount: typeof item.discount === 'string' ? parseFloat(item.discount) : item.discount,
+    })) || bill.BillLineItem
+  };
+};
 
 interface BillingState {
   bills: Bill[];
@@ -88,15 +119,16 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const updatedBill = await apiApplyWaiverToBill(billId, waiverId);
+      const parsedBill = parseBillAmounts(updatedBill);
       const bills = get().bills.map(bill => 
-        bill.id === billId ? updatedBill : bill
+        bill.id === billId ? parsedBill : bill
       );
       set({ 
         bills,
-        currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
+        currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
         isLoading: false 
       });
-      return updatedBill;
+      return parsedBill;
     } catch (error: unknown) {
       console.error('❌ Failed to apply waiver to bill:', error);
       set({ isLoading: false });
@@ -105,7 +137,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   },
 
   // ==========================================
-  // BILLING BREAKDOWN - ONLY ONE VERSION
+  // BILLING BREAKDOWN
   // ==========================================
   getBillingBreakdown: async (billId: string) => {
     set({ isLoading: true });
@@ -138,15 +170,18 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         billData = response;
       }
       
-      console.log('📄 Billing Store - Extracted Bill:', {
-        id: billData?.id,
-        billNumber: billData?.billNumber,
-        totalAmount: billData?.totalAmount,
-        status: billData?.status,
-        lineItemsCount: billData?.BillLineItem?.length
+      // ✅ Parse numeric amounts
+      const parsedBill = parseBillAmounts(billData);
+      
+      console.log('📄 Billing Store - Parsed Bill:', {
+        id: parsedBill?.id,
+        billNumber: parsedBill?.billNumber,
+        totalAmount: parsedBill?.totalAmount,
+        status: parsedBill?.status,
+        lineItemsCount: parsedBill?.BillLineItem?.length
       });
       
-      set({ currentBill: billData, isLoading: false });
+      set({ currentBill: parsedBill, isLoading: false });
     } catch (error: unknown) {
       console.error('❌ Failed to fetch bill:', error);
       set({ isLoading: false });
@@ -186,10 +221,13 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         billsArray = [];
       }
 
-      console.log('✅ Billing Store - Processed Bills:', billsArray.length);
+      // ✅ Parse numeric amounts for all bills
+      const parsedBills = billsArray.map(parseBillAmounts);
+      
+      console.log('✅ Billing Store - Processed Bills:', parsedBills.length);
       
       set({ 
-        bills: billsArray,
+        bills: parsedBills,
         pagination: paginationData,
         isLoading: false 
       });
@@ -210,10 +248,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const newBill = await apiCreateBill(data);
+      const parsedBill = parseBillAmounts(newBill);
       const bills = get().bills;
       set({ 
-        bills: [newBill, ...bills],
-        currentBill: newBill,
+        bills: [parsedBill, ...bills],
+        currentBill: parsedBill,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -230,12 +269,13 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const updatedBill = await apiUpdateBill(id, data);
+      const parsedBill = parseBillAmounts(updatedBill);
       const bills = get().bills.map(bill => 
-        bill.id === id ? updatedBill : bill
+        bill.id === id ? parsedBill : bill
       );
       set({ 
         bills,
-        currentBill: updatedBill,
+        currentBill: parsedBill,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -272,14 +312,15 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const updatedBill = await apiAddPaymentToBill(billId, paymentData);
+      const parsedBill = parseBillAmounts(updatedBill);
       
       const bills = get().bills.map(bill => 
-        bill.id === billId ? updatedBill : bill
+        bill.id === billId ? parsedBill : bill
       );
       
       set({ 
         bills,
-        currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
+        currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
         isLoading: false 
       });
     } catch (error: unknown) {
@@ -296,13 +337,14 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const newBill = await apiGenerateBillFromAttendance(attendanceId);
+      const parsedBill = parseBillAmounts(newBill);
       const bills = get().bills;
       set({ 
-        bills: [newBill, ...bills],
-        currentBill: newBill,
+        bills: [parsedBill, ...bills],
+        currentBill: parsedBill,
         isLoading: false 
       });
-      return newBill;
+      return parsedBill;
     } catch (error: unknown) {
       console.error('❌ Failed to generate bill from attendance:', error);
       set({ isLoading: false });
@@ -333,14 +375,15 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const updatedBill = await apiUpdateBillStatus(billId, { status, ...data });
+      const parsedBill = parseBillAmounts(updatedBill);
       
       const bills = get().bills.map(bill => 
-        bill.id === billId ? updatedBill : bill
+        bill.id === billId ? parsedBill : bill
       );
       
       set({ 
         bills,
-        currentBill: get().currentBill?.id === billId ? updatedBill : get().currentBill,
+        currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
         isLoading: false 
       });
     } catch (error: unknown) {
