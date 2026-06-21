@@ -120,7 +120,7 @@ export default function Departments() {
   const loadAllUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await api.get('/settings/users');
+      const res = await api.get('/users');
       setAllUsers(res.data?.data || res.data || []);
     } catch { error('Load Failed', 'Could not load users'); }
     finally { setLoadingUsers(false); }

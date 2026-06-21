@@ -27,7 +27,13 @@ export const useGDRGTariffStore = create<GDRGTariffState>((set, get) => ({
       
       const tariffsArray = Array.isArray(tariffsData) ? tariffsData : [];
       
-      const tariffMap = tariffsArray.reduce((map, t) => {
+      // ✅ Normalize: ensure nhiaTariff is a number
+      const normalizedTariffs = tariffsArray.map((t: any) => ({
+        ...t,
+        nhiaTariff: Number(t.nhiaTariff) || 0,
+      }));
+      
+      const tariffMap = normalizedTariffs.reduce((map, t) => {
         if (t && t.gdrgCode) {
           map[t.gdrgCode] = t;
         }
@@ -35,12 +41,12 @@ export const useGDRGTariffStore = create<GDRGTariffState>((set, get) => ({
       }, {} as Record<string, GDRGTariff>);
 
       set({ 
-        tariffs: tariffsArray, 
+        tariffs: normalizedTariffs, 
         tariffMap, 
         isLoading: false 
       });
       
-      console.log(`✅ Loaded ${tariffsArray.length} G-DRG tariffs`);
+      console.log(`✅ Loaded ${normalizedTariffs.length} G-DRG tariffs`);
     } catch (error) {
       console.error('❌ Failed to fetch G-DRG tariffs:', error);
       set({

@@ -33445,3 +33445,104 @@
 {"level":"info","message":"Generating scan report","service":"ClinicalReportsService","timestamp":"2026-06-19 23:13:26"}
 {"endDate":"2026-06-19T23:59:59.999Z","level":"info","message":"Generating lab report","service":"ClinicalReportsService","startDate":"2026-06-01T00:00:00.000Z","timestamp":"2026-06-19 23:13:29"}
 {"level":"info","message":"Generating procedure report","service":"ClinicalReportsService","timestamp":"2026-06-19 23:16:30"}
+{"level":"info","message":"Fetching dashboard stats","service":"DashboardService","timestamp":"2026-06-20 22:17:50"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-20 22:18:12"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-20 22:18:12"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-20 22:18:59"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-20 22:18:59"}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:28:52","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:28:52","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:34:07","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:34:07","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:47:21","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:51:49","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:51:49","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:54:27","where":{}}
+{"id":"cmqeexnso000ew1dolbsneur2","level":"info","message":"Updating patient","service":"PatientService","timestamp":"2026-06-20 22:54:54"}
+{"id":"cmqeexnso000ew1dolbsneur2","level":"info","message":"Patient updated successfully","service":"PatientService","timestamp":"2026-06-20 22:54:56"}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:57:08","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:57:08","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:59:29","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 22:59:29","where":{}}
+{"id":"cmqeexnso000ew1dolbsneur2","level":"info","message":"Updating patient","service":"PatientService","timestamp":"2026-06-20 22:59:44"}
+{"id":"cmqeexnso000ew1dolbsneur2","level":"info","message":"Patient updated successfully","service":"PatientService","timestamp":"2026-06-20 22:59:44"}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 23:00:33","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-20 23:00:33","where":{}}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-06-20 23:03:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:03:08"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:03:08"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:03:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:03:08"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-06-20 23:03:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:04:28"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:04:28"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-06-20 23:11:08"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-06-20 23:11:19"}
+{"level":"info","message":"Fetching dashboard stats","service":"DashboardService","timestamp":"2026-06-20 23:23:43"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:23:53"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:23:53"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:24:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:24:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:25:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:26:51"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:27:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:27:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:31:50"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:32:47"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:32:47"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:33:01"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:33:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:33:42"}
+{"level":"info","message":"Fetching dashboard stats","service":"DashboardService","timestamp":"2026-06-20 23:34:14"}
+{"level":"info","message":"Fetching dashboard stats","service":"DashboardService","timestamp":"2026-06-20 23:34:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:34:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:34:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:34:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:34:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:35:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:35:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:46:09"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:47:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:47:39"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:50:09"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:50:09"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-20 23:50:09"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-20 23:50:09"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:50:16"}
+{"level":"info","message":"Creating antenatal booking","patientId":"cmqeexnso000ew1dolbsneur2","service":"AntenatalService","timestamp":"2026-06-20 23:51:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:51:32"}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-20 23:51:32"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:52:52"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:52:52"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-06-20 23:52:52"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:52:52"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:52:52"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-06-20 23:52:52"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-06-20 23:53:12"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-06-20 23:53:12"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-06-20 23:53:12"}
+{"level":"info","message":"Fetching dashboard stats","service":"DashboardService","timestamp":"2026-06-20 23:53:21"}
+{"filters":{"limit":50,"page":1,"userId":"cmqeeaepy0000w14wn36widom"},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-06-20 23:58:45"}
+{"filters":{"limit":50,"page":1,"userId":"cmqeeaepy0000w14wn36widom"},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-06-20 23:58:45"}
+{"filters":{"limit":50,"page":1,"userId":"cmqeeaepy0000w14wn36widom"},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-06-20 23:58:46"}
+{"filters":{"limit":50,"page":1,"userId":"cmqeeaepy0000w14wn36widom"},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-06-20 23:58:46"}
+{"leaveType":"annual","level":"info","message":"Creating leave request","service":"UserService","timestamp":"2026-06-20 23:59:12","userId":"cmqeeaepy0000w14wn36widom"}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:00:07","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:00:07","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:00:58","where":{}}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-21 00:00:58"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:00:58","where":{}}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-21 00:00:58"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-21 00:07:54"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-06-21 00:07:54"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:07:57","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:07:57","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:09:58","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:12:38","where":{}}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-21 00:12:38"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:12:38","where":{}}
+{"filters":{"limit":"1000","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-06-21 00:12:38"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:13:45","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:13:45","where":{}}
+{"level":"info","limit":10,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:25:54","where":{}}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-06-21 00:27:05","where":{}}

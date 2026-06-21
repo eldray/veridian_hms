@@ -42,6 +42,75 @@ interface MedicineItem {
 }
 
 // ============================================
+// AUTO-LOAD HELPERS (from attendance bill)
+// ============================================
+const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloat(v.toString()) || 0);
+
+// Split a bill's line items into priced service rows (everything that is not a
+// medication). Used to pre-fill the Services & Procedures table.
+function buildServicesFromBill(bill: any): ServiceItem[] {
+  const lineItems = bill?.BillLineItem || [];
+  return lineItems
+    .filter((li: any) => !li.isVoided && li.serviceType !== 'medication')
+    .map((li: any) => {
+      const quantity = li.quantity || 1;
+      const unitPrice = toNum(li.unitPrice);
+      return {
+        id: li.id,
+        description: li.description || li.serviceCatalog?.name || 'Service',
+        date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: li.serviceCatalogId || undefined,
+        quantity,
+        unitPrice,
+        total: toNum(li.lineTotal) || quantity * unitPrice,
+      };
+    });
+}
+
+// Prefer the bill's medication line items (they carry actual prices); fall back to
+// the attendance's dispensed medications when the bill has none.
+function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
+  const lineItems = (bill?.BillLineItem || []).filter(
+    (li: any) => !li.isVoided && li.serviceType === 'medication'
+  );
+
+  if (lineItems.length) {
+    return lineItems.map((li: any) => {
+      const quantity = li.quantity || 1;
+      const unitPrice = toNum(li.unitPrice);
+      return {
+        id: li.id,
+        description: li.description || li.serviceCatalog?.name || 'Medication',
+        quantity,
+        unitPrice,
+        total: toNum(li.lineTotal) || quantity * unitPrice,
+        date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: li.serviceCatalogId || undefined,
+      } as MedicineItem;
+    });
+  }
+
+  const meds = attendance?.Medication || [];
+  return meds.map((m: any) => {
+    const quantity = m.quantity || 1;
+    const unitPrice = toNum(m.unitPrice ?? m.StockItem?.sellingPrice);
+    return {
+      id: m.id,
+      description: m.name,
+      quantity,
+      unitPrice,
+      total: quantity * unitPrice,
+      date: m.dispensedAt
+        ? new Date(m.dispensedAt).toISOString().split('T')[0]
+        : m.prescribedAt
+        ? new Date(m.prescribedAt).toISOString().split('T')[0]
+        : '',
+      stockItemId: m.stockItemId,
+    } as MedicineItem;
+  });
+}
+
+// ============================================
 // ADD DIAGNOSIS MODAL
 // ============================================
 function AddDiagnosisModalPrivate({ isOpen, onClose, onAdd, existingDiagnoses }: any) {
@@ -605,11 +674,20 @@ export default function EditPrivateClaim() {
       diagnosisId: d.diagnosisId
     })));
 
-    // Parse from metadata if exists
-    if (currentClaim.metadata) {
-      const metadata = currentClaim.metadata as any;
-      if (metadata.services) setServices(metadata.services);
-      if (metadata.medicines) setMedicines(metadata.medicines);
+    // Services & medicines: prefer saved metadata, otherwise auto-load (priced)
+    // from the attendance bill so the user starts from the actual billed items.
+    const metadata = (currentClaim.metadata || {}) as any;
+
+    if (metadata.services?.length) {
+      setServices(metadata.services);
+    } else {
+      setServices(buildServicesFromBill(currentClaim.Bill));
+    }
+
+    if (metadata.medicines?.length) {
+      setMedicines(metadata.medicines);
+    } else {
+      setMedicines(buildMedicinesFromBill(currentClaim.Bill, attendance));
     }
   }, [currentClaim]);
 

@@ -1,12 +1,12 @@
-// src/pages/insurance-claims/EditNHISClaim.tsx
+// src/pages/insurance-claims/EditNHISClaim.tsx - COMPLETE FIXED VERSION
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
+import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
 import { useStockStore } from '../../store/stockStore';
 import { useToast } from '../../store/toastStore';
-import api from '../../api/api';
 import {
   ArrowLeft,
   Save,
@@ -74,6 +74,165 @@ interface MedicineItem {
   duration?: string;
   stockItemId?: string;
   serviceCatalogId?: string;
+}
+
+// ==========================================
+// SEARCHABLE GDRG SELECT COMPONENT - IMPROVED
+// ==========================================
+
+interface SearchableGDRGSelectProps {
+  value: string;
+  onChange: (code: string, description: string) => void;
+  options: Array<any>;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+function SearchableGDRGSelect({ value, onChange, options, disabled = false, placeholder = 'Search GDRG...' }: SearchableGDRGSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLabel, setSelectedLabel] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Update selected label when value changes
+  useEffect(() => {
+    if (value && options && options.length > 0) {
+      const selected = options.find(opt => {
+        const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+        return code === value;
+      });
+      if (selected) {
+        const code = selected.gdrgCode || selected.code || selected.gdrg_code || '';
+        const desc = selected.description || selected.name || selected.desc || '';
+        setSelectedLabel(`${code} - ${desc}`);
+      } else {
+        setSelectedLabel(value);
+      }
+    } else {
+      setSelectedLabel('');
+    }
+  }, [value, options]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter options based on search
+  const filteredOptions = (options || []).filter(opt => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    
+    const code = (opt.gdrgCode || opt.code || opt.gdrg_code || '').toString().toLowerCase();
+    const description = (opt.description || opt.name || opt.desc || '').toString().toLowerCase();
+    
+    return code.includes(search) || description.includes(search);
+  });
+
+  const handleSelect = (opt: any) => {
+    const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+    const description = opt.description || opt.name || opt.desc || '';
+    
+    onChange(code, description);
+    setSelectedLabel(`${code} - ${description}`);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  // Helper to format tariff
+  const formatTariff = (value: any): string => {
+    const num = Number(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Get tariff from various possible field names
+  const getTariff = (opt: any): number => {
+    return Number(opt.nhiaTariff || opt.tariff || opt.amount || opt.nhia_tariff || 0);
+  };
+
+  if (disabled) {
+    return (
+      <div className="w-full px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-primary)]">
+        {selectedLabel || '—'}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg cursor-pointer flex items-center justify-between hover:border-[var(--icon-green-text)] transition-colors"
+      >
+        <span className={`text-sm ${selectedLabel ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-[var(--border-color)]">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by code or description..."
+                className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--icon-green-text)]"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div className="text-xs text-[var(--text-tertiary)] mt-1">
+              {filteredOptions.length} of {options.length} GDRG codes found
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
+                {options.length === 0 ? 'Loading GDRG codes...' : 'No matching GDRG codes found'}
+              </div>
+            ) : (
+              filteredOptions.map((opt, index) => {
+                const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+                const description = opt.description || opt.name || opt.desc || '';
+                const tariff = getTariff(opt);
+                const isSelected = value === code;
+                
+                return (
+                  <button
+                    key={opt.id || opt.gdrgCode || index}
+                    onClick={() => handleSelect(opt)}
+                    className={`w-full text-left px-3 py-2 hover:bg-[var(--bg-main)] transition-colors ${
+                      isSelected ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-medium text-sm">{code}</span>
+                        <span className="ml-2 text-sm">{description}</span>
+                      </div>
+                      <span className="text-xs text-[var(--text-tertiary)]">
+                        Tariff: ₵{formatTariff(tariff)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ==========================================
@@ -668,8 +827,9 @@ export default function EditNHISClaim() {
     isLoading
   } = useInsuranceStore();
 
-  const { patients, getPatient } = usePatientStore();
+  const { patients, getPatient, updatePatient } = usePatientStore();
   const { getDiagnoses } = useMedicalServicesStore();
+  const { tariffs, fetchTariffs } = useGDRGTariffStore();
 
   // NHIS Claim State
   const [patientNhisNumber, setPatientNhisNumber] = useState('');
@@ -680,6 +840,19 @@ export default function EditNHISClaim() {
   const [gender, setGender] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [age, setAge] = useState('');
+  const [patientId, setPatientId] = useState('');
+
+  // Member details editing state
+  const [isEditingMember, setIsEditingMember] = useState(false);
+  const [memberFormData, setMemberFormData] = useState({
+    nhisNumber: '',
+    cccCode: '',
+    folderNumber: '',
+    surname: '',
+    otherNames: '',
+    gender: '',
+    dateOfBirth: '',
+  });
 
   const [primaryServiceType, setPrimaryServiceType] = useState<'OPD' | 'IPD'>('OPD');
   const [serviceOutcome, setServiceOutcome] = useState('DISC');
@@ -695,7 +868,6 @@ export default function EditNHISClaim() {
   
   const [principalGDRG, setPrincipalGDRG] = useState('');
   const [principalGDRGDescription, setPrincipalGDRGDescription] = useState('');
-  const [availableGDRGs, setAvailableGDRGs] = useState<any[]>([]);
   const [preAuthNumber, setPreAuthNumber] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -703,235 +875,30 @@ export default function EditNHISClaim() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [editingMedicine, setEditingMedicine] = useState<MedicineItem | null>(null);
   const [editingInvestigation, setEditingInvestigation] = useState<InvestigationItem | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
   const isFinalized = currentClaim?.status === 'submitted';
 
-  // Load GDRG tariffs
-  const loadGDRGTariffs = async () => {
-    try {
-      const response = await api.get('/gdrg');
-      let tariffs = [];
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        tariffs = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        tariffs = response.data;
-      }
-      setAvailableGDRGs(tariffs);
-    } catch (error) {
-      console.error('Error loading GDRG tariffs:', error);
-    }
-  };
-// In EditNHISClaim.tsx - FIX THE USE EFFECTS
+  // Use tariffs from store - they're already normalized by the store
+  const availableGDRGs = tariffs || [];
 
-// Load claim data (only once when ID changes)
-useEffect(() => {
-  if (id) {
-    loadClaim();
-    getDiagnoses();
-    loadGDRGTariffs();
-  }
-}, [id]);
-
-// Populate form when currentClaim loads (this is where metadata should be)
-useEffect(() => {
-  if (!currentClaim || isInitialized.current) return;
-  isInitialized.current = true;
-
-  const patient = currentClaim.Patient;
-  const attendance = currentClaim.Attendance;
-
-  // Member details
-  const permanentNhisNumber = patient?.nhisNumber;
-  const cccCodeValue = attendance?.nhisCCC;
-  const folderNumberValue = patient?.folderNumber;
-
-  if (permanentNhisNumber) setPatientNhisNumber(permanentNhisNumber);
-  else if (cccCodeValue) setCccCode(cccCodeValue);
-  if (folderNumberValue) setFolderNumber(folderNumberValue);
-  
-  setSurname(patient?.surname || '');
-  setOtherNames(patient?.otherNames || '');
-  setGender(patient?.gender || '');
-  setDateOfBirth(patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '');
-  
-  if (patient?.dateOfBirth) {
-    const birthDate = new Date(patient.dateOfBirth);
-    const today = new Date();
-    let ageYears = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      ageYears--;
-    }
-    setAge(`${ageYears} yrs`);
-  }
-
-  // Service information
-  const serviceType = currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD';
-  setPrimaryServiceType(serviceType);
-  setServiceOutcome(currentClaim.serviceOutcome === 'DISC' ? 'DISC' : 'CONT');
-  
-  if (currentClaim.datesOfService?.length) {
-    const dates = [...visitDates];
-    currentClaim.datesOfService.forEach((date: string, i: number) => {
-      if (i < 4) dates[i] = date;
-    });
-    setVisitDates(dates);
-  } else if (attendance?.dateTime) {
-    setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
-  }
-
-  // ✅ LOAD FROM METADATA FIRST (if available)
-  if (currentClaim.metadata) {
-    const metadata = currentClaim.metadata as any;
-    
-    if (metadata.diagnoses && metadata.diagnoses.length > 0) {
-      setDiagnoses(metadata.diagnoses);
-    } else {
-      // Fallback to attendance diagnoses
-      const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
-      const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
-        id: d.id,
-        gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
-        description: d.Diagnosis?.name || '',
-        diagnosis: d.Diagnosis?.name || '',
-        icd10: d.Diagnosis?.icdCode || '',
-        diagnosisId: d.diagnosisId,
-        diagnosisType: d.diagnosisType
-      }));
-      setDiagnoses(mappedDiagnoses);
-    }
-    
-    if (metadata.investigations && metadata.investigations.length > 0) {
-      setInvestigations(metadata.investigations);
-    } else {
-      // Fallback to attendance investigations
-      const labTests = (attendance?.LabTest || []).map((l: any) => ({
-        id: l.id,
-        gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-        description: l.ServiceCatalog?.name || l.name || '',
-        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
-               l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
-        serviceCatalogId: l.serviceCatalogId,
-        type: 'lab' as const
-      }));
-      
-      const scans = (attendance?.Scan || []).map((s: any) => ({
-        id: s.id,
-        gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-        description: s.ServiceCatalog?.name || s.name || '',
-        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
-               s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
-        serviceCatalogId: s.serviceCatalogId,
-        type: 'scan' as const
-      }));
-      setInvestigations([...labTests, ...scans]);
-    }
-    
-    if (metadata.medicines && metadata.medicines.length > 0) {
-      setMedicines(metadata.medicines);
-    } else {
-      // Fallback to attendance medicines
-      const medications = (attendance?.Medication || []).map((m: any) => ({
-        id: m.id,
-        code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
-        description: m.name,
-        quantity: m.quantity || 1,
-        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
-               m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
-        prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-        dosage: m.dosage || '',
-        frequency: m.frequency || '',
-        duration: m.duration || '',
-        stockItemId: m.stockItemId,
-        serviceCatalogId: m.serviceCatalogId
-      }));
-      setMedicines(medications);
-    }
-    
-    if (metadata.visitDates) setVisitDates(metadata.visitDates);
-    if (metadata.admissionDate) setAdmissionDate(metadata.admissionDate);
-    if (metadata.dischargeDate) setDischargeDate(metadata.dischargeDate);
-    if (metadata.lengthOfStay) setLengthOfStay(metadata.lengthOfStay);
-  } else {
-    // No metadata - load from attendance (existing logic)
-    const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
-    const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
-      id: d.id,
-      gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
-      description: d.Diagnosis?.name || '',
-      diagnosis: d.Diagnosis?.name || '',
-      icd10: d.Diagnosis?.icdCode || '',
-      diagnosisId: d.diagnosisId,
-      diagnosisType: d.diagnosisType
-    }));
-    setDiagnoses(mappedDiagnoses);
-
-    const labTests = (attendance?.LabTest || []).map((l: any) => ({
-      id: l.id,
-      gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-      description: l.ServiceCatalog?.name || l.name || '',
-      date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
-             l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
-      serviceCatalogId: l.serviceCatalogId,
-      type: 'lab' as const
-    }));
-    
-    const scans = (attendance?.Scan || []).map((s: any) => ({
-      id: s.id,
-      gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-      description: s.ServiceCatalog?.name || s.name || '',
-      date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
-             s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
-      serviceCatalogId: s.serviceCatalogId,
-      type: 'scan' as const
-    }));
-    setInvestigations([...labTests, ...scans]);
-
-    const medications = (attendance?.Medication || []).map((m: any) => ({
-      id: m.id,
-      code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
-      description: m.name,
-      quantity: m.quantity || 1,
-      date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
-             m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
-      prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-      dosage: m.dosage || '',
-      frequency: m.frequency || '',
-      duration: m.duration || '',
-      stockItemId: m.stockItemId,
-      serviceCatalogId: m.serviceCatalogId
-    }));
-    setMedicines(medications);
-  }
-
-  // GDRG
-  setPrincipalGDRG(currentClaim.principalGDRG || '');
-  setPreAuthNumber(currentClaim.preAuthNumber || '');
-  setNotes(currentClaim.notes || '');
-  setTypeOfAttendance(currentClaim.typeOfAttendance || 'GEN');
-}, [currentClaim]);
-
-  const loadClaim = async () => {
-    try {
-      await getInsuranceClaim(id!);
-    } catch (error: any) {
-      toastError('Load Failed', 'Could not load claim data');
-      navigate('/dashboard/insurance-claims');
-    }
-  };
-
-  // Calculate length of stay
+  // Load claim data
   useEffect(() => {
-    if (admissionDate && dischargeDate) {
-      const start = new Date(admissionDate);
-      const end = new Date(dischargeDate);
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      setLengthOfStay(days > 0 ? days : 1);
-    } else {
-      setLengthOfStay(0);
+    if (id) {
+      loadClaim();
+      getDiagnoses();
+      fetchTariffs(); 
     }
-  }, [admissionDate, dischargeDate]);
+  }, [id]);
+
+  // Debug GDRG data
+  useEffect(() => {
+    if (tariffs && tariffs.length > 0) {
+      console.log('📊 GDRG Tariffs loaded:', tariffs.length);
+      console.log('📊 Sample tariff:', tariffs[0]);
+    }
+  }, [tariffs]);
 
   // Populate form when currentClaim loads
   useEffect(() => {
@@ -950,10 +917,22 @@ useEffect(() => {
     else if (cccCodeValue) setCccCode(cccCodeValue);
     if (folderNumberValue) setFolderNumber(folderNumberValue);
     
+    setPatientId(patient?.id || '');
     setSurname(patient?.surname || '');
     setOtherNames(patient?.otherNames || '');
     setGender(patient?.gender || '');
     setDateOfBirth(patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '');
+    
+    // Set member form data
+    setMemberFormData({
+      surname: patient?.surname || '',
+      otherNames: patient?.otherNames || '',
+      gender: patient?.gender || '',
+      dateOfBirth: patient?.dateOfBirth || '',
+      nhisNumber: patient?.nhisNumber || '',
+      folderNumber: patient?.folderNumber || '',
+      cccCode: attendance?.nhisCCC || '',
+    });
     
     if (patient?.dateOfBirth) {
       const birthDate = new Date(patient.dateOfBirth);
@@ -981,58 +960,126 @@ useEffect(() => {
       setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
     }
 
-    // Diagnoses
-    const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
-    const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
-      id: d.id,
-      gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
-      description: d.Diagnosis?.name || '',
-      diagnosis: d.Diagnosis?.name || '',
-      icd10: d.Diagnosis?.icdCode || '',
-      diagnosisId: d.diagnosisId,
-      diagnosisType: d.diagnosisType
-    }));
-    setDiagnoses(mappedDiagnoses);
+    // Load from metadata first
+    if (currentClaim.metadata) {
+      const metadata = currentClaim.metadata as any;
+      
+      if (metadata.diagnoses && metadata.diagnoses.length > 0) {
+        setDiagnoses(metadata.diagnoses);
+      } else {
+        const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
+        const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
+          id: d.id,
+          gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
+          description: d.Diagnosis?.name || '',
+          diagnosis: d.Diagnosis?.name || '',
+          icd10: d.Diagnosis?.icdCode || '',
+          diagnosisId: d.diagnosisId,
+          diagnosisType: d.diagnosisType
+        }));
+        setDiagnoses(mappedDiagnoses);
+      }
+      
+      if (metadata.investigations && metadata.investigations.length > 0) {
+        setInvestigations(metadata.investigations);
+      } else {
+        const labTests = (attendance?.LabTest || []).map((l: any) => ({
+          id: l.id,
+          gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
+          description: l.ServiceCatalog?.name || l.name || '',
+          date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
+                 l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+          serviceCatalogId: l.serviceCatalogId,
+          type: 'lab' as const
+        }));
+        
+        const scans = (attendance?.Scan || []).map((s: any) => ({
+          id: s.id,
+          gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
+          description: s.ServiceCatalog?.name || s.name || '',
+          date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
+                 s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
+          serviceCatalogId: s.serviceCatalogId,
+          type: 'scan' as const
+        }));
+        setInvestigations([...labTests, ...scans]);
+      }
+      
+      if (metadata.medicines && metadata.medicines.length > 0) {
+        setMedicines(metadata.medicines);
+      } else {
+        const medications = (attendance?.Medication || []).map((m: any) => ({
+          id: m.id,
+          code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
+          description: m.name,
+          quantity: m.quantity || 1,
+          date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
+                 m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
+          prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
+          dosage: m.dosage || '',
+          frequency: m.frequency || '',
+          duration: m.duration || '',
+          stockItemId: m.stockItemId,
+          serviceCatalogId: m.serviceCatalogId
+        }));
+        setMedicines(medications);
+      }
+      
+      if (metadata.visitDates) setVisitDates(metadata.visitDates);
+      if (metadata.admissionDate) setAdmissionDate(metadata.admissionDate);
+      if (metadata.dischargeDate) setDischargeDate(metadata.dischargeDate);
+      if (metadata.lengthOfStay) setLengthOfStay(metadata.lengthOfStay);
+    } else {
+      // No metadata - load from attendance
+      const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
+      const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
+        id: d.id,
+        gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
+        description: d.Diagnosis?.name || '',
+        diagnosis: d.Diagnosis?.name || '',
+        icd10: d.Diagnosis?.icdCode || '',
+        diagnosisId: d.diagnosisId,
+        diagnosisType: d.diagnosisType
+      }));
+      setDiagnoses(mappedDiagnoses);
 
-    // Investigations (Lab Tests & Scans)
-    const labTests = (attendance?.LabTest || []).map((l: any) => ({
-      id: l.id,
-      gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-      description: l.ServiceCatalog?.name || l.name || '',
-      date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
-             l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
-      serviceCatalogId: l.serviceCatalogId,
-      type: 'lab' as const
-    }));
-    
-    const scans = (attendance?.Scan || []).map((s: any) => ({
-      id: s.id,
-      gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-      description: s.ServiceCatalog?.name || s.name || '',
-      date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
-             s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
-      serviceCatalogId: s.serviceCatalogId,
-      type: 'scan' as const
-    }));
-    
-    setInvestigations([...labTests, ...scans]);
+      const labTests = (attendance?.LabTest || []).map((l: any) => ({
+        id: l.id,
+        gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
+        description: l.ServiceCatalog?.name || l.name || '',
+        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
+               l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: l.serviceCatalogId,
+        type: 'lab' as const
+      }));
+      
+      const scans = (attendance?.Scan || []).map((s: any) => ({
+        id: s.id,
+        gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
+        description: s.ServiceCatalog?.name || s.name || '',
+        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
+               s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: s.serviceCatalogId,
+        type: 'scan' as const
+      }));
+      setInvestigations([...labTests, ...scans]);
 
-    // Medicines
-    const medications = (attendance?.Medication || []).map((m: any) => ({
-      id: m.id,
-      code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
-      description: m.name,
-      quantity: m.quantity || 1,
-      date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
-             m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
-      prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-      dosage: m.dosage || '',
-      frequency: m.frequency || '',
-      duration: m.duration || '',
-      stockItemId: m.stockItemId,
-      serviceCatalogId: m.serviceCatalogId
-    }));
-    setMedicines(medications);
+      const medications = (attendance?.Medication || []).map((m: any) => ({
+        id: m.id,
+        code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
+        description: m.name,
+        quantity: m.quantity || 1,
+        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
+               m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
+        prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
+        dosage: m.dosage || '',
+        frequency: m.frequency || '',
+        duration: m.duration || '',
+        stockItemId: m.stockItemId,
+        serviceCatalogId: m.serviceCatalogId
+      }));
+      setMedicines(medications);
+    }
 
     // GDRG
     setPrincipalGDRG(currentClaim.principalGDRG || '');
@@ -1041,15 +1088,110 @@ useEffect(() => {
     setTypeOfAttendance(currentClaim.typeOfAttendance || 'GEN');
   }, [currentClaim]);
 
-  // Update GDRG description when availableGDRGs loads
+  const loadClaim = async () => {
+    try {
+      await getInsuranceClaim(id!);
+    } catch (error: any) {
+      toastError('Load Failed', 'Could not load claim data');
+      navigate('/dashboard/insurance-claims');
+    }
+  };
+
+  // Calculate length of stay
   useEffect(() => {
-    if (availableGDRGs.length > 0 && principalGDRG) {
-      const selectedGdrg = availableGDRGs.find(g => g.gdrgCode === principalGDRG);
+    if (admissionDate && dischargeDate) {
+      const start = new Date(admissionDate);
+      const end = new Date(dischargeDate);
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      setLengthOfStay(days > 0 ? days : 1);
+    } else {
+      setLengthOfStay(0);
+    }
+  }, [admissionDate, dischargeDate]);
+
+  // Update GDRG description when tariffs load
+  useEffect(() => {
+    if (tariffs.length > 0 && principalGDRG) {
+      const selectedGdrg = tariffs.find(g => g.gdrgCode === principalGDRG);
       if (selectedGdrg && selectedGdrg.description !== principalGDRGDescription) {
         setPrincipalGDRGDescription(selectedGdrg.description);
       }
     }
-  }, [availableGDRGs, principalGDRG]);
+  }, [tariffs, principalGDRG]);
+
+  // ==========================================
+  // MEMBER DETAILS HANDLERS
+  // ==========================================
+
+  const handleMemberEdit = () => {
+    setIsEditingMember(true);
+    setMemberFormData({
+      surname: surname || '',
+      otherNames: otherNames || '',
+      gender: gender || '',
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : '',
+      nhisNumber: patientNhisNumber || '',
+      folderNumber: folderNumber || '',
+      cccCode: cccCode || '',
+    });
+  };
+
+  // Helper function to calculate age
+  const calculateAge = (dob: string) => {
+    if (!dob) return '—';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let ageYears = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      ageYears--;
+    }
+    return ageYears > 0 ? `${ageYears} yrs` : `${Math.abs(ageYears)} yrs`;
+  };
+
+  const handleMemberSave = async () => {
+    if (!patientId) {
+      toastError('Error', 'Patient ID not found');
+      return;
+    }
+  
+    setIsSavingMember(true);
+    try {
+      // Update patient record
+      await updatePatient(patientId, {
+        surname: memberFormData.surname,
+        otherNames: memberFormData.otherNames,
+        gender: memberFormData.gender,
+        dateOfBirth: memberFormData.dateOfBirth,
+        nhisNumber: memberFormData.nhisNumber,
+        folderNumber: memberFormData.folderNumber,
+      });
+  
+      // Update local state
+      setSurname(memberFormData.surname);
+      setOtherNames(memberFormData.otherNames);
+      setGender(memberFormData.gender);
+      setDateOfBirth(memberFormData.dateOfBirth ? new Date(memberFormData.dateOfBirth).toLocaleDateString() : '');
+      setPatientNhisNumber(memberFormData.nhisNumber);
+      setFolderNumber(memberFormData.folderNumber);
+      setCccCode(memberFormData.cccCode);
+      
+      // Update age
+      if (memberFormData.dateOfBirth) {
+        setAge(calculateAge(memberFormData.dateOfBirth));
+      }
+      
+      success('Updated', 'Member details updated successfully');
+      setIsEditingMember(false);
+      
+      // Refresh claim data to sync
+      await getInsuranceClaim(id!);
+    } catch (error: any) {
+      toastError('Update Failed', error.message || 'Could not update member details');
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
 
   // Handlers
   const addDiagnosis = (diagnosis: DiagnosisItem) => {
@@ -1100,10 +1242,9 @@ useEffect(() => {
     setVisitDates(newDates);
   };
 
-  const handlePrincipalGDRGChange = (gdrgCode: string) => {
+  const handlePrincipalGDRGChange = (gdrgCode: string, description: string) => {
     setPrincipalGDRG(gdrgCode);
-    const selected = availableGDRGs.find(g => g.gdrgCode === gdrgCode);
-    setPrincipalGDRGDescription(selected?.description || '');
+    setPrincipalGDRGDescription(description);
   };
 
   // NHIS Validation
@@ -1183,7 +1324,6 @@ useEffect(() => {
       typeOfAttendance,
       mdcCode: principalGDRG?.slice(0, 4) || 'OPDC',
       
-      // ✅ Save the FULL structured data in metadata
       metadata: {
         diagnoses: diagnoses.map(d => ({
           id: d.id,
@@ -1320,57 +1460,168 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Member Details Section */}
+        {/* Member Details Section - SIMPLE EDITABLE */}
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
+          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
             <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
               <User className="w-4 h-4 text-[var(--icon-green-text)]" />
               NHIS Member Details
             </h2>
+            {isDraft && !isEditingMember && (
+              <button
+                onClick={() => setIsEditingMember(true)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" /> Edit Member
+              </button>
+            )}
           </div>
-          <div className="p-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">NHIS Member No</label>
-                <p className="text-sm font-medium text-[var(--text-primary)]">
-                  {patientNhisNumber || cccCode || '—'}
-                </p>
-                {!patientNhisNumber && cccCode && (
-                  <span className="text-[10px] text-[var(--icon-yellow-text)]">Using CCC Code</span>
-                )}
+          
+          {isEditingMember ? (
+            // EDIT MODE
+            <div className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">NHIS Member No</label>
+                  <input
+                    type="text"
+                    value={memberFormData.nhisNumber}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, nhisNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">CCC Code</label>
+                  <input
+                    type="text"
+                    value={memberFormData.cccCode}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, cccCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Folder No</label>
+                  <input
+                    type="text"
+                    value={memberFormData.folderNumber}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, folderNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Surname</label>
+                  <input
+                    type="text"
+                    value={memberFormData.surname}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, surname: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Other Names</label>
+                  <input
+                    type="text"
+                    value={memberFormData.otherNames}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, otherNames: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
+                  <select
+                    value={memberFormData.gender}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, gender: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  >
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={memberFormData.dateOfBirth}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, dateOfBirth: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
+                  <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] text-sm">
+                    {memberFormData.dateOfBirth ? calculateAge(memberFormData.dateOfBirth) : '—'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">CCC Code</label>
-                <p className="text-sm font-mono text-[var(--text-primary)]">
-                  {cccCode || '—'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Folder No</label>
-                <p className="text-sm text-[var(--text-primary)]">{folderNumber || '—'}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Surname</label>
-                <p className="text-sm text-[var(--text-primary)]">{surname || '—'}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Other Names</label>
-                <p className="text-sm text-[var(--text-primary)]">{otherNames || '—'}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
-                <p className="text-sm text-[var(--text-primary)]">{gender?.toUpperCase() || '—'}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Date of Birth</label>
-                <p className="text-sm text-[var(--text-primary)]">{dateOfBirth || '—'}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
-                <p className="text-sm text-[var(--text-primary)]">{age || '—'}</p>
+              
+              <div className="flex gap-3 mt-4 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  onClick={() => setIsEditingMember(false)}
+                  className="px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMemberSave}
+                  disabled={isSavingMember}
+                  className="px-6 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white flex items-center gap-2 text-sm"
+                >
+                  {isSavingMember ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" /> Save Changes
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-          </div>
+          ) : (
+            // VIEW MODE
+            <div className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">NHIS Member No</label>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{patientNhisNumber || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">CCC Code</label>
+                  <p className="text-sm font-mono text-[var(--text-primary)]">{cccCode || '—'}</p>
+                  {!patientNhisNumber && cccCode && (
+                    <span className="text-[10px] text-[var(--icon-yellow-text)]">Using CCC Code</span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Folder No</label>
+                  <p className="text-sm text-[var(--text-primary)]">{folderNumber || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Surname</label>
+                  <p className="text-sm text-[var(--text-primary)]">{surname || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Other Names</label>
+                  <p className="text-sm text-[var(--text-primary)]">{otherNames || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
+                  <p className="text-sm text-[var(--text-primary)]">{gender?.toUpperCase() || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Date of Birth</label>
+                  <p className="text-sm text-[var(--text-primary)]">{dateOfBirth || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
+                  <p className="text-sm text-[var(--text-primary)]">{age || '—'}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Service Information Section */}
@@ -1511,7 +1762,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Principal GDRG Section */}
+        {/* Principal GDRG Section - WITH SEARCHABLE SELECT */}
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
           <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
             <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
@@ -1529,23 +1780,17 @@ useEffect(() => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Select Principal GDRG</label>
-                <select
+                <SearchableGDRGSelect
                   value={principalGDRG}
-                  onChange={(e) => handlePrincipalGDRGChange(e.target.value)}
+                  onChange={handlePrincipalGDRGChange}
+                  options={availableGDRGs}
                   disabled={!isDraft}
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] font-mono text-sm"
-                >
-                  <option value="">-- Select GDRG --</option>
-                  {availableGDRGs.map(g => (
-                    <option key={g.id} value={g.gdrgCode}>
-                      {g.gdrgCode} - {g.description}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Search GDRG by code or description..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Description</label>
-                <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-sm">
+                <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-sm min-h-[42px]">
                   {principalGDRGDescription || '—'}
                 </p>
               </div>

@@ -756,8 +756,8 @@ export const finalizeClaim = (claimId: string) =>
 export const updateClaimStatus = (claimId: string, data: { status: string; notes?: string }) => 
   api.patch(`/insurance-claims/${claimId}/status`, data).then(r => r.data);
 
-export const generateClaimXML = (claimId: string) => 
-  api.get(`/insurance-claims/${claimId}/xml`, { responseType: 'blob' }).then(r => r.data);
+export const generateClaimXML = (claimId: string) =>
+  api.post(`/insurance-claims/${claimId}/generate-xml`, {}, { responseType: 'blob' }).then(r => r.data);
 
 export const generateClaimPrint = (claimId: string) => 
   api.get(`/insurance-claims/${claimId}/print`).then(r => r.data);
