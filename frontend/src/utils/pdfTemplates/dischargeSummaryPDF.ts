@@ -1,31 +1,119 @@
-// src/utils/pdfTemplates/dischargeSummaryPDF.ts
+// src/utils/pdfTemplates/dischargeSummaryPDF.ts - REDESIGNED PROFESSIONAL VERSION
 import type { Admission, Attendance, Patient, Hospital, Diagnosis, Medication, Procedure } from '../../types';
 
 export const generateDischargeSummaryHTML = (
-  admission: Admission,
-  attendance: Attendance,
-  patient: Patient,
+  admission: any,
+  attendance: any,
+  patient: any,
   clinicalData: {
-    diagnoses: Diagnosis[];
-    medications: Medication[];
-    procedures: Procedure[];
+    diagnoses: any[];
+    medications: any[];
+    procedures: any[];
   },
-  hospital: Hospital
+  hospital: any
 ): string => {
+  // Format dates
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
   };
+
+  const formatDateShort = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  // Helper to escape HTML
+  const escapeHtml = (text: string): string => {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  // Helper to get patient name
+  const getPatientName = (p: any) => {
+    if (p?.fullName) return p.fullName;
+    if (p?.surname && p?.otherNames) return `${p.surname} ${p.otherNames}`;
+    if (p?.name) return p.name;
+    return 'Unknown Patient';
+  };
+
+  // Get hospital info
+  const hospitalName = hospital?.name || 'Veridian Hospital';
+  const hospitalAddress = hospital?.address || '123 Medical Center Drive, Accra, Ghana';
+  const hospitalPhone = hospital?.phone || '+233-24-123-4567';
+  const hospitalEmail = hospital?.email || 'info@veridianhospital.gov.gh';
+
+  // Get patient info
+  const patientName = getPatientName(patient);
+  const patientId = patient?.folderNumber || patient?.id || 'N/A';
+  const patientContact = patient?.contact || patient?.phone || patient?.mobile || 'N/A';
+  const patientAge = patient?.age || patient?.ageYears || 'N/A';
+  const patientGender = patient?.gender || 'N/A';
+  const patientDOB = patient?.dateOfBirth ? formatDate(patient.dateOfBirth) : 'N/A';
+
+  // Get admission info
+  const admissionNumber = admission?.admissionNumber || admission?.id || 'N/A';
+  const admissionDate = admission?.admissionDate || admission?.createdAt || new Date().toISOString();
+  const dischargeDate = admission?.dischargeDate || admission?.updatedAt || new Date().toISOString();
+  const lengthOfStay = admission?.lengthOfStay || 'N/A';
+  const wardName = admission?.ward?.wardName || admission?.wardName || 'N/A';
+  const bedNumber = admission?.bed?.bedNumber || admission?.bedNumber || 'N/A';
+  const admittingDoctor = admission?.admittingDoctor || admission?.doctor?.fullName || 'N/A';
+  const admissionDiagnosis = admission?.admissionDiagnosis || 'Not specified';
+  const dischargeDiagnosis = admission?.dischargeDiagnosis || '';
+  const reasonForAdmission = admission?.reasonForAdmission || '';
+  const dischargeSummary = admission?.dischargeSummary || '';
+  const followUpInstructions = admission?.followUpInstructions || '';
+  const dischargeStatus = admission?.status || 'discharged';
+
+  // Get attendance info
+  const attendanceNumber = attendance?.attendanceNumber || attendance?.id || 'N/A';
+  const attendanceDate = attendance?.dateTime || attendance?.createdAt || new Date().toISOString();
+
+  // Get clinical data
+  const diagnoses = clinicalData?.diagnoses || [];
+  const medications = clinicalData?.medications || [];
+  const procedures = clinicalData?.procedures || [];
 
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Discharge Summary - ${admission.admissionNumber}</title>
+  <title>Discharge Summary - ${admissionNumber}</title>
   <style>
     * {
       margin: 0;
@@ -35,214 +123,386 @@ export const generateDischargeSummaryHTML = (
     
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #f5f7fa 0%, #e4edf9 100%);
-      padding: 20px;
-      color: #333;
+      background: #f1f5f9;
+      padding: 30px;
+      color: #1e293b;
     }
     
-    .summary-container {
-      max-width: 1000px;
+    .page-container {
+      max-width: 1100px;
       margin: 0 auto;
       background: white;
       border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
       overflow: hidden;
     }
     
+    /* ── HEADER ── */
     .header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
       color: white;
-      padding: 30px;
-      text-align: center;
+      padding: 30px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       position: relative;
     }
     
-    .logo {
-      width: 80px;
-      height: 80px;
-      background: white;
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .logo-placeholder {
+      width: 70px;
+      height: 70px;
+      background: rgba(255,255,255,0.15);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 20px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-size: 32px;
+      font-weight: 700;
+      color: white;
+      border: 2px solid rgba(255,255,255,0.3);
     }
     
-    .logo svg {
-      width: 40px;
-      height: 40px;
-      color: #1e3a8a;
-    }
-    
-    .hospital-name {
-      font-size: 28px;
+    .hospital-info h1 {
+      font-size: 24px;
       font-weight: 700;
       letter-spacing: -0.5px;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
     
-    .hospital-details {
-      font-size: 14px;
+    .hospital-info p {
+      font-size: 13px;
       opacity: 0.9;
-      line-height: 1.5;
+      line-height: 1.4;
     }
     
-    .summary-badge {
-      position: absolute;
-      top: 20px;
-      right: 30px;
-      background: #fbbf24;
-      color: #1e3a8a;
-      padding: 6px 16px;
+    .header-right {
+      text-align: right;
+    }
+    
+    .document-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 6px 18px;
       border-radius: 20px;
       font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+    
+    .document-number {
       font-size: 14px;
-      box-shadow: 0 4px 6px rgba(251, 191, 36, 0.3);
+      font-weight: 600;
+      margin-top: 6px;
+      opacity: 0.9;
     }
     
-    .content {
-      padding: 30px;
+    /* ── PATIENT BAR ── */
+    .patient-bar {
+      background: #f8fafc;
+      padding: 16px 40px;
+      border-bottom: 2px solid #e2e8f0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
     }
     
-    .section {
-      margin-bottom: 25px;
+    .patient-bar-item {
+      display: flex;
+      flex-direction: column;
     }
     
-    .section-title {
-      font-size: 18px;
+    .patient-bar-item .label {
+      font-size: 10px;
       font-weight: 700;
-      color: #1e3a8a;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #bfdbfe;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
+    .patient-bar-item .value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-top: 2px;
+    }
+    
+    /* ── CONTENT ── */
+    .content {
+      padding: 30px 40px 40px;
+    }
+    
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .section-title .count {
+      font-size: 12px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    
+    /* ── INFO CARDS ── */
     .info-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
     }
     
-    .info-item {
-      background: #eff6ff;
-      padding: 15px;
-      border-radius: 12px;
-      border-left: 4px solid #3b82f6;
+    .info-card {
+      background: #f8fafc;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border-left: 3px solid #2563eb;
     }
     
-    .info-label {
-      font-size: 12px;
+    .info-card .label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .info-card .value {
+      font-size: 15px;
       font-weight: 600;
+      color: #0f172a;
+      margin-top: 2px;
+    }
+    
+    /* ── CLINICAL BOX ── */
+    .clinical-box {
+      background: #eff6ff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 12px 0;
+      border-left: 4px solid #2563eb;
+    }
+    
+    .clinical-box .label {
+      font-size: 12px;
+      font-weight: 700;
       color: #1e3a8a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
     }
     
-    .info-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1e3a8a;
+    .clinical-box .text {
+      font-size: 14px;
+      color: #0f172a;
+      line-height: 1.7;
+      white-space: pre-wrap;
     }
     
-    .clinical-section {
-      background: #eff6ff;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    
-    .clinical-title {
-      font-weight: 700;
-      color: #1e3a8a;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #bfdbfe;
-    }
-    
-    .clinical-content {
-      color: #1e293b;
-      line-height: 1.6;
-    }
-    
-    .items-table {
+    /* ── TABLES ── */
+    .data-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      font-size: 13px;
+      margin: 12px 0;
     }
     
-    .items-table th {
-      background: #eff6ff;
-      padding: 12px 15px;
+    .data-table th {
+      background: #f1f5f9;
+      padding: 10px 16px;
       text-align: left;
-      font-weight: 700;
-      color: #1e3a8a;
-      border-bottom: 2px solid #3b82f6;
+      font-weight: 600;
+      color: #475569;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e2e8f0;
     }
     
-    .items-table td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #e2e8f0;
-      color: #1e293b;
+    .data-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
     }
     
-    .items-table tr:last-child td {
+    .data-table tr:last-child td {
       border-bottom: none;
     }
     
-    .follow-up-section {
-      background: #fffbeb;
-      border: 1px solid #fbbf24;
+    .data-table tr:hover {
+      background: #f8fafc;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 3px 12px;
       border-radius: 12px;
-      padding: 20px;
-      margin: 25px 0;
+      font-size: 11px;
+      font-weight: 600;
     }
     
-    .follow-up-title {
+    .status-active {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    
+    .status-completed {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+    
+    .status-discontinued {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    
+    /* ── FOLLOW UP ── */
+    .follow-up-box {
+      background: #fffbeb;
+      border: 2px solid #fde68a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    
+    .follow-up-box .label {
+      font-size: 12px;
       font-weight: 700;
-      color: #b45309;
-      margin-bottom: 15px;
-      font-size: 18px;
+      color: #92400e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
     }
     
+    .follow-up-box .text {
+      font-size: 14px;
+      color: #78350f;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+    
+    /* ── SIGNATURES ── */
     .signature-section {
       display: flex;
       justify-content: space-between;
-      margin-top: 50px;
-      padding-top: 30px;
+      margin-top: 40px;
+      padding-top: 24px;
       border-top: 2px solid #e2e8f0;
+      flex-wrap: wrap;
+      gap: 20px;
     }
     
     .signature-box {
       text-align: center;
-      min-width: 200px;
+      min-width: 180px;
     }
     
     .signature-line {
+      width: 180px;
       height: 1px;
       background: #94a3b8;
-      margin: 40px auto 10px;
-      width: 80%;
+      margin: 32px auto 8px;
     }
     
-    .footer {
-      margin-top: 40px;
-      padding-top: 30px;
-      border-top: 2px solid #e2e8f0;
-      text-align: center;
-      color: #64748b;
+    .signature-label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    
+    .signature-name {
+      font-weight: 600;
+      color: #0f172a;
       font-size: 14px;
+      margin-top: 4px;
+    }
+    
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 30px;
+      padding-top: 24px;
+      border-top: 2px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .footer-left {
+      font-size: 12px;
+      color: #94a3b8;
       line-height: 1.6;
     }
     
+    .footer-right {
+      text-align: right;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    
+    /* ── PRINT BUTTONS ── */
+    .no-print {
+      padding: 20px 40px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    
+    .print-btn {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .print-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+    }
+    
+    .close-btn {
+      background: #e2e8f0;
+      color: #475569;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      background: #cbd5e1;
+    }
+    
+    /* ── PRINT STYLES ── */
     @media print {
       body {
         background: white;
-        padding: 0;
+        padding: 10px;
       }
       
-      .summary-container {
+      .page-container {
         box-shadow: none;
         border-radius: 0;
       }
@@ -250,289 +510,314 @@ export const generateDischargeSummaryHTML = (
       .no-print {
         display: none !important;
       }
+      
+      .header {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .clinical-box,
+      .follow-up-box {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .status-badge {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
     
-    .no-print {
-      margin-top: 30px;
-      text-align: center;
+    /* ── RESPONSIVE ── */
+    @media screen and (max-width: 768px) {
+      body { padding: 10px; }
+      .header { flex-direction: column; text-align: center; gap: 12px; padding: 20px; }
+      .header-left { flex-direction: column; }
+      .header-right { text-align: center; }
+      .patient-bar { grid-template-columns: 1fr 1fr; padding: 12px 20px; }
+      .content { padding: 20px; }
+      .info-grid { grid-template-columns: 1fr 1fr; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 8px 10px; }
+      .no-print { flex-direction: column; padding: 16px; }
+      .footer { flex-direction: column; text-align: center; }
+      .signature-section { flex-direction: column; align-items: center; }
+      .signature-line { margin: 32px auto 8px; }
     }
     
-    .print-btn {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
-    }
-    
-    .print-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(30, 64, 175, 0.6);
-    }
-    
-    .close-btn {
-      background: #64748b;
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-left: 12px;
-    }
-    
-    .close-btn:hover {
-      background: #475569;
-      transform: translateY(-2px);
+    @media screen and (max-width: 480px) {
+      .patient-bar { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: 1fr; }
+      .data-table { font-size: 11px; }
+      .data-table th, .data-table td { padding: 6px 8px; }
     }
   </style>
 </head>
 <body>
-  <div class="summary-container">
-    <div class="header">
-      <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 3v18m-7-7l7 7 7-7"></path>
-          <path d="M12 3v18m-7-7l7 7 7-7"></path>
-        </svg>
-      </div>
-      <div class="hospital-name">${hospital.name}</div>
-      <div class="hospital-details">
-        ${hospital.address}<br>
-        Tel: ${hospital.phone} | Email: ${hospital.email}
-      </div>
-      <div class="summary-badge">DISCHARGE SUMMARY</div>
-    </div>
+  <div class="page-container">
     
+    <!-- ── HEADER ── -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-placeholder">🏥</div>
+        <div class="hospital-info">
+          <h1>${escapeHtml(hospitalName)}</h1>
+          <p>${escapeHtml(hospitalAddress)}</p>
+          <p>Tel: ${escapeHtml(hospitalPhone)} &nbsp;|&nbsp; Email: ${escapeHtml(hospitalEmail)}</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="document-badge">DISCHARGE SUMMARY</div>
+        <div class="document-number">${escapeHtml(admissionNumber)}</div>
+      </div>
+    </div>
+
+    <!-- ── PATIENT BAR ── -->
+    <div class="patient-bar">
+      <div class="patient-bar-item">
+        <span class="label">Patient Name</span>
+        <span class="value">${escapeHtml(patientName)}</span>
+      </div>
+      <div class="patient-bar-item">
+        <span class="label">Folder Number</span>
+        <span class="value">${escapeHtml(patientId)}</span>
+      </div>
+      <div class="patient-bar-item">
+        <span class="label">Date of Birth</span>
+        <span class="value">${escapeHtml(patientDOB)} (${escapeHtml(patientAge)} yrs)</span>
+      </div>
+      <div class="patient-bar-item">
+        <span class="label">Gender</span>
+        <span class="value" style="text-transform: capitalize;">${escapeHtml(patientGender)}</span>
+      </div>
+      <div class="patient-bar-item">
+        <span class="label">Contact</span>
+        <span class="value">${escapeHtml(patientContact)}</span>
+      </div>
+      <div class="patient-bar-item">
+        <span class="label">Discharge Status</span>
+        <span class="value" style="text-transform: capitalize;">${escapeHtml(dischargeStatus)}</span>
+      </div>
+    </div>
+
+    <!-- ── CONTENT ── -->
     <div class="content">
-      <div class="section">
-        <div class="section-title">Patient Information</div>
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Patient Name</div>
-            <div class="info-value">${patient.fullName}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Patient ID</div>
-            <div class="info-value">${patient.folderNumber || patient.id}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Contact</div>
-            <div class="info-value">${patient.contact}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Age & Gender</div>
-            <div class="info-value">${patient.age} years / ${patient.gender}</div>
-          </div>
-        </div>
+      
+      <!-- ── ADMISSION INFO CARDS ── -->
+      <div class="section-title">
+        📋 Admission Information
       </div>
       
-      <div class="section">
-        <div class="section-title">Admission Information</div>
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Admission Number</div>
-            <div class="info-value">${admission.admissionNumber}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Admission Date</div>
-            <div class="info-value">${formatDate(admission.admissionDate)}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Discharge Date</div>
-            <div class="info-value">${formatDate(admission.dischargeDate)}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Length of Stay</div>
-            <div class="info-value">${admission.lengthOfStay} days</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Ward</div>
-            <div class="info-value">${admission.wardName}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Bed Number</div>
-            <div class="info-value">${admission.bedNumber}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Attending Doctor</div>
-            <div class="info-value">${admission.admittingDoctor}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Discharge Status</div>
-            <div class="info-value" style="text-transform: capitalize;">${admission.status}</div>
-          </div>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="label">Admission Date</div>
+          <div class="value">${formatDate(admissionDate)}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Discharge Date</div>
+          <div class="value">${formatDate(dischargeDate)}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Length of Stay</div>
+          <div class="value">${lengthOfStay} days</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Ward / Bed</div>
+          <div class="value">${escapeHtml(wardName)} / ${escapeHtml(bedNumber)}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Attending Doctor</div>
+          <div class="value">${escapeHtml(admittingDoctor)}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Visit Number</div>
+          <div class="value">${escapeHtml(attendanceNumber)}</div>
         </div>
       </div>
-      
-      <div class="section">
-        <div class="section-title">Clinical Summary</div>
-        <div class="clinical-section">
-          <div class="clinical-title">Admission Diagnosis</div>
-          <div class="clinical-content">
-            ${admission.admissionDiagnosis || 'Not specified'}
-          </div>
-        </div>
-        
-        ${admission.dischargeDiagnosis ? `
-        <div class="clinical-section">
-          <div class="clinical-title">Discharge Diagnosis</div>
-          <div class="clinical-content">
-            ${admission.dischargeDiagnosis}
-          </div>
-        </div>
-        ` : ''}
-        
-        ${admission.reasonForAdmission ? `
-        <div class="clinical-section">
-          <div class="clinical-title">Reason for Admission</div>
-          <div class="clinical-content">
-            ${admission.reasonForAdmission}
-          </div>
-        </div>
-        ` : ''}
-        
-        ${admission.dischargeSummary ? `
-        <div class="clinical-section">
-          <div class="clinical-title">Discharge Summary</div>
-          <div class="clinical-content">
-            ${admission.dischargeSummary}
-          </div>
-        </div>
-        ` : ''}
+
+      <!-- ── ADMISSION DIAGNOSIS ── -->
+      <div class="section-title">
+        🩺 Clinical Summary
       </div>
       
-      ${clinicalData.diagnoses && clinicalData.diagnoses.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Diagnoses</div>
-        <table class="items-table">
+      <div class="clinical-box">
+        <div class="label">Admission Diagnosis</div>
+        <div class="text">${escapeHtml(admissionDiagnosis)}</div>
+      </div>
+
+      ${dischargeDiagnosis ? `
+        <div class="clinical-box">
+          <div class="label">Discharge Diagnosis</div>
+          <div class="text">${escapeHtml(dischargeDiagnosis)}</div>
+        </div>
+      ` : ''}
+
+      ${reasonForAdmission ? `
+        <div class="clinical-box">
+          <div class="label">Reason for Admission</div>
+          <div class="text">${escapeHtml(reasonForAdmission)}</div>
+        </div>
+      ` : ''}
+
+      ${dischargeSummary ? `
+        <div class="clinical-box">
+          <div class="label">Discharge Summary</div>
+          <div class="text">${escapeHtml(dischargeSummary)}</div>
+        </div>
+      ` : ''}
+
+      <!-- ── DIAGNOSES ── -->
+      ${diagnoses.length > 0 ? `
+        <div class="section-title" style="margin-top: 24px;">
+          📝 Diagnoses
+          <span class="count">(${diagnoses.length} items)</span>
+        </div>
+        
+        <table class="data-table">
           <thead>
             <tr>
-              <th>Diagnosis</th>
-              <th>ICD Code</th>
-              <th>Type</th>
-              <th>Date</th>
+              <th style="width: 40%;">Diagnosis</th>
+              <th style="width: 20%;">ICD Code</th>
+              <th style="width: 20%;">Type</th>
+              <th style="width: 20%;">Date</th>
             </tr>
           </thead>
           <tbody>
-            ${clinicalData.diagnoses.map(diag => `
-            <tr>
-              <td>${diag.name || diag.diagnosisId?.name}</td>
-              <td>${diag.icdCode || diag.diagnosisId?.icdCode || '-'}</td>
-              <td>${diag.primary ? 'Primary' : 'Secondary'}</td>
-              <td>${formatDate(diag.date)}</td>
-            </tr>
+            ${diagnoses.map((diag: any) => `
+              <tr>
+                <td><strong>${escapeHtml(diag.name || diag.diagnosisId?.name || 'N/A')}</strong></td>
+                <td>${escapeHtml(diag.icdCode || diag.diagnosisId?.icdCode || '-')}</td>
+                <td>${diag.primary || diag.diagnosisType === 'primary' ? 'Primary' : 'Secondary'}</td>
+                <td>${diag.date ? formatDateShort(diag.date) : '-'}</td>
+              </tr>
             `).join('')}
           </tbody>
         </table>
-      </div>
       ` : ''}
-      
-      ${clinicalData.medications && clinicalData.medications.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Medications</div>
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th>Medication</th>
-              <th>Dosage</th>
-              <th>Frequency</th>
-              <th>Duration</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${clinicalData.medications.map(med => `
-            <tr>
-              <td>${med.name}</td>
-              <td>${med.dosage}</td>
-              <td>${med.frequency}</td>
-              <td>${med.duration}</td>
-              <td style="text-transform: capitalize;">${med.status}</td>
-            </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-      ` : ''}
-      
-      ${clinicalData.procedures && clinicalData.procedures.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Procedures</div>
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th>Procedure</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${clinicalData.procedures.map(proc => `
-            <tr>
-              <td>${proc.name || proc.templateId?.name}</td>
-              <td>${proc.performedAt ? formatDate(proc.performedAt) : '-'}</td>
-              <td style="text-transform: capitalize;">${proc.status}</td>
-            </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-      ` : ''}
-      
-      ${admission.followUpInstructions ? `
-      <div class="follow-up-section">
-        <div class="follow-up-title">Follow-Up Instructions</div>
-        <div class="clinical-content">
-          ${admission.followUpInstructions}
+
+      <!-- ── MEDICATIONS ── -->
+      ${medications.length > 0 ? `
+        <div class="section-title" style="margin-top: 24px;">
+          💊 Medications
+          <span class="count">(${medications.length} items)</span>
         </div>
-      </div>
+        
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 30%;">Medication</th>
+              <th style="width: 20%;">Dosage</th>
+              <th style="width: 20%;">Frequency</th>
+              <th style="width: 15%;">Duration</th>
+              <th style="width: 15%;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${medications.map((med: any) => `
+              <tr>
+                <td><strong>${escapeHtml(med.name || med.medicationName || 'N/A')}</strong></td>
+                <td>${escapeHtml(med.dosage || med.dose || '-')}</td>
+                <td>${escapeHtml(med.frequency || '-')}</td>
+                <td>${escapeHtml(med.duration || '-')}</td>
+                <td>
+                  <span class="status-badge status-${med.status === 'completed' ? 'completed' : med.status === 'active' ? 'active' : 'discontinued'}">
+                    ${escapeHtml(med.status || 'active')}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       ` : ''}
-      
+
+      <!-- ── PROCEDURES ── -->
+      ${procedures.length > 0 ? `
+        <div class="section-title" style="margin-top: 24px;">
+          🔬 Procedures
+          <span class="count">(${procedures.length} items)</span>
+        </div>
+        
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 40%;">Procedure</th>
+              <th style="width: 30%;">Date</th>
+              <th style="width: 30%;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${procedures.map((proc: any) => `
+              <tr>
+                <td><strong>${escapeHtml(proc.name || proc.templateId?.name || 'N/A')}</strong></td>
+                <td>${proc.performedAt ? formatDateShort(proc.performedAt) : proc.date ? formatDateShort(proc.date) : '-'}</td>
+                <td>
+                  <span class="status-badge status-${proc.status === 'completed' ? 'completed' : 'active'}">
+                    ${escapeHtml(proc.status || 'completed')}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : ''}
+
+      <!-- ── FOLLOW UP INSTRUCTIONS ── -->
+      ${followUpInstructions ? `
+        <div class="follow-up-box">
+          <div class="label">📅 Follow-Up Instructions</div>
+          <div class="text">${escapeHtml(followUpInstructions)}</div>
+        </div>
+      ` : ''}
+
+      <!-- ── SIGNATURES ── -->
       <div class="signature-section">
         <div class="signature-box">
           <div class="signature-line"></div>
-          <div>Patient/Guardian</div>
+          <div class="signature-label">Patient / Guardian</div>
+          <div class="signature-name">________________________</div>
         </div>
         <div class="signature-box">
           <div class="signature-line"></div>
-          <div>Attending Physician</div>
+          <div class="signature-label">Attending Physician</div>
+          <div class="signature-name">Dr. ${escapeHtml(admittingDoctor)}</div>
         </div>
         <div class="signature-box">
           <div class="signature-line"></div>
-          <div>Discharge Date: ${formatDate(admission.dischargeDate)}</div>
+          <div class="signature-label">Discharge Date</div>
+          <div class="signature-name">${formatDate(dischargeDate)}</div>
+        </div>
+      </div>
+
+      <!-- ── FOOTER ── -->
+      <div class="footer">
+        <div class="footer-left">
+          <p>This discharge summary is issued by ${escapeHtml(hospitalName)}.</p>
+          <p style="margin-top: 4px; font-size: 11px; color: #cbd5e1;">
+            Document ID: DS-${escapeHtml(admissionNumber)}-${new Date().getTime().toString().slice(-6)}
+          </p>
+        </div>
+        <div class="footer-right">
+          <p style="font-size: 11px; color: #94a3b8;">
+            Please keep this document for your records.
+          </p>
+          <p style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+            Generated: ${new Date().toLocaleString()}
+          </p>
         </div>
       </div>
       
-      <div class="footer">
-        <p>This discharge summary is issued by ${hospital.name}. Please keep this document for your records and follow up as instructed.</p>
-        <p style="margin-top: 10px; font-size: 13px; color: #475569;">
-          Generated on ${new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </p>
-      </div>
     </div>
     
+    <!-- ── PRINT BUTTONS ── -->
     <div class="no-print">
       <button class="print-btn" onclick="window.print()">
-        Print Discharge Summary
+        🖨️ Print Discharge Summary
       </button>
       <button class="close-btn" onclick="window.close()">
-        Close
+        ✕ Close
       </button>
     </div>
+    
   </div>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// src/utils/pdfTemplates/handoverPDF.ts
+// src/utils/pdfTemplates/handoverPDF.ts - REDESIGNED PROFESSIONAL VERSION
 import type { Hospital } from '../../types';
 
 export interface HandoverPDFData {
@@ -24,6 +24,89 @@ export const generateHandoverHTML = (
   data: HandoverPDFData,
   hospital: Hospital
 ): string => {
+  // Format dates
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  // Helper to escape HTML
+  const escapeHtml = (text: string): string => {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  // Get hospital info
+  const hospitalName = hospital?.name || 'Veridian Hospital';
+  const hospitalAddress = hospital?.address || '123 Medical Center Drive, Accra, Ghana';
+  const hospitalPhone = hospital?.phone || '+233-24-123-4567';
+  const hospitalEmail = hospital?.email || 'info@veridianhospital.gov.gh';
+
+  // Calculate summary stats
+  const totalPatients = data.patients?.length || 0;
+  const totalPendingTasks = data.patients?.reduce((sum, p) => sum + (p.pendingTasks?.length || 0), 0) || 0;
+  const totalCompletedTasks = data.completedTasksCount || 0;
+
+  // Get priority badge class
+  const getPriorityClass = (priority: string) => {
+    const map: Record<string, string> = {
+      high: 'priority-high',
+      medium: 'priority-medium',
+      low: 'priority-low',
+      stat: 'priority-stat',
+      urgent: 'priority-urgent',
+    };
+    return map[priority?.toLowerCase()] || 'priority-medium';
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    const map: Record<string, string> = {
+      high: 'HIGH',
+      medium: 'MEDIUM',
+      low: 'LOW',
+      stat: 'STAT',
+      urgent: 'URGENT',
+    };
+    return map[priority?.toLowerCase()] || priority?.toUpperCase() || 'MEDIUM';
+  };
+
   return `
 <!DOCTYPE html>
 <html>
@@ -39,379 +122,657 @@ export const generateHandoverHTML = (
     
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: white;
+      background: #f1f5f9;
       padding: 30px;
-      color: #333;
+      color: #1e293b;
     }
     
-    .container {
-      max-width: 1000px;
+    .page-container {
+      max-width: 1100px;
       margin: 0 auto;
       background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
     }
     
+    /* ── HEADER ── */
     .header {
-      text-align: center;
-      padding-bottom: 20px;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #e5e7eb;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      padding: 30px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
     }
     
-    .logo {
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .logo-placeholder {
+      width: 70px;
+      height: 70px;
+      background: rgba(255,255,255,0.1);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 15px;
+      font-size: 32px;
+      font-weight: 700;
       color: white;
-      font-size: 28px;
-      font-weight: bold;
+      border: 2px solid rgba(255,255,255,0.2);
     }
     
-    .hospital-name {
+    .hospital-info h1 {
       font-size: 24px;
-      font-weight: bold;
-      color: #1e3a8a;
-      margin-bottom: 5px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
     }
     
-    .hospital-details {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 10px;
+    .hospital-info p {
+      font-size: 13px;
+      opacity: 0.8;
+      line-height: 1.4;
     }
     
-    .report-title {
-      font-size: 20px;
-      font-weight: bold;
-      color: #f97316;
-      margin: 10px 0;
+    .header-right {
+      text-align: right;
     }
     
-    .shift-info {
+    .document-badge {
+      background: rgba(251, 146, 60, 0.2);
+      border: 1px solid rgba(251, 146, 60, 0.3);
+      padding: 6px 18px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      color: #fb923c;
+    }
+    
+    .document-number {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 6px;
+      opacity: 0.7;
+    }
+    
+    /* ── SHIFT BANNER ── */
+    .shift-banner {
+      background: #f8fafc;
+      padding: 16px 40px;
+      border-bottom: 2px solid #e2e8f0;
       display: flex;
       justify-content: space-between;
-      margin: 20px 0;
-      padding: 15px;
-      background: #f3f4f6;
-      border-radius: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     
-    .shift-card {
-      text-align: center;
-      flex: 1;
+    .shift-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
     
     .shift-label {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
     .shift-value {
       font-size: 16px;
-      font-weight: bold;
-      color: #1e3a8a;
+      font-weight: 700;
+      color: #0f172a;
     }
     
-    .arrow {
+    .shift-arrow {
       font-size: 20px;
-      color: #f97316;
-      padding: 0 20px;
+      color: #fb923c;
+      margin: 0 8px;
     }
     
-    .section {
-      margin: 25px 0;
+    .shift-date {
+      font-size: 13px;
+      color: #64748b;
     }
     
+    /* ── CONTENT ── */
+    .content {
+      padding: 30px 40px 40px;
+    }
+    
+    /* ── SECTION TITLE ── */
     .section-title {
       font-size: 16px;
-      font-weight: bold;
-      color: #1e3a8a;
-      margin-bottom: 15px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #e5e7eb;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
       display: flex;
       align-items: center;
+      gap: 10px;
+    }
+    
+    .section-title .count {
+      font-size: 12px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .stat-card {
+      background: #f8fafc;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border-left: 4px solid #fb923c;
+      text-align: center;
+    }
+    
+    .stat-card .number {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    
+    .stat-card .label {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+    
+    .stat-card .icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    
+    .stat-card.blue { border-left-color: #3b82f6; }
+    .stat-card.green { border-left-color: #22c55e; }
+    .stat-card.orange { border-left-color: #fb923c; }
+    
+    /* ── NOTES BOX ── */
+    .notes-box {
+      background: #fef3c7;
+      border: 2px solid #fde68a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      line-height: 1.7;
+    }
+    
+    .notes-box .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #92400e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    
+    .notes-box .text {
+      font-size: 14px;
+      color: #78350f;
+      white-space: pre-wrap;
+    }
+    
+    /* ── PATIENT CARD ── */
+    .patient-card {
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 16px;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    
+    .patient-card-header {
+      background: #f1f5f9;
+      padding: 12px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
     }
     
-    .notes-box {
-      background: #fef3c7;
-      padding: 15px;
-      border-radius: 8px;
-      border-left: 4px solid #f97316;
-      line-height: 1.6;
-    }
-    
-    .patient-card {
-      background: #f9fafb;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-      border: 1px solid #e5e7eb;
-    }
-    
-    .patient-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
     .patient-name {
-      font-weight: bold;
+      font-weight: 700;
       font-size: 15px;
-      color: #1e3a8a;
+      color: #0f172a;
     }
     
-    .bed-badge {
-      background: #e5e7eb;
-      padding: 2px 8px;
+    .patient-badge {
+      display: inline-block;
+      padding: 2px 12px;
       border-radius: 12px;
       font-size: 11px;
-      color: #4b5563;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #475569;
     }
     
+    .patient-body {
+      padding: 16px 20px;
+    }
+    
+    /* ── TASK LIST ── */
     .task-list {
-      margin-top: 10px;
+      margin-top: 4px;
     }
     
     .task-item {
-      padding: 8px 0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid #f3f4f6;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f5f9;
     }
     
     .task-item:last-child {
       border-bottom: none;
     }
     
-    .task-bullet {
-      width: 6px;
-      height: 6px;
+    .task-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: #ef4444;
+      flex-shrink: 0;
     }
     
-    .task-bullet.medium {
-      background: #f59e0b;
-    }
+    .task-dot.high { background: #dc2626; }
+    .task-dot.medium { background: #f59e0b; }
+    .task-dot.low { background: #3b82f6; }
+    .task-dot.stat { background: #7c3aed; }
+    .task-dot.urgent { background: #ef4444; }
     
-    .task-bullet.low {
-      background: #3b82f6;
-    }
-    
-    .task-text {
+    .task-content {
       flex: 1;
+    }
+    
+    .task-title {
       font-size: 13px;
-    }
-    
-    .task-time {
-      font-size: 11px;
-      color: #6b7280;
-    }
-    
-    .priority-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
       font-weight: 500;
+      color: #0f172a;
     }
     
-    .priority-high {
-      background: #fee2e2;
-      color: #dc2626;
+    .task-meta {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
     }
     
-    .priority-medium {
-      background: #fed7aa;
-      color: #ea580c;
+    .task-priority {
+      font-size: 10px;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
     }
     
-    .priority-low {
-      background: #dbeafe;
-      color: #2563eb;
+    .priority-high { background: #fee2e2; color: #dc2626; }
+    .priority-medium { background: #fef3c7; color: #d97706; }
+    .priority-low { background: #dbeafe; color: #2563eb; }
+    .priority-stat { background: #ede9fe; color: #7c3aed; }
+    .priority-urgent { background: #fee2e2; color: #dc2626; }
+    
+    .no-tasks {
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 8px 0;
     }
     
-    .stats-grid {
-      display: flex;
-      gap: 15px;
-      margin: 20px 0;
-    }
-    
-    .stat-card {
-      flex: 1;
-      background: #eff6ff;
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
-    }
-    
-    .stat-number {
-      font-size: 28px;
-      font-weight: bold;
-      color: #1e3a8a;
-    }
-    
-    .stat-label {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 5px;
-    }
-    
+    /* ── SIGNATURES ── */
     .signature-section {
       display: flex;
       justify-content: space-between;
       margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
+      padding-top: 24px;
+      border-top: 2px solid #e2e8f0;
+      flex-wrap: wrap;
+      gap: 20px;
     }
     
     .signature-box {
       text-align: center;
-      min-width: 200px;
+      min-width: 180px;
     }
     
     .signature-line {
-      width: 100%;
-      border-top: 1px solid #000;
-      margin: 30px 0 10px;
+      width: 180px;
+      height: 1px;
+      background: #94a3b8;
+      margin: 32px auto 8px;
     }
     
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
+    .signature-label {
       font-size: 11px;
-      color: #9ca3af;
+      color: #94a3b8;
     }
     
+    .signature-name {
+      font-weight: 600;
+      color: #0f172a;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    
+    .signature-time {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 30px;
+      padding-top: 24px;
+      border-top: 2px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .footer-left {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    
+    .footer-right {
+      text-align: right;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    
+    /* ── PRINT BUTTONS ── */
+    .no-print {
+      padding: 20px 40px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    
+    .print-btn {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .print-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(15, 23, 42, 0.4);
+    }
+    
+    .close-btn {
+      background: #e2e8f0;
+      color: #475569;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      background: #cbd5e1;
+    }
+    
+    /* ── PRINT STYLES ── */
     @media print {
       body {
-        padding: 0;
+        background: white;
+        padding: 10px;
       }
+      
+      .page-container {
+        box-shadow: none;
+        border-radius: 0;
+      }
+      
       .no-print {
-        display: none;
+        display: none !important;
       }
+      
+      .header {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .notes-box,
+      .stat-card,
+      .patient-card {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .task-priority {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .patient-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+    
+    /* ── RESPONSIVE ── */
+    @media screen and (max-width: 768px) {
+      body { padding: 10px; }
+      .header { flex-direction: column; text-align: center; gap: 12px; padding: 20px; }
+      .header-left { flex-direction: column; }
+      .header-right { text-align: center; }
+      .shift-banner { flex-direction: column; text-align: center; padding: 12px 20px; }
+      .shift-group { flex-direction: column; }
+      .content { padding: 20px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .no-print { flex-direction: column; padding: 16px; }
+      .footer { flex-direction: column; text-align: center; }
+      .signature-section { flex-direction: column; align-items: center; }
+      .signature-line { margin: 32px auto 8px; }
+    }
+    
+    @media screen and (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .patient-card-header { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="page-container">
+    
+    <!-- ── HEADER ── -->
     <div class="header">
-      <div class="logo">🏥</div>
-      <div class="hospital-name">${hospital?.name || 'Health Facility'}</div>
-      <div class="hospital-details">
-        ${hospital?.address || ''}<br>
-        Tel: ${hospital?.phone || ''} | Email: ${hospital?.email || ''}
+      <div class="header-left">
+        <div class="logo-placeholder">🏥</div>
+        <div class="hospital-info">
+          <h1>${escapeHtml(hospitalName)}</h1>
+          <p>${escapeHtml(hospitalAddress)}</p>
+          <p>Tel: ${escapeHtml(hospitalPhone)} &nbsp;|&nbsp; Email: ${escapeHtml(hospitalEmail)}</p>
+        </div>
       </div>
-      <div class="report-title">NURSING SHIFT HANDOVER REPORT</div>
-    </div>
-    
-    <div class="shift-info">
-      <div class="shift-card">
-        <div class="shift-label">HANDING OVER SHIFT</div>
-        <div class="shift-value">${data.shiftFrom}</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="shift-card">
-        <div class="shift-label">RECEIVING SHIFT</div>
-        <div class="shift-value">${data.shiftTo}</div>
-      </div>
-      <div class="shift-card">
-        <div class="shift-label">DATE</div>
-        <div class="shift-value">${new Date(data.handedOverAt).toLocaleDateString()}</div>
+      <div class="header-right">
+        <div class="document-badge">SHIFT HANDOVER</div>
+        <div class="document-number">${formatDate(data.handedOverAt)}</div>
       </div>
     </div>
-    
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-number">${data.patients.length}</div>
-        <div class="stat-label">Active Patients</div>
+
+    <!-- ── SHIFT BANNER ── -->
+    <div class="shift-banner">
+      <div class="shift-group">
+        <span class="shift-label">Handing Over</span>
+        <span class="shift-value">${escapeHtml(data.shiftFrom)}</span>
+        <span class="shift-arrow">→</span>
+        <span class="shift-label">Receiving</span>
+        <span class="shift-value">${escapeHtml(data.shiftTo)}</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-number">${data.patients.reduce((sum, p) => sum + p.pendingTasks.length, 0)}</div>
-        <div class="stat-label">Pending Tasks</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${data.completedTasksCount}</div>
-        <div class="stat-label">Completed This Shift</div>
+      <div class="shift-date">
+        📅 ${formatDateTime(data.handedOverAt)}
       </div>
     </div>
-    
-    <div class="section">
-      <div class="section-title">
-        📝 HANDOVER NOTES
+
+    <!-- ── CONTENT ── -->
+    <div class="content">
+      
+      <!-- ── STATS ── -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="icon">👥</div>
+          <div class="number">${totalPatients}</div>
+          <div class="label">Active Patients</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="icon">⏳</div>
+          <div class="number">${totalPendingTasks}</div>
+          <div class="label">Pending Tasks</div>
+        </div>
+        <div class="stat-card green">
+          <div class="icon">✅</div>
+          <div class="number">${totalCompletedTasks}</div>
+          <div class="label">Completed This Shift</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="icon">📋</div>
+          <div class="number">${totalPatients > 0 ? Math.round((totalCompletedTasks / (totalCompletedTasks + totalPendingTasks || 1)) * 100) : 0}%</div>
+          <div class="label">Completion Rate</div>
+        </div>
       </div>
+
+      <!-- ── HANDOVER NOTES ── -->
+      <div class="section-title">📝 Handover Notes</div>
+      
       <div class="notes-box">
-        ${data.handoverNotes || 'No specific notes provided for the next shift.'}
+        <div class="label">Important Notes for Next Shift</div>
+        <div class="text">${escapeHtml(data.handoverNotes || 'No specific notes provided for the next shift.')}</div>
       </div>
-    </div>
-    
-    <div class="section">
+
+      <!-- ── PATIENT SUMMARY ── -->
       <div class="section-title">
-        👥 PATIENT SUMMARY & PENDING TASKS
+        👥 Patient Summary & Pending Tasks
+        <span class="count">(${totalPatients} patients)</span>
       </div>
-      ${data.patients.length === 0 ? `
-        <div style="text-align: center; padding: 40px; color: #9ca3af;">
-          No patients currently admitted
-        </div>
-      ` : data.patients.map(patient => `
-        <div class="patient-card">
-          <div class="patient-header">
-            <span class="patient-name">${patient.name}</span>
-            ${patient.bedNumber ? `<span class="bed-badge">Bed: ${patient.bedNumber}</span>` : ''}
-          </div>
-          ${patient.pendingTasks.length > 0 ? `
-            <div class="task-list">
-              <strong style="font-size: 12px; color: #6b7280;">Pending Tasks for Next Shift:</strong>
-              ${patient.pendingTasks.map(task => `
-                <div class="task-item">
-                  <div class="task-bullet ${task.priority === 'high' ? '' : task.priority === 'medium' ? 'medium' : 'low'}"></div>
-                  <div class="task-text">${task.title}</div>
-                  ${task.scheduledTime ? `<div class="task-time">Due: ${new Date(task.scheduledTime).toLocaleTimeString()}</div>` : ''}
-                  <span class="priority-badge priority-${task.priority}">${task.priority}</span>
-                </div>
-              `).join('')}
+
+      ${data.patients && data.patients.length > 0 ? 
+        data.patients.map((patient) => `
+          <div class="patient-card">
+            <div class="patient-card-header">
+              <span class="patient-name">${escapeHtml(patient.name)}</span>
+              ${patient.bedNumber ? `<span class="patient-badge">🛏️ Bed ${escapeHtml(patient.bedNumber)}</span>` : ''}
             </div>
-          ` : '<div style="color: #9ca3af; font-size: 13px; margin-top: 8px;">✓ No pending tasks</div>'}
+            <div class="patient-body">
+              ${patient.pendingTasks && patient.pendingTasks.length > 0 ? `
+                <div class="task-list">
+                  ${patient.pendingTasks.map((task) => `
+                    <div class="task-item">
+                      <span class="task-dot ${task.priority?.toLowerCase() || 'medium'}"></span>
+                      <div class="task-content">
+                        <div class="task-title">${escapeHtml(task.title)}</div>
+                        ${task.scheduledTime ? `<div class="task-meta">⏰ ${formatTime(task.scheduledTime)}</div>` : ''}
+                      </div>
+                      <span class="task-priority ${getPriorityClass(task.priority)}">
+                        ${getPriorityLabel(task.priority)}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <div class="no-tasks">✅ No pending tasks for this patient</div>
+              `}
+            </div>
+          </div>
+        `).join('')
+      : `
+        <div style="text-align: center; padding: 40px; color: #94a3b8;">
+          <div style="font-size: 48px; margin-bottom: 12px;">👤</div>
+          <p style="font-size: 16px; font-weight: 500;">No patients currently admitted</p>
+          <p style="font-size: 13px; margin-top: 4px;">All patient care completed for this shift</p>
         </div>
-      `).join('')}
+      `}
+
+      <!-- ── SIGNATURES ── -->
+      <div class="signature-section">
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <div class="signature-label">Handed Over By</div>
+          <div class="signature-name">${escapeHtml(data.handedOverBy)}</div>
+          <div class="signature-time">${formatDateTime(data.handedOverAt)}</div>
+        </div>
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <div class="signature-label">Received By</div>
+          <div class="signature-name">_____________________</div>
+          <div class="signature-time">Date & Time</div>
+        </div>
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <div class="signature-label">Nurse in Charge</div>
+          <div class="signature-name">_____________________</div>
+          <div class="signature-time">Shift Supervisor</div>
+        </div>
+      </div>
+
+      <!-- ── FOOTER ── -->
+      <div class="footer">
+        <div class="footer-left">
+          <p>This is a computer-generated handover report from ${escapeHtml(hospitalName)}.</p>
+          <p style="margin-top: 4px; font-size: 11px; color: #cbd5e1;">
+            Report ID: HO-${formatDate(data.handedOverAt).replace(/\//g, '')}-${new Date().getTime().toString().slice(-6)}
+          </p>
+        </div>
+        <div class="footer-right">
+          <p style="font-size: 11px; color: #94a3b8;">
+            Please verify all information with the nursing station.
+          </p>
+          <p style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+            Generated: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      </div>
+      
     </div>
     
-    <div class="signature-section">
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div><strong>Handed Over By</strong></div>
-        <div>${data.handedOverBy}</div>
-        <div style="font-size: 11px; margin-top: 5px;">${new Date(data.handedOverAt).toLocaleString()}</div>
-      </div>
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div><strong>Received By</strong></div>
-        <div>_________________</div>
-        <div style="font-size: 11px; margin-top: 5px;">Date & Time</div>
-      </div>
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div><strong>Nurse in Charge</strong></div>
-        <div>_________________</div>
-      </div>
+    <!-- ── PRINT BUTTONS ── -->
+    <div class="no-print">
+      <button class="print-btn" onclick="window.print()">
+        🖨️ Print Handover Report
+      </button>
+      <button class="close-btn" onclick="window.close()">
+        ✕ Close
+      </button>
     </div>
     
-    <div class="footer">
-      <p>This is a computer-generated handover report. Please verify all information with the nursing station.</p>
-      <p>Generated on ${new Date().toLocaleString()}</p>
-    </div>
   </div>
 </body>
 </html>

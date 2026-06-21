@@ -32,7 +32,14 @@ const DOC_LABEL: Record<SendDocType, string> = {
   general: 'Message',
 };
 
-export default function SendDocumentModal({ open, onClose, patient, documentType, entityId, defaultMessage }: SendDocumentModalProps) {
+export default function SendDocumentModal({ 
+  open, 
+  onClose, 
+  patient, 
+  documentType, 
+  entityId, 
+  defaultMessage 
+}: SendDocumentModalProps) {
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
 
@@ -42,17 +49,24 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
   const [sending, setSending] = useState(false);
 
   const hospitalName = hospital?.name || 'our facility';
-  const patientName = getPatientName(patient);
+  // ✅ Ensure patient name is always a string
+  const patientName = getPatientName(patient) || 'Patient';
 
+  // ✅ Reset state when modal opens
   useEffect(() => {
     if (!open) return;
-    setRecipient(patient?.contact || patient?.phone || '');
+    
+    // Try multiple fields for contact
+    const contact = patient?.contact || patient?.phone || patient?.mobile || patient?.telephone || '';
+    setRecipient(contact);
     setChannel('sms');
+    
     if (defaultMessage) {
       setMessage(defaultMessage);
       return;
     }
-    const firstName = (patientName || 'Patient').split(' ')[0];
+    
+    const firstName = patientName.split(' ')[0] || 'Patient';
     const templates: Record<SendDocType, string> = {
       receipt: `Dear ${firstName}, your payment receipt from ${hospitalName} is ready. Thank you for your visit.`,
       prescription: `Dear ${firstName}, your prescription from ${hospitalName} is ready. Please proceed to the pharmacy to collect your medication.`,
@@ -60,45 +74,64 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
       'scan-result': `Dear ${firstName}, your scan/imaging results from ${hospitalName} are ready. Kindly visit or contact us to collect them.`,
       general: `Dear ${firstName}, you have a message from ${hospitalName}.`,
     };
-    setMessage(templates[documentType]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, documentType, patient?.id, defaultMessage]);
+    setMessage(templates[documentType] || templates.general);
+  }, [open, documentType, patient?.id, defaultMessage, patientName, hospitalName]);
 
   if (!open) return null;
 
   // Best-effort document generation so the artifact is recorded server-side.
   const generateDoc = async () => {
-    if (!entityId) return;
+    if (!entityId) {
+      console.warn('No entityId provided, skipping document generation');
+      return;
+    }
     try {
-      if (documentType === 'receipt') await generateReceipt(entityId);
-      else if (documentType === 'prescription') await generatePrescription(entityId);
-      else if (documentType === 'lab-result') await generateLabResult(entityId);
-    } catch {
+      if (documentType === 'receipt') {
+        await generateReceipt(entityId);
+      } else if (documentType === 'prescription') {
+        await generatePrescription(entityId);
+      } else if (documentType === 'lab-result') {
+        await generateLabResult(entityId);
+      }
+      // scan-result doesn't have a generation endpoint yet
+    } catch (err) {
       // Non-fatal: still queue the message even if generation isn't available.
+      console.warn('Document generation failed (non-fatal):', err);
     }
   };
 
   const handleSend = async () => {
-    if (!recipient.trim()) {
+    // ✅ Validate recipient
+    const trimmedRecipient = recipient.trim();
+    if (!trimmedRecipient) {
       toastError('Recipient required', 'Enter a phone number to send to.');
       return;
     }
-    if (!message.trim()) {
+    
+    // ✅ Validate message
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
       toastError('Message required', 'Enter a message to send.');
       return;
     }
+    
     setSending(true);
     try {
       await generateDoc();
       await sendMessage(channel, {
-        recipient: recipient.trim(),
-        message: message.trim(),
-        metadata: { documentType, entityId, patientId: patient?.id },
+        recipient: trimmedRecipient,
+        message: trimmedMessage,
+        metadata: { 
+          documentType, 
+          entityId: entityId || null, 
+          patientId: patient?.id || null,
+          patientName: patientName,
+        },
       });
-      success('Message queued', `${DOC_LABEL[documentType]} notification queued via ${channel.toUpperCase()} to ${recipient.trim()}.`);
+      success('Message queued', `${DOC_LABEL[documentType]} notification queued via ${channel.toUpperCase()} to ${trimmedRecipient}.`);
       onClose();
     } catch (e: any) {
-      toastError('Send failed', e?.response?.data?.message || e.message);
+      toastError('Send failed', e?.response?.data?.message || e?.message || 'Could not send message');
     } finally {
       setSending(false);
     }
@@ -117,7 +150,13 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
               <p className="text-xs text-gray-500">{patientName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -130,7 +169,9 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
                   key={c}
                   onClick={() => setChannel(c)}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
-                    channel === c ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    channel === c 
+                      ? 'bg-green-600 text-white border-green-600' 
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   {c === 'sms' ? 'SMS' : 'WhatsApp'}
@@ -149,11 +190,11 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
                 placeholder="e.g. +233241234567"
-                className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
               />
             </div>
-            {!patient?.contact && !patient?.phone && (
-              <p className="text-xs text-amber-600 mt-1">No contact on file for this patient — enter one.</p>
+            {!patient?.contact && !patient?.phone && !patient?.mobile && (
+              <p className="text-xs text-amber-600 mt-1">⚠️ No contact on file — enter one manually.</p>
             )}
           </div>
 
@@ -164,18 +205,28 @@ export default function SendDocumentModal({ open, onClose, patient, documentType
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 resize-none"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none"
+              placeholder="Type your message here..."
             />
-            <p className="text-xs text-gray-400 mt-1">{message.length} characters</p>
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>{message.length} characters</span>
+              <span>{message.length > 160 ? `${Math.ceil(message.length / 160)} SMS segments` : '1 SMS'}</span>
+            </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+          <button 
+            onClick={onClose} 
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={sending}
+          >
+            Cancel
+          </button>
           <button
             onClick={handleSend}
-            disabled={sending}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            disabled={sending || !recipient.trim() || !message.trim()}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {sending ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sending ? 'Sending…' : 'Send'}

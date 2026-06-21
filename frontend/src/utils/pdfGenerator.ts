@@ -1,4 +1,4 @@
-// src/utils/pdfGenerator.ts - Updated
+// src/utils/pdfGenerator.ts - FIXED
 import type { 
   Bill, 
   Patient, 
@@ -24,14 +24,33 @@ import { generatePrescriptionHTML } from './pdfTemplates/prescriptionPDF';
 import { generateCombinedPrescriptionHTML } from './pdfTemplates/combinedPrescriptionPDF'; 
 import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
 import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
-import { generateHandoverHTML } from './pdfTemplates/handoverPDF';  // ✅ NEW
+import { generateHandoverHTML } from './pdfTemplates/handoverPDF';
 
-// Update the type
+export type PDFType = 
+  | 'receipt' 
+  | 'insuranceClaim' 
+  | 'billStatement' 
+  | 'visitSummary' 
+  | 'labResults'      // ✅ camelCase used in LabResultEntry
+  | 'lab-results'     // ✅ kebab-case alternative
+  | 'labResult'       // ✅ another alternative
+  | 'dischargeSummary' 
+  | 'prescription' 
+  | 'referral' 
+  | 'referralLetter'
+  | 'combinedPrescription' 
+  | 'scanReport' 
+  | 'handover';
+
 export const generatePDF = (
-  type: 'receipt' | 'insuranceClaim' | 'billStatement' | 'visitSummary' | 'labResults' | 'dischargeSummary' | 'prescription' | 'referral' | 'combinedPrescription'| 'scanReport' | 'handover',  // ✅ Added 'handover'
+  type: PDFType,
   data: any,
   hospital: any
 ): string => {
+  // Debug logging
+  console.log('📄 generatePDF called with type:', type);
+  console.log('📄 Data keys:', Object.keys(data || {}));
+  
   switch (type) {
     case 'receipt':
       return generateReceiptHTML(data.bill, data.patient, data.payment, hospital);
@@ -42,21 +61,25 @@ export const generatePDF = (
     case 'visitSummary':
       return generateVisitSummaryHTML(data.attendance, data.patient, hospital);
     case 'labResults':
+    case 'lab-results':  // ✅ Handle both
+    case 'labResult':    // ✅ Handle labResult too
       return generateLabResultsHTML(data.labTests, data.patient, data.attendance, hospital);
     case 'dischargeSummary':
       return generateDischargeSummaryHTML(data.admission, data.attendance, data.patient, data.clinicalData, hospital);
     case 'prescription':
       return generatePrescriptionHTML(data.medication, data.patient, data.attendance, hospital);
     case 'referral':
+    case 'referralLetter':
       return generateReferralLetterHTML(data.referral, data.patient, hospital);
     case 'combinedPrescription':
       return generateCombinedPrescriptionHTML(data.medications, data.patient, data.attendance, hospital, data.prescriberName);
     case 'scanReport':
       return generateScanReportHTML(data.scans, data.patient, data.attendance, hospital);
-    case 'handover':  // ✅ NEW
+    case 'handover':
       return generateHandoverHTML(data, hospital);
     default:
-      throw new Error('Invalid PDF type');
+      console.error('❌ Invalid PDF type:', type);
+      throw new Error(`Invalid PDF type: ${type}`);
   }
 };
 
