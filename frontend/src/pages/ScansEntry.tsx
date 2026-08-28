@@ -56,10 +56,10 @@ const getStatusBadge = (status: string) => {
 // Scan Result Display Component
 const ScanResultDisplay = ({ scan }: { scan: any }) => {
   const [expanded, setExpanded] = useState(false);
-  
+
   return (
     <div className="border border-[var(--border-color)] rounded-lg overflow-hidden">
-      <div 
+      <div
         className="flex items-center justify-between p-3 bg-[var(--bg-main)] cursor-pointer hover:bg-[var(--bg-card)]"
         onClick={() => setExpanded(!expanded)}
       >
@@ -82,7 +82,7 @@ const ScanResultDisplay = ({ scan }: { scan: any }) => {
           </button>
         </div>
       </div>
-      
+
       {expanded && (
         <div className="p-3 border-t border-[var(--border-color)] space-y-3 bg-white">
           {scan.findings && (
@@ -320,12 +320,12 @@ export default function ScansEntry() {
       toastError('No results', 'No completed scans to print');
       return;
     }
-    
+
     if (!patient || !attendance) {
       toastError('Missing info', 'Patient or attendance information missing');
       return;
     }
-    
+
     try {
       const scanData = {
         scans: completedScans.map(scan => ({
@@ -350,10 +350,10 @@ export default function ScansEntry() {
           attendingClinician: attendance.createdBy?.fullName || 'N/A'
         }
       };
-      
+
       const htmlContent = generatePDF('scanReport', scanData, hospital);
       openPrintWindow(htmlContent, `Radiology_Report_${patient.folderNumber}`);
-      
+
       success('Print ready', 'Radiology report generated');
     } catch (err) {
       console.error('Error printing scan results:', err);
@@ -539,11 +539,10 @@ export default function ScansEntry() {
                     📅 {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  attendance.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                  attendance.status === 'completed' ? 'bg-green-100 text-green-700' :
-                  'bg-gray-100 text-gray-700'
-                }`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${attendance.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    attendance.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      'bg-gray-100 text-gray-700'
+                  }`}>
                   {attendance.status}
                 </span>
               </div>
@@ -597,19 +596,6 @@ export default function ScansEntry() {
             </div>
           </div>
 
-          {/* Request New Scan Button */}
-          {canAddEntries && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-              <button
-                onClick={() => setShowScanModal(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                Request New Scan
-              </button>
-            </div>
-          )}
-
           {/* Requested Scans Table */}
           {requestedScans.length > 0 && (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
@@ -636,10 +622,9 @@ export default function ScansEntry() {
                         <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{scan.name}</td>
                         <td className="px-4 py-3 text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                            scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                              scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
                             {scan.priority}
                           </span>
                         </td>

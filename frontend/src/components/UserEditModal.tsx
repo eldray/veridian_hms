@@ -1,6 +1,7 @@
 // src/components/UserEditModal.tsx - UPDATED TO USE USERSTORE
 import { useState, useEffect } from 'react';
 import { useUserStore } from '../store/userStore';  // ✅ Use UserStore
+import { useToast } from '../store/toastStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
 
 // Seniority configuration
@@ -90,8 +91,8 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
         <div className="p-4 border-b border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit User</h3>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-colors"
             >
               <X className="w-5 h-5" />

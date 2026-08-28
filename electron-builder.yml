@@ -1,0 +1,118 @@
+appId: com.veridian.hms
+productName: VeridianHMS
+
+directories:
+  output: release
+  buildResources: build
+
+# ─── Files bundled into the app.asar ─────────────────────────────────────────
+# Only the Electron process files go into the asar.
+# The backend and frontend are extraResources (outside asar) so Node can run them.
+files:
+  - main.cjs
+  - preload.js
+  - package.json
+
+# ─── Extra resources (alongside the asar — NOT compressed) ───────────────────
+# These are accessible at runtime via process.resourcesPath
+extraResources:
+  # Compiled backend JS (output of tsc — not raw TypeScript source)
+  - from: build/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!*.ts"
+      - "!*.log"
+      - "!*.db"
+      - "!*.db-shm"
+      - "!*.db-wal"
+  # Built frontend static files (output of vite build)
+  - from: frontend/dist
+    to: frontend/dist
+    filter:
+      - "**/*"
+
+# ─── ASAR settings ───────────────────────────────────────────────────────────
+asar: true
+asarUnpack:
+  # Native addons and the backend must be outside asar so Node can execute them
+  - "**/*.node"
+
+# Prisma client has native binaries — must not be inside asar
+# (they live in build/backend/node_modules/.prisma which gets copied to extraResources)
+
+# Don't rebuild native modules (PostgreSQL/pg uses pre-built binaries)
+npmRebuild: false
+npmSkipBuildFromSource: false
+
+# ─── Windows ─────────────────────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+  requestedExecutionLevel: requireAdministrator
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  shortcutName: VeridianHMS
+  license: null
+  installerSidebar: null
+  include: null
+  script: null
+
+# ─── Linux ───────────────────────────────────────────────────────────────────
+linux:
+  target:
+    - deb
+    - AppImage
+  category: Utility
+  icon: build/icons
+  maintainer: Emmanuel Appiah <emk.appiah@gmail.com>
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  desktop:
+    Name: VeridianHMS
+    Comment: Hospital Management System
+    Categories: Office;Business;Utility
+    StartupNotify: true
+    Terminal: false
+    Type: Application
+
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libcups2
+  compression: xz
+  priority: optional
+
+# ─── Mac ─────────────────────────────────────────────────────────────────────
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.business
+  icon: build/icon.icns
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+publish: null

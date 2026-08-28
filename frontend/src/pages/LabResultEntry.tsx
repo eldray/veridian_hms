@@ -40,10 +40,10 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 
 const getStatusBadge = (status: string) => {
   const config: Record<string, { bg: string; text: string; label: string }> = {
-    requested:   { bg: 'bg-yellow-100', text: 'text-yellow-700',  label: 'Pending'     },
-    in_progress: { bg: 'bg-blue-100',   text: 'text-blue-700',    label: 'In Progress' },
-    completed:   { bg: 'bg-green-100',  text: 'text-green-700',   label: 'Completed'   },
-    cancelled:   { bg: 'bg-red-100',    text: 'text-red-700',     label: 'Cancelled'   },
+    requested: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
+    in_progress: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' },
+    completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
   };
   const c = config[status] || config.requested;
   return (
@@ -68,18 +68,18 @@ const getResultFlag = (value: number | string, normalRange?: string): { flag: st
   if (isNaN(numValue)) return { flag: '', color: 'text-gray-600' };
 
   const operator = rangeMatch[1];
-  const low  = parseFloat(rangeMatch[2]);
+  const low = parseFloat(rangeMatch[2]);
   const high = rangeMatch[3] ? parseFloat(rangeMatch[3]) : undefined;
 
   if (operator === '>') return numValue > low
     ? { flag: 'HIGH', color: 'text-red-600' }
-    : { flag: 'NL',   color: 'text-green-600' };
+    : { flag: 'NL', color: 'text-green-600' };
   if (operator === '<') return numValue < low
     ? { flag: 'LOW', color: 'text-yellow-600' }
-    : { flag: 'NL',  color: 'text-green-600' };
+    : { flag: 'NL', color: 'text-green-600' };
   if (high !== undefined) {
     if (numValue > high) return { flag: 'HIGH', color: 'text-red-600' };
-    if (numValue < low)  return { flag: 'LOW',  color: 'text-yellow-600' };
+    if (numValue < low) return { flag: 'LOW', color: 'text-yellow-600' };
     return { flag: 'NL', color: 'text-green-600' };
   }
   return { flag: '', color: 'text-gray-600' };
@@ -90,13 +90,13 @@ const computeParamFlag = (param: any): { flag: string; color: string } => {
   if (fieldType && fieldType !== 'number') return { flag: '', color: 'text-gray-600' };
   if (value === '' || value === null || value === undefined) return { flag: '', color: 'text-gray-600' };
 
-  const num    = typeof value === 'number' ? value : parseFloat(value);
+  const num = typeof value === 'number' ? value : parseFloat(value);
   const hasLow = typeof lowThreshold === 'number';
   const hasHigh = typeof highThreshold === 'number';
 
   if (!isNaN(num) && (hasLow || hasHigh)) {
-    if (hasLow  && num < lowThreshold)  return { flag: 'LOW',  color: 'text-yellow-600' };
-    if (hasHigh && num > highThreshold) return { flag: 'HIGH', color: 'text-red-600'    };
+    if (hasLow && num < lowThreshold) return { flag: 'LOW', color: 'text-yellow-600' };
+    if (hasHigh && num > highThreshold) return { flag: 'HIGH', color: 'text-red-600' };
     return { flag: 'NL', color: 'text-green-600' };
   }
   return getResultFlag(value, normalRange);
@@ -111,16 +111,16 @@ const buildParametersForTest = (test: any): any[] => {
     return template.map((f: any) => {
       const prior = saved.find((p) => (p.fieldName && p.fieldName === f.fieldName) || p.name === f.label);
       return {
-        fieldName:    f.fieldName,
-        name:         f.label || f.fieldName,
-        fieldType:    f.fieldType || 'text',
-        options:      f.options || undefined,
-        unit:         f.unit || '',
-        normalRange:  prior?.normalRange ?? (f.referenceRange || ''),
-        lowThreshold: typeof f.lowThreshold  === 'number' ? f.lowThreshold  : undefined,
+        fieldName: f.fieldName,
+        name: f.label || f.fieldName,
+        fieldType: f.fieldType || 'text',
+        options: f.options || undefined,
+        unit: f.unit || '',
+        normalRange: prior?.normalRange ?? (f.referenceRange || ''),
+        lowThreshold: typeof f.lowThreshold === 'number' ? f.lowThreshold : undefined,
         highThreshold: typeof f.highThreshold === 'number' ? f.highThreshold : undefined,
-        value:        prior?.value ?? '',
-        required:     f.fieldType === 'number',
+        value: prior?.value ?? '',
+        required: f.fieldType === 'number',
       };
     });
   }
@@ -258,41 +258,41 @@ const MultiParameterResultForm: React.FC<{
 // ═════════════════════════════════════════════════════════════════════════════
 
 export default function LabResultEntry() {
-  const navigate  = useNavigate();
-  const { id }    = useParams<{ id: string }>();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [isLoading,              setIsLoading]              = useState(true);
-  const [refreshing,             setRefreshing]             = useState(false);
-  const [selectedPatientId,      setSelectedPatientId]      = useState('');
-  const [selectedAttendanceId,   setSelectedAttendanceId]   = useState('');
-  const [isSubmitting,           setIsSubmitting]           = useState(false);
-  const [showLabModal,           setShowLabModal]           = useState(false);
-  const [resultEntryTest,        setResultEntryTest]        = useState<any>(null);
-  const [isMultiParamModalOpen,  setIsMultiParamModalOpen]  = useState(false);
-  const [printingId,             setPrintingId]             = useState<string | null>(null);
-  const [showSendResult,         setShowSendResult]         = useState(false);
-  const [sendResultTest,         setSendResultTest]         = useState<any>(null);  // which test to send
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLabModal, setShowLabModal] = useState(false);
+  const [resultEntryTest, setResultEntryTest] = useState<any>(null);
+  const [isMultiParamModalOpen, setIsMultiParamModalOpen] = useState(false);
+  const [printingId, setPrintingId] = useState<string | null>(null);
+  const [showSendResult, setShowSendResult] = useState(false);
+  const [sendResultTest, setSendResultTest] = useState<any>(null);  // which test to send
 
   // Single-result form fields
-  const [result,      setResult]      = useState('');
+  const [result, setResult] = useState('');
   const [normalRange, setNormalRange] = useState('');
-  const [units,       setUnits]       = useState('');
-  const [notes,       setNotes]       = useState('');
+  const [units, setUnits] = useState('');
+  const [notes, setNotes] = useState('');
 
   // ── Stores ─────────────────────────────────────────────────────────────────
   const { attendances, getAttendances, updateLabTestStatus } = useAttendanceStore();
-  const { patients, loadPatients, fetchPatient }             = usePatientStore();
-  const { user }                                             = useAuthStore();
-  const { labTestTemplates, getLabTestTemplates }            = useMedicalServicesStore();
+  const { patients, loadPatients, fetchPatient } = usePatientStore();
+  const { user } = useAuthStore();
+  const { labTestTemplates, getLabTestTemplates } = useMedicalServicesStore();
 
-  const [patient,        setPatient]        = useState<any>(null);
-  const [attendance,     setAttendance]     = useState<any>(null);
+  const [patient, setPatient] = useState<any>(null);
+  const [attendance, setAttendance] = useState<any>(null);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
-  const [labTests,       setLabTests]       = useState<any[]>([]);
+  const [labTests, setLabTests] = useState<any[]>([]);
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const loadData = async () => {
@@ -300,8 +300,8 @@ export default function LabResultEntry() {
       setRefreshing(true);
       await Promise.all([loadPatients(), getLabTestTemplates(false)]);
 
-      const statePatient       = location.state?.patient;
-      const patientId          = statePatient?.id || id;
+      const statePatient = location.state?.patient;
+      const patientId = statePatient?.id || id;
       const initialAttendanceId = location.state?.attendanceId;
 
       if (patientId) {
@@ -376,7 +376,7 @@ export default function LabResultEntry() {
     setNotes(test.notes || '');
 
     const template = test?.LabTestTemplate?.resultTemplate || test?.resultTemplate;
-    const hasTemplate   = Array.isArray(template) && template.length > 0;
+    const hasTemplate = Array.isArray(template) && template.length > 0;
     const hasSavedParams = test?.result && typeof test.result === 'object'
       && Array.isArray(test.result.parameters) && test.result.parameters.length > 0;
 
@@ -412,7 +412,7 @@ export default function LabResultEntry() {
 
   const handleSingleResultSubmit = async () => {
     if (!resultEntryTest || !result.trim()) { toastError('Result missing', 'Please enter test result'); return; }
-    if (!selectedAttendanceId)              { toastError('Error', 'No attendance selected'); return; }
+    if (!selectedAttendanceId) { toastError('Error', 'No attendance selected'); return; }
     setIsSubmitting(true);
     try {
       await updateLabTestStatus(selectedAttendanceId, resultEntryTest.id, {
@@ -448,11 +448,11 @@ export default function LabResultEntry() {
 
       const html = generatePDF('labResults', {
         labTests: [{
-          testName:    getTestName(test),
-          parameters:  resultLines,
+          testName: getTestName(test),
+          parameters: resultLines,
           completedAt: test.completedAt,
-          notes:       test.notes || '',
-          priority:    test.priority || 'routine',
+          notes: test.notes || '',
+          priority: test.priority || 'routine',
           specimenType: test.LabTestTemplate?.specimenType || '',
         }],
         patient: { ...patient, fullName: getPatientName(patient) },
@@ -481,18 +481,18 @@ export default function LabResultEntry() {
           ? parameters
           : [{ name: getTestName(test), value: typeof test.result === 'object' ? test.result?.value : test.result, normalRange: test.normalRange, unit: test.units }];
         return {
-          testName:    getTestName(test),
-          parameters:  resultLines,
+          testName: getTestName(test),
+          parameters: resultLines,
           completedAt: test.completedAt,
-          notes:       test.notes || '',
-          priority:    test.priority || 'routine',
+          notes: test.notes || '',
+          priority: test.priority || 'routine',
           specimenType: test.LabTestTemplate?.specimenType || '',
         };
       });
 
       const html = generatePDF('labResults', {
         labTests: labTestsData,
-        patient:  { ...patient, fullName: getPatientName(patient) },
+        patient: { ...patient, fullName: getPatientName(patient) },
         attendance,
         performedByName: user?.fullName || 'Lab Technician',
       }, hospital);
@@ -513,12 +513,12 @@ export default function LabResultEntry() {
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const canAddEntries    = attendance && ['pending', 'admitted'].includes(attendance.status);
+  const canAddEntries = attendance && ['pending', 'admitted'].includes(attendance.status);
   const canUpdateLabTest = attendance && ['pending', 'admitted'].includes(attendance.status);
 
-  const pendingTests    = labTests.filter(t => t.status === 'requested');
+  const pendingTests = labTests.filter(t => t.status === 'requested');
   const inProgressTests = labTests.filter(t => t.status === 'in_progress');
-  const completedTests  = labTests.filter(t => t.status === 'completed');
+  const completedTests = labTests.filter(t => t.status === 'completed');
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -553,7 +553,7 @@ export default function LabResultEntry() {
   );
 
   const patientFullName = getPatientName(patient);
-  const patientAge      = patient.age || calculateAge(patient.dateOfBirth);
+  const patientAge = patient.age || calculateAge(patient.dateOfBirth);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -690,9 +690,9 @@ export default function LabResultEntry() {
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { count: pendingTests.length,    label: 'Pending Tests', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
-              { count: inProgressTests.length, label: 'In Progress',   color: 'text-blue-600',   bg: 'bg-blue-100',   Icon: Activity },
-              { count: completedTests.length,  label: 'Completed',     color: 'text-green-600',  bg: 'bg-green-100',  Icon: CheckCircle },
+              { count: pendingTests.length, label: 'Pending Tests', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
+              { count: inProgressTests.length, label: 'In Progress', color: 'text-blue-600', bg: 'bg-blue-100', Icon: Activity },
+              { count: completedTests.length, label: 'Completed', color: 'text-green-600', bg: 'bg-green-100', Icon: CheckCircle },
             ].map(s => (
               <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center justify-between">
@@ -707,16 +707,6 @@ export default function LabResultEntry() {
               </div>
             ))}
           </div>
-
-          {/* Request new test */}
-          {canAddEntries && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-              <button onClick={() => setShowLabModal(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium">
-                <Plus className="w-4 h-4" /> Request Laboratory Test
-              </button>
-            </div>
-          )}
 
           {/* ── PENDING TESTS ──────────────────────────────────────────────── */}
           {pendingTests.length > 0 && (
@@ -739,9 +729,9 @@ export default function LabResultEntry() {
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {pendingTests.map(test => {
-                      const priorityCls = test.priority === 'stat'   ? 'bg-red-100 text-red-700'    :
-                                          test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
-                                                                        'bg-blue-100 text-blue-700';
+                      const priorityCls = test.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                        test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
+                          'bg-blue-100 text-blue-700';
                       return (
                         <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
                           <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{getTestName(test)}</td>
@@ -834,7 +824,7 @@ export default function LabResultEntry() {
               <div className="max-h-[600px] overflow-y-auto divide-y divide-[var(--border-color)]">
                 {completedTests.map(test => {
                   const hasParameters = test.result && typeof test.result === 'object' && test.result.parameters;
-                  const parameters    = hasParameters ? test.result.parameters : [];
+                  const parameters = hasParameters ? test.result.parameters : [];
 
                   return (
                     <div key={test.id}>
@@ -899,11 +889,10 @@ export default function LabResultEntry() {
                                     <td className="px-4 py-2 text-[var(--text-secondary)]">{param.normalRange || '—'}</td>
                                     <td className="px-4 py-2">
                                       {flagInfo.flag && (
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                          flagInfo.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
-                                          flagInfo.flag === 'LOW'  ? 'bg-yellow-100 text-yellow-700' :
-                                                                     'bg-green-100 text-green-700'
-                                        }`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagInfo.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                            flagInfo.flag === 'LOW' ? 'bg-yellow-100 text-yellow-700' :
+                                              'bg-green-100 text-green-700'
+                                          }`}>
                                           {flagInfo.flag}
                                         </span>
                                       )}
@@ -937,11 +926,10 @@ export default function LabResultEntry() {
                                   test.normalRange
                                 );
                                 return fi.flag ? (
-                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                    fi.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
-                                    fi.flag === 'LOW'  ? 'bg-yellow-100 text-yellow-700' :
-                                                         'bg-green-100 text-green-700'
-                                  }`}>{fi.flag}</span>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${fi.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                      fi.flag === 'LOW' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-green-100 text-green-700'
+                                    }`}>{fi.flag}</span>
                                 ) : <span className="text-[var(--text-secondary)]">—</span>;
                               })()}
                             </div>

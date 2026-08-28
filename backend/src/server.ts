@@ -28,13 +28,55 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Logging
 app.use(morgan('combined'));
 
-// Static files
+// Static files (uploads)
 app.use('/uploads', express.static('uploads'));
+
+// ── Production: serve the built frontend from the same Express server ──────
+// When packaged as Electron app (ELECTRON=true), main.cjs loads the UI from
+// http://127.0.0.1:5000 — so Express must serve the Vite dist/ files too.
+if (process.env.ELECTRON === 'true' && process.env.NODE_ENV === 'production') {
+  import('path').then(({ default: pathModule }) => {
+    import('url').then(({ fileURLToPath }) => {
+      import('fs').then(({ default: fsModule }) => {
+        // In packaged app: resources/backend/server.js → resources/frontend/dist
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = pathModule.dirname(__filename);
+        const frontendDist = pathModule.join(__dirname, '..', 'frontend', 'dist');
+        if (fsModule.existsSync(frontendDist)) {
+          app.use(express.static(frontendDist));
+          console.log(`🌐 Serving frontend from: ${frontendDist}`);
+        } else {
+          console.warn('⚠️  Frontend dist not found at:', frontendDist);
+        }
+      });
+    });
+  });
+}
 
 // API routes
 app.use('/api', routes);
 
-// Replace the 404 handler with this:
+// SPA fallback — for production Electron, serve index.html for all non-API/asset routes
+// This enables React Router's client-side routing to work correctly.
+if (process.env.ELECTRON === 'true' && process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return next();
+    }
+    import('path').then(({ default: p }) => {
+      import('url').then(({ fileURLToPath }) => {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = p.dirname(__filename);
+        const indexHtml = p.join(__dirname, '..', 'frontend', 'dist', 'index.html');
+        res.sendFile(indexHtml, (err) => {
+          if (err) next();
+        });
+      });
+    });
+  });
+}
+
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,

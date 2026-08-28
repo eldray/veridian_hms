@@ -39,3 +39,6 @@ HUBTEL_SMS_URL=https://sms.hubtel.com/v1/messages/send
 # WhatsApp (needs a provisioned WhatsApp Business number + Meta-approved templates on Hubtel)
 HUBTEL_WHATSAPP_URL=
 HUBTEL_WHATSAPP_FROM=
+
+
+cd desktop/hms/veridian_hms
