@@ -62,21 +62,21 @@ const checkDatabaseHasData = async (): Promise<boolean> => {
 
 // Helper to handle errors and continue seeding with retry logic
 const safeSeed = async (
-  name: string, 
-  seedFn: () => Promise<any>, 
+  name: string,
+  seedFn: () => Promise<any>,
   force: boolean,
   stepKey: keyof SeedingStatus,
   status: SeedingStatus
 ): Promise<{ success: boolean; error?: string; data?: any }> => {
   console.log(`\n📚 STEP: ${name}`);
   console.log('-----------------------------------');
-  
+
   // Skip if already seeded and not forcing
   if (status[stepKey] && !force) {
     console.log(`ℹ️ ${name} already seeded successfully. Use --force to reseed.`);
     return { success: true, data: { skipped: true, message: 'Already seeded' } };
   }
-  
+
   try {
     const result = await seedFn();
     console.log(`✅ ${name}: successful`);
@@ -89,7 +89,7 @@ const safeSeed = async (
     // Mark as failed in status
     status[stepKey] = false;
     saveSeedingStatus(status);
-    
+
     if (force) {
       console.log(`⚠️ Continuing despite error in ${name} (force mode enabled)...`);
       return { success: false, error: error.message };
@@ -102,10 +102,10 @@ export const seedDatabase = async (force: boolean = false) => {
   console.log('🏥 Starting comprehensive database initialization...');
   console.log('==================================================');
   console.log(`🔧 Force mode: ${force ? 'ENABLED (will reseed all)' : 'DISABLED (will skip existing)'}`);
-  
+
   // ✅ FIX: Check if database already has real data
   const hasRealData = await checkDatabaseHasData();
-  
+
   if (hasRealData && !force) {
     console.log('✅ Database already has real patient data. Skipping seeding.');
     console.log('💡 Use --force to force reseed (WARNING: will delete existing test data only)');
@@ -115,10 +115,10 @@ export const seedDatabase = async (force: boolean = false) => {
       skipped: true
     };
   }
-  
+
   // Load seeding status
   let status = loadSeedingStatus();
-  
+
   const results = {
     coreData: null as any,
     diagnosisLinks: null as any,
@@ -127,7 +127,7 @@ export const seedDatabase = async (force: boolean = false) => {
     maternityData: null as any,
     errors: [] as string[]
   };
-  
+
   try {
     // ========== STEP 1: CORE DATA ==========
     console.log('\n📚 STEP 1: Core Data Seeding');
@@ -138,10 +138,10 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Service Catalog');
     console.log('   - Stock Items');
     console.log('   - Wards & Beds');
-    
+
     const coreResult = await safeSeed('Core Data', () => seedCoreData(force), force, 'coreData', status);
     results.coreData = coreResult;
-    
+
     // If core data failed and not in force mode, stop
     if (!coreResult.success && !force) {
       throw new Error('Core data seeding failed. Use --force to continue anyway.');
@@ -151,7 +151,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('\n🔗 STEP 2: Diagnosis ↔ GDRG Linking');
     console.log('-----------------------------------');
     console.log('   Mapping ICD-10 codes to GDRG tariffs...');
-    
+
     const diagResult = await safeSeed('Diagnosis-GDRG Links', seedDiagnosisGDRGLinks, force, 'diagnosisLinks', status);
     results.diagnosisLinks = diagResult;
     if (!diagResult.success) results.errors.push('Diagnosis-GDRG links: failed');
@@ -160,7 +160,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('\n🔗 STEP 3: Procedure ↔ GDRG Linking');
     console.log('-----------------------------------');
     console.log('   Mapping procedure codes to GDRG tariffs...');
-    
+
     const procResult = await safeSeed('Procedure-GDRG Links', seedProcedureGDRGLinks, force, 'procedureLinks', status);
     results.procedureLinks = procResult;
     if (!procResult.success) results.errors.push('Procedure-GDRG links: failed');
@@ -177,13 +177,13 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Admissions');
     console.log('   - Appointments');
     console.log('   - Notifications');
-    
+
     // ✅ FIX: Only delete test data if force is true
     if (force) {
       console.log('🗑️ Cleaning existing test data before reseed...');
-      await deleteTestData(true).catch(() => {});
+      await deleteTestData(true).catch(() => { });
     }
-    
+
     const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
     results.testData = testResult;
     if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
@@ -201,17 +201,17 @@ export const seedDatabase = async (force: boolean = false) => {
       console.log('✅ DATABASE INITIALIZATION COMPLETED SUCCESSFULLY');
       console.log('==================================================');
     }
-    
+
     console.log('\nSummary:');
     console.log(`   Core Data         : ${results.coreData?.success ? '✅ seeded' : (results.coreData?.data?.skipped ? '⏭️ already existed' : '❌ failed')}`);
     console.log(`   Diagnosis Links   : ${results.diagnosisLinks?.success ? '✅ created' : (results.diagnosisLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Procedure Links   : ${results.procedureLinks?.success ? '✅ created' : (results.procedureLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Test Data         : ${results.testData?.success ? '✅ seeded' : (results.testData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
     console.log(`   Maternity Data    : ${results.maternityData?.success ? '✅ seeded' : (results.maternityData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
-    
+
     // Save final status
     saveSeedingStatus(status);
-    
+
     return {
       success: results.errors.length === 0,
       partial: results.errors.length > 0,
@@ -243,16 +243,16 @@ export const seedDatabase = async (force: boolean = false) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const force = process.argv.includes('--force');
   const reset = process.argv.includes('--reset');
-  
+
   if (reset) {
     console.log('🗑️ Resetting seeding status...');
     if (fs.existsSync(STATUS_PATH)) {
       fs.unlinkSync(STATUS_PATH);
     }
     console.log('✅ Status reset. Run without --reset to seed.');
-    process.exit(0);
+    process.exit(0);   // ← exits HERE
   }
-  
+
   seedDatabase(force)
     .then((result) => {
       if (result.success) {
