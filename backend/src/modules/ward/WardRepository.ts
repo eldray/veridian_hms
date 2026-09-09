@@ -22,7 +22,7 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
 
     // ✅ FIXED: Prisma doesn't support comparing two fields directly. Filter in memory.
     if (hasAvailableBeds) {
-      return wards.filter(w => w.totalBeds > w.occupiedBeds);
+      return wards.filter((w: any) => w.totalBeds > w.occupiedBeds);
     }
     
     return wards;
@@ -70,16 +70,16 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
     });
     
     const totalWards = wards.length;
-    const activeWards = wards.filter(w => w.isActive).length;
-    const totalBeds = wards.reduce((sum, w) => sum + w.totalBeds, 0);
-    const occupiedBeds = wards.reduce((sum, w) => sum + w.occupiedBeds, 0);
+    const activeWards = wards.filter((w: any) => w.isActive).length;
+    const totalBeds = wards.reduce((sum: number, w: any) => sum + w.totalBeds, 0);
+    const occupiedBeds = wards.reduce((sum: number, w: any) => sum + w.occupiedBeds, 0);
     
-    const totalNHISCovered = wards.filter(w => w.isNHISCovered).length;
-    const totalPrivateInsuranceCovered = wards.filter(w => !w.isPrivateInsExempted).length;
-    const totalCashOnly = wards.filter(w => !w.isNHISCovered && w.isPrivateInsExempted).length;
+    const totalNHISCovered = wards.filter((w: any) => w.isNHISCovered).length;
+    const totalPrivateInsuranceCovered = wards.filter((w: any) => !w.isPrivateInsExempted).length;
+    const totalCashOnly = wards.filter((w: any) => !w.isNHISCovered && w.isPrivateInsExempted).length;
     
     // ✅ FIXED: Safely parse Decimals before math
-    const avgCashRate = wards.reduce((sum, w) => sum + toNumber(w.dailyCashRate), 0) / (wards.length || 1);
+    const avgCashRate = wards.reduce((sum: number, w: any) => sum + toNumber(w.dailyCashRate), 0) / (wards.length || 1);
     const revenueAtFullOccupancy = totalBeds * avgCashRate;
     
     return {

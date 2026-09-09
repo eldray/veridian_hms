@@ -20,7 +20,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
             select: {
               id: true, name: true, code: true,
               // ✅ FIXED: Fetch only active pricing for 1-to-N relationship
-              pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } }
+              pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' as const } }
             }
           }
         }
@@ -81,7 +81,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
     return this.normalize(found);
   }
 
-  async findMany(filters: any) {
+  async findManyInvoices(filters: any) {
     const { patientId, corporateAccountId, status, attendanceId, fromDate, toDate, page = 1, limit = 20 } = filters;
     const where: any = {};
 

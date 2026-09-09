@@ -369,7 +369,7 @@ ${claimsXml}
 
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId,
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
           totalClaimAmount: tariff.nhiaTariff, status: 'draft', createdById: userId,
           diagnosisCodes: [pd.Diagnosis?.icdCode].filter(Boolean),
           labTestCodes: att.LabTest.map(l => l.ServiceCatalog?.nhisServiceCode).filter(Boolean),
@@ -385,7 +385,6 @@ ${claimsXml}
         }
       });
 
-      await tx.attendance.update({ where: { id: attendanceId }, data: { insuranceClaimId: claim.id } });
       return { claim, gdrgDetails: tariff, isExisting: false };
     });
   }
@@ -431,7 +430,7 @@ ${claimsXml}
       const claimNumber = `PVT-${getCounterService().nextPrivateClaimNumber()}`;
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId,
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
           totalClaimAmount: att.Bill?.totalAmount || 0, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
@@ -442,7 +441,6 @@ ${claimsXml}
         }
       });
 
-      await tx.attendance.update({ where: { id: attendanceId }, data: { insuranceClaimId: claim.id } });
       return { claim, isExisting: false };
     });
   }
@@ -490,8 +488,10 @@ ${claimsXml}
       if (!corp || !corp.isActive) throw new Error('Corporate account inactive');
 
       // ✅ FIXED: Decimal math for credit limit
-      const outstanding = await tx.insuranceClaim.aggregate({ where: { insuranceProviderId: att.insuranceProviderId, corporateAccountId: att.corporateAccountId, status: { in: ['submitted', 'approved'] } }, _sum: { totalClaimAmount: true } });
-      const currentBal = toNumber(outstanding._sum.totalClaimAmount);
+      const whereCond: any = { corporateAccountId: att.corporateAccountId, status: { in: ['submitted', 'approved'] } };
+      if (att.insuranceProviderId) whereCond.insuranceProviderId = att.insuranceProviderId;
+      const outstanding = await tx.insuranceClaim.aggregate({ where: whereCond, _sum: { totalClaimAmount: true } });
+      const currentBal = toNumber(outstanding._sum?.totalClaimAmount);
       const claimAmt = toNumber(att.Bill?.totalAmount);
       const projected = currentBal + claimAmt;
       const limit = toNumber(corp.creditLimit);
@@ -501,7 +501,7 @@ ${claimsXml}
       const claimNumber = `CORP-${getCounterService().nextCorporateClaimNumber()}`;
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId, corporateAccountId: att.corporateAccountId,
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId || corp.insuranceProviderId || 'default', corporateAccountId: att.corporateAccountId,
           totalClaimAmount: claimAmt, status: 'submitted', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
@@ -513,7 +513,6 @@ ${claimsXml}
         }
       });
 
-      await tx.attendance.update({ where: { id: attendanceId }, data: { insuranceClaimId: claim.id } });
       return { claim, isExisting: false, creditInfo: { currentBalance: currentBal, projectedBalance: projected, limit } };
     });
   }

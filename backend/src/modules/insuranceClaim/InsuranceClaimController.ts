@@ -135,7 +135,7 @@ export class InsuranceClaimController extends BaseController {
   // ==========================================
   generateCorporateClaim = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.service.generateCorporateClaim(req.body.attendanceId, req.user!.id);
-    return this.created(res, result.claim, result.isExisting ? 'Corporate claim already exists' : 'Corporate claim generated', result.creditInfo);
+    return this.ok(res, result.claim, result.isExisting ? 'Corporate claim already exists' : 'Corporate claim generated', result.creditInfo);
   });
 
   getCorporateClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {

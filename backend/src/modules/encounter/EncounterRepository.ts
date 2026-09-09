@@ -27,8 +27,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         nhisCCC: data.nhisCCC,
         insuranceProviderId: data.insuranceProviderId,
         
-        // ✅ FIXED: Use complaints field directly (not medicalNotes)
-        complaints: data.complaint || data.complaints || '', 
+        // ✅ FIXED: Use complaint field directly (not complaints)
+        complaints: data.complaint || '', 
         medicalNotes: data.medicalNotes || '', // Keep this separate
         
         status: 'pending',
@@ -59,10 +59,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async findManyEncounters(filters: EncounterFilters) {
-    const { patientId, encounterType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const { patientId, attendanceType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (patientId) where.patientId = patientId;
-    if (encounterType) where.attendanceType = encounterType;
+    if (attendanceType) where.attendanceType = attendanceType;
     if (status) where.status = status;
     if (paymentMode) where.paymentMode = paymentMode;
     if (dateFrom || dateTo) {
@@ -155,7 +155,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const med = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
       if (!med) throw new Error('Medication not found');
-      if (med.stockItemId && med.StockItem.currentStock < quantity) throw new Error('Insufficient stock');
+      if (med.stockItemId && med.StockItem && med.StockItem.currentStock < quantity) throw new Error('Insufficient stock');
 
       // Update medication status
       const updatedMed = await tx.medication.update({
@@ -164,7 +164,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
 
       // Deduct stock safely
-      if (med.stockItemId) {
+      if (med.stockItemId && med.StockItem) {
         await tx.stockItem.update({
           where: { id: med.stockItemId },
           data: { currentStock: { decrement: quantity } }
@@ -253,7 +253,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const template = await this.prisma.scanTemplate.findUnique({ where: { id: data.templateId } });
     if (!template) throw new Error('Scan template not found');
     return this.prisma.scan.create({
-      data: { attendanceId: encounterId, templateId: template.id, serviceCatalogId: data.serviceCatalogId, scanType: template.scanType || template.name, description: template.description, bodyPart: data.bodyPart, status: 'requested', priority: data.priority || 'routine', requestedAt: new Date(), createdById: userId, notes: data.notes },
+      data: { attendanceId: encounterId, templateId: template.id, serviceCatalogId: data.serviceCatalogId, scanType: template.scanType || template.name, description: template.description, bodyPart: data.bodyPart, status: 'requested', priority: data.priority || 'routine', requestedAt: new Date(), createdById: userId },
       include: { ScanTemplate: true }
     });
   }
@@ -495,8 +495,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const group = groupedByAttendance.get(attendanceId)!; group.scans.push(scan);
       if (scan.status === 'requested') group.requestedCount++; else if (scan.status === 'in_progress') group.inProgressCount++; else if (scan.status === 'completed') group.completedCount++;
       if (new Date(scan.requestedAt) < new Date(group.oldestRequestedAt)) group.oldestRequestedAt = scan.requestedAt;
-      let priorityWeight = scan.priority === 'stat' ? 3 : scan.priority === 'urgent' ? 2 : 1;
-      let currentWeight = group.highestPriority === 'stat' ? 3 : group.highestPriority === 'urgent' ? 2 : 1;
+      let priorityWeight = (scan.priority as string) === 'stat' ? 3 : scan.priority === 'urgent' ? 2 : 1;
+      let currentWeight = (group.highestPriority as string) === 'stat' ? 3 : group.highestPriority === 'urgent' ? 2 : 1;
       if (priorityWeight > currentWeight) group.highestPriority = scan.priority || 'routine';
     }
     const processedItems: any[] = [];

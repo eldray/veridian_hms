@@ -1,4 +1,4 @@
-import stockTransactionRoutes from './stockTransaction.routes';
+import stockTransactionRoutes from './StockTransactionRoutes';
 
 export { stockTransactionRoutes };
 

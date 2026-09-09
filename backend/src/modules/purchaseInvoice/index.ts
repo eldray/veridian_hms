@@ -1,6 +1,6 @@
 // PurchaseInvoice Module Index
-export { PurchaseInvoiceController } from './purchaseInvoice.controller';
-export { PurchaseInvoiceService } from './purchaseInvoice.service';
-export { PurchaseInvoiceRepository } from './purchaseInvoice.repository';
-export { createPurchaseInvoiceRoutes } from './purchaseInvoice.routes';
-export * from './purchaseInvoice.types';
+export { PurchaseInvoiceController } from './PurchaseInvoiceController';
+export { PurchaseInvoiceService } from './PurchaseInvoiceService';
+export { PurchaseInvoiceRepository } from './PurchaseInvoiceRepository';
+export { createPurchaseInvoiceRoutes } from './PurchaseInvoiceRoutes';
+export * from './PurchaseInvoiceTypes';

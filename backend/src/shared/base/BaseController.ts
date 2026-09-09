@@ -35,13 +35,13 @@ export abstract class BaseController {
     // Handle Prisma Known Request Errors
     if (err.code === 'P2002') {
       const fields = err.meta?.target?.join(', ') || 'field';
-      return this.badRequest(`Duplicate entry. The ${fields} must be unique.`);
+      return this.badRequest(res, `Duplicate entry. The ${fields} must be unique.`);
     }
     if (err.code === 'P2025') {
-      return this.notFound('Record');
+      return this.notFound(res, 'Record');
     }
     if (err.code === 'P2003') {
-      return this.badRequest('Invalid reference: The related record does not exist.');
+      return this.badRequest(res, 'Invalid reference: The related record does not exist.');
     }
 
     const status = err.status || err.statusCode || 500;
@@ -84,8 +84,8 @@ export abstract class BaseController {
   }
 
   protected getCurrentUser(req: Request): { userId: string; role: string } | null {
-    if (!req.user) return null;
-    const user = req.user as any;
+    const user = (req as any).user;
+    if (!user) return null;
     return { userId: user.id || user.userId, role: user.role };
   }
 

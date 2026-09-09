@@ -1,4 +1,4 @@
-import waiverRoutes from './waiver.routes';
+import waiverRoutes from './WaiverRoutes';
 
 export { waiverRoutes };
 

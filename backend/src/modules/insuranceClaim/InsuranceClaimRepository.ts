@@ -142,7 +142,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
           include: {
             InsuranceProvider: true,
             Patient: true,
-            Attendance: true,
+            attendance: true,
             Bill: true
           }
         },

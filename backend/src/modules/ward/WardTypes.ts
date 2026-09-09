@@ -94,3 +94,11 @@ export interface WardChargeCalculation {
   totalAmount: number;
   paymentMode: PaymentMode;
 }
+
+export interface WardStats {
+  totalWards: number;
+  totalBeds: number;
+  occupiedBeds: number;
+  availableBeds: number;
+  occupancyRate: number;
+}

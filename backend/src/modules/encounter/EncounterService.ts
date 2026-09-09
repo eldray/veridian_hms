@@ -277,7 +277,7 @@ export class EncounterService extends BaseService {
   // ============================================
   // PHARMACY (FIXED RACE CONDITION)
   // ============================================
-  async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string) {
+  async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
       if (!medication || medication.status !== 'prescribed') throw new ValidationError('Medication not found or not prescribed');
@@ -290,7 +290,7 @@ export class EncounterService extends BaseService {
 
       const updatedMedication = await tx.medication.update({
         where: { id: medicationId },
-        data: { status: 'dispensed', quantity, dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedUnitCost: stockItem.costPrice }
+        data: { status: 'dispensed', quantity, dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, dispensedUnitCost: stockItem.costPrice }
       });
 
       await tx.stockTransaction.create({
@@ -311,7 +311,7 @@ export class EncounterService extends BaseService {
   }
 
   async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
-  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, { ...data, updatedById: userId }); }
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data); }
   async updateEncounterStatus(id: string, status: string) { return this.repository.updateStatus(id, status); }
   async deleteEncounter(id: string) { return this.repository.delete(id); }
   

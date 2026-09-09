@@ -18,7 +18,7 @@ export interface PaginationResult<T> {
 }
 
 export abstract class BaseRepository<Model, CreateDTO, UpdateDTO> {
-  protected prisma: PrismaClient;
+  public prisma: PrismaClient;
   protected modelName: string;
 
   constructor(prisma: PrismaClient, modelName: string) {
@@ -29,7 +29,7 @@ export abstract class BaseRepository<Model, CreateDTO, UpdateDTO> {
   /**
    * ✅ PRODUCTION FIX: Get model delegate, optionally using a transaction client
    */
-  protected getModel(tx?: any): any {
+  public getModel(tx?: any): any {
     return tx ? tx[this.modelName] : (this.prisma as any)[this.modelName];
   }
 

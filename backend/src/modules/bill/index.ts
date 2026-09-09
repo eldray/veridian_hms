@@ -1,4 +1,4 @@
-export { default as BillRoutes } from './BillRoutes';
+export { createBillRoutes } from './BillRoutes';
 export { BillController, billController } from './BillController';
 export { BillService } from './BillService';
 export { BillRepository } from './BillRepository';

@@ -1,4 +1,4 @@
-import settingsRoutes from './settings.routes';
+import settingsRoutes from './SettingsRoutes';
 
 export { settingsRoutes };
 

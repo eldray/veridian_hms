@@ -150,6 +150,45 @@ export class CounterService {
   }
 
   // ============================================
+  // ADDITIONAL SEQUENCE GENERATORS
+  // ============================================
+  nextBillNumber(): string {
+    return `BILL-${++attendanceCounter}`;
+  }
+
+  nextProformaNumber(): string {
+    return `PRO-${++attendanceCounter}`;
+  }
+
+  nextAdmissionNumber(): string {
+    return `ADM-${++attendanceCounter}`;
+  }
+
+  nextBatchNumber(): string {
+    return `BATCH-${Date.now().toString().slice(-6)}-${++receiptCounter}`;
+  }
+
+  nextNHISClaimNumber(): string {
+    return `NHIS-${++attendanceCounter}`;
+  }
+
+  nextPrivateClaimNumber(): string {
+    return `PRIV-${++attendanceCounter}`;
+  }
+
+  nextCorporateClaimNumber(): string {
+    return `CORP-${++attendanceCounter}`;
+  }
+
+  nextRequisitionNumber(): string {
+    return `REQ-${Date.now().toString().slice(-6)}`;
+  }
+
+  nextTransferNumber(): string {
+    return `TRN-${Date.now().toString().slice(-6)}`;
+  }
+
+  // ============================================
   // HELPER METHODS
   // ============================================
   extractAttendanceNumber(recordNumber: string): string {

@@ -35,7 +35,7 @@ const generateFilename = (prefix: string, id: string, file: Express.Multer.File)
 const userStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'users')),
   filename: (req, file, cb) => {
-    const userId = req.user?.id || req.params.id || 'unknown';
+    const userId = (req as any).user?.id || req.params.id || 'unknown';
     cb(null, generateFilename('user', userId, file));
   }
 });
@@ -73,7 +73,7 @@ export const uploadScanImages = multer({ storage: scanStorage, fileFilter: image
 export const uploadDocuments = multer({ 
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),
-    filename: (req, file, cb) => cb(null, generateFilename('doc', req.user?.id || 'sys', file))
+    filename: (req, file, cb) => cb(null, generateFilename('doc', (req as any).user?.id || 'sys', file))
   }), 
   fileFilter: documentFileFilter, 
   limits: { fileSize: 5 * 1024 * 1024, files: 3 } 

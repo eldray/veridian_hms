@@ -11,7 +11,7 @@ export class LabTestRepository extends BaseRepository<any, any, any> {
     return {
       where: { isActive: true },
       take: 1,
-      orderBy: { effectiveDate: 'desc' }
+      orderBy: { effectiveDate: 'desc' as const }
     };
   }
 

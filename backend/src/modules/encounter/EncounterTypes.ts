@@ -52,6 +52,7 @@ export interface BaseWorklistItem {
 export interface AddDiagnosisDTO { diagnosisId: string; diagnosisType: 'primary' | 'additional' | 'provisional'; notes?: string; presentOnAdmission?: 'Y' | 'N' | 'U'; }
 export interface AddVitalsDTO { bloodPressure?: string; temperature?: number; pulse?: number; respiration?: number; spo2?: number; weight?: number; height?: number; muac?: number; notes?: string; }
 export interface AddPrescriptionDTO { stockItemId: string; serviceCatalogId: string; dosage: string; frequency: string; duration: string; route?: string; instructions?: string; quantity?: number; }
+export type AddMedicationDTO = AddPrescriptionDTO;
 export interface AddLabTestDTO { templateId: string; serviceCatalogId?: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; }
 export interface AddScanDTO { templateId: string; serviceCatalogId: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; }
 export interface AddProcedureDTO { templateId: string; serviceCatalogId: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; scheduledDate?: Date; performedById?: string; }

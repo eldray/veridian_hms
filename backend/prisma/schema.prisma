@@ -116,11 +116,11 @@ model GeneratedDocument {
 
 model ServicePricing {
   id               String         @id @default(cuid())
-  serviceCatalogId String         // Removed @unique to allow 1-to-N (Historical Pricing)
+  serviceCatalogId String // Removed @unique to allow 1-to-N (Historical Pricing)
   cashPrice        Decimal        @db.Decimal(15, 2)
-  nhisPrice        Decimal        @db.Decimal(15, 2) @default(0)
+  nhisPrice        Decimal        @default(0) @db.Decimal(15, 2)
   insurancePrice   Decimal        @db.Decimal(15, 2)
-  corporatePrice   Decimal        @db.Decimal(15, 2) @default(0)
+  corporatePrice   Decimal        @default(0) @db.Decimal(15, 2)
   vatRate          Float          @default(0)
   isTaxable        Boolean        @default(true)
   effectiveDate    DateTime       @default(now())
@@ -175,7 +175,7 @@ model ServiceCatalog {
   ConsultationType  ConsultationType?  @relation(fields: [consultationTypeId], references: [id])
   GDRGTariff        GDRGTariff?        @relation(fields: [gdrgTariffId], references: [id])
 
-  pricing         ServicePricing[]     // Changed to Array for Historical Pricing
+  pricing         ServicePricing[] // Changed to Array for Historical Pricing
   ServiceRendered ServiceRendered[]
 
   createdAt           DateTime              @default(now())
@@ -230,29 +230,29 @@ model Patient {
   nhisActive     Boolean   @default(false)
   phoneNumber    String?
 
-  Attendance           Attendance[]
+  Attendance             Attendance[]
   // Removed Bed relation to prevent redundancy
-  Bill                 Bill[]
-  InsuranceClaim       InsuranceClaim[]
-  InsuranceProvider    InsuranceProvider?     @relation(fields: [insuranceProviderId], references: [id])
-  Vitals               Vitals[]
-  appointments         Appointment[]
-  NHISEligibilityCheck NHISEligibilityCheck[]
-  ReferralRecord       ReferralRecord[]
-  antenatalBookings    AntenatalBooking[]
-  PatientWaiver        PatientWaiver[]
-  deliveryRecords      DeliveryRecord[]
-  abortionRecords      AbortionRecord[]
-  postnatalRecords     PostnatalRecord[]
-  proformaInvoices     ProformaInvoice[]
+  Bill                   Bill[]
+  InsuranceClaim         InsuranceClaim[]
+  InsuranceProvider      InsuranceProvider?      @relation(fields: [insuranceProviderId], references: [id])
+  Vitals                 Vitals[]
+  appointments           Appointment[]
+  NHISEligibilityCheck   NHISEligibilityCheck[]
+  ReferralRecord         ReferralRecord[]
+  antenatalBookings      AntenatalBooking[]
+  PatientWaiver          PatientWaiver[]
+  deliveryRecords        DeliveryRecord[]
+  abortionRecords        AbortionRecord[]
+  postnatalRecords       PostnatalRecord[]
+  proformaInvoices       ProformaInvoice[]
   familyPlanningServices FamilyPlanningService[]
 
   // NEW: Core EMR Models
-  allergies            PatientAllergy[]
-  medicalHistories     PatientMedicalHistory[]
-  surgicalHistories    PatientSurgicalHistory[]
-  familyHistories      PatientFamilyHistory[]
-  consents             PatientConsent[]
+  allergies         PatientAllergy[]
+  medicalHistories  PatientMedicalHistory[]
+  surgicalHistories PatientSurgicalHistory[]
+  familyHistories   PatientFamilyHistory[]
+  consents          PatientConsent[]
 
   @@index([nhisNumber])
   @@index([phoneNumber])
@@ -268,13 +268,14 @@ model Patient {
 
 // NEW: Core EMR Models
 model PatientAllergy {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   patientId String
   allergen  String
   reaction  String?
   severity  String?
   notes     String?
-  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId])
 }
 
@@ -285,6 +286,7 @@ model PatientMedicalHistory {
   diagnosedAt DateTime?
   notes       String?
   patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId])
 }
 
@@ -295,6 +297,7 @@ model PatientSurgicalHistory {
   surgeryDate DateTime?
   notes       String?
   patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId])
 }
 
@@ -305,19 +308,21 @@ model PatientFamilyHistory {
   condition String
   notes     String?
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId])
 }
 
 model PatientConsent {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   patientId   String
   consentType ConsentType
   status      ConsentStatus
-  grantedAt   DateTime     @default(now())
+  grantedAt   DateTime      @default(now())
   revokedAt   DateTime?
   notes       String?
   documentUrl String?
-  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient     Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId])
 }
 
@@ -388,7 +393,7 @@ model InsurancePlan {
   coveragePercentage  Float
   annualLimit         Decimal?        @db.Decimal(15, 2)
   requiresPreAuth     Boolean         @default(false)
-  coPaymentAmount     Decimal         @db.Decimal(15, 2) @default(0)
+  coPaymentAmount     Decimal         @default(0) @db.Decimal(15, 2)
   coPaymentPercentage Float           @default(0)
   isActive            Boolean         @default(true)
   effectiveDate       DateTime        @default(now())
@@ -445,47 +450,47 @@ model PreAuthorisationRequest {
 // ============================================================
 
 model Attendance {
-  id                     String         @id @default(cuid())
-  attendanceNumber       String         @unique
-  patientId              String
-  insuranceProviderId    String?
-  corporateAccountId     String?
-  bedId                  String?
-  wardId                 String?
-  attendanceType         AttendanceType
-  dateTime               DateTime       @default(now())
-  paymentMode            PaymentMode
-  nhisCCC                String?
-  
+  id                  String         @id @default(cuid())
+  attendanceNumber    String         @unique
+  patientId           String
+  insuranceProviderId String?
+  corporateAccountId  String?
+  bedId               String?
+  wardId              String?
+  attendanceType      AttendanceType
+  dateTime            DateTime       @default(now())
+  paymentMode         PaymentMode
+  nhisCCC             String?
+
   // NHIS Edge Cases
   nhisCCCCode        String?
   nhisCCCGeneratedAt DateTime?
   nhisCCCValidUntil  DateTime?
 
   // ✅ RESTORED: All three clinical note fields serve different purposes
-  complaints        String?          // ✅ Patient's chief complaint (reason for visit)
-  medicalNotes      String?          // ✅ Doctor's clinical notes/observations
-  clinicalNotes     Json?            // ✅ Structured clinical data
-  
+  complaints    String? // ✅ Patient's chief complaint (reason for visit)
+  medicalNotes  String? // ✅ Doctor's clinical notes/observations
+  clinicalNotes Json? // ✅ Structured clinical data
+
   // ✅ RESTORED: Both categories
   encounterCategory EncounterCategory @default(opd)
   visitCategory     VisitCategory     @default(general)
-  
-  gdrgCategory      String?
-  serviceCategory   ServiceCategory?
+
+  gdrgCategory    String?
+  serviceCategory ServiceCategory?
 
   followUpDate DateTime?
 
   // Financial Summary
-  totalBill          Decimal @db.Decimal(15, 2) @default(0)
-  paidAmount         Decimal @db.Decimal(15, 2) @default(0)
-  outstandingBalance Decimal @db.Decimal(15, 2) @default(0)
+  totalBill          Decimal @default(0) @db.Decimal(15, 2)
+  paidAmount         Decimal @default(0) @db.Decimal(15, 2)
+  outstandingBalance Decimal @default(0) @db.Decimal(15, 2)
 
   // Insurance & Pre-Auth
-  preAuthNumber     String?
-  preAuthApproved   Boolean          @default(false)
-  preAuthAmount     Decimal?         @db.Decimal(15, 2)
-  
+  preAuthNumber   String?
+  preAuthApproved Boolean  @default(false)
+  preAuthAmount   Decimal? @db.Decimal(15, 2)
+
   status            AttendanceStatus @default(pending)
   referringFacility String?
   createdById       String
@@ -496,42 +501,42 @@ model Attendance {
   // Corporate Employee Link
   CorporateEmployee   CorporateEmployee? @relation(fields: [corporateEmployeeId], references: [id])
   corporateEmployeeId String?
-  
+
   // Classifications
-  patientClassification   PatientClassification?  
+  patientClassification   PatientClassification?
   diagnosisClassification DiagnosisClassification?
 
   // Relations (same as before)
-  Admission      Admission?      @relation("AttendanceAdmission")
-  Bed            Bed?            @relation(fields: [bedId], references: [id])
-  Ward           Ward?           @relation(fields: [wardId], references: [id])
+  Admission         Admission?         @relation("AttendanceAdmission")
+  Bed               Bed?               @relation(fields: [bedId], references: [id])
+  Ward              Ward?              @relation(fields: [wardId], references: [id])
   InsuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
   CorporateAccount  CorporateAccount?  @relation(fields: [corporateAccountId], references: [id])
   Patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
+
   User_Attendance_createdByIdToUser User  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
   User_Attendance_updatedByIdToUser User? @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
 
-  appointment      Appointment?       @relation 
-  referral         ReferralRecord?    @relation
-  insuranceClaim   InsuranceClaim?    @relation
-  
-  nhisEligibilityChecks NHISEligibilityCheck[] 
+  appointment    Appointment?    @relation
+  referral       ReferralRecord? @relation
+  insuranceClaim InsuranceClaim? @relation
 
-  AttendanceDiagnosis AttendanceDiagnosis[]
-  Bill                Bill?
-  LabTest             LabTest[]
-  Medication          Medication[]
-  Procedure           Procedure[]
-  Scan                Scan[]
-  ServiceRendered     ServiceRendered[]
-  Vitals              Vitals[]
+  nhisEligibilityChecks NHISEligibilityCheck[]
+
+  AttendanceDiagnosis     AttendanceDiagnosis[]
+  Bill                    Bill?
+  LabTest                 LabTest[]
+  Medication              Medication[]
+  Procedure               Procedure[]
+  Scan                    Scan[]
+  ServiceRendered         ServiceRendered[]
+  Vitals                  Vitals[]
   PreAuthorisationRequest PreAuthorisationRequest[]
-  WardChargeRecord    WardChargeRecord[]
-  
+  WardChargeRecord        WardChargeRecord[]
+
   familyPlanningServices   FamilyPlanningService[]
-  antenatalBookings        AntenatalBooking[] @relation("FirstANCAttendance")
-  currentAntenatalBookings AntenatalBooking[] @relation("CurrentANCAttendance")
+  antenatalBookings        AntenatalBooking[]      @relation("FirstANCAttendance")
+  currentAntenatalBookings AntenatalBooking[]      @relation("CurrentANCAttendance")
   antenatalVisits          ANCVisit[]
   deliveryRecords          DeliveryRecord[]
   abortionRecords          AbortionRecord[]
@@ -773,9 +778,9 @@ model Ward {
   tariffCode            String?
   vatRate               Float    @default(0)
   isTaxable             Boolean  @default(true)
-  dailyCashRate         Decimal  @db.Decimal(15, 2) @default(0)
-  dailyNHISRate         Decimal  @db.Decimal(15, 2) @default(0)
-  dailyInsuranceRate    Decimal  @db.Decimal(15, 2) @default(0)
+  dailyCashRate         Decimal  @default(0) @db.Decimal(15, 2)
+  dailyNHISRate         Decimal  @default(0) @db.Decimal(15, 2)
+  dailyInsuranceRate    Decimal  @default(0) @db.Decimal(15, 2)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -789,7 +794,6 @@ model Ward {
 // ============================================================
 // DIAGNOSIS & GDRG (NHIS Claims)
 // ============================================================
-
 
 model GDRGTariff {
   id                String             @id @default(cuid())
@@ -844,7 +848,6 @@ model GDRGTariffDiagnosis {
 // DIAGNOSIS & MORBIDITY (GHS Reporting)
 // ============================================================
 
-
 model Diagnosis {
   id                    String         @id @default(cuid())
   name                  String
@@ -887,7 +890,7 @@ model AttendanceDiagnosis {
   @@index([diagnosisId])
   @@index([diagnosisType])
   @@index([createdAt])
-  @@index([createdAt, diagnosisId]) 
+  @@index([createdAt, diagnosisId])
 }
 
 // ============================================================
@@ -900,15 +903,15 @@ model Bill {
   patientId           String
   attendanceId        String      @unique
   admissionId         String?
-  subtotal            Decimal     @db.Decimal(15, 2) @default(0)
-  discount            Decimal     @db.Decimal(15, 2) @default(0)
-  waiverAmount        Decimal     @db.Decimal(15, 2) @default(0)
-  taxAmount           Decimal     @db.Decimal(15, 2) @default(0)
-  totalAmount         Decimal     @db.Decimal(15, 2) @default(0)
-  insuranceCovered    Decimal     @db.Decimal(15, 2) @default(0)
-  patientPayable      Decimal     @db.Decimal(15, 2) @default(0)
-  paidAmount          Decimal     @db.Decimal(15, 2) @default(0)
-  balance             Decimal     @db.Decimal(15, 2) @default(0)
+  subtotal            Decimal     @default(0) @db.Decimal(15, 2)
+  discount            Decimal     @default(0) @db.Decimal(15, 2)
+  waiverAmount        Decimal     @default(0) @db.Decimal(15, 2)
+  taxAmount           Decimal     @default(0) @db.Decimal(15, 2)
+  totalAmount         Decimal     @default(0) @db.Decimal(15, 2)
+  insuranceCovered    Decimal     @default(0) @db.Decimal(15, 2)
+  patientPayable      Decimal     @default(0) @db.Decimal(15, 2)
+  paidAmount          Decimal     @default(0) @db.Decimal(15, 2)
+  balance             Decimal     @default(0) @db.Decimal(15, 2)
   status              BillStatus  @default(draft)
   paymentMode         PaymentMode
   corporateAccountId  String?
@@ -961,11 +964,11 @@ model BillLineItem {
   unitPrice              Decimal     @db.Decimal(15, 2)
   pricingBasis           PaymentMode
   vatRate                Float       @default(0)
-  vatAmount              Decimal     @db.Decimal(15, 2) @default(0)
+  vatAmount              Decimal     @default(0) @db.Decimal(15, 2)
   lineTotal              Decimal     @db.Decimal(15, 2)
-  insuranceCoveredAmount Decimal     @db.Decimal(15, 2) @default(0)
-  patientPayableAmount   Decimal     @db.Decimal(15, 2) @default(0)
-  discount               Decimal     @db.Decimal(15, 2) @default(0)
+  insuranceCoveredAmount Decimal     @default(0) @db.Decimal(15, 2)
+  patientPayableAmount   Decimal     @default(0) @db.Decimal(15, 2)
+  discount               Decimal     @default(0) @db.Decimal(15, 2)
   pricingSnapshotId      String?
   isVoided               Boolean     @default(false)
   voidedById             String?
@@ -973,9 +976,9 @@ model BillLineItem {
   voidReason             String?
   createdAt              DateTime    @default(now())
 
-  bill           Bill            @relation(fields: [billId], references: [id], onDelete: Cascade)
-  serviceCatalog ServiceCatalog? @relation(fields: [serviceCatalogId], references: [id])
-  voidedBy       User?           @relation("BillLineItem_voidedBy", fields: [voidedById], references: [id])
+  bill             Bill              @relation(fields: [billId], references: [id], onDelete: Cascade)
+  serviceCatalog   ServiceCatalog?   @relation(fields: [serviceCatalogId], references: [id])
+  voidedBy         User?             @relation("BillLineItem_voidedBy", fields: [voidedById], references: [id])
   wardChargeRecord WardChargeRecord? // NEW: Linked to Ward Charges
 
   @@index([billId])
@@ -991,7 +994,7 @@ model PatientWaiver {
   waiverType      WaiverType
   reason          String
   amountRequested Decimal      @db.Decimal(15, 2)
-  amountApproved  Decimal      @db.Decimal(15, 2) @default(0)
+  amountApproved  Decimal      @default(0) @db.Decimal(15, 2)
   status          WaiverStatus @default(pending)
   requestedById   String
   approvedById    String?
@@ -1047,7 +1050,7 @@ model InsuranceClaim {
   attendanceId        String      @unique
   insuranceProviderId String
   corporateAccountId  String?
-  totalClaimAmount    Decimal     @db.Decimal(15, 2) @default(0)
+  totalClaimAmount    Decimal     @default(0) @db.Decimal(15, 2)
   approvedAmount      Decimal?    @db.Decimal(15, 2)
   rejectedAmount      Decimal?    @db.Decimal(15, 2)
   paidAmount          Decimal?    @db.Decimal(15, 2)
@@ -1073,7 +1076,7 @@ model InsuranceClaim {
   medicationCodes  Json?
   gdrgCodes        Json?
   nhisServiceCodes Json?
-  metadata         Json? 
+  metadata         Json?
 
   notes       String?
   createdById String
@@ -1081,7 +1084,7 @@ model InsuranceClaim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  attendance          Attendance        @relation(fields: [attendanceId], references: [id])  // Keep this one
+  attendance                            Attendance        @relation(fields: [attendanceId], references: [id]) // Keep this one
   Bill                                  Bill?             @relation(fields: [billId], references: [id], onDelete: Cascade)
   User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
@@ -1104,7 +1107,7 @@ model ClaimBatch {
   batchNumber    String      @unique
   batchDate      DateTime    @default(now())
   description    String?
-  totalAmount    Decimal     @db.Decimal(15, 2) @default(0)
+  totalAmount    Decimal     @default(0) @db.Decimal(15, 2)
   status         BatchStatus @default(draft)
   xmlGeneratedAt DateTime?
   xmlFilePath    String?
@@ -1134,10 +1137,10 @@ model WardChargeRecord {
   chargeDate     DateTime
   dailyRate      Decimal     @db.Decimal(15, 2)
   paymentMode    PaymentMode
-  nhisPrice      Decimal     @db.Decimal(15, 2) @default(0)
-  cashPrice      Decimal     @db.Decimal(15, 2) @default(0)
-  insurancePrice Decimal     @db.Decimal(15, 2) @default(0)
-  corporatePrice Decimal     @db.Decimal(15, 2) @default(0)
+  nhisPrice      Decimal     @default(0) @db.Decimal(15, 2)
+  cashPrice      Decimal     @default(0) @db.Decimal(15, 2)
+  insurancePrice Decimal     @default(0) @db.Decimal(15, 2)
+  corporatePrice Decimal     @default(0) @db.Decimal(15, 2)
   isBilled       Boolean     @default(false)
   billLineItemId String?     @unique // NEW: Linked to BillLineItem
   createdAt      DateTime    @default(now())
@@ -1153,28 +1156,28 @@ model WardChargeRecord {
 }
 
 model Admission {
-  id                 String         @id @default(cuid())
-  attendanceId       String         @unique
-  admissionNumber    String         @unique
-  
-  admissionType      AdmissionType  @default(emergency)
-  admissionSource    AdmissionSource @default(home)
-  dischargeStatus    DischargeStatus?
-  
-  admissionDate      DateTime       @default(now())
-  dischargeDate      DateTime?
-  
-  dailyNotes         Json?
-  
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  
-  attendance         Attendance     @relation("AttendanceAdmission", fields: [attendanceId], references: [id], onDelete: Cascade)
-  
-  bills              Bill[]
-  deliveryRecords    DeliveryRecord[]
-  proformaInvoices   ProformaInvoice[]
-  
+  id              String @id @default(cuid())
+  attendanceId    String @unique
+  admissionNumber String @unique
+
+  admissionType   AdmissionType    @default(emergency)
+  admissionSource AdmissionSource  @default(home)
+  dischargeStatus DischargeStatus?
+
+  admissionDate DateTime  @default(now())
+  dischargeDate DateTime?
+
+  dailyNotes Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendance Attendance @relation("AttendanceAdmission", fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  bills            Bill[]
+  deliveryRecords  DeliveryRecord[]
+  proformaInvoices ProformaInvoice[]
+
   @@index([admissionNumber])
   @@index([admissionDate])
   @@index([dischargeDate])
@@ -1182,16 +1185,16 @@ model Admission {
 }
 
 model Bed {
-  id               String   @id @default(cuid())
-  wardId           String
-  bedNumber        String
-  isOccupied       Boolean  @default(false)
+  id         String   @id @default(cuid())
+  wardId     String
+  bedNumber  String
+  isOccupied Boolean  @default(false)
   // REMOVED: currentPatientId (Derive dynamically from Attendance/Admission to prevent sync bugs)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
 
   Attendance Attendance[]
-  Ward       Ward       @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  Ward       Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
 
   @@unique([wardId, bedNumber])
 }
@@ -1265,12 +1268,12 @@ model AntenatalBooking {
   iptp3Date DateTime?
   iptp4Date DateTime?
   iptp5Date DateTime?
-  ttDoses Json
-  tt1Date DateTime?
-  tt2Date DateTime?
-  tt3Date DateTime?
-  tt4Date DateTime?
-  tt5Date DateTime?
+  ttDoses   Json
+  tt1Date   DateTime?
+  tt2Date   DateTime?
+  tt3Date   DateTime?
+  tt4Date   DateTime?
+  tt5Date   DateTime?
 
   malariaTested    Boolean @default(false)
   malariaPositive  Boolean @default(false)
@@ -1292,7 +1295,7 @@ model AntenatalBooking {
   deliveryOutcome  String?
   deliveryDate     DateTime?
 
-  abortionRecordId String?   @unique
+  abortionRecordId String? @unique
 
   isActive    Boolean @default(true)
   isCompleted Boolean @default(false)
@@ -1307,7 +1310,7 @@ model AntenatalBooking {
   deliveryRecord    DeliveryRecord?   @relation("BookingDelivery", fields: [deliveryRecordId], references: [id])
   abortionRecord    AbortionRecord?   @relation("BookingAbortion", fields: [abortionRecordId], references: [id])
   visits            ANCVisit[]
-  postnatalRecords  PostnatalRecord[] @relation("BookingPostnatal")  // ADDED relation name
+  postnatalRecords  PostnatalRecord[] @relation("BookingPostnatal") // ADDED relation name
   createdBy         User              @relation(fields: [createdById], references: [id])
 
   @@index([patientId])
@@ -1324,7 +1327,7 @@ model ANCVisit {
 
   visitDate           DateTime
   gestationalAgeWeeks Int?
-  gestationalAgeDays  Int? 
+  gestationalAgeDays  Int?
   weight              Float?
   bloodPressure       String?
   fundalHeight        Int?
@@ -1430,7 +1433,7 @@ model PostnatalRecord {
 
   patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   attendance       Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  antenatalBooking AntenatalBooking? @relation("BookingPostnatal", fields: [antenatalBookingId], references: [id])  // CHANGED relation name
+  antenatalBooking AntenatalBooking? @relation("BookingPostnatal", fields: [antenatalBookingId], references: [id]) // CHANGED relation name
   deliveryRecord   DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
   createdBy        User              @relation(fields: [createdById], references: [id])
 
@@ -1524,7 +1527,7 @@ model ConsultationType {
   name                 String
   code                 String   @unique
   cashPrice            Decimal  @db.Decimal(15, 2)
-  nhisPrice            Decimal  @db.Decimal(15, 2) @default(0)
+  nhisPrice            Decimal  @default(0) @db.Decimal(15, 2)
   insurancePrice       Decimal  @db.Decimal(15, 2)
   isNHISCovered        Boolean  @default(true)
   isPrivateInsExempted Boolean  @default(false)
@@ -1584,7 +1587,7 @@ model StockBatch {
   costPrice    Decimal  @db.Decimal(15, 2)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
-  
+
   // ✅ NEW: Which department/store currently holds this specific batch?
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -1593,8 +1596,8 @@ model StockBatch {
 
   @@unique([stockItemId, batchNumber])
   @@index([stockItemId, expiryDate])
-  @@index([departmentId])  // ← Add index for department lookups
-  @@index([departmentId, stockItemId])  // ← Composite index for inventory queries
+  @@index([departmentId]) // ← Add index for department lookups
+  @@index([departmentId, stockItemId]) // ← Composite index for inventory queries
   @@map("stock_batches")
 }
 
@@ -1622,7 +1625,7 @@ model Invoice {
   @@index([invoiceDate])
   @@index([invoiceNumber])
   @@index([supplierName])
-  @@index([receivedAtDepartmentId])  // ← Add index for department receiving reports
+  @@index([receivedAtDepartmentId]) // ← Add index for department receiving reports
 }
 
 model InvoiceItem {
@@ -1650,28 +1653,26 @@ model StockTransaction {
   reference       String?
   notes           String?
   transactionDate DateTime             @default(now())
-  performedBy     String
+  performedBy     String?
   requisitionId   String?
   invoiceId       String?
+  departmentId    String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
-  
-  // ✅ NEW: The department where this transaction occurred
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
 
+  StockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
-  StockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
-  User        User?        @relation(fields: [performedBy], references: [id])
+  Department  Department?  @relation(fields: [departmentId], references: [id])
+  User        User?        @relation("StockTransaction_performedBy", fields: [performedBy], references: [id])
 
   @@index([stockItemId, transactionDate])
   @@index([transactionType])
   @@index([transactionDate])
   @@index([requisitionId])
   @@index([invoiceId])
-  @@index([departmentId])  // ← Add index for department audit trails
-  @@index([departmentId, transactionDate])  // ← Composite for department reports
+  @@index([departmentId])
+  @@index([departmentId, transactionDate])
 }
 
 model Requisition {
@@ -1692,15 +1693,18 @@ model Requisition {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  User_Requisition_approvedByIdToUser  User?              @relation("Requisition_approvedByIdToUser", fields: [approvedById], references: [id])
-  User_Requisition_fulfilledByIdToUser User?              @relation("Requisition_fulfilledByIdToUser", fields: [fulfilledById], references: [id])
-  User_Requisition_requestedByIdToUser User               @relation("Requisition_requestedByIdToUser", fields: [requestedById], references: [id])
-  departments                          Department?        @relation(fields: [requestingDepartmentId], references: [id])
-  ward                                 Ward?              @relation(fields: [requestingWardId], references: [id])
-  RequisitionItem                      RequisitionItem[]
-  StockTransaction                     StockTransaction[]
+  requestedBy User  @relation("Requisition_requestedBy", fields: [requestedById], references: [id])
+  approvedBy  User? @relation("Requisition_approvedBy", fields: [approvedById], references: [id])
+  fulfilledBy User? @relation("Requisition_fulfilledBy", fields: [fulfilledById], references: [id])
+
+  departments      Department?        @relation(fields: [requestingDepartmentId], references: [id])
+  ward             Ward?              @relation(fields: [requestingWardId], references: [id])
+  RequisitionItem  RequisitionItem[]
+  StockTransaction StockTransaction[]
 
   @@index([requestingWardId])
+  @@index([requestingDepartmentId])
+  @@index([status])
 }
 
 model RequisitionItem {
@@ -1712,12 +1716,17 @@ model RequisitionItem {
   quantityFulfilled Int      @default(0)
   purpose           String?
   notes             String?
+  performedBy       String? // ✅ ADD THIS
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   Requisition Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
   StockItem   StockItem   @relation(fields: [stockItemId], references: [id])
-  User        User?        @relation(fields: [performedBy], references: [id])
+  User        User?       @relation("RequisitionItem_performedBy", fields: [performedBy], references: [id]) // ✅ named relation
+
+  @@index([requisitionId])
+  @@index([stockItemId])
+  @@index([performedBy])
 }
 
 enum TransferStatus {
@@ -1729,25 +1738,25 @@ enum TransferStatus {
 }
 
 model StockTransfer {
-  id                String         @id @default(cuid())
-  transferNumber    String         @unique
-  originId          String
-  destinationId     String
-  status            TransferStatus @default(requested)
-  requestedById     String
-  approvedById      String?
-  dispatchedAt      DateTime?
-  receivedAt        DateTime?
-  notes             String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  transferNumber String         @unique
+  originId       String
+  destinationId  String
+  status         TransferStatus @default(requested)
+  requestedById  String
+  approvedById   String?
+  dispatchedAt   DateTime?
+  receivedAt     DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  origin            Department     @relation("OriginDepartment", fields: [originId], references: [id])
-  destination       Department     @relation("DestinationDepartment", fields: [destinationId], references: [id])
-  requestedBy       User           @relation("TransferRequestedBy", fields: [requestedById], references: [id])
-  approvedBy        User?          @relation("TransferApprovedBy", fields: [approvedById], references: [id])
-  
-  items             StockTransferItem[]
+  origin      Department @relation("OriginDepartment", fields: [originId], references: [id])
+  destination Department @relation("DestinationDepartment", fields: [destinationId], references: [id])
+  requestedBy User       @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?      @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+
+  items StockTransferItem[]
 
   @@index([originId, status])
   @@index([destinationId, status])
@@ -1761,11 +1770,11 @@ model StockTransferItem {
   transferId        String
   stockItemId       String
   quantityRequested Int
-  quantitySent      Int      @default(0)
-  quantityReceived  Int      @default(0)
-  
-  transfer          StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  stockItem         StockItem     @relation(fields: [stockItemId], references: [id])
+  quantitySent      Int    @default(0)
+  quantityReceived  Int    @default(0)
+
+  transfer  StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  stockItem StockItem     @relation(fields: [stockItemId], references: [id])
 
   @@unique([transferId, stockItemId])
   @@index([stockItemId])
@@ -1783,24 +1792,25 @@ model Department {
   isActive    Boolean  @default(true)
   color       String?  @default("#3B82F6")
   icon        String?
+  isStore     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Inventory location flag
-  isStore Boolean @default(false)
-  
-  // Stock management relations
-  stockBatches        StockBatch[]
-  outgoingTransfers   StockTransfer[] @relation("OriginDepartment")
-  incomingTransfers   StockTransfer[] @relation("DestinationDepartment")
-  receivedInvoices    Invoice[]        // ← ADD THIS
-  stockTransactions   StockTransaction[] // ← ADD THIS
+  // Stock management
+  stockBatches      StockBatch[]
+  outgoingTransfers StockTransfer[]    @relation("OriginDepartment")
+  incomingTransfers StockTransfer[]    @relation("DestinationDepartment")
+  receivedInvoices  Invoice[]
+  stockTransactions StockTransaction[]
 
-  // Existing relations
+  // Existing
   Requisitions Requisition[]
   users        User[]        @relation("DepartmentUsers")
   appointments Appointment[]
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+
+  // ✅ ADD THIS LINE
+  staffProfiles StaffProfile[]
 
   @@index([isActive])
   @@index([headId])
@@ -1817,7 +1827,7 @@ model Appointment {
   departmentId      String?
   title             String
   description       String?
-  scheduledAt       DateTime          
+  scheduledAt       DateTime
   duration          Int               @default(30)
   status            AppointmentStatus @default(scheduled)
   type              AppointmentType   @default(consultation)
@@ -1828,9 +1838,9 @@ model Appointment {
   updatedAt         DateTime          @updatedAt
   createdBy         String
 
-  attendanceId      String?           @unique 
-  attendance        Attendance?       @relation(fields: [attendanceId], references: [id])  // KEPT fields and references
-  
+  attendanceId String?     @unique
+  attendance   Attendance? @relation(fields: [attendanceId], references: [id]) // KEPT fields and references
+
   clinician  User?       @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
   patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -1840,8 +1850,8 @@ model Appointment {
   @@index([clinicianId, scheduledAt])
   @@index([departmentId, scheduledAt])
   @@index([status, scheduledAt])
-  @@map("appointments")
   @@index([scheduledAt, status])
+  @@map("appointments")
 }
 
 // ============================================================
@@ -1891,34 +1901,37 @@ model Hospital {
 // ============================================================
 
 model User {
-  id             String   @id @default(cuid())
-  username       String   @unique
+  id             String    @id @default(cuid())
+  username       String    @unique
   password       String
   fullName       String
-  role           UserRole // Kept for simple fallback, but use `roles` relation for granular access
+  role           UserRole
   email          String?
   phone          String?
   imageUrl       String?
   licenseNumber  String?
   specialization String?
-  isActive       Boolean  @default(true)
-  version        Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean   @default(true)
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   departmentId   String?
   seniority      Seniority @default(JUNIOR)
 
-  // NEW: Dynamic RBAC
-  roles         Role[]
-  // for Password Reset
-  resetToken      String?
-  resetExpiry     DateTime?
+  // Dynamic RBAC
+  roles Role[]
 
-  // NEW: HR & Rostering
-  shifts         StaffShift[]
-  leaves         LeaveRequest[] @relation("LeaveRequest_user")
-  approvedLeaves LeaveRequest[] @relation("LeaveRequest_approver")
+  // Password reset
+  resetToken  String?
+  resetExpiry DateTime?
 
+  // ── HR & Rostering ────────────────────────────────────────
+  staffProfile          StaffProfile?
+  documentsVerified     Document[]     @relation("Document_verifiedBy")
+  shiftsApproved        Shift[]        @relation("Shift_approvedBy")
+  leaveRequestsApproved LeaveRequest[] @relation("LeaveRequest_approvedBy")
+
+  // ── Clinical / Operational relations ──────────────────────
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
   AttendanceDiagnosis                             AttendanceDiagnosis[]
@@ -1938,9 +1951,6 @@ model User {
   Procedure_Procedure_assistantIdToUser           Procedure[]               @relation("Procedure_assistantIdToUser")
   Procedure_Procedure_createdByIdToUser           Procedure[]               @relation("Procedure_createdByIdToUser")
   Procedure_Procedure_performedByIdToUser         Procedure[]               @relation("Procedure_performedByIdToUser")
-  Requisition_Requisition_approvedByIdToUser      Requisition[]             @relation("Requisition_approvedByIdToUser")
-  Requisition_Requisition_fulfilledByIdToUser     Requisition[]             @relation("Requisition_fulfilledByIdToUser")
-  Requisition_Requisition_requestedByIdToUser     Requisition[]             @relation("Requisition_requestedByIdToUser")
   Scan_Scan_createdByIdToUser                     Scan[]                    @relation("Scan_createdByIdToUser")
   Scan_Scan_performedByIdToUser                   Scan[]                    @relation("Scan_performedByIdToUser")
   Scan_Scan_verifiedByIdToUser                    Scan[]                    @relation("Scan_verifiedByIdToUser")
@@ -1956,7 +1966,7 @@ model User {
   PreAuthorisationRequest_requested               PreAuthorisationRequest[] @relation("PreAuth_requestedBy")
   PreAuthorisationRequest_updated                 PreAuthorisationRequest[] @relation("PreAuth_updatedBy")
 
-  refreshTokens RefreshToken[]
+  refreshTokens       RefreshToken[]
   claimBatchesCreated ClaimBatch[]
 
   BillLineItem_voided      BillLineItem[]        @relation("BillLineItem_voidedBy")
@@ -1973,12 +1983,23 @@ model User {
   notificationsSent        Notification[]        @relation("SentNotifications")
   proformaInvoicesCreated  ProformaInvoice[]     @relation("ProformaInvoice_createdByIdToUser")
   proformaInvoicesApproved ProformaInvoice[]     @relation("ProformaInvoice_approvedByIdToUser")
-  requestedTransfers  StockTransfer[] @relation("TransferRequestedBy")
-  approvedTransfers   StockTransfer[] @relation("TransferApprovedBy")
+  requestedTransfers       StockTransfer[]       @relation("TransferRequestedBy")
+  approvedTransfers        StockTransfer[]       @relation("TransferApprovedBy")
 
-  department       Department?      @relation("DepartmentUsers", fields: [departmentId], references: [id])
-  headedDepartment Department?      @relation("DepartmentHead")
-  abortionRecords  AbortionRecord[]
+  // ── Requisition relations ─────────────────────────────────
+  requestedRequisitions Requisition[]     @relation("Requisition_requestedBy")
+  approvedRequisitions  Requisition[]     @relation("Requisition_approvedBy")
+  fulfilledRequisitions Requisition[]     @relation("Requisition_fulfilledBy")
+  performedItems        RequisitionItem[] @relation("RequisitionItem_performedBy")
+
+  // ── Stock transactions ────────────────────────────────────
+  stockTransactionsPerformed StockTransaction[] @relation("StockTransaction_performedBy")
+
+  // ── Misc ──────────────────────────────────────────────────
+  department       Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  headedDepartment Department? @relation("DepartmentHead")
+
+  abortionRecords                AbortionRecord[]
   familyPlanningServicesProvided FamilyPlanningService[]
 
   @@index([departmentId])
@@ -2005,38 +2026,8 @@ model RolePermission {
   permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
   @@id([roleId, permissionId])
-}
-
-// NEW: HR & Rostering Models
-model StaffShift {
-  id        String    @id @default(cuid())
-  userId    String
-  shiftDate DateTime
-  startTime DateTime
-  endTime   DateTime
-  shiftType ShiftType
-  notes     String?
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@index([userId, shiftDate])
-}
-
-model LeaveRequest {
-  id           String      @id @default(cuid())
-  userId       String
-  leaveType    String      // Add this field
-  startDate    DateTime
-  endDate      DateTime
-  totalDays    Int         // Add this field
-  reason       String?
-  status       LeaveStatus @default(pending)
-  approvedById String?
-  user         User        @relation("LeaveRequest_user", fields: [userId], references: [id])
-  approvedBy   User?       @relation("LeaveRequest_approver", fields: [approvedById], references: [id])
-  createdAt    DateTime    @default(now())  // Add this
-  updatedAt    DateTime    @updatedAt       // Add this
-  
-  @@index([userId, startDate])
 }
 
 model RefreshToken {
@@ -2176,7 +2167,7 @@ model DeliveryRecord {
   deliveryDate      DateTime
   deliveryType      DeliveryType
   deliveryOutcome   DeliveryOutcome
-  placeOfDelivery   PlaceOfDelivery @default(private_hospital) 
+  placeOfDelivery   PlaceOfDelivery @default(private_hospital)
   attendant         String
   birthWeight       Float?
   gestationWeeks    Int?
@@ -2192,12 +2183,12 @@ model DeliveryRecord {
 
   antenatalBookingId String? @unique // NEW: Linked to AntenatalBooking
 
-  malePartnerPresentANC     Boolean  @default(false)
+  malePartnerPresentANC      Boolean @default(false)
   malePartnerPresentDelivery Boolean @default(false)
-  malePartnerPresentPNC     Boolean  @default(false)
-  
-  maternalDeathsAudited     Boolean  @default(false)
-  auditNotes                String?
+  malePartnerPresentPNC      Boolean @default(false)
+
+  maternalDeathsAudited Boolean @default(false)
+  auditNotes            String?
 
   patient    Patient    @relation(fields: [patientId], references: [id])
   attendance Attendance @relation(fields: [attendanceId], references: [id])
@@ -2214,28 +2205,28 @@ model DeliveryRecord {
 }
 
 model NewbornRecord {
-  id                        String         @id @default(cuid())
-  deliveryRecordId          String
-  order                     Int            
-  birthWeight               Float
-  gender                    Gender
-  apgarScore1min            Int?
-  apgarScore5min            Int?
-  resuscitation             Boolean        @default(false)
-  outcome                   NewbornOutcome
-  anomalies                 String[]
-  referredTo                String?
-  createdAt                 DateTime       @default(now())
-  
-  breastfeedingWithin30Min  Boolean        @default(false)
-  eyeProphylaxisGiven       Boolean        @default(false)
-  cordCareMethod            CordCareMethod @default(dry_cord)
-  babyWeightAt6to10Days     Float?
-  weightAt6to10DaysDate     DateTime?
-  
+  id               String         @id @default(cuid())
+  deliveryRecordId String
+  order            Int
+  birthWeight      Float
+  gender           Gender
+  apgarScore1min   Int?
+  apgarScore5min   Int?
+  resuscitation    Boolean        @default(false)
+  outcome          NewbornOutcome
+  anomalies        String[]
+  referredTo       String?
+  createdAt        DateTime       @default(now())
+
+  breastfeedingWithin30Min Boolean        @default(false)
+  eyeProphylaxisGiven      Boolean        @default(false)
+  cordCareMethod           CordCareMethod @default(dry_cord)
+  babyWeightAt6to10Days    Float?
+  weightAt6to10DaysDate    DateTime?
+
   deliveryRecord DeliveryRecord @relation(fields: [deliveryRecordId], references: [id])
 
-  @@unique([deliveryRecordId, order])  
+  @@unique([deliveryRecordId, order])
   @@map("newborn_records")
 }
 
@@ -2251,16 +2242,16 @@ model AbortionRecord {
   createdById      String
   createdAt        DateTime        @default(now())
 
-  postAbortionFPCounselled  Boolean  @default(false)
-  postAbortionFPAccepted    Boolean  @default(false)
-  fpMethodAccepted          String?  
+  postAbortionFPCounselled Boolean @default(false)
+  postAbortionFPAccepted   Boolean @default(false)
+  fpMethodAccepted         String?
 
   antenatalBookingId String? @unique // NEW: Linked to AntenatalBooking
 
-  patient         Patient          @relation(fields: [patientId], references: [id])
-  attendance      Attendance       @relation(fields: [attendanceId], references: [id])
-  createdBy       User             @relation(fields: [createdById], references: [id])
-  
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+
   antenatalBooking AntenatalBooking? @relation("BookingAbortion")
 
   @@index([abortionDate])
@@ -2278,10 +2269,10 @@ model ProformaInvoice {
   attendanceId       String?               @unique
   admissionId        String?
   status             ProformaInvoiceStatus @default(DRAFT)
-  subtotal           Decimal               @db.Decimal(15, 2) @default(0)
-  discount           Decimal               @db.Decimal(15, 2) @default(0)
-  taxAmount          Decimal               @db.Decimal(15, 2) @default(0)
-  totalAmount        Decimal               @db.Decimal(15, 2) @default(0)
+  subtotal           Decimal               @default(0) @db.Decimal(15, 2)
+  discount           Decimal               @default(0) @db.Decimal(15, 2)
+  taxAmount          Decimal               @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal               @default(0) @db.Decimal(15, 2)
   validityDays       Int                   @default(7)
   expiresAt          DateTime?
   notes              String?
@@ -2324,10 +2315,10 @@ model ProformaInvoiceItem {
   unitPrice             Decimal     @db.Decimal(15, 2)
   pricingBasis          PaymentMode
   vatRate               Float       @default(0)
-  vatAmount             Decimal     @db.Decimal(15, 2) @default(0)
+  vatAmount             Decimal     @default(0) @db.Decimal(15, 2)
   totalPrice            Decimal     @db.Decimal(15, 2)
   isInsuranceCovered    Boolean     @default(false)
-  insuranceCoverage     Decimal     @db.Decimal(15, 2) @default(0)
+  insuranceCoverage     Decimal     @default(0) @db.Decimal(15, 2)
   patientResponsibility Decimal     @db.Decimal(15, 2)
 
   proformaInvoice ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
@@ -2410,41 +2401,41 @@ model CommunicationLog {
 // ============================================================
 
 model FamilyPlanningService {
-  id                String      @id @default(cuid())
-  patientId         String
-  attendanceId      String?     
-  serviceDate       DateTime    @default(now())
-  
-  method            FPMethod
-  methodCategory    FPMethodCategory
-  isNewAcceptor     Boolean     @default(false)
-  
-  counsellingGiven  Boolean     @default(true)
-  informedConsent   Boolean     @default(true)
-  
-  sideEffects       String?
-  contraindications String?
-  medicalEligibilityCategory Int?  
-  
-  nextFollowUpDate  DateTime?
-  followUpStatus    String?
-  
-  isPostpartum      Boolean     @default(false)
-  isPostAbortion    Boolean     @default(false)
-  postpartumWeeks   Int?
-  
-  cypFactor         Float       @default(1.0)
-  
-  providedById      String
-  notes             String?
-  
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  
-  patient           Patient     @relation(fields: [patientId], references: [id])
-  attendance        Attendance? @relation(fields: [attendanceId], references: [id])
-  providedBy        User        @relation(fields: [providedById], references: [id])
-  
+  id           String   @id @default(cuid())
+  patientId    String
+  attendanceId String?
+  serviceDate  DateTime @default(now())
+
+  method         FPMethod
+  methodCategory FPMethodCategory
+  isNewAcceptor  Boolean          @default(false)
+
+  counsellingGiven Boolean @default(true)
+  informedConsent  Boolean @default(true)
+
+  sideEffects                String?
+  contraindications          String?
+  medicalEligibilityCategory Int?
+
+  nextFollowUpDate DateTime?
+  followUpStatus   String?
+
+  isPostpartum    Boolean @default(false)
+  isPostAbortion  Boolean @default(false)
+  postpartumWeeks Int?
+
+  cypFactor Float @default(1.0)
+
+  providedById String
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient    Patient     @relation(fields: [patientId], references: [id])
+  attendance Attendance? @relation(fields: [attendanceId], references: [id])
+  providedBy User        @relation(fields: [providedById], references: [id])
+
   @@index([patientId])
   @@index([serviceDate])
   @@index([method])
@@ -2465,8 +2456,8 @@ model CorporateAccount {
   email               String
   phone               String
   address             String?
-  creditLimit         Decimal             @db.Decimal(15, 2) @default(0)
-  currentBalance      Decimal             @db.Decimal(15, 2) @default(0)
+  creditLimit         Decimal             @default(0) @db.Decimal(15, 2)
+  currentBalance      Decimal             @default(0) @db.Decimal(15, 2)
   paymentTerms        Int                 @default(30)
   discountPercentage  Float               @default(0)
   isActive            Boolean             @default(true)
@@ -3320,6 +3311,208 @@ enum ConsentStatus {
   expired
 }
 
+// ============================================================
+// HR & STAFFING
+// ============================================================
+
+model JobGrade {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g. "Nursing Officer"
+  code        String   @unique // e.g. "NO-07"
+  level       Int // 1 = lowest, higher = senior
+  baseSalary  Decimal  @db.Decimal(10, 2)
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  steps         SalaryStep[]
+  staffProfiles StaffProfile[]
+
+  @@index([level])
+  @@map("job_grades")
+}
+
+model SalaryStep {
+  id            String   @id @default(cuid())
+  gradeId       String
+  stepNumber    Int // 1, 2, 3...
+  amount        Decimal  @db.Decimal(10, 2)
+  yearsRequired Int      @default(0) // years of service needed to reach this step
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  grade         JobGrade       @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  staffProfiles StaffProfile[]
+
+  @@unique([gradeId, stepNumber])
+  @@index([gradeId])
+  @@map("salary_steps")
+}
+
+model StaffProfile {
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  employeeId     String         @unique // e.g. "GHS-2024-0001"
+  dateJoined     DateTime
+  employmentType EmploymentType @default(PERMANENT)
+  departmentId   String?
+  jobGradeId     String?
+  salaryStepId   String?
+  bio            String?        @db.Text
+  nextOfKinName  String?
+  nextOfKinPhone String?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  jobGrade   JobGrade?   @relation(fields: [jobGradeId], references: [id], onDelete: SetNull)
+  salaryStep SalaryStep? @relation(fields: [salaryStepId], references: [id], onDelete: SetNull)
+
+  documents      Document[]
+  payrollRecords PayrollRecord[]
+  shifts         Shift[]
+  leaveRequests  LeaveRequest[]
+
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([jobGradeId])
+  @@index([isActive])
+  @@map("staff_profiles")
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  staffId      String
+  type         DocumentType
+  title        String
+  fileUrl      String
+  expiryDate   DateTime?
+  isVerified   Boolean      @default(false)
+  verifiedById String?
+  verifiedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  staff      StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  verifiedBy User?        @relation("Document_verifiedBy", fields: [verifiedById], references: [id])
+
+  @@index([staffId])
+  @@index([expiryDate])
+  @@map("staff_documents")
+}
+
+model PayrollRecord {
+  id         String    @id @default(cuid())
+  staffId    String
+  month      Int // 1-12
+  year       Int
+  baseSalary Decimal   @db.Decimal(10, 2)
+  allowances Decimal   @default(0) @db.Decimal(10, 2)
+  deductions Decimal   @default(0) @db.Decimal(10, 2)
+  netPay     Decimal   @db.Decimal(10, 2)
+  isPaid     Boolean   @default(false)
+  payslipUrl String?
+  paidAt     DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  staff StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, month, year])
+  @@index([staffId])
+  @@index([year, month])
+  @@map("payroll_records")
+}
+
+model Shift {
+  id           String      @id @default(cuid())
+  staffId      String
+  shiftDate    DateTime    @db.Date
+  startTime    DateTime
+  endTime      DateTime
+  shiftType    ShiftType   @default(morning)
+  status       ShiftStatus @default(scheduled)
+  notes        String?
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  staff      StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  approvedBy User?        @relation("Shift_approvedBy", fields: [approvedById], references: [id])
+
+  @@index([staffId, shiftDate])
+  @@index([shiftDate])
+  @@index([status])
+  @@map("shifts")
+}
+
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  staffId         String
+  leaveType       LeaveType
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  totalDays       Int
+  reason          String?     @db.Text
+  status          LeaveStatus @default(pending)
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  staff      StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  approvedBy User?        @relation("LeaveRequest_approvedBy", fields: [approvedById], references: [id])
+
+  @@index([staffId, startDate])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
+// ============================================================
+// HR ENUMS
+// ============================================================
+
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  LOCUM
+  INTERN
+  NATIONAL_SERVICE
+}
+
+enum DocumentType {
+  LICENSE
+  CERTIFICATE
+  ID_CARD
+  DEGREE
+  OTHER
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  EMERGENCY
+  UNPAID
+  STUDY
+  COMPASSIONATE
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
 enum ShiftType {
   morning
   afternoon
@@ -3327,144 +3520,10 @@ enum ShiftType {
   on_call
 }
 
-enum LeaveStatus {
-  pending
-  approved
-  rejected
-}
-
-// ============================================================
-// HR & STAFFING MODELS
-// ============================================================
-
-model JobGrade {
-  id          String        @id @default(cuid())
-  name        String        // e.g., "Nursing Officer", "Senior Midwife"
-  code        String        @unique // e.g., "NO-01"
-  level       Int           // Hierarchy level
-  baseSalary  Decimal       @db.Decimal(10, 2)
-  steps       SalaryStep[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@map("job_grades")
-}
-
-model SalaryStep {
-  id            String    @id @default(cuid())
-  gradeId       String
-  grade         JobGrade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  stepNumber    Int       // 1, 2, 3...
-  amount        Decimal   @db.Decimal(10, 2)
-  yearsRequired Int       @default(0) // Years of service required for this step
-  createdAt     DateTime  @default(now())
-
-  @@map("salary_steps")
-  @@index([gradeId])
-}
-
-model StaffProfile {
-  id              String        @id @default(cuid())
-  userId          String        @unique
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId      String        @unique // e.g., "GHS-2023-001"
-  dateJoined      DateTime
-  employmentType  String        // PERMANENT, CONTRACT, LOCUM
-  departmentId    String?
-  department      Department?   @relation(fields: [departmentId], references: [id])
-  jobGradeId      String?
-  jobGrade        JobGrade?     @relation(fields: [jobGradeId], references: [id])
-  salaryStepId    String?
-  salaryStep      SalaryStep?   @relation(fields: [salaryStepId], references: [id])
-  bio             String?       @db.Text
-  nextOfKinName   String?
-  nextOfKinPhone  String?
-  documents       Document[]
-  payrollRecords  PayrollRecord[]
-  shifts          ShiftProposal[]
-  leaveRequests   LeaveRequest[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@map("staff_profiles")
-  @@index([userId])
-  @@index([employeeId])
-  @@index([departmentId])
-}
-
-model Document {
-  id          String        @id @default(cuid())
-  staffId     String
-  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  type        String        // LICENSE, CERTIFICATE, ID_CARD
-  title       String
-  fileUrl     String
-  expiryDate  DateTime?
-  isVerified  Boolean       @default(false)
-  verifiedBy  String?
-  verifiedAt  DateTime?
-  createdAt   DateTime      @default(now())
-
-  @@map("staff_documents")
-  @@index([staffId])
-  @@index([expiryDate])
-}
-
-model PayrollRecord {
-  id          String        @id @default(cuid())
-  staffId     String
-  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  month       Int
-  year        Int
-  baseSalary  Decimal       @db.Decimal(10, 2)
-  allowances  Decimal       @db.Decimal(10, 2)
-  deductions  Decimal       @db.Decimal(10, 2)
-  netPay      Decimal       @db.Decimal(10, 2)
-  isPaid      Boolean       @default(false)
-  payslipUrl  String?
-  paidAt      DateTime?
-  createdAt   DateTime      @default(now())
-
-  @@map("payroll_records")
-  @@index([staffId])
-  @@index([month, year])
-  @@unique([staffId, month, year])
-}
-
-model ShiftProposal {
-  id          String        @id @default(cuid())
-  staffId     String
-  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  date        DateTime      @db.Date
-  startTime   DateTime
-  endTime     DateTime
-  shiftType   ShiftType     @default(morning)
-  status      String        // PENDING, APPROVED, REJECTED
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime      @default(now())
-
-  @@map("shift_proposals")
-  @@index([staffId])
-  @@index([date])
-  @@index([status])
-}
-
-model LeaveRequest {
-  id          String        @id @default(cuid())
-  staffId     String
-  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  startDate   DateTime      @db.Date
-  endDate     DateTime      @db.Date
-  type        String        // ANNUAL, SICK, MATERNITY
-  reason      String?       @db.Text
-  status      LeaveStatus   @default(pending)
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime      @default(now())
-
-  @@map("leave_requests")
-  @@index([staffId])
-  @@index([startDate, endDate])
-  @@index([status])
+enum ShiftStatus {
+  proposed
+  scheduled
+  completed
+  cancelled
+  no_show
 }

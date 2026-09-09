@@ -83,7 +83,7 @@ export class ProformaInvoiceService extends BaseService {
   }
 
   async getAll(filters: any) {
-    const result = await this.repository.findMany({
+    const result = await this.repository.findManyInvoices({
       patientId: filters.patientId, corporateAccountId: filters.accountId, status: filters.status,
       attendanceId: filters.encounterId, fromDate: filters.fromDate, toDate: filters.toDate,
       page: filters.page, limit: filters.limit

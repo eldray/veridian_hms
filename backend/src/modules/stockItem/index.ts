@@ -1,4 +1,4 @@
-import stockItemRoutes from './stockItem.routes';
+import stockItemRoutes from './StockItemRoutes';
 
 export { stockItemRoutes };
 

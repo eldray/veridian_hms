@@ -28,7 +28,7 @@ export interface DepartmentFilters {
 export interface DepartmentUser {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   role: string;
   phone: string | null;
   isActive: boolean;
@@ -48,7 +48,7 @@ export interface DepartmentWithRelations extends Department {
   users?: DepartmentUser[];
   _count?: {
     users: number;
-    appointments: number;
+    appointments?: number;
   };
 }
 

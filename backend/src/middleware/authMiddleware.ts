@@ -104,11 +104,14 @@ export const requireManagement = requireRole(['admin', 'accounts', 'records']);
 
 // ✅ Dynamic RBAC
 export const requirePermission = (permission: string) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
-    if (user.role === 'admin' || user.permissions?.includes(permission)) {
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
+      return;
+    }
+    if (user.role === 'ADMIN' || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -125,7 +128,7 @@ export const seniorityLevels: Record<Seniority, number> = {
 };
 
 export const requireMinSeniority = (minSeniority: Seniority) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
     if (!user || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
@@ -144,32 +147,39 @@ export const requirePrincipalOnly = requireMinSeniority('PRINCIPAL');
 
 // Combined Role + Seniority checks
 export const requireRoleWithMinSeniority = (role: UserRole, minSeniority: Seniority) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
+      return;
+    }
     if (user.role !== role || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
-      return res.status(403).json({ 
+      res.status(403).json({ 
         success: false, 
         message: `Access denied. Requires ${role} with ${minSeniority} seniority.` 
       });
+      return;
     }
     next();
   };
 };
 
-export const requireSeniorDoctor = requireRoleWithMinSeniority('doctor', 'SENIOR');
-export const requireSeniorNurse = requireRoleWithMinSeniority('nurse', 'SENIOR');
-export const requireSeniorPharmacist = requireRoleWithMinSeniority('pharmacist', 'SENIOR');
-export const requirePrincipalDoctor = requireRoleWithMinSeniority('doctor', 'PRINCIPAL');
+export const requireSeniorDoctor = requireRoleWithMinSeniority('DOCTOR', 'SENIOR');
+export const requireSeniorNurse = requireRoleWithMinSeniority('NURSE', 'SENIOR');
+export const requireSeniorPharmacist = requireRoleWithMinSeniority('PHARMACIST', 'SENIOR');
+export const requirePrincipalDoctor = requireRoleWithMinSeniority('DOCTOR', 'PRINCIPAL');
 
 // ✅ NEW: Combined Role + Permission checks
 export const requireRoleOrPermission = (role: UserRole, permission: string) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
-    if (user.role === role || user.role === 'admin' || user.permissions?.includes(permission)) {
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
+      return;
+    }
+    if (user.role === role || user.role === 'ADMIN' || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -187,10 +197,13 @@ export const requireAnyRole = (...roles: UserRole[]) => {
 
 // ✅ NEW: All of multiple roles (for complex scenarios)
 export const requireAllRoles = (roles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
+      return;
+    }
     // Note: This is a simplified check - in practice, a user can only have one role
     // This would be more useful with the dynamic RBAC system
     if (roles.includes(user.role)) {
