@@ -14,7 +14,7 @@ export class DepartmentRepository {
   }
 
   async findAll(filters: DepartmentFilters): Promise<{ departments: DepartmentWithRelations[]; total: number }> {
-    const { isActive, hasHead, page = 1, limit = 50 } = filters;
+    const { isActive, hasHead, page = 1, limit = 1000 } = filters;
 
     const where: any = {};
     if (isActive !== undefined) {

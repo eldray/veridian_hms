@@ -10,14 +10,14 @@ export class DiagnosisRepository extends BaseRepository<any, CreateDiagnosisDTO,
   async findManyWithFilters(filters: DiagnosisFilterDTO) {
     const {
       page = 1,
-      limit = 50,
+      limit = 1000,
       morbidityGroup,
       isActive,
       search,
       searchField = 'all'
     } = filters;
 
-    const take = Math.min(limit, 100);
+    const take = Math.min(limit, 1000);
     const skip = (page - 1) * take;
 
     const where: Prisma.DiagnosisWhereInput = {};

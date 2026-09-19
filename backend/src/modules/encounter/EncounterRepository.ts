@@ -59,7 +59,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async findManyEncounters(filters: EncounterFilters) {
-    const { patientId, encounterType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = filters;
+    const { patientId, encounterType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (patientId) where.patientId = patientId;
     if (encounterType) where.attendanceType = encounterType;
@@ -73,7 +73,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
     // ✅ Uses BaseRepository pagination helper
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { dateTime: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { dateTime: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },

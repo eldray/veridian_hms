@@ -8,14 +8,14 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: TransferQueryParams) {
-    const { originId, destinationId, status, page = 1, limit = 50 } = filters;
+    const { originId, destinationId, status, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (originId) where.originId = originId;
     if (destinationId) where.destinationId = destinationId;
     if (status) where.status = status;
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { createdAt: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
         origin: { select: { id: true, name: true } },
         destination: { select: { id: true, name: true } },

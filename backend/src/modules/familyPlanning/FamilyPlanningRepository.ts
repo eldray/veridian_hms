@@ -38,7 +38,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
   }
 
   async getFPServices(filters: FPServiceFilters) {
-    const { patientId, method, methodCategory, startDate, endDate, isNewAcceptor, page = 1, limit = 50 } = filters;
+    const { patientId, method, methodCategory, startDate, endDate, isNewAcceptor, page = 1, limit = 1000 } = filters;
     
     const where: Prisma.FamilyPlanningServiceWhereInput = {};
     if (patientId) where.patientId = patientId;

@@ -12,7 +12,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
     const {
       referralType, status, patientId, patientPaymentMode,
       corporateAccountId, insuranceProviderId, dateFrom, dateTo,
-      page = 1, limit = 50
+      page = 1, limit = 1000
     } = filters;
 
     const where: any = {};

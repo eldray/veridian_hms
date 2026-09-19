@@ -80,6 +80,12 @@ export class RequisitionController extends BaseController {
       const data: UpdateRequisitionStatusDTO = req.body;
       const userId = req.user?.id;
 
+      // Special handling for 'fulfilled' status - uses new stock validation logic
+      if (data.status === 'fulfilled') {
+        const requisition = await this.service.fulfillRequisition(id, userId);
+        return this.ok(res, requisition, 'Requisition fulfilled successfully');
+      }
+
       const requisition = await this.service.updateRequisitionStatus(id, data, userId);
 
       return this.ok(res, requisition, `Requisition status updated to ${data.status}`);

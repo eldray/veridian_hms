@@ -15,7 +15,7 @@ export class RequisitionRepository {
   }
 
   async findAll(params: RequisitionQueryParams) {
-    const { departmentId, wardId, status, urgency, page = 1, limit = 50 } = params;
+    const { departmentId, wardId, status, urgency, page = 1, limit = 1000 } = params;
 
     const where: Prisma.RequisitionWhereInput = {};
 
@@ -305,5 +305,66 @@ export class RequisitionRepository {
 
   async count(): Promise<number> {
     return this.prisma.requisition.count();
+  }
+
+  async fulfillRequisitionWithStockUpdate(id: string, userId: string | undefined, prisma: PrismaClient) {
+    return prisma.$transaction(async (tx) => {
+      const requisition = await tx.requisition.findUnique({
+        where: { id },
+        include: { RequisitionItem: true }
+      });
+
+      if (!requisition) throw new Error('Requisition not found');
+      
+      if (requisition.status !== 'approved') {
+        throw new Error('Only approved requisitions can be fulfilled');
+      }
+
+      // Process each item - deduct stock and create transactions
+      for (const reqItem of requisition.RequisitionItem) {
+        const quantityToIssue = reqItem.quantityApproved || reqItem.quantityRequested;
+        
+        // Update stock level
+        await tx.stockItem.update({
+          where: { id: reqItem.stockItemId },
+          data: {
+            currentStock: { decrement: quantityToIssue }
+          }
+        });
+
+        // Create stock transaction record
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: reqItem.stockItemId,
+            transactionType: 'requisition',
+            quantity: -quantityToIssue,
+            reference: `REQ-${requisition.requisitionNumber}`,
+            notes: `Fulfilled requisition ${requisition.requisitionNumber}`,
+            performedById: userId || undefined
+          }
+        });
+      }
+
+      // Update requisition status to fulfilled
+      const updatedRequisition = await tx.requisition.update({
+        where: { id },
+        data: {
+          status: 'fulfilled',
+          fulfilledById: userId,
+          fulfilledAt: new Date()
+        },
+        include: {
+          RequisitionItem: {
+            include: {
+              StockItem: {
+                select: { name: true, drugCode: true, unitOfMeasure: true }
+              }
+            }
+          }
+        }
+      });
+
+      return updatedRequisition;
+    });
   }
 }

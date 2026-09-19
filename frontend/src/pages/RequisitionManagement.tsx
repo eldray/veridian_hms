@@ -1,5 +1,6 @@
 // src/pages/RequisitionManagement.tsx - COMPLETE FIXED VERSION
 import { useEffect, useState } from 'react';
+import Select from 'react-select';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useDepartmentStore } from '../store/departmentStore';
@@ -969,26 +970,50 @@ export default function RequisitionManagement() {
                 </div>
                 
                 <div className="space-y-3">
-                  {formData.requisitionItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                      <div className="md:col-span-5">
-                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                          Stock Item *
-                        </label>
-                        <select 
-                          required
-                          value={item.stockItemId}
-                          onChange={e => updateRequisitionItem(index, 'stockItemId', e.target.value)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                        >
-                          <option value="">Select Item</option>
-                          {stockItems.filter(i => i.isActive).map(stockItem => (
-                            <option key={stockItem.id} value={stockItem.id}>
-                              {stockItem.name} ({stockItem.currentStock} {stockItem.unitOfMeasure} available)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                  {formData.requisitionItems.map((item, index) => {
+                    // Filter stock items for this select
+                    const availableStockItems = stockItems.filter(i => i.isActive).map(stockItem => ({
+                      value: stockItem.id,
+                      label: `${stockItem.name} (${stockItem.currentStock} ${stockItem.unitOfMeasure} available)`,
+                      currentStock: stockItem.currentStock,
+                      unitOfMeasure: stockItem.unitOfMeasure
+                    }));
+
+                    return (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+                        <div className="md:col-span-5">
+                          <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                            Stock Item *
+                          </label>
+                          <Select
+                            required
+                            value={availableStockItems.find(opt => opt.value === item.stockItemId)}
+                            onChange={(selected: any) => updateRequisitionItem(index, 'stockItemId', selected?.value || '')}
+                            options={availableStockItems}
+                            placeholder="Search and select item..."
+                            isClearable
+                            isSearchable
+                            className="text-sm"
+                            classNamePrefix="react-select"
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                backgroundColor: 'var(--bg-card)',
+                                borderColor: 'var(--border-color)',
+                                minHeight: '40px',
+                                fontSize: '14px'
+                              }),
+                              option: (base) => ({
+                                ...base,
+                                fontSize: '14px'
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                zIndex: 9999
+                              })
+                            }}
+                          />
+                        </div>
                       <div className="md:col-span-3">
                         <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                           Quantity *
@@ -1023,10 +1048,11 @@ export default function RequisitionManagement() {
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {formData.requisitionItems.length === 0 && (

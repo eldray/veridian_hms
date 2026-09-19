@@ -10,7 +10,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   // GENERAL CLAIM QUERIES
   // ==========================================
   async findAllWithFilters(filters: any) {
-    const { status, insuranceProviderId, patientId, dateFrom, dateTo, page = 1, limit = 50 } = filters;
+    const { status, insuranceProviderId, patientId, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
@@ -85,7 +85,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   // BATCH QUERIES
   // ==========================================
   async findBatchesWithFilters(filters: any) {
-    const { status, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { status, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (status) where.status = status;

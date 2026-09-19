@@ -12,7 +12,7 @@ export class UserRepository extends BaseRepository<any, any, any> {
   // ==========================================
 
   async findAll(filters: UserFilters = {}): Promise<{ users: UserResponse[]; total: number }> {
-    const { role, departmentId, isActive, search, page = 1, limit = 50 } = filters;
+    const { role, departmentId, isActive, search, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (role) where.role = role;
@@ -137,7 +137,7 @@ export class UserRepository extends BaseRepository<any, any, any> {
   // ==========================================
 
   async findAllShifts(filters: ShiftFilters = {}): Promise<{ shifts: ShiftResponse[]; total: number }> {
-    const { userId, departmentId, shiftDate, fromDate, toDate, page = 1, limit = 50 } = filters;
+    const { userId, departmentId, shiftDate, fromDate, toDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (userId) where.userId = userId;
@@ -236,7 +236,7 @@ export class UserRepository extends BaseRepository<any, any, any> {
 
 
 async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse[]; total: number }> {
-  const { userId, departmentId, status, fromDate, toDate, page = 1, limit = 50 } = filters;
+  const { userId, departmentId, status, fromDate, toDate, page = 1, limit = 1000 } = filters;
   const where: any = {};
 
   if (userId) where.userId = userId;

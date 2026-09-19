@@ -12,7 +12,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: BillFilter) {
-    const { patientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 50 } = filters;
+    const { patientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (patientId) where.patientId = patientId;
@@ -26,7 +26,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { billDate: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
