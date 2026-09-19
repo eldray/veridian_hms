@@ -190,11 +190,11 @@ export const FormAReportView: React.FC = () => {
       ['Facility Type:', reportData.facility.facilityType],
       [''],
       ['EMONC Services:'],
-      ['Blood Transfusion Services', reportData.facility.emoncServices.bloodTransfusion ? 'Yes' : 'No'],
-      ['PMTCT', reportData.facility.emoncServices.pmtct ? 'Yes' : 'No'],
-      ['EID Services', reportData.facility.emoncServices.eidServices ? 'Yes' : 'No'],
-      ['Conduct Delivery', reportData.facility.emoncServices.conductDelivery ? 'Yes' : 'No'],
-      ['Baby Friendly Services', reportData.facility.emoncServices.babyFriendly ? 'Yes' : 'No'],
+      ['Blood Transfusion Services', reportData.facility.emoncServices?.bloodTransfusion ? 'Yes' : 'No'],
+      ['PMTCT', reportData.facility.emoncServices?.pmtct ? 'Yes' : 'No'],
+      ['EID Services', reportData.facility.emoncServices?.eidServices ? 'Yes' : 'No'],
+      ['Conduct Delivery', reportData.facility.emoncServices?.conductDelivery ? 'Yes' : 'No'],
+      ['Baby Friendly Services', reportData.facility.emoncServices?.babyFriendly ? 'Yes' : 'No'],
       [''],
       ['SECTION 2: REPORTING PERIOD'],
       ['Month:', reportData.period.monthName],
@@ -442,15 +442,15 @@ export const FormAReportView: React.FC = () => {
           <h3 className="font-bold text-sm uppercase tracking-wide text-gray-600 mb-3">EMONC Services</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <div className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.bloodTransfusion ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices?.bloodTransfusion ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               <span className="text-sm">Blood transfusion services</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.pmtct ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices?.pmtct ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               <span className="text-sm">PMTCT</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.eidServices ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices?.eidServices ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               <span className="text-sm">EID Services</span>
             </div>
             <div className="flex items-center gap-2">

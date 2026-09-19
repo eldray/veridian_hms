@@ -20,6 +20,7 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
   router.get('/:id', controller.getPatientById);
   router.post('/', controller.createPatient);
+  router.post('/generate-ccc', controller.generateCCC);
   router.put('/:id', controller.updatePatient);
   router.delete('/:id', controller.deletePatient);
 

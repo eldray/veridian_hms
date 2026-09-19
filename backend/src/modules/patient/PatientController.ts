@@ -92,6 +92,31 @@ export class PatientController extends BaseController {
     return this.created(res, patient, 'Patient created successfully');
   });
 
+  generateCCC = this.asyncHandler(async (req: Request, res: Response) => {
+    const { patientId, nhisNumber } = req.body;
+    
+    if (!nhisNumber) {
+      return res.status(400).json({ success: false, message: 'NHIS number is required' });
+    }
+
+    const { nhisApiService } = await import('../../services/nhisApi.service');
+    
+    try {
+      const cccId = await nhisApiService.generateCCC(nhisNumber, { patientId });
+      
+      const { PatientService } = await import('./PatientService');
+      const patientService = new PatientService();
+      await patientService.updatePatient(patientId, { cccId });
+      
+      return res.json({ success: true, cccId, message: 'CCC generated successfully' });
+    } catch (error: any) {
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'Failed to generate CCC' 
+      });
+    }
+  });
+
   updatePatient = this.asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const patient = await this.service.updatePatient(id, req.body);

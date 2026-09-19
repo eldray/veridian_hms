@@ -308,20 +308,31 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
         <EmptyState Icon={Heart} text="No diagnoses recorded" />
       ) : (
         <div className="space-y-2">
-          {items.slice(0, 10).map((t, i) => (
+          {items.slice(0, 5).map((t, i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg"
               style={{ background: 'var(--bg-main)' }}>
               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
                 style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>{i + 1}</div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.disease}</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t.disease}</span>
                 {t.icdCode && t.icdCode !== '—' && (
                   <span className="text-[10px] ml-2" style={{ color: 'var(--text-tertiary)' }}>({t.icdCode})</span>
                 )}
               </div>
-              <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--icon-cyan-text)' }}>
-                {t.patients} cases
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full" 
+                    style={{ 
+                      width: `${Math.min(100, (t.patients / (items[0]?.patients || 1)) * 100)}%`,
+                      background: 'var(--icon-cyan-text)' 
+                    }} 
+                  />
+                </div>
+                <span className="text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>
+                  {t.patients}
+                </span>
+              </div>
             </div>
           ))}
         </div>

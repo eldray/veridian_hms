@@ -23,6 +23,10 @@ export const createGHSReportRoutes = (prisma: PrismaClient) => {
   router.get('/top-diagnoses', controller.getTopDiagnoses);
   router.get('/form-a', controller.generateFormAReport);
 
+  // ─── Family Planning & EPI Stats ────────────────────────────────────────────
+  router.get('/family-planning/stats', controller.getFamilyPlanningStats);
+  router.get('/epi/stats', controller.getEPIStats);
+
   router.get(
     '/consulting-room-register',
     requireRole(['admin', 'doctor', 'midwife', 'nurse', 'records', 'accounts']),

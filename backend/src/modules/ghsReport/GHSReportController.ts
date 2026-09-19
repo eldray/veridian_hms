@@ -149,4 +149,34 @@ export class GHSReportController extends BaseController {
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
     return res.send(csvContent);
   });
+
+  // ─── Family Planning Stats Endpoint ─────────────────────────────────────────
+  getFamilyPlanningStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return this.badRequest(res, 'Start date and end date are required');
+    }
+    
+    const stats = await this.reportService.getFamilyPlanningStats(
+      new Date(startDate as string),
+      new Date(endDate as string)
+    );
+    
+    return this.ok(res, stats, 'Family planning statistics retrieved successfully');
+  });
+
+  // ─── EPI Stats Endpoint ─────────────────────────────────────────────────────
+  getEPIStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return this.badRequest(res, 'Start date and end date are required');
+    }
+    
+    const stats = await this.reportService.getEPIStats(
+      new Date(startDate as string),
+      new Date(endDate as string)
+    );
+    
+    return this.ok(res, stats, 'EPI statistics retrieved successfully');
+  });
 }

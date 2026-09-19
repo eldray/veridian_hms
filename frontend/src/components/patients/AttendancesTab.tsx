@@ -13,21 +13,31 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
   patient, 
   onNewAttendance 
 }) => {
-  // ✅ ADD DEBUGGING
-  console.log('🔍 AttendancesTab Debug:', {
-    patient: patient ? {
-      id: patient.id || patient._id,
-      fullName: patient.fullName
-    } : 'NO PATIENT',
-    attendancesCount: attendances.length,
-    attendances: attendances.map(a => ({
-      id: a.id || a._id,
-      patientId: a.patientId,
-      patient: a.patient,
-      status: a.status,
-      attendanceType: a.attendanceType
-    }))
-  });
+  const [generatingCCC, setGeneratingCCC] = useState(false);
+
+  const handleGenerateCCC = async () => {
+    if (!patient.nhisNumber) {
+      alert('Patient does not have an NHIS number. Please update patient profile first.');
+      return;
+    }
+
+    setGeneratingCCC(true);
+    try {
+      const response = await axios.post('/api/encounters/generate-ccc', {
+        patientId: patient.id || patient._id,
+        nhisNumber: patient.nhisNumber
+      });
+
+      if (response.data.success) {
+        alert(`CCC Generated Successfully!\nCCC ID: ${response.data.cccId}`);
+        window.location.reload();
+      }
+    } catch (error: any) {
+      alert(`Failed to generate CCC: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setGeneratingCCC(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -123,12 +133,22 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <h3 className="text-base font-bold text-gray-900">Attendance History</h3>
           <p className="text-xs text-gray-600">All visits and consultations for {patient.fullName}</p>
         </div>
         <div className="flex items-center gap-2">
+          {patient.nhisNumber && (
+            <button
+              onClick={handleGenerateCCC}
+              disabled={generatingCCC}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 font-medium text-xs disabled:opacity-50"
+            >
+              <CreditCard className={`w-3 h-3 ${generatingCCC ? 'animate-spin' : ''}`} />
+              {generatingCCC ? 'Generating...' : 'Generate CCC'}
+            </button>
+          )}
           <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full font-medium">
             {sortedAttendances.length} visit{sortedAttendances.length !== 1 ? 's' : ''}
           </span>

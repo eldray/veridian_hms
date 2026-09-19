@@ -72,7 +72,7 @@ export class DashboardRepository extends BaseRepository<any, any, any> {
       where: { createdAt: { gte: start, lte: end } },
       _count: { diagnosisId: true },
       orderBy: { _count: { diagnosisId: 'desc' } },
-      take: 10
+      take: 5
     }).catch(() => []);
   }
 

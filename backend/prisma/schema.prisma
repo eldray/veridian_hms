@@ -2837,6 +2837,7 @@ enum ServiceCategory {
 }
 
 enum UserRole {
+  super_admin
   admin
   doctor
   nurse
@@ -2844,8 +2845,12 @@ enum UserRole {
   records
   lab_tech
   pharmacist
-  accounts
+  accountant
+  hr_officer
+  store_keeper
+  billing_officer
   sonographer
+  community_nurse
 }
 
 enum LabTestStatus {
@@ -3326,4 +3331,140 @@ enum LeaveStatus {
   pending
   approved
   rejected
+}
+
+// ============================================================
+// HR & STAFFING MODELS
+// ============================================================
+
+model JobGrade {
+  id          String        @id @default(cuid())
+  name        String        // e.g., "Nursing Officer", "Senior Midwife"
+  code        String        @unique // e.g., "NO-01"
+  level       Int           // Hierarchy level
+  baseSalary  Decimal       @db.Decimal(10, 2)
+  steps       SalaryStep[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("job_grades")
+}
+
+model SalaryStep {
+  id            String    @id @default(cuid())
+  gradeId       String
+  grade         JobGrade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  stepNumber    Int       // 1, 2, 3...
+  amount        Decimal   @db.Decimal(10, 2)
+  yearsRequired Int       @default(0) // Years of service required for this step
+  createdAt     DateTime  @default(now())
+
+  @@map("salary_steps")
+  @@index([gradeId])
+}
+
+model StaffProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId      String        @unique // e.g., "GHS-2023-001"
+  dateJoined      DateTime
+  employmentType  String        // PERMANENT, CONTRACT, LOCUM
+  departmentId    String?
+  department      Department?   @relation(fields: [departmentId], references: [id])
+  jobGradeId      String?
+  jobGrade        JobGrade?     @relation(fields: [jobGradeId], references: [id])
+  salaryStepId    String?
+  salaryStep      SalaryStep?   @relation(fields: [salaryStepId], references: [id])
+  bio             String?       @db.Text
+  nextOfKinName   String?
+  nextOfKinPhone  String?
+  documents       Document[]
+  payrollRecords  PayrollRecord[]
+  shifts          ShiftProposal[]
+  leaveRequests   LeaveRequest[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("staff_profiles")
+  @@index([userId])
+  @@index([employeeId])
+  @@index([departmentId])
+}
+
+model Document {
+  id          String        @id @default(cuid())
+  staffId     String
+  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type        String        // LICENSE, CERTIFICATE, ID_CARD
+  title       String
+  fileUrl     String
+  expiryDate  DateTime?
+  isVerified  Boolean       @default(false)
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@map("staff_documents")
+  @@index([staffId])
+  @@index([expiryDate])
+}
+
+model PayrollRecord {
+  id          String        @id @default(cuid())
+  staffId     String
+  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month       Int
+  year        Int
+  baseSalary  Decimal       @db.Decimal(10, 2)
+  allowances  Decimal       @db.Decimal(10, 2)
+  deductions  Decimal       @db.Decimal(10, 2)
+  netPay      Decimal       @db.Decimal(10, 2)
+  isPaid      Boolean       @default(false)
+  payslipUrl  String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@map("payroll_records")
+  @@index([staffId])
+  @@index([month, year])
+  @@unique([staffId, month, year])
+}
+
+model ShiftProposal {
+  id          String        @id @default(cuid())
+  staffId     String
+  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date        DateTime      @db.Date
+  startTime   DateTime
+  endTime     DateTime
+  shiftType   ShiftType     @default(morning)
+  status      String        // PENDING, APPROVED, REJECTED
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@map("shift_proposals")
+  @@index([staffId])
+  @@index([date])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id          String        @id @default(cuid())
+  staffId     String
+  staff       StaffProfile  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  startDate   DateTime      @db.Date
+  endDate     DateTime      @db.Date
+  type        String        // ANNUAL, SICK, MATERNITY
+  reason      String?       @db.Text
+  status      LeaveStatus   @default(pending)
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@map("leave_requests")
+  @@index([staffId])
+  @@index([startDate, endDate])
+  @@index([status])
 }
