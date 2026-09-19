@@ -570,4 +570,87 @@ export class GHSReportService extends BaseService {
   static exportConsultingRoomRegisterToCSV(report: ConsultingRoomRegisterReport): string {
     return [ '"CONSULTING ROOM REGISTER"', `"Facility","${report.facility.name}"`, `"District","${report.facility.district}"`, `"GHF Code","${report.facility.ghfCode}"`, `"Period","${report.period.date}"`, '', '"SUMMARY"', `"Total Patients",${report.summary.totalPatients}`, `"New Patients",${report.summary.newPatients}`, `"Old Patients",${report.summary.oldPatients}`, `"NHIS Patients",${report.summary.nhisPatients}`, `"Cash Patients",${report.summary.cashPatients}`, `"Pregnant Women",${report.summary.pregnantWomen}`, `"Referrals",${report.summary.referrals}`, '', [ 'Date','PatientNo','NHISNo','Name','Address','Age','Telephone','Sex', 'ProvDiag','LabTests','LabResult','PnpalDiag','NewDiag','OldDiag', 'AddDiag','NewAddDiag','OldAddDiag','Pregnant','IsNHIS', 'DrugPresc','DrugGiven','AttendanceID' ].map(h => `"${h}"`).join(','), ...report.entries.map(e => [ e.date, e.patientNo, e.nhisNo ?? '', e.patientName, e.address, e.age, e.telephone, e.sex === 'male' ? 'M' : 'F', e.provisionalDiagnosis, e.labTestsRequested, e.labResults, e.principalDiagnosis, e.newDiagnosis, e.oldDiagnosis, e.additionalDiagnosis, e.newAdditionalDiagnosis, e.oldAdditionalDiagnosis, e.pregnant ? 'Y' : 'N', e.isNHIS ? 'Y' : 'N', e.drugsPrescribed, e.drugsGiven, e.attendanceId ].map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')) ].join('\n');
   }
+
+  // ─── Family Planning CYP Calculation (WHO Standards) ────────────────────────
+  async getFamilyPlanningStats(startDate: Date, endDate: Date) {
+    const services = await this.repo.getFamilyPlanningServices(startDate, endDate);
+    
+    // WHO Standard CYP Multipliers
+    const cypMultipliers: Record<string, number> = {
+      'IUD': 3.5,
+      'IMPLANT': 3.0,
+      'INJECTABLE': 0.25,
+      'PILL': 0.25,
+      'CONDOM': 0.015,
+      'FEMALE_CONDOM': 0.015,
+      'STERILIZATION_FEMALE': 10.0,
+      'STERILIZATION_MALE': 5.0,
+    };
+
+    const stats = {
+      totalAcceptors: services.length,
+      newAcceptors: 0,
+      repeatAcceptors: 0,
+      totalCYP: 0,
+      byMethod: {} as Record<string, { count: number; cyp: number }>,
+    };
+
+    for (const service of services) {
+      const method = (service.methodType || 'OTHER').toUpperCase();
+      
+      // Check if new acceptor (no service in last 12 months)
+      const isNew = !service.lastServiceDate || 
+        (service.date.getTime() - service.lastServiceDate.getTime()) > (365 * 24 * 60 * 60 * 1000);
+
+      if (isNew) stats.newAcceptors++;
+      else stats.repeatAcceptors++;
+
+      // Calculate CYP
+      const multiplier = cypMultipliers[method] || 0;
+      const cyp = multiplier * (service.quantity || 1);
+      
+      stats.totalCYP += cyp;
+
+      if (!stats.byMethod[method]) {
+        stats.byMethod[method] = { count: 0, cyp: 0 };
+      }
+      stats.byMethod[method].count++;
+      stats.byMethod[method].cyp += cyp;
+    }
+
+    return stats;
+  }
+
+  // ─── EPI Statistics with Dropout Rates ──────────────────────────────────────
+  async getEPIStats(startDate: Date, endDate: Date) {
+    const immunizations = await this.repo.getEPIImmunizations(startDate, endDate);
+    
+    const stats = {
+      byVaccine: {} as Record<string, { doses: number; ageGroups: Record<string, number> }>,
+      fullyImmunizedChildren: 0,
+      dropoutRates: {} as Record<string, number>,
+    };
+
+    // Group by vaccine and age
+    for (const imm of immunizations) {
+      const vaccine = imm.vaccineType || 'OTHER';
+      const ageInMonths = imm.ageInMonths || 0;
+      const ageGroup = ageInMonths < 1 ? '<1m' : ageInMonths < 12 ? '1-11m' : '12+m';
+
+      if (!stats.byVaccine[vaccine]) {
+        stats.byVaccine[vaccine] = { doses: 0, ageGroups: {} };
+      }
+      stats.byVaccine[vaccine].doses++;
+      stats.byVaccine[vaccine].ageGroups[ageGroup] = (stats.byVaccine[vaccine].ageGroups[ageGroup] || 0) + 1;
+    }
+
+    // Calculate dropout rates (BCG to Measles)
+    const bcgDoses = stats.byVaccine['BCG']?.doses || 0;
+    const measlesDoses = stats.byVaccine['MEASLES']?.doses || 0;
+    if (bcgDoses > 0) {
+      stats.dropoutRates['BCG_to_Measles'] = ((bcgDoses - measlesDoses) / bcgDoses) * 100;
+    }
+
+    return stats;
+  }
 }

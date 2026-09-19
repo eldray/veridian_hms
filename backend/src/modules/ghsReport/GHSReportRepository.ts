@@ -236,4 +236,39 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
 
     return { attendances, priorRows };
   }
+
+  // ─── Family Planning Services ───────────────────────────────────────────────
+  async getFamilyPlanningServices(startDate: Date, endDate: Date) {
+    const services = await this.prisma.familyPlanningService.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+      include: { patient: true },
+    });
+
+    // Enrich with last service date for new/repeat calculation
+    const enriched = [];
+    for (const s of services) {
+      const last = await this.prisma.familyPlanningService.findFirst({
+        where: { patientId: s.patientId, date: { lt: s.date } },
+        orderBy: { date: 'desc' },
+        select: { date: true },
+      });
+      enriched.push({ ...s, lastServiceDate: last?.date || null });
+    }
+    return enriched;
+  }
+
+  // ─── EPI Immunizations ──────────────────────────────────────────────────────
+  async getEPIImmunizations(startDate: Date, endDate: Date) {
+    const immunizations = await this.prisma.immunization.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+      include: { patient: true },
+    });
+
+    return immunizations.map(imm => ({
+      ...imm,
+      ageInMonths: imm.patient.dateOfBirth 
+        ? Math.floor((imm.date.getTime() - imm.patient.dateOfBirth.getTime()) / (30.44 * 24 * 60 * 60 * 1000))
+        : 0,
+    }));
+  }
 }
