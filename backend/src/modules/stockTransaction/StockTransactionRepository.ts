@@ -7,7 +7,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   }
 
   async findAllWithFilters(filters: any) {
-    const { stockItemId, transactionType, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { stockItemId, transactionType, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (stockItemId) where.stockItemId = stockItemId;
     if (transactionType) where.transactionType = transactionType;
@@ -18,7 +18,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { transactionDate: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { transactionDate: 'desc' },
       include: {
         StockItem: { select: { id: true, name: true, category: true, drugCode: true, unitOfMeasure: true } },
         Requisition: { select: { requisitionNumber: true, status: true, urgency: true } },

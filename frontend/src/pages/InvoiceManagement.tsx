@@ -556,10 +556,10 @@ export default function InvoiceManagement() {
 
   // Calculate summary stats with fallback
   const summaryStats = {
-    totalInvoices: invoices.length,
-    totalSpent: invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
+    totalInvoices: invoices?.length || 0,
+    totalSpent: invoices?.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0) || 0,
     uniqueSuppliers: getUniqueSuppliers().length,
-    totalItems: invoices.reduce((sum, inv) => sum + (inv.InvoiceItem?.length || 0), 0)
+    totalItems: invoices?.reduce((sum, inv) => sum + (inv.InvoiceItem?.length || 0), 0) || 0
   };
 
   // Filter active items for dropdown

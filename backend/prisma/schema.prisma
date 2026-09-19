@@ -1663,6 +1663,7 @@ model StockTransaction {
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
   StockItem   StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  User        User?        @relation(fields: [performedBy], references: [id])
 
   @@index([stockItemId, transactionDate])
   @@index([transactionType])
@@ -1716,6 +1717,7 @@ model RequisitionItem {
 
   Requisition Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
   StockItem   StockItem   @relation(fields: [stockItemId], references: [id])
+  User        User?        @relation(fields: [performedBy], references: [id])
 }
 
 enum TransferStatus {

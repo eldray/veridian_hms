@@ -30,19 +30,19 @@ export class AuditRepository extends BaseRepository<any, any, any> {
 
     // ✅ Uses BaseRepository pagination helper
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
+      where, page, limit: Math.min(limit, 1000), orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
     });
   }
 
   async getEntityLogs(entityType: string, entityId: string, filters: Partial<AuditLogFilters>) {
-    const { page = 1, limit = 50 } = filters;
+    const { page = 1, limit = 1000 } = filters;
     return this.findManyWithPagination({
-      where: { entityType, entityId }, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
+      where: { entityType, entityId }, page, limit: Math.min(limit, 1000), orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
     });
   }
 
   async getUserLogs(userId: string, filters: Partial<AuditLogFilters>) {
-    const { page = 1, limit = 50, startDate, endDate } = filters;
+    const { page = 1, limit = 1000, startDate, endDate } = filters;
     const where: any = { performedById: userId };
 
     if (startDate || endDate) {
@@ -52,7 +52,7 @@ export class AuditRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
+      where, page, limit: Math.min(limit, 1000), orderBy: { timestamp: 'desc' }, include: this.getBaseInclude()
     });
   }
 

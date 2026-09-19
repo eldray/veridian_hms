@@ -54,13 +54,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async getAllBookings(filters: AntenatalBookingFilters): Promise<{ bookings: any[]; total: number }> {
-    const { isActive, patientId, page = 1, limit = 50 } = filters;
+    const { isActive, patientId, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (isActive !== undefined) where.isActive = isActive;
     if (patientId) where.patientId = patientId;
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { bookingDate: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { bookingDate: 'desc' },
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } }, _count: { select: { visits: true } } }
     }).then(res => ({ bookings: res.data, total: res.total }));
   }
@@ -142,7 +142,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async getDeliveryRecords(filters: DeliveryRecordFilters): Promise<{ records: any[]; total: number }> {
-    const { patientId, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { patientId, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (patientId) where.patientId = patientId;
     if (startDate || endDate) {
@@ -220,7 +220,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async getPostnatalRecords(filters: PostnatalRecordFilters): Promise<{ records: any[]; total: number }> {
-    const { patientId, page = 1, limit = 50 } = filters;
+    const { patientId, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (patientId) where.patientId = patientId;
 

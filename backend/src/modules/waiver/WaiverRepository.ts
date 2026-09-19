@@ -9,7 +9,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: any) {
-    const { billId, patientId, status, waiverType, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { billId, patientId, status, waiverType, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (billId) where.billId = billId;
     if (patientId) where.patientId = patientId;
@@ -22,7 +22,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { createdAt: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },

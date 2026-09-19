@@ -20,7 +20,8 @@ import {
   FileText,
   History,
   Play,
-  CheckSquare
+  CheckSquare,
+  ArrowRight
 } from 'lucide-react';
 
 // Stats Card Component
@@ -30,10 +31,14 @@ interface StatCardProps {
   icon: React.ElementType;
   color: string;
   bg: string;
+  onClick?: () => void;
 }
 
-const StatCard = ({ title, value, icon: Icon, color, bg }: StatCardProps) => (
-  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
+  <div 
+    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+    onClick={onClick}
+  >
     <div className="flex items-center justify-between">
       <div>
         <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
@@ -43,6 +48,13 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: StatCardProps) => (
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
+    {onClick && (
+      <div className="mt-2 flex justify-end">
+        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+          Enter <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
+    )}
   </div>
 );
 
@@ -216,6 +228,7 @@ export default function ScansWaitingList() {
           icon={Scan}
           color="text-indigo-600"
           bg="bg-indigo-100"
+          onClick={() => navigate('/dashboard/scans')}
         />
         <StatCard 
           title="In Progress" 
@@ -223,6 +236,7 @@ export default function ScansWaitingList() {
           icon={Activity}
           color="text-purple-600"
           bg="bg-purple-100"
+          onClick={() => navigate('/dashboard/scans')}
         />
         <StatCard 
           title="Patients Waiting" 
@@ -230,6 +244,7 @@ export default function ScansWaitingList() {
           icon={Users}
           color="text-cyan-600"
           bg="bg-cyan-100"
+          onClick={() => navigate('/dashboard/scans')}
         />
         <StatCard 
           title="Urgent/STAT" 
@@ -237,6 +252,7 @@ export default function ScansWaitingList() {
           icon={AlertTriangle}
           color="text-red-600"
           bg="bg-red-100"
+          onClick={() => navigate('/dashboard/scans')}
         />
         <StatCard 
           title="Recent Scans" 
@@ -244,6 +260,7 @@ export default function ScansWaitingList() {
           icon={History}
           color="text-green-600"
           bg="bg-green-100"
+          onClick={() => navigate('/dashboard/scans')}
         />
       </div>
 

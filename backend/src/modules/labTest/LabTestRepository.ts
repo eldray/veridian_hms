@@ -23,7 +23,7 @@ export class LabTestRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(params: LabTestQueryParams) {
-    const { isActive, category, subType, page = 1, limit = 100 } = params;
+    const { isActive, category, subType, page = 1, limit = 1000 } = params;
     const where: any = { serviceType: ServiceType.lab_test };
 
     if (isActive !== undefined) where.isActive = isActive;
@@ -31,7 +31,7 @@ export class LabTestRepository extends BaseRepository<any, any, any> {
     if (subType) where.subType = { contains: subType, mode: 'insensitive' };
 
     const pageNum = Math.max(1, page);
-    const limitNum = Math.min(100, Math.max(1, limit));
+    const limitNum = Math.min(1000, Math.max(1, limit));
     const skip = (pageNum - 1) * limitNum;
 
     const [templates, total] = await Promise.all([

@@ -9,7 +9,7 @@ export class AppointmentRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: AppointmentFilters) {
-    const { clinicianId, patientId, departmentId, status, date, dateFrom, dateTo, page = 1, limit = 50 } = filters;
+    const { clinicianId, patientId, departmentId, status, date, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (clinicianId) where.clinicianId = clinicianId;
@@ -33,7 +33,7 @@ export class AppointmentRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { scheduledAt: 'asc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { scheduledAt: 'asc' },
       include: {
         patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
         clinician: { select: { id: true, fullName: true, role: true } },

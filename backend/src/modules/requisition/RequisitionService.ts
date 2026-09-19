@@ -1,5 +1,6 @@
 import { BaseService } from '../../shared/base/BaseService';
 import { RequisitionRepository } from './RequisitionRepository';
+import { StockItemRepository } from '../stockItem/StockItemRepository';
 import {
   CreateRequisitionDTO,
   UpdateRequisitionDTO,
@@ -8,6 +9,7 @@ import {
   RequisitionQueryParams
 } from './RequisitionTypes';
 import { getCounterService } from '../../services/CounterService'; // ✅ ADDED
+import { PrismaClient } from '@prisma/client';
 
 // ✅ STRICT STATE MACHINE: Defines valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -20,10 +22,12 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 export class RequisitionService extends BaseService {
   private repository: RequisitionRepository;
-
-  constructor(repository: RequisitionRepository) {
+  private stockRepo: StockItemRepository;
+  
+  constructor(repository: RequisitionRepository, prisma: PrismaClient) {
     super('RequisitionService');
     this.repository = repository;
+    this.stockRepo = new StockItemRepository(prisma);
   }
 
   async getAllRequisitions(params: RequisitionQueryParams) {
@@ -111,6 +115,52 @@ export class RequisitionService extends BaseService {
     const requisition = await this.repository.approveItems(id, data.approvedItems, userId);
     this.logInfo('Requisition items approved', { id });
     return requisition;
+  }
+
+  async fulfillRequisition(id: string, userId: string | undefined) {
+    this.logInfo('Fulfilling requisition with stock validation', { id, userId });
+    
+    const requisition = await this.repository.findById(id);
+    if (!requisition) throw new Error('Requisition not found');
+    
+    if (requisition.status !== 'approved') {
+      throw new Error('Only approved requisitions can be fulfilled');
+    }
+    
+    if (!requisition.RequisitionItem || requisition.RequisitionItem.length === 0) {
+      throw new Error('No items to fulfill');
+    }
+    
+    // ✅ CRITICAL: Check stock availability for each item
+    const insufficientStock: Array<{ itemName: string; requested: number; available: number }> = [];
+    
+    for (const reqItem of requisition.RequisitionItem) {
+      const quantityToIssue = reqItem.quantityApproved || reqItem.quantityRequested;
+      
+      // Get current stock from database (fresh data)
+      const stockItem = await this.stockRepo.findById(reqItem.stockItemId);
+      if (!stockItem) {
+        throw new Error(`Stock item "${reqItem.StockItem?.name}" not found`);
+      }
+      
+      if (stockItem.currentStock < quantityToIssue) {
+        insufficientStock.push({
+          itemName: stockItem.name,
+          requested: quantityToIssue,
+          available: stockItem.currentStock
+        });
+      }
+    }
+    
+    if (insufficientStock.length > 0) {
+      const errorMsg = insufficientStock.map(item => 
+        `${item.itemName}: Requested ${item.requested}, Available ${item.available}`
+      ).join('; ');
+      throw new Error(`Insufficient stock for: ${errorMsg}`);
+    }
+    
+    // ✅ All checks passed - proceed with fulfillment using transaction
+    return this.repository.fulfillRequisitionWithStockUpdate(id, userId, this.prisma);
   }
 
   async updateRequisition(id: string, data: UpdateRequisitionDTO, userId: string | undefined) {

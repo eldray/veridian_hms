@@ -8,7 +8,7 @@ import { protect, requireRole } from '../../middleware/authMiddleware'; // ✅ A
 export function createRequisitionRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const repository = new RequisitionRepository(prisma);
-  const service = new RequisitionService(repository);
+  const service = new RequisitionService(repository, prisma);
   const controller = new RequisitionController(service);
 
   // ✅ GLOBAL AUTH: All routes require authentication

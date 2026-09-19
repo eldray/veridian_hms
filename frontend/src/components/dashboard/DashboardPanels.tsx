@@ -442,9 +442,24 @@ export function NurseSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="IPD" value={ipd.length} color="var(--icon-purple-text)" Icon={Hospital} />
-            <MetricTile label="Day Care" value={daycase.length} color="var(--icon-cyan-text)" Icon={Bed} />
-            <MetricTile label="Meds Due" value={medsReady} color="var(--icon-orange-text)" Icon={Activity} />
+            <div className="relative">
+              <MetricTile label="IPD" value={ipd.length} color="var(--icon-purple-text)" Icon={Hospital} />
+              <Link to="/dashboard/nursing?filter=ipd" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+            <div className="relative">
+              <MetricTile label="Day Care" value={daycase.length} color="var(--icon-cyan-text)" Icon={Bed} />
+              <Link to="/dashboard/nursing?filter=daycase" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+            <div className="relative">
+              <MetricTile label="Meds Due" value={medsReady} color="var(--icon-orange-text)" Icon={Activity} />
+              <Link to="/dashboard/pharmacy" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
           </div>
 
           <div className="pt-1">
@@ -537,17 +552,42 @@ export function MidwifeSummary() {
             <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}>Antenatal</p>
             <div className="grid grid-cols-2 gap-2">
-              <MetricTile label="ANC Bookings" value={ancTotal} color="var(--icon-cyan-text)" Icon={Users} />
-              <MetricTile label="Visits Today" value={ancToday} color="var(--icon-green-text)" Icon={Calendar} />
+              <div className="relative">
+                <MetricTile label="ANC Bookings" value={ancTotal} color="var(--icon-cyan-text)" Icon={Users} />
+                <Link to="/dashboard/antenatal" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                  View <ChevronRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+              <div className="relative">
+                <MetricTile label="Visits Today" value={ancToday} color="var(--icon-green-text)" Icon={Calendar} />
+                <Link to="/dashboard/antenatal?filter=today" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                  View <ChevronRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
             </div>
           </div>
           <div className="border-t pt-3" style={{ borderColor: 'var(--border-color)' }}>
             <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}>Deliveries</p>
             <div className="grid grid-cols-3 gap-2">
-              <MetricTile label="Total" value={delTotal} color="var(--icon-purple-text)" Icon={Baby} />
-              <MetricTile label="Live Births" value={liveTotal} color="var(--icon-green-text)" Icon={CheckCircle} />
-              <MetricTile label="C-Sections" value={csTotal} color="var(--icon-orange-text)" Icon={Activity} />
+              <div className="relative">
+                <MetricTile label="Total" value={delTotal} color="var(--icon-purple-text)" Icon={Baby} />
+                <Link to="/dashboard/deliveries" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                  View <ChevronRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+              <div className="relative">
+                <MetricTile label="Live Births" value={liveTotal} color="var(--icon-green-text)" Icon={CheckCircle} />
+                <Link to="/dashboard/deliveries?filter=live" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                  View <ChevronRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+              <div className="relative">
+                <MetricTile label="C-Sections" value={csTotal} color="var(--icon-orange-text)" Icon={Activity} />
+                <Link to="/dashboard/deliveries?filter=csection" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                  View <ChevronRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
             </div>
           </div>
           <div className="border-t pt-2" style={{ borderColor: 'var(--border-color)' }}>
@@ -593,9 +633,19 @@ export function LabSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={FlaskConical} />
+            <div className="relative">
+              <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={FlaskConical} />
+              <Link to="/dashboard/laboratory" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
             <MetricTile label="Completed" value={completed} color="var(--icon-green-text)" Icon={CheckCircle} />
-            <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
+            <div className="relative">
+              <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
+              <Link to="/dashboard/laboratory?filter=pending" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
           </div>
 
           {avgTAT > 0 && (
@@ -663,9 +713,19 @@ export function ScanSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={ScanLine} />
+            <div className="relative">
+              <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={ScanLine} />
+              <Link to="/dashboard/scans" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
             <MetricTile label="Completed" value={completed} color="var(--icon-green-text)" Icon={CheckCircle} />
-            <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
+            <div className="relative">
+              <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
+              <Link to="/dashboard/scans?filter=pending" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
           </div>
 
           {avgTAT > 0 && (
@@ -762,10 +822,30 @@ export function RecordsSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <MetricTile label="New Patients" value={stats.newPatients} color="var(--icon-cyan-text)" Icon={UserPlus} />
-            <MetricTile label="Today's Visits" value={stats.todayVisits} color="var(--icon-orange-text)" Icon={Users} />
-            <MetricTile label="Appointments" value={stats.appointments} color="var(--icon-purple-text)" Icon={Calendar} />
-            <MetricTile label="Referrals" value={stats.referrals} color="var(--icon-green-text)" Icon={ChevronRight} />
+            <div className="relative">
+              <MetricTile label="New Patients" value={stats.newPatients} color="var(--icon-cyan-text)" Icon={UserPlus} />
+              <Link to="/dashboard/patients" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+            <div className="relative">
+              <MetricTile label="Today's Visits" value={stats.todayVisits} color="var(--icon-orange-text)" Icon={Users} />
+              <Link to="/dashboard/encounters" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+            <div className="relative">
+              <MetricTile label="Appointments" value={stats.appointments} color="var(--icon-purple-text)" Icon={Calendar} />
+              <Link to="/dashboard/appointments" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+            <div className="relative">
+              <MetricTile label="Referrals" value={stats.referrals} color="var(--icon-green-text)" Icon={ChevronRight} />
+              <Link to="/dashboard/referrals" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
+                View <ChevronRight className="w-2.5 h-2.5" />
+              </Link>
+            </div>
           </div>
 
           {recentPats.length > 0 && (

@@ -8,7 +8,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: any) {
-    const { supplierName, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { supplierName, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (supplierName) where.supplierName = { contains: supplierName, mode: 'insensitive' };
@@ -19,7 +19,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { invoiceDate: 'desc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { invoiceDate: 'desc' },
       include: {
         InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } } } },
         StockTransaction: { include: { StockItem: { select: { name: true, drugCode: true } } } },

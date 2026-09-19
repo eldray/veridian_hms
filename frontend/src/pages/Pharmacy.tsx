@@ -23,12 +23,25 @@ import {
   History,
   FileText,
   List,
-  ClipboardList
+  ClipboardList,
+  ArrowRight
 } from 'lucide-react';
 
 // Stats Card Component
-const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: any;
+  color: string;
+  bg: string;
+  onClick?: () => void;
+}
+
+const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
+  <div 
+    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+    onClick={onClick}
+  >
     <div className="flex items-center justify-between">
       <div>
         <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
@@ -38,6 +51,13 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
+    {onClick && (
+      <div className="mt-2 flex justify-end">
+        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+          Enter <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
+    )}
   </div>
 );
 
@@ -216,6 +236,7 @@ export default function DispenseMedication() {
           icon={Pill}
           color="text-purple-600"
           bg="bg-purple-100"
+          onClick={() => navigate('/dashboard/pharmacy')}
         />
         <StatCard 
           title="Patients Waiting" 
@@ -223,6 +244,7 @@ export default function DispenseMedication() {
           icon={Users}
           color="text-cyan-600"
           bg="bg-cyan-100"
+          onClick={() => navigate('/dashboard/pharmacy')}
         />
         <StatCard 
           title="Urgent" 
@@ -230,6 +252,7 @@ export default function DispenseMedication() {
           icon={AlertTriangle}
           color="text-orange-600"
           bg="bg-orange-100"
+          onClick={() => navigate('/dashboard/pharmacy')}
         />
         <StatCard 
           title="Critical" 
@@ -237,6 +260,7 @@ export default function DispenseMedication() {
           icon={AlertCircle}
           color="text-red-600"
           bg="bg-red-100"
+          onClick={() => navigate('/dashboard/pharmacy')}
         />
         <StatCard 
           title="Recent Dispensed" 
@@ -244,6 +268,7 @@ export default function DispenseMedication() {
           icon={History}
           color="text-green-600"
           bg="bg-green-100"
+          onClick={() => navigate('/dashboard/pharmacy')}
         />
       </div>
 

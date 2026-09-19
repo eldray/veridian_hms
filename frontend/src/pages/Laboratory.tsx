@@ -22,12 +22,25 @@ import {
   Play,
   CheckSquare,
   List,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 
 // Stats Card Component
-const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: any;
+  color: string;
+  bg: string;
+  onClick?: () => void;
+}
+
+const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
+  <div 
+    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+    onClick={onClick}
+  >
     <div className="flex items-center justify-between">
       <div>
         <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
@@ -37,6 +50,13 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
+    {onClick && (
+      <div className="mt-2 flex justify-end">
+        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+          Enter <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
+    )}
   </div>
 );
 
@@ -223,6 +243,7 @@ export default function Laboratory() {
           icon={FlaskConical}
           color="text-purple-600"
           bg="bg-purple-100"
+          onClick={() => navigate('/dashboard/laboratory')}
         />
         <StatCard 
           title="In Progress" 
@@ -230,6 +251,7 @@ export default function Laboratory() {
           icon={Activity}
           color="text-blue-600"
           bg="bg-blue-100"
+          onClick={() => navigate('/dashboard/laboratory')}
         />
         <StatCard 
           title="Patients Waiting" 
@@ -237,6 +259,7 @@ export default function Laboratory() {
           icon={Users}
           color="text-cyan-600"
           bg="bg-cyan-100"
+          onClick={() => navigate('/dashboard/laboratory')}
         />
         <StatCard 
           title="Urgent/STAT" 
@@ -244,6 +267,7 @@ export default function Laboratory() {
           icon={AlertTriangle}
           color="text-red-600"
           bg="bg-red-100"
+          onClick={() => navigate('/dashboard/laboratory')}
         />
         <StatCard 
           title="Completed Today" 
@@ -251,6 +275,7 @@ export default function Laboratory() {
           icon={History}
           color="text-green-600"
           bg="bg-green-100"
+          onClick={() => navigate('/dashboard/laboratory')}
         />
       </div>
 

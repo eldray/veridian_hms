@@ -40,7 +40,7 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
   }
 
   async search(filters: PatientFilters): Promise<PaginationResult<Patient>> {
-    const { search, nhisNumber, phone, gender, paymentMode, corporateAccountId, dateFrom, dateTo, page = 1, limit = 10 } = filters;
+    const { search, nhisNumber, phone, gender, paymentMode, corporateAccountId, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (search) {

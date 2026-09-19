@@ -52,7 +52,7 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
   }
 
   async findWithFilters(filters: any) {
-    const { serviceType, category, search, isActive, page = 1, limit = 50 } = filters;
+    const { serviceType, category, search, isActive, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (serviceType) where.serviceType = serviceType;
     if (category) where.serviceCategory = category;
@@ -67,7 +67,7 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { name: 'asc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: this.getBaseInclude()
     });
   }

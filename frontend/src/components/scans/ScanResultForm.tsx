@@ -1,13 +1,25 @@
 // src/components/scans/ScanResultForm.tsx
-import React, { useState, useRef } from 'react';
-import { X, Upload, Image, Trash2, Eye, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Upload, Image, Trash2, Eye, AlertCircle, CheckCircle, Plus, Minus } from 'lucide-react';
 import { useToast } from '../../store/toastStore';
+import { useScanTemplateStore } from '../../store/scanTemplateStore';
 
 interface ScanResultFormProps {
   scan: any;
   onSaveResult: (scanId: string, resultData: any) => Promise<void>;
   onClose: () => void;
   saving: boolean;
+}
+
+interface TemplateSection {
+  id: string;
+  title: string;
+  normalComment: string;
+  findings: string;
+}
+
+interface CustomSection extends TemplateSection {
+  isCustom?: boolean;
 }
 
 export const ScanResultForm: React.FC<ScanResultFormProps> = ({ 
@@ -24,6 +36,39 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { error: toastError } = useToast();
+  const { getScanTemplate, currentScanTemplate, isLoading: templateLoading } = useScanTemplateStore();
+  
+  // Layered sections state - combines template and custom sections
+  const [sections, setSections] = useState<CustomSection[]>([]);
+  const [useLayeredView, setUseLayeredView] = useState(true);
+
+  // Load template when component mounts
+  useEffect(() => {
+    if (scan?.ServiceCatalog?.id || scan?.scanType) {
+      const templateId = scan.ServiceCatalog?.id || scan.scanType;
+      getScanTemplate(templateId).catch(() => {
+        // Template not found, will use basic view
+      });
+    }
+  }, [scan]);
+
+  // Initialize sections from template
+  useEffect(() => {
+    if (currentScanTemplate?.reportTemplate && Array.isArray(currentScanTemplate.reportTemplate)) {
+      const templateSections: CustomSection[] = currentScanTemplate.reportTemplate.map((section: any, index: number) => ({
+        id: section.id || `template-${index}`,
+        title: section.title || section.name || `Section ${index + 1}`,
+        normalComment: section.normalComment || section.defaultFinding || '',
+        findings: section.findings || '',
+        isCustom: false
+      }));
+      setSections(templateSections);
+      setUseLayeredView(templateSections.length > 0);
+    } else {
+      setSections([]);
+      setUseLayeredView(false);
+    }
+  }, [currentScanTemplate]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -45,9 +90,74 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const updateSectionFindings = (sectionId: string, findings: string) => {
+    setSections(prev => prev.map(s => 
+      s.id === sectionId ? { ...s, findings } : s
+    ));
+  };
+
+  const addCustomSection = () => {
+    const newSection: CustomSection = {
+      id: `custom-${Date.now()}`,
+      title: '',
+      normalComment: '',
+      findings: '',
+      isCustom: true
+    };
+    setSections(prev => [...prev, newSection]);
+  };
+
+  const removeCustomSection = (sectionId: string) => {
+    setSections(prev => prev.filter(s => s.id !== sectionId));
+  };
+
+  const updateCustomSectionTitle = (sectionId: string, title: string) => {
+    setSections(prev => prev.map(s => 
+      s.id === sectionId ? { ...s, title } : s
+    ));
+  };
+
+  const updateCustomSectionNormalComment = (sectionId: string, normalComment: string) => {
+    setSections(prev => prev.map(s => 
+      s.id === sectionId ? { ...s, normalComment } : s
+    ));
+  };
+
   const handleSubmit = async () => {
     setUploading(true);
     try {
+      // Build structured findings from layered sections
+      let structuredFindings: any = {};
+      let plainTextFindings = '';
+
+      if (useLayeredView) {
+        // All sections are now in one array (template + custom combined)
+        const allSections = sections;
+        
+        structuredFindings = {
+          sections: allSections.map(s => ({
+            title: s.title || 'Untitled Section',
+            normalComment: s.normalComment,
+            findings: s.findings,
+            isCustom: s.isCustom || false
+          })),
+          impression: impression,
+          additionalNotes: result
+        };
+
+        // Also create plain text version for backward compatibility
+        plainTextFindings = allSections
+          .filter(s => s.findings.trim() || s.normalComment)
+          .map(s => {
+            const title = s.title ? `${s.title}:\n` : '';
+            const finding = s.findings.trim() ? s.findings : s.normalComment;
+            return `${title}${finding}`;
+          })
+          .join('\n\n');
+      } else {
+        plainTextFindings = findings;
+      }
+
       // Upload images first if any
       let uploadedImageUrls: string[] = [];
       
@@ -79,7 +189,8 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
       const allImageUrls = [...(scan.imageUrls || []), ...uploadedImageUrls];
 
       await onSaveResult(scan.id, {
-        findings,
+        findings: useLayeredView ? plainTextFindings : findings,
+        structuredFindings: useLayeredView ? structuredFindings : null,
         impression,
         result,
         imageUrls: allImageUrls,
@@ -95,7 +206,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-[var(--bg-card)] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-[var(--border-color)]">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-[var(--border-color)]">
         <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image className="w-5 h-5 text-indigo-600" />
@@ -168,17 +279,99 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
             )}
           </div>
           
-          {/* Findings */}
-          <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Findings</label>
-            <textarea
-              value={findings}
-              onChange={(e) => setFindings(e.target.value)}
-              rows={5}
-              className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-[var(--text-primary)]"
-              placeholder="Describe radiological findings..."
-            />
-          </div>
+          {/* Layered Template Sections or Basic View */}
+          {useLayeredView && sections.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-md font-semibold text-[var(--text-primary)]">Findings by Region</h4>
+                <button
+                  onClick={() => setUseLayeredView(false)}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  Switch to Basic View
+                </button>
+              </div>
+
+              {/* All Sections (Template + Custom) */}
+              {sections.map((section, index) => (
+                <div key={section.id} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
+                  <div className={`px-4 py-2 border-b border-[var(--border-color)] flex items-center justify-between ${section.isCustom ? 'bg-purple-50' : 'bg-[var(--bg-main)]'}`}>
+                    {section.isCustom ? (
+                      <>
+                        <input
+                          type="text"
+                          value={section.title}
+                          onChange={(e) => updateCustomSectionTitle(section.id, e.target.value)}
+                          placeholder="Section Title"
+                          className="bg-transparent border-none text-sm font-semibold text-[var(--text-primary)] focus:outline-none focus:ring-0 flex-1"
+                        />
+                        <button
+                          onClick={() => removeCustomSection(section.id)}
+                          className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
+                          title="Remove section"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <h5 className="font-semibold text-[var(--text-primary)]">{section.title}</h5>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {section.normalComment && (
+                      <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                        <p className="text-xs text-blue-700 font-medium">Normal Finding:</p>
+                        <p className="text-sm text-blue-600 italic">{section.normalComment}</p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                        Your Findings (leave empty if normal)
+                      </label>
+                      <textarea
+                        value={section.findings}
+                        onChange={(e) => updateSectionFindings(section.id, e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-[var(--text-primary)]"
+                        placeholder="Describe any abnormal findings for this region..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Custom Section Button */}
+              <button
+                onClick={addCustomSection}
+                className="w-full py-3 border-2 border-dashed border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Add Custom Section</span>
+              </button>
+            </div>
+          ) : (
+            /* Basic View (Fallback or User Choice) */
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)]">Findings</label>
+                {!useLayeredView && sections.length > 0 && (
+                  <button
+                    onClick={() => setUseLayeredView(true)}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    Switch to Layered View
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={findings}
+                onChange={(e) => setFindings(e.target.value)}
+                rows={5}
+                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-[var(--text-primary)]"
+                placeholder="Describe radiological findings..."
+              />
+            </div>
+          )}
           
           {/* Impression */}
           <div>

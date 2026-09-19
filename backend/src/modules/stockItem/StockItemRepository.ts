@@ -10,7 +10,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async findAllWithFilters(filters: any) {
-    const { category, search, page = 1, limit = 50 } = filters;
+    const { category, search, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (category) where.category = category;
     if (search) {
@@ -22,7 +22,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     }
 
     return this.findManyWithPagination({
-      where, page, limit, orderBy: { name: 'asc' },
+      where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: { StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' } } }
     });
   }
