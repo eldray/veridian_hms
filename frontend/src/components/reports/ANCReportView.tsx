@@ -1,7 +1,7 @@
 // src/components/reports/FormAReportView.tsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect } from 'react';
-import { 
-  Download, Printer, FileText, Baby, Heart, Shield, 
+import {
+  Download, Printer, FileText, Baby, Heart, Shield,
   Syringe, Droplet, Calendar, User,
   Activity, TrendingUp, XCircle, Eye,
   Users, Hospital, Stethoscope, ClipboardList, Building2,
@@ -115,7 +115,7 @@ export const FormAReportView: React.FC = () => {
   // ✅ Use reportsStore - No isGeneratingReport, use isLoading
   const { formAReport, getGHSFormAReport, isLoading } = useReportsStore();
   const { success, error: toastError } = useToast();
-  
+
   const [period, setPeriod] = useState<'monthly' | 'quarterly' | 'yearly' | 'custom'>('monthly');
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -157,11 +157,11 @@ export const FormAReportView: React.FC = () => {
           endDate: `${year}-${String(startMonth + 2).padStart(2, '0')}-${new Date(year, startMonth + 2, 0).getDate()}`
         };
       }
-      
+
       // Add facility type and EMONC services
       params.facilityType = facilityType;
       params.emoncServices = emoncServices;
-      
+
       // ✅ Use getGHSFormAReport from reportsStore
       const result = await getGHSFormAReport(params);
       setReportData({ ...result, facility: { ...result.facility, facilityType, emoncServices } });
@@ -178,7 +178,7 @@ export const FormAReportView: React.FC = () => {
 
   const handleExportCSV = () => {
     if (!reportData) return;
-    
+
     const rows = [
       ['GHS FORM A - MONTHLY MIDWIVES RETURN'],
       [''],
@@ -273,7 +273,7 @@ export const FormAReportView: React.FC = () => {
       [''],
       ['Generated At:', new Date(reportData.generatedAt).toLocaleString()]
     ];
-    
+
     const csvContent = rows.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -345,11 +345,11 @@ export const FormAReportView: React.FC = () => {
 
           <h4 className="font-medium text-sm mt-4 mb-2">EMONC Services Available:</h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.bloodTransfusion} onChange={(e) => setEmoncServices({...emoncServices, bloodTransfusion: e.target.checked})} className="w-4 h-4" />Blood Transfusion</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.pmtct} onChange={(e) => setEmoncServices({...emoncServices, pmtct: e.target.checked})} className="w-4 h-4" />PMTCT</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.eidServices} onChange={(e) => setEmoncServices({...emoncServices, eidServices: e.target.checked})} className="w-4 h-4" />EID Services</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.conductDelivery} onChange={(e) => setEmoncServices({...emoncServices, conductDelivery: e.target.checked})} className="w-4 h-4" />Conduct Delivery</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.babyFriendly} onChange={(e) => setEmoncServices({...emoncServices, babyFriendly: e.target.checked})} className="w-4 h-4" />Baby Friendly</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.bloodTransfusion} onChange={(e) => setEmoncServices({ ...emoncServices, bloodTransfusion: e.target.checked })} className="w-4 h-4" />Blood Transfusion</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.pmtct} onChange={(e) => setEmoncServices({ ...emoncServices, pmtct: e.target.checked })} className="w-4 h-4" />PMTCT</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.eidServices} onChange={(e) => setEmoncServices({ ...emoncServices, eidServices: e.target.checked })} className="w-4 h-4" />EID Services</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.conductDelivery} onChange={(e) => setEmoncServices({ ...emoncServices, conductDelivery: e.target.checked })} className="w-4 h-4" />Conduct Delivery</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={emoncServices.babyFriendly} onChange={(e) => setEmoncServices({ ...emoncServices, babyFriendly: e.target.checked })} className="w-4 h-4" />Baby Friendly</label>
           </div>
         </div>
 
@@ -409,7 +409,7 @@ export const FormAReportView: React.FC = () => {
   // ============================================
   // FORM A REPORT DISPLAY - Matches PDF layout
   // ============================================
-  
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -421,7 +421,7 @@ export const FormAReportView: React.FC = () => {
 
       {/* Report Content - PDF Style */}
       <div id="form-a-report-content" className="bg-white text-gray-900 rounded-xl shadow-lg overflow-hidden print:shadow-none font-serif">
-        
+
         {/* Header - GHS Official Format */}
         <div className="text-center py-6 px-4 border-b-2 border-gray-300">
           <h1 className="text-2xl font-bold uppercase tracking-wide">GHANA HEALTH SERVICE</h1>
@@ -454,11 +454,11 @@ export const FormAReportView: React.FC = () => {
               <span className="text-sm">EID Services</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.conductDelivery ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility?.emoncServices?.conductDelivery ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               <span className="text-sm">Conduct Delivery</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded-full ${reportData?.facility.emoncServices.babyFriendly ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`w-4 h-4 rounded-full ${reportData?.facility?.emoncServices?.babyFriendly ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               <span className="text-sm">Baby Friendly Services</span>
             </div>
           </div>
@@ -472,7 +472,7 @@ export const FormAReportView: React.FC = () => {
             </h3>
             <p className="text-xs text-gray-500 ml-7">Services provided to pregnant women during pregnancy</p>
           </div>
-          
+
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="text-center p-3 bg-pink-50 rounded-lg">
@@ -495,7 +495,7 @@ export const FormAReportView: React.FC = () => {
 
           {/* Two column layout for ANC data */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            
+
             {/* IPTp Coverage */}
             <div className="border rounded-lg p-4">
               <h4 className="font-bold mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-blue-600" /> IPTp Coverage (SP)</h4>
@@ -602,7 +602,7 @@ export const FormAReportView: React.FC = () => {
             </h3>
             <p className="text-xs text-gray-500 ml-7">Delivery outcomes and complications</p>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.delivery.totalDeliveries}</div><div className="text-xs">Total Deliveries</div></div>
             <div className="text-center p-3 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-600">{reportData?.delivery.liveBirths}</div><div className="text-xs">Live Births</div></div>
@@ -644,8 +644,8 @@ export const FormAReportView: React.FC = () => {
             <div className="border rounded-lg p-4 bg-gray-50">
               <h4 className="font-bold mb-3">Stillbirth Details</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div><span className="text-sm">Fresh Stillbirths:</span><br/><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsFresh}</span></div>
-                <div><span className="text-sm">Macerated Stillbirths:</span><br/><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsMacerated}</span></div>
+                <div><span className="text-sm">Fresh Stillbirths:</span><br /><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsFresh}</span></div>
+                <div><span className="text-sm">Macerated Stillbirths:</span><br /><span className="text-xl font-bold text-red-600">{reportData?.delivery.stillbirthsMacerated}</span></div>
               </div>
               <div className="mt-3 pt-3 border-t">
                 <div className="flex justify-between"><span>Low Birth Weight (&lt;2.5kg):</span><span className="font-bold">{reportData?.delivery.lowBirthWeight}</span></div>
@@ -674,7 +674,7 @@ export const FormAReportView: React.FC = () => {
             </h3>
             <p className="text-xs text-gray-500 ml-7">Postnatal services and follow-up</p>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
             <div className="text-center p-3 bg-teal-50 rounded-lg"><div className="text-2xl font-bold text-teal-600">{reportData?.postnatal.newMothers}</div><div className="text-xs">New Mothers</div></div>
             <div className="text-center p-3 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-600">{reportData?.postnatal.totalVisits}</div><div className="text-xs">Total PNC Visits</div></div>

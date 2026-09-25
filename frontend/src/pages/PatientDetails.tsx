@@ -8,9 +8,9 @@ import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
-import { 
-  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors, 
-  DollarSign, RefreshCw, AlertCircle, Loader, Trash2, Eye, Clock, 
+import {
+  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
+  DollarSign, RefreshCw, AlertCircle, Loader, Trash2, Eye, Clock,
   CheckCircle, XCircle, Activity, File, Download, Printer, ChevronRight,
   Stethoscope, Syringe, Microscope, Heart, TrendingUp, AlertTriangle,
   Shield, Phone, MapPin, Mail, CreditCard, History, BarChart3,
@@ -23,8 +23,12 @@ import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
 
 // Helper function to format currency
-const formatCurrency = (amount: number) => `₵${amount?.toFixed(2) ?? '0.00'}`;
-
+const formatCurrency = (amount: unknown): string => {
+  if (amount === null || amount === undefined) return '₵0.00';
+  const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+  if (!Number.isFinite(num)) return '₵0.00';
+  return `₵${num.toFixed(2)}`;
+};
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const colors: Record<string, string> = {
@@ -108,7 +112,7 @@ export default function PatientDetails() {
   // Extract patient data properly from nested response (ORIGINAL)
   const patient = useMemo(() => {
     if (!currentPatient) return null;
-    
+
     if (currentPatient.data) {
       return currentPatient.data;
     } else if (currentPatient.success && currentPatient.data) {
@@ -126,7 +130,7 @@ export default function PatientDetails() {
   // Filter patient attendances (ORIGINAL)
   const patientAttendances = useMemo(() => {
     if (!patient || !attendances.length) return [];
-    
+
     const patientId = patient.id;
     console.log('🔍 Filtering attendances for patient:', patientId);
     console.log('📊 Total attendances to filter:', attendances.length);
@@ -161,9 +165,9 @@ export default function PatientDetails() {
     const diag: any[] = [];
     patientAttendances.forEach(att => {
       if (att.diagnoses && att.diagnoses.length) {
-        diag.push(...att.diagnoses.map(d => ({ 
-          ...d, 
-          attendanceId: att.id, 
+        diag.push(...att.diagnoses.map(d => ({
+          ...d,
+          attendanceId: att.id,
           attendanceDate: att.dateTime || att.createdAt,
           attendanceNumber: att.attendanceNumber
         })));
@@ -176,9 +180,9 @@ export default function PatientDetails() {
     const meds: any[] = [];
     patientAttendances.forEach(att => {
       if (att.medications && att.medications.length) {
-        meds.push(...att.medications.map(m => ({ 
-          ...m, 
-          attendanceId: att.id, 
+        meds.push(...att.medications.map(m => ({
+          ...m,
+          attendanceId: att.id,
           attendanceDate: att.dateTime || att.createdAt,
           attendanceNumber: att.attendanceNumber
         })));
@@ -191,9 +195,9 @@ export default function PatientDetails() {
     const tests: any[] = [];
     patientAttendances.forEach(att => {
       if (att.labTests && att.labTests.length) {
-        tests.push(...att.labTests.map(t => ({ 
-          ...t, 
-          attendanceId: att.id, 
+        tests.push(...att.labTests.map(t => ({
+          ...t,
+          attendanceId: att.id,
           attendanceDate: att.dateTime || att.createdAt,
           attendanceNumber: att.attendanceNumber
         })));
@@ -206,9 +210,9 @@ export default function PatientDetails() {
     const procs: any[] = [];
     patientAttendances.forEach(att => {
       if (att.procedures && att.procedures.length) {
-        procs.push(...att.procedures.map(p => ({ 
-          ...p, 
-          attendanceId: att.id, 
+        procs.push(...att.procedures.map(p => ({
+          ...p,
+          attendanceId: att.id,
           attendanceDate: att.dateTime || att.createdAt,
           attendanceNumber: att.attendanceNumber
         })));
@@ -221,9 +225,9 @@ export default function PatientDetails() {
     const scans: any[] = [];
     patientAttendances.forEach(att => {
       if (att.scans && att.scans.length) {
-        scans.push(...att.scans.map(s => ({ 
-          ...s, 
-          attendanceId: att.id, 
+        scans.push(...att.scans.map(s => ({
+          ...s,
+          attendanceId: att.id,
           attendanceDate: att.dateTime || att.createdAt,
           attendanceNumber: att.attendanceNumber
         })));
@@ -241,7 +245,7 @@ export default function PatientDetails() {
     const totalBilled = patientAttendances.reduce((sum, att) => sum + (att.totalBill || 0), 0);
     const totalPaid = patientAttendances.reduce((sum, att) => sum + (att.paidAmount || 0), 0);
     const outstanding = totalBilled - totalPaid;
-    
+
     return { totalVisits, completedVisits, pendingVisits, admittedVisits, totalBilled, totalPaid, outstanding };
   }, [patientAttendances]);
 
@@ -252,9 +256,9 @@ export default function PatientDetails() {
       try {
         const vitals = await getVitalsByAttendance(att.id);
         if (vitals?.length) {
-          allVitals.push(...vitals.map(v => ({ 
-            ...v, 
-            attendanceId: att.id, 
+          allVitals.push(...vitals.map(v => ({
+            ...v,
+            attendanceId: att.id,
             attendanceDate: att.dateTime || att.createdAt,
             attendanceNumber: att.attendanceNumber
           })));
@@ -341,12 +345,12 @@ export default function PatientDetails() {
     const totalMedications = patientAttendances.reduce((sum, att) => sum + (att.medications?.length || 0), 0);
     const totalLabTests = patientAttendances.reduce((sum, att) => sum + (att.labTests?.length || 0), 0);
 
-    setStats({ 
-      totalVisits, 
-      completedVisits, 
-      pendingVisits, 
-      totalMedications, 
-      totalLabTests 
+    setStats({
+      totalVisits,
+      completedVisits,
+      pendingVisits,
+      totalMedications,
+      totalLabTests
     });
   }, [patientAttendances]);
 
@@ -395,7 +399,7 @@ export default function PatientDetails() {
 
   const handleDeletePatient = async () => {
     if (!patient?.id) return;
-    
+
     try {
       await deletePatient(patient.id);
       success('Patient Deleted', 'Patient record has been removed');
@@ -581,7 +585,7 @@ export default function PatientDetails() {
             <ArrowLeft className="w-4 h-4" />
             <span>Back</span>
           </button>
-          
+
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Details</h1>
             <p className="text-sm text-[var(--text-secondary)]">Record #{patient.folderNumber || patient.id?.slice(-8)}</p>
@@ -644,7 +648,7 @@ export default function PatientDetails() {
               </div>
             </div>
             <p className="text-gray-700 mb-4">
-              Are you sure you want to delete <strong>{getPatientFullName(patient)}</strong>? 
+              Are you sure you want to delete <strong>{getPatientFullName(patient)}</strong>?
               All patient records and visits will be permanently removed.
             </p>
             <div className="flex gap-3">
@@ -761,18 +765,16 @@ export default function PatientDetails() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm whitespace-nowrap ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm whitespace-nowrap ${activeTab === tab.id
                       ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {tab.label}
                   {tab.count > 0 && (
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
+                      }`}>
                       {tab.count}
                     </span>
                   )}
@@ -917,8 +919,8 @@ export default function PatientDetails() {
               ) : (
                 <div className="space-y-3">
                   {patientAttendances.map((attendance) => (
-                    <div 
-                      key={attendance.id} 
+                    <div
+                      key={attendance.id}
                       className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:shadow-md transition-all duration-200 overflow-hidden"
                     >
                       <div className="p-4">
@@ -1009,7 +1011,7 @@ export default function PatientDetails() {
                 <div className="space-y-4">
                   {patientAttendances.map((attendance) => (
                     <div key={attendance.id} className="border border-[var(--border-color)] rounded-xl overflow-hidden">
-                      <div 
+                      <div
                         className="bg-[var(--bg-main)] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-[var(--bg-card)] transition-colors"
                         onClick={() => viewMedicalDetails(attendance)}
                       >
@@ -1031,7 +1033,7 @@ export default function PatientDetails() {
                           <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                         </div>
                       </div>
-                      
+
                       {/* Preview of medical entries */}
                       <div className="p-4 border-t border-[var(--border-color)] grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                         <div className="flex items-center gap-2">
@@ -1223,10 +1225,10 @@ export default function PatientDetails() {
                   }, new Map<string, GeneratedDocument[]>()).entries()).map(([entityId, docs]) => {
                     // Find the attendance for this document group
                     const attendance = patientAttendances.find(a => a.id === entityId);
-                    const displayName = attendance 
+                    const displayName = attendance
                       ? `${attendance.attendanceNumber || 'Visit'} - ${formatDate(attendance.dateTime || attendance.createdAt)}`
                       : `Document Group ${entityId.slice(-8)}`;
-                    
+
                     return (
                       <div key={entityId} className="border border-[var(--border-color)] rounded-xl overflow-hidden">
                         <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
@@ -1250,13 +1252,12 @@ export default function PatientDetails() {
                             <div key={doc.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                    doc.template?.templateType === 'receipt' ? 'bg-green-100' :
-                                    doc.template?.templateType === 'prescription' ? 'bg-blue-100' :
-                                    doc.template?.templateType === 'lab_result' ? 'bg-purple-100' :
-                                    doc.template?.templateType === 'discharge_summary' ? 'bg-cyan-100' :
-                                    'bg-gray-100'
-                                  }`}>
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${doc.template?.templateType === 'receipt' ? 'bg-green-100' :
+                                      doc.template?.templateType === 'prescription' ? 'bg-blue-100' :
+                                        doc.template?.templateType === 'lab_result' ? 'bg-purple-100' :
+                                          doc.template?.templateType === 'discharge_summary' ? 'bg-cyan-100' :
+                                            'bg-gray-100'
+                                    }`}>
                                     {getDocumentIcon(doc.template?.templateType || '')}
                                   </div>
                                   <div>
@@ -1324,7 +1325,7 @@ export default function PatientDetails() {
                 <XCircle className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Diagnoses */}
               {selectedAttendance.diagnoses && selectedAttendance.diagnoses.length > 0 && (
@@ -1400,7 +1401,7 @@ export default function PatientDetails() {
                             Status: <span className="font-medium">{test.status}</span>
                           </span>
                           {test.result && (
-                            <button 
+                            <button
                               className="text-xs text-purple-600 hover:text-purple-800"
                               onClick={() => window.open(`/api/documents/lab/${test.id}`)}
                             >

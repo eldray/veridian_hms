@@ -388,76 +388,56 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 getLabTestTemplates: async (filters = {}) => {
   set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
   try {
-    // Match the working pattern from getProcedureTemplates
     const limit = 5000;
     let allLabTests: LabTestTemplate[] = [];
     let currentPage = 1;
     let totalPages = 1;
     let totalCount = 0;
-    
+
     // First request
     const firstResponse = await apiGetLabTestTemplates({ ...filters, page: 1, limit });
-    
+
     console.log('Lab tests first response:', firstResponse);
-    
-    // Handle response structure - match the pattern that works for procedures
-    if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
+
+    // Handle { data: [], pagination: {} } from updated API function
+    if (firstResponse?.data && Array.isArray(firstResponse.data)) {
       allLabTests = [...firstResponse.data];
-      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-      totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
-      currentPage = firstResponse.pagination?.currentPage || 1;
-    } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-      allLabTests = [...firstResponse.data];
-      totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-      totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
-      currentPage = firstResponse.pagination?.currentPage || 1;
+      const pag = firstResponse.pagination;
+      totalCount = pag?.total || allLabTests.length;
+      totalPages = pag?.totalPages || pag?.pages || Math.ceil(totalCount / limit);
+      currentPage = pag?.page || pag?.currentPage || 1;
     } else if (Array.isArray(firstResponse)) {
-      allLabTests = [...firstResponse];
+      allLabTests = [...firstResponse as any[]];
       totalCount = allLabTests.length;
       totalPages = 1;
-    } else if (firstResponse?.items && Array.isArray(firstResponse.items)) {
-      allLabTests = [...firstResponse.items];
-      totalCount = firstResponse.total || allLabTests.length;
-      totalPages = firstResponse.totalPages || 1;
-    } else if (firstResponse?.labTests && Array.isArray(firstResponse.labTests)) {
-      allLabTests = [...firstResponse.labTests];
-      totalCount = firstResponse.total || allLabTests.length;
-      totalPages = firstResponse.totalPages || 1;
     }
-    
+
     // Fetch remaining pages if needed
     if (currentPage < totalPages) {
       const remainingPromises = [];
       for (let page = currentPage + 1; page <= totalPages; page++) {
         remainingPromises.push(apiGetLabTestTemplates({ ...filters, page, limit }));
       }
-      
       const remainingResponses = await Promise.all(remainingPromises);
-      
-      for (const response of remainingResponses) {
-        if (response?.success && response?.data && Array.isArray(response.data)) {
-          allLabTests = [...allLabTests, ...response.data];
-        } else if (response?.data && Array.isArray(response.data)) {
+      for (const response of remainingResponses as any[]) {
+        if (response?.data && Array.isArray(response.data)) {
           allLabTests = [...allLabTests, ...response.data];
         } else if (Array.isArray(response)) {
           allLabTests = [...allLabTests, ...response];
-        } else if (response?.items && Array.isArray(response.items)) {
-          allLabTests = [...allLabTests, ...response.items];
-        } else if (response?.labTests && Array.isArray(response.labTests)) {
-          allLabTests = [...allLabTests, ...response.labTests];
         }
       }
     }
-    
+
     console.log(`📊 Lab tests loaded: ${allLabTests.length} records (Total: ${totalCount})`);
-    
-    set({ 
+
+    set({
       labTestTemplates: allLabTests,
       labTestsTotalCount: totalCount,
-      isLoadingLabTests: false 
+      isLoadingLabTests: false
     });
   } catch (error: unknown) {
     console.error('Failed to fetch lab test templates:', error);
+
     set({
       errors: { ...get().errors, labTests: error.message },
       isLoadingLabTests: false

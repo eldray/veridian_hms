@@ -2828,7 +2828,6 @@ enum ServiceCategory {
 }
 
 enum UserRole {
-  super_admin
   admin
   doctor
   nurse
@@ -2836,12 +2835,8 @@ enum UserRole {
   records
   lab_tech
   pharmacist
-  accountant
-  hr_officer
-  store_keeper
-  billing_officer
+  accounts
   sonographer
-  community_nurse
 }
 
 enum LabTestStatus {

@@ -111,7 +111,7 @@ export const requirePermission = (permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === 'ADMIN' || user.permissions?.includes(permission)) {
+    if (user.role === 'admin' || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -165,10 +165,10 @@ export const requireRoleWithMinSeniority = (role: UserRole, minSeniority: Senior
   };
 };
 
-export const requireSeniorDoctor = requireRoleWithMinSeniority('DOCTOR', 'SENIOR');
-export const requireSeniorNurse = requireRoleWithMinSeniority('NURSE', 'SENIOR');
-export const requireSeniorPharmacist = requireRoleWithMinSeniority('PHARMACIST', 'SENIOR');
-export const requirePrincipalDoctor = requireRoleWithMinSeniority('DOCTOR', 'PRINCIPAL');
+export const requireSeniorDoctor = requireRoleWithMinSeniority('doctor', 'SENIOR');
+export const requireSeniorNurse = requireRoleWithMinSeniority('nurse', 'SENIOR');
+export const requireSeniorPharmacist = requireRoleWithMinSeniority('pharmacist', 'SENIOR');
+export const requirePrincipalDoctor = requireRoleWithMinSeniority('doctor', 'PRINCIPAL');
 
 // ✅ NEW: Combined Role + Permission checks
 export const requireRoleOrPermission = (role: UserRole, permission: string) => {
@@ -179,7 +179,7 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === role || user.role === 'ADMIN' || user.permissions?.includes(permission)) {
+    if (user.role === role || user.role === 'admin' || user.permissions?.includes(permission)) {
       next();
       return;
     }

@@ -246,6 +246,11 @@ const handleResponse = <T>(response: any): T[] => {
     return response.notifications as T[];
   }
 
+  // ✅ Handle BaseController paginated response: { success, data: { data: [], pagination: {} } }
+  if (response?.success && response?.data?.data && Array.isArray(response.data.data)) {
+    return response.data.data as T[];
+  }
+
   // Handle other common response structures
   if (Array.isArray(response)) return response as T[];
   if (response?.data && Array.isArray(response.data)) return response.data as T[];
@@ -1750,7 +1755,25 @@ export const bulkUpdateDiagnoses = (data: any) =>
 
 // ✅ Fix: Use '/lab-tests' (with hyphen) to match backend
 export const getLabTestTemplates = (filters?: any) =>
-  api.get('/lab-tests', { params: filters }).then(r => handleResponse<LabTestTemplate>(r.data));
+  api.get('/lab-tests', { params: filters }).then(r => {
+    const responseData = r.data;
+    // Handle BaseController paginated: { success, data: { data: [], pagination: {} } }
+    if (responseData?.success && responseData?.data?.data && Array.isArray(responseData.data.data)) {
+      return {
+        data: responseData.data.data,
+        pagination: responseData.data.pagination,
+      };
+    }
+    // Fallback: flat array
+    if (Array.isArray(responseData?.data)) {
+      return { data: responseData.data, pagination: responseData.pagination };
+    }
+    if (Array.isArray(responseData)) {
+      return { data: responseData, pagination: null };
+    }
+    console.warn('Unexpected lab-tests response:', responseData);
+    return { data: [], pagination: null };
+  });
 
 export const getLabTestTemplate = (id: string) =>
   api.get(`/lab-tests/${id}`).then(r => r.data);

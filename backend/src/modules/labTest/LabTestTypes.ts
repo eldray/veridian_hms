@@ -4,6 +4,7 @@ export interface LabTestQueryParams {
   isActive?: boolean;
   category?: string;
   subType?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }

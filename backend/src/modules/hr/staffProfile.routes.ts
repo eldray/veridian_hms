@@ -3,7 +3,7 @@ import { PrismaClient, EmploymentType } from '@prisma/client';
 import { StaffProfileService } from './staffProfile.service.js';
 import { protect, requireRole } from '../../middleware/authMiddleware.js';
 
-const HR_ROLES = ['super_admin', 'admin', 'hr_officer'] as const;
+const HR_ROLES = ['admin', 'hr_officer'] as const;
 
 export function createStaffProfileRoutes(prisma: PrismaClient): Router {
   const router = Router();

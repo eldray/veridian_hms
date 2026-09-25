@@ -25,6 +25,7 @@ export class LabTestController extends BaseController {
       isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
       category: req.query.category as string | undefined,
       subType: req.query.subType as string | undefined,
+      search: req.query.search as string | undefined,
       page,
       limit
     };

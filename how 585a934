@@ -1,0 +1,215 @@
+[33mcommit 585a9348d9abc82de7d7a7418b267fce5de909a6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: eldray <emk.appiah@gmail.com>
+Date:   Thu Sep 17 21:02:47 2026 +0000
+
+    check superadmin login
+
+ .gitignore                                         |    55 [32m+[m[31m-[m
+ .../backups/backup-2025-11-04T18-38-07-552Z.json   | 12992 [31m-------[m
+ .../backups/backup-2026-06-05T00-32-50-361Z.sql    |   Bin [31m572304[m -> [32m0[m bytes
+ backend/build-errors.log                           |   609 [31m-[m
+ backend/hospital-backend@1.0.0                     |     0
+ backend/logs/audit.log                             | 33985 [31m-------------------[m
+ backend/logs/combined.log                          | 33985 [31m-------------------[m
+ backend/logs/error.log                             |     0
+ backend/npm                                        |     0
+ backend/npx                                        |    24 [31m-[m
+ backend/package.json                               |     4 [32m+[m[31m-[m
+ .../20260924153644_init_full_schema/migration.sql  |  3722 [32m++[m
+ backend/prisma/migrations/migration_lock.toml      |     3 [32m+[m
+ backend/prisma/schema.prisma                       |  1051 [32m+[m[31m-[m
+ "backend/prismaschema.prisma\357\200\2721035"      |     0
+ "backend/prismaschema.prisma\357\200\2721072"      |     0
+ backend/seed-full.log                              |   861 [31m-[m
+ backend/src/app.ts                                 |     2 [32m+[m[31m-[m
+ backend/src/cron/wardChargeCron.ts                 |     2 [32m+[m[31m-[m
+ backend/src/middleware/audit.ts                    |     2 [32m+[m[31m-[m
+ backend/src/middleware/authMiddleware.ts           |    67 [32m+[m[31m-[m
+ backend/src/middleware/concurrency.ts              |     4 [32m+[m[31m-[m
+ backend/src/middleware/transaction.ts              |     2 [32m+[m[31m-[m
+ .../src/modules/antenatal/AntenatalRepository.ts   |    10 [32m+[m[31m-[m
+ .../modules/appointment/AppointmentController.ts   |     2 [32m+[m[31m-[m
+ .../src/modules/appointment/AppointmentService.ts  |    13 [32m+[m[31m-[m
+ backend/src/modules/audit/AuditController.ts       |     2 [32m+[m[31m-[m
+ backend/src/modules/auth/AuthController.ts         |    82 [32m+[m[31m-[m
+ backend/src/modules/auth/AuthRepository.ts         |     1 [32m+[m
+ backend/src/modules/auth/AuthService.ts            |   105 [32m+[m[31m-[m
+ backend/src/modules/auth/AuthTypes.ts              |    10 [32m+[m[31m-[m
+ backend/src/modules/auth/TwoFactorService.ts       |   196 [32m+[m
+ backend/src/modules/auth/index.ts                  |     2 [32m+[m[31m-[m
+ backend/src/modules/backup/BackupController.ts     |     2 [32m+[m[31m-[m
+ backend/src/modules/bed/BedController.ts           |     2 [32m+[m[31m-[m
+ backend/src/modules/bill/BillController.ts         |     4 [32m+[m[31m-[m
+ backend/src/modules/bill/BillRepository.ts         |    31 [32m+[m[31m-[m
+ backend/src/modules/billing/BillingController.ts   |     2 [32m+[m[31m-[m
+ backend/src/modules/breakGlass/BreakGlassRoutes.ts |    79 [32m+[m
+ .../src/modules/breakGlass/BreakGlassService.ts    |   134 [32m+[m
+ .../modules/clinicalDecisionSupport/CDSSRoutes.ts  |    36 [32m+[m
+ .../modules/clinicalDecisionSupport/CDSSService.ts |   149 [32m+[m
+ .../src/modules/corporate/CorporateController.ts   |     4 [32m+[m[31m-[m
+ .../src/modules/corporate/CorporateRepository.ts   |     6 [32m+[m[31m-[m
+ .../src/modules/department/DepartmentController.ts |     2 [32m+[m[31m-[m
+ .../src/modules/department/DepartmentRepository.ts |     4 [32m+[m[31m-[m
+ .../src/modules/diagnosis/DiagnosisRepository.ts   |     6 [32m+[m[31m-[m
+ backend/src/modules/document/DocumentController.ts |     4 [32m+[m
+ backend/src/modules/document/DocumentRepository.ts |     2 [32m+[m[31m-[m
+ backend/src/modules/document/DocumentService.ts    |    11 [32m+[m[31m-[m
+ .../src/modules/encounter/EncounterController.ts   |     2 [32m+[m[31m-[m
+ .../src/modules/encounter/EncounterRepository.ts   |    74 [32m+[m[31m-[m
+ backend/src/modules/encounter/EncounterService.ts  |    13 [32m+[m[31m-[m
+ backend/src/modules/encounter/EncounterTypes.ts    |     3 [32m+[m[31m-[m
+ backend/src/modules/gdrg/GDRGController.ts         |     2 [32m+[m[31m-[m
+ backend/src/modules/gdrg/GDRGRepository.ts         |     2 [32m+[m[31m-[m
+ .../src/modules/ghsReport/GHSReportController.ts   |    34 [32m+[m[31m-[m
+ .../src/modules/ghsReport/GHSReportRepository.ts   |    28 [32m+[m
+ backend/src/modules/ghsReport/GHSReportService.ts  |   106 [32m+[m[31m-[m
+ backend/src/modules/hr/staffProfile.routes.ts      |   166 [32m+[m
+ backend/src/modules/hr/staffProfile.service.ts     |   237 [32m+[m
+ backend/src/modules/index.ts                       |    29 [32m+[m[31m-[m
+ .../insuranceClaim/InsuranceClaimController.ts     |     4 [32m+[m[31m-[m
+ .../insuranceClaim/InsuranceClaimRepository.ts     |    36 [32m+[m[31m-[m
+ .../modules/insuranceClaim/InsuranceClaimRoutes.ts |    34 [32m+[m[31m-[m
+ .../insuranceClaim/InsuranceClaimService.ts        |   226 [32m+[m[31m-[m
+ backend/src/modules/labTest/LabTestController.ts   |    12 [32m+[m[31m-[m
+ .../src/modules/nursingNote/NursingNoteRoutes.ts   |    91 [32m+[m
+ backend/src/modules/patient/PatientController.ts   |    46 [32m+[m[31m-[m
+ backend/src/modules/patient/PatientRepository.ts   |     6 [32m+[m[31m-[m
+ backend/src/modules/patient/PatientService.ts      |     4 [32m+[m[31m-[m
+ .../proformaInvoice/ProformaInvoiceService.ts      |     7 [32m+[m[31m-[m
+ .../purchaseInvoice/PurchaseInvoiceController.ts   |     2 [32m+[m[31m-[m
+ backend/src/modules/referral/ReferralController.ts |     2 [32m+[m[31m-[m
+ backend/src/modules/referral/ReferralRepository.ts |     4 [32m+[m[31m-[m
+ backend/src/modules/referral/ReferralRoutes.ts     |    18 [32m+[m[31m-[m
+ backend/src/modules/report/ReportService.ts        |    23 [32m+[m[31m-[m
+ .../modules/requisition/RequisitionRepository.ts   |    92 [32m+[m[31m-[m
+ .../src/modules/requisition/RequisitionService.ts  |    56 [32m+[m[31m-[m
+ .../src/modules/requisition/RequisitionTypes.ts    |     6 [32m+[m[31m-[m
+ .../modules/scanTemplate/ScanTemplateController.ts |     4 [32m+[m[31m-[m
+ .../modules/scanTemplate/ScanTemplateRepository.ts |     4 [32m+[m[31m-[m
+ .../serviceCatalog/ServiceCatalogController.ts     |     2 [32m+[m[31m-[m
+ .../serviceCatalog/ServiceCatalogService.ts        |     2 [32m+[m[31m-[m
+ backend/src/modules/settings/SettingsController.ts |     4 [32m+[m[31m-[m
+ backend/src/modules/settings/SettingsRoutes.ts     |     8 [32m+[m[31m-[m
+ backend/src/modules/settings/SettingsService.ts    |     2 [32m+[m[31m-[m
+ backend/src/modules/settings/index.ts              |    11 [32m+[m[31m-[m
+ .../modules/settings/nhis-eligibility.service.ts   |    37 [32m+[m[31m-[m
+ .../src/modules/stockItem/StockItemController.ts   |     2 [32m+[m[31m-[m
+ backend/src/modules/stockItem/index.ts             |    11 [32m+[m[31m-[m
+ .../stockTransaction/StockTransactionController.ts |     2 [32m+[m[31m-[m
+ .../stockTransaction/StockTransactionRepository.ts |    21 [32m+[m[31m-[m
+ backend/src/modules/stockTransaction/index.ts      |    11 [32m+[m[31m-[m
+ .../stockTransfer/StockTransferController.ts       |     2 [32m+[m[31m-[m
+ backend/src/modules/user/UserRepository.ts         |    16 [32m+[m[31m-[m
+ backend/src/modules/user/UserService.ts            |    17 [32m+[m[31m-[m
+ backend/src/modules/user/UserTypes.ts              |     5 [32m+[m[31m-[m
+ backend/src/modules/waiver/WaiverController.ts     |     4 [32m+[m[31m-[m
+ backend/src/modules/waiver/index.ts                |    11 [32m+[m[31m-[m
+ backend/src/seed/.seed_status.json                 |     3 [32m+[m[31m-[m
+ backend/src/seed/diagnosisGdrgLink.ts              |  1032 [32m+[m[31m-[m
+ backend/src/seed/drugInteractionsSeed.ts           |   111 [32m+[m
+ backend/src/seed/procedureGdrgLink.ts              |   469 [32m+[m[31m-[m
+ backend/src/seed/seedData.ts                       |   244 [32m+[m[31m-[m
+ backend/src/server.ts                              |     3 [32m+[m[31m-[m
+ backend/src/shared/base/BaseController.ts          |    12 [32m+[m[31m-[m
+ backend/src/utils/attemptLimiter.ts                |    51 [32m+[m
+ backend/src/utils/newsScore.ts                     |   157 [32m+[m
+ backend/src/utils/nhisXmlGenerator.ts              |    65 [32m+[m
+ backend/src/utils/totp.ts                          |   138 [32m+[m
+ backend/tsx                                        |     0
+ ...1718632-Screenshot from 2025-10-15 12-49-55.png |   Bin [31m128195[m -> [32m0[m bytes
+ ...5677_1717235861878892_5157215253484781956_n.jpg |   Bin [31m61710[m -> [32m0[m bytes
+ ...nye-West-Donda-album-cover-download-420x375.jpg |   Bin [31m34793[m -> [32m0[m bytes
+ .../6816530a9bd96622575a2640-1746302495496.jpeg    |   Bin [31m100209[m -> [32m0[m bytes
+ .../6816530a9bd96622575a2640-1746306907142.jpeg    |   Bin [31m100209[m -> [32m0[m bytes
+ ...ipt_cmon9kw1004bkw1eo1r8c1qcj_1777940417689.pdf |   525 [31m-[m
+ ...ipt_cmon9kw1004bkw1eo1r8c1qcj_1777940437892.pdf |   525 [31m-[m
+ ...ipt_cmon9kw1p04buw1eoz0lfgup5_1777678872896.pdf |   525 [31m-[m
+ ...ipt_cmon9kw1p04buw1eoz0lfgup5_1777680904537.pdf |   525 [31m-[m
+ ...ipt_cmon9kw1p04buw1eoz0lfgup5_1777680918872.pdf |   525 [31m-[m
+ ...ipt_cmous4ovp04bkw1zgaceo1ers_1778116095622.pdf |   682 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778438853699.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778439116101.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778447943224.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448352851.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448393601.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448395473.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448545503.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448643073.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778448851466.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778449109159.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778449534357.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778449818993.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778450269815.pdf |   526 [31m-[m
+ ...ipt_cmp04g1t2000bw17g1eduj1je_1778450876247.pdf |   526 [31m-[m
+ ...ipt_cmp5h5xna05nxw15c14mnnsdb_1778765549174.pdf |   421 [31m-[m
+ ...ipt_cmp63wfhc05oiw1hsve6x8h8h_1778800893715.pdf |   629 [31m-[m
+ ...ral_cmonjfit10001w1186382e7oc_1777763860998.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777762426624.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777762456436.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777762600311.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777762638310.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777762832324.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763149022.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763270526.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763471004.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763477380.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763815473.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763828064.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777763830238.pdf |   415 [31m-[m
+ ...ral_cmonjlyh00003w118ayl82fp1_1777764020860.pdf |   415 [31m-[m
+ backend/uploads/menu-1761825285545-756195111.png   |   Bin [31m23871[m -> [32m0[m bytes
+ backend/uploads/menu-1761830517178-925395211.png   |   Bin [31m23871[m -> [32m0[m bytes
+ ...ent-cmi6fkn3p00velwpac3tvnips-1763582646866.jpg |   Bin [31m19607[m -> [32m0[m bytes
+ ...ent-cmi6nq7ne00vylwtv0gs58cp2-1763596343673.jpg |   Bin [31m186502[m -> [32m0[m bytes
+ ...ent-cmi6pjsor00vzlw9ofdkkuf07-1763599403382.jpg |   Bin [31m45669[m -> [32m0[m bytes
+ ...ent-cmi6tq8sa00vclwjvwwymqeem-1763606422854.jpg |   Bin [31m52432[m -> [32m0[m bytes
+ ...ent-cmi6udey00001lwrr7og63x8p-1763607503915.jpg |   Bin [31m65122[m -> [32m0[m bytes
+ ...ent-cmibrvhy202ynlw1xab2nvxx6-1763905641143.jpg |   Bin [31m52432[m -> [32m0[m bytes
+ ...ent-cmohhiqcl0001w1bwp5q2vpec-1777311739747.jpg |   Bin [31m45755[m -> [32m0[m bytes
+ cleanup-untrack.sh                                 |    14 [32m+[m
+ frontend/Untitled                                  |    44 [31m-[m
+ frontend/src/App.tsx                               |    40 [32m+[m[31m-[m
+ frontend/src/api/auth.ts                           |    79 [32m+[m[31m-[m
+ frontend/src/api/index.ts                          |    78 [32m+[m
+ frontend/src/components/AdminNotificationPanel.tsx |     2 [32m+[m[31m-[m
+ frontend/src/components/BreakGlassGate.tsx         |    91 [32m+[m
+ frontend/src/components/NewAttendanceModal.tsx     |    67 [32m+[m[31m-[m
+ frontend/src/components/UserEditModal.tsx          |    59 [32m+[m[31m-[m
+ frontend/src/components/UserRegistrationModal.tsx  |     6 [32m+[m
+ .../src/components/antenatal/ANCBookingModal.tsx   |     3 [32m+[m[31m-[m
+ frontend/src/components/attendance/BillingTab.tsx  |    21 [32m+[m[31m-[m
+ .../medical-entries/modals/MedicationModal.tsx     |    92 [32m+[m[31m-[m
+ .../nursing/MedicationAdministrationChart.tsx      |   178 [32m+[m
+ .../src/components/nursing/NursingNotesPanel.tsx   |   171 [32m+[m
+ .../components/nursing/PatientSummarySidebar.tsx   |     2 [32m+[m
+ .../src/components/patients/AttendancesTab.tsx     |    73 [32m+[m[31m-[m
+ .../src/components/postnatal/PostnatalModal.tsx    |     4 [32m+[m[31m-[m
+ frontend/src/components/vitals/NewsScoreBadge.tsx  |    73 [32m+[m
+ frontend/src/components/vitals/VitalsFormModal.tsx |    41 [32m+[m[31m-[m
+ frontend/src/hooks/useFormValidation.tsx           |   123 [32m+[m
+ frontend/src/layouts/DashboardLayout.tsx           |    33 [32m+[m[31m-[m
+ frontend/src/pages/Admissions.tsx                  |     2 [32m+[m[31m-[m
+ frontend/src/pages/BreakGlassAudit.tsx             |   116 [32m+[m
+ frontend/src/pages/EstimateDetails.tsx             |     7 [32m+[m[31m-[m
+ frontend/src/pages/EstimateForm.tsx                |   402 [32m+[m
+ frontend/src/pages/Estimates.tsx                   |     8 [32m+[m[31m-[m
+ frontend/src/pages/Login.tsx                       |   161 [32m+[m[31m-[m
+ frontend/src/pages/Nursing.tsx                     |    23 [32m+[m[31m-[m
+ frontend/src/pages/PatientDetails.tsx              |    72 [32m+[m[31m-[m
+ frontend/src/pages/ProcessPayment.tsx              |    27 [32m+[m[31m-[m
+ frontend/src/pages/Referrals.tsx                   |    58 [32m+[m[31m-[m
+ frontend/src/pages/RequisitionManagement.tsx       |    86 [32m+[m[31m-[m
+ frontend/src/pages/Security.tsx                    |   310 [32m+[m
+ frontend/src/pages/StockManagement.tsx             |    29 [32m+[m
+ frontend/src/pages/StockTransactions.tsx           |     8 [32m+[m[31m-[m
+ frontend/src/pages/VitalsEntry.tsx                 |    26 [32m+[m[31m-[m
+ frontend/src/pages/hr/StaffDirectory.tsx           |   478 [32m+[m
+ frontend/src/pages/hr/StaffProfileView.tsx         |   351 [32m+[m
+ .../src/pages/insurance-claims/EditNHISClaim.tsx   |    13 [32m+[m[31m-[m
+ frontend/src/store/authStore.ts                    |    78 [32m+[m[31m-[m
+ frontend/src/store/stockStore.ts                   |     6 [32m+[m
+ frontend/src/store/toastStore.ts                   |    34 [32m+[m[31m-[m
+ frontend/src/types/index.ts                        |    13 [32m+[m[31m-[m
+ frontend/src/types/medical-entries.ts              |    21 [32m+[m
+ test.txt                                           |    44 [31m-[m
+ 208 files changed, 11463 insertions(+), 101832 deletions(-)

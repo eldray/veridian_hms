@@ -168,6 +168,13 @@ async getLeaveById(leaveId: string): Promise<LeaveResponse> {
     if (!user) throw new Error('User not found');
     if (!user.isActive) throw new Error('Cannot create shift for inactive user');
 
+    // Resolve userId → staffId via StaffProfile
+    const staffProfile = await this.repository.prisma.staffProfile.findUnique({
+      where: { userId: data.userId },
+      select: { id: true },
+    });
+    if (!staffProfile) throw new Error('Staff profile not found for this user. Create a staff profile first.');
+
     // ✅ FIX: Convert shiftDate to Date if string
     const shiftDate = data.shiftDate instanceof Date ? data.shiftDate : new Date(data.shiftDate);
     
@@ -186,7 +193,7 @@ async getLeaveById(leaveId: string): Promise<LeaveResponse> {
     }
 
     return this.repository.createShift({
-      userId: data.userId,
+      staffId: staffProfile.id,
       shiftDate: shiftDate,
       startTime: startDateTime,
       endTime: endDateTime,
@@ -253,6 +260,13 @@ async createLeave(userId: string, data: CreateLeaveDTO) {
   if (!user) throw new Error('User not found');
   if (!user.isActive) throw new Error('Cannot create leave for inactive user');
 
+  // Resolve userId → staffId via StaffProfile
+  const staffProfile = await this.repository.prisma.staffProfile.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  if (!staffProfile) throw new Error('Staff profile not found for this user. Create a staff profile first.');
+
   // ✅ FIX: Convert string dates to Date objects if needed
   const startDate = data.startDate instanceof Date ? data.startDate : new Date(data.startDate);
   const endDate = data.endDate instanceof Date ? data.endDate : new Date(data.endDate);
@@ -270,7 +284,7 @@ async createLeave(userId: string, data: CreateLeaveDTO) {
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   return this.repository.createLeave({
-    userId,
+    staffId: staffProfile.id,
     leaveType: data.leaveType,
     startDate: startDate,
     endDate: endDate,

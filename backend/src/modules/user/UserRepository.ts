@@ -140,10 +140,11 @@ export class UserRepository extends BaseRepository<any, any, any> {
     const { userId, departmentId, shiftDate, fromDate, toDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
-    if (userId) where.userId = userId;
+    // Shift links to StaffProfile via staffId; filter by userId through the staff relation
+    if (userId) where.staff = { userId };
 
     if (departmentId) {
-      where.user = { departmentId };
+      where.staff = { ...(where.staff || {}), departmentId };
     }
 
     if (shiftDate) {
@@ -163,39 +164,49 @@ export class UserRepository extends BaseRepository<any, any, any> {
     const skip = (page - 1) * limit;
 
     const [shifts, total] = await Promise.all([
-      this.prisma.staffShift.findMany({
+      this.prisma.shift.findMany({
         where,
         include: {
-          user: { select: { id: true, fullName: true, role: true } },
+          staff: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
         },
         orderBy: { shiftDate: 'asc' },
         skip,
         take: limit,
       }),
-      this.prisma.staffShift.count({ where }),
+      this.prisma.shift.count({ where }),
     ]);
 
     return { shifts: shifts as ShiftResponse[], total };
   }
 
   async findShiftById(shiftId: string): Promise<ShiftResponse | null> {
-    return this.prisma.staffShift.findUnique({
+    return this.prisma.shift.findUnique({
       where: { id: shiftId },
-      include: { user: { select: { id: true, fullName: true, role: true } } },
+      include: {
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
+      },
     });
   }
 
   async createShift(data: {
-    userId: string;
+    staffId: string;
     shiftDate: Date;
     startTime: Date;
     endTime: Date;
     shiftType: ShiftType;
     notes?: string | null;
   }): Promise<ShiftResponse> {
-    return this.prisma.staffShift.create({
+    return this.prisma.shift.create({
       data: {
-        userId: data.userId,
+        staffId: data.staffId,
         shiftDate: data.shiftDate,
         startTime: data.startTime,
         endTime: data.endTime,
@@ -203,7 +214,11 @@ export class UserRepository extends BaseRepository<any, any, any> {
         notes: data.notes || null,
       },
       include: {
-        user: { select: { id: true, fullName: true, role: true } },
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
       },
     });
   }
@@ -217,17 +232,21 @@ export class UserRepository extends BaseRepository<any, any, any> {
     if (data.shiftType !== undefined) updateData.shiftType = data.shiftType;
     if (data.notes !== undefined) updateData.notes = data.notes;
     
-    return this.prisma.staffShift.update({
+    return this.prisma.shift.update({
       where: { id: shiftId },
       data: updateData,
       include: {
-        user: { select: { id: true, fullName: true, role: true } },
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
       },
     });
   }
 
   async deleteShift(shiftId: string): Promise<void> {
-    await this.prisma.staffShift.delete({ where: { id: shiftId } });
+    await this.prisma.shift.delete({ where: { id: shiftId } });
   }
 
   // ==========================================
@@ -235,54 +254,63 @@ export class UserRepository extends BaseRepository<any, any, any> {
   // ==========================================
 
 
-async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse[]; total: number }> {
-  const { userId, departmentId, status, fromDate, toDate, page = 1, limit = 1000 } = filters;
-  const where: any = {};
+  async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse[]; total: number }> {
+    const { userId, departmentId, status, fromDate, toDate, page = 1, limit = 1000 } = filters;
+    const where: any = {};
 
-  if (userId) where.userId = userId;
-  if (status) where.status = status;
+    // LeaveRequest links to StaffProfile via staffId; filter by userId through the staff relation
+    if (userId) where.staff = { userId };
+    if (status) where.status = status;
 
-  if (departmentId) {
-    where.user = { departmentId };
+    if (departmentId) {
+      where.staff = { ...(where.staff || {}), departmentId };
+    }
+
+    if (fromDate || toDate) {
+      where.startDate = {};
+      if (fromDate) where.startDate.gte = fromDate;
+      if (toDate) where.startDate.lte = toDate;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [leaves, total] = await Promise.all([
+      this.prisma.leaveRequest.findMany({
+        where,
+        include: {
+          staff: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+            },
+          },
+          approvedBy: { select: { id: true, fullName: true } },
+        },
+        orderBy: { startDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.leaveRequest.count({ where }),
+    ]);
+
+    return { leaves: leaves as LeaveResponse[], total };
   }
-
-  if (fromDate || toDate) {
-    where.startDate = {};
-    if (fromDate) where.startDate.gte = fromDate;
-    if (toDate) where.startDate.lte = toDate;
-  }
-
-  const skip = (page - 1) * limit;
-
-  const [leaves, total] = await Promise.all([
-    this.prisma.leaveRequest.findMany({
-      where,
-      include: {
-        user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
-        approvedBy: { select: { id: true, fullName: true } },
-      },
-      orderBy: { startDate: 'desc' },  // ✅ FIXED: Use 'startDate' instead of 'createdAt'
-      skip,
-      take: limit,
-    }),
-    this.prisma.leaveRequest.count({ where }),
-  ]);
-
-  return { leaves: leaves as LeaveResponse[], total };
-}
 
   async findLeaveById(leaveId: string): Promise<LeaveResponse | null> {
     return this.prisma.leaveRequest.findUnique({
       where: { id: leaveId },
       include: {
-        user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+          },
+        },
         approvedBy: { select: { id: true, fullName: true } },
       },
     });
   }
 
   async createLeave(data: {
-    userId: string;
+    staffId: string;
     leaveType: string;
     startDate: Date;
     endDate: Date;
@@ -293,8 +321,8 @@ async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse
   }): Promise<LeaveResponse> {
     return this.prisma.leaveRequest.create({
       data: {
-        userId: data.userId,
-        leaveType: data.leaveType,
+        staffId: data.staffId,
+        leaveType: data.leaveType as any,
         startDate: data.startDate,
         endDate: data.endDate,
         totalDays: data.totalDays,
@@ -303,7 +331,11 @@ async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse
         approvedById: data.approvedById || null,
       },
       include: {
-        user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+          },
+        },
         approvedBy: { select: { id: true, fullName: true } },
       },
     });
@@ -320,7 +352,11 @@ async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse
       where: { id: leaveId },
       data: updateData,
       include: {
-        user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+        staff: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true, department: { select: { id: true, name: true } } } },
+          },
+        },
         approvedBy: { select: { id: true, fullName: true } },
       },
     });

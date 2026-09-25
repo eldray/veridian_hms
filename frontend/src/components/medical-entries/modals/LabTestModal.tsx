@@ -82,12 +82,15 @@ export const LabTestModal: React.FC<LabTestModalProps> = ({
   };
 
   // Get price based on payment mode (from component props or context)
-  const getTestPrice = (test: any) => {
-    // Price would come from ServicePricing via test.pricing
-    if (test.pricing) {
-      return test.pricing.cashPrice || 0;
-    }
-    return test.cashPrice || 0;
+  const getTestPrice = (test: any): number => {
+    const raw =
+      test?.pricing?.cashPrice ??
+      test?.cashPrice ??
+      test?.price ??
+      0;
+
+    const num = typeof raw === 'string' ? parseFloat(raw) : Number(raw);
+    return Number.isFinite(num) ? num : 0;
   };
 
   if (!isOpen) return null;
@@ -95,7 +98,7 @@ export const LabTestModal: React.FC<LabTestModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      
+
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-lg w-full border border-[var(--border-color)]">
           {/* Header */}
@@ -213,32 +216,29 @@ export const LabTestModal: React.FC<LabTestModalProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => setPriority('routine')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    priority === 'routine'
-                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                      : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
-                  }`}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${priority === 'routine'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
+                    }`}
                 >
                   <Clock className="w-3.5 h-3.5 inline mr-1" />
                   Routine
                 </button>
                 <button
                   onClick={() => setPriority('urgent')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    priority === 'urgent'
-                      ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                      : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
-                  }`}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${priority === 'urgent'
+                    ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                    : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
+                    }`}
                 >
                   Urgent
                 </button>
                 <button
                   onClick={() => setPriority('stat')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    priority === 'stat'
-                      ? 'bg-red-100 text-red-700 border border-red-300'
-                      : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
-                  }`}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${priority === 'stat'
+                    ? 'bg-red-100 text-red-700 border border-red-300'
+                    : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
+                    }`}
                 >
                   STAT
                 </button>
