@@ -34568,3 +34568,182 @@
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 00:18:18"}
 {"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-09-25 00:18:18"}
 {"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-09-25 00:18:18"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-17, end=2026-09-17]","service":"DashboardService","timestamp":"2026-09-17 17:25:11"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:15"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:22"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-17 17:25:26"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-17 17:25:26"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:53"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:25:53"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:26:42"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-17 17:26:43"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:06"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:07"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:13"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:13"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:25"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-09-17 17:30:25"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-09-17 17:30:25"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-09-17 17:30:25"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-17 17:30:25"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-09-17 17:30:25"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 17:53:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 17:53:07"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 17:57:08"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 17:57:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 17:57:48"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:00:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:00:31"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:01:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:01:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:06:21"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:06:21"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:25:06"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:25:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:25:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:26:11"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:26:11"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:27:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:27:17"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 18:36:45"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 20:15:03"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 20:15:41"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 20:15:42"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 20:16:03"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 20:16:03"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:14:11"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:14:11"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:20:09"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:20:09"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:28:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:28:22"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:28:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-25 21:28:57"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 21:29:06"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:15"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:15"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 21:29:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:36"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:29:37"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:38:54"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:38:54"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:39:00"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 21:39:00"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 21:58:15"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 22:38:14"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 22:38:52"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 22:44:31"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:47:14","userId":"cmuhed40q0000w1ks8gsim93q"}
+{"filters":{"limit":50,"page":1,"userId":"cmuhed40q0000w1ks8gsim93q"},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 22:47:14"}
+{"filters":{"limit":50,"page":1,"userId":"cmuhed40q0000w1ks8gsim93q"},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 22:47:14"}
+{"filters":{"limit":50,"page":1,"userId":"cmuhed40q0000w1ks8gsim93q"},"level":"info","message":"Fetching all shifts","service":"UserService","timestamp":"2026-09-25 22:47:14"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:47:14","userId":"cmuhed40q0000w1ks8gsim93q"}
+{"filters":{"limit":50,"page":1,"userId":"cmuhed40q0000w1ks8gsim93q"},"level":"info","message":"Fetching all leaves","service":"UserService","timestamp":"2026-09-25 22:47:14"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 22:47:56"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 22:48:03"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:48:08"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:48:08"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:48:54","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:48:54","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:25"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:25"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:31","userId":"register"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:31","userId":"register"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:36"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:36"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:38","userId":"register"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:38","userId":"register"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:40"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:40"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:50","userId":"register"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 22:49:50","userId":"register"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:52"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 22:49:52"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:34:42"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:34:59"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:35:26"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:39:27"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:03"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:04"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:05"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:05"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:05"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 23:40:07","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 23:40:07","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:20"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:40:20"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 23:57:35","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"level":"info","message":"Fetching full profile","service":"UserService","timestamp":"2026-09-25 23:57:35","userId":"cmuhedip507p3w1ksnbmqhf21"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:58:28"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:58:28"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-25, end=2026-09-25]","service":"DashboardService","timestamp":"2026-09-25 23:58:30"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:58:35"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-25 23:58:35"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 00:15:00"}
+{"level":"info","message":"Fetching all hospitals","service":"HospitalService","timestamp":"2026-09-26 00:15:00"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 00:15:19"}
+{"level":"info","message":"Fetching all hospitals","service":"HospitalService","timestamp":"2026-09-26 00:15:19"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 00:15:41"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 00:17:43"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 20:10:29"}
+{"level":"info","message":"Fetching all hospitals","service":"HospitalService","timestamp":"2026-09-26 20:10:30"}
+{"level":"info","message":"Fetching all hospitals","service":"HospitalService","timestamp":"2026-09-26 20:10:30"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:18:31"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:19:55"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:20:04"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:20:21"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:20:21"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:21:04"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:21:06"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:23:33"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 21:28:46"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:29:08"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:29:08"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:30:46"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:30:46"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:31:23"}
+{"filters":{"limit":50,"page":1},"level":"info","message":"Fetching all users","service":"UserService","timestamp":"2026-09-26 21:31:23"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:29"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 21:36:30"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:30"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:30"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-09-26 21:36:30"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 21:58:57"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 21:58:57"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-09-26 22:01:25"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-09-26 22:01:25"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-09-26 22:01:25"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-09-26 22:01:26"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Fetching purchase invoices","service":"PurchaseInvoiceService","timestamp":"2026-09-26 22:01:26"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Fetching purchase invoices","service":"PurchaseInvoiceService","timestamp":"2026-09-26 22:01:26"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:01:32"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:01:32"}

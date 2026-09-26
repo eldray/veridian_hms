@@ -95,12 +95,14 @@ export class DiagnosisController extends BaseController {
 
   search = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      const { q, field = 'all' } = req.query;
-      if (!q || (q as string).trim().length < 2) {
+      const q = (req.query.q || req.query.query) as string;
+      const field = (req.query.field || 'all') as any;
+      if (!q || q.trim().length < 2) {
         return this.badRequest(res, 'Search query must be at least 2 characters');
       }
-      const diagnoses = await this.service.searchDiagnoses(q as string, field as any);
-      return this.ok(res, diagnoses, 'Diagnoses searched successfully');
+      const { page, limit } = this.getPaginationParams(req);
+      const result = await this.service.searchDiagnoses(q, field, page, limit);
+      return this.paginated(res, result.data, result.pagination, 'Diagnoses searched successfully');
     } catch (e: any) {
       return this.error(res, e);
     }

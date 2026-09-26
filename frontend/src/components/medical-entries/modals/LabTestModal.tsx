@@ -67,6 +67,7 @@ export const LabTestModal: React.FC<LabTestModalProps> = ({
     try {
       await addLabTest(attendanceId, {
         serviceCatalogId: selectedTest.id,
+        templateId: selectedTest.templateId || selectedTest.id,
         priority: priority,
         notes: notes,
       });

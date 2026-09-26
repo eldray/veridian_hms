@@ -1,15 +1,15 @@
-// src/components/UserRegistrationModal.tsx - UPDATED TO USE USERSTORE
+// src/components/UserRegistrationModal.tsx
 import { useState } from 'react';
-import { useUserStore } from '../store/userStore';  // ✅ Use UserStore
+import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
+import type { Seniority } from '../types';
 
-// Seniority configuration
-const SENIORITY_OPTIONS = [
-  { value: 'TRAINEE', label: 'Trainee', icon: GraduationCap, description: 'In training, requires supervision' },
-  { value: 'JUNIOR', label: 'Junior', icon: User, description: 'Regular staff member' },
-  { value: 'SENIOR', label: 'Senior', icon: TrendingUp, description: 'Experienced, can supervise others' },
-  { value: 'PRINCIPAL', label: 'Principal', icon: Shield, description: 'Highest authority in role' }
+const SENIORITY_OPTIONS: { value: Seniority; label: string; icon: any; description: string }[] = [
+  { value: 'TRAINEE',   label: 'Trainee',   icon: GraduationCap, description: 'In training, requires supervision' },
+  { value: 'JUNIOR',    label: 'Junior',    icon: User,          description: 'Regular staff member' },
+  { value: 'SENIOR',    label: 'Senior',    icon: TrendingUp,    description: 'Experienced, can supervise others' },
+  { value: 'PRINCIPAL', label: 'Principal', icon: Shield,        description: 'Highest authority in role' },
 ];
 
 interface UserRegistrationModalProps {
@@ -18,7 +18,7 @@ interface UserRegistrationModalProps {
 }
 
 export default function UserRegistrationModal({ onClose, onSuccess }: UserRegistrationModalProps) {
-  const { createUser, isLoading } = useUserStore();  // ✅ Use createUser from UserStore
+  const { createUser, isLoading } = useUserStore();
   const { success, error } = useToast();
 
   const [formData, setFormData] = useState({
@@ -26,8 +26,8 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
     password: '',
     confirmPassword: '',
     fullName: '',
-    role: '' as any,
-    seniority: 'JUNIOR' as string,
+    role: '' as string,
+    seniority: 'JUNIOR' as Seniority,
     email: '',
     phone: '',
     licenseNumber: '',
@@ -45,17 +45,14 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
       error('Password Mismatch', 'Passwords do not match');
       return;
     }
-
     if (formData.password.length < 6) {
       error('Invalid Password', 'Password must be at least 6 characters long');
       return;
     }
-
     if (requiresLicense && !formData.licenseNumber) {
       error('License Required', 'License number is required for medical staff');
       return;
     }
-
     if (requiresSpecialization && !formData.specialization) {
       error('Specialization Required', 'Specialization is required for doctors');
       return;
@@ -73,26 +70,25 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
         licenseNumber: requiresLicense ? formData.licenseNumber : undefined,
         specialization: requiresSpecialization ? formData.specialization : undefined,
       });
-      
+
       success('User Registered', `${formData.fullName} has been registered successfully`);
       onSuccess();
       onClose();
     } catch (err: any) {
-      error('Registration Failed', err.response?.data?.message || 'Failed to register user');
+      error('Registration Failed', err?.response?.data?.message || 'Failed to register user');
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const SelectedIcon = SENIORITY_OPTIONS.find(opt => opt.value === formData.seniority)?.icon || User;
+  const SelectedIcon = SENIORITY_OPTIONS.find((opt) => opt.value === formData.seniority)?.icon || User;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
           <div>
             <h2 className="text-lg font-bold text-[var(--text-primary)]">Register New User</h2>
@@ -106,14 +102,10 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Username *
-              </label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Username *</label>
               <input
                 type="text"
                 name="username"
@@ -125,9 +117,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Role *
-              </label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Role *</label>
               <select
                 name="role"
                 value={formData.role}
@@ -149,7 +139,6 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
           </div>
 
-          {/* Seniority Selection */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
               <SelectedIcon className="w-4 h-4 inline mr-2" />
@@ -162,18 +151,20 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, seniority: option.value }))}
+                    onClick={() => setFormData((prev) => ({ ...prev, seniority: option.value }))}
                     className={`p-3 rounded-lg border-2 text-left transition-all ${
                       formData.seniority === option.value
                         ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
                         : 'border-[var(--border-color)] bg-[var(--bg-main)] hover:border-[var(--icon-cyan-text)]'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${
-                      formData.seniority === option.value 
-                        ? 'text-[var(--icon-cyan-text)]' 
-                        : 'text-[var(--text-secondary)]'
-                    }`} />
+                    <Icon
+                      className={`w-5 h-5 mb-2 ${
+                        formData.seniority === option.value
+                          ? 'text-[var(--icon-cyan-text)]'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                    />
                     <div className="font-medium text-sm text-[var(--text-primary)]">{option.label}</div>
                     <div className="text-xs text-[var(--text-secondary)] mt-1">{option.description}</div>
                   </button>
@@ -227,14 +218,13 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
           </div>
 
-          {/* Professional Information */}
           {(requiresLicense || requiresSpecialization) && (
             <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-4 border border-[var(--icon-cyan-text)] space-y-4">
               <h3 className="font-semibold text-[var(--icon-cyan-text)] text-sm flex items-center gap-2">
                 <Shield className="w-4 h-4" />
                 Professional Information
               </h3>
-              
+
               {requiresLicense && (
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
@@ -273,12 +263,9 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
           )}
 
-          {/* Passwords */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Password *
-              </label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Password *</label>
               <input
                 type="password"
                 name="password"
@@ -292,9 +279,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Confirm Password *
-              </label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Confirm Password *</label>
               <input
                 type="password"
                 name="confirmPassword"
@@ -306,7 +291,6 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
             </div>
           </div>
 
-          {/* Submit */}
           <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
             <button
               type="submit"

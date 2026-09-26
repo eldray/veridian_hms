@@ -55,6 +55,26 @@ import {
 import type { Diagnosis, LabTestTemplate, ProcedureTemplate, ServiceCatalog, ScanTemplate, Pagination } from '../types';
 import api from '../api/api';
 
+const SAFE_PAGE_LIMIT = 100;
+
+const getSafePageLimit = (requestedLimit?: number | string | null) => {
+  const parsed = Number(requestedLimit ?? SAFE_PAGE_LIMIT);
+  if (!Number.isFinite(parsed) || parsed <= 0) return SAFE_PAGE_LIMIT;
+  return Math.min(parsed, SAFE_PAGE_LIMIT);
+};
+
+const getPaginationSummary = (response: any, fallbackLimit = SAFE_PAGE_LIMIT) => {
+  const pagination = response?.pagination || response?.data?.pagination || response?.meta || response?.data?.meta || null;
+  const limit = getSafePageLimit(pagination?.limit ?? fallbackLimit);
+  const total = Number(pagination?.total ?? response?.total ?? response?.data?.total ?? 0);
+  const page = Number(pagination?.page ?? pagination?.currentPage ?? response?.page ?? 1);
+  const totalPages = Number(
+    pagination?.totalPages ?? pagination?.pages ?? (total > 0 ? Math.ceil(total / limit) : 1)
+  );
+
+  return { page, total, totalPages, limit };
+};
+
 interface MedicalServicesState {
   // Data collections
   diagnoses: Diagnosis[];
@@ -212,28 +232,27 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   getDiagnoses: async (filters = {}) => {
     set({ isLoadingDiagnoses: true });
     try {
-      const limit = 5000;
+      const limit = getSafePageLimit(filters?.limit);
       let allDiagnoses: Diagnosis[] = [];
       let currentPage = 1;
       let totalPages = 1;
       let totalCount = 0;
-      
-      // First request
+
       const firstResponse = await apiGetDiagnoses({ ...filters, page: 1, limit });
-      
+      const firstMeta = getPaginationSummary(firstResponse, limit);
+
       console.log('Diagnoses first response:', firstResponse);
-      
-      // Handle response structure
+
       if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
         allDiagnoses = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.pages || Math.ceil(totalCount / limit);
-        currentPage = firstResponse.pagination?.currentPage || 1;
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
         allDiagnoses = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.pages || Math.ceil(totalCount / limit);
-        currentPage = firstResponse.pagination?.currentPage || 1;
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allDiagnoses = [...firstResponse];
         totalCount = allDiagnoses.length;
@@ -243,16 +262,15 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         totalCount = firstResponse.total || allDiagnoses.length;
         totalPages = firstResponse.totalPages || 1;
       }
-      
-      // Fetch remaining pages
+
       if (currentPage < totalPages) {
         const remainingPromises = [];
         for (let page = currentPage + 1; page <= totalPages; page++) {
           remainingPromises.push(apiGetDiagnoses({ ...filters, page, limit }));
         }
-        
+
         const remainingResponses = await Promise.all(remainingPromises);
-        
+
         for (const response of remainingResponses) {
           if (response?.success && response?.data && Array.isArray(response.data)) {
             allDiagnoses = [...allDiagnoses, ...response.data];
@@ -265,13 +283,13 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
           }
         }
       }
-      
+
       console.log(`📊 Diagnoses loaded: ${allDiagnoses.length} records (Total in DB: ${totalCount})`);
-      
-      set({ 
+
+      set({
         diagnoses: allDiagnoses,
         diagnosesTotalCount: totalCount,
-        isLoadingDiagnoses: false 
+        isLoadingDiagnoses: false
       });
     } catch (error: unknown) {
       console.error('Failed to fetch diagnoses:', error);
@@ -388,31 +406,28 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 getLabTestTemplates: async (filters = {}) => {
   set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
   try {
-    const limit = 5000;
+    const limit = getSafePageLimit(filters?.limit);
     let allLabTests: LabTestTemplate[] = [];
     let currentPage = 1;
     let totalPages = 1;
     let totalCount = 0;
 
-    // First request
     const firstResponse = await apiGetLabTestTemplates({ ...filters, page: 1, limit });
+    const firstMeta = getPaginationSummary(firstResponse, limit);
 
     console.log('Lab tests first response:', firstResponse);
 
-    // Handle { data: [], pagination: {} } from updated API function
     if (firstResponse?.data && Array.isArray(firstResponse.data)) {
       allLabTests = [...firstResponse.data];
-      const pag = firstResponse.pagination;
-      totalCount = pag?.total || allLabTests.length;
-      totalPages = pag?.totalPages || pag?.pages || Math.ceil(totalCount / limit);
-      currentPage = pag?.page || pag?.currentPage || 1;
+      totalCount = firstMeta.total || allLabTests.length;
+      totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+      currentPage = firstMeta.page;
     } else if (Array.isArray(firstResponse)) {
       allLabTests = [...firstResponse as any[]];
       totalCount = allLabTests.length;
       totalPages = 1;
     }
 
-    // Fetch remaining pages if needed
     if (currentPage < totalPages) {
       const remainingPromises = [];
       for (let page = currentPage + 1; page <= totalPages; page++) {
@@ -551,38 +566,39 @@ getLabTestTemplates: async (filters = {}) => {
   getProcedureTemplates: async (filters = {}) => {
     set({ isLoadingProcedures: true, errors: { ...get().errors, procedures: null } });
     try {
-      const limit = 1000;
+      const limit = getSafePageLimit(filters?.limit);
       let allProcedures: ProcedureTemplate[] = [];
       let currentPage = 1;
       let totalPages = 1;
       let totalCount = 0;
-      
-      // First request
+
       const firstResponse = await apiGetProcedureTemplates({ ...filters, page: 1, limit });
-      
+      const firstMeta = getPaginationSummary(firstResponse, limit);
+
       if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
         allProcedures = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
         allProcedures = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allProcedures = [...firstResponse];
         totalCount = allProcedures.length;
         totalPages = 1;
       }
-      
-      // Fetch remaining pages
+
       if (currentPage < totalPages) {
         const remainingPages = [];
-        for (let page = 2; page <= totalPages; page++) {
+        for (let page = currentPage + 1; page <= totalPages; page++) {
           remainingPages.push(apiGetProcedureTemplates({ ...filters, page, limit }));
         }
-        
+
         const remainingResponses = await Promise.all(remainingPages);
-        
+
         for (const response of remainingResponses) {
           if (response?.success && response?.data && Array.isArray(response.data)) {
             allProcedures = [...allProcedures, ...response.data];
@@ -593,19 +609,18 @@ getLabTestTemplates: async (filters = {}) => {
           }
         }
       }
-      
-      // Ensure procedureCode is set
+
       allProcedures = allProcedures.map(item => ({
         ...item,
         procedureCode: item.procedureCode || item.procedure_code || item.code || 'N/A'
       }));
-      
+
       console.log(`📊 Procedures loaded: ${allProcedures.length} records (Total: ${totalCount})`);
-      
-      set({ 
+
+      set({
         procedureTemplates: allProcedures,
         proceduresTotalCount: totalCount,
-        isLoadingProcedures: false 
+        isLoadingProcedures: false
       });
     } catch (error: unknown) {
       console.error('Failed to fetch procedure templates:', error);
@@ -713,37 +728,39 @@ getLabTestTemplates: async (filters = {}) => {
   getScanTemplates: async (filters = {}) => {
     set({ isLoadingScans: true, errors: { ...get().errors, scans: null } });
     try {
-      const limit = 1000;
+      const limit = getSafePageLimit(filters?.limit);
       let allScans: ScanTemplate[] = [];
+      let currentPage = 1;
       let totalPages = 1;
       let totalCount = 0;
-      
-      // First request
+
       const firstResponse = await apiGetScanTemplates({ ...filters, page: 1, limit });
-      
+      const firstMeta = getPaginationSummary(firstResponse, limit);
+
       if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
         allScans = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
         allScans = [...firstResponse.data];
-        totalCount = firstResponse.pagination?.total || firstResponse.data.length;
-        totalPages = firstResponse.pagination?.totalPages || Math.ceil(totalCount / limit);
+        totalCount = firstMeta.total || firstResponse.data.length;
+        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
+        currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allScans = [...firstResponse];
         totalCount = allScans.length;
         totalPages = 1;
       }
-      
-      // Fetch remaining pages
-      if (totalPages > 1) {
+
+      if (currentPage < totalPages) {
         const remainingPages = [];
-        for (let page = 2; page <= totalPages; page++) {
+        for (let page = currentPage + 1; page <= totalPages; page++) {
           remainingPages.push(apiGetScanTemplates({ ...filters, page, limit }));
         }
-        
+
         const remainingResponses = await Promise.all(remainingPages);
-        
+
         for (const response of remainingResponses) {
           if (response?.success && response?.data && Array.isArray(response.data)) {
             allScans = [...allScans, ...response.data];
@@ -754,19 +771,18 @@ getLabTestTemplates: async (filters = {}) => {
           }
         }
       }
-      
-      // Ensure scanCode is set
+
       allScans = allScans.map(item => ({
         ...item,
         scanCode: item.scanCode || item.scan_code || item.code || 'N/A'
       }));
-      
+
       console.log(`📊 Scans loaded: ${allScans.length} records (Total: ${totalCount})`);
-      
-      set({ 
+
+      set({
         scanTemplates: allScans,
         scansTotalCount: totalCount,
-        isLoadingScans: false 
+        isLoadingScans: false
       });
     } catch (error: unknown) {
       console.error('Failed to fetch scan templates:', error);
@@ -886,40 +902,34 @@ getLabTestTemplates: async (filters = {}) => {
 getServiceCatalog: async (filters = {}) => {
   set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
   try {
-    const response = await apiGetServiceCatalog({ ...filters, limit: 5000 });
-    
+    const limit = getSafePageLimit(filters?.limit);
+    const response = await apiGetServiceCatalog({ ...filters, limit, page: filters?.page || 1 });
+
     console.log('📦 Service Catalog API Response:', response);
-    
+
     let services: ServiceCatalog[] = [];
     let pagination = null;
-    
-    // ✅ FIXED: The response from apiGetServiceCatalog is already the data object
-    // It comes as { data: Array(1000), pagination: {...} }
+
     if (response && typeof response === 'object') {
-      // Check if response has a data array
       if (response.data && Array.isArray(response.data)) {
         services = response.data;
         pagination = response.pagination;
-      }
-      // Check if response itself is an array
-      else if (Array.isArray(response)) {
+      } else if (Array.isArray(response)) {
         services = response;
-      }
-      // Check if response has services array
-      else if (response.services && Array.isArray(response.services)) {
+      } else if (response.services && Array.isArray(response.services)) {
         services = response.services;
         pagination = response.pagination;
       }
     }
-    
+
     console.log(`✅ Loaded ${services.length} services`);
-    
+
     set({
       serviceCatalog: services,
       pagination: pagination,
       isLoading: false
     });
-    
+
     return { services, pagination };
   } catch (error: unknown) {
     console.error('❌ Failed to fetch service catalog:', error);
@@ -935,22 +945,21 @@ getServiceCatalog: async (filters = {}) => {
 getServiceCatalogs: async (filters = {}) => {
   set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
   try {
-    const apiFilters = { 
-      ...filters, 
-      limit: filters.limit || 5000,
+    const apiFilters = {
+      ...filters,
+      limit: getSafePageLimit(filters.limit),
       page: filters.page || 1
     };
-    
+
     console.log('📡 Fetching service catalog with filters:', apiFilters);
-    
+
     const response = await apiGetServiceCatalog(apiFilters);
-    
+
     console.log('📦 Service Catalog API Response:', response);
-    
+
     let services: ServiceCatalog[] = [];
     let pagination = null;
-    
-    // ✅ FIXED: Handle nested data structure correctly
+
     if (response?.success && response?.data) {
       if (response.data.data && Array.isArray(response.data.data)) {
         services = response.data.data;
@@ -970,9 +979,9 @@ getServiceCatalogs: async (filters = {}) => {
       services = response.services;
       pagination = response.pagination;
     }
-    
+
     console.log(`✅ Loaded ${services.length} services (Total in DB: ${pagination?.total || services.length})`);
-    
+
     set({
       serviceCatalog: services,
       pagination: pagination,

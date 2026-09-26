@@ -13,38 +13,49 @@ import {
   ClipboardList, Building, CreditCard, Warehouse, Calendar, Activity,
   ChevronLeft, ChevronRight, Sun, Moon, Baby, Scissors, Syringe,
   Clipboard, TrendingUp, Eye, Trash2, Microscope, HeartPulse, Scan,
-  Briefcase,
+  Briefcase, ScrollText,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+// Every role set includes super_admin so the wildcard role can see everything.
+const ADMIN_LIKE = ['admin', 'super_admin'];
+
 const navigationItems = [
-  { name: 'Dashboard',       path: '/dashboard',                    icon: LayoutDashboard, roles: ['admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer'] },
-  { name: 'Patients',        path: '/dashboard/patients',           icon: Users,           roles: ['admin','doctor','nurse','midwife','lab_tech','accounts','records','sonographer'] },
-  { name: 'Attendance',      path: '/dashboard/attendance',         icon: Calendar,        roles: ['admin','doctor','nurse','midwife','lab_tech','sonographer'] },
-  { name: 'Appointments',    path: '/dashboard/appointments',       icon: Calendar,        roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Notifications',   path: '/dashboard/notifications',      icon: Bell,            roles: ['admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer'] },
-  { name: 'Consultations',   path: '/dashboard/medical-waiting-list',    icon: Clipboard,       roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Vitals',          path: '/dashboard/vitals',             icon: HeartPulse,      roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Theatre',         path: '/dashboard/theatre',            icon: Scissors,        roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Nursing',         path: '/dashboard/nursing',            icon: Syringe,         roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Maternal Health',       path: '/dashboard/maternal-waiting-list',          icon: Baby,            roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Laboratory',      path: '/dashboard/laboratory',         icon: Microscope,      roles: ['admin','doctor','nurse','lab_tech','sonographer'] },
-  { name: 'Scans',           path: '/dashboard/scans',              icon: Scan,            roles: ['admin','doctor','nurse','midwife','sonographer'] },
-  { name: 'Pharmacy',        path: '/dashboard/pharmacy',           icon: Pill,            roles: ['admin','pharmacist','doctor'] },
-  { name: 'Inventory',       path: '/dashboard/inventory',          icon: Package,         roles: ['admin','pharmacist','doctor'] },
-  { name: 'Stock',           path: '/dashboard/stock',              icon: Warehouse,       roles: ['admin','pharmacist'] },
-  { name: 'Admissions',      path: '/dashboard/admissions',         icon: BedDouble,       roles: ['admin','doctor','nurse','midwife'] },
-  { name: 'Referrals',       path: '/dashboard/referrals',          icon: Send,            roles: ['admin','doctor','nurse','midwife','records'] },
-  { name: 'Billing',         path: '/dashboard/billing',            icon: DollarSign,      roles: ['admin','doctor','accounts'] },
-  { name: 'Insurance',       path: '/dashboard/insurance-claims',   icon: Shield,          roles: ['admin','doctor','accounts'] },
-  { name: 'Corporate',       path: '/dashboard/corporate-accounts', icon: Briefcase,       roles: ['admin','accounts'] },
-  { name: 'Estimates',       path: '/dashboard/estimates',          icon: FileText,        roles: ['admin','accounts'] },
-  { name: 'Departments',     path: '/dashboard/departments',        icon: Building,        roles: ['admin'] },
-  { name: 'Reports',         path: '/dashboard/reports',            icon: TrendingUp,      roles: ['admin','accounts','records'] },
-  { name: 'Settings',        path: '/dashboard/settings',           icon: Settings,        roles: ['admin','doctor'] },
+  { name: 'Dashboard',       path: '/dashboard',                    icon: LayoutDashboard, roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer'] },
+  { name: 'Patients',        path: '/dashboard/patients',           icon: Users,           roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','accounts','records','sonographer'] },
+  { name: 'Attendance',      path: '/dashboard/attendance',         icon: Calendar,        roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','sonographer'] },
+  { name: 'Appointments',    path: '/dashboard/appointments',       icon: Calendar,        roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Notifications',   path: '/dashboard/notifications',      icon: Bell,            roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer'] },
+  { name: 'Consultations',   path: '/dashboard/medical-waiting-list',    icon: Clipboard,       roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Vitals',          path: '/dashboard/vitals',             icon: HeartPulse,      roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Theatre',         path: '/dashboard/theatre',            icon: Scissors,        roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Nursing',         path: '/dashboard/nursing',            icon: Syringe,         roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Maternal Health', path: '/dashboard/maternal-waiting-list', icon: Baby,         roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Laboratory',      path: '/dashboard/laboratory',         icon: Microscope,      roles: ['admin','super_admin','doctor','nurse','lab_tech','sonographer'] },
+  { name: 'Scans',           path: '/dashboard/scans',              icon: Scan,            roles: ['admin','super_admin','doctor','nurse','midwife','sonographer'] },
+  { name: 'Family Planning', path: '/dashboard/family-planning',    icon: Heart,           roles: ['admin','super_admin','doctor','nurse','midwife'] },
+  { name: 'Pharmacy',        path: '/dashboard/pharmacy',           icon: Pill,            roles: ['admin','super_admin','pharmacist','doctor'] },
+  { name: 'Inventory',       path: '/dashboard/inventory',          icon: Package,         roles: ['admin','super_admin','pharmacist','doctor'] },
+  { name: 'Stock',           path: '/dashboard/stock',              icon: Warehouse,       roles: ['admin','super_admin','pharmacist'] },
+  { name: 'Invoices',        path: '/dashboard/invoices',           icon: FileText,        roles: ['admin','super_admin','pharmacist','accounts'] },
+  { name: 'Requisitions',    path: '/dashboard/requisitions',       icon: ClipboardList,   roles: ['admin','super_admin','pharmacist','nurse','midwife'] },
+  { name: 'Stock Reports',   path: '/dashboard/stock/reports',      icon: BarChart3,       roles: ['admin','super_admin','pharmacist','accounts'] },
+  { name: 'Admissions',      path: '/dashboard/admissions',         icon: BedDouble,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
+  { name: 'Referrals',       path: '/dashboard/referrals',          icon: Send,            roles: ['admin','super_admin','doctor','nurse','midwife','records'] },
+  { name: 'Shifts',           path: '/dashboard/shifts',            icon: Calendar,        roles: ['admin','super_admin','hr_officer'] },
+{ name: 'Leave Requests',   path: '/dashboard/leaves',            icon: FileText,        roles: ['admin','super_admin','hr_officer'] },
+  { name: 'Billing',         path: '/dashboard/billing',            icon: DollarSign,      roles: ['admin','super_admin','doctor','accounts'] },
+  { name: 'Insurance',       path: '/dashboard/insurance-claims',   icon: Shield,          roles: ['admin','super_admin','doctor','accounts'] },
+  { name: 'Corporate',       path: '/dashboard/corporate-accounts', icon: Briefcase,       roles: ['admin','super_admin','accounts'] },
+  { name: 'Estimates',       path: '/dashboard/estimates',          icon: FileText,        roles: ['admin','super_admin','accounts'] },
+  { name: 'Departments',     path: '/dashboard/departments',        icon: Building,        roles: ['admin','super_admin'] },
+  { name: 'User Management', path: '/dashboard/users',              icon: Users,           roles: ['admin','super_admin','hr_officer'] },
+  { name: 'Audit Logs',      path: '/dashboard/audit-logs',         icon: ScrollText,      roles: ['admin','super_admin'] },
+  { name: 'Reports',         path: '/dashboard/reports',            icon: TrendingUp,      roles: ['admin','super_admin','accounts','records'] },
+  { name: 'Settings',        path: '/dashboard/settings',           icon: Settings,        roles: ['admin','super_admin','doctor'] },
 ];
 
 // Group nav items for visual separation
@@ -55,19 +66,19 @@ const NAV_GROUPS = [
   },
   {
     label: 'Clinical',
-    keys: ['Consultations', 'Vitals', 'Theatre', 'Nursing', 'Maternal Health', 'Laboratory', 'Scans'],
+    keys: ['Consultations', 'Vitals', 'Theatre', 'Nursing', 'Maternal Health', 'Laboratory', 'Scans', 'Family Planning'],
   },
   {
     label: 'Pharmacy',
-    keys: ['Pharmacy', 'Inventory', 'Stock'],
+    keys: ['Pharmacy', 'Inventory', 'Stock', 'Invoices', 'Requisitions', 'Stock Reports'],
   },
-  {
-    label: 'Ward & Admin',
-    keys: ['Admissions', 'Referrals', 'Billing', 'Insurance', 'Corporate', 'Estimates', 'Departments'],
-  },
+{
+  label: 'Ward & Admin',
+  keys: ['Admissions', 'Referrals', 'Billing', 'Insurance', 'Corporate', 'Estimates', 'Departments', 'HR & Staff', 'Shifts', 'Leave Requests'],
+},
   {
     label: 'Management',
-    keys: ['Reports', 'Settings'],
+    keys: ['Reports', 'Audit Logs', 'Settings'],
   },
 ];
 
@@ -193,7 +204,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Menu className="w-4 h-4" />
             </button>
 
-            {/* Brand mark — always visible */}
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ background: 'var(--icon-cyan-text)' }}>
@@ -227,7 +237,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* ── Right: actions ── */}
           <div className="flex items-center gap-1">
 
-            {/* Dark / Light toggle */}
             <button
               onClick={toggleMode}
               title={mode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -252,12 +261,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
               </button>
 
-              {/* Notification dropdown */}
               {notificationDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-80 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden z-50"
                   style={{ boxShadow: 'var(--shadow-md)' }}>
 
-                  {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <div className="flex items-center gap-2">
                       <Bell className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
@@ -288,7 +295,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     </div>
                   </div>
 
-                  {/* List */}
                   <div className="max-h-72 overflow-y-auto">
                     {notificationsLoading ? (
                       <div className="flex flex-col items-center justify-center gap-2 py-8 text-[var(--text-tertiary)]">
@@ -305,12 +311,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                               : 'hover:bg-[var(--bg-main)]'
                           }`}
                         >
-                          {/* Unread dot */}
                           <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                             notification.isRead ? 'bg-[var(--border-color)]' : 'bg-[var(--icon-cyan-text)]'
                           }`} />
 
-                          {/* Body — clickable */}
                           <div
                             className="flex-1 min-w-0 cursor-pointer"
                             onClick={async () => {
@@ -344,7 +348,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             </p>
                           </div>
 
-                          {/* Action buttons */}
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                             {!notification.isRead && (
                               <button
@@ -383,7 +386,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                   </div>
 
-                  {/* Footer */}
                   {notifications?.length > 0 && (
                     <div className="flex items-center border-t border-[var(--border-color)] bg-[var(--bg-main)]">
                       <Link
@@ -435,7 +437,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="absolute right-0 mt-2 w-60 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden z-50"
                   style={{ boxShadow: 'var(--shadow-md)' }}>
 
-                  {/* Profile header */}
                   <div className="px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -452,7 +453,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     </p>
                   </div>
 
-                  {/* Links */}
                   <div className="py-1">
                     <Link
                       to="/dashboard/profile"
@@ -462,7 +462,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       <User className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
                       My Profile
                     </Link>
-                    {hasRole(['admin']) && (
+                    {hasRole(ADMIN_LIKE) && (
                       <Link
                         to="/dashboard/settings"
                         onClick={() => setUserDropdownOpen(false)}
@@ -474,7 +474,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                   </div>
 
-                  {/* Sign out */}
                   <div className="border-t border-[var(--border-color)]">
                     <button
                       onClick={() => { setUserDropdownOpen(false); setShowLogoutConfirm(true); }}
@@ -492,18 +491,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </header>
 
       {/* ════════════════════════════════════════════
-          BODY (sidebar + main)
+          BODY
       ════════════════════════════════════════════ */}
       <div className="flex pt-[52px]">
 
-        {/* ── Sidebar ── */}
         <aside
           className={`fixed top-[52px] left-0 bottom-0 z-30 ${sidebarWidth} flex flex-col
             bg-[var(--bg-card)] border-r border-[var(--border-color)]
             transition-all duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         >
-          {/* Sidebar top controls */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-color)]">
             {!sidebarCollapsed && (
               <span className="text-[10px] font-bold tracking-widest uppercase text-[var(--text-tertiary)]">
@@ -525,7 +522,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
 
-          {/* Nav groups */}
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-1"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}>
             {NAV_GROUPS.map(group => {
@@ -533,7 +529,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               if (groupItems.length === 0) return null;
               return (
                 <div key={group.label}>
-                  {/* Group label */}
                   {!sidebarCollapsed && (
                     <p className="px-2 pt-3 pb-1 text-[9px] font-bold tracking-widest uppercase text-[var(--text-tertiary)] select-none">
                       {group.label}
@@ -571,7 +566,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                               {item.name}
                             </span>
                           )}
-                          {/* Active indicator bar */}
                           {isActive && !sidebarCollapsed && (
                             <span className="ml-auto w-1 h-1 rounded-full bg-[var(--icon-cyan-text)] flex-shrink-0" />
                           )}
@@ -584,7 +578,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             })}
           </nav>
 
-          {/* Sidebar footer */}
           <div className="px-3 py-3 border-t border-[var(--border-color)]">
             {sidebarCollapsed ? (
               <div className="flex justify-center">
@@ -603,7 +596,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </aside>
 
-        {/* ── Main content ── */}
         <main className={`flex-1 min-h-[calc(100vh-52px)] transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-[60px]' : 'lg:ml-[220px]'
         }`}>
@@ -613,7 +605,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
 
-      {/* ── Confirmation modals ── */}
       <ConfirmationModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}

@@ -35,6 +35,7 @@ const sanitizeUser = (user: any): Partial<User> => ({
   username: user.username,
   email: user.email,
   role: user.role,
+  permissions: user.permissions,
   firstName: user.firstName,
   lastName: user.lastName,
   fullName: user.fullName,
@@ -42,16 +43,32 @@ const sanitizeUser = (user: any): Partial<User> => ({
   departmentId: user.departmentId,
   isActive: user.isActive,
   profileImage: user.profileImage,
+  imageUrl: user.imageUrl,
+  seniority: user.seniority,
+  createdAt: user.createdAt,
+  phone: user.phone,
 });
 
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
 
+/** Thrown by login() so callers can branch on status (401 vs 5xx vs network). */
+export class LoginError extends Error {
+  status?: number;
+  code?: string;
+  constructor(message: string, status?: number, code?: string) {
+    super(message);
+    this.name = 'LoginError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 interface AuthState {
   user: User | null;
   token: string | null;
-  refreshToken: string | null; // ✅ stored so interceptor can use it
+  refreshToken: string | null;
   isLoading: boolean;
   isInitialized: boolean;
 
@@ -83,8 +100,6 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { user, accessToken, refreshToken } = await apiLogin(username, password);
 
-          // Write dedicated key BEFORE setting state so any
-          // immediate API calls in components already have the token
           writeToken(accessToken);
 
           set({
@@ -96,18 +111,54 @@ export const useAuthStore = create<AuthState>()(
           });
 
           return true;
-        } catch (error) {
+        } catch (error: any) {
           set({ isLoading: false });
-          throw error;
+
+          // ── Distinguish 401 (bad creds / inactive) from network / 5xx ──
+          const status = error?.response?.status;
+          const serverMsg =
+            error?.response?.data?.error ||
+            error?.response?.data?.message ||
+            error?.message;
+
+          if (status === 401) {
+            throw new LoginError(
+              serverMsg || 'Invalid username or password',
+              401,
+              'INVALID_CREDENTIALS',
+            );
+          }
+          if (status === 403) {
+            throw new LoginError(
+              serverMsg || 'Account is not permitted to log in',
+              403,
+              'FORBIDDEN',
+            );
+          }
+          if (status === 429) {
+            throw new LoginError(
+              serverMsg || 'Too many attempts. Try again later.',
+              429,
+              'RATE_LIMITED',
+            );
+          }
+          if (!status) {
+            // No HTTP response at all → network / DNS / CORS
+            throw new LoginError(
+              serverMsg || 'Cannot reach the server. Check your connection.',
+              undefined,
+              'NETWORK',
+            );
+          }
+          throw new LoginError(serverMsg || 'Login failed', status, 'UNKNOWN');
         }
       },
 
       checkAuth: async () => {
         const { user, token } = get();
 
-        // ── Case 1: Zustand already hydrated from persist ──
         if (user && token) {
-          writeToken(token); // ensure interceptor key is set
+          writeToken(token);
           try {
             const freshUser = await verifyToken();
             set({
@@ -128,7 +179,6 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        // ── Case 2: No Zustand state — check orphaned auth_token ──
         const storedToken = readToken();
         if (!storedToken) {
           set({
@@ -171,7 +221,6 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isInitialized: true,
         });
-        // Pass refresh token so backend can invalidate it
         apiLogout(refreshToken || undefined).catch(() => {});
       },
 
@@ -223,7 +272,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
-        refreshToken: state.refreshToken, // ✅ persist so interceptor survives page refresh
+        refreshToken: state.refreshToken,
         isInitialized: state.isInitialized,
       }),
       version: 1,
@@ -231,6 +280,6 @@ export const useAuthStore = create<AuthState>()(
         if (version === 0) return persistedState;
         return persistedState;
       },
-    }
-  )
+    },
+  ),
 );

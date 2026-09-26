@@ -76,6 +76,7 @@ export const ProcedureModal: React.FC<ProcedureModalProps> = ({
     try {
       await addProcedure(attendanceId, {
         serviceCatalogId: selectedProcedure.id,
+        templateId: selectedProcedure.templateId || selectedProcedure.id,
         scheduledDate: scheduledDate,
         notes: notes,
       });

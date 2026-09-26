@@ -44,10 +44,18 @@ export class DiagnosisService extends BaseService {
     return this.repository.delete(id);
   }
 
-  async searchDiagnoses(query: string, field: 'name' | 'icdCode' | 'morbidityGroup' | 'all' = 'all') {
-    const filters: DiagnosisFilterDTO = { search: query.trim(), searchField: field, limit: 50, page: 1 };
-    const result = await this.repository.findManyWithFilters(filters);
-    return result.data;
+  async searchDiagnoses(
+    query: string,
+    field: 'name' | 'icdCode' | 'morbidityGroup' | 'all' = 'all',
+    page: number = 1,
+    limit: number = 100
+  ) {
+    return this.repository.findManyWithFilters({
+      search: query.trim(),
+      searchField: field,
+      limit,
+      page
+    });
   }
 
   async getDiagnosisStats() {
@@ -59,7 +67,7 @@ export class DiagnosisService extends BaseService {
   }
 
   // ✅ FIXED: Imported MorbidityGroup from @prisma/client instead of trying to get it from this.prisma
-  async getDiagnosesByMorbidityGroup(morbidityGroup: string, page: number = 1, limit: number = 50) {
+  async getDiagnosesByMorbidityGroup(morbidityGroup: string, page: number = 1, limit: number = 100) {
     const validGroups = Object.values(MorbidityGroup);
     if (!validGroups.includes(morbidityGroup as any)) {
       throw new Error(`Invalid morbidity group. Must be one of: ${validGroups.join(', ')}`);

@@ -4,12 +4,10 @@ import { BaseController } from '../../shared/base/BaseController';
 import { AuditService } from './AuditService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
-
 export class AuditController extends BaseController {
   private auditService: AuditService;
 
-  constructor() {
+  constructor(prisma: PrismaClient) {
     super();
     this.auditService = new AuditService(prisma);
   }
@@ -17,37 +15,60 @@ export class AuditController extends BaseController {
   getLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const filters = {
-      entityType: req.query.entityType as string,
-      action: req.query.action as string,
-      userId: req.query.userId as string,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
-      page, limit
+      entityType: req.query.entityType as string | undefined,
+      action: req.query.action as string | undefined,
+      userId: req.query.userId as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      page,
+      limit,
     };
 
     const logs = await this.auditService.getLogs(filters);
-    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, 'Audit logs retrieved successfully');
+    return this.paginated(
+      res,
+      logs.data,
+      { page: logs.page, limit: logs.limit, total: logs.total },
+      'Audit logs retrieved successfully',
+    );
   });
 
   getEntityLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { entityType, entityId } = req.params;
     const { page, limit } = this.getPaginationParams(req);
 
-    const logs = await this.auditService.getEntityLogs(entityType, entityId, { page, limit });
-    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, `Audit logs for ${entityType} retrieved successfully`);
+    const logs = await this.auditService.getEntityLogs(entityType, entityId, {
+      page,
+      limit,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+    });
+
+    return this.paginated(
+      res,
+      logs.data,
+      { page: logs.page, limit: logs.limit, total: logs.total },
+      `Audit logs for ${entityType} retrieved successfully`,
+    );
   });
 
   getUserLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { userId } = req.params;
     const { page, limit } = this.getPaginationParams(req);
-    const filters = {
-      page, limit,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string
-    };
 
-    const logs = await this.auditService.getUserLogs(userId, filters);
-    return this.paginated(res, logs.data, { page: logs.page, limit: logs.limit, total: logs.total }, 'Audit logs for user retrieved successfully');
+    const logs = await this.auditService.getUserLogs(userId, {
+      page,
+      limit,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+    });
+
+    return this.paginated(
+      res,
+      logs.data,
+      { page: logs.page, limit: logs.limit, total: logs.total },
+      'Audit logs for user retrieved successfully',
+    );
   });
 
   getLogById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -60,26 +81,33 @@ export class AuditController extends BaseController {
     }
   });
 
+  getMeta = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const meta = await this.auditService.getMeta();
+    return this.ok(res, meta, 'Audit metadata retrieved successfully');
+  });
+
   exportLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const format = (req.query.format as string) || 'json';
     const filters = {
       format: format as 'json' | 'csv',
-      entityType: req.query.entityType as string,
-      action: req.query.action as string,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string
+      entityType: req.query.entityType as string | undefined,
+      action: req.query.action as string | undefined,
+      userId: req.query.userId as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
     };
 
     const exportData = await this.auditService.exportLogs(filters);
 
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=audit-logs-${Date.now()}.csv`,
+      );
       return res.send(exportData);
-    } else {
-      return this.ok(res, exportData, 'Audit logs exported successfully');
     }
+
+    return this.ok(res, exportData, 'Audit logs exported successfully');
   });
 }
-
-export const auditController = new AuditController();

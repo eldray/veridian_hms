@@ -22,20 +22,24 @@ const STATUSES: (EstimateStatus | 'all')[] = ['all', 'DRAFT', 'SENT', 'APPROVED'
 export default function Estimates() {
   const navigate = useNavigate();
   const { error: toastError } = useToast();
-  const { estimates, isLoading, loadEstimates, statistics, loadStatistics } = useEstimatesStore();
+  const { estimates, isLoading, loadEstimates, statistics, loadStatistics, pagination } = useEstimatesStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstimateStatus | 'all'>('all');
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     try {
-      await Promise.all([loadEstimates(), loadStatistics()]);
+      await Promise.all([
+        loadEstimates({ page, limit: 20, status: statusFilter === 'all' ? undefined : statusFilter }),
+        loadStatistics(),
+      ]);
     } catch (e: any) {
       toastError('Load failed', e?.response?.data?.message || e.message);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [page, statusFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -65,13 +69,19 @@ export default function Estimates() {
           <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-xl transition-all">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
+          <button
+            onClick={() => navigate('/dashboard/estimates/new')}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm"
+          >
+            New estimate
+          </button>
           <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
             <FileText className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Estimates / Proforma Invoices</h1>
             <p className="text-sm text-gray-500">Patient and corporate cost estimates</p>
-            <p className="text-xs text-gray-400 mt-0.5">{filtered.length} estimate(s)</p>
+            <p className="text-xs text-gray-400 mt-0.5">{filtered.length} of {pagination.total || filtered.length} estimate(s)</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -125,7 +135,10 @@ export default function Estimates() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as EstimateStatus | 'all')}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as EstimateStatus | 'all');
+            setPage(1);
+          }}
           className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm"
         >
           {STATUSES.map((s) => (
@@ -183,6 +196,15 @@ export default function Estimates() {
           </tbody>
         </table>
       </div>
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>Page {pagination.page} of {pagination.totalPages}</span>
+          <div className="flex gap-2">
+            <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Previous</button>
+            <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

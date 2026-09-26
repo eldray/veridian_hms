@@ -18,8 +18,8 @@ export class LabTestController extends BaseController {
   }
 
   getLabTests = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    // ✅ Use BaseController's safe pagination parser (caps limit at 100 to prevent memory crashes)
-    const { page, limit } = this.getPaginationParams(req);
+    // ✅ Use higher limit (5000) for lab test search/list operations
+    const { page, limit } = this.getPaginationParams(req, 5000);
     
     const params = {
       isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,

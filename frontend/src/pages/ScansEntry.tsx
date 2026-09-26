@@ -1,4 +1,4 @@
-// src/pages/ScansEntry.tsx - Scans Results Entry Page
+// src/pages/ScansEntry.tsx — Scans Results Entry Page (parity with LabResultEntry)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -12,6 +12,7 @@ import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ScanResultForm } from '../components/scans/ScanResultForm';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import SendDocumentModal from '../components/SendDocumentModal';
 import {
   ChevronLeft,
   Scan,
@@ -27,89 +28,126 @@ import {
   Edit,
   Trash2,
   Eye,
-  FileText,
   Printer,
   Image,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react';
-import SendDocumentModal from '../components/SendDocumentModal';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
 
-const getStatusBadge = (status: string) => {
-  const config: Record<string, { bg: string; text: string; label: string }> = {
-    requested: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
-    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-    in_progress: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'In Progress' },
-    completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
-  };
-  const c = config[status] || config.requested;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.label}
-    </span>
-  );
-};
+const getScanDisplayName = (scan: any): string =>
+  scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Unknown Scan';
 
-// Scan Result Display Component
-const ScanResultDisplay = ({ scan }: { scan: any }) => {
+// ── Inline expanded result card, mirroring the lab parameter block ────────────
+const ScanResultDisplay: React.FC<{
+  scan: any;
+  printing: boolean;
+  onPrint: () => void;
+  onSend: () => void;
+  onEdit: () => void;
+  canEdit: boolean;
+}> = ({ scan, printing, onPrint, onSend, onEdit, canEdit }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border border-[var(--border-color)] rounded-lg overflow-hidden">
-      <div
-        className="flex items-center justify-between p-3 bg-[var(--bg-main)] cursor-pointer hover:bg-[var(--bg-card)]"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div>
-          <h4 className="font-medium text-[var(--text-primary)] text-sm">{scan.name}</h4>
-          {scan.bodyPart && <p className="text-xs text-[var(--text-secondary)]">Body Part: {scan.bodyPart}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          {scan.imageUrls?.length > 0 && (
-            <span className="flex items-center gap-1 text-indigo-600 text-xs">
-              <Image className="w-3.5 h-3.5" />
-              {scan.imageUrls.length} images
-            </span>
-          )}
-          <span className="text-xs text-[var(--text-secondary)]">
-            {scan.completedAt ? new Date(scan.completedAt).toLocaleDateString() : '—'}
-          </span>
-          <button className="p-1 text-blue-500 hover:bg-blue-50 rounded">
-            <Edit className="w-3.5 h-3.5" />
-          </button>
+    <div className="border-b border-[var(--border-color)] last:border-b-0">
+      {/* Header */}
+      <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-semibold text-sm text-[var(--text-primary)] truncate">
+              {getScanDisplayName(scan)}
+            </h4>
+            <p className="text-[10px] text-[var(--text-secondary)]">
+              {scan.bodyPart ? `Body Part: ${scan.bodyPart} · ` : ''}
+              Completed: {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {scan.imageUrls?.length > 0 && (
+              <span className="hidden sm:flex items-center gap-1 text-[10px] text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded-full">
+                <Image className="w-3 h-3" />
+                {scan.imageUrls.length}
+              </span>
+            )}
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"
+              title={expanded ? 'Hide details' : 'View details'}
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onPrint}
+              disabled={printing}
+              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all disabled:opacity-40"
+              title="Print this scan"
+            >
+              <Printer className={`w-3.5 h-3.5 ${printing ? 'animate-pulse' : ''}`} />
+            </button>
+            <button
+              onClick={onSend}
+              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
+              title="Send this result"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </button>
+            {canEdit && (
+              <button
+                onClick={onEdit}
+                className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 transition-all"
+                title="Edit result"
+              >
+                <Edit className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {expanded && (
-        <div className="p-3 border-t border-[var(--border-color)] space-y-3 bg-white">
+        <div className="p-4 space-y-3">
           {scan.findings && (
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase mb-1">Findings</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                Findings
+              </p>
               <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.findings}</p>
             </div>
           )}
           {scan.impression && (
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase mb-1">Impression / Conclusion</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                Impression
+              </p>
               <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.impression}</p>
             </div>
           )}
-          {scan.result && (
+          {scan.result && typeof scan.result === 'string' && (
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase mb-1">Additional Notes</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                Notes
+              </p>
               <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.result}</p>
             </div>
           )}
-          {scan.imageUrls && scan.imageUrls.length > 0 && (
+          {scan.imageUrls?.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase mb-1">Images</p>
-              <div className="flex gap-2 flex-wrap">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                Images ({scan.imageUrls.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
                 {scan.imageUrls.map((url: string, idx: number) => (
-                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 text-xs hover:underline">
-                    View Image {idx + 1}
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-[var(--icon-cyan-text)] hover:underline border border-[var(--border-color)] rounded px-2 py-1"
+                  >
+                    <Image className="w-3 h-3" /> Image {idx + 1}
                   </a>
                 ))}
               </div>
@@ -134,9 +172,11 @@ export default function ScansEntry() {
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [showScanModal, setShowScanModal] = useState(false);
   const [showSendResult, setShowSendResult] = useState(false);
+  const [sendResultScan, setSendResultScan] = useState<any>(null);
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showResultForm, setShowResultForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const {
     attendances,
@@ -159,24 +199,16 @@ export default function ScansEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([
-        loadPatients(),
-        getScanTemplates(false)
-      ]);
+      await Promise.all([loadPatients(), getScanTemplates(false)]);
 
-      // Worklist navigates with :id = patientId plus state.{patient, attendanceId}.
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
       const initialAttendanceId = location.state?.attendanceId;
 
       if (patientId) {
-        // Load THIS patient's attendances directly (complete + small) instead of
-        // filtering a paginated global list that may not contain the target.
         const patientAttendances = await getAttendances({ patientId });
         setAllAttendances(patientAttendances);
 
-        // Resolve the full patient; the default list only holds a page, so fall back
-        // to a direct fetch (or the navigation summary).
         let foundPatient = patients.find(p => p.id === patientId) || statePatient || null;
         if (!foundPatient || !foundPatient.surname) {
           try { foundPatient = await fetchPatient(patientId); } catch { /* keep summary */ }
@@ -196,7 +228,6 @@ export default function ScansEntry() {
           await getAttendance(target.id);
         }
       }
-
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -205,9 +236,7 @@ export default function ScansEntry() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [id]);
+  useEffect(() => { loadData(); }, [id]);
 
   useEffect(() => {
     if (selectedAttendanceId && selectedAttendanceId !== 'undefined' && selectedAttendanceId !== 'null') {
@@ -216,9 +245,7 @@ export default function ScansEntry() {
   }, [selectedAttendanceId, getAttendance]);
 
   useEffect(() => {
-    if (currentAttendance) {
-      setAttendance(currentAttendance);
-    }
+    if (currentAttendance) setAttendance(currentAttendance);
   }, [currentAttendance]);
 
   const handleAttendanceChange = async (attendanceId: string) => {
@@ -243,7 +270,7 @@ export default function ScansEntry() {
     return currentAttendance.Scan.map((scan: any) => ({
       ...scan,
       id: scan.id,
-      name: scan.scanType || scan.ServiceCatalog?.name || 'Unknown Scan',
+      name: scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Unknown Scan',
       scanType: scan.scanType || scan.ServiceCatalog?.name,
       status: scan.status,
       priority: scan.priority || 'routine',
@@ -315,62 +342,94 @@ export default function ScansEntry() {
     }
   };
 
-  const handlePrintResults = async () => {
-    if (completedScans.length === 0) {
-      toastError('No results', 'No completed scans to print');
-      return;
-    }
-
-    if (!patient || !attendance) {
-      toastError('Missing info', 'Patient or attendance information missing');
-      return;
-    }
-
-    try {
-      const scanData = {
-        scans: completedScans.map(scan => ({
-          name: scan.name,
-          bodyPart: scan.bodyPart,
-          findings: scan.findings,
-          impression: scan.impression,
-          imageUrls: scan.imageUrls,
-          completedAt: scan.completedAt,
-        })),
-        patient: {
-          fullName: getPatientName(patient),
-          folderNumber: patient.folderNumber,
-          contact: patient.contact,
-          age: patient.age || calculateAge(patient.dateOfBirth),
-          gender: patient.gender,
-          id: patient.id
-        },
-        attendance: {
-          attendanceNumber: attendance.attendanceNumber || 'N/A',
-          dateTime: attendance.dateTime || attendance.createdAt || new Date().toISOString(),
-          attendingClinician: attendance.createdBy?.fullName || 'N/A'
-        }
-      };
-
-      const htmlContent = generatePDF('scanReport', scanData, hospital);
-      openPrintWindow(htmlContent, `Radiology_Report_${patient.folderNumber}`);
-
-      success('Print ready', 'Radiology report generated');
-    } catch (err) {
-      console.error('Error printing scan results:', err);
-      toastError('Print failed', 'Could not generate radiology report');
-    }
-  };
-
   const calculateAge = (dateOfBirth: string): number => {
     if (!dateOfBirth) return 0;
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
     return age;
+  };
+
+  // ── PRINT: single scan ─────────────────────────────────────────────────────
+  const handlePrintScan = async (scan: any) => {
+    if (!patient || !attendance) {
+      toastError('Error', 'Missing patient or attendance info');
+      return;
+    }
+    setPrintingId(scan.id);
+    try {
+      const scanData = {
+        scans: [{
+          name: getScanDisplayName(scan),
+          bodyPart: scan.bodyPart,
+          findings: scan.findings,
+          impression: scan.impression,
+          result: scan.result,
+          imageUrls: scan.imageUrls || [],
+          completedAt: scan.completedAt,
+          notes: scan.notes || '',
+          priority: scan.priority || 'routine',
+          scanType: scan.scanType,
+          ScanTemplate: scan.ScanTemplate,          // pass through for structured rendering
+          ServiceCatalog: scan.ServiceCatalog,
+        }],
+        patient: { ...patient, fullName: getPatientName(patient) },
+        attendance,
+        performedByName: user?.fullName || 'Radiographer',
+      };
+      const html = generatePDF('scanReport', scanData, hospital);
+      openPrintWindow(html, `Scan_${getScanDisplayName(scan).replace(/\s+/g, '_')}_${patient.folderNumber}`);
+      success('Print ready', 'Scan report opened for printing');
+    } catch (err) {
+      console.error('Print failed:', err);
+      toastError('Print failed', 'Could not generate scan report');
+    } finally {
+      setPrintingId(null);
+    }
+  };
+
+  // ── PRINT: all completed scans ────────────────────────────────────────────
+  const handlePrintAll = async () => {
+    if (!patient || !attendance) {
+      toastError('Error', 'Missing patient or attendance info');
+      return;
+    }
+    if (completedScans.length === 0) {
+      toastError('Nothing to print', 'No completed scans');
+      return;
+    }
+    setPrintingId('all');
+    try {
+      const scanData = {
+        scans: completedScans.map(scan => ({
+          name: getScanDisplayName(scan),
+          bodyPart: scan.bodyPart,
+          findings: scan.findings,
+          impression: scan.impression,
+          result: scan.result,
+          imageUrls: scan.imageUrls || [],
+          completedAt: scan.completedAt,
+          notes: scan.notes || '',
+          priority: scan.priority || 'routine',
+          scanType: scan.scanType,
+          ScanTemplate: scan.ScanTemplate,          // pass through for structured rendering
+          ServiceCatalog: scan.ServiceCatalog,
+        })),
+        patient: { ...patient, fullName: getPatientName(patient) },
+        attendance,
+        performedByName: user?.fullName || 'Radiographer',
+      };
+      const html = generatePDF('scanReport', scanData, hospital);
+      openPrintWindow(html, `Scans_${patient.folderNumber}`);
+      success('Print ready', 'All scan reports opened for printing');
+    } catch (err) {
+      console.error('Print all failed:', err);
+      toastError('Print failed', 'Could not generate scan reports');
+    } finally {
+      setPrintingId(null);
+    }
   };
 
   const handlePrescribeSuccess = async () => {
@@ -416,7 +475,7 @@ export default function ScansEntry() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
@@ -433,30 +492,31 @@ export default function ScansEntry() {
             <p className="text-sm text-[var(--text-secondary)]">{patientFullName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowScanModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm"
             disabled={!canAddEntries}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
             Request Scan
           </button>
           <button
-            onClick={handlePrintResults}
-            disabled={completedScans.length === 0}
+            onClick={handlePrintAll}
+            disabled={completedScans.length === 0 || printingId === 'all'}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
           >
-            <Printer className="w-4 h-4" />
-            Print ({completedScans.length})
+            <Printer className={`w-4 h-4 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
+            Print All ({completedScans.length})
           </button>
           <button
-            onClick={() => setShowSendResult(true)}
+            onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
             disabled={completedScans.length === 0}
             className="flex items-center gap-2 px-3 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all disabled:opacity-50 text-sm"
           >
             <MessageSquare className="w-4 h-4" />
-            Send Results
+            Send All
           </button>
           <button
             onClick={loadData}
@@ -469,15 +529,16 @@ export default function ScansEntry() {
         </div>
       </div>
 
+      {/* SEND MODAL */}
       <SendDocumentModal
         open={showSendResult}
-        onClose={() => setShowSendResult(false)}
+        onClose={() => { setShowSendResult(false); setSendResultScan(null); }}
         patient={patient}
         documentType="scan-result"
-        entityId={selectedAttendanceId}
+        entityId={sendResultScan?.id || selectedAttendanceId}
       />
 
-      {/* Patient & Attendance Selector */}
+      {/* PATIENT / ATTENDANCE SELECTOR */}
       <PatientAttendanceSelector
         patients={[patient]}
         attendances={allAttendances}
@@ -494,7 +555,6 @@ export default function ScansEntry() {
         onClearSelection={handleClearSelection}
       />
 
-      {/* No Attendance Selected */}
       {!selectedAttendanceId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
           <Calendar className="w-12 h-12 text-yellow-600 mx-auto mb-3 opacity-50" />
@@ -503,9 +563,10 @@ export default function ScansEntry() {
         </div>
       )}
 
-      {/* Patient & Visit Overview */}
+      {/* MAIN CONTENT */}
       {selectedAttendanceId && attendance && (
         <>
+          {/* Patient info bar */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -514,11 +575,9 @@ export default function ScansEntry() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-[var(--text-primary)] text-base">
-                      {patientFullName}
-                    </h3>
+                    <h3 className="font-semibold text-[var(--text-primary)] text-base">{patientFullName}</h3>
                     <span className="text-xs text-[var(--text-secondary)]">
-                      {patient.gender === 'male' ? '👨' : '👩'} • {patient.age || '?'}y
+                      {patient.gender === 'male' ? '👨' : '👩'} • {patient.age || calculateAge(patient.dateOfBirth)}y
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -539,17 +598,17 @@ export default function ScansEntry() {
                     📅 {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${attendance.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                    attendance.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-700'
-                  }`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  attendance.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                  attendance.status === 'completed' ? 'bg-green-100 text-green-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
                   {attendance.status}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Read-only warning */}
           {!canUpdateScan && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-600" />
@@ -559,44 +618,28 @@ export default function ScansEntry() {
             </div>
           )}
 
-          {/* Stats Cards */}
+          {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-yellow-600">{requestedScans.length}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">Pending Scans</p>
-                </div>
-                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-purple-600">{inProgressScans.length}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">In Progress</p>
-                </div>
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-purple-600" />
+            {[
+              { count: requestedScans.length, label: 'Pending Scans', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
+              { count: inProgressScans.length, label: 'In Progress', color: 'text-purple-600', bg: 'bg-purple-100', Icon: Activity },
+              { count: completedScans.length, label: 'Completed', color: 'text-green-600', bg: 'bg-green-100', Icon: CheckCircle },
+            ].map(s => (
+              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">{s.label}</p>
+                  </div>
+                  <div className={`w-10 h-10 ${s.bg} rounded-lg flex items-center justify-center`}>
+                    <s.Icon className={`w-5 h-5 ${s.color}`} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">{completedScans.length}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">Completed</p>
-                </div>
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Requested Scans Table */}
+          {/* Pending scans */}
           {requestedScans.length > 0 && (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
@@ -622,9 +665,11 @@ export default function ScansEntry() {
                         <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{scan.name}</td>
                         <td className="px-4 py-3 text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                              scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                            scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
                             {scan.priority}
                           </span>
                         </td>
@@ -658,7 +703,7 @@ export default function ScansEntry() {
             </div>
           )}
 
-          {/* In Progress Scans Table */}
+          {/* In-progress scans */}
           {inProgressScans.length > 0 && (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
@@ -701,24 +746,49 @@ export default function ScansEntry() {
             </div>
           )}
 
-          {/* Completed Scans Section */}
+          {/* Completed scans */}
           {completedScans.length > 0 && (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
+              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
                 <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   Completed Scans ({completedScans.length})
                 </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrintAll}
+                    disabled={printingId === 'all'}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
+                  >
+                    <Printer className={`w-3.5 h-3.5 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
+                    Print All
+                  </button>
+                  <button
+                    onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" /> Send All
+                  </button>
+                </div>
               </div>
-              <div className="divide-y divide-[var(--border-color)]">
-                {completedScans.map((scan) => (
-                  <ScanResultDisplay key={scan.id} scan={scan} />
+
+              <div className="max-h-[600px] overflow-y-auto">
+                {completedScans.map(scan => (
+                  <ScanResultDisplay
+                    key={scan.id}
+                    scan={scan}
+                    printing={printingId === scan.id}
+                    onPrint={() => handlePrintScan(scan)}
+                    onSend={() => { setSendResultScan(scan); setShowSendResult(true); }}
+                    onEdit={() => handleEditResult(scan)}
+                    canEdit={canUpdateScan}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {/* No Scans Message */}
+          {/* Empty state */}
           {scansList.length === 0 && (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
               <Scan className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
@@ -737,7 +807,7 @@ export default function ScansEntry() {
         </>
       )}
 
-      {/* Scan Modal */}
+      {/* MODALS */}
       {selectedAttendanceId && (
         <ScanModal
           isOpen={showScanModal}
@@ -751,15 +821,11 @@ export default function ScansEntry() {
         />
       )}
 
-      {/* Scan Result Form Modal */}
       {showResultForm && selectedScan && (
         <ScanResultForm
           scan={selectedScan}
           onSaveResult={handleSaveResult}
-          onClose={() => {
-            setShowResultForm(false);
-            setSelectedScan(null);
-          }}
+          onClose={() => { setShowResultForm(false); setSelectedScan(null); }}
           saving={isSubmitting}
         />
       )}

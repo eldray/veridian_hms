@@ -87,7 +87,7 @@ export class DiagnosisRepository extends BaseRepository<any, CreateDiagnosisDTO,
     return Object.values(MorbidityGroup);
   }
 
-  async findByMorbidityGroup(morbidityGroup: MorbidityGroup, page: number = 1, limit: number = 50) {
+  async findByMorbidityGroup(morbidityGroup: MorbidityGroup, page: number = 1, limit: number = 100) {
     const limitNum = Math.min(100, Math.max(1, limit));
     const skip = (page - 1) * limitNum;
     const where = { morbidityGroup };

@@ -1,5 +1,18 @@
 // src/seed/coreSeed.ts - REARRANGED FOR PROPER ORDER
-import { PrismaClient, ServiceType, ServiceCategory, NHISCoverageType, UserRole, Gender, InsuranceType } from '@prisma/client';
+import {
+  PrismaClient,
+  ServiceType,
+  ServiceCategory,
+  NHISCoverageType,
+  UserRole,
+  Seniority,
+  Gender,
+  InsuranceType,
+  EmploymentType,
+  GDRGMDC,
+  EncounterCategory,
+  AttendanceType,
+} from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
@@ -10,7 +23,9 @@ const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 
-// Helper: read JSON file
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
 const readJSON = (fileName: string) => {
   const filePath = path.join(__dirname, '..', 'data', fileName);
   if (!fs.existsSync(filePath)) {
@@ -20,41 +35,66 @@ const readJSON = (fileName: string) => {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 };
 
-// Helper: hash password
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-// ✅ SCHEMA COMPLIANCE: Add missing required fields automatically
+// ─────────────────────────────────────────────────────────────
+// Enum normalizers (protects against JSON casing drift)
+// ─────────────────────────────────────────────────────────────
+const GDRG_MDC_VALUES = new Set([
+  'ASUR','DENT','ENTH','INVE','MEDI','OBGY','OPDC','OPHT',
+  'ORTH','PAED','PSUR','RSUR','ZOOM',
+]);
+const normalizeMdc = (v: any): GDRGMDC => {
+  const s = String(v ?? 'MEDI').toUpperCase();
+  return (GDRG_MDC_VALUES.has(s) ? s : 'MEDI') as GDRGMDC;
+};
+
+const ENCOUNTER_CATEGORY_VALUES = new Set(['opd', 'ipd', 'daycase']);
+const normalizeEncounterCategory = (v: any): EncounterCategory | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).toLowerCase();
+  return (ENCOUNTER_CATEGORY_VALUES.has(s) ? s : null) as EncounterCategory | null;
+};
+
+const ATTENDANCE_TYPE_VALUES = new Set([
+  'emergency_acute','antenatal','postnatal','chronic_followup',
+  'specialist_consultation','delivery','surgery','general_consultation',
+]);
+const normalizeAttendanceTypes = (v: any): AttendanceType[] => {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => String(x).toLowerCase())
+    .filter((x) => ATTENDANCE_TYPE_VALUES.has(x)) as AttendanceType[];
+};
+
+const normalizeGender = (v: any): Gender => {
+  const s = String(v ?? 'male').toLowerCase();
+  if (s === 'female') return Gender.female;
+  if (s === 'other') return Gender.other;
+  return Gender.male;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Schema defaults helper
+// ─────────────────────────────────────────────────────────────
 const addSchemaDefaults = (data: any, type: string) => {
-  const baseDefaults = {
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const baseDefaults = { createdAt: new Date(), updatedAt: new Date() };
 
   switch (type) {
     case 'labTestTemplate': {
       const labCategoryMap: Record<string, string> = {
-        'pathology': 'pathology',
-        'hematology': 'hematology',
-        'biochemistry': 'biochemistry',
-        'microbiology': 'microbiology',
-        'serology': 'serology',
-        'immunology': 'immunology',
-        'molecular': 'molecular',
-        'neurology': 'neurology',
-        'pulmonology': 'pulmonology',
-        'cardiology': 'cardiology',
-        'gastroenterology': 'gastroenterology',
+        pathology: 'pathology', hematology: 'hematology',
+        biochemistry: 'biochemistry', microbiology: 'microbiology',
+        serology: 'serology', immunology: 'immunology',
+        molecular: 'molecular', neurology: 'neurology',
+        pulmonology: 'pulmonology', cardiology: 'cardiology',
+        gastroenterology: 'gastroenterology',
       };
-      
       const specimenTypeMap: Record<string, string> = {
-        'marrow': 'tissue',
-        'bone marrow': 'tissue',
-        'bone-marrow': 'tissue',
+        marrow: 'tissue', 'bone marrow': 'tissue', 'bone-marrow': 'tissue',
       };
-      
       const mappedSpecimenType = specimenTypeMap[data.specimenType] || data.specimenType || 'blood';
       const mappedCategory = labCategoryMap[data.category] || 'hematology';
-      
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Lab Test',
@@ -97,42 +137,27 @@ const addSchemaDefaults = (data: any, type: string) => {
         isTaxable: data.isTaxable ?? true,
         tariffCode: data.tariffCode || `SCAN-${data.scanCode}`,
         isActive: true,
+        resultTemplate: data.resultTemplate || [],
       };
     }
 
     case 'procedureTemplate': {
       const categoryMap: Record<string, string> = {
-        'General Surgery': 'surgical',
-        'Thoracic Surgery': 'surgical',
-        'Vascular Surgery': 'surgical',
-        'Neurosurgery': 'surgical',
-        'Paediatric Surgery': 'pediatric',
-        'Gynaecology': 'obstetric',
-        'Obstetrics': 'obstetric',
-        'Orthopaedics': 'orthopedic',
-        'Reconstructive Surgery': 'surgical',
-        'Plastic Surgery': 'surgical',
-        'Urology': 'urology',
-        'ENT': 'ent',
-        'Dental': 'dental',
-        'Ophthalmology': 'ophthalmic',
-        'Neurology': 'neurology',
-        'Dermatology': 'dermatology',
-        'Endoscopy': 'diagnostic',
-        'Laparoscopic Surgery': 'laparoscopic',
-        'Laparoscopic': 'laparoscopic',
-        'Laparotomy': 'laparotomy',
-        'Interventional Radiology': 'diagnostic',
-        'Family Planning': 'therapeutic',
-        'Nursing Procedure': 'therapeutic',
-        'Emergency': 'emergency',
-        'Observation': 'therapeutic',
-        'Administrative': 'therapeutic',
-        'Diagnostic': 'diagnostic',
+        'General Surgery': 'surgical', 'Thoracic Surgery': 'surgical',
+        'Vascular Surgery': 'surgical', Neurosurgery: 'surgical',
+        'Paediatric Surgery': 'pediatric', Gynaecology: 'obstetric',
+        Obstetrics: 'obstetric', Orthopaedics: 'orthopedic',
+        'Reconstructive Surgery': 'surgical', 'Plastic Surgery': 'surgical',
+        Urology: 'urology', ENT: 'ent', Dental: 'dental',
+        Ophthalmology: 'ophthalmic', Neurology: 'neurology',
+        Dermatology: 'dermatology', Endoscopy: 'diagnostic',
+        'Laparoscopic Surgery': 'laparoscopic', Laparoscopic: 'laparoscopic',
+        Laparotomy: 'laparotomy', 'Interventional Radiology': 'diagnostic',
+        'Family Planning': 'therapeutic', 'Nursing Procedure': 'therapeutic',
+        Emergency: 'emergency', Observation: 'therapeutic',
+        Administrative: 'therapeutic', Diagnostic: 'diagnostic',
       };
-      
       const mappedCategory = categoryMap[data.category] || 'therapeutic';
-      
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Procedure',
@@ -152,7 +177,7 @@ const addSchemaDefaults = (data: any, type: string) => {
       };
     }
 
-    case 'diagnosis': {
+    case 'diagnosis':
       return {
         ...baseDefaults,
         name: data.name || 'Unknown Diagnosis',
@@ -165,9 +190,8 @@ const addSchemaDefaults = (data: any, type: string) => {
         isNHISCovered: data.isNHISCovered ?? true,
         morbidityGroup: data.morbidityGroup || 'all_other_diseases',
       };
-    }
 
-    case 'stockItem': {
+    case 'stockItem':
       return {
         ...baseDefaults,
         name: data.name?.trim() || 'Unknown Item',
@@ -192,9 +216,8 @@ const addSchemaDefaults = (data: any, type: string) => {
         tariffCode: data.tariffCode || `MED-${data.drugCode}`,
         isActive: true,
       };
-    }
 
-    case 'serviceCatalog': {
+    case 'serviceCatalog':
       return {
         ...baseDefaults,
         name: data.name,
@@ -209,13 +232,14 @@ const addSchemaDefaults = (data: any, type: string) => {
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         isPrivateInsuranceExempted: data.isPrivateInsuranceExempted ?? false,
+        isPending: false, // ✅ seeded services are live
         isActive: data.isActive ?? true,
         requiresClinicalNotes: data.requiresClinicalNotes ?? false,
         unit: data.unit || 'Each',
         metadata: data.metadata || null,
         tariffCode: data.tariffCode || null,
         diagnosisId: data.diagnosisId || null,
-        labTestTemplateId: data.labTestTemplateId || null,  // ✅ Make sure this is included
+        labTestTemplateId: data.labTestTemplateId || null,
         procedureTemplateId: data.procedureTemplateId || null,
         stockItemId: data.stockItemId || null,
         wardId: data.wardId || null,
@@ -224,12 +248,10 @@ const addSchemaDefaults = (data: any, type: string) => {
         createdById: data.createdById || null,
         gdrgTariffId: data.gdrgTariffId || null,
       };
-    }
 
-    case 'ward': {
+    case 'ward':
       return {
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        ...baseDefaults,
         wardName: data.wardName,
         wardType: data.wardType || 'general',
         totalBeds: data.totalBeds ?? 10,
@@ -237,24 +259,25 @@ const addSchemaDefaults = (data: any, type: string) => {
         isNHISCovered: data.isNHISCovered ?? true,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
-        isPending: data.isPending ?? false,
+        isPending: false,
         requiresAuthorization: data.requiresAuthorization ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? false,
         tariffCode: data.tariffCode || `WARD-${data.wardName?.replace(/\s+/g, '_').toUpperCase()}`,
-        dailyCashRate: data.dailyCashRate || data.cashPrice || data.cashDailyRate || 0,
-        dailyNHISRate: data.dailyNHISRate || data.nhisPrice || data.nhisDailyRate || 0,
-        dailyInsuranceRate: data.dailyInsuranceRate || data.insurancePrice || data.insuranceDailyRate || 0,
+        dailyCashRate: data.dailyCashRate ?? data.cashPrice ?? data.cashDailyRate ?? 0,
+        dailyNHISRate: data.dailyNHISRate ?? data.nhisPrice ?? data.nhisDailyRate ?? 0,
+        dailyInsuranceRate:
+          data.dailyInsuranceRate ?? data.insurancePrice ?? data.insuranceDailyRate ?? 0,
       };
-    }
 
-    default: {
+    default:
       return { ...data, ...baseDefaults };
-    }
   }
 };
 
-// ✅ SAFE SERVICE PRICING CREATION
+// ─────────────────────────────────────────────────────────────
+// Pricing — single active row per service; overwrite when re-seeded
+// ─────────────────────────────────────────────────────────────
 const createServicePricing = async (
   serviceCatalogId: string,
   pricing: {
@@ -262,50 +285,32 @@ const createServicePricing = async (
     nhisPrice: number;
     insurancePrice: number;
     corporatePrice?: number;
-  }
+  },
 ) => {
   try {
-    // First, check if a pricing record exists for this service with the same effective date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const existingPricing = await prisma.servicePricing.findFirst({
-      where: {
-        serviceCatalogId: serviceCatalogId,
-        effectiveDate: {
-          gte: today,
-          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-        }
-      }
+    const existingActive = await prisma.servicePricing.findFirst({
+      where: { serviceCatalogId, isActive: true, expiryDate: null },
+      orderBy: { effectiveDate: 'desc' },
     });
-    
-    if (existingPricing) {
-      // Update existing
+
+    const payload = {
+      cashPrice: pricing.cashPrice ?? 0,
+      nhisPrice: pricing.nhisPrice ?? 0,
+      insurancePrice: pricing.insurancePrice ?? 0,
+      corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
+      vatRate: 0,
+      isTaxable: false,
+      isActive: true,
+    };
+
+    if (existingActive) {
       await prisma.servicePricing.update({
-        where: { id: existingPricing.id },
-        data: {
-          cashPrice: pricing.cashPrice ?? 0,
-          nhisPrice: pricing.nhisPrice ?? 0,
-          insurancePrice: pricing.insurancePrice ?? 0,
-          corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
-          isActive: true,
-          updatedAt: new Date()
-        }
+        where: { id: existingActive.id },
+        data: { ...payload, updatedAt: new Date() },
       });
     } else {
-      // Create new
       await prisma.servicePricing.create({
-        data: {
-          serviceCatalogId,
-          cashPrice: pricing.cashPrice ?? 0,
-          nhisPrice: pricing.nhisPrice ?? 0,
-          insurancePrice: pricing.insurancePrice ?? 0,
-          corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
-          vatRate: 0,
-          isTaxable: false,
-          effectiveDate: new Date(),
-          isActive: true,
-        }
+        data: { serviceCatalogId, ...payload, effectiveDate: new Date() },
       });
     }
   } catch (error: any) {
@@ -313,12 +318,140 @@ const createServicePricing = async (
   }
 };
 
-// ✅ Check if core data already exists
+// ─────────────────────────────────────────────────────────────
+// JobGrade + SalaryStep catalogue
+// ─────────────────────────────────────────────────────────────
+type JobGradeSeed = {
+  name: string;
+  code: string;
+  level: number;
+  baseSalary: number;
+  description: string;
+  steps: { stepNumber: number; amount: number; yearsRequired: number }[];
+};
+
+const JOB_GRADE_CATALOGUE: JobGradeSeed[] = [
+  {
+    name: 'Support Staff',
+    code: 'SUP-04',
+    level: 1,
+    baseSalary: 1200,
+    description: 'Orderlies, cleaners, porters, security',
+    steps: [
+      { stepNumber: 1, amount: 1200, yearsRequired: 0 },
+      { stepNumber: 2, amount: 1300, yearsRequired: 2 },
+      { stepNumber: 3, amount: 1400, yearsRequired: 4 },
+      { stepNumber: 4, amount: 1500, yearsRequired: 6 },
+      { stepNumber: 5, amount: 1600, yearsRequired: 8 },
+    ],
+  },
+  {
+    name: 'Health Assistant',
+    code: 'HO-06',
+    level: 2,
+    baseSalary: 2000,
+    description: 'Health assistants and auxiliary nursing staff',
+    steps: [
+      { stepNumber: 1, amount: 2000, yearsRequired: 0 },
+      { stepNumber: 2, amount: 2200, yearsRequired: 2 },
+      { stepNumber: 3, amount: 2400, yearsRequired: 4 },
+      { stepNumber: 4, amount: 2600, yearsRequired: 6 },
+      { stepNumber: 5, amount: 2800, yearsRequired: 8 },
+    ],
+  },
+  {
+    name: 'Nursing Officer',
+    code: 'NO-07',
+    level: 3,
+    baseSalary: 3200,
+    description: 'Registered nurses and midwives',
+    steps: [
+      { stepNumber: 1, amount: 3200, yearsRequired: 0 },
+      { stepNumber: 2, amount: 3500, yearsRequired: 2 },
+      { stepNumber: 3, amount: 3800, yearsRequired: 4 },
+      { stepNumber: 4, amount: 4100, yearsRequired: 6 },
+      { stepNumber: 5, amount: 4400, yearsRequired: 8 },
+    ],
+  },
+  {
+    name: 'Medical Officer',
+    code: 'MO-08',
+    level: 4,
+    baseSalary: 5000,
+    description: 'Medical doctors and specialists',
+    steps: [
+      { stepNumber: 1, amount: 5000, yearsRequired: 0 },
+      { stepNumber: 2, amount: 5500, yearsRequired: 2 },
+      { stepNumber: 3, amount: 6000, yearsRequired: 4 },
+      { stepNumber: 4, amount: 6500, yearsRequired: 6 },
+      { stepNumber: 5, amount: 7000, yearsRequired: 8 },
+    ],
+  },
+  {
+    name: 'Administrative Officer',
+    code: 'AD-09',
+    level: 5,
+    baseSalary: 4000,
+    description: 'Admin, HR, accounts, records officers',
+    steps: [
+      { stepNumber: 1, amount: 4000, yearsRequired: 0 },
+      { stepNumber: 2, amount: 4400, yearsRequired: 2 },
+      { stepNumber: 3, amount: 4800, yearsRequired: 4 },
+      { stepNumber: 4, amount: 5200, yearsRequired: 6 },
+      { stepNumber: 5, amount: 5600, yearsRequired: 8 },
+    ],
+  },
+];
+
+const seedJobGradesAndSteps = async () => {
+  console.log('💰 Seeding job grades and salary steps...');
+  for (const grade of JOB_GRADE_CATALOGUE) {
+    const createdGrade = await prisma.jobGrade.upsert({
+      where: { code: grade.code },
+      create: {
+        name: grade.name,
+        code: grade.code,
+        level: grade.level,
+        baseSalary: grade.baseSalary,
+        description: grade.description,
+        isActive: true,
+      },
+      update: {
+        name: grade.name,
+        level: grade.level,
+        baseSalary: grade.baseSalary,
+        description: grade.description,
+        isActive: true,
+      },
+    });
+
+    for (const step of grade.steps) {
+      await prisma.salaryStep.upsert({
+        where: { gradeId_stepNumber: { gradeId: createdGrade.id, stepNumber: step.stepNumber } },
+        create: {
+          gradeId: createdGrade.id,
+          stepNumber: step.stepNumber,
+          amount: step.amount,
+          yearsRequired: step.yearsRequired,
+        },
+        update: {
+          amount: step.amount,
+          yearsRequired: step.yearsRequired,
+        },
+      });
+    }
+  }
+  console.log(`✅ ${JOB_GRADE_CATALOGUE.length} job grades with salary steps configured`);
+};
+
+// ─────────────────────────────────────────────────────────────
+// Core data check
+// ─────────────────────────────────────────────────────────────
 const hasCoreData = async (): Promise<boolean> => {
   console.log('🔍 Checking if core data exists...');
-  
   try {
     const counts = await Promise.all([
+      prisma.user.count().catch(() => 0),
       prisma.diagnosis.count().catch(() => 0),
       prisma.serviceCatalog.count().catch(() => 0),
       prisma.stockItem.count().catch(() => 0),
@@ -328,20 +461,29 @@ const hasCoreData = async (): Promise<boolean> => {
       prisma.procedureTemplate.count().catch(() => 0),
       prisma.labTestTemplate.count().catch(() => 0),
       prisma.scanTemplate.count().catch(() => 0),
+      prisma.jobGrade.count().catch(() => 0),
     ]);
 
-    const [diagnosisCount, serviceCatalogCount, stockItemCount, departmentCount, insuranceProviderCount, servicePricingCount, procedureTemplateCount, labTestTemplateCount, scanTemplateCount] = counts;
+    const [
+      userCount, diagnosisCount, serviceCatalogCount, stockItemCount,
+      departmentCount, insuranceProviderCount, servicePricingCount,
+      procedureTemplateCount, labTestTemplateCount, scanTemplateCount, jobGradeCount,
+    ] = counts;
 
-    const hasData = diagnosisCount > 0 && 
-                   serviceCatalogCount > 0 && 
-                   stockItemCount > 0 && 
-                   departmentCount > 0 &&
-                   insuranceProviderCount > 0 &&
-                   procedureTemplateCount > 0 &&
-                   labTestTemplateCount > 0 &&
-                   scanTemplateCount > 0;
+    const hasData =
+      userCount > 0 &&
+      diagnosisCount > 0 &&
+      serviceCatalogCount > 0 &&
+      stockItemCount > 0 &&
+      departmentCount > 0 &&
+      insuranceProviderCount > 0 &&
+      procedureTemplateCount > 0 &&
+      labTestTemplateCount > 0 &&
+      scanTemplateCount > 0 &&
+      jobGradeCount > 0;
 
     console.log('📊 Core data check:', {
+      users: userCount,
       diagnoses: diagnosisCount,
       serviceCatalog: serviceCatalogCount,
       servicePricing: servicePricingCount,
@@ -351,7 +493,8 @@ const hasCoreData = async (): Promise<boolean> => {
       procedureTemplates: procedureTemplateCount,
       labTestTemplates: labTestTemplateCount,
       scanTemplates: scanTemplateCount,
-      hasCoreData: hasData
+      jobGrades: jobGradeCount,
+      hasCoreData: hasData,
     });
 
     return hasData;
@@ -361,6 +504,9 @@ const hasCoreData = async (): Promise<boolean> => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────
 export const seedCoreData = async (force: boolean = false) => {
   console.log('🏥 Starting core data seeding...');
 
@@ -378,9 +524,7 @@ export const seedCoreData = async (force: boolean = false) => {
 
     console.log('🔧 Proceeding with core data seeding...');
 
-    // ============================================================
-    // STEP 1: CREATE ADMIN USER (REQUIRED FOR ALL OTHER SEEDING)
-    // ============================================================
+    // ── STEP 1: Admin user ────────────────────────────────────
     const adminUser = await prisma.user.upsert({
       where: { username: 'admin' },
       create: {
@@ -388,19 +532,18 @@ export const seedCoreData = async (force: boolean = false) => {
         password: hashPassword('admin123'),
         fullName: 'System Administrator',
         role: UserRole.admin,
+        seniority: Seniority.PRINCIPAL,
         email: 'admin@hospital.com',
         phone: '+233244111111',
         licenseNumber: 'ADMIN-001',
         isActive: true,
       },
-      update: {},
+      update: { isActive: true },
     });
     console.log('✅ Admin user created/verified');
     const adminId = adminUser.id;
 
-    // ============================================================
-    // STEP 2: HOSPITAL CONFIGURATION
-    // ============================================================
+    // ── STEP 2: Hospital ──────────────────────────────────────
     await prisma.hospital.upsert({
       where: { nhisFacilityCode: 'GH001' },
       create: {
@@ -425,22 +568,19 @@ export const seedCoreData = async (force: boolean = false) => {
     });
     console.log('✅ Hospital configured');
 
-    // ============================================================
-    // STEP 3: DEPARTMENTS
-    // ============================================================
+    // ── STEP 3: Departments ───────────────────────────────────
     const departmentsData = readJSON('departments.json');
     const defaultDepartments = [
       { name: 'Medical', description: 'Internal Medicine Department', color: '#3B82F6', icon: 'stethoscope' },
       { name: 'Surgery', description: 'Surgical Department', color: '#EF4444', icon: 'scissors' },
-      { name: 'Pediatrics', description: 'Children\'s Health', color: '#10B981', icon: 'baby' },
-      { name: 'Obstetrics & Gynecology', description: 'Women\'s Health', color: '#EC4899', icon: 'heart' },
+      { name: 'Pediatrics', description: "Children's Health", color: '#10B981', icon: 'baby' },
+      { name: 'Obstetrics & Gynecology', description: "Women's Health", color: '#EC4899', icon: 'heart' },
       { name: 'Radiology', description: 'Medical Imaging', color: '#8B5CF6', icon: 'scan' },
       { name: 'Laboratory', description: 'Diagnostic Laboratory', color: '#F59E0B', icon: 'flask' },
       { name: 'Pharmacy', description: 'Medication Dispensing', color: '#06B6D4', icon: 'pill' },
       { name: 'Emergency', description: 'Emergency Medicine', color: '#EF4444', icon: 'alert-triangle' },
       { name: 'Main Store', description: 'Central medical store / warehouse', color: '#64748B', icon: 'warehouse', isStore: true },
     ];
-
     const departments = Array.isArray(departmentsData) ? departmentsData : defaultDepartments;
     for (const dept of departments) {
       await prisma.department.upsert({
@@ -453,23 +593,18 @@ export const seedCoreData = async (force: boolean = false) => {
           isActive: true,
           isStore: dept.isStore ?? false,
         },
-        update: {
-          isStore: dept.isStore ?? false,
-        },
+        update: { isStore: dept.isStore ?? false },
       });
     }
     console.log(`✅ ${departments.length} departments configured`);
 
-    // ============================================================
-    // STEP 4: INSURANCE PROVIDERS
-    // ============================================================
+    // ── STEP 4: Insurance providers ───────────────────────────
     const providersData = readJSON('insuranceProviders.json');
     const defaultProviders = [
       { name: 'National Health Insurance Scheme', type: InsuranceType.nhis, coveragePercentage: 100, contactInfo: { phone: '+233302111111', email: 'info@nhis.gov.gh' } },
       { name: 'Acacia Health Insurance', type: InsuranceType.private, coveragePercentage: 80, contactInfo: { phone: '+233302222222', email: 'info@acacia.com' } },
       { name: 'Metropolitan Insurance', type: InsuranceType.private, coveragePercentage: 75, contactInfo: { phone: '+233302333333', email: 'info@metro.com' } },
     ];
-
     const providers = Array.isArray(providersData) ? providersData : defaultProviders;
     for (const p of providers) {
       await prisma.insuranceProvider.upsert({
@@ -486,86 +621,74 @@ export const seedCoreData = async (force: boolean = false) => {
       });
     }
     console.log(`✅ ${providers.length} insurance providers configured`);
-// After STEP 4 (Insurance Providers), add:
 
-// ============================================================
-// STEP 4.5: CORPORATE ACCOUNTS (FROM JSON)
-// ============================================================
-const corporateAccountsData = readJSON('corporateAccounts.json');
-if (corporateAccountsData?.corporateAccounts) {
-  console.log('🏢 Seeding corporate accounts and employees...');
-  
-  for (const corp of corporateAccountsData.corporateAccounts) {
-    // Create/Update Insurance Provider for corporate
-    const insuranceProvider = await prisma.insuranceProvider.upsert({
-      where: { name: corp.companyName },
-      create: {
-        name: corp.companyName,
-        type: InsuranceType.corporate,
-        coveragePercentage: corp.insuranceProvider.coveragePercentage,
-        contactInfo: corp.insuranceProvider.contactInfo,
-        isActive: true,
-        claimSubmissionMethod: 'portal',
-      },
-      update: {},
-    });
-    
-    // Create/Update Corporate Account
-    const corporateAccount = await prisma.corporateAccount.upsert({
-      where: { registrationNumber: corp.registrationNumber },
-      create: {
-        companyName: corp.companyName,
-        registrationNumber: corp.registrationNumber,
-        taxId: corp.taxId,
-        contactPerson: corp.contactPerson,
-        email: corp.email,
-        phone: corp.phone,
-        address: corp.address,
-        creditLimit: corp.creditLimit,
-        currentBalance: 0,
-        paymentTerms: corp.paymentTerms,
-        discountPercentage: corp.discountPercentage,
-        isActive: true,
-        insuranceProviderId: insuranceProvider.id
-      },
-      update: {},
-    });
-    
-    // Create Employees
-    for (const emp of corp.employees) {
-      await prisma.corporateEmployee.upsert({
-        where: { 
-          accountId_employeeId: {
-            accountId: corporateAccount.id,
-            employeeId: emp.employeeId
-          }
-        },
-        create: {
-          employeeId: emp.employeeId,
-          firstName: emp.firstName,
-          lastName: emp.lastName,
-          otherNames: emp.otherNames,
-          dateOfBirth: new Date(emp.dateOfBirth),
-          gender: emp.gender === 'male' ? Gender.male : Gender.female,
-          phone: emp.phone,
-          email: emp.email,
-          department: emp.department,
-          position: emp.position,
-          enrollmentDate: new Date(),
-          isActive: true,
-          accountId: corporateAccount.id
-        },
-        update: {},
-      });
+    // ── STEP 4.5: Corporate accounts ──────────────────────────
+    const corporateAccountsData = readJSON('corporateAccounts.json');
+    if (corporateAccountsData?.corporateAccounts) {
+      console.log('🏢 Seeding corporate accounts and employees...');
+      for (const corp of corporateAccountsData.corporateAccounts) {
+        const insuranceProvider = await prisma.insuranceProvider.upsert({
+          where: { name: corp.companyName },
+          create: {
+            name: corp.companyName,
+            type: InsuranceType.corporate,
+            coveragePercentage: corp.insuranceProvider.coveragePercentage,
+            contactInfo: corp.insuranceProvider.contactInfo,
+            isActive: true,
+            claimSubmissionMethod: 'portal',
+          },
+          update: {},
+        });
+
+        const corporateAccount = await prisma.corporateAccount.upsert({
+          where: { registrationNumber: corp.registrationNumber },
+          create: {
+            companyName: corp.companyName,
+            registrationNumber: corp.registrationNumber,
+            taxId: corp.taxId,
+            contactPerson: corp.contactPerson,
+            email: corp.email,
+            phone: corp.phone,
+            address: corp.address,
+            creditLimit: corp.creditLimit,
+            currentBalance: 0,
+            paymentTerms: corp.paymentTerms,
+            discountPercentage: corp.discountPercentage,
+            isActive: true,
+            insuranceProviderId: insuranceProvider.id,
+          },
+          update: {},
+        });
+
+        for (const emp of corp.employees) {
+          await prisma.corporateEmployee.upsert({
+            where: { accountId_employeeId: { accountId: corporateAccount.id, employeeId: emp.employeeId } },
+            create: {
+              employeeId: emp.employeeId,
+              firstName: emp.firstName,
+              lastName: emp.lastName,
+              otherNames: emp.otherNames,
+              dateOfBirth: new Date(emp.dateOfBirth),
+              gender: normalizeGender(emp.gender),
+              phone: emp.phone,
+              email: emp.email,
+              department: emp.department,
+              position: emp.position,
+              enrollmentDate: new Date(),
+              isActive: true,
+              accountId: corporateAccount.id,
+            },
+            update: {},
+          });
+        }
+        console.log(`  ✅ Corporate account: ${corp.companyName} with ${corp.employees.length} employees`);
+      }
+      console.log(`✅ Corporate accounts seeded successfully`);
+    } else {
+      console.warn('⚠️ No corporateAccounts.json found, skipping corporate accounts');
     }
-    
-    console.log(`  ✅ Corporate account: ${corp.companyName} with ${corp.employees.length} employees`);
-  }
-  console.log(`✅ Corporate accounts seeded successfully`);
-}
-    // ============================================================
-    // STEP 5: DIAGNOSES (FROM JSON - MUST SEED BEFORE SERVICES)
-    // ============================================================
+
+    // ── STEP 5: Diagnoses ─────────────────────────────────────
     const diagnosesData = readJSON('diagnoses.json');
     if (diagnosesData && Array.isArray(diagnosesData)) {
       let successful = 0;
@@ -586,12 +709,9 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ Diagnoses: ${successful}/${diagnosesData.length}`);
     }
 
-    // ============================================================
-    // STEP 6: LAB TEST TEMPLATES (FROM JSON)
-    // ============================================================
+    // ── STEP 6: Lab test templates ────────────────────────────
     const labTestsData = readJSON('labTests.json');
     const labTemplateMap = new Map();
-    
     if (labTestsData && Array.isArray(labTestsData)) {
       for (const test of labTestsData) {
         if (!test.investigationCode) continue;
@@ -610,12 +730,9 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ ${labTemplateMap.size} lab test templates configured`);
     }
 
-    // ============================================================
-    // STEP 7: SCAN TEMPLATES (FROM JSON)
-    // ============================================================
+    // ── STEP 7: Scan templates ────────────────────────────────
     const scansData = readJSON('scans.json');
     const scanTemplateMap = new Map();
-    
     if (scansData && Array.isArray(scansData)) {
       for (const scan of scansData) {
         if (!scan.scanCode) continue;
@@ -634,12 +751,9 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ ${scanTemplateMap.size} scan templates configured`);
     }
 
-    // ============================================================
-    // STEP 8: PROCEDURE TEMPLATES (FROM JSON)
-    // ============================================================
+    // ── STEP 8: Procedure templates ───────────────────────────
     const proceduresData = readJSON('procedures.json');
     const procedureTemplateMap = new Map();
-    
     if (proceduresData && Array.isArray(proceduresData)) {
       for (const proc of proceduresData) {
         if (!proc.procedureCode) continue;
@@ -658,15 +772,13 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ ${procedureTemplateMap.size} procedure templates configured`);
     }
 
-    // ============================================================
-    // STEP 9: GDRG TARIFFS (FROM JSON)
-    // ============================================================
+    // ── STEP 9: GDRG tariffs ──────────────────────────────────
     const gdrgData = readJSON('gdrgTariffs.json');
     if (gdrgData?.gdrgTariffs && Array.isArray(gdrgData.gdrgTariffs)) {
       let successful = 0;
       let failed = 0;
       console.log(`📋 Found ${gdrgData.gdrgTariffs.length} GDRG tariffs to seed`);
-      
+
       for (const tariff of gdrgData.gdrgTariffs) {
         try {
           if (!tariff.gdrgCode) {
@@ -674,54 +786,37 @@ if (corporateAccountsData?.corporateAccounts) {
             failed++;
             continue;
           }
+          const mdc = normalizeMdc(tariff.mdc);
+          const encounterCategory = normalizeEncounterCategory(tariff.encounterCategory);
+          const attendanceTypes = normalizeAttendanceTypes(tariff.attendanceTypes);
+
+          const payload = {
+            mdc,
+            description: tariff.description || 'No description',
+            nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
+            ageSplit: tariff.ageSplit || 'A',
+            minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
+            maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
+            applicableLevels: tariff.applicableLevels || [1, 2, 3],
+            nhisServiceCode: tariff.nhisServiceCode || null,
+            isZoomCode: tariff.isZoomCode || false,
+            allowsAddOn: tariff.allowsAddOn || false,
+            encounterCategory,
+            attendanceTypes,
+            isAntenatal: tariff.isAntenatal || false,
+            isDelivery: tariff.isDelivery || false,
+            effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
+            effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
+            isActive: tariff.isActive ?? true,
+            notes: tariff.notes || null,
+          };
 
           await prisma.gDRGTariff.upsert({
             where: { gdrgCode: tariff.gdrgCode },
-            create: {
-              gdrgCode: tariff.gdrgCode,
-              mdc: tariff.mdc || 'MEDI',
-              description: tariff.description || 'No description',
-              nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              ageSplit: tariff.ageSplit || 'A',
-              minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
-              maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
-              applicableLevels: tariff.applicableLevels || [1, 2, 3],
-              nhisServiceCode: tariff.nhisServiceCode || null,
-              isZoomCode: tariff.isZoomCode || false,
-              allowsAddOn: tariff.allowsAddOn || false,
-              encounterCategory: tariff.encounterCategory || null,
-              attendanceTypes: tariff.attendanceTypes || [],
-              isAntenatal: tariff.isAntenatal || false,
-              isDelivery: tariff.isDelivery || false,
-              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
-              effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
-              isActive: tariff.isActive ?? true,
-              notes: tariff.notes || null,
-            },
-            update: {
-              mdc: tariff.mdc || 'MEDI',
-              description: tariff.description || 'No description',
-              nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
-              ageSplit: tariff.ageSplit || 'A',
-              minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
-              maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
-              applicableLevels: tariff.applicableLevels || [1, 2, 3],
-              nhisServiceCode: tariff.nhisServiceCode || null,
-              isZoomCode: tariff.isZoomCode || false,
-              allowsAddOn: tariff.allowsAddOn || false,
-              encounterCategory: tariff.encounterCategory || null,
-              attendanceTypes: tariff.attendanceTypes || [],
-              isAntenatal: tariff.isAntenatal || false,
-              isDelivery: tariff.isDelivery || false,
-              effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
-              effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
-              isActive: tariff.isActive ?? true,
-              notes: tariff.notes || null,
-              updatedAt: new Date()
-            },
+            create: { gdrgCode: tariff.gdrgCode, ...payload },
+            update: { ...payload, updatedAt: new Date() },
           });
           successful++;
-          
           if (successful % 50 === 0) {
             console.log(`📊 GDRG progress: ${successful}/${gdrgData.gdrgTariffs.length}`);
           }
@@ -730,20 +825,17 @@ if (corporateAccountsData?.corporateAccounts) {
           console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
         }
       }
-      console.log(`✅ GDRG Tariffs: ${successful} successful, ${failed} failed (total: ${gdrgData.gdrgTariffs.length})`);
+      console.log(`✅ GDRG Tariffs: ${successful} successful, ${failed} failed`);
     } else {
       console.log(`⚠️ No GDRG tariffs found. File: gdrgTariffs.json`);
     }
 
-    // ============================================================
-    // STEP 10: CONSULTATION TYPES
-    // ============================================================
+    // ── STEP 10: Consultation types ───────────────────────────
     const consultationTypes = [
       { name: 'General Outpatient Consultation', code: 'CONS-GEN', cashPrice: 100, nhisPrice: 0, insurancePrice: 120, isNHISCovered: false },
       { name: 'Specialist Consultation', code: 'CONS-SPEC', cashPrice: 200, nhisPrice: 50, insurancePrice: 150, isNHISCovered: true },
       { name: 'Emergency Consultation', code: 'CONS-EMERG', cashPrice: 150, nhisPrice: 30, insurancePrice: 180, isNHISCovered: true },
     ];
-
     const consultationTypeMap = new Map();
     for (const ct of consultationTypes) {
       const consultationType = await prisma.consultationType.upsert({
@@ -764,17 +856,15 @@ if (corporateAccountsData?.corporateAccounts) {
     }
     console.log(`✅ ${consultationTypes.length} consultation types configured`);
 
-    // ============================================================
-    // STEP 11: PRICING CONFIGURATION (FROM JSON)
-    // ============================================================
-    const pricingConfig = readJSON('servicePricing.json') || { labTests: {}, scans: {}, procedures: {}, consultations: {}, medications: {} };
+    // ── STEP 11: Pricing config (JSON) ────────────────────────
+    const pricingConfig = readJSON('servicePricing.json') || {
+      labTests: {}, scans: {}, procedures: {}, consultations: {}, medications: {},
+    };
 
-    // ============================================================
-    // STEP 12: STOCK ITEMS (FROM JSON - MUST SEED BEFORE SERVICE CATALOG)
-    // ============================================================
+    // ── STEP 12: Stock items ──────────────────────────────────
     const stockFiles = ['medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
-    const stockItemMap = new Map(); // Store created stock items for service catalog
+    const stockItemMap = new Map();
 
     for (const file of stockFiles) {
       const items = readJSON(file);
@@ -782,23 +872,21 @@ if (corporateAccountsData?.corporateAccounts) {
         console.warn(`⚠️ No items found in ${file}, skipping...`);
         continue;
       }
-      
       const isMedication = !file.includes('consumables');
       console.log(`📦 Processing ${file} (${isMedication ? 'Medication' : 'Consumable'}) with ${items.length} items`);
-      
+
       for (const item of items) {
         if (!item.drugCode) {
           console.warn(`⚠️ Skipping item without drugCode in ${file}`);
           continue;
         }
-        
         try {
           const stockData = addSchemaDefaults({
             ...item,
             isMedication,
             currentStock: item.currentStock ?? 100,
             reorderLevel: item.reorderLevel ?? 50,
-            costPrice: item.costPrice ?? item.unitPrice ?? Math.floor(Math.random() * 100) + 10,
+            costPrice: item.costPrice ?? item.unitPrice ?? 0,
           }, 'stockItem');
 
           const stockItem = await prisma.stockItem.upsert({
@@ -806,10 +894,9 @@ if (corporateAccountsData?.corporateAccounts) {
             create: stockData,
             update: stockData,
           });
-          
           stockItemMap.set(item.drugCode, stockItem);
           totalStockProcessed++;
-          
+
           if (totalStockProcessed % 50 === 0) {
             console.log(`📊 Processed ${totalStockProcessed} stock items so far...`);
           }
@@ -821,25 +908,18 @@ if (corporateAccountsData?.corporateAccounts) {
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
 
-    // ============================================================
-    // STEP 12b: PLACE ALL STOCK INTO THE MAIN STORE
-    // Creates an opening StockBatch + opening StockTransaction per item,
-    // located in the "Main Store" department, so requisitions and stock
-    // movements can be exercised against real, department-held inventory.
-    // ============================================================
+    // ── STEP 12b: Opening stock into Main Store ───────────────
     const mainStore = await prisma.department.findFirst({ where: { name: 'Main Store' } });
     if (!mainStore) {
       console.warn('⚠️ Main Store department not found, skipping stock placement');
     } else {
-      const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000); // ~2 years out
+      const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
       let placedCount = 0;
 
       for (const [, stockItem] of stockItemMap) {
         const quantity = stockItem.currentStock ?? 0;
         if (quantity <= 0) continue;
-
         try {
-          // Opening batch held by the Main Store
           await prisma.stockBatch.upsert({
             where: { stockItemId_batchNumber: { stockItemId: stockItem.id, batchNumber: 'OPENING' } },
             create: {
@@ -851,13 +931,9 @@ if (corporateAccountsData?.corporateAccounts) {
               departmentId: mainStore.id,
               isActive: true,
             },
-            update: {
-              quantity,
-              departmentId: mainStore.id,
-            },
+            update: { quantity, departmentId: mainStore.id },
           });
 
-          // Opening-balance transaction stamped to the Main Store (idempotent)
           const existingTxn = await prisma.stockTransaction.findFirst({
             where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE' },
           });
@@ -875,7 +951,6 @@ if (corporateAccountsData?.corporateAccounts) {
               },
             });
           }
-
           placedCount++;
         } catch (error: any) {
           console.error(`❌ Stock placement for ${stockItem.drugCode}:`, error.message);
@@ -884,16 +959,14 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log(`✅ Placed ${placedCount} stock items into Main Store (opening batches + transactions)`);
     }
 
-    // ============================================================
-    // STEP 13: SERVICE CATALOG (NOW ALL DEPENDENCIES ARE READY)
-    // ============================================================
+    // ── STEP 13: Service catalog ──────────────────────────────
     console.log('🔄 Creating unified service catalog with pricing...');
-    
     const serviceCatalogEntries: any[] = [];
 
-    // Add consultation services
     for (const ct of consultationTypes) {
-      const pricing = pricingConfig.consultations?.[ct.code] || { cashPrice: ct.cashPrice, nhisPrice: ct.nhisPrice, insurancePrice: ct.insurancePrice };
+      const pricing = pricingConfig.consultations?.[ct.code] || {
+        cashPrice: ct.cashPrice, nhisPrice: ct.nhisPrice, insurancePrice: ct.insurancePrice,
+      };
       serviceCatalogEntries.push({
         name: ct.name,
         code: ct.code,
@@ -907,7 +980,6 @@ if (corporateAccountsData?.corporateAccounts) {
       });
     }
 
-    // Add lab test services
     for (const [code, template] of labTemplateMap) {
       const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
       serviceCatalogEntries.push({
@@ -923,7 +995,6 @@ if (corporateAccountsData?.corporateAccounts) {
       });
     }
 
-    // Add scan services
     for (const [code, template] of scanTemplateMap) {
       const pricing = pricingConfig.scans?.[code] || { cashPrice: 200, nhisPrice: 150, insurancePrice: 180 };
       serviceCatalogEntries.push({
@@ -936,10 +1007,17 @@ if (corporateAccountsData?.corporateAccounts) {
         scanTemplateId: template.id,
         isActive: true,
         pricing,
+        metadata: {
+          bodyPart: (template as any).bodyPart || null,
+          scanType: (template as any).scanType || null,
+          preparationInstructions: (template as any).preparationInstructions || null,
+          duration: (template as any).duration ?? null,
+          contrastRequired: (template as any).contrastRequired ?? false,
+          resultTemplate: (template as any).resultTemplate || [],
+        },
       });
     }
 
-    // Add procedure services
     for (const [code, template] of procedureTemplateMap) {
       const pricing = pricingConfig.procedures?.[code] || { cashPrice: 500, nhisPrice: 350, insurancePrice: 450 };
       serviceCatalogEntries.push({
@@ -955,14 +1033,10 @@ if (corporateAccountsData?.corporateAccounts) {
       });
     }
 
-    // Add medication services (using stock items created above)
     for (const [drugCode, stockItem] of stockItemMap) {
-      const pricing = pricingConfig.medications?.[drugCode] || { 
-        cashPrice: 50,
-        nhisPrice: 35,
-        insurancePrice: 45,
+      const pricing = pricingConfig.medications?.[drugCode] || {
+        cashPrice: 50, nhisPrice: 35, insurancePrice: 45,
       };
-      
       serviceCatalogEntries.push({
         name: stockItem.name,
         code: `MED-${drugCode}`,
@@ -976,7 +1050,7 @@ if (corporateAccountsData?.corporateAccounts) {
       });
     }
 
-    // Create ServiceCatalog entries with ServicePricing
+    let serviceCatalogCreated = 0;
     for (const service of serviceCatalogEntries) {
       try {
         const catalogData = addSchemaDefaults({
@@ -1007,22 +1081,20 @@ if (corporateAccountsData?.corporateAccounts) {
           create: catalogData,
           update: catalogData,
         });
-
         if (service.pricing) {
           await createServicePricing(catalog.id, service.pricing);
         }
+        serviceCatalogCreated++;
       } catch (error: any) {
         console.error(`❌ Service catalog ${service.code}:`, error.message);
       }
     }
-    console.log(`✅ ${serviceCatalogEntries.length} service catalog entries with pricing configured`);
+    console.log(`✅ ${serviceCatalogCreated} service catalog entries with pricing configured`);
 
-    // ============================================================
-    // STEP 14: WARDS & BEDS (FINAL STEP)
-    // ============================================================
+    // ── STEP 14: Wards & Beds ─────────────────────────────────
     const wardsData = readJSON('wards.json');
     const existingWardCount = await prisma.ward.count();
-    
+
     if (existingWardCount === 0) {
       const defaultWards = [
         { wardName: 'General Ward A', wardType: 'general', totalBeds: 20, dailyCashRate: 100, dailyNHISRate: 50, dailyInsuranceRate: 80 },
@@ -1031,14 +1103,13 @@ if (corporateAccountsData?.corporateAccounts) {
         { wardName: 'Pediatric Ward', wardType: 'pediatric', totalBeds: 15, dailyCashRate: 80, dailyNHISRate: 40, dailyInsuranceRate: 70 },
         { wardName: 'Surgical Ward', wardType: 'surgical', totalBeds: 18, dailyCashRate: 150, dailyNHISRate: 80, dailyInsuranceRate: 130 },
       ];
-
       const wardsToCreate = Array.isArray(wardsData) ? wardsData : defaultWards;
 
       for (const ward of wardsToCreate) {
         try {
           const wardData = addSchemaDefaults(ward, 'ward');
           const createdWard = await prisma.ward.create({ data: wardData });
-          
+
           const beds = Array.from({ length: ward.totalBeds || 10 }, (_, i) => ({
             wardId: createdWard.id,
             bedNumber: `${ward.wardName.substring(0, 3).toUpperCase()}-${(i + 1).toString().padStart(2, '0')}`,
@@ -1071,7 +1142,6 @@ if (corporateAccountsData?.corporateAccounts) {
             create: serviceCatalogData,
             update: serviceCatalogData,
           });
-
           await createServicePricing(catalog.id, pricing);
           console.log(`✅ Created ward: ${ward.wardName} with ${ward.totalBeds} beds`);
         } catch (error: any) {
@@ -1083,10 +1153,11 @@ if (corporateAccountsData?.corporateAccounts) {
       console.log('ℹ️ Wards already exist, skipping ward creation');
     }
 
-    console.log('🎉 Core data seeding completed successfully!');
-    
-    return { success: true, message: 'Core data seeded successfully' };
+    // ── STEP 15: Job grades + salary steps ────────────────────
+    await seedJobGradesAndSteps();
 
+    console.log('🎉 Core data seeding completed successfully!');
+    return { success: true, message: 'Core data seeded successfully' };
   } catch (error: any) {
     console.error('❌ Core data seeding failed:', error);
     throw error;

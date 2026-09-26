@@ -1,40 +1,40 @@
-// src/components/UserEditModal.tsx - UPDATED TO USE USERSTORE
+// src/components/UserEditModal.tsx
+// "Dumb" modal — collects data and calls `onSave`. Parent handles the API call.
 import { useState, useEffect } from 'react';
-import { useUserStore } from '../store/userStore';  // ✅ Use UserStore
 import { useToast } from '../store/toastStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
+import type { User as AppUser, Seniority } from '../types';
 
-// Seniority configuration
-const SENIORITY_OPTIONS = [
-  { value: 'TRAINEE', label: 'Trainee', icon: GraduationCap, description: 'In training, requires supervision' },
-  { value: 'JUNIOR', label: 'Junior', icon: User, description: 'Regular staff member' },
-  { value: 'SENIOR', label: 'Senior', icon: TrendingUp, description: 'Experienced, can supervise others' },
-  { value: 'PRINCIPAL', label: 'Principal', icon: Shield, description: 'Highest authority in role' }
+const SENIORITY_OPTIONS: { value: Seniority; label: string; icon: any; description: string }[] = [
+  { value: 'TRAINEE',   label: 'Trainee',   icon: GraduationCap, description: 'In training, requires supervision' },
+  { value: 'JUNIOR',    label: 'Junior',    icon: User,          description: 'Regular staff member' },
+  { value: 'SENIOR',    label: 'Senior',    icon: TrendingUp,    description: 'Experienced, can supervise others' },
+  { value: 'PRINCIPAL', label: 'Principal', icon: Shield,        description: 'Highest authority in role' },
 ];
 
-interface User {
-  id: string;
+interface FormState {
   fullName: string;
-  email?: string;
-  phone?: string;
-  licenseNumber?: string;
-  specialization?: string;
+  email: string;
+  phone: string;
+  licenseNumber: string;
+  specialization: string;
   role: string;
-  seniority?: string;
+  seniority: Seniority;
   isActive: boolean;
 }
 
 interface UserEditModalProps {
-  user: User;
+  user: AppUser;
   onClose: () => void;
-  onSuccess: () => void;
+  onSave: (data: Partial<AppUser>) => Promise<void> | void;
+  isLoading?: boolean;
 }
 
-export default function UserEditModal({ user, onClose, onSuccess }: UserEditModalProps) {
-  const { updateUser, isLoading } = useUserStore();  // ✅ Use updateUser from UserStore
-  const { success, error } = useToast();
+export default function UserEditModal({ user, onClose, onSave, isLoading }: UserEditModalProps) {
+  const { error } = useToast();
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormState>({
     fullName: '',
     email: '',
     phone: '',
@@ -42,7 +42,7 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
     specialization: '',
     role: '',
     seniority: 'JUNIOR',
-    isActive: true
+    isActive: true,
   });
 
   useEffect(() => {
@@ -54,40 +54,57 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
         licenseNumber: user.licenseNumber || '',
         specialization: user.specialization || '',
         role: user.role,
-        seniority: user.seniority || 'JUNIOR',
-        isActive: user.isActive
+        seniority: (user.seniority as Seniority) || 'JUNIOR',
+        isActive: user.isActive ?? true,
       });
     }
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      await updateUser(user.id, formData);
-      success('User Updated', `${formData.fullName} has been updated successfully`);
-      onSuccess();
+      // Strip medical-only fields if role no longer requires them
+      const medicalRoles = ['doctor', 'nurse', 'midwife'];
+      const requiresLicense = medicalRoles.includes(formData.role);
+      const requiresSpecialization = formData.role === 'doctor';
+
+      const payload: Partial<AppUser> = {
+        fullName: formData.fullName,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        role: formData.role,
+        seniority: formData.seniority,
+        isActive: formData.isActive,
+        licenseNumber: requiresLicense ? formData.licenseNumber : undefined,
+        specialization: requiresSpecialization ? formData.specialization : undefined,
+      };
+
+      await onSave(payload);
       onClose();
     } catch (err: any) {
-      error('Update Failed', err.response?.data?.message || 'Failed to update user');
+      error('Update Failed', err?.response?.data?.message || 'Failed to update user');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
   const medicalRoles = ['doctor', 'nurse', 'midwife'];
   const requiresLicense = medicalRoles.includes(formData.role);
   const requiresSpecialization = formData.role === 'doctor';
+  const busy = saving || !!isLoading;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-[var(--bg-card)] rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="p-4 border-b border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit User</h3>
@@ -100,10 +117,8 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
           </div>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Full Name */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <User className="w-4 h-4 inline mr-2 text-blue-600" />
@@ -119,7 +134,6 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               />
             </div>
 
-            {/* Role */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Shield className="w-4 h-4 inline mr-2 text-purple-600" />
@@ -134,6 +148,7 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               >
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
+                <option value="hr_officer">HR Officer</option>
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>
                 <option value="midwife">Midwife</option>
@@ -145,7 +160,6 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               </select>
             </div>
 
-            {/* Seniority */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <TrendingUp className="w-4 h-4 inline mr-2 text-amber-600" />
@@ -158,7 +172,7 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
                 className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               >
-                {SENIORITY_OPTIONS.map(option => (
+                {SENIORITY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label} - {option.description}
                   </option>
@@ -166,7 +180,6 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               </select>
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Mail className="w-4 h-4 inline mr-2 text-green-600" />
@@ -181,7 +194,6 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               />
             </div>
 
-            {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 <Phone className="w-4 h-4 inline mr-2 text-orange-600" />
@@ -196,12 +208,11 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               />
             </div>
 
-            {/* License Number */}
             {requiresLicense && (
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   <IdCard className="w-4 h-4 inline mr-2 text-yellow-600" />
-                  License/PIN Number {requiresLicense && '*'}
+                  License/PIN Number *
                 </label>
                 <input
                   type="text"
@@ -214,12 +225,11 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               </div>
             )}
 
-            {/* Specialization */}
             {requiresSpecialization && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   <Stethoscope className="w-4 h-4 inline mr-2 text-red-600" />
-                  Specialization {requiresSpecialization && '*'}
+                  Specialization *
                 </label>
                 <input
                   type="text"
@@ -233,7 +243,6 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
               </div>
             )}
 
-            {/* Active Status */}
             <div className="md:col-span-2">
               <label className="flex items-center">
                 <input
@@ -251,15 +260,14 @@ export default function UserEditModal({ user, onClose, onSuccess }: UserEditModa
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={busy}
               className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors disabled:opacity-50 font-medium text-sm"
             >
               <Save className="w-4 h-4" />
-              <span>{isLoading ? 'Saving...' : 'Save Changes'}</span>
+              <span>{busy ? 'Saving...' : 'Save Changes'}</span>
             </button>
             <button
               type="button"

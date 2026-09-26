@@ -490,8 +490,11 @@ export const getUserProfile = () =>
 export const updateUserProfile = (data: any) =>
   api.put('/auth/profile', data).then(r => r.data?.data || r.data);
 
-export const changeUserPassword = (userId: string, data: { currentPassword: string; newPassword: string }) =>
-  api.post(`/auth/change-password`, data).then(r => r.data);
+// ✅ userId is injected server-side; the body carries the credentials.
+export const changeUserPassword = (
+  _userId: string | undefined,
+  data: { currentPassword: string; newPassword: string },
+) => api.post(`/auth/change-password`, data).then(r => r.data);
 
 export const getCurrentUserPermissions = () =>
   api.get('/users/permissions').then(r => r.data);
@@ -534,6 +537,131 @@ export const updateLeave = (leaveId: string, data: { status?: 'pending' | 'appro
 export const deleteLeave = (leaveId: string) =>
   api.delete(`/users/leaves/${leaveId}`).then(r => r.data);
 
+// ──────────────────────────────────────────────
+// LEAVE APPROVAL HELPERS
+// ──────────────────────────────────────────────
+
+export const approveLeave = (leaveId: string, reason?: string) =>
+  updateLeave(leaveId, { status: 'approved', reason }).then(r => r.data?.data || r.data);
+
+export const rejectLeave = (leaveId: string, reason: string) =>
+  updateLeave(leaveId, { status: 'rejected', reason }).then(r => r.data?.data || r.data);
+
+export const cancelLeave = (leaveId: string) =>
+  updateLeave(leaveId, { status: 'cancelled' }).then(r => r.data?.data || r.data);
+
+
+// ──────────────────────────────────────────────
+// FULL PROFILE (User + HR combined)
+// ──────────────────────────────────────────────
+
+export const getFullProfile = (userId: string) =>
+  api.get(`/users/${userId}/full-profile`).then(r => r.data?.data || r.data);
+
+export const updateFullProfile = (userId: string, payload: { user?: any; hr?: any }) =>
+  api.patch(`/users/${userId}/full-profile`, payload).then(r => r.data?.data || r.data);
+
+// ──────────────────────────────────────────────
+// PAYROLL
+// ──────────────────────────────────────────────
+
+export const getMyPayslips = () =>
+  api.get('/users/me/payslips').then(r => r.data?.data || r.data);
+
+export const getUserPayslips = (userId: string) =>
+  api.get(`/users/${userId}/payslips`).then(r => r.data?.data || r.data);
+
+export const getAllPayslips = (filters?: {
+  month?: number;
+  year?: number;
+  userId?: string;
+  isPaid?: boolean;
+  page?: number;
+  limit?: number;
+}) =>
+  api.get('/users/payslips/all', { params: filters }).then(r => {
+    const body = r.data;
+    return body?.data || body;
+  });
+
+export const generatePayslip = (userId: string, month: number, year: number) =>
+  api.post(`/users/${userId}/payslips`, { month, year }).then(r => r.data?.data || r.data);
+
+export const runPayroll = (month: number, year: number) =>
+  api.post('/users/payslips/run-payroll', { month, year }).then(r => r.data?.data || r.data);
+
+export const updatePayslip = (
+  payslipId: string,
+  data: { isPaid?: boolean; payslipUrl?: string | null; notes?: string | null },
+) =>
+  api.patch(`/users/payslips/${payslipId}`, data).then(r => r.data?.data || r.data);
+
+export const getPayslipById = (payslipId: string) =>
+  api.get(`/users/payslips/${payslipId}`).then(r => r.data?.data || r.data);
+
+export const addPayslipLineItem = (
+  payslipId: string,
+  data: { type: 'earning' | 'deduction'; category: string; description?: string; amount: number; taxable?: boolean },
+) =>
+  api.post(`/users/payslips/${payslipId}/line-items`, data).then(r => r.data?.data || r.data);
+
+export const updatePayslipLineItem = (
+  payslipId: string,
+  lineItemId: string,
+  data: { category?: string; description?: string; amount?: number; taxable?: boolean },
+) =>
+  api.patch(`/users/payslips/${payslipId}/line-items/${lineItemId}`, data).then(r => r.data?.data || r.data);
+
+export const deletePayslipLineItem = (payslipId: string, lineItemId: string) =>
+  api.delete(`/users/payslips/${payslipId}/line-items/${lineItemId}`).then(r => r.data?.data || r.data);
+
+
+// ──────────────────────────────────────────────
+// DOCUMENTS
+// ──────────────────────────────────────────────
+
+// ──────────────────────────────────────────────
+// STAFF DOCUMENTS
+// ──────────────────────────────────────────────
+
+export const getMyDocuments = () =>
+  api.get('/users/me/documents').then(r => r.data?.data || r.data);
+
+export const getUserDocuments = (userId: string) =>
+  api.get(`/users/${userId}/documents`).then(r => r.data?.data || r.data);
+
+export const getAllDocuments = () =>
+  api.get('/users/documents/all').then(r => r.data?.data || r.data);
+
+export const getDocumentById = (documentId: string) =>
+  api.get(`/users/documents/${documentId}`).then(r => r.data?.data || r.data);
+
+export const uploadUserDocument = (
+  userId: string,
+  data: { file: File; type: string; title: string; expiryDate?: string },
+) => {
+  const form = new FormData();
+  form.append('file', data.file);
+  form.append('type', data.type);
+  form.append('title', data.title);
+  if (data.expiryDate) form.append('expiryDate', data.expiryDate);
+
+  return api.post(`/users/${userId}/documents`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data?.data || r.data);
+};
+
+export const updateDocument = (documentId: string, data: any) =>
+  api.patch(`/users/documents/${documentId}`, data).then(r => r.data?.data || r.data);
+
+export const verifyDocument = (documentId: string) =>
+  api.post(`/users/documents/${documentId}/verify`).then(r => r.data?.data || r.data);
+
+export const unverifyDocument = (documentId: string) =>
+  api.post(`/users/documents/${documentId}/unverify`).then(r => r.data?.data || r.data);
+
+export const deleteDocument = (documentId: string) =>
+  api.delete(`/users/documents/${documentId}`).then(r => r.data);
 // ──────────────────────────────────────────────
 // GDRG TARIFFS
 // ──────────────────────────────────────────────
@@ -938,8 +1066,8 @@ export const updateEncounterStatus = (id: string, data: any) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.patch(`/encounters/${id}/status`, data).then(r => {
-    const attendance = r.data;
+  return api.put(`/encounters/${id}/status`, data).then(r => {
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
@@ -1323,7 +1451,7 @@ export const createAdmission = (data: {
   admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency' | 'antenatal' | 'delivery';
   admissionDate?: string;
 }) =>
-  api.post(`/encounters/${data.attendanceId}/admissions`, data).then(r => r.data?.data || r.data);
+  api.post('/encounters/admissions', data).then(r => r.data?.data || r.data);
 
 // UPDATE admission (discharge only typically)
 export const updateAdmission = (id: string, data: {
@@ -1678,7 +1806,7 @@ export const getDiagnoses = (filters?: any) =>
       return {
         data: diagnoses,
         diagnoses: diagnoses,
-        pagination: pagination
+        pagination: pagination || responseData.meta
       };
     }
 
@@ -1687,7 +1815,7 @@ export const getDiagnoses = (filters?: any) =>
       return {
         data: responseData.data,
         diagnoses: responseData.data,
-        pagination: responseData.pagination
+        pagination: responseData.pagination || responseData.meta
       };
     }
 
@@ -1734,8 +1862,45 @@ export const updateDiagnosis = (id: string, data: any) =>
 export const deleteDiagnosis = (id: string) =>
   api.delete(`/diagnoses/${id}`).then(r => r.data);
 
-export const searchDiagnoses = (query: string) =>
-  api.get('/diagnoses/search', { params: { query } }).then(r => r.data);
+export const searchDiagnoses = async (query: string) => {
+  const pageSize = 100;
+  const firstResponse = await api.get('/diagnoses/search', {
+    params: { q: query, page: 1, limit: pageSize }
+  });
+  const responseData = firstResponse.data;
+  const firstPage = responseData?.success && Array.isArray(responseData.data)
+    ? responseData.data
+    : Array.isArray(responseData?.data)
+      ? responseData.data
+      : Array.isArray(responseData)
+        ? responseData
+        : [];
+  const pagination = responseData?.meta || responseData?.pagination;
+  const totalPages = pagination?.totalPages || pagination?.pages || 1;
+
+  if (totalPages <= 1) return firstPage;
+
+  const remainingResponses = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      api.get('/diagnoses/search', {
+        params: { q: query, page: index + 2, limit: pageSize }
+      })
+    )
+  );
+
+  return firstPage.concat(
+    remainingResponses.flatMap(response => {
+      const data = response.data;
+      return data?.success && Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
+    })
+  );
+};
 
 export const getMorbidityGroups = () =>
   api.get('/diagnoses/morbidity-groups').then(r => r.data);
@@ -1761,12 +1926,12 @@ export const getLabTestTemplates = (filters?: any) =>
     if (responseData?.success && responseData?.data?.data && Array.isArray(responseData.data.data)) {
       return {
         data: responseData.data.data,
-        pagination: responseData.data.pagination,
+        pagination: responseData.data.pagination || responseData.meta,
       };
     }
     // Fallback: flat array
     if (Array.isArray(responseData?.data)) {
-      return { data: responseData.data, pagination: responseData.pagination };
+      return { data: responseData.data, pagination: responseData.pagination || responseData.meta };
     }
     if (Array.isArray(responseData)) {
       return { data: responseData, pagination: null };
@@ -1803,7 +1968,16 @@ export const bulkUpdateLabTestTemplates = (data: any) =>
 
 // Procedure Templates
 export const getProcedureTemplates = (filters?: any) =>
-  api.get('/procedures/templates', { params: filters }).then(r => handleResponse<ProcedureTemplate>(r.data));
+  api.get('/procedures/templates', { params: filters }).then(r => {
+    const responseData = r.data;
+    if (responseData?.success && Array.isArray(responseData.data)) {
+      return { data: responseData.data, pagination: responseData.meta || responseData.pagination };
+    }
+    if (Array.isArray(responseData?.data)) {
+      return { data: responseData.data, pagination: responseData.pagination || responseData.meta };
+    }
+    return { data: Array.isArray(responseData) ? responseData : [], pagination: null };
+  });
 
 export const getProcedureTemplate = (id: string) =>
   api.get(`/procedures/templates/${id}`).then(r => r.data);
@@ -1828,7 +2002,16 @@ export const bulkUpdateProcedureTemplates = (data: any) =>
 
 // Scan Templates
 export const getScanTemplates = (filters?: any) =>
-  api.get('/scan-templates', { params: filters }).then(r => handleResponse<ScanTemplate>(r.data));
+  api.get('/scan-templates', { params: filters }).then(r => {
+    const responseData = r.data;
+    if (responseData?.success && Array.isArray(responseData.data)) {
+      return { data: responseData.data, pagination: responseData.pagination || responseData.meta };
+    }
+    if (Array.isArray(responseData?.data)) {
+      return { data: responseData.data, pagination: responseData.pagination || responseData.meta };
+    }
+    return { data: Array.isArray(responseData) ? responseData : [], pagination: null };
+  });
 
 export const getScanTemplate = (id: string) =>
   api.get(`/scan-templates/${id}`).then(r => r.data);
@@ -2037,22 +2220,22 @@ export const getAppointments = (filters?: any) =>
   api.get('/appointments', { params: filters }).then(r => handleResponse<Appointment>(r.data));
 
 export const getAppointment = (id: string) =>
-  api.get(`/appointments/${id}`).then(r => r.data);
+  api.get(`/appointments/${id}`).then(r => r.data?.data || r.data);
 
 export const createAppointment = (data: any) =>
-  api.post('/appointments', data).then(r => r.data?.appointment ?? r.data);
+  api.post('/appointments', data).then(r => r.data?.data || r.data);
 
 export const updateAppointment = (id: string, data: any) =>
-  api.put(`/appointments/${id}`, data).then(r => r.data?.appointment ?? r.data);
+  api.put(`/appointments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteAppointment = (id: string) =>
   api.delete(`/appointments/${id}`).then(r => r.data);
 
 export const updateAppointmentStatus = (id: string, status: string) =>
-  api.put(`/appointments/${id}`, { status }).then(r => r.data);
+  api.put(`/appointments/${id}`, { status }).then(r => r.data?.data || r.data);
 
 export const checkInAppointment = (id: string) =>
-  api.put(`/appointments/${id}`, { status: 'checked_in' }).then(r => r.data);
+  api.put(`/appointments/${id}`, { status: 'checked_in' }).then(r => r.data?.data || r.data);
 
 export const getAppointmentStatistics = (filters?: any) =>
   api.get('/appointments/stats', { params: filters }).then(r => r.data);
@@ -3144,10 +3327,21 @@ export default {
   adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
 
   // Shift Management (NEW)
-  getShifts, getShiftById, createShift, updateShift, deleteShift,
+  getShifts, getShiftById, createShift, updateShift, deleteShift, 
+
+  approveLeave, rejectLeave, cancelLeave,
 
   // Leave Management (NEW)
   getLeaves, getLeaveById, createLeave, updateLeave, deleteLeave,
+
+  // Full Profile & HR
+  getFullProfile, updateFullProfile,
+  getMyPayslips, getUserPayslips, getAllPayslips,
+  generatePayslip, runPayroll, updatePayslip,
+  getMyDocuments, getUserDocuments, getAllDocuments, getDocumentById,
+uploadUserDocument, updateDocument, verifyDocument, unverifyDocument, deleteDocument,
+
+getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem,
 
   // Settings
   getHospitalDetails, updateHospitalDetails, getSystemSettings, updateSystemSettings,

@@ -120,12 +120,12 @@ interface AttendanceState {
   removeDiagnosis: (attendanceId: string, diagnosisId: string) => Promise<void>;
   
   // Lab Test operations
-  addLabTest: (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => Promise<void>;
+  addLabTest: (attendanceId: string, data: { serviceCatalogId: string; templateId?: string; priority?: string; notes?: string }) => Promise<void>;
   updateLabTestStatus: (attendanceId: string, labTestId: string, data: any) => Promise<void>;
   removeLabTest: (attendanceId: string, labTestId: string) => Promise<void>;
   
   // Procedure operations
-  addProcedure: (attendanceId: string, data: { serviceCatalogId: string; scheduledDate?: string; notes?: string }) => Promise<void>;
+  addProcedure: (attendanceId: string, data: { serviceCatalogId: string; templateId?: string; scheduledDate?: string; notes?: string }) => Promise<void>;
   updateProcedureStatus: (attendanceId: string, procedureId: string, data: any) => Promise<void>;
   removeProcedure: (attendanceId: string, procedureId: string) => Promise<void>;
   
@@ -143,7 +143,7 @@ interface AttendanceState {
   removeMedication: (attendanceId: string, medicationId: string) => Promise<void>;
   
   // Scan operations
-  addScan: (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => Promise<void>;
+  addScan: (attendanceId: string, data: { serviceCatalogId: string; templateId?: string; priority?: string; notes?: string }) => Promise<void>;
   updateScanStatus: (attendanceId: string, scanId: string, data: any) => Promise<void>;
   removeScan: (attendanceId: string, scanId: string) => Promise<void>;
 
@@ -392,7 +392,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // LAB TEST OPERATIONS
   // ==========================================
 
-  addLabTest: async (attendanceId, { serviceCatalogId, priority, notes }) => {
+  addLabTest: async (attendanceId, { serviceCatalogId, templateId, priority, notes }) => {
     const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add lab test to non-pending attendance');
@@ -400,7 +400,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddLabTest(attendanceId, { serviceCatalogId, priority, notes });
+      const updated = await apiAddLabTest(attendanceId, { serviceCatalogId, templateId, priority, notes });
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,
@@ -451,7 +451,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // PROCEDURE OPERATIONS
   // ==========================================
 
-  addProcedure: async (attendanceId, { serviceCatalogId, scheduledDate, notes }) => {
+  addProcedure: async (attendanceId, { serviceCatalogId, templateId, scheduledDate, notes }) => {
     const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add procedure to non-pending attendance');
@@ -459,7 +459,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddProcedure(attendanceId, { serviceCatalogId, scheduledDate, notes });
+      const updated = await apiAddProcedure(attendanceId, { serviceCatalogId, templateId, scheduledDate, notes });
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,
@@ -598,7 +598,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // SCAN OPERATIONS
   // ==========================================
 
-  addScan: async (attendanceId, { serviceCatalogId, priority, notes }) => {
+  addScan: async (attendanceId, { serviceCatalogId, templateId, priority, notes }) => {
     const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add scan to non-pending attendance');
@@ -606,7 +606,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddScan(attendanceId, { serviceCatalogId, priority, notes });
+      const updated = await apiAddScan(attendanceId, { serviceCatalogId, templateId, priority, notes });
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,

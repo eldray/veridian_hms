@@ -1,28 +1,34 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { AuditRepository } from './AuditRepository';
-import { AuditLogFilters, AuditLogExportFilters } from './AuditTypes';
+import {
+  AuditLogFilters,
+  AuditLogExportFilters,
+  AuditLogMeta,
+  CreateAuditLogInput,
+} from './AuditTypes';
 
 export class AuditService extends BaseService {
   private auditRepository: AuditRepository;
 
   constructor(prisma: PrismaClient) {
-    super('AuditService'); // ✅ Passes service name for logging
+    super('AuditService');
     this.auditRepository = new AuditRepository(prisma);
   }
 
   async getLogs(filters: AuditLogFilters) {
-    this.logInfo('Fetching audit logs', { filters });
     return this.auditRepository.getLogs(filters);
   }
 
-  async getEntityLogs(entityType: string, entityId: string, filters: Partial<AuditLogFilters>) {
-    this.logInfo('Fetching entity audit logs', { entityType, entityId });
+  async getEntityLogs(
+    entityType: string,
+    entityId: string,
+    filters: Partial<AuditLogFilters>,
+  ) {
     return this.auditRepository.getEntityLogs(entityType, entityId, filters);
   }
 
   async getUserLogs(userId: string, filters: Partial<AuditLogFilters>) {
-    this.logInfo('Fetching user audit logs', { userId });
     return this.auditRepository.getUserLogs(userId, filters);
   }
 
@@ -32,30 +38,39 @@ export class AuditService extends BaseService {
     return log;
   }
 
+  async getMeta(): Promise<AuditLogMeta> {
+    return this.auditRepository.getMeta();
+  }
+
+  async createLog(input: CreateAuditLogInput) {
+    return this.auditRepository.createAuditLog(input);
+  }
+
   async exportLogs(filters: AuditLogExportFilters) {
-    this.logInfo('Exporting audit logs', { format: filters.format });
     const logs = await this.auditRepository.exportLogs(filters);
-    
+
     if (filters.format === 'csv') {
       const csvRows = [
-        ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User', 'IP Address'].join(',')
+        ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User', 'IP Address'].join(','),
       ];
-      
-      logs.forEach(log => {
+
+      logs.forEach((log: any) => {
         const row = [
-          log.timestamp.toISOString(), // ✅ FIXED: Explicitly format Date to ISO string
+          log.timestamp.toISOString(),
           log.action,
           log.entityType,
           log.entityId,
           log.performedBy?.fullName || log.performedBy?.username || 'System',
-          log.ipAddress || 'N/A'
-        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+          log.ipAddress || 'N/A',
+        ]
+          .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+          .join(',');
         csvRows.push(row);
       });
-      
+
       return csvRows.join('\n');
     }
-    
+
     return logs;
   }
 }

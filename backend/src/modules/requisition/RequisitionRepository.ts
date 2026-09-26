@@ -311,7 +311,7 @@ export class RequisitionRepository {
     return prisma.$transaction(async (tx) => {
       const requisition = await tx.requisition.findUnique({
         where: { id },
-        include: { RequisitionItem: true }
+        include: { RequisitionItem: { include: { StockItem: true } } }
       });
 
       if (!requisition) throw new Error('Requisition not found');
@@ -320,24 +320,53 @@ export class RequisitionRepository {
         throw new Error('Only approved requisitions can be fulfilled');
       }
 
-      // Process each item - deduct stock and create transactions
+      // Validate all items have sufficient stock BEFORE making any updates
+      const insufficientItems = [];
+      for (const reqItem of requisition.RequisitionItem) {
+        const quantityToIssue = reqItem.quantityApproved || reqItem.quantityRequested;
+        const stockItem = reqItem.StockItem;
+        
+        if (stockItem.currentStock < quantityToIssue) {
+          insufficientItems.push({
+            itemName: stockItem.name,
+            required: quantityToIssue,
+            available: stockItem.currentStock
+          });
+        }
+      }
+
+      if (insufficientItems.length > 0) {
+        const details = insufficientItems
+          .map(item => `${item.itemName}: need ${item.required}, have ${item.available}`)
+          .join('; ');
+        throw new Error(`Insufficient stock for requisition items: ${details}`);
+      }
+
+      // Process each item - deduct stock and create transactions (atomic guarded decrements)
       for (const reqItem of requisition.RequisitionItem) {
         const quantityToIssue = reqItem.quantityApproved || reqItem.quantityRequested;
         
-        // Update stock level
-        await tx.stockItem.update({
-          where: { id: reqItem.stockItemId },
+        // Atomically decrement ONLY if we still have enough stock
+        const updated = await tx.stockItem.updateMany({
+          where: { 
+            id: reqItem.stockItemId,
+            currentStock: { gte: quantityToIssue }
+          },
           data: {
             currentStock: { decrement: quantityToIssue }
           }
         });
+
+        if (updated.count === 0) {
+          throw new Error(`Concurrent stock depletion detected for item ${reqItem.id}. Please retry.`);
+        }
 
         // Create stock transaction record
         await tx.stockTransaction.create({
           data: {
             stockItemId: reqItem.stockItemId,
             transactionType: 'requisition',
-            quantity: -quantityToIssue,
+            quantity: quantityToIssue,
             reference: `REQ-${requisition.requisitionNumber}`,
             notes: `Fulfilled requisition ${requisition.requisitionNumber}`,
             performedById: userId || undefined

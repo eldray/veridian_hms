@@ -22,7 +22,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       include: {
         StockItem: { select: { id: true, name: true, category: true, drugCode: true, unitOfMeasure: true } },
         Requisition: { select: { requisitionNumber: true, status: true, urgency: true } },
-        Invoice: { select: { invoiceNumber: true, supplierName: true } }
+        Invoice: { select: { invoiceNumber: true, supplierName: true } },
+        User: { select: { id: true, firstName: true, lastName: true, email: true } }
       }
     });
   }
@@ -33,7 +34,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       include: {
         StockItem: { select: { id: true, name: true, category: true, drugCode: true, unitOfMeasure: true, currentStock: true } },
         Requisition: { select: { requisitionNumber: true, status: true, urgency: true, departments: { select: { name: true } } } },
-        Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } }
+        Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } },
+        User: { select: { id: true, firstName: true, lastName: true, email: true } }
       }
     });
   }

@@ -8,6 +8,7 @@ import { getPatientName } from '../utils/patient';
 import { openPrintWindow } from '../utils/pdfGenerator';
 import {
   ArrowLeft, Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
+  Pencil, Trash2,
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<EstimateStatus, string> = {
@@ -33,7 +34,7 @@ export default function EstimateDetails() {
   const { hospital } = useHospitalStore();
   const {
     currentEstimate: est, isLoading, loadEstimate,
-    sendEstimate, acceptEstimate, rejectEstimate, convertToBill,
+    sendEstimate, acceptEstimate, rejectEstimate, convertToBill, removeEstimate,
   } = useEstimatesStore();
 
   const [busy, setBusy] = useState(false);
@@ -71,8 +72,8 @@ export default function EstimateDetails() {
   const handleConvert = async () => {
     setShowConvert(false);
     await run(async () => {
-      const bill = await convertToBill(id!, { paymentMode });
-      if (bill?.id) navigate(`/dashboard/billing/${bill.id}/payment`);
+      const result = await convertToBill(id!, { paymentMode });
+      if (result?.bill?.id) navigate(`/dashboard/billing/${result.bill.id}/payment`);
     }, 'Estimate converted to bill');
   };
 
@@ -159,6 +160,20 @@ export default function EstimateDetails() {
             <Printer className="w-4 h-4" /> Print
           </button>
           {est.status === 'DRAFT' && (
+            <>
+              <button onClick={() => navigate(`/dashboard/estimates/${est.id}/edit`)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-700">
+                <Pencil className="w-4 h-4" /> Edit
+              </button>
+              <button disabled={busy} onClick={() => run(async () => {
+                if (!window.confirm('Delete this draft estimate?')) return;
+                await removeEstimate(est.id);
+                navigate('/dashboard/estimates');
+              }, 'Estimate deleted')} className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-sm disabled:opacity-50">
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            </>
+          )}
+          {est.status === 'DRAFT' && (
             <button disabled={busy} onClick={() => run(() => sendEstimate(id!), 'Estimate sent')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50">
               <Send className="w-4 h-4" /> Send
             </button>
@@ -173,7 +188,7 @@ export default function EstimateDetails() {
               </button>
             </>
           )}
-          {est.status === 'APPROVED' && (
+          {(est.status === 'APPROVED' || est.status === 'SENT') && (
             <button disabled={busy} onClick={() => setShowConvert(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm disabled:opacity-50">
               <Receipt className="w-4 h-4" /> Convert to Bill
             </button>

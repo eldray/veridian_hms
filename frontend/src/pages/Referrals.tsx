@@ -135,6 +135,15 @@ export default function Referrals() {
     urgency: 'routine' as 'routine' | 'urgent' | 'stat',
   });
 
+  // Structured referral form support (Part I = outgoing, Part II = incoming)
+  const [useStructuredForm, setUseStructuredForm] = useState(false);
+  const [structuredPartI, setStructuredPartI] = useState({
+    clientName: '', age: '', sex: '', parity: '', clinicName: '', generalCondition: '', patientComplaints: '', diagnosis: '', actionsTaken: '', reasonForReferral: '', dateOfReferral: '', referrerName: '', referrerTitle: '', referrerSignature: ''
+  });
+  const [structuredPartII, setStructuredPartII] = useState({
+    institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: ''
+  });
+
   const hasLoaded = useRef(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
@@ -201,6 +210,7 @@ export default function Referrals() {
           referredToFacility:  formData.referredToFacility,
           referredToDoctor:    formData.referredToDoctor,
           referredToDepartment: formData.referredToDepartment,
+          structuredForm:      useStructuredForm ? { partI: structuredPartI } : undefined
         });
         success('Success', 'Outgoing referral created');
       } else {
@@ -211,6 +221,7 @@ export default function Referrals() {
           urgency:             formData.urgency,
           referredFromFacility: formData.referredFromFacility,
           referredFromDoctor:  formData.referredFromDoctor,
+          structuredForm:      useStructuredForm ? { partII: structuredPartII } : undefined
         });
         success('Success', 'Incoming referral recorded');
       }
@@ -289,6 +300,9 @@ const handlePrintLetter = async (referral: Referral) => {
       referredFromFacility: '', referredFromDoctor: '',
       urgency: 'routine',
     });
+    setUseStructuredForm(false);
+    setStructuredPartI({ clientName: '', age: '', sex: '', parity: '', clinicName: '', generalCondition: '', patientComplaints: '', diagnosis: '', actionsTaken: '', reasonForReferral: '', dateOfReferral: '', referrerName: '', referrerTitle: '', referrerSignature: '' });
+    setStructuredPartII({ institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: '' });
   };
 
   const selectedAttendance = attendances.find(a => a.id === selectedAttendanceId);
@@ -739,6 +753,50 @@ const handlePrintLetter = async (referral: Referral) => {
                   <option value="stat">STAT (Immediate)</option>
                 </select>
               </div>
+
+              {/* Structured form toggle and fields */}
+              <div className="pt-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="rounded" checked={useStructuredForm} onChange={e => setUseStructuredForm(e.target.checked)} />
+                  <span className="text-sm text-[var(--text-secondary)]">Use structured referral form (Part I/II)</span>
+                </label>
+              </div>
+
+              {useStructuredForm && referralType === 'outgoing' && (
+                <div className="space-y-3 bg-[var(--bg-main)] p-3 rounded-lg border border-[var(--border-color)]">
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)]">Structured Part I — Outgoing (Fill fields for the receiving facility)</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input placeholder="Name of client" value={structuredPartI.clientName} onChange={e => setStructuredPartI(s => ({ ...s, clientName: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Age" value={structuredPartI.age} onChange={e => setStructuredPartI(s => ({ ...s, age: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Sex" value={structuredPartI.sex} onChange={e => setStructuredPartI(s => ({ ...s, sex: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Parity" value={structuredPartI.parity} onChange={e => setStructuredPartI(s => ({ ...s, parity: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Name of clinic" value={structuredPartI.clinicName} onChange={e => setStructuredPartI(s => ({ ...s, clinicName: e.target.value }))} className="p-2 border rounded col-span-2" />
+                    <textarea placeholder="General condition (vital signs)" value={structuredPartI.generalCondition} onChange={e => setStructuredPartI(s => ({ ...s, generalCondition: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Patient complains" value={structuredPartI.patientComplaints} onChange={e => setStructuredPartI(s => ({ ...s, patientComplaints: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Diagnosis" value={structuredPartI.diagnosis} onChange={e => setStructuredPartI(s => ({ ...s, diagnosis: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Actions taken" value={structuredPartI.actionsTaken} onChange={e => setStructuredPartI(s => ({ ...s, actionsTaken: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Reason for referral" value={structuredPartI.reasonForReferral} onChange={e => setStructuredPartI(s => ({ ...s, reasonForReferral: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <input placeholder="Date of referral" value={structuredPartI.dateOfReferral} onChange={e => setStructuredPartI(s => ({ ...s, dateOfReferral: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Name and title of referrer" value={structuredPartI.referrerName} onChange={e => setStructuredPartI(s => ({ ...s, referrerName: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Referrer title" value={structuredPartI.referrerTitle} onChange={e => setStructuredPartI(s => ({ ...s, referrerTitle: e.target.value }))} className="p-2 border rounded" />
+                  </div>
+                </div>
+              )}
+
+              {useStructuredForm && referralType === 'incoming' && (
+                <div className="space-y-3 bg-[var(--bg-main)] p-3 rounded-lg border border-[var(--border-color)]">
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)]">Structured Part II — Incoming (To be filled by receiving institution)</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input placeholder="Name of institution" value={structuredPartII.institutionName} onChange={e => setStructuredPartII(s => ({ ...s, institutionName: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Date received" value={structuredPartII.dateReceived} onChange={e => setStructuredPartII(s => ({ ...s, dateReceived: e.target.value }))} className="p-2 border rounded" />
+                    <textarea placeholder="Findings" value={structuredPartII.findings} onChange={e => setStructuredPartII(s => ({ ...s, findings: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Actions taken" value={structuredPartII.actionsTaken} onChange={e => setStructuredPartII(s => ({ ...s, actionsTaken: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <textarea placeholder="Recommendations for follow-up" value={structuredPartII.recommendations} onChange={e => setStructuredPartII(s => ({ ...s, recommendations: e.target.value }))} className="p-2 border rounded col-span-2" rows={2} />
+                    <input placeholder="Name and title (receiver)" value={structuredPartII.receiverName} onChange={e => setStructuredPartII(s => ({ ...s, receiverName: e.target.value }))} className="p-2 border rounded" />
+                    <input placeholder="Receiver title" value={structuredPartII.receiverTitle} onChange={e => setStructuredPartII(s => ({ ...s, receiverTitle: e.target.value }))} className="p-2 border rounded" />
+                  </div>
+                </div>
+              )}
 
               {/* Footer buttons */}
               <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">

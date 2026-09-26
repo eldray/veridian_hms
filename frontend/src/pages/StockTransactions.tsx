@@ -207,7 +207,9 @@ export default function StockTransactions() {
         t.transactionType === 'purchase' ? `+${t.quantity}` : `-${t.quantity}`,
         t.reference || 'N/A',
         t.balanceAfter,
-        t.performedBy || 'System',
+        t.User 
+          ? `${t.User.firstName} ${t.User.lastName}`.trim() 
+          : (t.performedBy || 'System'),
         t.notes || ''
       ]);
 
@@ -636,7 +638,9 @@ export default function StockTransactions() {
                           <div className="flex items-center gap-1">
                             <User className="w-3 h-3 text-[var(--text-tertiary)]" />
                             <span className="text-sm text-[var(--text-secondary)]">
-                              {transaction.performedBy || 'System'}
+                              {transaction.User 
+                                ? `${transaction.User.firstName} ${transaction.User.lastName}`.trim() 
+                                : (transaction.performedBy || 'System')}
                             </span>
                           </div>
                         </td>

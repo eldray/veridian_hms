@@ -5,6 +5,7 @@
 
 export type UserRole =
   | 'admin'
+  | 'hr_officer'
   | 'doctor'
   | 'nurse'
   | 'midwife'
@@ -300,6 +301,7 @@ export interface User {
   username: string;
   fullName: string;
   role: UserRole;
+  permissions?: string[];
   seniority: Seniority;  // ✅ ADD THIS
   email?: string;
   phone?: string;

@@ -15,6 +15,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import PatientRegistration from './pages/PatientRegistration';
 import Patients from './pages/Patients';
+import UserDetail from './pages/UserDetail';
 import Attendance from './pages/Attendance';
 import Admissions from './pages/Admissions';
 import CorporateAccounts from './pages/CorporateAccounts';
@@ -56,6 +57,7 @@ import Appointments from './pages/Appointments';
 import LabResultEntry from './pages/LabResultEntry';
 import Departments from './pages/Departments';
 import TheatreProcedure from './pages/TheatreProcedure';
+import AuditLogs from './pages/AuditLogs';
 import Scans from './pages/Scans';
 import InvoiceManagement from './pages/InvoiceManagement';
 import RequisitionManagement from './pages/RequisitionManagement';
@@ -65,27 +67,34 @@ import PatientBillingItems from './pages/PatientBillingItems';
 import Referrals from './pages/Referrals';
 import Estimates from './pages/Estimates';
 import EstimateDetails from './pages/EstimateDetails';
+import EstimateForm from './pages/EstimateForm';
+import UserManagement from './pages/UserManagement';
+import ShiftManagement from './pages/ShiftManagement';
+import LeaveManagement from './pages/LeaveManagement';
 
 import './App.css';
 
 // Role Permissions - COMPREHENSIVE
 const rolePermissions = {
+  super_admin: ['*'],
   admin: ['*'],
-  doctor: [
+hr_officer: ['dashboard', 'profile', 'hr', 'appointments', 'reports', 'user_management', 'shifts', 'leaves'],
+ doctor: [
     'dashboard', 'patients', 'attendance', 'admissions', 'billing',
     'pharmacy', 'laboratory', 'medical_entries', 'reports', 'profile',
     'insurance_claims', 'service_catalog', 'vitals', 'appointments', 'theatre',
-    'nursing', 'antenatal', 'scans', 'wards', 'departments', 'medical_waiting_list'
+    'nursing', 'antenatal', 'family_planning', 'scans', 'wards', 'departments',
+    'medical_waiting_list', 'invoices', 'requisitions'
   ],
   nurse: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
     'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'theatre', 'medical_waiting_list'
+    'antenatal', 'family_planning', 'theatre', 'medical_waiting_list'
   ],
   midwife: [
     'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
     'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'delivery', 'theatre', 'medical_waiting_list', 'maternal_waiting_list'
+    'antenatal', 'family_planning', 'delivery', 'theatre', 'medical_waiting_list', 'maternal_waiting_list'
   ],
   records: [
     'dashboard', 'patients', 'attendance', 'admissions', 'reports', 'profile',
@@ -102,7 +111,7 @@ const rolePermissions = {
   ],
   accounts: [
     'dashboard', 'billing', 'reports', 'process_payment', 'insurance_providers',
-    'insurance_claims', 'profile', 'invoices', 'stock_transactions', 'corporate', 'estimates'
+    'insurance_claims', 'profile', 'invoices', 'stock_transactions', 'stock_reports', 'corporate', 'estimates'
   ],
   sonographer: [
     'dashboard', 'patients', 'attendance', 'medical_entries', 'profile',
@@ -162,11 +171,18 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/notifications': 'dashboard',
     '/dashboard/appointments': 'appointments',
     '/dashboard/departments': 'departments',
+    '/dashboard/family-planning': 'family_planning',
     '/dashboard/referrals': 'referrals',
     '/dashboard/corporate-accounts': 'corporate',
     '/dashboard/corporate-accounts/:id': 'corporate',
     '/dashboard/estimates': 'estimates',
     '/dashboard/estimates/:id': 'estimates',
+    '/dashboard/users': 'user_management',
+    '/dashboard/users/:id': 'user_management',
+    '/dashboard/audit-logs': 'audit_logs',
+      '/dashboard/shifts': 'shifts',
+  '/dashboard/leaves': 'leaves',
+    
   };
 
   const permission = routeMap[routePath];
@@ -183,6 +199,8 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (routePath.match(/^\/dashboard\/medical-entries\/[^/]+$/)) return perms?.includes('medical_entries');
   if (routePath.match(/^\/dashboard\/corporate-accounts\/[^/]+$/)) return perms?.includes('corporate');
   if (routePath.match(/^\/dashboard\/estimates\/[^/]+$/)) return perms?.includes('estimates');
+  if (routePath.match(/^\/dashboard\/hr\/[^/]+\/(edit|payslip)$/)) return perms?.includes('hr');
+  if (routePath.match(/^\/dashboard\/hr\/[^/]+$/)) return perms?.includes('hr');
 
   return false;
 };
@@ -316,7 +334,8 @@ function App() {
           <Route path="/dashboard/medical-waiting-list" element={<ProtectedRoute><MedicalWaitingList /></ProtectedRoute>} />
           <Route path="/dashboard/maternal-waiting-list" element={<ProtectedRoute><MaternalWaitingList /></ProtectedRoute>} />
           
-          {/* Maternal Health */}
+          {/* Audit Logs */}
+          <Route path="audit-logs" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
           {/* Maternal Health */}
           <Route path="antenatal" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
           <Route path="/dashboard/maternal/:attendanceId" element={<ProtectedRoute><Antenatal /></ProtectedRoute>} />
@@ -366,6 +385,8 @@ function App() {
 
           {/* Estimates / Proforma Invoices */}
           <Route path="estimates" element={<ProtectedRoute><Estimates /></ProtectedRoute>} />
+          <Route path="estimates/new" element={<ProtectedRoute><EstimateForm /></ProtectedRoute>} />
+          <Route path="estimates/:id/edit" element={<ProtectedRoute><EstimateForm /></ProtectedRoute>} />
           <Route path="estimates/:id" element={<ProtectedRoute><EstimateDetails /></ProtectedRoute>} />
           
           {/* User & System routes */}
@@ -374,6 +395,10 @@ function App() {
           <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
           <Route path="departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+          <Route path="users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+          <Route path="users/:id" element={<ProtectedRoute><UserDetail /></ProtectedRoute>} />
+        <Route path="shifts" element={<ProtectedRoute><ShiftManagement /></ProtectedRoute>} />
+<Route path="leaves" element={<ProtectedRoute><LeaveManagement /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

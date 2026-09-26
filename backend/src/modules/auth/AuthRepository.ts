@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client';
 export class AuthRepository {
   private prisma: PrismaClient;
 
-  // ✅ DRY: Centralized selection fields
   private userSelect = {
     id: true,
     username: true,
@@ -13,7 +12,7 @@ export class AuthRepository {
     seniority: true,
     email: true,
     phone: true,
-    imageUrl: true, // ✅ NEW: Profile image
+    imageUrl: true,
     licenseNumber: true,
     specialization: true,
     departmentId: true,
@@ -21,21 +20,19 @@ export class AuthRepository {
     createdAt: true,
     updatedAt: true,
     department: { select: { id: true, name: true } },
-    // ✅ NEW: Fetch Dynamic RBAC Permissions
     roles: {
       include: {
         permissions: {
-          select: { permission: { select: { name: true } } }
-        }
-      }
-    }
+          select: { permission: { select: { name: true } } },
+        },
+      },
+    },
   };
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
   }
 
-  // ✅ Helper to flatten nested permissions into a simple string array
   public mapUserPermissions(user: any): string[] {
     if (!user.roles) return [];
     const perms = new Set<string>();
@@ -57,25 +54,6 @@ export class AuthRepository {
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: this.userSelect,
-    });
-  }
-
-  async createUser(data: any) {
-    return this.prisma.user.create({
-      data: {
-        username: data.username,
-        password: data.passwordHash,
-        fullName: data.fullName,
-        role: data.role,
-        seniority: data.seniority || 'JUNIOR',
-        email: data.email,
-        phone: data.phone,
-        licenseNumber: data.licenseNumber,
-        specialization: data.specialization,
-        departmentId: data.departmentId,
-        isActive: true,
-      },
       select: this.userSelect,
     });
   }
@@ -109,14 +87,13 @@ export class AuthRepository {
       include: { user: { select: { isActive: true } } },
     });
     if (!tokenRecord) return { userId: '', valid: false };
-    return { userId: tokenRecord.userId, valid: tokenRecord.expiresAt > new Date() && tokenRecord.user.isActive };
+    return {
+      userId: tokenRecord.userId,
+      valid: tokenRecord.expiresAt > new Date() && tokenRecord.user.isActive,
+    };
   }
 
   async deleteRefreshToken(refreshToken: string): Promise<void> {
     await this.prisma.refreshToken.delete({ where: { token: refreshToken } }).catch(() => {});
-  }
-
-  async usernameExists(username: string): Promise<boolean> {
-    return !!(await this.prisma.user.findUnique({ where: { username } }));
   }
 }

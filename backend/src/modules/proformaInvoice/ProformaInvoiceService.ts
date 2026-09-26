@@ -104,7 +104,8 @@ export class ProformaInvoiceService extends BaseService {
 
     let updateData: any = { notes: data.notes, termsAndConditions: data.termsAndConditions, discount: data.discount, validityDays: data.validityDays };
 
-    if (data.items && data.items.length > 0) {
+    if (Array.isArray(data.items)) {
+      if (data.items.length === 0) throw new Error('At least one proforma invoice item is required');
       const processedItems = [];
       for (const item of data.items) {
         if (item.serviceCatalogId) {

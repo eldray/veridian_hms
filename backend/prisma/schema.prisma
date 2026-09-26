@@ -1221,6 +1221,7 @@ model ReferralRecord {
   status               ReferralStatus @default(pending)
   outcomeNotes         String?
   completedAt          DateTime?
+  structuredForm       Json?          // Part I & Part II structured form data
   createdById          String
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
@@ -1473,27 +1474,28 @@ model LabTestTemplate {
 }
 
 model ScanTemplate {
-  id                      String       @id @default(cuid())
-  name                    String
-  investigationCode       String
-  scanCode                String       @unique
-  description             String
-  category                ScanCategory
-  bodyPart                BodyPart
-  isNHISCovered           Boolean      @default(true)
-  isPrivateInsExempted    Boolean      @default(false)
-  nhisRequiresAuth        Boolean      @default(false)
-  privateInsRequiresAuth  Boolean      @default(false)
-  isActive                Boolean      @default(true)
-  tariffCode              String?
-  vatRate                 Float        @default(0)
-  isTaxable               Boolean      @default(true)
+  id                     String       @id @default(cuid())
+  name                   String
+  investigationCode      String
+  scanCode               String       @unique
+  description            String
+  category               ScanCategory
+  bodyPart               BodyPart
+  isNHISCovered          Boolean      @default(true)
+  isPrivateInsExempted   Boolean      @default(false)
+  nhisRequiresAuth       Boolean      @default(false)
+  privateInsRequiresAuth Boolean      @default(false)
+  isActive               Boolean      @default(true)
+  tariffCode             String?
+  vatRate                Float        @default(0)
+  isTaxable              Boolean      @default(true)
   preparationInstructions String?
-  duration                Int
-  contrastRequired        Boolean      @default(false)
-  scanType                String?
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
+  duration               Int
+  contrastRequired       Boolean      @default(false)
+  scanType               String?
+  resultTemplate         Json?                  // ← ADD THIS
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   Scan           Scan[]
   ServiceCatalog ServiceCatalog[]
@@ -2828,7 +2830,9 @@ enum ServiceCategory {
 }
 
 enum UserRole {
+  super_admin
   admin
+  hr_officer
   doctor
   nurse
   midwife
@@ -3036,6 +3040,8 @@ enum ScanCategory {
   pet_scan
   dental_xray
   nuclear_medicine
+  echocardiography     // ← add
+  bone_densitometry    // ← add
   other
 }
 
@@ -3416,11 +3422,34 @@ model PayrollRecord {
   updatedAt  DateTime  @updatedAt
 
   staff StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  lineItems PayslipLineItem[] 
 
   @@unique([staffId, month, year])
   @@index([staffId])
   @@index([year, month])
   @@map("payroll_records")
+}
+
+model PayslipLineItem {
+  id              String                @id @default(cuid())
+  payrollRecordId String
+  type            PayslipLineItemType
+  category        String
+  description     String?
+  amount          Decimal               @db.Decimal(15, 2)
+  taxable         Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+
+  payrollRecord   PayrollRecord         @relation(fields: [payrollRecordId], references: [id], onDelete: Cascade)
+
+  @@index([payrollRecordId])
+  @@index([payrollRecordId, type])
+  @@map("payslip_line_items")
+}
+
+enum PayslipLineItemType {
+  earning
+  deduction
 }
 
 model Shift {

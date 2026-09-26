@@ -77,9 +77,9 @@ export abstract class BaseController {
     return res.status(409).json(createErrorResponse(message, undefined, 409));
   }
 
-  protected getPaginationParams(req: Request): { page: number; limit: number } {
+  protected getPaginationParams(req: Request, maxLimit: number = 100): { page: number; limit: number } {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const limit = Math.min(maxLimit, Math.max(1, parseInt(req.query.limit as string) || 10));
     return { page, limit };
   }
 

@@ -103,38 +103,38 @@ export interface PostnatalRecordData {
 
 // Get all bookings (paginated) - uses plural 'bookings'
 export const getAntenatalBookings = async (filters?: { page?: number; limit?: number; isActive?: boolean; patientId?: string }) => {
-  const response = await api.get('/antenatal/bookings', { params: filters });
-  return response.data;
+  const response = await api.get('/antenatal', { params: filters });
+  return response.data?.data || response.data;
 };
 
 // Get active booking by PATIENT ID - uses plural 'bookings' + '/patient/'
 export const getActiveBookingByPatient = async (patientId: string) => {
   // ✅ Fixed: 'bookings' (plural) not 'booking' (singular)
-  const response = await api.get(`/antenatal/bookings/patient/${patientId}`);
-  return response.data;
+  const response = await api.get(`/antenatal/patient/${patientId}`);
+  return response.data?.data || response.data;
 };
 
 // Get booking by BOOKING ID - uses singular 'booking' because it's a single resource
 export const getAntenatalBookingById = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/booking/${bookingId}`);
-  return response.data;
+  const response = await api.get(`/antenatal/${bookingId}`);
+  return response.data?.data || response.data;
 };
 
 // Create a new booking
 export const createAntenatalBooking = async (data: AntenatalBookingData) => {
-  const response = await api.post('/antenatal/booking', data);
-  return response.data;
+  const response = await api.post('/antenatal', data);
+  return response.data?.data || response.data;
 };
 
 // Close a booking
 export const closeAntenatalBooking = async (bookingId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
-  const response = await api.put(`/antenatal/booking/${bookingId}/close`, data);
-  return response.data;
+  const response = await api.put(`/antenatal/${bookingId}`, data);
+  return response.data?.data || response.data;
 };
 
 export const getANCStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/stats', { params: filters });
-  return response.data;
+  const response = await api.get('/antenatal/statistics', { params: filters });
+  return response.data?.data || response.data;
 };
 
 // ============================================
@@ -142,22 +142,22 @@ export const getANCStatistics = async (filters?: { startDate?: string; endDate?:
 // ============================================
 
 export const getANCVisitsByBooking = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/visits/booking/${bookingId}`);
-  return response.data;
+  const response = await api.get(`/antenatal/${bookingId}/visits`);
+  return response.data?.data || response.data;
 };
 
 export const getANCVisitById = async (id: string) => {
-  const response = await api.get(`/antenatal/visit/${id}`);
+  const response = await api.get(`/antenatal/visits/${id}`);
   return response.data;
 };
 
 export const updateANCVisit = async (id: string, data: Partial<ANCVisitData>) => {
-  const response = await api.put(`/antenatal/visit/${id}`, data);
+  const response = await api.put(`/antenatal/visits/${id}`, data);
   return response.data;
 };
 
 export const deleteANCVisit = async (id: string) => {
-  const response = await api.delete(`/antenatal/visit/${id}`);
+  const response = await api.delete(`/antenatal/visits/${id}`);
   return response.data;
 };
 
@@ -175,28 +175,28 @@ export const getDeliveries = async (filters?: { patientId?: string; startDate?: 
 
 export const getDelivery = async (id: string) => {
   // ✅ This one is correct - '/antenatal/delivery/:id'
-  const response = await api.get(`/antenatal/delivery/${id}`);
+  const response = await api.get(`/antenatal/deliveries/${id}`);
   return response.data;
 };
 
 export const createDelivery = async (data: DeliveryRecordData) => {
   // ✅ This one is correct
-  const response = await api.post('/antenatal/delivery', data);
+  const response = await api.post('/antenatal/deliveries', data);
   return response.data;
 };
 
 export const updateDelivery = async (id: string, data: Partial<DeliveryRecordData>) => {
-  const response = await api.put(`/antenatal/delivery/${id}`, data);
+  const response = await api.put(`/antenatal/deliveries/${id}`, data);
   return response.data;
 };
 
 export const deleteDelivery = async (id: string) => {
-  const response = await api.delete(`/antenatal/delivery/${id}`);
+  const response = await api.delete(`/antenatal/deliveries/${id}`);
   return response.data;
 };
 
 export const getDeliveryStats = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/delivery/stats', { params: filters });
+  const response = await api.get('/antenatal/deliveries/statistics', { params: filters });
   return response.data;
 };
 

@@ -69,9 +69,6 @@ import { createAuditRoutes } from './audit/AuditRoutes';
 import { createBackupRoutes } from './backup/BackupRoutes';
 import { createDocumentRoutes } from './document/DocumentRoutes';
 
-// HR & Staffing
-import { createStaffProfileRoutes } from './hr/staffProfile.routes';
-
 // ============================================
 // MODULE REGISTRATION FUNCTION
 // ============================================
@@ -232,8 +229,8 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // 13. AUDIT & BACKUP
   // ============================================
-  app.use('/audit', createAuditRoutes());
-  console.log('✅ Audit routes mounted at /audit');
+app.use('/audit', createAuditRoutes(prisma));
+console.log('✅ Audit routes mounted at /audit');
   
   app.use('/backup', createBackupRoutes());
   console.log('✅ Backup routes mounted at /backup');
@@ -244,9 +241,6 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // 14. HR & STAFFING
   // ============================================
-  app.use('/staff/profiles', createStaffProfileRoutes(prisma));
-  console.log('✅ Staff Profile routes mounted at /staff/profiles');
-
   console.log('');
   console.log('✅ All modules registered successfully!');
   console.log('');

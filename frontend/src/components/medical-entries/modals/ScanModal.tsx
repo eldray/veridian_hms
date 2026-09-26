@@ -67,6 +67,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     try {
       await addScan(attendanceId, {
         serviceCatalogId: selectedScan.id,
+        templateId: selectedScan.templateId || selectedScan.id,
         priority: priority,
         notes: notes,
       });

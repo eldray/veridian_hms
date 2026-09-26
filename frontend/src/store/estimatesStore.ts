@@ -21,6 +21,7 @@ export interface EstimateItem {
   serviceType: string;
   quantity: number;
   unitPrice: number;
+  pricingBasis: string;
   vatRate: number;
   vatAmount: number;
   totalPrice: number;
@@ -88,7 +89,7 @@ export const useEstimatesStore = create<EstimatesState>((set, get) => ({
       const res = await apiGetEstimates(filters);
       set({
         estimates: res?.data || [],
-        pagination: res?.pagination || get().pagination,
+        pagination: res?.pagination || res?.meta || get().pagination,
       });
     } finally {
       set({ isLoading: false });

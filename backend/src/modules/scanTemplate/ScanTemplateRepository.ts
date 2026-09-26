@@ -144,7 +144,8 @@ export class ScanTemplateRepository {
             preparationInstructions: data.preparationInstructions,
             duration: data.duration,
             contrastRequired: data.contrastRequired || false,
-            scanType: data.scanType
+            scanType: data.scanType,
+            resultTemplate: data.resultTemplate || [], 
           },
           isActive: data.isActive !== undefined ? data.isActive : true,
           unit: data.unit || 'Each',
@@ -181,23 +182,25 @@ export class ScanTemplateRepository {
       delete updateData.isTaxable;
 
       // Handle metadata updates
-      if (
-        data.bodyPart !== undefined ||
-        data.preparationInstructions !== undefined ||
-        data.duration !== undefined ||
-        data.contrastRequired !== undefined ||
-        data.scanType !== undefined
-      ) {
-        const currentMetadata = existingTemplate.metadata as any || {};
-        updateData.metadata = {
-          ...currentMetadata,
-          bodyPart: data.bodyPart !== undefined ? data.bodyPart : currentMetadata.bodyPart,
-          preparationInstructions: data.preparationInstructions !== undefined ? data.preparationInstructions : currentMetadata.preparationInstructions,
-          duration: data.duration !== undefined ? data.duration : currentMetadata.duration,
-          contrastRequired: data.contrastRequired !== undefined ? data.contrastRequired : currentMetadata.contrastRequired,
-          scanType: data.scanType !== undefined ? data.scanType : currentMetadata.scanType
-        };
-      }
+if (
+  data.bodyPart !== undefined ||
+  data.preparationInstructions !== undefined ||
+  data.duration !== undefined ||
+  data.contrastRequired !== undefined ||
+  data.scanType !== undefined ||
+  data.resultTemplate !== undefined     // ← add
+) {
+  const currentMetadata = existingTemplate.metadata as any || {};
+  updateData.metadata = {
+    ...currentMetadata,
+    bodyPart: data.bodyPart !== undefined ? data.bodyPart : currentMetadata.bodyPart,
+    preparationInstructions: data.preparationInstructions !== undefined ? data.preparationInstructions : currentMetadata.preparationInstructions,
+    duration: data.duration !== undefined ? data.duration : currentMetadata.duration,
+    contrastRequired: data.contrastRequired !== undefined ? data.contrastRequired : currentMetadata.contrastRequired,
+    scanType: data.scanType !== undefined ? data.scanType : currentMetadata.scanType,
+    resultTemplate: data.resultTemplate !== undefined ? data.resultTemplate : (currentMetadata.resultTemplate || []),  // ← add
+  };
+}
 
       if (data.bodyPart !== undefined) {
         updateData.subType = data.bodyPart;

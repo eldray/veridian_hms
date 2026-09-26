@@ -32,6 +32,7 @@ export interface CreateScanTemplateDTO {
   insurancePrice: number;
   vatRate?: number;
   isTaxable?: boolean;
+  resultTemplate?: any[];
 }
 
 export interface UpdateScanTemplateDTO {
@@ -55,6 +56,7 @@ export interface UpdateScanTemplateDTO {
   insurancePrice?: number;
   vatRate?: number;
   isTaxable?: boolean;
+  resultTemplate?: any[];
 }
 
 export interface BulkUpdateDTO {

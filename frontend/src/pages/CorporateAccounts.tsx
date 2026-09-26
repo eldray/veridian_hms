@@ -222,9 +222,10 @@ export default function CorporateAccounts() {
       const result = await generateMonthlyBill(accountId, billingData);
       success('Bill Generated', `Monthly bill for ${billingData.month}/${billingData.year} generated successfully`);
       setShowBillingModal(false);
-      // Optionally download or preview the bill
-      if (result.proformaInvoiceId) {
-        navigate(`/dashboard/estimates/${result.proformaInvoiceId}`);
+      // Monthly generation creates one proforma invoice per eligible patient.
+      const firstInvoiceId = result.proformaInvoices?.[0]?.id;
+      if (firstInvoiceId) {
+        navigate(`/dashboard/estimates/${firstInvoiceId}`);
       }
     } catch (error: any) {
       toastError('Generation Failed', error?.message || 'Could not generate monthly bill');

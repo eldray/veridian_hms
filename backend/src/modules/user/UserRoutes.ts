@@ -4,6 +4,10 @@ import { UserController } from './UserController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
+// Role groups
+const ADMIN_ONLY = ['admin', 'super_admin'] as const;
+const ADMIN_HR = ['admin', 'super_admin', 'hr_officer'] as const;
+
 export const createUserRoutes = (prisma: any): Router => {
   const router = Router();
   const controller = new UserController(prisma);
@@ -11,99 +15,178 @@ export const createUserRoutes = (prisma: any): Router => {
   router.use(protect);
 
   // ==========================================
-  // USER MANAGEMENT (Admin only)
+  // CURRENT USER — static routes FIRST
   // ==========================================
 
-  // Current user's own permissions — MUST be declared before any dynamic /:id route.
   router.get('/permissions', controller.getMyPermissions);
+  router.get('/me/payslips', controller.getMyPayslips);
+  router.get('/me/documents', controller.getMyDocuments);
 
-  router.get('/', requireRole(['admin']), controller.getAllUsers);
+  // ==========================================
+  // USER MANAGEMENT
+  // ==========================================
+
+  router.post(
+    '/',
+    requireRole([...ADMIN_ONLY]),
+    [
+      body('username').trim().notEmpty().isLength({ min: 3 }),
+      body('password').isLength({ min: 6 }),
+      body('fullName').trim().notEmpty(),
+      body('role').isIn(VALID_ROLES as unknown as string[]),
+      body('seniority').optional().isIn(VALID_SENIORITY as unknown as string[]),
+      body('email').optional({ checkFalsy: true }).isEmail(),
+      body('phone').optional().trim(),
+      body('licenseNumber').optional().trim(),
+      body('specialization').optional().trim(),
+      body('departmentId').optional().isString(),
+    ],
+    controller.createUser,
+  );
+
+  router.get('/', requireRole([...ADMIN_ONLY]), controller.getAllUsers);
+
+  // ==========================================
+  // FULL PROFILE
+  // ==========================================
+
+  router.get('/:id/full-profile', controller.getFullProfile);
+  router.patch('/:id/full-profile', controller.updateFullProfile);
+
+  // ==========================================
+  // PAYROLL — static routes FIRST
+  // ==========================================
+
+  router.get('/payslips/all', requireRole([...ADMIN_HR]), controller.getAllPayslips);
+  router.post('/payslips/run-payroll', requireRole([...ADMIN_HR]), controller.runPayroll);
+  router.patch('/payslips/:payslipId', requireRole([...ADMIN_HR]), controller.updatePayslip);
+  router.get('/payslips/:payslipId', requireRole([...ADMIN_HR]), controller.getPayslipById);
+  router.post('/payslips/:payslipId/line-items', requireRole([...ADMIN_HR]), controller.addPayslipLineItem);
+  router.patch('/payslips/:payslipId/line-items/:lineItemId', requireRole([...ADMIN_HR]), controller.updatePayslipLineItem);
+  router.delete('/payslips/:payslipId/line-items/:lineItemId', requireRole([...ADMIN_HR]), controller.deletePayslipLineItem);
+
+  // ==========================================
+  // DOCUMENTS — static FIRST
+  // ==========================================
+
+  router.get('/documents/all', requireRole([...ADMIN_HR]), controller.getAllDocuments);
+
+  // ==========================================
+  // PER-USER payslips and documents
+  // ==========================================
+
+  router.get('/:id/payslips', controller.getUserPayslips);
+  router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
+  router.get('/:id/documents', controller.getUserDocuments);
+
+  // ==========================================
+  // USER UPDATE / DEACTIVATE
+  // ==========================================
 
   router.put(
     '/:id',
-    requireRole(['admin']),
+    requireRole([...ADMIN_ONLY]),
     [
       body('fullName').optional().trim().notEmpty(),
       body('email').optional().isEmail(),
       body('phone').optional().trim(),
       body('licenseNumber').optional().trim(),
       body('specialization').optional().trim(),
-      body('role').optional().isIn(VALID_ROLES),
-      body('seniority').optional().isIn(VALID_SENIORITY),
+      body('role').optional().isIn(VALID_ROLES as unknown as string[]),
+      body('seniority').optional().isIn(VALID_SENIORITY as unknown as string[]),
       body('isActive').optional().isBoolean(),
       body('departmentId').optional().isString(),
       body('imageUrl').optional().isURL(),
       body('headedDepartmentId').optional().isString(),
     ],
-    controller.updateUser
+    controller.updateUser,
   );
 
-  router.patch('/:id/deactivate', requireRole(['admin']), controller.deactivateUser);
+  router.patch('/:id/deactivate', requireRole([...ADMIN_ONLY]), controller.deactivateUser);
 
   // ==========================================
-  // SHIFT MANAGEMENT (Admin, Department Heads)
+  // SHIFTS
+  //
+  // Read:  admin, super_admin, hr_officer, doctor, nurse, midwife
+  // Write: admin, super_admin, hr_officer
   // ==========================================
 
-  router.get('/shifts', requireRole(['admin', 'doctor', 'nurse']), controller.getAllShifts);
+  const SHIFT_READ = ['admin', 'super_admin', 'hr_officer', 'doctor', 'nurse', 'midwife'] as const;
 
+  router.get('/shifts', requireRole([...SHIFT_READ]), controller.getAllShifts);
   router.post(
     '/shifts',
-    requireRole(['admin']),
+    requireRole([...ADMIN_HR]),
     [
       body('userId').notEmpty().isString(),
       body('shiftDate').notEmpty().isISO8601(),
       body('startTime').notEmpty().matches(/^\d{2}:\d{2}$/),
       body('endTime').notEmpty().matches(/^\d{2}:\d{2}$/),
-      body('shiftType').optional().isIn(VALID_SHIFT_TYPES),
+      body('shiftType').optional().isIn(VALID_SHIFT_TYPES as unknown as string[]),
       body('notes').optional().isString(),
     ],
-    controller.createShift
+    controller.createShift,
   );
-
   router.put(
     '/shifts/:id',
-    requireRole(['admin']),
+    requireRole([...ADMIN_HR]),
     [
       body('shiftDate').optional().isISO8601(),
       body('startTime').optional().matches(/^\d{2}:\d{2}$/),
       body('endTime').optional().matches(/^\d{2}:\d{2}$/),
-      body('shiftType').optional().isIn(VALID_SHIFT_TYPES),
+      body('shiftType').optional().isIn(VALID_SHIFT_TYPES as unknown as string[]),
       body('status').optional().isIn(['scheduled', 'completed', 'cancelled', 'no_show']),
       body('notes').optional().isString(),
     ],
-    controller.updateShift
+    controller.updateShift,
   );
-
-  router.delete('/shifts/:id', requireRole(['admin']), controller.deleteShift);
+  router.delete('/shifts/:id', requireRole([...ADMIN_HR]), controller.deleteShift);
 
   // ==========================================
-  // LEAVE MANAGEMENT (All users can request, Admin approves)
+  // LEAVES
+  //
+  // Read:      admin, super_admin, hr_officer, doctor, nurse, midwife
+  // Create:    any authenticated user (self-service)
+  // Update:    approve/reject → admin, super_admin, hr_officer
+  //            cancel       → owner or admin
+  // Delete:    owner or admin
   // ==========================================
 
-  router.get('/leaves', requireRole(['admin', 'doctor', 'nurse']), controller.getAllLeaves);
+  const LEAVE_READ = ['admin', 'super_admin', 'hr_officer', 'doctor', 'nurse', 'midwife'] as const;
+
+  router.get('/leaves', requireRole([...LEAVE_READ]), controller.getAllLeaves);
 
   router.post(
     '/leaves',
     [
-      body('leaveType').notEmpty().isIn(VALID_LEAVE_TYPES),
+      body('leaveType').notEmpty().isIn(VALID_LEAVE_TYPES as unknown as string[]),
       body('startDate').notEmpty().isISO8601(),
       body('endDate').notEmpty().isISO8601(),
       body('reason').optional().isString(),
     ],
-    controller.createLeave
+    controller.createLeave,
   );
 
   router.put(
     '/leaves/:id',
-    requireRole(['admin']),
     [
       body('status').optional().isIn(['pending', 'approved', 'rejected', 'cancelled']),
       body('reason').optional().isString(),
     ],
-    controller.updateLeave
+    controller.updateLeave,
   );
 
   router.delete('/leaves/:id', controller.deleteLeave);
+
+  // ==========================================
+  // SHIFTS/LEAVES for a specific user (admin view)
+  // ==========================================
+
+  router.get(
+    '/:id/shifts',
+    requireRole([...ADMIN_HR]),
+    controller.getAllShifts,
+  );
 
   return router;
 };
