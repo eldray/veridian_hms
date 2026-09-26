@@ -1,19 +1,10 @@
 // src/utils/pdfGenerator.ts - FIXED
-import type { 
-  Bill, 
-  Patient, 
-  InsuranceClaim, 
-  Payment, 
-  Attendance, 
-  LabTest, 
-  Medication, 
-  Procedure, 
-  Diagnosis,
-  Admission,
-  Hospital
-} from '../types';
 
 // Import all PDF templates
+import { generateShiftRotaHTML } from './pdfTemplates/shiftRotaPDF';
+import { generateShiftSummaryHTML } from './pdfTemplates/shiftSummaryPDF';
+import { generateLeaveRegisterHTML } from './pdfTemplates/leaveRegisterPDF';
+import { generateLeaveRequestFormHTML } from './pdfTemplates/leaveRequestFormPDF';
 import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
 import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
 import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
@@ -40,7 +31,11 @@ export type PDFType =
   | 'referralLetter'
   | 'combinedPrescription' 
   | 'scanReport' 
-  | 'handover';
+  | 'handover'
+  | 'shiftRota'
+  | 'shiftSummary'
+  | 'leaveRegister'
+  | 'leaveRequestForm';
 
 export const generatePDF = (
   type: PDFType,
@@ -77,6 +72,14 @@ export const generatePDF = (
       return generateScanReportHTML(data.scans, data.patient, data.attendance, hospital);
     case 'handover':
       return generateHandoverHTML(data, hospital);
+    case 'shiftRota':
+      return generateShiftRotaHTML(data.shifts, data.weekStart, hospital);
+    case 'shiftSummary':
+      return generateShiftSummaryHTML(data.shifts, data.month, data.year, hospital);
+    case 'leaveRegister':
+      return generateLeaveRegisterHTML(data.leaves, data.year, data.staffFilter ?? null, hospital);
+    case 'leaveRequestForm':
+      return generateLeaveRequestFormHTML(data.leave, hospital);
     default:
       console.error('❌ Invalid PDF type:', type);
       throw new Error(`Invalid PDF type: ${type}`);

@@ -2,38 +2,58 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShiftStore } from '../store/shiftStore';
 import { useUserStore } from '../store/userStore';
+import { useHospitalStore } from '../store/hospitalStore';
 import { useToast } from '../store/toastStore';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import {
   Calendar, Clock, Plus, Search, RefreshCw, X, Trash2, Edit,
-  ChevronLeft, ChevronRight, User as UserIcon, Filter,
+  ChevronLeft, ChevronRight, User as UserIcon, Printer, List,
+  Table2, Grid3x3,
 } from 'lucide-react';
+
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
+
+const SHIFT_TYPES = [
+  { value: 'morning',   label: 'Morning',   letter: 'M', color: 'bg-green-100 text-green-700'   },
+  { value: 'afternoon', label: 'Afternoon', letter: 'A', color: 'bg-orange-100 text-orange-700' },
+  { value: 'night',     label: 'Night',     letter: 'N', color: 'bg-purple-100 text-purple-700' },
+  { value: 'on_call',   label: 'On Call',   letter: 'C', color: 'bg-blue-100 text-blue-700'     },
+];
+
+const shiftColor = (letter: string) => {
+  switch (letter) {
+    case 'M': return 'bg-green-100 text-green-700 border-green-200';
+    case 'A': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'N': return 'bg-purple-100 text-purple-700 border-purple-200';
+    case 'C': return 'bg-blue-100 text-blue-700 border-blue-200';
+    default:  return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
+  }
+};
+
+const shiftLetter = (type: string) => SHIFT_TYPES.find((t) => t.value === type)?.letter ?? '?';
 
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
 
-const SHIFT_TYPES = [
-  { value: 'morning',   label: 'Morning',   time: '08:00 – 14:00', color: 'bg-green-100 text-green-700'   },
-  { value: 'afternoon', label: 'Afternoon', time: '14:00 – 20:00', color: 'bg-orange-100 text-orange-700' },
-  { value: 'night',     label: 'Night',     time: '20:00 – 08:00', color: 'bg-purple-100 text-purple-700' },
-  { value: 'on_call',   label: 'On Call',   time: '24h',           color: 'bg-blue-100 text-blue-700'     },
-];
-
-const SHIFT_COLORS: Record<string, string> = {
-  morning:   'bg-green-100 text-green-700 border-green-200',
-  afternoon: 'bg-orange-100 text-orange-700 border-orange-200',
-  night:     'bg-purple-100 text-purple-700 border-purple-200',
-  on_call:   'bg-blue-100 text-blue-700 border-blue-200',
+const toInputDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
-const formatDate = (iso: string) => {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+const toKey = (d: Date) => toInputDate(d);
+
+const startOfWeek = (d: Date) => {
+  const copy = new Date(d);
+  const day = copy.getDay();
+  const diff = copy.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  copy.setDate(diff);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
 };
 
 const formatTime = (iso: string) => {
@@ -44,121 +64,46 @@ const formatTime = (iso: string) => {
   }
 };
 
-const toInputDate = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+const timeToHHmm = (iso: string) => {
+  try {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch {
+    return '08:00';
+  }
 };
 
 // ─────────────────────────────────────────────
-// Weekly strip
+// Page
 // ─────────────────────────────────────────────
-const WeekStrip: React.FC<{
-  weekStart: Date;
-  shiftsByDay: Record<string, number>;
-  onPrev: () => void;
-  onNext: () => void;
-  onToday: () => void;
-}> = ({ weekStart, shiftsByDay, onPrev, onNext, onToday }) => {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
 
-  const today = toInputDate(new Date());
+type ViewMode = 'list' | 'week' | 'month';
 
-  return (
-    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">
-            Week of {weekStart.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
-          </p>
-          <p className="text-xs text-[var(--text-secondary)]">Shift count per day</p>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onPrev}
-            className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]"
-            title="Previous week"
-          >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-primary)]" />
-          </button>
-          <button
-            onClick={onToday}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)] text-xs font-medium text-[var(--text-primary)]"
-          >
-            Today
-          </button>
-          <button
-            onClick={onNext}
-            className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]"
-            title="Next week"
-          >
-            <ChevronRight className="w-4 h-4 text-[var(--text-primary)]" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((d) => {
-          const key = toInputDate(d);
-          const count = shiftsByDay[key] ?? 0;
-          const isToday = key === today;
-          return (
-            <div
-              key={key}
-              className={`rounded-lg p-2 border ${
-                isToday
-                  ? 'bg-[var(--icon-cyan-bg)] border-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] border-[var(--border-color)]'
-              }`}
-            >
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${
-                isToday ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'
-              }`}>
-                {d.toLocaleDateString(undefined, { weekday: 'short' })}
-              </p>
-              <p className={`text-lg font-bold ${isToday ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'}`}>
-                {d.getDate()}
-              </p>
-              <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
-                {count} shift{count !== 1 ? 's' : ''}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-// Main page
-// ─────────────────────────────────────────────
 export default function ShiftManagement() {
   const {
     shifts, total, isLoading,
     fetchShifts, createShift, updateShift, deleteShift,
   } = useShiftStore();
   const { users, getAllUsers } = useUserStore();
+  const { hospital, fetchHospital } = useHospitalStore();
   const { success, error: toastError } = useToast();
 
-  const [weekStart, setWeekStart] = useState<Date>(() => {
+  const [view, setView] = useState<ViewMode>('week');
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const [monthCursor, setMonthCursor] = useState<Date>(() => {
     const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-    return new Date(d.setDate(diff));
+    d.setDate(1);
+    return d;
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterShiftType, setFilterShiftType] = useState<string>('all');
+  const [filterShiftType, setFilterShiftType] = useState('all');
+  const [filterUserId, setFilterUserId] = useState('all');
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const [formData, setFormData] = useState({
     userId: '',
@@ -169,49 +114,108 @@ export default function ShiftManagement() {
     notes: '',
   });
 
+  // ── Data loading ─────────────────────────────
   useEffect(() => {
     void getAllUsers({ isActive: true });
+    void fetchHospital().catch(() => {});
   }, []);
 
   useEffect(() => {
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    void fetchShifts({
-      fromDate: weekStart.toISOString(),
-      toDate: weekEnd.toISOString(),
-    });
-  }, [weekStart]);
+    if (view === 'week') {
+      const end = new Date(weekStart);
+      end.setDate(end.getDate() + 6);
+      void fetchShifts({
+        fromDate: weekStart.toISOString(),
+        toDate: end.toISOString(),
+        limit: 500,
+      });
+    } else if (view === 'month') {
+      const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+      void fetchShifts({
+        fromDate: monthStart.toISOString(),
+        toDate: monthEnd.toISOString(),
+        limit: 1000,
+      });
+    } else {
+      void fetchShifts({ limit: 500 });
+    }
+  }, [view, weekStart, monthCursor]);
 
   const userList = Array.isArray(users) ? users : [];
 
-  const visibleShifts = useMemo(() => {
-    let list = shifts;
+  // ── Filtering ────────────────────────────────
+  const filteredShifts = useMemo(() => {
+    let list = [...shifts];
 
+    if (filterUserId !== 'all') {
+      list = list.filter((s) => s.userId === filterUserId);
+    }
+    if (filterShiftType !== 'all') {
+      list = list.filter((s) => s.shiftType === filterShiftType);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((s) => {
         const name = s.user?.fullName?.toLowerCase() ?? '';
-        const uname = s.user?.username?.toLowerCase() ?? '';
         const notes = s.notes?.toLowerCase() ?? '';
-        return name.includes(q) || uname.includes(q) || notes.includes(q);
+        return name.includes(q) || notes.includes(q);
       });
     }
 
-    if (filterShiftType !== 'all') {
-      list = list.filter((s) => s.shiftType === filterShiftType);
+    return list.sort((a, b) => new Date(a.shiftDate).getTime() - new Date(b.shiftDate).getTime());
+  }, [shifts, filterUserId, filterShiftType, searchQuery]);
+
+  // ── Grid data ────────────────────────────────
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
+
+  const monthDays = useMemo(() => {
+    const first = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+    const daysInMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const d = new Date(first);
+      d.setDate(i + 1);
+      return d;
+    });
+  }, [monthCursor]);
+
+  const buildGrid = (list: any[]) => {
+    const grid = new Map<string, Map<string, any[]>>();
+    const staff = new Map<string, { id: string; name: string; role: string }>();
+
+    for (const s of list) {
+      if (!s.userId) continue;
+      if (!staff.has(s.userId)) {
+        staff.set(s.userId, {
+          id: s.userId,
+          name: s.user?.fullName || '—',
+          role: s.user?.role || '',
+        });
+      }
+      if (!grid.has(s.userId)) grid.set(s.userId, new Map());
+
+      const key = (s.shiftDate || '').split('T')[0];
+      if (!key) continue;
+
+      const cellMap = grid.get(s.userId)!;
+      if (!cellMap.has(key)) cellMap.set(key, []);
+      cellMap.get(key)!.push(s);
     }
 
-    return [...list].sort((a, b) => new Date(a.shiftDate).getTime() - new Date(b.shiftDate).getTime());
-  }, [shifts, searchQuery, filterShiftType]);
+    const staffRows = Array.from(staff.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return { grid, staffRows };
+  };
 
-  const shiftsByDay = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const s of shifts) {
-      const key = s.shiftDate.split('T')[0];
-      map[key] = (map[key] ?? 0) + 1;
-    }
-    return map;
-  }, [shifts]);
+  const { grid: weekGrid, staffRows: weekStaff } = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
+  const { grid: monthGrid, staffRows: monthStaff } = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
+
+  const todayKey = toKey(new Date());
 
   // ── Handlers ─────────────────────────────────
   const openCreate = () => {
@@ -231,9 +235,9 @@ export default function ShiftManagement() {
     setEditingId(shift.id);
     setFormData({
       userId: shift.userId,
-      shiftDate: shift.shiftDate.split('T')[0],
-      startTime: formatTime(shift.startTime).replace(/\s?(AM|PM)$/i, (m) => m).padStart(5, '0'),
-      endTime: formatTime(shift.endTime).padStart(5, '0'),
+      shiftDate: (shift.shiftDate || '').split('T')[0] || toInputDate(new Date()),
+      startTime: timeToHHmm(shift.startTime),
+      endTime: timeToHHmm(shift.endTime),
       shiftType: shift.shiftType,
       notes: shift.notes ?? '',
     });
@@ -242,7 +246,7 @@ export default function ShiftManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.userId) {
+    if (!formData.userId && !editingId) {
       toastError('Missing user', 'Choose a staff member');
       return;
     }
@@ -270,10 +274,18 @@ export default function ShiftManagement() {
       }
       setShowForm(false);
       setEditingId(null);
-      // Refresh
+      // refresh current view
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
-      void fetchShifts({ fromDate: weekStart.toISOString(), toDate: weekEnd.toISOString() });
+      const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+      if (view === 'week') {
+        void fetchShifts({ fromDate: weekStart.toISOString(), toDate: weekEnd.toISOString(), limit: 500 });
+      } else if (view === 'month') {
+        void fetchShifts({ fromDate: monthStart.toISOString(), toDate: monthEnd.toISOString(), limit: 1000 });
+      } else {
+        void fetchShifts({ limit: 500 });
+      }
     } catch (err: any) {
       toastError('Failed', err?.response?.data?.message || 'Could not save shift');
     } finally {
@@ -291,6 +303,39 @@ export default function ShiftManagement() {
     }
   };
 
+  // ── Printing ─────────────────────────────────
+  const handlePrint = async (kind: 'week' | 'month') => {
+    setPrinting(true);
+    try {
+      if (kind === 'week') {
+        const html = generatePDF(
+          'shiftRota',
+          { shifts: filteredShifts, weekStart: weekStart.toISOString() },
+          hospital,
+        );
+        openPrintWindow(html, `Shift Rota — week of ${weekStart.toDateString()}`);
+        success('Print ready', 'Weekly rota opened');
+      } else {
+        const html = generatePDF(
+          'shiftSummary',
+          {
+            shifts: filteredShifts,
+            month: monthCursor.getMonth() + 1,
+            year: monthCursor.getFullYear(),
+          },
+          hospital,
+        );
+        openPrintWindow(html, `Shift Summary — ${monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+        success('Print ready', 'Monthly rota opened');
+      }
+    } catch (err: any) {
+      toastError('Print failed', err?.message || 'Could not generate the document');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  // ── Week/month navigation ───────────────────
   const prevWeek = () => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() - 7);
@@ -301,16 +346,47 @@ export default function ShiftManagement() {
     d.setDate(d.getDate() + 7);
     setWeekStart(d);
   };
-  const todayWeek = () => {
+  const todayWeek = () => setWeekStart(startOfWeek(new Date()));
+
+  const prevMonth = () => {
+    const d = new Date(monthCursor);
+    d.setMonth(d.getMonth() - 1);
+    setMonthCursor(d);
+  };
+  const nextMonth = () => {
+    const d = new Date(monthCursor);
+    d.setMonth(d.getMonth() + 1);
+    setMonthCursor(d);
+  };
+  const todayMonth = () => {
     const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    setWeekStart(new Date(d.setDate(diff)));
+    d.setDate(1);
+    setMonthCursor(d);
   };
 
   const inputClass =
     'w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
 
+  // ── Render cell helpers ─────────────────────
+  const renderGridCell = (cells: any[] | undefined, onEdit: (s: any) => void) => {
+    if (!cells || cells.length === 0) {
+      return <span className="text-[var(--text-tertiary)] text-[10px]">—</span>;
+    }
+    const letters = cells.map((c) => shiftLetter(c.shiftType)).join('+');
+    const primary = shiftLetter(cells[0].shiftType);
+    return (
+      <button
+        type="button"
+        onClick={() => onEdit(cells[0])}
+        title={cells.map((c) => `${c.shiftType}: ${formatTime(c.startTime)}–${formatTime(c.endTime)}`).join(' | ')}
+        className={`inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md border text-[10px] font-bold ${shiftColor(primary)} hover:opacity-80 transition-opacity`}
+      >
+        {letters}
+      </button>
+    );
+  };
+
+  // ── Render ───────────────────────────────────
   return (
     <div className="space-y-5 p-6">
       {/* Header */}
@@ -321,15 +397,25 @@ export default function ShiftManagement() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Shift Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Schedule and manage staff shifts
-            </p>
+            <p className="text-sm text-[var(--text-secondary)]">Schedule and manage staff shifts</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchShifts({ fromDate: weekStart.toISOString(), toDate: new Date(weekStart.getTime() + 6 * 86400000).toISOString() })}
+            onClick={() => {
+              if (view === 'week') {
+                const end = new Date(weekStart);
+                end.setDate(end.getDate() + 6);
+                void fetchShifts({ fromDate: weekStart.toISOString(), toDate: end.toISOString(), limit: 500 });
+              } else if (view === 'month') {
+                const ms = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+                const me = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+                void fetchShifts({ fromDate: ms.toISOString(), toDate: me.toISOString(), limit: 1000 });
+              } else {
+                void fetchShifts({ limit: 500 });
+              }
+            }}
             disabled={isLoading}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
           >
@@ -345,14 +431,50 @@ export default function ShiftManagement() {
         </div>
       </div>
 
-      {/* Week strip */}
-      <WeekStrip
-        weekStart={weekStart}
-        shiftsByDay={shiftsByDay}
-        onPrev={prevWeek}
-        onNext={nextWeek}
-        onToday={todayWeek}
-      />
+      {/* Tabs + Print */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1 max-w-md">
+          {[
+            { id: 'list',  label: 'List',   icon: List      },
+            { id: 'week',  label: 'Week',   icon: Table2    },
+            { id: 'month', label: 'Month',  icon: Grid3x3   },
+          ].map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setView(t.id as ViewMode)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  view === t.id
+                    ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handlePrint('week')}
+            disabled={printing}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
+            title="Print weekly rota (landscape)"
+          >
+            <Printer className="w-3.5 h-3.5" /> Weekly Rota
+          </button>
+          <button
+            onClick={() => handlePrint('month')}
+            disabled={printing}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
+            title="Print monthly rota (landscape)"
+          >
+            <Printer className="w-3.5 h-3.5" /> Monthly Rota
+          </button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
@@ -368,6 +490,16 @@ export default function ShiftManagement() {
             />
           </div>
           <select
+            value={filterUserId}
+            onChange={(e) => setFilterUserId(e.target.value)}
+            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm min-w-[180px]"
+          >
+            <option value="all">All staff</option>
+            {userList.map((u: any) => (
+              <option key={u.id} value={u.id}>{u.fullName}</option>
+            ))}
+          </select>
+          <select
             value={filterShiftType}
             onChange={(e) => setFilterShiftType(e.target.value)}
             className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm min-w-[160px]"
@@ -378,93 +510,312 @@ export default function ShiftManagement() {
             ))}
           </select>
         </div>
-        <p className="text-xs text-[var(--text-tertiary)] mt-3 pt-3 border-t border-[var(--border-color)]">
-          Showing {visibleShifts.length} of {total} shifts for this week
-        </p>
       </div>
 
-      {/* List */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        {isLoading ? (
-          <div className="p-10 text-center">
-            <RefreshCw className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-3 animate-spin" />
-            <p className="text-sm text-[var(--text-secondary)]">Loading shifts…</p>
-          </div>
-        ) : visibleShifts.length === 0 ? (
-          <div className="p-12 text-center">
-            <Calendar className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
-            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">No shifts this week</p>
-            <p className="text-xs text-[var(--text-secondary)] mb-4">
-              Add the first shift to get started
-            </p>
-            <button
-              onClick={openCreate}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" /> Add Shift
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--border-color)]">
-            {visibleShifts.map((shift) => (
-              <div
-                key={shift.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors"
+      {/* ───────── LIST VIEW ───────── */}
+      {view === 'list' && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+          {isLoading ? (
+            <div className="p-10 text-center">
+              <RefreshCw className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-[var(--text-secondary)]">Loading shifts…</p>
+            </div>
+          ) : filteredShifts.length === 0 ? (
+            <div className="p-12 text-center">
+              <Calendar className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
+              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">No shifts found</p>
+              <p className="text-xs text-[var(--text-secondary)] mb-4">Add a shift to get started</p>
+              <button
+                onClick={openCreate}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                    <UserIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                <Plus className="w-4 h-4" /> Add Shift
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border-color)]">
+              {filteredShifts.map((shift) => (
+                <div
+                  key={shift.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                      <UserIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                        {shift.user?.fullName || '—'}
+                      </p>
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        @{shift.user?.username ?? '—'}
+                        {shift.user?.role && ` · ${shift.user.role.replace(/_/g, ' ')}`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                      {shift.user?.fullName || '—'}
-                    </p>
-                    <p className="text-xs text-[var(--text-tertiary)]">
-                      @{shift.user?.username ?? '—'}
-                      {shift.user?.role && ` · ${shift.user.role.replace(/_/g, ' ')}`}
-                    </p>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(shift.shiftDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${shiftColor(shiftLetter(shift.shiftType))}`}>
+                      {shift.shiftType.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => openEdit(shift)}
+                      className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)]"
+                      title="Edit"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(shift.id)}
+                      className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {formatDate(shift.shiftDate)}
-                  </div>
-                  <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                    <Clock className="w-3.5 h-3.5" />
-                    {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      SHIFT_COLORS[shift.shiftType] ?? 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]'
-                    }`}
-                  >
-                    {shift.shiftType.replace('_', ' ')}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => openEdit(shift)}
-                    className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)]"
-                    title="Edit"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(shift.id)}
-                    className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+      {/* ───────── WEEK VIEW ───────── */}
+      {view === 'week' && (
+        <>
+          {/* Week navigation */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">
+              {weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} –{' '}
+              {weekDays[6].toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={prevWeek} className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
+                <ChevronLeft className="w-4 h-4 text-[var(--text-primary)]" />
+              </button>
+              <button onClick={todayWeek} className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)] text-xs font-medium text-[var(--text-primary)]">
+                Today
+              </button>
+              <button onClick={nextWeek} className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
+                <ChevronRight className="w-4 h-4 text-[var(--text-primary)]" />
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Week grid */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead>
+                  <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[180px] z-10">
+                      Staff
+                    </th>
+                    {weekDays.map((d) => {
+                      const key = toKey(d);
+                      const isToday = key === todayKey;
+                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                      return (
+                        <th
+                          key={key}
+                          className={`px-1 py-2 text-center text-[10px] font-bold uppercase tracking-wider ${
+                            isToday
+                              ? 'text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
+                              : isWeekend
+                              ? 'text-[var(--text-tertiary)] bg-[var(--bg-main)]'
+                              : 'text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <div>{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                          <div className={`text-sm font-bold mt-0.5 ${isToday ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'}`}>
+                            {d.getDate()}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {weekStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
+                        No shifts scheduled this week
+                      </td>
+                    </tr>
+                  ) : (
+                    weekStaff.map((row) => {
+                      const cellMap = weekGrid.get(row.id) ?? new Map();
+                      return (
+                        <tr key={row.id} className="hover:bg-[var(--bg-main)]">
+                          <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-2 z-10">
+                            <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[160px]">
+                              {row.name}
+                            </div>
+                            <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                              {row.role.replace(/_/g, ' ')}
+                            </div>
+                          </td>
+                          {weekDays.map((d) => {
+                            const key = toKey(d);
+                            const isToday = key === todayKey;
+                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                            return (
+                              <td
+                                key={key}
+                                className={`px-1 py-2 text-center ${
+                                  isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
+                                }`}
+                              >
+                                {renderGridCell(cellMap.get(key), openEdit)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Legend */}
+            <div className="border-t border-[var(--border-color)] px-4 py-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
+              {SHIFT_TYPES.map((t) => (
+                <span key={t.value} className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>
+                    {t.letter}
+                  </span>
+                  {t.label}
+                </span>
+              ))}
+              <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">
+                Total: {filteredShifts.length} shifts this week
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ───────── MONTH VIEW ───────── */}
+      {view === 'month' && (
+        <>
+          {/* Month navigation */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">
+              {monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={prevMonth} className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
+                <ChevronLeft className="w-4 h-4 text-[var(--text-primary)]" />
+              </button>
+              <button onClick={todayMonth} className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)] text-xs font-medium text-[var(--text-primary)]">
+                This Month
+              </button>
+              <button onClick={nextMonth} className="p-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
+                <ChevronRight className="w-4 h-4 text-[var(--text-primary)]" />
+              </button>
+            </div>
+          </div>
+
+          {/* Month grid */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="border-collapse" style={{ minWidth: `${180 + monthDays.length * 34}px` }}>
+                <thead>
+                  <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[180px] z-10">
+                      Staff
+                    </th>
+                    {monthDays.map((d) => {
+                      const key = toKey(d);
+                      const isToday = key === todayKey;
+                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                      return (
+                        <th
+                          key={key}
+                          className={`px-0.5 py-2 text-center text-[10px] font-bold ${
+                            isToday
+                              ? 'text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
+                              : isWeekend
+                              ? 'text-[var(--text-tertiary)] bg-[var(--bg-main)]'
+                              : 'text-[var(--text-secondary)]'
+                          }`}
+                          style={{ minWidth: '32px' }}
+                        >
+                          {d.getDate()}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {monthStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={monthDays.length + 1} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
+                        No shifts scheduled this month
+                      </td>
+                    </tr>
+                  ) : (
+                    monthStaff.map((row) => {
+                      const cellMap = monthGrid.get(row.id) ?? new Map();
+                      return (
+                        <tr key={row.id} className="hover:bg-[var(--bg-main)]">
+                          <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-1.5 z-10">
+                            <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[160px]">
+                              {row.name}
+                            </div>
+                            <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                              {row.role.replace(/_/g, ' ')}
+                            </div>
+                          </td>
+                          {monthDays.map((d) => {
+                            const key = toKey(d);
+                            const isToday = key === todayKey;
+                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                            return (
+                              <td
+                                key={key}
+                                className={`px-0.5 py-1.5 text-center ${
+                                  isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
+                                }`}
+                              >
+                                {renderGridCell(cellMap.get(key), openEdit)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-[var(--border-color)] px-4 py-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
+              {SHIFT_TYPES.map((t) => (
+                <span key={t.value} className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>
+                    {t.letter}
+                  </span>
+                  {t.label}
+                </span>
+              ))}
+              <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">
+                Total: {filteredShifts.length} shifts this month
+              </span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Add / Edit modal */}
       {showForm && (
@@ -484,29 +835,23 @@ export default function ShiftManagement() {
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Staff Member *
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Staff Member *</label>
                 <select
                   value={formData.userId}
                   onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
                   disabled={!!editingId}
-                  required
+                  required={!editingId}
                   className={inputClass}
                 >
                   <option value="">— Select staff —</option>
                   {userList.map((u: any) => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} (@{u.username})
-                    </option>
+                    <option key={u.id} value={u.id}>{u.fullName} (@{u.username})</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Date *
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Date *</label>
                 <input
                   type="date"
                   value={formData.shiftDate}
@@ -518,9 +863,7 @@ export default function ShiftManagement() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Start *
-                  </label>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Start *</label>
                   <input
                     type="time"
                     value={formData.startTime}
@@ -530,9 +873,7 @@ export default function ShiftManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    End *
-                  </label>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">End *</label>
                   <input
                     type="time"
                     value={formData.endTime}
@@ -544,9 +885,7 @@ export default function ShiftManagement() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Shift Type *
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Shift Type *</label>
                 <select
                   value={formData.shiftType}
                   onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as any })}
@@ -554,23 +893,19 @@ export default function ShiftManagement() {
                   className={inputClass}
                 >
                   {SHIFT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label} ({t.time})
-                    </option>
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Notes
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={2}
                   className={`${inputClass} resize-none`}
-                  placeholder="Optional note for the shift"
+                  placeholder="Optional note"
                 />
               </div>
 
