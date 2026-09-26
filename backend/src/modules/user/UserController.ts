@@ -107,10 +107,16 @@ export class UserController extends BaseController {
       fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
       toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
       page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 50,
+      limit: parseInt(req.query.limit as string) || 500,
     };
 
-    const result = await this.service.getAllShifts(filters);
+    const actor = {
+      userId: req.user!.userId,
+      role: req.user!.role,
+      departmentId: (req.user as any).departmentId ?? null,
+    };
+
+    const result = await this.service.getAllShifts(filters, actor);
     return this.paginated(
       res,
       result.shifts,
@@ -118,7 +124,7 @@ export class UserController extends BaseController {
       'Shifts retrieved',
     );
   });
-
+  
   getShiftById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const shift = await this.service.getShiftById(req.params.id);
     if (!shift) return this.notFound(res, 'Shift');

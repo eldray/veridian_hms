@@ -141,14 +141,47 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.vitals.delete({ where: { id: vitalsId } });
   }
 
-  async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
-    const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
-    if (!stockItem) throw new Error('Stock item not found');
-    return this.prisma.medication.create({
-      data: { attendanceId: encounterId, stockItemId: data.stockItemId, serviceCatalogId: data.serviceCatalogId, name: stockItem.name, dosage: data.dosage, frequency: data.frequency, duration: data.duration, route: data.route, instructions: data.instructions, quantity: data.quantity || 1, status: 'prescribed', prescribedById: userId, prescribedAt: new Date() },
-      include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } }
+async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
+  let stockItemId: string | undefined = data.stockItemId;
+
+  if (!stockItemId && data.serviceCatalogId) {
+    const catalogEntry = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      select: { stockItemId: true, name: true, code: true },
     });
+    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+    if (!catalogEntry.stockItemId) {
+      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a stock item`);
+    }
+    stockItemId = catalogEntry.stockItemId;
   }
+
+  if (!stockItemId) throw new Error('A stock item or service catalog entry is required');
+
+  const stockItem = await this.prisma.stockItem.findUnique({ where: { id: stockItemId } });
+  if (!stockItem) throw new Error(`Stock item ${stockItemId} does not exist`);
+
+  return this.prisma.medication.create({
+    data: {
+      attendanceId: encounterId,
+      stockItemId: stockItem.id,
+      serviceCatalogId: data.serviceCatalogId ?? null,
+      name: stockItem.name,
+      dosage: data.dosage ?? null,
+      frequency: data.frequency ?? null,
+      duration: data.duration ?? null,
+      route: data.route ?? null,
+      instructions: data.instructions ?? null,
+      quantity: data.quantity ?? 1,
+      status: 'prescribed',
+      prescribedById: userId,
+      prescribedAt: new Date(),
+    },
+    include: {
+      StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+    },
+  });
+}
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
@@ -231,12 +264,58 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.medication.update({ where: { id: medicationId }, data: { status: 'cancelled' } });
   }
 
-  async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
-    return this.prisma.labTest.create({
-      data: { attendanceId: encounterId, templateId: data.templateId, serviceCatalogId: data.serviceCatalogId, status: 'requested', priority: data.priority || 'routine', requestedAt: new Date(), createdById: userId, notes: data.notes },
-      include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } }
+async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
+  // ─────────────────────────────────────────────────────────────
+  // Resolve templateId from the ServiceCatalog link if the caller
+  // didn't provide one. The frontend sends `serviceCatalogId` only;
+  // we walk the relation to find the underlying LabTestTemplate.
+  // ─────────────────────────────────────────────────────────────
+  let templateId: string | undefined = data.templateId;
+
+  if (!templateId && data.serviceCatalogId) {
+    const catalogEntry = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      select: { labTestTemplateId: true, name: true, code: true },
     });
+
+    if (!catalogEntry) {
+      throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+    }
+    if (!catalogEntry.labTestTemplateId) {
+      throw new Error(
+        `ServiceCatalog entry "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a lab test template. ` +
+        `Ask an admin to fix the catalog linkage.`,
+      );
+    }
+    templateId = catalogEntry.labTestTemplateId;
   }
+
+  if (!templateId) {
+    throw new Error('A lab test template or service catalog entry is required');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Prisma rule: never pass `undefined` for a scalar FK in `create`.
+  // Either omit the key entirely or provide a real value. We always
+  // have a real `templateId` at this point, so the key is always set.
+  // ─────────────────────────────────────────────────────────────
+  return this.prisma.labTest.create({
+    data: {
+      attendanceId: encounterId,
+      templateId,
+      serviceCatalogId: data.serviceCatalogId ?? null,
+      status: 'requested',
+      priority: data.priority ?? 'routine',
+      requestedAt: new Date(),
+      createdById: userId,
+      notes: data.notes ?? null,
+    },
+    include: {
+      LabTestTemplate: true,
+      ServiceCatalog: { select: { id: true, name: true, code: true } },
+    },
+  });
+}
 
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId?: string) {
     const updateData: any = { status, ...data };
@@ -249,14 +328,42 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.labTest.update({ where: { id: labOrderId }, data: { status: 'cancelled' } });
   }
 
-  async addScan(encounterId: string, data: any, userId: string) {
-    const template = await this.prisma.scanTemplate.findUnique({ where: { id: data.templateId } });
-    if (!template) throw new Error('Scan template not found');
-    return this.prisma.scan.create({
-      data: { attendanceId: encounterId, templateId: template.id, serviceCatalogId: data.serviceCatalogId, scanType: template.scanType || template.name, description: template.description, bodyPart: data.bodyPart, status: 'requested', priority: data.priority || 'routine', requestedAt: new Date(), createdById: userId },
-      include: { ScanTemplate: true }
+async addScan(encounterId: string, data: any, userId: string) {
+  let templateId: string | undefined = data.templateId;
+
+  if (!templateId && data.serviceCatalogId) {
+    const catalogEntry = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      select: { scanTemplateId: true, name: true, code: true },
     });
+    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+    if (!catalogEntry.scanTemplateId) {
+      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a scan template`);
+    }
+    templateId = catalogEntry.scanTemplateId;
   }
+
+  if (!templateId) throw new Error('A scan template or service catalog entry is required');
+
+  const template = await this.prisma.scanTemplate.findUnique({ where: { id: templateId } });
+  if (!template) throw new Error(`Scan template ${templateId} does not exist`);
+
+  return this.prisma.scan.create({
+    data: {
+      attendanceId: encounterId,
+      templateId: template.id,
+      serviceCatalogId: data.serviceCatalogId ?? null,
+      scanType: template.scanType || template.name,
+      description: template.description ?? null,
+      bodyPart: data.bodyPart ?? null,
+      status: 'requested',
+      priority: data.priority ?? 'routine',
+      requestedAt: new Date(),
+      createdById: userId,
+    },
+    include: { ScanTemplate: true },
+  });
+}
 
   async updateScanStatus(scanId: string, status: string, data: any) {
     const updateData: any = { status, ...data };
@@ -268,14 +375,40 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.scan.update({ where: { id: scanId }, data: { status: 'cancelled' } });
   }
 
-  async addProcedure(encounterId: string, data: any, userId: string) {
-    const template = await this.prisma.procedureTemplate.findUnique({ where: { id: data.templateId } });
-    if (!template) throw new Error('Procedure template not found');
-    return this.prisma.procedure.create({
-      data: { attendanceId: encounterId, templateId: template.id, serviceCatalogId: data.serviceCatalogId, status: 'scheduled', scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null, notes: data.notes, duration: data.duration, createdById: userId },
-      include: { ProcedureTemplate: true }
+async addProcedure(encounterId: string, data: any, userId: string) {
+  let templateId: string | undefined = data.templateId;
+
+  if (!templateId && data.serviceCatalogId) {
+    const catalogEntry = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      select: { procedureTemplateId: true, name: true, code: true },
     });
+    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+    if (!catalogEntry.procedureTemplateId) {
+      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a procedure template`);
+    }
+    templateId = catalogEntry.procedureTemplateId;
   }
+
+  if (!templateId) throw new Error('A procedure template or service catalog entry is required');
+
+  const template = await this.prisma.procedureTemplate.findUnique({ where: { id: templateId } });
+  if (!template) throw new Error(`Procedure template ${templateId} does not exist`);
+
+  return this.prisma.procedure.create({
+    data: {
+      attendanceId: encounterId,
+      templateId: template.id,
+      serviceCatalogId: data.serviceCatalogId ?? null,
+      status: 'scheduled',
+      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+      notes: data.notes ?? null,
+      duration: data.duration ?? null,
+      createdById: userId,
+    },
+    include: { ProcedureTemplate: true },
+  });
+}
 
   async updateProcedureStatus(procedureId: string, status: string, data: any) {
     const updateData: any = { status, ...data };

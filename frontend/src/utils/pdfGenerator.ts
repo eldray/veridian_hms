@@ -72,10 +72,29 @@ export const generatePDF = (
       return generateScanReportHTML(data.scans, data.patient, data.attendance, hospital);
     case 'handover':
       return generateHandoverHTML(data, hospital);
-    case 'shiftRota':
-      return generateShiftRotaHTML(data.shifts, data.weekStart, hospital);
-    case 'shiftSummary':
-      return generateShiftSummaryHTML(data.shifts, data.month, data.year, hospital);
+case 'shiftRota':
+  return generateShiftRotaHTML(
+    data.shifts,
+    data.weekStart,
+    hospital,
+    {
+      departments: data.departments,
+      users: data.users,
+      departmentName: data.departmentName,
+    },
+  );
+case 'shiftSummary':
+  return generateShiftSummaryHTML(
+    data.shifts,
+    data.month,
+    data.year,
+    hospital,
+    {
+      departments: data.departments,
+      users: data.users,
+      departmentName: data.departmentName,
+    },
+  );
     case 'leaveRegister':
       return generateLeaveRegisterHTML(data.leaves, data.year, data.staffFilter ?? null, hospital);
     case 'leaveRequestForm':

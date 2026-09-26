@@ -6,6 +6,7 @@ import {
   createShift as createShiftApi,
   updateShift as updateShiftApi,
   deleteShift as deleteShiftApi,
+  getDepartments as getDepartmentsApi,
 } from '../api';
 
 export interface AdminShift {
@@ -21,6 +22,14 @@ export interface AdminShift {
   updatedAt: string;
 }
 
+export interface ShiftDepartment {
+  id: string;
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+  isActive?: boolean;
+}
+
 interface ShiftFilters {
   userId?: string;
   departmentId?: string;
@@ -34,11 +43,14 @@ interface ShiftFilters {
 interface ShiftState {
   shifts: AdminShift[];
   total: number;
+  departments: ShiftDepartment[];
   isLoading: boolean;
+  isDepartmentsLoading: boolean;
   error: string | null;
   filters: ShiftFilters;
 
   fetchShifts: (filters?: ShiftFilters) => Promise<void>;
+  fetchDepartments: () => Promise<void>;
   createShift: (data: {
     userId: string;
     shiftDate: string;
@@ -54,12 +66,14 @@ interface ShiftState {
   clearError: () => void;
 }
 
-const DEFAULT_LIMIT = 200;
+const DEFAULT_LIMIT = 1000;
 
 export const useShiftStore = create<ShiftState>((set, get) => ({
   shifts: [],
   total: 0,
+  departments: [],
   isLoading: false,
+  isDepartmentsLoading: false,
   error: null,
   filters: { page: 1, limit: DEFAULT_LIMIT },
 
@@ -69,8 +83,6 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
 
     try {
       const response: any = await getShiftsApi(filters);
-      // api.getShifts returns r.data?.data || r.data
-      // Backend returns { success, data: [...], pagination: {...} }
       const list = Array.isArray(response) ? response : (response?.data ?? response?.shifts ?? []);
       const pagination = response?.pagination ?? null;
 
@@ -85,6 +97,21 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
         error: err?.response?.data?.message || err?.message || 'Failed to fetch shifts',
       });
       throw err;
+    }
+  },
+
+  fetchDepartments: async () => {
+    if (get().departments.length > 0) return; // already cached
+    set({ isDepartmentsLoading: true });
+    try {
+      const response: any = await getDepartmentsApi();
+      const list = Array.isArray(response) ? response : (response?.data ?? []);
+      set({ departments: list.filter((d: any) => d.isActive !== false), isDepartmentsLoading: false });
+    } catch (err: any) {
+      set({
+        isDepartmentsLoading: false,
+        error: err?.response?.data?.message || 'Failed to load departments',
+      });
     }
   },
 

@@ -299,10 +299,34 @@ export class UserService extends BaseService {
   // SHIFT MANAGEMENT
   // ==========================================
 
-  async getAllShifts(filters: ShiftFilters = {}) {
-    return this.repository.findAllShifts(filters);
+  /**
+   * Returns shifts for the caller.
+   *
+   * If the caller is admin / hr_officer / super_admin, they see every department
+   * and can filter by departmentId explicitly.
+   *
+   * For everyone else, the result is forced to their own department — they cannot
+   * see the wider hospital rota regardless of the query string.
+   */
+  async getAllShifts(
+    filters: ShiftFilters = {},
+    actor?: { userId: string; role: string; departmentId?: string | null },
+  ) {
+    const scoped: ShiftFilters = { ...filters };
+
+    if (actor) {
+      const isAdminLike = ADMIN_LIKE_ROLES.includes(actor.role);
+      if (!isAdminLike) {
+        // Force to the caller's own department. If they have no department,
+        // they see nothing — an empty department is safer than leaking.
+        scoped.departmentId = actor.departmentId ?? '__none__';
+      }
+    }
+
+    return this.repository.findAllShifts(scoped);
   }
 
+  
   async createShift(data: CreateShiftDTO, actor: { userId: string; ipAddress?: string; userAgent?: string }) {
     const user = await this.repository.findById(data.userId);
     if (!user) throw new Error('User not found');

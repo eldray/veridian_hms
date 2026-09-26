@@ -2,13 +2,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShiftStore } from '../store/shiftStore';
 import { useUserStore } from '../store/userStore';
+import { useAuthStore } from '../store/authStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useToast } from '../store/toastStore';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import {
   Calendar, Clock, Plus, Search, RefreshCw, X, Trash2, Edit,
-  ChevronLeft, ChevronRight, User as UserIcon, Printer, List,
-  Table2, Grid3x3,
+  ChevronLeft, ChevronRight, ChevronDown, User as UserIcon,
+  Printer, List, Table2, Grid3x3, Building,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
@@ -22,6 +23,8 @@ const SHIFT_TYPES = [
   { value: 'on_call',   label: 'On Call',   letter: 'C', color: 'bg-blue-100 text-blue-700'     },
 ];
 
+const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
+
 const shiftColor = (letter: string) => {
   switch (letter) {
     case 'M': return 'bg-green-100 text-green-700 border-green-200';
@@ -32,7 +35,8 @@ const shiftColor = (letter: string) => {
   }
 };
 
-const shiftLetter = (type: string) => SHIFT_TYPES.find((t) => t.value === type)?.letter ?? '?';
+const shiftLetter = (type: string) =>
+  SHIFT_TYPES.find((t) => t.value === type)?.letter ?? '?';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -50,7 +54,7 @@ const toKey = (d: Date) => toInputDate(d);
 const startOfWeek = (d: Date) => {
   const copy = new Date(d);
   const day = copy.getDay();
-  const diff = copy.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
   copy.setDate(diff);
   copy.setHours(0, 0, 0, 0);
   return copy;
@@ -74,19 +78,33 @@ const timeToHHmm = (iso: string) => {
 };
 
 // ─────────────────────────────────────────────
-// Page
+// Types
 // ─────────────────────────────────────────────
 
 type ViewMode = 'list' | 'week' | 'month';
 
+interface DeptGroup {
+  departmentId: string | null;
+  departmentName: string;
+  departmentColor: string;
+  staffRows: Array<{ id: string; name: string; role: string; departmentId: string | null }>;
+}
+
+// ─────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────
+
 export default function ShiftManagement() {
   const {
-    shifts, total, isLoading,
-    fetchShifts, createShift, updateShift, deleteShift,
+    shifts, total, departments, isLoading,
+    fetchShifts, fetchDepartments, createShift, updateShift, deleteShift,
   } = useShiftStore();
   const { users, getAllUsers } = useUserStore();
   const { hospital, fetchHospital } = useHospitalStore();
+  const { hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
+
+  const canSeeAllDepartments = hasRole(ADMIN_LIKE_ROLES);
 
   const [view, setView] = useState<ViewMode>('week');
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
@@ -99,6 +117,8 @@ export default function ShiftManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterShiftType, setFilterShiftType] = useState('all');
   const [filterUserId, setFilterUserId] = useState('all');
+  const [filterDepartmentId, setFilterDepartmentId] = useState<string>('all');
+  const [collapsedDepts, setCollapsedDepts] = useState<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,33 +134,41 @@ export default function ShiftManagement() {
     notes: '',
   });
 
-  // ── Data loading ─────────────────────────────
+  // ── Bootstrapping ────────────────────────────
   useEffect(() => {
     void getAllUsers({ isActive: true });
     void fetchHospital().catch(() => {});
-  }, []);
+    if (canSeeAllDepartments) {
+      void fetchDepartments();
+    }
+  }, [canSeeAllDepartments]);
 
+  // ── Shift fetching per view ──────────────────
   useEffect(() => {
+    const departmentId = filterDepartmentId !== 'all' ? filterDepartmentId : undefined;
+
     if (view === 'week') {
       const end = new Date(weekStart);
       end.setDate(end.getDate() + 6);
       void fetchShifts({
         fromDate: weekStart.toISOString(),
         toDate: end.toISOString(),
-        limit: 500,
+        limit: 1000,
+        departmentId,
       });
     } else if (view === 'month') {
-      const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
-      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+      const ms = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+      const me = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
       void fetchShifts({
-        fromDate: monthStart.toISOString(),
-        toDate: monthEnd.toISOString(),
-        limit: 1000,
+        fromDate: ms.toISOString(),
+        toDate: me.toISOString(),
+        limit: 2000,
+        departmentId,
       });
     } else {
-      void fetchShifts({ limit: 500 });
+      void fetchShifts({ limit: 1000, departmentId });
     }
-  }, [view, weekStart, monthCursor]);
+  }, [view, weekStart, monthCursor, filterDepartmentId]);
 
   const userList = Array.isArray(users) ? users : [];
 
@@ -148,12 +176,8 @@ export default function ShiftManagement() {
   const filteredShifts = useMemo(() => {
     let list = [...shifts];
 
-    if (filterUserId !== 'all') {
-      list = list.filter((s) => s.userId === filterUserId);
-    }
-    if (filterShiftType !== 'all') {
-      list = list.filter((s) => s.shiftType === filterShiftType);
-    }
+    if (filterUserId !== 'all') list = list.filter((s) => s.userId === filterUserId);
+    if (filterShiftType !== 'all') list = list.filter((s) => s.shiftType === filterShiftType);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((s) => {
@@ -162,18 +186,41 @@ export default function ShiftManagement() {
         return name.includes(q) || notes.includes(q);
       });
     }
-
     return list.sort((a, b) => new Date(a.shiftDate).getTime() - new Date(b.shiftDate).getTime());
   }, [shifts, filterUserId, filterShiftType, searchQuery]);
 
+  // ── Departments lookup ───────────────────────
+  const departmentById = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+    for (const d of departments) {
+      map.set(d.id, { name: d.name, color: d.color || '#0891b2' });
+    }
+    return map;
+  }, [departments]);
+
+  const userById = useMemo(() => {
+    const map = new Map<string, { id: string; fullName: string; role: string; departmentId: string | null; username?: string }>();
+    for (const u of userList) {
+      map.set(u.id, {
+        id: u.id,
+        fullName: u.fullName,
+        role: u.role,
+        departmentId: (u as any).departmentId ?? null,
+        username: (u as any).username,
+      });
+    }
+    return map;
+  }, [userList]);
+
   // ── Grid data ────────────────────────────────
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       return d;
-    });
-  }, [weekStart]);
+    }),
+    [weekStart],
+  );
 
   const monthDays = useMemo(() => {
     const first = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
@@ -185,35 +232,95 @@ export default function ShiftManagement() {
     });
   }, [monthCursor]);
 
-  const buildGrid = (list: any[]) => {
+  /**
+   * Build the department-grouped structure.
+   * If filterDepartmentId !== 'all', we return a single group.
+   * Otherwise we group all staff by their departmentId.
+   */
+  const buildDeptGroups = (list: any[]): DeptGroup[] => {
+    // grid: userId → dateKey → shifts[]
     const grid = new Map<string, Map<string, any[]>>();
-    const staff = new Map<string, { id: string; name: string; role: string }>();
+
+    // staff seen in this list
+    const staffSeen = new Map<string, { id: string; name: string; role: string; departmentId: string | null }>();
 
     for (const s of list) {
       if (!s.userId) continue;
-      if (!staff.has(s.userId)) {
-        staff.set(s.userId, {
+      const meta = userById.get(s.userId);
+
+      if (!staffSeen.has(s.userId)) {
+        staffSeen.set(s.userId, {
           id: s.userId,
-          name: s.user?.fullName || '—',
-          role: s.user?.role || '',
+          name: s.user?.fullName || meta?.fullName || '—',
+          role: s.user?.role || meta?.role || '',
+          departmentId: meta?.departmentId ?? null,
         });
       }
+
       if (!grid.has(s.userId)) grid.set(s.userId, new Map());
-
-      const key = (s.shiftDate || '').split('T')[0];
-      if (!key) continue;
-
+      const dateKey = (s.shiftDate || '').split('T')[0];
+      if (!dateKey) continue;
       const cellMap = grid.get(s.userId)!;
-      if (!cellMap.has(key)) cellMap.set(key, []);
-      cellMap.get(key)!.push(s);
+      if (!cellMap.has(dateKey)) cellMap.set(dateKey, []);
+      cellMap.get(dateKey)!.push(s);
     }
 
-    const staffRows = Array.from(staff.values()).sort((a, b) => a.name.localeCompare(b.name));
-    return { grid, staffRows };
+    // Group staff by department
+    const groups = new Map<string, { name: string; color: string; rows: DeptGroup['staffRows'] }>();
+
+    for (const staff of staffSeen.values()) {
+      const deptId = staff.departmentId ?? '__unassigned__';
+      const deptMeta = departmentById.get(deptId);
+
+      const deptName =
+        deptId === '__unassigned__'
+          ? 'Unassigned'
+          : deptMeta?.name ?? 'Unknown Department';
+      const deptColor =
+        deptId === '__unassigned__'
+          ? '#94a3b8'
+          : deptMeta?.color ?? '#0891b2';
+
+      if (!groups.has(deptId)) {
+        groups.set(deptId, { name: deptName, color: deptColor, rows: [] });
+      }
+      groups.get(deptId)!.rows.push(staff);
+    }
+
+    // Sort departments alphabetically, with Unassigned last
+    const ordered = Array.from(groups.entries()).sort((a, b) => {
+      if (a[0] === '__unassigned__') return 1;
+      if (b[0] === '__unassigned__') return -1;
+      return a[1].name.localeCompare(b[1].name);
+    });
+
+    return ordered.map(([deptId, group]) => ({
+      departmentId: deptId === '__unassigned__' ? null : deptId,
+      departmentName: group.name,
+      departmentColor: group.color,
+      staffRows: group.rows.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
   };
 
-  const { grid: weekGrid, staffRows: weekStaff } = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
-  const { grid: monthGrid, staffRows: monthStaff } = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
+  // Build a lookup: userId → dateKey → shifts[] for rendering cells
+  const buildGrid = (list: any[]) => {
+    const grid = new Map<string, Map<string, any[]>>();
+    for (const s of list) {
+      if (!s.userId) continue;
+      if (!grid.has(s.userId)) grid.set(s.userId, new Map());
+      const dateKey = (s.shiftDate || '').split('T')[0];
+      if (!dateKey) continue;
+      const cellMap = grid.get(s.userId)!;
+      if (!cellMap.has(dateKey)) cellMap.set(dateKey, []);
+      cellMap.get(dateKey)!.push(s);
+    }
+    return grid;
+  };
+
+  const weekDeptGroups = useMemo(() => buildDeptGroups(filteredShifts), [filteredShifts, userById, departmentById]);
+  const monthDeptGroups = useMemo(() => buildDeptGroups(filteredShifts), [filteredShifts, userById, departmentById]);
+  const weekGrid = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
+  const monthGrid = useMemo(() => buildGrid(filteredShifts), [filteredShifts]);
 
   const todayKey = toKey(new Date());
 
@@ -275,16 +382,17 @@ export default function ShiftManagement() {
       setShowForm(false);
       setEditingId(null);
       // refresh current view
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
-      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+      const departmentId = filterDepartmentId !== 'all' ? filterDepartmentId : undefined;
       if (view === 'week') {
-        void fetchShifts({ fromDate: weekStart.toISOString(), toDate: weekEnd.toISOString(), limit: 500 });
+        const end = new Date(weekStart);
+        end.setDate(end.getDate() + 6);
+        void fetchShifts({ fromDate: weekStart.toISOString(), toDate: end.toISOString(), limit: 1000, departmentId });
       } else if (view === 'month') {
-        void fetchShifts({ fromDate: monthStart.toISOString(), toDate: monthEnd.toISOString(), limit: 1000 });
+        const ms = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+        const me = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
+        void fetchShifts({ fromDate: ms.toISOString(), toDate: me.toISOString(), limit: 2000, departmentId });
       } else {
-        void fetchShifts({ limit: 500 });
+        void fetchShifts({ limit: 1000, departmentId });
       }
     } catch (err: any) {
       toastError('Failed', err?.response?.data?.message || 'Could not save shift');
@@ -303,14 +411,34 @@ export default function ShiftManagement() {
     }
   };
 
+  const toggleDeptCollapsed = (deptId: string) => {
+    setCollapsedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(deptId)) next.delete(deptId);
+      else next.add(deptId);
+      return next;
+    });
+  };
+
   // ── Printing ─────────────────────────────────
   const handlePrint = async (kind: 'week' | 'month') => {
     setPrinting(true);
     try {
+      // Pass department context to the PDF
+      const departmentContext = filterDepartmentId !== 'all'
+        ? departmentById.get(filterDepartmentId)?.name ?? null
+        : null;
+
       if (kind === 'week') {
         const html = generatePDF(
           'shiftRota',
-          { shifts: filteredShifts, weekStart: weekStart.toISOString() },
+          {
+            shifts: filteredShifts,
+            weekStart: weekStart.toISOString(),
+            departments,
+            users: userList,
+            departmentName: departmentContext,
+          },
           hospital,
         );
         openPrintWindow(html, `Shift Rota — week of ${weekStart.toDateString()}`);
@@ -322,10 +450,16 @@ export default function ShiftManagement() {
             shifts: filteredShifts,
             month: monthCursor.getMonth() + 1,
             year: monthCursor.getFullYear(),
+            departments,
+            users: userList,
+            departmentName: departmentContext,
           },
           hospital,
         );
-        openPrintWindow(html, `Shift Summary — ${monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+        openPrintWindow(
+          html,
+          `Shift Summary — ${monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
+        );
         success('Print ready', 'Monthly rota opened');
       }
     } catch (err: any) {
@@ -335,39 +469,25 @@ export default function ShiftManagement() {
     }
   };
 
-  // ── Week/month navigation ───────────────────
-  const prevWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    setWeekStart(d);
-  };
-  const nextWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    setWeekStart(d);
-  };
+  // ── Nav ──────────────────────────────────────
+  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); };
+  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
   const todayWeek = () => setWeekStart(startOfWeek(new Date()));
 
-  const prevMonth = () => {
-    const d = new Date(monthCursor);
-    d.setMonth(d.getMonth() - 1);
-    setMonthCursor(d);
-  };
-  const nextMonth = () => {
-    const d = new Date(monthCursor);
-    d.setMonth(d.getMonth() + 1);
-    setMonthCursor(d);
-  };
-  const todayMonth = () => {
-    const d = new Date();
-    d.setDate(1);
-    setMonthCursor(d);
-  };
+  const prevMonth = () => { const d = new Date(monthCursor); d.setMonth(d.getMonth() - 1); setMonthCursor(d); };
+  const nextMonth = () => { const d = new Date(monthCursor); d.setMonth(d.getMonth() + 1); setMonthCursor(d); };
+  const todayMonth = () => { const d = new Date(); d.setDate(1); setMonthCursor(d); };
 
   const inputClass =
     'w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
 
-  // ── Render cell helpers ─────────────────────
+  // Staff filtered by department (for the create form)
+  const staffForForm = useMemo(() => {
+    if (filterDepartmentId === 'all') return userList;
+    return userList.filter((u: any) => (u as any).departmentId === filterDepartmentId);
+  }, [userList, filterDepartmentId]);
+
+  // ── Cell renderer ────────────────────────────
   const renderGridCell = (cells: any[] | undefined, onEdit: (s: any) => void) => {
     if (!cells || cells.length === 0) {
       return <span className="text-[var(--text-tertiary)] text-[10px]">—</span>;
@@ -404,16 +524,17 @@ export default function ShiftManagement() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
+              const departmentId = filterDepartmentId !== 'all' ? filterDepartmentId : undefined;
               if (view === 'week') {
                 const end = new Date(weekStart);
                 end.setDate(end.getDate() + 6);
-                void fetchShifts({ fromDate: weekStart.toISOString(), toDate: end.toISOString(), limit: 500 });
+                void fetchShifts({ fromDate: weekStart.toISOString(), toDate: end.toISOString(), limit: 1000, departmentId });
               } else if (view === 'month') {
                 const ms = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
                 const me = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0, 23, 59, 59);
-                void fetchShifts({ fromDate: ms.toISOString(), toDate: me.toISOString(), limit: 1000 });
+                void fetchShifts({ fromDate: ms.toISOString(), toDate: me.toISOString(), limit: 2000, departmentId });
               } else {
-                void fetchShifts({ limit: 500 });
+                void fetchShifts({ limit: 1000, departmentId });
               }
             }}
             disabled={isLoading}
@@ -435,9 +556,9 @@ export default function ShiftManagement() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1 max-w-md">
           {[
-            { id: 'list',  label: 'List',   icon: List      },
-            { id: 'week',  label: 'Week',   icon: Table2    },
-            { id: 'month', label: 'Month',  icon: Grid3x3   },
+            { id: 'list',  label: 'List',  icon: List    },
+            { id: 'week',  label: 'Week',  icon: Table2  },
+            { id: 'month', label: 'Month', icon: Grid3x3 },
           ].map((t) => {
             const Icon = t.icon;
             return (
@@ -461,7 +582,6 @@ export default function ShiftManagement() {
             onClick={() => handlePrint('week')}
             disabled={printing}
             className="flex items-center gap-1.5 px-3 py-2 text-xs border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Print weekly rota (landscape)"
           >
             <Printer className="w-3.5 h-3.5" /> Weekly Rota
           </button>
@@ -469,7 +589,6 @@ export default function ShiftManagement() {
             onClick={() => handlePrint('month')}
             disabled={printing}
             className="flex items-center gap-1.5 px-3 py-2 text-xs border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Print monthly rota (landscape)"
           >
             <Printer className="w-3.5 h-3.5" /> Monthly Rota
           </button>
@@ -489,16 +608,35 @@ export default function ShiftManagement() {
               className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
             />
           </div>
+
+          {/* Department filter — admin only */}
+          {canSeeAllDepartments && (
+            <select
+              value={filterDepartmentId}
+              onChange={(e) => {
+                setFilterDepartmentId(e.target.value);
+                setFilterUserId('all');
+              }}
+              className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm min-w-[200px]"
+            >
+              <option value="all">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
+
           <select
             value={filterUserId}
             onChange={(e) => setFilterUserId(e.target.value)}
             className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm min-w-[180px]"
           >
             <option value="all">All staff</option>
-            {userList.map((u: any) => (
+            {(filterDepartmentId === 'all' ? userList : staffForForm).map((u: any) => (
               <option key={u.id} value={u.id}>{u.fullName}</option>
             ))}
           </select>
+
           <select
             value={filterShiftType}
             onChange={(e) => setFilterShiftType(e.target.value)}
@@ -510,6 +648,12 @@ export default function ShiftManagement() {
             ))}
           </select>
         </div>
+
+        {canSeeAllDepartments && filterDepartmentId !== 'all' && (
+          <p className="text-[10px] text-[var(--text-tertiary)] mt-3 pt-3 border-t border-[var(--border-color)]">
+            Scoped to <strong className="text-[var(--text-primary)]">{departmentById.get(filterDepartmentId)?.name ?? '—'}</strong>
+          </p>
+        )}
       </div>
 
       {/* ───────── LIST VIEW ───────── */}
@@ -534,56 +678,65 @@ export default function ShiftManagement() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--border-color)]">
-              {filteredShifts.map((shift) => (
-                <div
-                  key={shift.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                      <UserIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+              {filteredShifts.map((shift) => {
+                const meta = userById.get(shift.userId);
+                const dept = meta?.departmentId ? departmentById.get(meta.departmentId) : null;
+                return (
+                  <div
+                    key={shift.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                        <UserIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                          {shift.user?.fullName || meta?.fullName || '—'}
+                        </p>
+                        <p className="text-xs text-[var(--text-tertiary)] flex items-center gap-1.5">
+                          {dept && (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: dept.color }} />
+                              {dept.name}
+                            </span>
+                          )}
+                          {!dept && <span className="italic">Unassigned</span>}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                        {shift.user?.fullName || '—'}
-                      </p>
-                      <p className="text-xs text-[var(--text-tertiary)]">
-                        @{shift.user?.username ?? '—'}
-                        {shift.user?.role && ` · ${shift.user.role.replace(/_/g, ' ')}`}
-                      </p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(shift.shiftDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${shiftColor(shiftLetter(shift.shiftType))}`}>
+                        {shift.shiftType.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => openEdit(shift)}
+                        className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)]"
+                        title="Edit"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(shift.id)}
+                        className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1 text-[var(--text-secondary)]">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {new Date(shift.shiftDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="flex items-center gap-1 text-[var(--text-secondary)]">
-                      <Clock className="w-3.5 h-3.5" />
-                      {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${shiftColor(shiftLetter(shift.shiftType))}`}>
-                      {shift.shiftType.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => openEdit(shift)}
-                      className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)]"
-                      title="Edit"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(shift.id)}
-                      className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -592,7 +745,6 @@ export default function ShiftManagement() {
       {/* ───────── WEEK VIEW ───────── */}
       {view === 'week' && (
         <>
-          {/* Week navigation */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm font-semibold text-[var(--text-primary)]">
               {weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} –{' '}
@@ -611,13 +763,12 @@ export default function ShiftManagement() {
             </div>
           </div>
 
-          {/* Week grid */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] border-collapse">
                 <thead>
                   <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[180px] z-10">
+                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[200px] z-10">
                       Staff
                     </th>
                     {weekDays.map((d) => {
@@ -644,42 +795,68 @@ export default function ShiftManagement() {
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {weekStaff.length === 0 ? (
+                <tbody>
+                  {weekDeptGroups.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
                         No shifts scheduled this week
                       </td>
                     </tr>
                   ) : (
-                    weekStaff.map((row) => {
-                      const cellMap = weekGrid.get(row.id) ?? new Map();
+                    weekDeptGroups.map((group) => {
+                      const groupKey = group.departmentId ?? '__unassigned__';
+                      const isCollapsed = collapsedDepts.has(groupKey);
                       return (
-                        <tr key={row.id} className="hover:bg-[var(--bg-main)]">
-                          <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-2 z-10">
-                            <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[160px]">
-                              {row.name}
-                            </div>
-                            <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
-                              {row.role.replace(/_/g, ' ')}
-                            </div>
-                          </td>
-                          {weekDays.map((d) => {
-                            const key = toKey(d);
-                            const isToday = key === todayKey;
-                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                            return (
-                              <td
-                                key={key}
-                                className={`px-1 py-2 text-center ${
-                                  isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
-                                }`}
+                        <>
+                          {/* Department group header */}
+                          <tr key={`header-${groupKey}`} className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                            <td colSpan={8} className="px-3 py-1.5">
+                              <button
+                                onClick={() => toggleDeptCollapsed(groupKey)}
+                                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                               >
-                                {renderGridCell(cellMap.get(key), openEdit)}
-                              </td>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                <span className="inline-block w-2 h-2 rounded-full" style={{ background: group.departmentColor }} />
+                                {group.departmentName}
+                                <span className="ml-1 text-[var(--text-tertiary)] font-normal normal-case tracking-normal">
+                                  · {group.staffRows.length} staff
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Staff rows */}
+                          {!isCollapsed && group.staffRows.map((row) => {
+                            const cellMap = weekGrid.get(row.id) ?? new Map();
+                            return (
+                              <tr key={row.id} className="hover:bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                                <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-2 z-10">
+                                  <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[180px]">
+                                    {row.name}
+                                  </div>
+                                  <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                                    {row.role.replace(/_/g, ' ')}
+                                  </div>
+                                </td>
+                                {weekDays.map((d) => {
+                                  const key = toKey(d);
+                                  const isToday = key === todayKey;
+                                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                  return (
+                                    <td
+                                      key={key}
+                                      className={`px-1 py-2 text-center ${
+                                        isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
+                                      }`}
+                                    >
+                                      {renderGridCell(cellMap.get(key), openEdit)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
                             );
                           })}
-                        </tr>
+                        </>
                       );
                     })
                   )}
@@ -687,7 +864,6 @@ export default function ShiftManagement() {
               </table>
             </div>
 
-            {/* Legend */}
             <div className="border-t border-[var(--border-color)] px-4 py-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
               {SHIFT_TYPES.map((t) => (
                 <span key={t.value} className="flex items-center gap-1.5">
@@ -708,7 +884,6 @@ export default function ShiftManagement() {
       {/* ───────── MONTH VIEW ───────── */}
       {view === 'month' && (
         <>
-          {/* Month navigation */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm font-semibold text-[var(--text-primary)]">
               {monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -726,13 +901,12 @@ export default function ShiftManagement() {
             </div>
           </div>
 
-          {/* Month grid */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="border-collapse" style={{ minWidth: `${180 + monthDays.length * 34}px` }}>
+              <table className="border-collapse" style={{ minWidth: `${200 + monthDays.length * 34}px` }}>
                 <thead>
                   <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[180px] z-10">
+                    <th className="sticky left-0 bg-[var(--bg-main)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] min-w-[200px] z-10">
                       Staff
                     </th>
                     {monthDays.map((d) => {
@@ -757,42 +931,66 @@ export default function ShiftManagement() {
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {monthStaff.length === 0 ? (
+                <tbody>
+                  {monthDeptGroups.length === 0 ? (
                     <tr>
                       <td colSpan={monthDays.length + 1} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
                         No shifts scheduled this month
                       </td>
                     </tr>
                   ) : (
-                    monthStaff.map((row) => {
-                      const cellMap = monthGrid.get(row.id) ?? new Map();
+                    monthDeptGroups.map((group) => {
+                      const groupKey = group.departmentId ?? '__unassigned__';
+                      const isCollapsed = collapsedDepts.has(groupKey);
                       return (
-                        <tr key={row.id} className="hover:bg-[var(--bg-main)]">
-                          <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-1.5 z-10">
-                            <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[160px]">
-                              {row.name}
-                            </div>
-                            <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
-                              {row.role.replace(/_/g, ' ')}
-                            </div>
-                          </td>
-                          {monthDays.map((d) => {
-                            const key = toKey(d);
-                            const isToday = key === todayKey;
-                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                            return (
-                              <td
-                                key={key}
-                                className={`px-0.5 py-1.5 text-center ${
-                                  isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
-                                }`}
+                        <>
+                          <tr key={`header-${groupKey}`} className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                            <td colSpan={monthDays.length + 1} className="px-3 py-1.5">
+                              <button
+                                onClick={() => toggleDeptCollapsed(groupKey)}
+                                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                               >
-                                {renderGridCell(cellMap.get(key), openEdit)}
-                              </td>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                <span className="inline-block w-2 h-2 rounded-full" style={{ background: group.departmentColor }} />
+                                {group.departmentName}
+                                <span className="ml-1 text-[var(--text-tertiary)] font-normal normal-case tracking-normal">
+                                  · {group.staffRows.length} staff
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {!isCollapsed && group.staffRows.map((row) => {
+                            const cellMap = monthGrid.get(row.id) ?? new Map();
+                            return (
+                              <tr key={row.id} className="hover:bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                                <td className="sticky left-0 bg-[var(--bg-card)] px-3 py-1.5 z-10">
+                                  <div className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[180px]">
+                                    {row.name}
+                                  </div>
+                                  <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                                    {row.role.replace(/_/g, ' ')}
+                                  </div>
+                                </td>
+                                {monthDays.map((d) => {
+                                  const key = toKey(d);
+                                  const isToday = key === todayKey;
+                                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                  return (
+                                    <td
+                                      key={key}
+                                      className={`px-0.5 py-1.5 text-center ${
+                                        isToday ? 'bg-[var(--icon-cyan-bg)]/40' : isWeekend ? 'bg-[var(--bg-main)]/50' : ''
+                                      }`}
+                                    >
+                                      {renderGridCell(cellMap.get(key), openEdit)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
                             );
                           })}
-                        </tr>
+                        </>
                       );
                     })
                   )}
@@ -835,7 +1033,9 @@ export default function ShiftManagement() {
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Staff Member *</label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Staff Member *
+                </label>
                 <select
                   value={formData.userId}
                   onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
@@ -844,10 +1044,23 @@ export default function ShiftManagement() {
                   className={inputClass}
                 >
                   <option value="">— Select staff —</option>
-                  {userList.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.fullName} (@{u.username})</option>
-                  ))}
+                  {staffForForm.map((u: any) => {
+                    const deptId = (u as any).departmentId;
+                    const deptName = deptId ? departmentById.get(deptId)?.name : null;
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName} ({u.username}){deptName ? ` — ${deptName}` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                {canSeeAllDepartments && filterDepartmentId !== 'all' && (
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
+                    Showing staff from <strong className="text-[var(--text-primary)]">
+                      {departmentById.get(filterDepartmentId)?.name ?? '—'}
+                    </strong> only.
+                  </p>
+                )}
               </div>
 
               <div>

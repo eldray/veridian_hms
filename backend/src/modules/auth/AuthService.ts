@@ -43,14 +43,27 @@ export class AuthService {
     }
   }
 
+  /**
+   * Signs both access and refresh tokens.
+   * The access token carries departmentId so downstream guards
+   * (e.g. department-scoped shift queries) don't need a DB round-trip.
+   */
   private async generateTokens(
     userId: string,
     username: string,
     role: string,
     seniority: Seniority,
     permissions: string[],
+    departmentId: string | null = null,
   ) {
-    const payload: TokenPayload = { userId, username, role: role as any, seniority, permissions };
+    const payload: TokenPayload = {
+      userId,
+      username,
+      role: role as any,
+      seniority,
+      permissions,
+      departmentId,
+    };
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
     const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
     return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
@@ -73,7 +86,14 @@ export class AuthService {
     if (!isValid) return { success: false, error: 'Invalid credentials' };
 
     const permissions = this.repository.mapUserPermissions(user);
-    const tokens = await this.generateTokens(user.id, user.username, user.role, user.seniority, permissions);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.username,
+      user.role,
+      user.seniority,
+      permissions,
+      user.departmentId ?? null,
+    );
 
     await this.repository.updateLastLogin(user.id);
     await this.repository.storeRefreshToken(
@@ -106,7 +126,12 @@ export class AuthService {
     const updatedUser = await this.repository.updateUser(userId, safeUpdate);
     const permissions = this.repository.mapUserPermissions(updatedUser);
     const tokens = await this.generateTokens(
-      updatedUser.id, updatedUser.username, updatedUser.role, updatedUser.seniority, permissions,
+      updatedUser.id,
+      updatedUser.username,
+      updatedUser.role,
+      updatedUser.seniority,
+      permissions,
+      updatedUser.departmentId ?? null,
     );
     await this.repository.storeRefreshToken(
       updatedUser.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000),
@@ -136,7 +161,14 @@ export class AuthService {
     if (!user || !user.isActive) return { success: false, error: 'User not found' };
 
     const permissions = this.repository.mapUserPermissions(user);
-    const tokens = await this.generateTokens(user.id, user.username, user.role, user.seniority, permissions);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.username,
+      user.role,
+      user.seniority,
+      permissions,
+      user.departmentId ?? null,
+    );
 
     await this.repository.storeRefreshToken(
       user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000),

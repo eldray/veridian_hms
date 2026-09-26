@@ -34747,3 +34747,10 @@
 {"filters":{"limit":100,"page":1},"level":"info","message":"Fetching purchase invoices","service":"PurchaseInvoiceService","timestamp":"2026-09-26 22:01:26"}
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:01:32"}
 {"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:01:32"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 22:34:39"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-09-26, end=2026-09-26]","service":"DashboardService","timestamp":"2026-09-26 22:34:44"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:34:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:34:59"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:35:46"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:35:46"}
+{"filters":{"limit":10,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-09-26 22:35:48"}

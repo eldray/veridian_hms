@@ -1,11 +1,23 @@
 // src/utils/pdfTemplates/shiftRotaPDF.ts
-// Weekly shift rota — rows = staff, columns = 7 days
+
+interface RotaData {
+  shifts: any[];
+  weekStart: string;
+  departments?: Array<{ id: string; name: string; color?: string | null }>;
+  users?: Array<{ id: string; departmentId?: string | null }>;
+  departmentName?: string | null; // if set, single-department mode
+}
 
 export const generateShiftRotaHTML = (
   shifts: any[],
   weekStart: string,
   hospital: any,
+  extras?: Partial<RotaData>,
 ): string => {
+  const departments = extras?.departments ?? [];
+  const users = extras?.users ?? [];
+  const singleDeptName = extras?.departmentName ?? null;
+
   const escapeHtml = (text: any): string => {
     if (text === null || text === undefined) return '';
     const div = document.createElement('div');
@@ -25,7 +37,6 @@ export const generateShiftRotaHTML = (
     d.setDate(d.getDate() + i);
     return d;
   });
-
   const end = days[6];
 
   const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
@@ -40,10 +51,20 @@ export const generateShiftRotaHTML = (
 
   const today = toKey(new Date());
 
-  // Group shifts by (userId → dateKey → shifts[])
-  type Cell = { letter: string; shiftType: string; start: string; end: string; id: string; notes?: string };
+  // Dept lookup
+  const deptById = new Map<string, { name: string; color: string }>();
+  for (const d of departments) {
+    deptById.set(d.id, { name: d.name, color: d.color || '#0891b2' });
+  }
+  const userDeptById = new Map<string, string | null>();
+  for (const u of users) {
+    userDeptById.set(u.id, u.departmentId ?? null);
+  }
+
+  // Build grid
+  type Cell = { letter: string; shiftType: string; start: string; end: string; id: string };
   const grid: Map<string, Map<string, Cell[]>> = new Map();
-  const staffMeta: Map<string, { name: string; role: string; username: string }> = new Map();
+  const staffMeta: Map<string, { name: string; role: string; departmentId: string | null }> = new Map();
 
   for (const s of shifts) {
     const userId = s.userId;
@@ -53,7 +74,7 @@ export const generateShiftRotaHTML = (
       staffMeta.set(userId, {
         name: s.user?.fullName || '—',
         role: s.user?.role || '',
-        username: s.user?.username || '',
+        departmentId: userDeptById.get(userId) ?? null,
       });
     }
     if (!grid.has(userId)) grid.set(userId, new Map());
@@ -73,19 +94,37 @@ export const generateShiftRotaHTML = (
     const startTime = s.startTime ? new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
     const endTime = s.endTime ? new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 
-    cellMap.get(dateKey)!.push({
-      letter,
-      shiftType: s.shiftType,
-      start: startTime,
-      end: endTime,
-      id: s.id,
-      notes: s.notes,
+    cellMap.get(dateKey)!.push({ letter, shiftType: s.shiftType, start: startTime, end: endTime, id: s.id });
+  }
+
+  // Group staff by department
+  const groups: Map<string, { name: string; color: string; rows: Array<{ id: string; name: string; role: string }> }> = new Map();
+
+  for (const [userId, meta] of staffMeta.entries()) {
+    const deptId = meta.departmentId ?? '__unassigned__';
+    const deptMeta = deptById.get(deptId);
+    const deptName = deptId === '__unassigned__' ? 'Unassigned' : (deptMeta?.name ?? 'Unknown Department');
+    const deptColor = deptId === '__unassigned__' ? '#94a3b8' : (deptMeta?.color ?? '#0891b2');
+
+    if (!groups.has(deptId)) {
+      groups.set(deptId, { name: deptName, color: deptColor, rows: [] });
+    }
+    groups.get(deptId)!.rows.push({
+      id: userId,
+      name: meta.name,
+      role: meta.role,
     });
   }
 
-  const staffRows = Array.from(staffMeta.entries())
-    .map(([id, meta]) => ({ id, ...meta }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const orderedGroups = Array.from(groups.entries()).sort((a, b) => {
+    if (a[0] === '__unassigned__') return 1;
+    if (b[0] === '__unassigned__') return -1;
+    return a[1].name.localeCompare(b[1].name);
+  });
+
+  for (const [, g] of orderedGroups) {
+    g.rows.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   const cellColorClass = (letter: string) => {
     switch (letter) {
@@ -104,6 +143,8 @@ export const generateShiftRotaHTML = (
     const title = cells.map((c) => `${c.shiftType}: ${c.start}–${c.end}`).join(' | ');
     return `<td class="cell-filled ${cellColorClass(primary)}" title="${escapeHtml(title)}">${escapeHtml(letters)}</td>`;
   };
+
+  const showGroupHeaders = !singleDeptName && orderedGroups.length > 1;
 
   return `
 <!DOCTYPE html>
@@ -259,6 +300,27 @@ export const generateShiftRotaHTML = (
     td.cell-night     { background: #e9d5ff; color: #6b21a8; }
     td.cell-oncall    { background: #bfdbfe; color: #1e40af; }
 
+    tr.dept-header-row td {
+      background: #f1f5f9;
+      border-top: 2px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 6px 14px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #334155;
+    }
+    tr.dept-header-row td .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
     .legend {
       display: flex;
       gap: 18px;
@@ -290,23 +352,13 @@ export const generateShiftRotaHTML = (
     }
     .sig-box { min-width: 200px; text-align: center; }
     .sig-line {
-      width: 200px;
-      height: 1px;
-      background: #94a3b8;
-      margin: 28px auto 6px;
+      width: 200px; height: 1px; background: #94a3b8; margin: 28px auto 6px;
     }
     .sig-label {
-      font-size: 10.5px;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      font-size: 10.5px; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.4px;
     }
-    .sig-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: #0f172a;
-      margin-top: 3px;
-    }
+    .sig-name { font-size: 12px; font-weight: 600; color: #0f172a; margin-top: 3px; }
 
     .footer {
       margin-top: 24px;
@@ -319,46 +371,31 @@ export const generateShiftRotaHTML = (
       font-size: 11px;
       color: #94a3b8;
     }
-    .footer-left { line-height: 1.6; }
-    .footer-right { text-align: right; line-height: 1.6; }
 
     .no-print {
       padding: 20px 40px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
       text-align: center;
-      display: flex;
-      justify-content: center;
-      gap: 12px;
+      display: flex; justify-content: center; gap: 12px;
     }
     .print-btn {
       background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
+      color: white; border: none; padding: 12px 32px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
     }
-    .print-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
     .close-btn {
-      background: #e2e8f0;
-      color: #475569;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
+      background: #e2e8f0; color: #475569; border: none;
+      padding: 12px 32px; border-radius: 10px; font-size: 14px;
+      font-weight: 600; cursor: pointer;
     }
-    .close-btn:hover { background: #cbd5e1; }
 
     @media print {
       body { background: white; padding: 0; }
       .page-container { box-shadow: none; border-radius: 0; max-width: 100%; }
       .no-print { display: none !important; }
-      .header, .cell-morning, .cell-afternoon, .cell-night, .cell-oncall, .document-badge {
+      .header, .cell-morning, .cell-afternoon, .cell-night, .cell-oncall,
+      .document-badge, tr.dept-header-row td {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -379,11 +416,13 @@ export const generateShiftRotaHTML = (
         </div>
       </div>
       <div class="header-right">
-        <div class="document-badge">SHIFT ROTA</div>
+        <div class="document-badge">SHIFT ROTA${singleDeptName ? ' — DEPARTMENT' : ''}</div>
         <div class="document-range">
           ${fmt(start, { month: 'short', day: 'numeric' })} – ${fmt(end, { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
-        <div class="facility-code">${escapeHtml(hospitalCode)}</div>
+        <div class="facility-code">
+          ${singleDeptName ? escapeHtml(singleDeptName) : escapeHtml(hospitalCode)}
+        </div>
       </div>
     </div>
 
@@ -397,9 +436,20 @@ export const generateShiftRotaHTML = (
           <span class="label">Week Ending</span>
           <span class="value">${fmt(end, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
         </div>
+        ${singleDeptName ? `
+          <div class="meta-item">
+            <span class="label">Department</span>
+            <span class="value">${escapeHtml(singleDeptName)}</span>
+          </div>
+        ` : `
+          <div class="meta-item">
+            <span class="label">Departments</span>
+            <span class="value">${orderedGroups.length}</span>
+          </div>
+        `}
         <div class="meta-item">
           <span class="label">Total Staff</span>
-          <span class="value">${staffRows.length}</span>
+          <span class="value">${staffMeta.size}</span>
         </div>
         <div class="meta-item">
           <span class="label">Total Shifts</span>
@@ -422,43 +472,45 @@ export const generateShiftRotaHTML = (
           </tr>
         </thead>
         <tbody>
-          ${staffRows.length === 0 ? `
+          ${staffMeta.size === 0 ? `
             <tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;font-style:italic;">No shifts scheduled for this week</td></tr>
-          ` : staffRows.map((row) => {
-            const cellMap = grid.get(row.id) || new Map();
-            return `
-              <tr>
-                <td class="staff-cell">
-                  ${escapeHtml(row.name)}
-                  <span class="role">${escapeHtml(row.role.replace(/_/g, ' '))}</span>
+          ` : orderedGroups.map(([groupKey, group]) => `
+            ${showGroupHeaders ? `
+              <tr class="dept-header-row">
+                <td colspan="8">
+                  <span class="dot" style="background:${group.color};"></span>
+                  ${escapeHtml(group.name)}
+                  <span style="margin-left:8px;font-weight:500;color:#94a3b8;text-transform:none;letter-spacing:0;">· ${group.rows.length} staff</span>
                 </td>
-                ${days.map((d) => {
-                  const key = toKey(d);
-                  const cls = key === today ? 'today-col' : (d.getDay() === 0 || d.getDay() === 6) ? 'weekend-col' : '';
-                  const cells = cellMap.get(key);
-                  const inner = renderCell(cells);
-                  // splice the day-specific class into the td
-                  return inner.replace('<td', `<td class="${cls}"`);
-                }).join('')}
               </tr>
-            `;
-          }).join('')}
+            ` : ''}
+            ${group.rows.map((row) => {
+              const cellMap = grid.get(row.id) || new Map();
+              return `
+                <tr>
+                  <td class="staff-cell">
+                    ${escapeHtml(row.name)}
+                    <span class="role">${escapeHtml(row.role.replace(/_/g, ' '))}</span>
+                  </td>
+                  ${days.map((d) => {
+                    const key = toKey(d);
+                    const cls = key === today ? 'today-col' : (d.getDay() === 0 || d.getDay() === 6) ? 'weekend-col' : '';
+                    const cells = cellMap.get(key);
+                    const inner = renderCell(cells);
+                    return inner.replace('<td', `<td class="${cls}"`);
+                  }).join('')}
+                </tr>
+              `;
+            }).join('')}
+          `).join('')}
         </tbody>
       </table>
 
       <div class="legend">
-        <div class="legend-item">
-          <span class="legend-swatch cell-morning">M</span> Morning
-        </div>
-        <div class="legend-item">
-          <span class="legend-swatch cell-afternoon">A</span> Afternoon
-        </div>
-        <div class="legend-item">
-          <span class="legend-swatch cell-night">N</span> Night
-        </div>
-        <div class="legend-item">
-          <span class="legend-swatch cell-oncall">C</span> On Call
-        </div>
+        <div class="legend-item"><span class="legend-swatch cell-morning">M</span> Morning</div>
+        <div class="legend-item"><span class="legend-swatch cell-afternoon">A</span> Afternoon</div>
+        <div class="legend-item"><span class="legend-swatch cell-night">N</span> Night</div>
+        <div class="legend-item"><span class="legend-swatch cell-oncall">C</span> On Call</div>
       </div>
 
       <div class="signatures">
@@ -480,11 +532,11 @@ export const generateShiftRotaHTML = (
       </div>
 
       <div class="footer">
-        <div class="footer-left">
+        <div>
           <p>Generated by ${escapeHtml(hospitalName)} — Shift Management</p>
           <p style="font-size:10px;color:#cbd5e1;margin-top:2px;">This rota is subject to change. Contact administration for updates.</p>
         </div>
-        <div class="footer-right">
+        <div style="text-align:right;">
           <p>Generated: ${new Date().toLocaleString()}</p>
           <p style="font-size:10px;color:#cbd5e1;margin-top:2px;">Ref: ROTA-${toKey(start)}</p>
         </div>
