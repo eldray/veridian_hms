@@ -5,12 +5,16 @@ import {
   AddDiagnosisDTO, AddVitalsDTO, AddPrescriptionDTO, AddLabTestDTO 
 } from './EncounterTypes';
 import { getCounterService } from '../../services/CounterService';
+import { MarService } from '../nursing/NursingService';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 export class EncounterRepository extends BaseRepository<Attendance, CreateEncounterDTO, UpdateEncounterDTO> {
+ private marService: MarService;
   constructor(prisma: PrismaClient) {
     super(prisma, 'attendance');
+    this.marService = new MarService(prisma);
   }
+  
 
   // ============================================
   // CORE ENCOUNTER OPERATIONS
@@ -141,47 +145,43 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.vitals.delete({ where: { id: vitalsId } });
   }
 
-async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
-  let stockItemId: string | undefined = data.stockItemId;
+  async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
+    const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
+    if (!stockItem) throw new Error('Stock item not found');
 
-  if (!stockItemId && data.serviceCatalogId) {
-    const catalogEntry = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId },
-      select: { stockItemId: true, name: true, code: true },
+    const medication = await this.prisma.medication.create({
+      data: {
+        attendanceId: encounterId,
+        stockItemId: data.stockItemId,
+        serviceCatalogId: data.serviceCatalogId,
+        name: stockItem.name,
+        dosage: data.dosage,
+        frequency: data.frequency,
+        duration: data.duration,
+        route: data.route,
+        instructions: data.instructions,
+        quantity: data.quantity || 1,
+        status: 'prescribed',
+        prescribedById: userId,
+        prescribedAt: new Date(),
+      },
+      include: {
+        StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+      },
     });
-    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
-    if (!catalogEntry.stockItemId) {
-      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a stock item`);
-    }
-    stockItemId = catalogEntry.stockItemId;
+
+    // ✅ NEW: materialize the MAR schedule
+    await this.marService.scheduleDosesForMedication({
+      medicationId: medication.id,
+      dose: medication.dosage,
+      route: medication.route,
+      frequency: medication.frequency,
+      duration: medication.duration,
+      prescribedAt: medication.prescribedAt,
+    });
+
+    return medication;
   }
-
-  if (!stockItemId) throw new Error('A stock item or service catalog entry is required');
-
-  const stockItem = await this.prisma.stockItem.findUnique({ where: { id: stockItemId } });
-  if (!stockItem) throw new Error(`Stock item ${stockItemId} does not exist`);
-
-  return this.prisma.medication.create({
-    data: {
-      attendanceId: encounterId,
-      stockItemId: stockItem.id,
-      serviceCatalogId: data.serviceCatalogId ?? null,
-      name: stockItem.name,
-      dosage: data.dosage ?? null,
-      frequency: data.frequency ?? null,
-      duration: data.duration ?? null,
-      route: data.route ?? null,
-      instructions: data.instructions ?? null,
-      quantity: data.quantity ?? 1,
-      status: 'prescribed',
-      prescribedById: userId,
-      prescribedAt: new Date(),
-    },
-    include: {
-      StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-    },
-  });
-}
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
@@ -213,9 +213,20 @@ async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: str
 
   // Generic medication update: handles dispensing (atomic stock deduction, guarded
   // against double-deduction) and administration recording in one place.
+  /**
+   * Generic medication update.
+   *
+   * - When status becomes 'dispensed': atomically deduct stock, log the
+   *   transaction. Idempotent against double-dispense.
+   * - When status becomes 'administered': record the administration on
+   *   the currently due MedicationDose row.
+   */
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
+      const med = await tx.medication.findUnique({
+        where: { id: medicationId },
+        include: { StockItem: true },
+      });
       if (!med) throw new Error('Medication not found');
 
       const updateData: any = {};
@@ -224,17 +235,31 @@ async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: str
       if (data.administeredDoses !== undefined) updateData.administeredDoses = data.administeredDoses;
 
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
-      const isAdministering = data.status === 'administered';
 
       if (isDispensing) {
         const qty = data.quantity ?? med.quantity ?? 1;
+
         if (med.stockItemId) {
           if (!med.StockItem || med.StockItem.currentStock < qty) {
             throw new Error(`Insufficient stock. Available: ${med.StockItem?.currentStock || 0}`);
           }
-          await tx.stockItem.update({ where: { id: med.stockItemId }, data: { currentStock: { decrement: qty } } });
+          await tx.stockItem.update({
+            where: { id: med.stockItemId },
+            data: { currentStock: { decrement: qty } },
+          });
+          const after = await tx.stockItem.findUnique({
+            where: { id: med.stockItemId },
+            select: { currentStock: true },
+          });
           await tx.stockTransaction.create({
-            data: { stockItemId: med.stockItemId, transactionType: 'sale', quantity: -qty, balanceAfter: med.StockItem.currentStock - qty, performedBy: userId, reference: medicationId }
+            data: {
+              stockItemId: med.stockItemId,
+              transactionType: 'sale',
+              quantity: -qty,
+              balanceAfter: after?.currentStock ?? med.StockItem.currentStock - qty,
+              performedBy: userId,
+              reference: medicationId,
+            },
           });
         }
         updateData.quantity = qty;
@@ -246,16 +271,53 @@ async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: str
         updateData.quantity = data.quantity;
       }
 
-      if (isAdministering) {
+      // ✅ NEW: when marked administered, log it on the due dose row.
+      // The UI passes doseId explicitly now; fall back to the next pending one.
+      if (data.status === 'administered') {
         updateData.administeredAt = data.administeredAt ? new Date(data.administeredAt) : new Date();
         updateData.administeredById = data.administeredById || userId;
       }
 
-      return tx.medication.update({
+      const updated = await tx.medication.update({
         where: { id: medicationId },
         data: updateData,
-        include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } }
+        include: {
+          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+        },
       });
+
+      // Handle the MAR write outside the medication transaction? No — keep it inside.
+      if (data.status === 'administered') {
+        // If the caller sent a specific doseId, use it. Otherwise pick the next pending.
+        let dose = data.doseId
+          ? await tx.medicationDose.findUnique({ where: { id: data.doseId } })
+          : null;
+
+        if (!dose) {
+          dose = await tx.medicationDose.findFirst({
+            where: {
+              medicationId,
+              status: { in: ['scheduled', 'due', 'late'] },
+            },
+            orderBy: { doseNumber: 'asc' },
+          });
+        }
+
+        if (dose) {
+          await tx.medicationDose.update({
+            where: { id: dose.id },
+            data: {
+              status: 'administered',
+              administeredAt: updateData.administeredAt,
+              administeredById: updateData.administeredById,
+              site: data.site ?? undefined,
+              notes: data.notes ?? undefined,
+            },
+          });
+        }
+      }
+
+      return updated;
     });
   }
 

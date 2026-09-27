@@ -246,6 +246,8 @@ model Patient {
   postnatalRecords       PostnatalRecord[]
   proformaInvoices       ProformaInvoice[]
   familyPlanningServices FamilyPlanningService[]
+  nursingNotes NursingNote[]
+  nursingTasks NursingTask[]
 
   // NEW: Core EMR Models
   allergies         PatientAllergy[]
@@ -533,6 +535,8 @@ model Attendance {
   Vitals                  Vitals[]
   PreAuthorisationRequest PreAuthorisationRequest[]
   WardChargeRecord        WardChargeRecord[]
+  nursingNotes NursingNote[]
+  nursingTasks NursingTask[]
 
   familyPlanningServices   FamilyPlanningService[]
   antenatalBookings        AntenatalBooking[]      @relation("FirstANCAttendance")
@@ -718,6 +722,7 @@ model Medication {
   updatedAt            DateTime         @updatedAt
 
   administeredDoses Json?
+  doses MedicationDose[]
 
   User_Medication_administeredByIdToUser User?           @relation("Medication_administeredByIdToUser", fields: [administeredById], references: [id])
   Attendance                             Attendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
@@ -1177,6 +1182,8 @@ model Admission {
   bills            Bill[]
   deliveryRecords  DeliveryRecord[]
   proformaInvoices ProformaInvoice[]
+  nursingNotes NursingNote[]
+  nursingTasks NursingTask[]
 
   @@index([admissionNumber])
   @@index([admissionDate])
@@ -1970,6 +1977,11 @@ model User {
 
   refreshTokens       RefreshToken[]
   claimBatchesCreated ClaimBatch[]
+
+  medicationDosesAdministered MedicationDose[] @relation("MedicationDose_administeredBy")
+  nursingNotesCreated         NursingNote[]    @relation("NursingNote_createdBy")
+  nursingTasksCreated         NursingTask[]    @relation("NursingTask_createdBy")
+  nursingTasksCompleted       NursingTask[]    @relation("NursingTask_completedBy")
 
   BillLineItem_voided      BillLineItem[]        @relation("BillLineItem_voidedBy")
   PatientWaiver_requested  PatientWaiver[]       @relation("Waiver_requestedBy")
@@ -3550,4 +3562,165 @@ enum ShiftStatus {
   completed
   cancelled
   no_show
+}
+// ============================================================
+// NURSING — MAR, NOTES, TASKS
+// ============================================================
+
+// ─────────────────────────────────────────────────────────────
+// MEDICATION DOSE — the Medication Administration Record (MAR)
+// One row per scheduled dose. Materialized when a Medication is
+// prescribed. State transitions: scheduled → due → administered /
+// late / missed / refused / held / discontinued.
+// ─────────────────────────────────────────────────────────────
+
+model MedicationDose {
+  id                String     @id @default(cuid())
+  medicationId      String
+  doseNumber        Int
+  scheduledAt       DateTime
+  administeredAt    DateTime?
+  administeredById  String?
+  status            DoseStatus @default(scheduled)
+
+  // Snapshot fields (captured at time of prescription so the MAR
+  // shows the correct value even if the underlying stock item changes)
+  dose              String?    // e.g. "500mg"
+  route             String?    // e.g. "Oral", "IV", "SC"
+
+  // Administration details
+  site              String?    // e.g. "Left deltoid" for injections
+  notes             String?
+  varianceReason    String?    // why late / missed / refused / held
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  medication     Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  administeredBy User?      @relation("MedicationDose_administeredBy", fields: [administeredById], references: [id])
+
+  @@unique([medicationId, doseNumber])
+  @@index([medicationId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([administeredById])
+  @@index([administeredAt])
+  @@map("medication_doses")
+}
+
+enum DoseStatus {
+  scheduled
+  due
+  administered
+  late
+  missed
+  refused
+  held
+  discontinued
+}
+
+// ─────────────────────────────────────────────────────────────
+// NURSING NOTE — narrative notes written by nurses
+// Many per patient, per stay, per shift.
+// ─────────────────────────────────────────────────────────────
+
+model NursingNote {
+  id           String          @id @default(cuid())
+  patientId    String
+  attendanceId String?
+  admissionId  String?
+  noteType     NursingNoteType @default(general)
+  shift        ShiftType?
+  content      String          @db.Text
+  isFlagged    Boolean         @default(false) // surfaces in Shift Handover
+  createdById  String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  editedAt     DateTime?
+
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attendance Attendance? @relation(fields: [attendanceId], references: [id])
+  admission  Admission?  @relation(fields: [admissionId], references: [id])
+  createdBy  User        @relation("NursingNote_createdBy", fields: [createdById], references: [id])
+
+  @@index([patientId, createdAt])
+  @@index([attendanceId, createdAt])
+  @@index([admissionId, createdAt])
+  @@index([shift, createdAt])
+  @@index([isFlagged])
+  @@index([noteType])
+  @@map("nursing_notes")
+}
+
+enum NursingNoteType {
+  general
+  observation
+  shift_handover
+  escalation
+  medication
+  procedure
+  patient_communication
+  family_communication
+}
+
+// ─────────────────────────────────────────────────────────────
+// NURSING TASK — persistent care tasks per patient
+// Replaces the transient localTasks state in the Nursing page.
+// ─────────────────────────────────────────────────────────────
+
+model NursingTask {
+  id            String            @id @default(cuid())
+  patientId     String
+  attendanceId  String
+  admissionId   String?
+  title         String
+  description   String?
+  taskType      NursingTaskType   @default(general)
+  priority      TaskPriority      @default(medium)
+  status        NursingTaskStatus @default(pending)
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  completedById String?
+  notes         String?
+  createdById   String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attendance  Attendance  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  admission   Admission?  @relation(fields: [admissionId], references: [id])
+  completedBy User?       @relation("NursingTask_completedBy", fields: [completedById], references: [id])
+  createdBy   User        @relation("NursingTask_createdBy", fields: [createdById], references: [id])
+
+  @@index([attendanceId, status])
+  @@index([patientId, createdAt])
+  @@index([admissionId])
+  @@index([scheduledAt])
+  @@index([priority, status])
+  @@map("nursing_tasks")
+}
+
+enum NursingTaskType {
+  vitals
+  medication
+  wound_care
+  iv_change
+  position_change
+  fluid_balance
+  blood_glucose
+  catheter_care
+  general
+  other
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum NursingTaskStatus {
+  pending
+  in_progress
+  completed
+  skipped
 }

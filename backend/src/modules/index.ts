@@ -21,7 +21,7 @@ import { createReferralRoutes } from './referral/ReferralRoutes';
 // Ward & Bed Management
 import { createWardRoutes } from './ward/WardRoutes';
 import { createBedRoutes } from './bed/BedRoutes';
-
+import { createNursingRoutes } from './nursing/NursingRoutes';
 // Service Catalog & Pricing
 import { createServiceCatalogRoutes } from './serviceCatalog/ServiceCatalogRoutes';
 import { createDiagnosisRoutes } from './diagnosis/DiagnosisRoutes';
@@ -135,6 +135,8 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/gdrg', createGDRGRoutes(prisma));
   console.log('✅ G-DRG routes mounted at /gdrg');
 
+  app.use('/nursing', createNursingRoutes(prisma));
+  console.log('✅ Nursing routes mounted at /nursing');
   // ============================================
   // 6. LABORATORY & DIAGNOSTICS
   // ============================================

@@ -64,6 +64,7 @@ import RequisitionManagement from './pages/RequisitionManagement';
 import StockTransactions from './pages/StockTransactions';
 import StockReports from './pages/StockReports';
 import PatientBillingItems from './pages/PatientBillingItems';
+import NursingPatientWorkspace from './pages/NursingPatientWorkspace';
 import Referrals from './pages/Referrals';
 import Estimates from './pages/Estimates';
 import EstimateDetails from './pages/EstimateDetails';
@@ -78,44 +79,69 @@ import './App.css';
 const rolePermissions = {
   super_admin: ['*'],
   admin: ['*'],
-hr_officer: ['dashboard', 'profile', 'hr', 'appointments', 'reports', 'user_management', 'shifts', 'leaves'],
- doctor: [
-    'dashboard', 'patients', 'attendance', 'admissions', 'billing',
-    'pharmacy', 'laboratory', 'medical_entries', 'reports', 'profile',
-    'insurance_claims', 'service_catalog', 'vitals', 'appointments', 'theatre',
-    'nursing', 'antenatal', 'family_planning', 'scans', 'wards', 'departments',
-    'medical_waiting_list', 'invoices', 'requisitions'
+
+  hr_officer: [
+    'dashboard', 'user_management', 'shifts', 'leaves',
+    'reports', 'profile', 'notifications',
   ],
+
+  doctor: [
+    'dashboard', 'patients', 'attendance', 'appointments',
+    'medical_entries', 'medical_waiting_list',
+    'vitals', 'admissions', 'wards',
+    'laboratory', 'scans', 'theatre', 'pharmacy',
+    'billing', 'insurance_claims', 'referrals',
+    'maternal_waiting_list', 'antenatal', 'family_planning',
+    'reports', 'profile', 'notifications', 'settings',
+  ],
+
   nurse: [
-    'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'family_planning', 'theatre', 'medical_waiting_list'
+    'dashboard', 'patients', 'attendance', 'appointments',
+    'admissions', 'wards', 'vitals', 'nursing',
+    'medical_waiting_list',      // consultations
+    'theatre',                   // scrub / assist
+    'requisitions', 'referrals',
+    'reports', 'profile', 'notifications',
   ],
+
   midwife: [
-    'dashboard', 'patients', 'attendance', 'admissions', 'medical_entries',
-    'vitals', 'profile', 'wards', 'appointments', 'requisitions', 'nursing',
-    'antenatal', 'family_planning', 'delivery', 'theatre', 'medical_waiting_list', 'maternal_waiting_list'
+    'dashboard', 'patients', 'attendance', 'appointments',
+    'admissions', 'wards', 'vitals', 'nursing',
+    'medical_waiting_list',      // consultations — triage
+    'theatre',                   // C-sections / deliveries
+    'maternal_waiting_list', 'antenatal', 'family_planning',
+    'scans', 'laboratory', 'referrals',
+    'reports', 'profile', 'notifications',
   ],
-  records: [
-    'dashboard', 'patients', 'attendance', 'admissions', 'reports', 'profile',
-    'appointments'
-  ],
-  lab_tech: [
-    'dashboard', 'patients', 'attendance', 'laboratory', 'profile', 'reports',
-    'appointments', 'scans'
-  ],
-  pharmacist: [
-    'dashboard', 'pharmacy', 'inventory', 'stock_management', 'profile',
-    'invoices', 'requisitions', 'stock_transactions', 'reports', 'stock_reports',
-    'dispense_medication' // ✅ Pharmacy waiting list permission
-  ],
-  accounts: [
-    'dashboard', 'billing', 'reports', 'process_payment', 'insurance_providers',
-    'insurance_claims', 'profile', 'invoices', 'stock_transactions', 'stock_reports', 'corporate', 'estimates'
-  ],
+
   sonographer: [
-    'dashboard', 'patients', 'attendance', 'medical_entries', 'profile',
-    'laboratory', 'scans', 'appointments', 'reports'
+    'dashboard', 'patients', 'scans', 'laboratory',
+    'appointments', 'reports', 'profile', 'notifications',
+  ],
+
+  lab_tech: [
+    'dashboard', 'patients', 'laboratory',
+    'appointments', 'reports', 'profile', 'notifications',
+  ],
+
+  pharmacist: [
+    'dashboard', 'pharmacy', 'dispense_medication',
+    'inventory', 'stock_management', 'stock_transactions',
+    'stock_reports', 'invoices', 'requisitions',
+    'reports', 'profile', 'notifications',
+  ],
+
+  accounts: [
+    'dashboard', 'patients', 'billing', 'process_payment',
+    'insurance_providers', 'insurance_claims', 'corporate',
+    'estimates', 'invoices', 'stock_transactions',
+    'stock_reports', 'reports', 'profile', 'notifications',
+  ],
+
+  records: [
+    'dashboard', 'patients', 'attendance',
+    'appointments', 'admissions', 'referrals',
+    'reports', 'profile', 'notifications',
   ],
 };
 
@@ -145,7 +171,6 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/stock': 'stock_management',
     '/dashboard/stock/reports': 'stock_reports',
     '/dashboard/theatre': 'theatre',
-    '/dashboard/nursing': 'nursing',
     '/dashboard/antenatal': 'antenatal',
     '/dashboard/scans': 'scans',
     '/dashboard/invoices': 'invoices',
@@ -180,8 +205,10 @@ const hasPermission = (userRole: string, routePath: string) => {
     '/dashboard/users': 'user_management',
     '/dashboard/users/:id': 'user_management',
     '/dashboard/audit-logs': 'audit_logs',
-      '/dashboard/shifts': 'shifts',
-  '/dashboard/leaves': 'leaves',
+    '/dashboard/shifts': 'shifts',
+    '/dashboard/leaves': 'leaves',
+    '/dashboard/nursing': 'nursing',
+    '/dashboard/nursing/patient/:attendanceId': 'nursing',
     
   };
 
@@ -189,6 +216,7 @@ const hasPermission = (userRole: string, routePath: string) => {
   if (permission) return perms?.includes(permission);
 
   // Dynamic routes
+    if (routePath.match(/^\/dashboard\/nursing\/patient\/[^/]+$/)) return perms?.includes('nursing');
   if (routePath.match(/^\/dashboard\/patients\/[^/]+$/)) return perms?.includes('patients');
   if (routePath.match(/^\/dashboard\/attendance\/[^/]+$/)) return perms?.includes('attendance');
   if (routePath.match(/^\/dashboard\/admissions\/[^/]+$/)) return perms?.includes('admissions');
@@ -347,7 +375,10 @@ function App() {
           <Route path="theatre" element={<ProtectedRoute><Theatre /></ProtectedRoute>} />
           <Route path="/dashboard/theatre/:id" element={<ProtectedRoute><TheatreProcedure /></ProtectedRoute>} />
           <Route path="nursing" element={<ProtectedRoute><Nursing /></ProtectedRoute>} />
-          
+          <Route
+              path="nursing/patient/:attendanceId"
+              element={<ProtectedRoute><NursingPatientWorkspace /></ProtectedRoute>}
+            />
           {/* Inventory & Pharmacy routes */}
           <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
           <Route path="pharmacy" element={<ProtectedRoute><Pharmacy /></ProtectedRoute>} />
