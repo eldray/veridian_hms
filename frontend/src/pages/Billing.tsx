@@ -331,54 +331,38 @@ export default function Billing() {
 
   // Handler: Print bill statement
 
-  const handlePrintStatement = async (billId: string) => {
-    try {
-      // First, fetch the full bill details including line items
-      const bill = bills.find(b => b.id === billId);
-      if (!bill) {
-        toastError('Error', 'Bill not found');
-        return;
-      }
-      
-      // Get the full bill with details (you might need to fetch it again)
-      // If your bill object doesn't have BillLineItem, you may need to call getBill
-      const result = await generateBillStatement(billId);
-      
-      if (result.success && result.data) {
-        // Get hospital info
-        const hospitalInfo = {
-          name: result.data.hospitalName || 'Veridian Hospital',
-          address: result.data.hospitalAddress || '123 Main Street, Accra, Ghana',
-          phone: result.data.hospitalPhone || '+233 123 456 789',
-          email: result.data.hospitalEmail || 'info@veridianhospital.com'
-        };
-        
-        // Get patient info
-        const patient = getPatientFromBill(bill);
-        
-        // Prepare data for the bill statement PDF
-        const billStatementData = {
-          bill: bill,
-          patient: patient,
-          hospital: hospitalInfo,
-          payments: bill.payments || []
-        };
-        
-        // Generate HTML using your bill statement template
-        const html = generatePDF('billStatement', billStatementData, hospitalInfo);
-        
-        // Open in popup window (same as receipt)
-        openPrintWindow(html, `Bill-Statement-${bill.billNumber}`);
-        
-        success('Success', 'Bill statement opened in new window');
-      } else {
-        toastError('Error', result.message || 'Failed to generate bill statement');
-      }
-    } catch (err) {
-      console.error('Bill statement generation error:', err);
-      toastError('Error', 'Could not generate bill statement');
+const handlePrintStatement = async (billId: string) => {
+  try {
+    // Fetch the full bill with line items
+    const fullBill: any = await api.get(`/billing/invoices/${billId}`).then(r => r.data?.data || r.data);
+    if (!fullBill) {
+      toastError('Error', 'Bill not found');
+      return;
     }
-  };
+
+    const patient = fullBill.Patient || getPatientFromBill(fullBill);
+    const hospitalInfo = {
+      name: fullBill.hospitalName || 'Veridian Hospital',
+      address: fullBill.hospitalAddress || '123 Main Street, Accra, Ghana',
+      phone: fullBill.hospitalPhone || '+233 123 456 789',
+      email: fullBill.hospitalEmail || 'info@veridianhospital.com',
+    };
+
+    const billStatementData = {
+      bill: fullBill,
+      patient,
+      hospital: hospitalInfo,
+      payments: fullBill.Payment || [],   // ← capital P
+    };
+
+    const html = generatePDF('billStatement', billStatementData, hospitalInfo);
+    openPrintWindow(html, `Bill-Statement-${fullBill.billNumber}`);
+    success('Success', 'Bill statement opened');
+  } catch (err: any) {
+    console.error('Bill statement error:', err);
+    toastError('Error', err?.response?.data?.message || 'Could not generate bill statement');
+  }
+};
   // Waiver handlers
   const handleCreateWaiver = async () => {
     if (!selectedBillForWaiver) return;

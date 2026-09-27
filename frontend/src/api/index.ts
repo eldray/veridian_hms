@@ -1282,7 +1282,6 @@ export const generateNHISClaimFromEncounter = (encounterId: string) =>
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
-// api/index.ts - Update getBills function with cache prevention
 
 export const getBills = (filters?: any) => {
   // ✅ Add cache-busting timestamp to prevent 304 responses
