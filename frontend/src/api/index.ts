@@ -237,48 +237,51 @@ export interface DocumentGenerationResponse {
 // GENERIC RESPONSE HANDLER
 // ============================================
 
-const handleResponse = <T>(response: any): T[] => {
-  // ✅ Handle notification responses (MUST be FIRST)
-  if (response?.data?.notifications && Array.isArray(response.data.notifications)) {
-    return response.data.notifications as T[];
-  }
-  if (response?.notifications && Array.isArray(response.notifications)) {
-    return response.notifications as T[];
-  }
+const handleResponse = <T,>(response: any, arrayKey?: string): T[] => {
+  if (!response) return [];
 
-  // ✅ Handle BaseController paginated response: { success, data: { data: [], pagination: {} } }
-  if (response?.success && response?.data?.data && Array.isArray(response.data.data)) {
+  // Direct array
+  if (Array.isArray(response)) return response as T[];
+
+  // { data: [...] }
+  if (Array.isArray(response.data)) return response.data as T[];
+
+  // { success: true, data: [...] }
+  if (response.success && Array.isArray(response.data)) return response.data as T[];
+
+  // { success: true, data: { data: [...] } }   ← BaseController paginated
+  if (response.success && response.data?.data && Array.isArray(response.data.data)) {
     return response.data.data as T[];
   }
 
-  // Handle other common response structures
-  if (Array.isArray(response)) return response as T[];
-  if (response?.data && Array.isArray(response.data)) return response.data as T[];
-  if (response?.success && Array.isArray(response.data)) return response.data as T[];
-  if (response?.attendances && Array.isArray(response.attendances)) return response.attendances as T[];
-  if (response?.patients && Array.isArray(response.patients)) return response.patients as T[];
-  if (response?.services && Array.isArray(response.services)) return response.services as T[];
-  if (response?.providers && Array.isArray(response.providers)) return response.providers as T[];
-  if (response?.claims && Array.isArray(response.claims)) return response.claims as T[];
-  if (response?.diagnoses && Array.isArray(response.diagnoses)) return response.diagnoses as T[];
-  if (response?.admissions && Array.isArray(response.admissions)) return response.admissions as T[];
-  if (response?.wards && Array.isArray(response.wards)) return response.wards as T[];
-  if (response?.beds && Array.isArray(response.beds)) return response.beds as T[];
-  if (response?.departments && Array.isArray(response.departments)) return response.departments as T[];
-  if (response?.appointments && Array.isArray(response.appointments)) return response.appointments as T[];
-  if (response?.stockItems && Array.isArray(response.stockItems)) return response.stockItems as T[];
-  if (response?.stockTransactions && Array.isArray(response.stockTransactions)) return response.stockTransactions as T[];
-  if (response?.requisitions && Array.isArray(response.requisitions)) return response.requisitions as T[];
-  if (response?.purchaseInvoices && Array.isArray(response.purchaseInvoices)) return response.purchaseInvoices as T[];
-  if (response?.invoices && Array.isArray(response.invoices)) return response.invoices as T[];
-
-  // Remove the warning log for notification responses
-  const isNotificationResponse = response?.data?.notifications || response?.notifications;
-  if (!isNotificationResponse) {
-    console.warn('Unexpected API response:', response);
+  // { data: { data: [...] } }
+  if (response.data?.data && Array.isArray(response.data.data)) {
+    return response.data.data as T[];
   }
 
-  return [] as T[];
+  // { data: { <arrayKey>: [...] } }   e.g. { data: { users: [...] } }
+  if (arrayKey && Array.isArray(response.data?.[arrayKey])) {
+    return response.data[arrayKey] as T[];
+  }
+
+  // { <arrayKey>: [...] }   e.g. { users: [...] }
+  if (arrayKey && Array.isArray(response[arrayKey])) {
+    return response[arrayKey] as T[];
+  }
+
+  // { success: true, data: { <arrayKey>: [...] } }
+  if (response.success && arrayKey && Array.isArray(response.data?.[arrayKey])) {
+    return response.data[arrayKey] as T[];
+  }
+
+  // { data: { results: [...] } }
+  if (Array.isArray(response.data?.results)) return response.data.results as T[];
+
+  // { data: { items: [...] } }
+  if (Array.isArray(response.data?.items)) return response.data.items as T[];
+
+  console.warn('[handleResponse] unknown shape:', response);
+  return [];
 };
 
 // Date conversion helper
@@ -965,16 +968,14 @@ export const getPatient = (id: string) =>
     return patient;
   });
 
-export const getPatients = (filters?: any) =>
-  api.get('/patients', { params: filters }).then(r => {
-    const patients = handleResponse<Patient>(r.data);
-    return patients.map((patient: any) => ({
-      ...patient,
-      dateOfBirth: patient.dateOfBirth && patient.dateOfBirth.includes('T')
-        ? convertISODateToInputFormat(patient.dateOfBirth)
-        : patient.dateOfBirth
-    }));
-  });
+export const getPatients = (filters?) =>
+  api.get('/patients', { params: filters }).then(r => handleResponse(r.data, 'patients'))
+    .then(list => list.map((p: any) => ({
+      ...p,
+      dateOfBirth: p.dateOfBirth?.includes('T')
+        ? convertISODateToInputFormat(p.dateOfBirth)
+        : p.dateOfBirth,
+    })));
 
 export const createPatient = (data: any) => {
   const processedData = { ...data };

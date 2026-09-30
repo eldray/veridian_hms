@@ -1,9 +1,12 @@
-// src/config/dashboardConfig.tsx
+// src/config/dashboardConfig.tsx - COMPLETE
 import {
   Users, Calendar, BedDouble, FileText, Activity, Shield, Package,
   DollarSign, Stethoscope, Heart, FlaskConical, ScanLine, Pill,
   ClipboardList, UserPlus, BarChart3, TrendingUp, User as UserIcon,
-  GraduationCap,
+  GraduationCap, AlertCircle, Clock, CheckCircle, AlertTriangle,
+  FileCheck, Briefcase, Baby, Syringe, ScrollText, Bed,
+  Receipt, UserCog, CalendarClock, Clipboard, Building, CreditCard,
+  Hospital,
 } from 'lucide-react';
 import type { Seniority } from '../types';
 
@@ -12,6 +15,7 @@ import type { Seniority } from '../types';
 // ============================================
 
 export interface DashboardStats {
+  // Core
   totalPatients: number;
   todayVisits: number;
   activeAdmissions: number;
@@ -21,12 +25,73 @@ export interface DashboardStats {
   totalRevenue: number;
   scheduledAppointments: number;
   completedProcedures: number;
+
+  // Nursing / MAR
+  medsDue: number;
+  medsLate: number;
+  medsMissed: number;
+  vitalsOverdue: number;
+  pendingNursingTasks: number;
+  flaggedNotes: number;
+
+  // Lab
+  criticalLabs: number;
+  pendingLabTests: number;
+  labSlaBreaches: number;
+
+  // Scans
+  criticalScans: number;
+  pendingRadiologistReview: number;
+
+  // Pharmacy / Stock
+  expiringStock: number;
+  pendingPrescriptions: number;
+  dispensedToday: number;
+
+  // Maternal
+  highRiskANC: number;
+  deliveriesThisWeek: number;
+  overdueANC: number;
+  pncDueToday: number;
+
+  // Accounts
+  todayCollections: number;
+  outstandingClaims: number;
+  pendingWaivers: number;
+  expiringEstimates: number;
+  corporateOutstanding: number;
+
+  // Doctor
+  waitingOver60: number;
+  resultsReadyForMe: number;
+
+  // Records
+  todayRegistrations: number;
+  appointmentNoShows: number;
+  pendingIncomingReferrals: number;
+
+  // HR
+  totalStaff: number;
+  onShiftToday: number;
+  pendingLeaves: number;
+  unfilledShifts: number;
 }
 
 export const EMPTY_STATS: DashboardStats = {
   totalPatients: 0, todayVisits: 0, activeAdmissions: 0, pendingBills: 0,
   pendingClaims: 0, lowStockItems: 0, totalRevenue: 0,
   scheduledAppointments: 0, completedProcedures: 0,
+  medsDue: 0, medsLate: 0, medsMissed: 0, vitalsOverdue: 0,
+  pendingNursingTasks: 0, flaggedNotes: 0,
+  criticalLabs: 0, pendingLabTests: 0, labSlaBreaches: 0,
+  criticalScans: 0, pendingRadiologistReview: 0,
+  expiringStock: 0, pendingPrescriptions: 0, dispensedToday: 0,
+  highRiskANC: 0, deliveriesThisWeek: 0, overdueANC: 0, pncDueToday: 0,
+  todayCollections: 0, outstandingClaims: 0, pendingWaivers: 0,
+  expiringEstimates: 0, corporateOutstanding: 0,
+  waitingOver60: 0, resultsReadyForMe: 0,
+  todayRegistrations: 0, appointmentNoShows: 0, pendingIncomingReferrals: 0,
+  totalStaff: 0, onShiftToday: 0, pendingLeaves: 0, unfilledShifts: 0,
 };
 
 // ============================================
@@ -35,8 +100,18 @@ export const EMPTY_STATS: DashboardStats = {
 
 export type StatKey =
   | 'totalPatients' | 'todayVisits' | 'activeAdmissions' | 'scheduledAppointments'
-  | 'pendingBills' | 'pendingClaims' | 'lowStockItems' | 'totalRevenue'
-  | 'completedProcedures';
+  | 'pendingBills' | 'pendingClaims' | 'lowStockItems' | 'totalRevenue' | 'completedProcedures'
+  | 'medsDue' | 'medsLate' | 'medsMissed' | 'vitalsOverdue'
+  | 'pendingNursingTasks' | 'flaggedNotes'
+  | 'criticalLabs' | 'pendingLabTests' | 'labSlaBreaches'
+  | 'criticalScans' | 'pendingRadiologistReview'
+  | 'expiringStock' | 'pendingPrescriptions' | 'dispensedToday'
+  | 'highRiskANC' | 'deliveriesThisWeek' | 'overdueANC' | 'pncDueToday'
+  | 'todayCollections' | 'outstandingClaims' | 'pendingWaivers'
+  | 'expiringEstimates' | 'corporateOutstanding'
+  | 'waitingOver60' | 'resultsReadyForMe'
+  | 'todayRegistrations' | 'appointmentNoShows' | 'pendingIncomingReferrals'
+  | 'totalStaff' | 'onShiftToday' | 'pendingLeaves' | 'unfilledShifts';
 
 export interface StatMeta {
   to: string;
@@ -48,7 +123,10 @@ export interface StatMeta {
   value: (s: DashboardStats) => React.ReactNode;
 }
 
+const fmtCcy = (n: number) => `₵${Number(n || 0).toFixed(2)}`;
+
 export const STAT_CATALOG: Record<StatKey, StatMeta> = {
+  // Core
   totalPatients: {
     to: '/dashboard/patients', label: 'Total Patients', sub: 'Registered',
     Icon: Users, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
@@ -87,12 +165,190 @@ export const STAT_CATALOG: Record<StatKey, StatMeta> = {
   totalRevenue: {
     to: '/dashboard/billing', label: "Today's Revenue", sub: 'Collected',
     Icon: DollarSign, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
-    value: (s) => `₵${Number(s.totalRevenue).toFixed(2)}`,
+    value: (s) => fmtCcy(s.totalRevenue),
   },
   completedProcedures: {
     to: '/dashboard/theatre', label: 'Procedures', sub: 'Completed',
     Icon: Activity, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
     value: (s) => s.completedProcedures,
+  },
+
+  // Nurse / MAR
+  medsDue: {
+    to: '/dashboard/nursing', label: 'Meds Due', sub: 'Right now',
+    Icon: Pill, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.medsDue,
+  },
+  medsLate: {
+    to: '/dashboard/nursing?filter=late', label: 'Meds Late', sub: 'Overdue doses',
+    Icon: AlertCircle, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+    value: (s) => s.medsLate,
+  },
+  medsMissed: {
+    to: '/dashboard/nursing?filter=missed', label: 'Meds Missed', sub: 'Not administered',
+    Icon: AlertTriangle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.medsMissed,
+  },
+  vitalsOverdue: {
+    to: '/dashboard/nursing?filter=vitals_overdue', label: 'Vitals Overdue', sub: 'Needs check',
+    Icon: Activity, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.vitalsOverdue,
+  },
+  pendingNursingTasks: {
+    to: '/dashboard/nursing', label: 'Pending Tasks', sub: 'Nursing tasks',
+    Icon: ClipboardList, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+    value: (s) => s.pendingNursingTasks,
+  },
+  flaggedNotes: {
+    to: '/dashboard/nursing?filter=flagged', label: 'Flagged Notes', sub: 'Need review',
+    Icon: AlertCircle, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.flaggedNotes,
+  },
+
+  // Lab
+  criticalLabs: {
+    to: '/dashboard/laboratory?filter=critical', label: 'Critical Labs', sub: 'Immediate review',
+    Icon: AlertTriangle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.criticalLabs,
+  },
+  pendingLabTests: {
+    to: '/dashboard/laboratory?filter=pending', label: 'Pending Tests', sub: 'In queue',
+    Icon: FlaskConical, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
+    value: (s) => s.pendingLabTests,
+  },
+  labSlaBreaches: {
+    to: '/dashboard/laboratory?filter=sla_breach', label: 'SLA Breaches', sub: 'Overdue tests',
+    Icon: Clock, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.labSlaBreaches,
+  },
+
+  // Scans
+  criticalScans: {
+    to: '/dashboard/scans?filter=critical', label: 'Critical Scans', sub: 'Flagged findings',
+    Icon: AlertTriangle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.criticalScans,
+  },
+  pendingRadiologistReview: {
+    to: '/dashboard/scans?filter=pending_review', label: 'Pending Review', sub: 'Awaiting radiologist',
+    Icon: ScanLine, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+    value: (s) => s.pendingRadiologistReview,
+  },
+
+  // Pharmacy / Stock
+  expiringStock: {
+    to: '/dashboard/stock?filter=expiring', label: 'Expiring Stock', sub: 'Next 30 days',
+    Icon: Package, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.expiringStock,
+  },
+  pendingPrescriptions: {
+    to: '/dashboard/dispense', label: 'Pending Scripts', sub: 'To dispense',
+    Icon: Clipboard, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+    value: (s) => s.pendingPrescriptions,
+  },
+  dispensedToday: {
+    to: '/dashboard/pharmacy', label: 'Dispensed Today', sub: 'Prescriptions',
+    Icon: Pill, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+    value: (s) => s.dispensedToday,
+  },
+
+  // Maternal
+  highRiskANC: {
+    to: '/dashboard/antenatal?filter=high_risk', label: 'High-Risk ANC', sub: 'Needs attention',
+    Icon: AlertTriangle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.highRiskANC,
+  },
+  deliveriesThisWeek: {
+    to: '/dashboard/maternal-waiting-list', label: 'EDD This Week', sub: 'Expected deliveries',
+    Icon: Baby, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
+    value: (s) => s.deliveriesThisWeek,
+  },
+  overdueANC: {
+    to: '/dashboard/antenatal?filter=overdue', label: 'Missed ANC', sub: 'Overdue visits',
+    Icon: CalendarClock, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.overdueANC,
+  },
+  pncDueToday: {
+    to: '/dashboard/antenatal?tab=pnc', label: 'PNC Due Today', sub: 'Postnatal visits',
+    Icon: Heart, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+    value: (s) => s.pncDueToday,
+  },
+
+  // Accounts
+  todayCollections: {
+    to: '/dashboard/billing', label: 'Collections', sub: 'Today',
+    Icon: DollarSign, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+    value: (s) => fmtCcy(s.todayCollections),
+  },
+  outstandingClaims: {
+    to: '/dashboard/insurance-claims?status=submitted', label: 'Outstanding', sub: 'Claims unpaid',
+    Icon: Shield, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.outstandingClaims,
+  },
+  pendingWaivers: {
+    to: '/dashboard/billing?filter=waivers', label: 'Waivers', sub: 'Pending approval',
+    Icon: FileCheck, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+    value: (s) => s.pendingWaivers,
+  },
+  expiringEstimates: {
+    to: '/dashboard/estimates?filter=expiring', label: 'Expiring Est.', sub: 'Next 7 days',
+    Icon: Clock, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.expiringEstimates,
+  },
+  corporateOutstanding: {
+    to: '/dashboard/corporate-accounts', label: 'Corporate Due', sub: 'Outstanding',
+    Icon: Briefcase, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
+    value: (s) => fmtCcy(s.corporateOutstanding),
+  },
+
+  // Doctor
+  waitingOver60: {
+    to: '/dashboard/medical-waiting-list?filter=long_wait', label: 'Waiting > 60m', sub: 'SLA alert',
+    Icon: AlertCircle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.waitingOver60,
+  },
+  resultsReadyForMe: {
+    to: '/dashboard/laboratory?filter=ready', label: 'Results Ready', sub: 'Awaiting review',
+    Icon: CheckCircle, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+    value: (s) => s.resultsReadyForMe,
+  },
+
+  // Records
+  todayRegistrations: {
+    to: '/dashboard/patients', label: 'New Today', sub: 'Registrations',
+    Icon: UserPlus, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+    value: (s) => s.todayRegistrations,
+  },
+  appointmentNoShows: {
+    to: '/dashboard/appointments?filter=no_show', label: 'No-Shows', sub: 'Today',
+    Icon: AlertCircle, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
+    value: (s) => s.appointmentNoShows,
+  },
+  pendingIncomingReferrals: {
+    to: '/dashboard/referrals?filter=incoming', label: 'Incoming', sub: 'Referrals',
+    Icon: Stethoscope, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
+    value: (s) => s.pendingIncomingReferrals,
+  },
+
+  // HR
+  totalStaff: {
+    to: '/dashboard/users', label: 'Total Staff', sub: 'Active',
+    Icon: Users, bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)',
+    value: (s) => s.totalStaff,
+  },
+  onShiftToday: {
+    to: '/dashboard/shifts', label: 'On Shift', sub: 'Today',
+    Icon: Calendar, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)',
+    value: (s) => s.onShiftToday,
+  },
+  pendingLeaves: {
+    to: '/dashboard/leaves?status=pending', label: 'Pending Leaves', sub: 'To approve',
+    Icon: FileText, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
+    value: (s) => s.pendingLeaves,
+  },
+  unfilledShifts: {
+    to: '/dashboard/shifts?filter=unfilled', label: 'Unfilled Shifts', sub: 'Need coverage',
+    Icon: AlertCircle, bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)',
+    value: (s) => s.unfilledShifts,
   },
 };
 
@@ -100,7 +356,8 @@ export const STAT_CATALOG: Record<StatKey, StatMeta> = {
 // PANEL SPECS
 // ============================================
 
-export type WorklistKind = 'medical' | 'vitals' | 'lab' | 'pharmacy' | 'scans' | 'maternal';
+export type WorklistKind =
+  | 'medical' | 'vitals' | 'lab' | 'pharmacy' | 'scans' | 'maternal';
 
 export type PanelSpec =
   | { type: 'worklist'; kind: WorklistKind }
@@ -109,11 +366,28 @@ export type PanelSpec =
   | { type: 'finance' }
   | { type: 'stock' }
   | { type: 'diagnoses-attendance' }
-  | { type: 'nurse-summary' }      // nurse: admitted patients + vitals due
-  | { type: 'midwife-summary' }    // midwife: ANC + delivery stats
-  | { type: 'lab-summary' }        // lab_tech: pending vs completed tests
-  | { type: 'scan-summary' }       // sonographer: pending vs completed scans
-  | { type: 'records-summary' };   // records: registrations + referrals
+  | { type: 'nurse-summary' }
+  | { type: 'payment-mode' }
+  | { type: 'ward-occupancy' }
+  | { type: 'recent-admissions' }
+  | { type: 'vitals-snapshot' }
+  | { type: 'recent-payments' }
+  | { type: 'midwife-summary' }
+  | { type: 'lab-summary' }
+  | { type: 'scan-summary' }
+  | { type: 'records-summary' }
+  | { type: 'hr-summary' }
+  | { type: 'hr-worklist' }
+  | { type: 'meds-due' }
+  | { type: 'expiring-stock' }
+  | { type: 'critical-results' }
+  | { type: 'high-risk-anc' }
+  | { type: 'billing-aging' }
+  | { type: 'payment-mode' }
+  | { type: 'ward-occupancy' }
+  | { type: 'recent-admissions' }
+  | { type: 'vitals-snapshot' }
+  | { type: 'recent-payments' };
 
 export const WORKLIST_META: Record<WorklistKind, {
   title: string; subtitle: string; Icon: React.ComponentType<any>;
@@ -175,82 +449,209 @@ export const QUICK_ACTIONS: Record<string, QuickAction> = {
   claims: { icon: Shield, label: 'Claims', path: '/dashboard/insurance-claims', bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
   reports: { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
   appointments: { icon: Activity, label: 'Appointments', path: '/dashboard/appointments', bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
-  nursing: { icon: Heart, label: 'Nursing', path: '/dashboard/nursing', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
-  antenatal: { icon: Heart, label: 'Antenatal', path: '/dashboard/antenatal', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
+  nursing: { icon: Syringe, label: 'Nursing', path: '/dashboard/nursing', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
+  antenatal: { icon: Baby, label: 'Antenatal', path: '/dashboard/antenatal', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
+  shifts: { icon: Calendar, label: 'Shifts', path: '/dashboard/shifts', bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
+  leaves: { icon: FileText, label: 'Leaves', path: '/dashboard/leaves', bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
+  userManagement: { icon: Users, label: 'Users', path: '/dashboard/users', bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
 };
 
 // ============================================
 // ROLE DASHBOARD REGISTRY
 // ============================================
 
-export interface RoleDashboard {
+export interface StatGroup {
+  key: string;
+  label: string;
+  icon: React.ComponentType<any>;
   cards: StatKey[];
-  rightPanel: PanelSpec;
-  leftPanel?: PanelSpec;
+  /** If true, this group is the default active tab */
+  defaultActive?: boolean;
+  /** If true, cards here are filtered to only show non-zero values */
+  alertsOnly?: boolean;
+}
+
+export interface RoleDashboard {
+  cards?: StatKey[];              // for roles without grouping (backward compat)
+  cardGroups?: StatGroup[];       // for roles with grouping (admin)
+  primaryPanels: PanelSpec[];
+  sidebarPanel: PanelSpec;
   quickActions: string[];
 }
 
 const FALLBACK: RoleDashboard = {
   cards: ['totalPatients', 'todayVisits', 'activeAdmissions'],
-  rightPanel: { type: 'recent' },
+  primaryPanels: [],
+  sidebarPanel: { type: 'recent' },
   quickActions: ['attendance', 'appointments'],
 };
 
+// Admin sees EVERYTHING at a glance — grouped into tabs with alerts surfaced first
+const ADMIN_DASHBOARD: RoleDashboard = {
+  cardGroups: [
+    {
+      key: 'alerts',
+      label: 'Alerts',
+      icon: AlertTriangle,
+      alertsOnly: true,
+      defaultActive: true,
+      cards: [
+        'criticalLabs', 'criticalScans', 'medsMissed', 'medsLate',
+        'vitalsOverdue', 'unfilledShifts', 'pendingLeaves',
+        'lowStockItems', 'expiringStock', 'labSlaBreaches',
+        'flaggedNotes', 'overdueANC',
+      ],
+    },
+    {
+      key: 'clinical',
+      label: 'Clinical',
+      icon: Stethoscope,
+      cards: [
+        'totalPatients', 'todayVisits', 'activeAdmissions',
+        'scheduledAppointments', 'medsDue', 'vitalsOverdue',
+        'criticalLabs', 'highRiskANC',
+      ],
+    },
+    {
+      key: 'operations',
+      label: 'Operations',
+      icon: Briefcase,
+      cards: [
+        'pendingBills', 'totalRevenue', 'pendingClaims',
+        'lowStockItems', 'expiringStock', 'totalStaff',
+        'pendingLeaves', 'unfilledShifts',
+      ],
+    },
+  ],
+  primaryPanels: [
+    { type: 'worklist', kind: 'medical' },
+    { type: 'diagnoses-attendance' },
+    { type: 'finance' },
+    { type: 'stock' },
+    { type: 'ward-occupancy' },
+    { type: 'recent-admissions' },
+  ],
+  sidebarPanel: { type: 'recent' },
+  quickActions: [
+    'newPatient', 'attendance', 'admissions', 'billing',
+    'pharmacy', 'lab', 'scans', 'requisitions',
+    'claims', 'reports', 'nursing', 'shifts',
+  ],
+};
+
 export const ROLE_DASHBOARDS: Record<string, RoleDashboard> = {
-  admin: {
-    cards: ['totalPatients', 'todayVisits', 'activeAdmissions', 'pendingBills',
-      'scheduledAppointments', 'pendingClaims', 'lowStockItems', 'totalRevenue'],
-    rightPanel: { type: 'recent' },
-    leftPanel: { type: 'diagnoses-attendance' },
-    quickActions: ['newPatient', 'attendance', 'admissions', 'billing', 'pharmacy', 'reports'],
-  },
+  admin: ADMIN_DASHBOARD,
+  super_admin: ADMIN_DASHBOARD,
+
   doctor: {
-    cards: ['todayVisits', 'activeAdmissions', 'scheduledAppointments', 'totalPatients'],
-    rightPanel: { type: 'worklist', kind: 'medical' },
-    leftPanel: { type: 'diagnoses' },
+    cards: ['todayVisits', 'activeAdmissions', 'waitingOver60', 'resultsReadyForMe', 'scheduledAppointments'],
+    primaryPanels: [
+      { type: 'worklist', kind: 'medical' },
+      { type: 'diagnoses' },
+      { type: 'critical-results' },
+      { type: 'payment-mode' },
+      { type: 'ward-occupancy' },
+      { type: 'diagnoses-attendance' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['attendance', 'admissions', 'pharmacy', 'lab', 'scans'],
   },
+
   nurse: {
-    cards: ['todayVisits', 'activeAdmissions', 'totalPatients'],
-    rightPanel: { type: 'worklist', kind: 'vitals' },
-    leftPanel: { type: 'nurse-summary' },
+    cards: ['medsDue', 'medsLate', 'vitalsOverdue', 'activeAdmissions', 'pendingNursingTasks'],
+    primaryPanels: [
+      { type: 'meds-due' },
+      { type: 'vitals-snapshot' },
+      { type: 'nurse-summary' },
+      { type: 'worklist', kind: 'vitals' },
+      { type: 'ward-occupancy' },
+      { type: 'payment-mode' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['attendance', 'admissions', 'newPatient', 'nursing'],
   },
+
   midwife: {
-    cards: ['todayVisits', 'activeAdmissions', 'scheduledAppointments'],
-    rightPanel: { type: 'worklist', kind: 'maternal' },
-    leftPanel: { type: 'midwife-summary' },
+    cards: ['highRiskANC', 'deliveriesThisWeek', 'overdueANC', 'pncDueToday', 'activeAdmissions'],
+    primaryPanels: [
+      { type: 'high-risk-anc' },
+      { type: 'worklist', kind: 'maternal' },
+      { type: 'midwife-summary' },
+      { type: 'payment-mode' },
+      { type: 'ward-occupancy' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['attendance', 'admissions', 'newPatient', 'antenatal'],
   },
+
   lab_tech: {
-    cards: ['todayVisits', 'totalPatients'],
-    rightPanel: { type: 'worklist', kind: 'lab' },
-    leftPanel: { type: 'lab-summary' },
+    cards: ['criticalLabs', 'pendingLabTests', 'labSlaBreaches', 'todayVisits', 'totalPatients'],
+    primaryPanels: [
+      { type: 'critical-results' },
+      { type: 'worklist', kind: 'lab' },
+      { type: 'lab-summary' },
+      { type: 'payment-mode' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['lab', 'attendance'],
   },
+
   sonographer: {
-    cards: ['todayVisits', 'totalPatients'],
-    rightPanel: { type: 'worklist', kind: 'scans' },
-    leftPanel: { type: 'scan-summary' },
+    cards: ['criticalScans', 'pendingRadiologistReview', 'todayVisits', 'totalPatients'],
+    primaryPanels: [
+      { type: 'scan-summary' },
+      { type: 'worklist', kind: 'scans' },
+      { type: 'payment-mode' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['scans', 'attendance'],
   },
+
   pharmacist: {
-    cards: ['lowStockItems', 'todayVisits', 'totalPatients'],
-    rightPanel: { type: 'worklist', kind: 'pharmacy' },
-    leftPanel: { type: 'stock' },
-    quickActions: ['pharmacy', 'requisitions', 'attendance'],
+    cards: ['lowStockItems', 'expiringStock', 'pendingPrescriptions', 'dispensedToday'],
+    primaryPanels: [
+      { type: 'worklist', kind: 'pharmacy' },
+      { type: 'expiring-stock' },
+      { type: 'stock' },
+      { type: 'payment-mode' },
+    ],
+    sidebarPanel: { type: 'recent' },
+    quickActions: ['pharmacy', 'requisitions'],
   },
+
   accounts: {
-    cards: ['pendingBills', 'totalRevenue', 'pendingClaims', 'todayVisits'],
-    rightPanel: { type: 'recent' },
-    leftPanel: { type: 'finance' },
+    cards: ['pendingBills', 'todayCollections', 'outstandingClaims', 'pendingWaivers', 'corporateOutstanding'],
+    primaryPanels: [
+      { type: 'finance' },
+      { type: 'billing-aging' },
+      { type: 'recent-payments' },
+      { type: 'payment-mode' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['billing', 'claims', 'reports'],
   },
+
   records: {
-    cards: ['totalPatients', 'todayVisits', 'scheduledAppointments', 'activeAdmissions'],
-    rightPanel: { type: 'recent' },
-    leftPanel: { type: 'records-summary' },
+    cards: ['todayRegistrations', 'todayVisits', 'appointmentNoShows', 'pendingIncomingReferrals', 'activeAdmissions'],
+    primaryPanels: [
+      { type: 'records-summary' },
+      { type: 'payment-mode' },
+      { type: 'ward-occupancy' },
+      { type: 'recent-admissions' },
+      { type: 'diagnoses-attendance' },
+    ],
+    sidebarPanel: { type: 'recent' },
     quickActions: ['newPatient', 'attendance', 'appointments', 'reports'],
+  },
+
+  hr_officer: {
+    cards: ['totalStaff', 'onShiftToday', 'pendingLeaves', 'unfilledShifts'],
+    primaryPanels: [
+      { type: 'hr-worklist' },
+      { type: 'hr-summary' },
+    ],
+    sidebarPanel: { type: 'recent' },
+    quickActions: ['shifts', 'leaves', 'userManagement'],
   },
 };
 
@@ -269,7 +670,7 @@ export const SENIORITY_CONFIG: Record<Seniority, { label: string; color: string;
 };
 
 // ============================================
-// SHARED HELPERS
+// HELPERS
 // ============================================
 
 export const fmtTime = (d?: string) => {
@@ -296,6 +697,12 @@ export const getStatusStyle = (status: string): { bg: string; color: string } =>
     pending_doctor: { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
     in_progress: { bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
     partial: { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' },
+    due: { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' },
+    late: { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
+    missed: { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
+    administered: { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
+    refused: { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
+    held: { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
   };
   return styles[status] || { bg: 'var(--bg-main)', color: 'var(--text-secondary)' };
 };

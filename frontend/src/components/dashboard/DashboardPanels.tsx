@@ -1,29 +1,29 @@
-// src/components/dashboard/DashboardPanels.tsx
+// src/components/dashboard/DashboardPanels.tsx - COMPLETE
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Clock, Stethoscope, Shield, Hospital, CreditCard, Heart, FileText,
   DollarSign, Package, ClipboardList, AlertCircle, ChevronRight,
   Activity, FlaskConical, ScanLine, Users, Baby, UserPlus,
-  CheckCircle, Bed, Calendar,
+  CheckCircle, Bed, Calendar, Pill, AlertTriangle,
 } from 'lucide-react';
 import type { PaymentMode } from '../../types';
 import {
   getVitalsWorklist, getMedicalWorklist, getLabWorklist,
   getPharmacyWorklist, getScansWorklist, getMaternalWorklist,
-  getRequisitions,
-  getEncounters,
+  getRequisitions, getEncounters,
   getAntenatalStatistics, getDeliveryStatistics,
   getLabReport, getScanReport,
   getPatients, getReferrals, getAppointments,
+  getExpiryReport, getAntenatalRecords,
+  getLeaves, getShifts, getAllUsers, getBills, getBeds, getWards,
 } from '../../api';
+import { getMarDoses, type MarDose } from '../../api/nursing';
 import {
   WORKLIST_META, type WorklistKind, type DashboardStats,
   fmtTime, patientFullName, getStatusStyle,
 } from '../../config/dashboardConfig';
-import { DiagnosesAndAttendance } from './DiagnosesAndAttendance';
 
-// ── unwrap helper (mirrors reportsStore) ──────────────────────────────────────
 const unwrap = (r: any): any => {
   if (r?.success && r?.data) {
     if (r.data.data !== undefined) return r.data.data;
@@ -107,7 +107,6 @@ const EmptyState = ({ Icon, text }: { Icon: React.ComponentType<any>; text: stri
   </div>
 );
 
-// Compact metric tile used inside summary panels
 const MetricTile = ({ label, value, color, Icon }: {
   label: string; value: React.ReactNode; color: string; Icon: React.ComponentType<any>;
 }) => (
@@ -321,13 +320,11 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full" 
-                    style={{ 
+                  <div className="h-full rounded-full"
+                    style={{
                       width: `${Math.min(100, (t.patients / (items[0]?.patients || 1)) * 100)}%`,
-                      background: 'var(--icon-cyan-text)' 
-                    }} 
-                  />
+                      background: 'var(--icon-cyan-text)'
+                    }} />
                 </div>
                 <span className="text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>
                   {t.patients}
@@ -420,7 +417,7 @@ export function StockAlerts({ lowStock, loading }: { lowStock: number; loading: 
 }
 
 // ============================================
-// NURSE SUMMARY  (admitted patients + vitals due)
+// NURSE SUMMARY
 // ============================================
 
 export function NurseSummary() {
@@ -430,7 +427,7 @@ export function NurseSummary() {
   useEffect(() => {
     let active = true;
     getEncounters({ status: 'admitted', limit: 50 })
-      .then((res) => {
+      .then((res: any) => {
         if (!active) return;
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         setAdmitted(list);
@@ -453,24 +450,9 @@ export function NurseSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <div className="relative">
-              <MetricTile label="IPD" value={ipd.length} color="var(--icon-purple-text)" Icon={Hospital} />
-              <Link to="/dashboard/nursing?filter=ipd" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            <div className="relative">
-              <MetricTile label="Day Care" value={daycase.length} color="var(--icon-cyan-text)" Icon={Bed} />
-              <Link to="/dashboard/nursing?filter=daycase" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            <div className="relative">
-              <MetricTile label="Meds Due" value={medsReady} color="var(--icon-orange-text)" Icon={Activity} />
-              <Link to="/dashboard/pharmacy" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="IPD" value={ipd.length} color="var(--icon-purple-text)" Icon={Hospital} />
+            <MetricTile label="Day Care" value={daycase.length} color="var(--icon-cyan-text)" Icon={Bed} />
+            <MetricTile label="Meds Due" value={medsReady} color="var(--icon-orange-text)" Icon={Activity} />
           </div>
 
           <div className="pt-1">
@@ -518,7 +500,7 @@ export function NurseSummary() {
 }
 
 // ============================================
-// MIDWIFE SUMMARY  (ANC + delivery stats)
+// MIDWIFE SUMMARY
 // ============================================
 
 export function MidwifeSummary() {
@@ -536,14 +518,8 @@ export function MidwifeSummary() {
       getDeliveryStatistics(f),
     ]).then(([ancRes, delRes]) => {
       if (!active) return;
-      if (ancRes.status === 'fulfilled') {
-        const d = unwrap(ancRes.value);
-        setAncStats(d);
-      }
-      if (delRes.status === 'fulfilled') {
-        const d = unwrap(delRes.value);
-        setDelStats(d);
-      }
+      if (ancRes.status === 'fulfilled') setAncStats(unwrap(ancRes.value));
+      if (delRes.status === 'fulfilled') setDelStats(unwrap(delRes.value));
     }).finally(() => { if (active) setLoading(false); });
 
     return () => { active = false; };
@@ -563,42 +539,17 @@ export function MidwifeSummary() {
             <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}>Antenatal</p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
-                <MetricTile label="ANC Bookings" value={ancTotal} color="var(--icon-cyan-text)" Icon={Users} />
-                <Link to="/dashboard/antenatal" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                  View <ChevronRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
-              <div className="relative">
-                <MetricTile label="Visits Today" value={ancToday} color="var(--icon-green-text)" Icon={Calendar} />
-                <Link to="/dashboard/antenatal?filter=today" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                  View <ChevronRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
+              <MetricTile label="ANC Bookings" value={ancTotal} color="var(--icon-cyan-text)" Icon={Users} />
+              <MetricTile label="Visits Today" value={ancToday} color="var(--icon-green-text)" Icon={Calendar} />
             </div>
           </div>
           <div className="border-t pt-3" style={{ borderColor: 'var(--border-color)' }}>
             <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}>Deliveries</p>
             <div className="grid grid-cols-3 gap-2">
-              <div className="relative">
-                <MetricTile label="Total" value={delTotal} color="var(--icon-purple-text)" Icon={Baby} />
-                <Link to="/dashboard/deliveries" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                  View <ChevronRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
-              <div className="relative">
-                <MetricTile label="Live Births" value={liveTotal} color="var(--icon-green-text)" Icon={CheckCircle} />
-                <Link to="/dashboard/deliveries?filter=live" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                  View <ChevronRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
-              <div className="relative">
-                <MetricTile label="C-Sections" value={csTotal} color="var(--icon-orange-text)" Icon={Activity} />
-                <Link to="/dashboard/deliveries?filter=csection" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                  View <ChevronRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
+              <MetricTile label="Total" value={delTotal} color="var(--icon-purple-text)" Icon={Baby} />
+              <MetricTile label="Live Births" value={liveTotal} color="var(--icon-green-text)" Icon={CheckCircle} />
+              <MetricTile label="C-Sections" value={csTotal} color="var(--icon-orange-text)" Icon={Activity} />
             </div>
           </div>
           <div className="border-t pt-2" style={{ borderColor: 'var(--border-color)' }}>
@@ -615,7 +566,7 @@ export function MidwifeSummary() {
 }
 
 // ============================================
-// LAB SUMMARY  (pending vs completed tests today)
+// LAB SUMMARY
 // ============================================
 
 export function LabSummary() {
@@ -644,19 +595,9 @@ export function LabSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <div className="relative">
-              <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={FlaskConical} />
-              <Link to="/dashboard/laboratory" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={FlaskConical} />
             <MetricTile label="Completed" value={completed} color="var(--icon-green-text)" Icon={CheckCircle} />
-            <div className="relative">
-              <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
-              <Link to="/dashboard/laboratory?filter=pending" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
           </div>
 
           {avgTAT > 0 && (
@@ -695,7 +636,7 @@ export function LabSummary() {
 }
 
 // ============================================
-// SCAN SUMMARY  (pending vs completed scans today)
+// SCAN SUMMARY
 // ============================================
 
 export function ScanSummary() {
@@ -724,19 +665,9 @@ export function ScanSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <div className="relative">
-              <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={ScanLine} />
-              <Link to="/dashboard/scans" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="Total" value={total} color="var(--icon-cyan-text)" Icon={ScanLine} />
             <MetricTile label="Completed" value={completed} color="var(--icon-green-text)" Icon={CheckCircle} />
-            <div className="relative">
-              <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
-              <Link to="/dashboard/scans?filter=pending" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="Pending" value={pending} color="var(--icon-orange-text)" Icon={Clock} />
           </div>
 
           {avgTAT > 0 && (
@@ -775,7 +706,7 @@ export function ScanSummary() {
 }
 
 // ============================================
-// RECORDS SUMMARY  (registrations + appointments + referrals)
+// RECORDS SUMMARY
 // ============================================
 
 export function RecordsSummary() {
@@ -798,7 +729,7 @@ export function RecordsSummary() {
       let newPats = 0, recentList: any[] = [];
       if (patRes.status === 'fulfilled') {
         const d = patRes.value;
-        const list = Array.isArray(d) ? d : d?.data || [];
+        const list = Array.isArray(d) ? d : (d as any)?.data || [];
         newPats = list.length;
         recentList = list.slice(0, 5);
       }
@@ -806,7 +737,7 @@ export function RecordsSummary() {
       let appts = 0;
       if (apptRes.status === 'fulfilled') {
         const d = apptRes.value;
-        appts = Array.isArray(d) ? d.length : d?.length || 0;
+        appts = Array.isArray(d) ? d.length : (d as any)?.length || 0;
       }
 
       let refs = 0;
@@ -817,7 +748,7 @@ export function RecordsSummary() {
 
       let visits = 0;
       if (encRes.status === 'fulfilled') {
-        const d = encRes.value;
+        const d = encRes.value as any;
         visits = d?.pagination?.total || (Array.isArray(d?.data) ? d.data.length : 0);
       }
 
@@ -833,30 +764,10 @@ export function RecordsSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-              <MetricTile label="New Patients" value={stats.newPatients} color="var(--icon-cyan-text)" Icon={UserPlus} />
-              <Link to="/dashboard/patients" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            <div className="relative">
-              <MetricTile label="Today's Visits" value={stats.todayVisits} color="var(--icon-orange-text)" Icon={Users} />
-              <Link to="/dashboard/encounters" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            <div className="relative">
-              <MetricTile label="Appointments" value={stats.appointments} color="var(--icon-purple-text)" Icon={Calendar} />
-              <Link to="/dashboard/appointments" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            <div className="relative">
-              <MetricTile label="Referrals" value={stats.referrals} color="var(--icon-green-text)" Icon={ChevronRight} />
-              <Link to="/dashboard/referrals" className="absolute top-1 right-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5">
-                View <ChevronRight className="w-2.5 h-2.5" />
-              </Link>
-            </div>
+            <MetricTile label="New Patients" value={stats.newPatients} color="var(--icon-cyan-text)" Icon={UserPlus} />
+            <MetricTile label="Today's Visits" value={stats.todayVisits} color="var(--icon-orange-text)" Icon={Users} />
+            <MetricTile label="Appointments" value={stats.appointments} color="var(--icon-purple-text)" Icon={Calendar} />
+            <MetricTile label="Referrals" value={stats.referrals} color="var(--icon-green-text)" Icon={ChevronRight} />
           </div>
 
           {recentPats.length > 0 && (
@@ -885,6 +796,900 @@ export function RecordsSummary() {
             style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
             Register New Patient <UserPlus className="w-3 h-3" />
           </Link>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// MEDS DUE PANEL (Nurse)
+// ============================================
+
+export function MedsDuePanel() {
+  const [doses, setDoses] = useState<MarDose[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getMarDoses({ status: ['due', 'late', 'missed'], limit: 30 })
+      .then((res: any) => { if (active) setDoses(res?.doses ?? []); })
+      .catch(() => { if (active) setDoses([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const due = doses.filter(d => d.status === 'due').length;
+  const late = doses.filter(d => d.status === 'late').length;
+  const missed = doses.filter(d => d.status === 'missed').length;
+
+  return (
+    <PanelShell
+      title="Medications Due"
+      subtitle="Doses to administer now"
+      Icon={Pill}
+      iconColor="var(--icon-orange-text)"
+      badge={<CountBadge n={due + late + missed} />}
+    >
+      {loading ? <ListSkeleton rows={3} h="h-12" /> : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <MetricTile label="Due"    value={due}    color="var(--icon-cyan-text)"   Icon={Clock} />
+            <MetricTile label="Late"   value={late}   color="var(--icon-orange-text)" Icon={AlertCircle} />
+            <MetricTile label="Missed" value={missed} color="var(--icon-red-text)"    Icon={AlertTriangle} />
+          </div>
+
+          {doses.length === 0 ? (
+            <p className="text-xs text-center py-3" style={{ color: 'var(--text-tertiary)' }}>
+              No doses outstanding
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-semibold uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}>
+                Next up
+              </p>
+              {doses.slice(0, 5).map((dose) => {
+                const ss = getStatusStyle(dose.status);
+                return (
+                  <Link key={dose.id}
+                    to={`/dashboard/nursing/patient/${dose.medication.attendanceId}`}
+                    className="block p-2 rounded-lg border transition-all hover:shadow-sm"
+                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold truncate"
+                        style={{ color: 'var(--text-primary)' }}>
+                        {dose.medication.name}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0"
+                        style={{ background: ss.bg, color: ss.color }}>
+                        {dose.status}
+                      </span>
+                    </div>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                      Due {fmtTime(dose.scheduledAt)} · {dose.dose || '—'} · {dose.route || '—'}
+                    </p>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          <Link to="/dashboard/nursing"
+            className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
+            style={{ color: 'var(--icon-orange-text)', background: 'var(--icon-orange-bg)' }}>
+            Open Nursing Workspace <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// EXPIRING STOCK PANEL (Pharmacist)
+// ============================================
+
+export function ExpiringStockPanel() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getExpiryReport(30)
+      .then((res: any) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : res?.data || res?.items || [];
+        setItems(list);
+      })
+      .catch(() => { if (active) setItems([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <PanelShell
+      title="Expiring Stock"
+      subtitle="Next 30 days"
+      Icon={Package}
+      iconColor="var(--icon-red-text)"
+      badge={<CountBadge n={items.length} />}
+    >
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+        <EmptyState Icon={Package} text="No items expiring soon" />
+      ) : (
+        <div className="space-y-1.5">
+          {items.slice(0, 8).map((it: any, i: number) => {
+            const days = it.daysToExpiry ?? Math.floor(
+              (new Date(it.expiryDate).getTime() - Date.now()) / 86400000
+            );
+            const urgency = days <= 7
+              ? { bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)' }
+              : days <= 14
+              ? { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' }
+              : { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' };
+            return (
+              <div key={it.id || i}
+                className="flex items-center justify-between p-2 rounded-lg border"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {it.name || it.itemName || 'Unnamed'}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    Qty {it.quantity ?? it.currentStock ?? 0} · Expires {new Date(it.expiryDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: urgency.bg, color: urgency.color }}>
+                  {days}d
+                </span>
+              </div>
+            );
+          })}
+          {items.length > 8 && (
+            <Link to="/dashboard/stock?filter=expiring"
+              className="block text-center text-xs py-1" style={{ color: 'var(--icon-cyan-text)' }}>
+              +{items.length - 8} more →
+            </Link>
+          )}
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// CRITICAL RESULTS PANEL (Lab Tech)
+// ============================================
+
+export function CriticalResultsPanel() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().split('T')[0];
+    getLabReport({ startDate: today, endDate: today })
+      .then((res: any) => {
+        if (!active) return;
+        const r = unwrap(res) ?? {};
+        const critical = r.criticalResultsList ?? r.criticalResults ?? [];
+        setItems(Array.isArray(critical) ? critical : []);
+      })
+      .catch(() => { if (active) setItems([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <PanelShell
+      title="Critical Results"
+      subtitle="Immediate notification needed"
+      Icon={AlertTriangle}
+      iconColor="var(--icon-red-text)"
+      badge={<CountBadge n={items.length} />}
+    >
+      {loading ? <ListSkeleton rows={3} h="h-12" /> : items.length === 0 ? (
+        <EmptyState Icon={CheckCircle} text="No critical results pending" />
+      ) : (
+        <div className="space-y-1.5">
+          {items.slice(0, 8).map((t: any, i: number) => (
+            <Link key={t.id || i}
+              to={`/dashboard/laboratory/${t.id}`}
+              className="block p-2 rounded-lg border"
+              style={{ background: 'var(--icon-red-bg)', borderColor: 'var(--border-color)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold truncate"
+                  style={{ color: 'var(--icon-red-text)' }}>
+                  {t.testName || t.name || 'Critical result'}
+                </span>
+                <span className="text-[10px] shrink-0" style={{ color: 'var(--icon-red-text)' }}>
+                  {fmtTime(t.completedAt || t.createdAt)}
+                </span>
+              </div>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                {t.patient?.name || patientFullName(t)} · {t.resultSummary || t.flag || 'Flagged'}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// HIGH-RISK ANC PANEL (Midwife)
+// ============================================
+
+export function HighRiskANCPanel() {
+  const [stats, setStats] = useState<any>(null);
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().split('T')[0];
+    Promise.allSettled([
+      getAntenatalStatistics({ startDate: today, endDate: today }),
+      getAntenatalRecords({ isActive: true, limit: 50 } as any),
+    ]).then(([statsRes, listRes]) => {
+      if (!active) return;
+      if (statsRes.status === 'fulfilled') setStats(unwrap(statsRes.value));
+      if (listRes.status === 'fulfilled') {
+        const raw = unwrap(listRes.value);
+        const arr = Array.isArray(raw) ? raw : raw?.data || [];
+        const highRisk = arr.filter((r: any) =>
+          r.riskLevel === 'high' || r.riskFactors?.length > 0
+        );
+        setList(highRisk);
+      }
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const byRisk = stats?.byRiskLevel ?? {};
+  const high = byRisk.high ?? list.length;
+  const medium = byRisk.medium ?? 0;
+  const low = byRisk.low ?? 0;
+
+  return (
+    <PanelShell
+      title="ANC Risk Overview"
+      subtitle="Active pregnancies"
+      Icon={Baby}
+      iconColor="var(--icon-red-text)"
+    >
+      {loading ? <ListSkeleton rows={3} h="h-12" /> : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <MetricTile label="High"   value={high}   color="var(--icon-red-text)"    Icon={AlertTriangle} />
+            <MetricTile label="Medium" value={medium} color="var(--icon-orange-text)" Icon={AlertCircle} />
+            <MetricTile label="Low"    value={low}    color="var(--icon-green-text)"  Icon={CheckCircle} />
+          </div>
+
+          {list.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
+                style={{ color: 'var(--text-tertiary)' }}>
+                High-risk mothers
+              </p>
+              <div className="space-y-1.5">
+                {list.slice(0, 5).map((r: any, i: number) => {
+                  const p = r.patient || r.Patient || {};
+                  const name = p.name || p.fullName ||
+                    `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+                  return (
+                    <Link key={r.id || i}
+                      to={`/dashboard/maternal/${r.attendanceId || r.id}`}
+                      className="flex items-center justify-between p-2 rounded-lg border"
+                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate"
+                          style={{ color: 'var(--text-primary)' }}>{name}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                          {p.folderNumber || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
+                        </p>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' }}>
+                        High
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <Link to="/dashboard/antenatal?filter=high_risk"
+            className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
+            style={{ color: 'var(--icon-red-text)', background: 'var(--icon-red-bg)' }}>
+            Open Antenatal <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// BILLING AGING PANEL (Accounts)
+// ============================================
+
+export function BillingAgingPanel() {
+  const [buckets, setBuckets] = useState({ d0_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 });
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    getBills({})
+      .then((bills: any) => {
+        if (!active) return;
+        const arr = Array.isArray(bills) ? bills : bills?.data || [];
+        const now = Date.now();
+        const b = { d0_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 };
+        let t = 0;
+        arr.forEach((bill: any) => {
+          const due = (bill.totalBill || 0) - (bill.paidAmount || 0);
+          if (due <= 0) return;
+          t += due;
+          const ageDays = Math.floor((now - new Date(bill.createdAt || bill.date).getTime()) / 86400000);
+          if (ageDays <= 30) b.d0_30 += due;
+          else if (ageDays <= 60) b.d31_60 += due;
+          else if (ageDays <= 90) b.d61_90 += due;
+          else b.d90_plus += due;
+        });
+        setBuckets(b);
+        setTotal(t);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const rows = [
+    { label: '0–30 days', value: buckets.d0_30, color: 'var(--icon-green-text)' },
+    { label: '31–60 days', value: buckets.d31_60, color: 'var(--icon-cyan-text)' },
+    { label: '61–90 days', value: buckets.d61_90, color: 'var(--icon-orange-text)' },
+    { label: '90+ days', value: buckets.d90_plus, color: 'var(--icon-red-text)' },
+  ];
+
+  const fmtCcy = (n: number) => `₵${Number(n || 0).toFixed(2)}`;
+  const maxVal = Math.max(...rows.map(r => r.value), 1);
+
+  return (
+    <PanelShell
+      title="Receivables Aging"
+      subtitle={`Total outstanding: ${fmtCcy(total)}`}
+      Icon={DollarSign}
+      iconColor="var(--icon-green-text)"
+    >
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : (
+        <div className="space-y-2">
+          {rows.map((r) => (
+            <div key={r.label}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
+                <span className="text-xs font-semibold" style={{ color: r.color }}>{fmtCcy(r.value)}</span>
+              </div>
+              <div className="w-full rounded-full overflow-hidden"
+                style={{ height: 5, background: 'var(--bg-main)' }}>
+                <div className="h-full rounded-full"
+                  style={{ width: `${(r.value / maxVal) * 100}%`, background: r.color, transition: 'width .3s' }} />
+              </div>
+            </div>
+          ))}
+          <Link to="/dashboard/billing"
+            className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 mt-2 rounded-lg"
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            Open Billing <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// HR WORKLIST PANEL
+// ============================================
+
+export function HRWorklistPanel() {
+  const [leaves, setLeaves] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getLeaves({ status: 'pending', limit: 20 })
+      .then((res: any) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : res?.data || [];
+        setLeaves(list);
+      })
+      .catch(() => { if (active) setLeaves([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <PanelShell
+      title="Pending Approvals"
+      subtitle="Leave requests awaiting action"
+      Icon={FileText}
+      iconColor="var(--icon-yellow-text)"
+      badge={
+        <Link to="/dashboard/leaves"
+          className="flex items-center gap-1 text-xs font-medium"
+          style={{ color: 'var(--icon-cyan-text)' }}>
+          View all <ChevronRight className="w-3 h-3" />
+        </Link>
+      }
+    >
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : leaves.length === 0 ? (
+        <EmptyState Icon={CheckCircle} text="No pending leave requests" />
+      ) : (
+        <div className="space-y-2">
+          {leaves.slice(0, 6).map((leave: any) => (
+            <Link key={leave.id}
+              to="/dashboard/leaves"
+              className="block p-2.5 rounded-lg border transition-all hover:shadow-sm"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold truncate"
+                  style={{ color: 'var(--text-primary)' }}>
+                  {leave.user?.fullName || leave.userName || 'Staff'}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase"
+                  style={{
+                    background: leave.leaveType === 'sick' ? 'var(--icon-red-bg)' : 'var(--icon-cyan-bg)',
+                    color: leave.leaveType === 'sick' ? 'var(--icon-red-text)' : 'var(--icon-cyan-text)',
+                  }}>
+                  {leave.leaveType || 'leave'}
+                </span>
+              </div>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                {new Date(leave.startDate).toLocaleDateString()} – {new Date(leave.endDate).toLocaleDateString()}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// HR SUMMARY PANEL
+// ============================================
+
+export function HRSummaryPanel() {
+  const [stats, setStats] = useState({
+    totalStaff: 0, onShift: 0, byRole: {} as Record<string, number>,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().split('T')[0];
+    Promise.allSettled([
+      getAllUsers({ isActive: true }),
+      getShifts({ shiftDate: today }),
+    ]).then(([usersRes, shiftsRes]) => {
+      if (!active) return;
+      const usersRaw: any = usersRes.status === 'fulfilled' ? usersRes.value : [];
+      const shiftsRaw: any = shiftsRes.status === 'fulfilled' ? shiftsRes.value : [];
+
+      const users = Array.isArray(usersRaw) ? usersRaw : usersRaw?.data || [];
+      const shifts = Array.isArray(shiftsRaw) ? shiftsRaw : shiftsRaw?.data || [];
+
+      const byRole: Record<string, number> = {};
+      users.forEach((u: any) => {
+        const r = u.role || 'unknown';
+        byRole[r] = (byRole[r] || 0) + 1;
+      });
+
+      setStats({ totalStaff: users.length, onShift: shifts.length, byRole });
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const topRoles = Object.entries(stats.byRole)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  return (
+    <PanelShell
+      title="Staff Overview"
+      subtitle="Active employees"
+      Icon={Users}
+      iconColor="var(--icon-cyan-text)"
+      badge={<CountBadge n={stats.totalStaff} />}
+    >
+      {loading ? <ListSkeleton rows={4} h="h-10" /> : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <MetricTile label="Total" value={stats.totalStaff} color="var(--icon-cyan-text)" Icon={Users} />
+            <MetricTile label="On Shift" value={stats.onShift} color="var(--icon-green-text)" Icon={Calendar} />
+          </div>
+
+          {topRoles.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
+                style={{ color: 'var(--text-tertiary)' }}>
+                By role
+              </p>
+              <div className="space-y-1.5">
+                {topRoles.map(([role, count]) => (
+                  <div key={role}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                    style={{ background: 'var(--bg-main)' }}>
+                    <span className="text-xs capitalize truncate" style={{ color: 'var(--text-primary)' }}>
+                      {role.replace('_', ' ')}
+                    </span>
+                    <span className="text-xs font-semibold shrink-0"
+                      style={{ color: 'var(--icon-cyan-text)' }}>{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Link to="/dashboard/users"
+            className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            Open User Management <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// PAYMENT MODE PANEL (Linear breakdown)
+// ============================================
+
+export function PaymentModePanel() {
+  const [data, setData] = useState({ cash: 0, nhis: 0, private_insurance: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().split('T')[0];
+    getEncounters({ date: today, limit: 500 })
+      .then((res: any) => {
+        if (!active) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const counts = { cash: 0, nhis: 0, private_insurance: 0, total: list.length };
+        list.forEach((e: any) => {
+          const m = e.paymentMode || 'cash';
+          if (m === 'nhis') counts.nhis++;
+          else if (m === 'private_insurance') counts.private_insurance++;
+          else counts.cash++;
+        });
+        setData(counts);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const rows = [
+    { key: 'cash',              label: 'Cash',              value: data.cash,              Icon: CreditCard, color: 'var(--icon-green-text)',  bg: 'var(--icon-green-bg)' },
+    { key: 'nhis',              label: 'NHIS',              value: data.nhis,              Icon: Shield,     color: 'var(--icon-cyan-text)',   bg: 'var(--icon-cyan-bg)' },
+    { key: 'private_insurance', label: 'Private Insurance', value: data.private_insurance, Icon: Hospital,   color: 'var(--icon-purple-text)', bg: 'var(--icon-purple-bg)' },
+  ];
+  const max = Math.max(...rows.map(r => r.value), 1);
+
+  return (
+    <PanelShell
+      title="Patients by Payment Mode"
+      subtitle="Today's visits"
+      Icon={CreditCard}
+      iconColor="var(--icon-green-text)"
+      badge={<CountBadge n={data.total} />}
+    >
+      {loading ? <ListSkeleton rows={3} h="h-14" /> : (
+        <div className="space-y-3">
+          {rows.map(r => (
+            <div key={r.key}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center"
+                    style={{ background: r.bg }}>
+                    <r.Icon className="w-3 h-3" style={{ color: r.color }} />
+                  </div>
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {r.label}
+                  </span>
+                </div>
+                <span className="text-sm font-bold" style={{ color: r.color }}>
+                  {r.value}
+                </span>
+              </div>
+              <div className="w-full rounded-full overflow-hidden"
+                style={{ height: 6, background: 'var(--bg-main)' }}>
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${(r.value / max) * 100}%`, background: r.color }} />
+              </div>
+            </div>
+          ))}
+
+          {data.total === 0 && (
+            <p className="text-xs text-center pt-2" style={{ color: 'var(--text-tertiary)' }}>
+              No visits recorded today
+            </p>
+          )}
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// WARD OCCUPANCY PANEL
+// ============================================
+
+export function WardOccupancyPanel() {
+  const [data, setData] = useState({ occupied: 0, available: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([getBeds(), getWards()])
+      .then(([bedsRes]) => {
+        if (!active) return;
+        const bedsRaw: any = bedsRes.status === 'fulfilled' ? bedsRes.value : [];
+        const beds = Array.isArray(bedsRaw) ? bedsRaw : bedsRaw?.data || [];
+        const occupied = beds.filter((b: any) => b.isOccupied || b.status === 'occupied').length;
+        const available = beds.length - occupied;
+        setData({ occupied, available, total: beds.length });
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const pct = data.total ? Math.round((data.occupied / data.total) * 100) : 0;
+
+  return (
+    <PanelShell
+      title="Ward Occupancy"
+      subtitle="Beds currently in use"
+      Icon={Bed}
+      iconColor="var(--icon-purple-text)"
+      badge={<CountBadge n={data.total} />}
+    >
+      {loading ? <ListSkeleton rows={2} h="h-16" /> : (
+        <div className="space-y-4">
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {pct}%
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                {data.occupied} of {data.total} beds
+              </span>
+            </div>
+            <div className="w-full rounded-full overflow-hidden"
+              style={{ height: 10, background: 'var(--bg-main)' }}>
+              <div className="h-full rounded-full transition-all"
+                style={{
+                  width: `${pct}%`,
+                  background: pct > 85 ? 'var(--icon-red-text)' : pct > 60 ? 'var(--icon-orange-text)' : 'var(--icon-green-text)',
+                }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg px-3 py-2 border"
+              style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}>
+              <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--icon-green-text)' }}>
+                Available
+              </p>
+              <p className="text-xl font-bold" style={{ color: 'var(--icon-green-text)' }}>
+                {data.available}
+              </p>
+            </div>
+            <div className="rounded-lg px-3 py-2 border"
+              style={{ background: 'var(--icon-purple-bg)', borderColor: 'var(--border-color)' }}>
+              <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--icon-purple-text)' }}>
+                Occupied
+              </p>
+              <p className="text-xl font-bold" style={{ color: 'var(--icon-purple-text)' }}>
+                {data.occupied}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// RECENT ADMISSIONS PANEL
+// ============================================
+
+export function RecentAdmissionsPanel() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getEncounters({ status: 'admitted', limit: 8 })
+      .then((res: any) => {
+        if (!active) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        setItems(list);
+      })
+      .catch(() => { if (active) setItems([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <PanelShell
+      title="Recent Admissions"
+      subtitle="Latest patients admitted"
+      Icon={Bed}
+      iconColor="var(--icon-green-text)"
+      badge={
+        <Link to="/dashboard/admissions" className="flex items-center gap-1 text-xs font-medium"
+          style={{ color: 'var(--icon-cyan-text)' }}>
+          View all <ChevronRight className="w-3 h-3" />
+        </Link>
+      }
+    >
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+        <EmptyState Icon={Bed} text="No admissions today" />
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((a: any) => {
+            const p = a.patient || a.Patient || {};
+            const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+            const ward = a.Ward?.wardName || a.ward?.wardName || '—';
+            const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
+            return (
+              <Link key={a.id} to={`/dashboard/admissions/${a.id}`}
+                className="block p-2 rounded-lg border transition-all hover:shadow-sm"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold truncate"
+                    style={{ color: 'var(--text-primary)' }}>{name}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}>
+                    {bed}
+                  </span>
+                </div>
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  {p.folderNumber || '—'} · {ward}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// VITALS SNAPSHOT PANEL
+// ============================================
+
+export function VitalsSnapshotPanel() {
+  const [data, setData] = useState({ taken: 0, overdue: 0, pending: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().split('T')[0];
+    Promise.allSettled([
+      getEncounters({ date: today, limit: 500 }),
+      getVitalsWorklist(),
+    ]).then(([encRes, wlRes]) => {
+      if (!active) return;
+      const encRaw: any = encRes.status === 'fulfilled' ? encRes.value : [];
+      const encs = Array.isArray(encRaw) ? encRaw : encRaw?.data || [];
+      const wlRaw: any = wlRes.status === 'fulfilled' ? wlRes.value : [];
+      const pending = (Array.isArray(wlRaw) ? wlRaw : wlRaw?.data || []).length;
+
+      const taken = encs.filter((e: any) => e.vitals?.length > 0 || e.Vitals?.length > 0).length;
+      const overdue = encs.filter((e: any) => {
+        const last = e.Vitals?.[0]?.recordedAt || e.lastVitalsAt;
+        if (!last) return e.status === 'active';
+        return (Date.now() - new Date(last).getTime()) > 8 * 60 * 60 * 1000;
+      }).length;
+
+      setData({ taken, overdue, pending });
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <PanelShell
+      title="Vitals Overview"
+      subtitle="Today"
+      Icon={Activity}
+      iconColor="var(--icon-orange-text)"
+    >
+      {loading ? <ListSkeleton rows={2} h="h-16" /> : (
+        <div className="grid grid-cols-3 gap-2">
+          <MetricTile label="Taken"    value={data.taken}    color="var(--icon-green-text)"  Icon={CheckCircle} />
+          <MetricTile label="Overdue"  value={data.overdue}  color="var(--icon-red-text)"    Icon={AlertTriangle} />
+          <MetricTile label="Pending"  value={data.pending}  color="var(--icon-orange-text)" Icon={Clock} />
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
+// ============================================
+// RECENT PAYMENTS PANEL
+// ============================================
+
+export function RecentPaymentsPanel() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getBills({ limit: 20 })
+      .then((res: any) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : res?.data || [];
+        const paid = list.filter((b: any) => (b.paidAmount || 0) > 0).slice(0, 6);
+        setItems(paid);
+      })
+      .catch(() => { if (active) setItems([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const fmtCcy = (n: number) => `₵${Number(n || 0).toFixed(2)}`;
+
+  return (
+    <PanelShell
+      title="Recent Payments"
+      subtitle="Latest collections"
+      Icon={DollarSign}
+      iconColor="var(--icon-green-text)"
+      badge={
+        <Link to="/dashboard/billing" className="flex items-center gap-1 text-xs font-medium"
+          style={{ color: 'var(--icon-cyan-text)' }}>
+          View all <ChevronRight className="w-3 h-3" />
+        </Link>
+      }
+    >
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+        <EmptyState Icon={DollarSign} text="No payments recorded" />
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((b: any) => {
+            const p = b.patient || b.Patient || {};
+            const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+            return (
+              <Link key={b.id} to={`/dashboard/billing`}
+                className="flex items-center justify-between gap-2 p-2 rounded-lg border transition-all hover:shadow-sm"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}>{name}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {b.paymentMode === 'nhis' ? 'NHIS' :
+                     b.paymentMode === 'private_insurance' ? 'Insurance' : 'Cash'}
+                  </p>
+                </div>
+                <span className="text-xs font-bold shrink-0"
+                  style={{ color: 'var(--icon-green-text)' }}>
+                  {fmtCcy(b.paidAmount)}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </PanelShell>
