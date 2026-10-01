@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
 
-const prisma = new PrismaClient();
+import prisma from '../core/database/prisma.client';
 type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 // ✅ Only these models have a 'version' field in the schema

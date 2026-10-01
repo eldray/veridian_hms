@@ -4,7 +4,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { InsuranceClaimService } from './InsuranceClaimService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class InsuranceClaimController extends BaseController {
   private service: InsuranceClaimService;

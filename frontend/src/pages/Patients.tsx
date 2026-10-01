@@ -30,7 +30,7 @@ export default function Patients() {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const { patients, loadPatients, searchPatients, isLoading, deletePatient } = usePatientStore();
+  const { patients, loadPatients, searchPatients, isLoading, isLoadingMore, pagination, deletePatient } = usePatientStore();
   const { hasRole } = useAuthStore();
   const { success, error } = useToast();
 
@@ -137,7 +137,7 @@ export default function Patients() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadPatients().finally(() => setRefreshing(false));
+    loadPatients({}, { force: true }).finally(() => setRefreshing(false));
     setCurrentPage(1);
   };
 
@@ -189,7 +189,7 @@ export default function Patients() {
   const getFilterStats = () => {
     const totalWithAttendances = patients.filter(p => p.attendances?.length > 0).length;
     return {
-      totalPatients: patients.length,
+      totalPatients: pagination?.total ?? patients.length,
       filteredCount: sortedPatients.length,
       withAttendances: totalWithAttendances
     };
@@ -239,6 +239,11 @@ export default function Patients() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Manage patient records and medical history</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
             {stats.totalPatients} total patients • {stats.withAttendances} with visits
+            {isLoadingMore && (
+              <span className="ml-2 text-[var(--text-tertiary)]">
+                (loading all patients… {patients.length} of {pagination?.total ?? '?'})
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

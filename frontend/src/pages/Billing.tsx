@@ -221,7 +221,7 @@ export default function Billing() {
         filters.status = statusFilter;
       }
       await Promise.all([
-        getBills(filters),
+        getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
         loadPatients(),
         getBillStatistics(filters),
         getWaivers(filters),

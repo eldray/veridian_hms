@@ -1,5 +1,6 @@
 // src/pages/MaternalWaitingList.tsx - SIMPLIFIED using worklistStore only with CSS variables
 
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
@@ -142,6 +143,8 @@ export default function MaternalWaitingList() {
 
   // ✅ ONLY use worklistStore
   const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  // Live queue: refreshes within a couple of seconds when a visit, request or result changes
+  useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('maternal', { silent: true }));
 
   const loadData = async () => {
     try {

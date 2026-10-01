@@ -5,7 +5,7 @@ import { IDocument, IDocumentTemplate, IDocumentTemplateCreateDTO, IDocumentTemp
 import path from 'path';
 import fs from 'fs';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class DocumentService {
   private documentRepository: DocumentRepository;

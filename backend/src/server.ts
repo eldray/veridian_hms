@@ -7,7 +7,8 @@ import dotenv from 'dotenv';
 import cron from 'node-cron';
 import routes from './app';
 import { runDailyWardChargeJob } from './cron/wardChargeCron';
-import { initCounterService } from './services/CounterService'; // ✅ ADD THIS
+import { initCounterService } from './services/CounterService';
+import prisma from './core/database/prisma.client';
 
 // Load environment variables
 dotenv.config();
@@ -135,8 +136,6 @@ const runSeedScript = async () => {
 // Start server and run seed script
 const startServer = async () => {
   // ✅ Initialize Counter Service FIRST
-  const { PrismaClient } = await import('@prisma/client');
-  const prisma = new PrismaClient();
   await initCounterService(prisma);
   console.log('✅ Counter Service initialized');
 

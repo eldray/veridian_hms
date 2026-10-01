@@ -5,7 +5,7 @@ import { BedService } from './BedService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { CreateBedInput, UpdateBedInput } from './BedTypes';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class BedController extends BaseController {
   private bedService: BedService;

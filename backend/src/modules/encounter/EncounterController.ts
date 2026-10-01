@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'; // ✅ Added import
 import { BaseController } from '../../shared/base/BaseController';
 import { EncounterService } from './EncounterService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { createPaginatedResponse } from '../../shared/types/ApiResponse';
 import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddMedicationDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO } from './EncounterTypes';
 
 export class EncounterController extends BaseController {
@@ -337,7 +338,32 @@ export class EncounterController extends BaseController {
   getDetentionPatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const result = await this.service.getDetentionPatients({ ...req.query, page, limit });
-    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Detention patients retrieved');
+    // The observation screen also reads `summary` (total / ready for decision)
+    return res.json({
+      ...createPaginatedResponse(result.data, { page, limit, total: result.total }, 'Detention patients retrieved'),
+      summary: result.summary
+    });
+  });
+
+  getAdmissionById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const admission = await this.service.getAdmissionById(req.params.id);
+    return this.ok(res, admission, 'Admission retrieved');
+  });
+
+  getAdmissionsByPatient = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.getAdmissionsByPatientId(req.params.patientId, { page, limit });
+    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Patient admissions retrieved');
+  });
+
+  updateAdmission = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const admission = await this.service.updateAdmission(req.params.id, req.body, req.user!.id);
+    return this.ok(res, admission, 'Admission updated');
+  });
+
+  deleteAdmission = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    await this.service.deleteAdmission(req.params.id);
+    return this.ok(res, null, 'Admission deleted');
   });
 
   convertDetentionToIPD = this.asyncHandler(async (req: AuthRequest, res: Response) => {

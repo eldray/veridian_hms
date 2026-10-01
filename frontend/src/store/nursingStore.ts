@@ -153,8 +153,16 @@ export const useNursingStore = create<NursingState>((set, get) => ({
   fetchTasks: async (filters) => {
     set({ tasksLoading: true, tasksError: null });
     try {
-      const { tasks } = await getNursingTasks({ ...filters, limit: 500 });
-      set({ tasks, tasksLoading: false });
+      // Backend returns at most 200 tasks per request, so walk the pages (max 5 = 1,000 tasks).
+      const PAGE = 200;
+      const tasks: any[] = [];
+      for (let page = 1; page <= 5; page++) {
+        const res = await getNursingTasks({ ...filters, page, limit: PAGE });
+        tasks.push(...res.tasks);
+        const total = Number((res.pagination as any)?.total);
+        if (res.tasks.length < PAGE || (Number.isFinite(total) && tasks.length >= total)) break;
+      }
+      set({ tasks: tasks as any, tasksLoading: false });
     } catch (err: any) {
       set({
         tasksLoading: false,

@@ -16,6 +16,7 @@ export function createReportRoutes(prisma: PrismaClient): Router {
   router.get('/insurance-claims', requireRole(['admin', 'accounts']), (req, res) => controller.getInsuranceClaimsReport(req, res));
   router.get('/attendance', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), (req, res) => controller.getAttendanceReport(req, res));
   router.get('/demographic', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), (req, res) => controller.getDemographicReport(req, res));
+  router.post('/export', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.exportReport(req, res));
   router.get('/export', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.exportReport(req, res));
 
   router.get('/nhis-expiry', requireRole(['admin', 'accounts']), (req, res) => controller.getNhisExpiryReport(req, res));

@@ -1,5 +1,6 @@
 // src/pages/ScansWaitingList.tsx - SIMPLIFIED using worklistStore only
 
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
@@ -99,6 +100,8 @@ export default function ScansWaitingList() {
 
   // ✅ ONLY use worklistStore
   const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  // Live queue: refreshes within a couple of seconds when a visit, request or result changes
+  useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('scans', { silent: true }));
 
   const loadData = async () => {
     try {

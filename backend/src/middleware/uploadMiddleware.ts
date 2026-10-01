@@ -69,7 +69,16 @@ const documentFileFilter = (req: Request, file: Express.Multer.File, cb: multer.
 // ✅ EXPORTS
 export const uploadUserImage = multer({ storage: userStorage, fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } }).single('image');
 export const uploadPatientImage = multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 5 } }).array('images', 5);
+export const uploadPatientPhoto = multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 1 } }).single('image');
 export const uploadScanImages = multer({ storage: scanStorage, fileFilter: imageFileFilter, limits: { fileSize: 20 * 1024 * 1024, files: 10 } }).array('images', 10);
+export const uploadSingleDocument = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),
+    filename: (req, file, cb) => cb(null, generateFilename('doc', (req as any).params?.id || (req as any).user?.id || 'sys', file))
+  }),
+  fileFilter: documentFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }
+}).single('file');
 export const uploadDocuments = multer({ 
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),

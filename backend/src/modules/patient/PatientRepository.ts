@@ -40,9 +40,15 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
   }
 
   async search(filters: PatientFilters): Promise<PaginationResult<Patient>> {
-    const { search, nhisNumber, phone, gender, paymentMode, corporateAccountId, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const { nhisNumber, phone, gender, paymentMode, corporateAccountId, dateFrom, dateTo } = filters;
+    const search = filters.search?.trim();
+    // Default 20, hard maximum 100 (the controller also enforces 100).
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 20));
     const where: any = {};
 
+    // ILIKE '%text%' is served by the pg_trgm GIN indexes (prisma/sql/001_patient_search_indexes.sql).
+    // Trigram indexes need 3+ characters, so 1-2 character searches fall back to a slower scan.
     if (search) {
       where.OR = [
         { surname: { contains: search, mode: 'insensitive' } },

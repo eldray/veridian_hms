@@ -179,7 +179,7 @@ interface AdmissionStore {
   detentionSummary: { totalDetention: number; readyForDecision: number; avgObservationHours: number } | null;
   
   // Core Admission Operations
-  getAdmissions: (filters?: { status?: 'active' | 'discharged'; wardId?: string; page?: number; limit?: number; admissionType?: string; excludeDetention?: boolean }) => Promise<void>;
+  getAdmissions: (filters?: { status?: 'active' | 'discharged'; wardId?: string; page?: number; limit?: number; admissionType?: string; excludeDetention?: boolean }, options?: { silent?: boolean }) => Promise<void>;
   getAdmission: (id: string) => Promise<Admission | null>;
   createAdmission: (data: { 
     attendanceId: string; 
@@ -315,11 +315,13 @@ export const useAdmissionStore = create<AdmissionStore>((set, get) => ({
    */
 // stores/admissionStore.ts - Update the getAdmissions method
 
-getAdmissions: async (filters = {}) => {
-  set({ isLoading: true, error: null });
+getAdmissions: async (filters = {}, options = {}) => {
+  if (!options.silent) set({ isLoading: true, error: null });
   try {
-    const data = await apiGetAdmissions(filters);
-    console.log('📊 getAdmissions raw data:', data);
+    // No page/limit given -> load every admission (the backend returns 100 per request)
+    const f: any = { ...filters };
+    if (f.page === undefined && f.limit === undefined) f.limit = 2000;
+    const data = await apiGetAdmissions(f);
     
     // Ensure data is an array
     let admissionsArray = Array.isArray(data) ? data : [];
@@ -348,9 +350,10 @@ getAdmissions: async (filters = {}) => {
       };
     });
     
-    console.log(`✅ Loaded ${transformedAdmissions.length} formal admissions`);
-    set({ admissions: transformedAdmissions, isLoading: false });
+    set(options.silent ? { admissions: transformedAdmissions } : { admissions: transformedAdmissions, isLoading: false });
   } catch (error: any) {
+    // A failed background refresh keeps the list that is already on screen
+    if (options.silent) return;
     console.error('❌ Failed to fetch admissions:', error);
     set({ error: error.message || 'Failed to fetch admissions', admissions: [], isLoading: false });
   }

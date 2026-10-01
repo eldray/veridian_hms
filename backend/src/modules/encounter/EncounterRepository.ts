@@ -6,8 +6,13 @@ import {
 } from './EncounterTypes';
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
+import { NotFoundError, ConflictError } from '../../utils/errors';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
+/** "Live" visit window (see findManyEncounters). */
+export const LIVE_PENDING_DAYS = 14;
+export const LIVE_RECENT_HOURS = 72;
+
 export class EncounterRepository extends BaseRepository<Attendance, CreateEncounterDTO, UpdateEncounterDTO> {
  private marService: MarService;
   constructor(prisma: PrismaClient) {
@@ -64,15 +69,37 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async findManyEncounters(filters: EncounterFilters) {
     const { patientId, attendanceType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const live = (filters as any).live === true || (filters as any).live === 'true';
     const where: any = {};
     if (patientId) where.patientId = patientId;
     if (attendanceType) where.attendanceType = attendanceType;
-    if (status) where.status = status;
+    // status may be one value or a comma list: ?status=pending,admitted
+    if (status) {
+      const list = String(status).split(',').map((x) => x.trim()).filter(Boolean);
+      where.status = list.length > 1 ? { in: list } : list[0];
+    }
     if (paymentMode) where.paymentMode = paymentMode;
     if (dateFrom || dateTo) {
       where.dateTime = {};
       if (dateFrom) where.dateTime.gte = dateFrom;
       if (dateTo) where.dateTime.lte = dateTo;
+    }
+
+    // ?live=true -> what a hospital screen needs "right now":
+    //   - every admitted patient, however long ago they were admitted
+    //   - pending visits from the last LIVE_PENDING_DAYS days
+    //   - every visit from the last LIVE_RECENT_HOURS hours (today's completed/discharged, shift handover)
+    if (live) {
+      const now = Date.now();
+      where.AND = [
+        {
+          OR: [
+            { status: 'admitted' },
+            { status: 'pending', dateTime: { gte: new Date(now - LIVE_PENDING_DAYS * 86_400_000) } },
+            { dateTime: { gte: new Date(now - LIVE_RECENT_HOURS * 3_600_000) } }
+          ]
+        }
+      ];
     }
 
     // ✅ Uses BaseRepository pagination helper
@@ -506,25 +533,213 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
   }
 
-  async getAllAdmissions(filters: any) {
+  // ============================================
+  // ADMISSIONS
+  // ============================================
+
+  /** Relations loaded for admission lists. */
+  private admissionListInclude() {
+    return {
+      attendance: {
+        include: {
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
+          Ward: { select: { id: true, wardName: true, wardType: true } },
+          Bed: { select: { id: true, bedNumber: true, isOccupied: true, Ward: { select: { id: true, wardName: true, wardType: true } } } },
+          Vitals: { orderBy: { recordedAt: 'desc' as const }, take: 1, select: { recordedAt: true } },
+          _count: { select: { Vitals: true, AttendanceDiagnosis: true } }
+        }
+      }
+    };
+  }
+
+  /** Relations loaded for a single admission (details page). */
+  private admissionDetailInclude() {
+    return {
+      attendance: {
+        include: {
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
+          Ward: { select: { id: true, wardName: true, wardType: true } },
+          Bed: { select: { id: true, bedNumber: true, isOccupied: true, Ward: { select: { id: true, wardName: true, wardType: true } } } },
+          AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'asc' as const } },
+          Vitals: { orderBy: { recordedAt: 'desc' as const }, take: 5 },
+          _count: { select: { Vitals: true, AttendanceDiagnosis: true } }
+        }
+      }
+    };
+  }
+
+  /**
+   * Returns the admission plus the flattened fields the frontend reads
+   * (patient / ward / bed, status, and the observation-list fields).
+   */
+  private shapeAdmission(a: any) {
+    const att = a.attendance;
+    const patient = att?.Patient ?? null;
+    const bed = att?.Bed ?? null;
+    const ward = att?.Ward ?? bed?.Ward ?? null;
+    const hours = Math.max(0, Math.floor((Date.now() - new Date(a.admissionDate).getTime()) / 3_600_000));
+
+    return {
+      ...a,
+      status: a.dischargeDate ? 'discharged' : 'active',
+      patient, ward, bed,
+      // Flattened fields used by the detention / observation list
+      attendanceNumber: att?.attendanceNumber,
+      patientId: att?.patientId,
+      Patient: patient, Ward: ward, Bed: bed,
+      patientName: patient ? `${patient.surname} ${patient.otherNames}`.trim() : undefined,
+      folderNumber: patient?.folderNumber,
+      gender: patient?.gender,
+      wardName: ward?.wardName,
+      bedNumber: bed?.bedNumber,
+      observationHours: hours,
+      vitalsCount: att?._count?.Vitals ?? 0,
+      diagnosisCount: att?._count?.AttendanceDiagnosis ?? 0,
+      lastVitalsAt: att?.Vitals?.[0]?.recordedAt ?? null,
+      readyForDecision: hours >= 24
+    };
+  }
+
+  private isTrue(v: any) { return v === true || v === 'true'; }
+
+  private buildAdmissionWhere(filters: any) {
     const where: any = {};
-    if (filters.status) where.dischargeStatus = null; // Active admissions
-    if (filters.wardId) { /* Requires joining attendance */ }
-    
-    return this.prisma.admission.findMany({
-      where, include: { attendance: { include: { Patient: true, Bed: { include: { Ward: true } } } } },
-      orderBy: { admissionDate: 'desc' }
+
+    if (filters.status === 'active') where.dischargeDate = null;
+    else if (filters.status === 'discharged') where.dischargeDate = { not: null };
+
+    if (filters.admissionType) where.admissionType = filters.admissionType;
+    else if (this.isTrue(filters.excludeDetention)) where.admissionType = { not: 'detention_observation' };
+
+    if (filters.wardId) {
+      where.attendance = { OR: [{ wardId: filters.wardId }, { Bed: { wardId: filters.wardId } }] };
+    }
+
+    if (this.isTrue(filters.readyForDecision)) {
+      const hours = Number(filters.observationHours) > 0 ? Number(filters.observationHours) : 24;
+      where.admissionDate = { lte: new Date(Date.now() - hours * 3_600_000) };
+    }
+    return where;
+  }
+
+  private pageParams(filters: any) {
+    const page = Math.max(1, Number(filters?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters?.limit) || 20));
+    return { page, limit, skip: (page - 1) * limit };
+  }
+
+  async getAllAdmissions(filters: any) {
+    const { page, limit, skip } = this.pageParams(filters);
+    const where = this.buildAdmissionWhere(filters);
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.admission.findMany({
+        where,
+        include: this.admissionListInclude(),
+        orderBy: { admissionDate: 'desc' },
+        skip,
+        take: limit
+      }),
+      this.prisma.admission.count({ where })
+    ]);
+
+    return { data: rows.map((r: any) => this.shapeAdmission(r)), total, page, limit };
+  }
+
+  /** Active observation patients that have been under observation for `hours` or more. */
+  async countReadyForDecision(hours = 24) {
+    return this.prisma.admission.count({
+      where: {
+        dischargeDate: null,
+        admissionType: 'detention_observation',
+        admissionDate: { lte: new Date(Date.now() - hours * 3_600_000) }
+      }
+    });
+  }
+
+  async getAdmissionById(id: string) {
+    const admission = await this.prisma.admission.findUnique({
+      where: { id },
+      include: this.admissionDetailInclude()
+    });
+    return admission ? this.shapeAdmission(admission) : null;
+  }
+
+  async getAdmissionsByPatientId(patientId: string, filters: any = {}) {
+    const { page, limit, skip } = this.pageParams(filters);
+    const where = { attendance: { patientId } };
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.admission.findMany({
+        where,
+        include: this.admissionListInclude(),
+        orderBy: { admissionDate: 'desc' },
+        skip,
+        take: limit
+      }),
+      this.prisma.admission.count({ where })
+    ]);
+
+    return { data: rows.map((r: any) => this.shapeAdmission(r)), total, page, limit };
+  }
+
+  async updateAdmission(id: string, data: any, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.admission.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundError('Admission', id);
+
+      const update: any = {};
+      if (data.admissionType) update.admissionType = data.admissionType;
+      if (data.admissionSource) update.admissionSource = data.admissionSource;
+      if (data.dischargeStatus) update.dischargeStatus = data.dischargeStatus;
+      if (data.dischargeDate) update.dischargeDate = new Date(data.dischargeDate);
+
+      // The Admission table has no dischargeSummary column: keep it as a note instead of dropping it.
+      let notes: any[] = Array.isArray(existing.dailyNotes) ? [...(existing.dailyNotes as any[])] : [];
+      if (Array.isArray(data.dailyNotes)) notes = data.dailyNotes;
+      if (data.dischargeSummary) {
+        notes.push({ noteType: 'discharge_summary', notes: data.dischargeSummary, recordedBy: userId, recordedAt: new Date() });
+      }
+      if (Array.isArray(data.dailyNotes) || data.dischargeSummary) update.dailyNotes = notes;
+
+      const updated = await tx.admission.update({ where: { id }, data: update });
+
+      // Discharging an admission also closes the visit
+      if (update.dischargeDate && !existing.dischargeDate) {
+        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged' } });
+      }
+      return updated;
+    });
+  }
+
+  async deleteAdmission(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.admission.findUnique({
+        where: { id },
+        include: { _count: { select: { bills: true } } }
+      });
+      if (!existing) throw new NotFoundError('Admission', id);
+      if (existing._count.bills > 0) {
+        throw new ConflictError('This admission already has bills and cannot be deleted. Discharge it instead.');
+      }
+
+      await tx.admission.delete({ where: { id } });
+      // The visit goes back to pending so it can be re-admitted or closed normally
+      await tx.attendance.updateMany({ where: { id: existing.attendanceId, status: 'admitted' }, data: { status: 'pending' } });
+      return { id };
     });
   }
 
   async addDailyNotes(admissionId: string, data: any, userId: string) {
     const admission = await this.prisma.admission.findUnique({ where: { id: admissionId } });
-    if (!admission) throw new Error('Admission not found');
-    
-    const notes = admission.dailyNotes as any[] || [];
-    notes.push({ ...data, recordedBy: userId, recordedAt: new Date() });
-    
-    return this.prisma.admission.update({ where: { id: admissionId }, data: { dailyNotes: notes } });
+    if (!admission) throw new NotFoundError('Admission', admissionId);
+
+    const notes = Array.isArray(admission.dailyNotes) ? [...(admission.dailyNotes as any[])] : [];
+    const note = { id: `note_${Date.now()}`, ...data, recordedBy: userId, recordedAt: new Date() };
+    notes.push(note);
+
+    const updated = await this.prisma.admission.update({ where: { id: admissionId }, data: { dailyNotes: notes } });
+    return { note, admission: updated };
   }
 
   async dischargeFromEncounter(encounterId: string, data: any, userId: string) {

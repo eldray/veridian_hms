@@ -5,7 +5,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { AppointmentService } from './AppointmentService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class AppointmentController extends BaseController {
   private service: AppointmentService;

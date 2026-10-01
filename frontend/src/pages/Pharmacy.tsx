@@ -1,5 +1,6 @@
 // src/pages/DispenseMedication.tsx - UPDATED for Grouped Pharmacy Worklist
 
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
@@ -102,6 +103,8 @@ export default function DispenseMedication() {
 
   // ✅ ONLY use worklistStore
   const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  // Live queue: refreshes within a couple of seconds when a visit, request or result changes
+  useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('pharmacy', { silent: true }));
 
   const loadData = async () => {
     try {

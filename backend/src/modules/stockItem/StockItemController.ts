@@ -5,7 +5,7 @@ import { StockItemService } from './StockItemService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { StockTransactionType, RequisitionStatus } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class StockItemController extends BaseController {
   private service: StockItemService;

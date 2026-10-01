@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 // ==========================================
 // HOSPITAL DETAILS SERVICES

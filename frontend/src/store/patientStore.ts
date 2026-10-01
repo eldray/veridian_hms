@@ -7,18 +7,28 @@ import {
   updatePatient as apiUpdatePatient,
   deletePatient as apiDeletePatient,
   uploadPatientImage as apiUploadPatientImage,
-  uploadPatientImageBase64 as apiUploadPatientImageBase64
+  uploadPatientImageBase64 as apiUploadPatientImageBase64,
+  API_PAGE_SIZE
 } from '../api';
 import type { Patient, Pagination, PatientFilters } from '../types';
 
 interface PatientState {
   patients: Patient[];
   isLoading: boolean;
+  /** true while the remaining pages are still being fetched in the background */
+  isLoadingMore: boolean;
   error: string | null;
   currentPatient: Patient | null;
   pagination: Pagination | null;
   
-  loadPatients: (filters?: PatientFilters) => Promise<void>;
+  /**
+   * No page/limit given  -> loads ALL patients, 100 per request. The promise resolves
+   *                          after the first page; the rest arrive in the background
+   *                          (watch `isLoadingMore`). Repeat calls within 30 s are skipped
+   *                          unless `options.force` is true.
+   * page and/or limit    -> loads exactly that page (limit is capped at 100 by the server).
+   */
+  loadPatients: (filters?: PatientFilters, options?: { force?: boolean }) => Promise<void>;
   addPatient: (data: FormData | Partial<Patient>) => Promise<Patient>;
   getPatientById: (id: string) => Patient | undefined;
   fetchPatient: (id: string) => Promise<Patient>;
@@ -106,38 +116,110 @@ const extractPatientsArray = (response: unknown): Patient[] => {
   return patientsArray.map(addFullNameToPatient);
 };
 
+// ---- "load all patients" bookkeeping (module level so every page shares it) ----
+const FULL_LOAD_TTL_MS = 30_000;
+let firstPageInFlight: Promise<void> | null = null;
+let lastFullLoadAt = 0;
+let loadGeneration = 0;
+
+/** Append `incoming` to `current`, skipping patients that are already present. */
+const mergeById = (current: Patient[], incoming: Patient[]): Patient[] => {
+  const seen = new Set(current.map((p: any) => p.id ?? p._id));
+  const extra = incoming.filter((p: any) => !seen.has(p.id ?? p._id));
+  return extra.length ? [...current, ...extra] : current;
+};
+
 export const usePatientStore = create<PatientState>((set, get) => ({
   patients: [],
   isLoading: false,
+  isLoadingMore: false,
   error: null,
   currentPatient: null,
   pagination: null,
 
-  loadPatients: async (filters = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      console.log('🔄 Loading patients with filters:', filters);
-      const response = await apiGetPatients(filters);
-      console.log('📡 API getPatients response:', response);
-      
-      const patients = extractPatientsArray(response);
-      const pagination = response.pagination || response.data?.pagination || null;
-      
-      console.log('✅ Patients loaded:', patients.length);
-      set({ 
-        patients, 
-        pagination,
-        isLoading: false 
-      });
-    } catch (error: unknown) {
-      console.error('❌ Failed to load patients:', error);
-      const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to load patients';
-      set({ 
-        error: errorMessage,
-        isLoading: false 
-      });
-      throw new Error(errorMessage);
+  loadPatients: async (filters = {}, options = {}) => {
+    const explicitPage = (filters as any).page !== undefined || (filters as any).limit !== undefined;
+
+    // ---- Explicit page/limit: one request, exactly what was asked for ----
+    if (explicitPage) {
+      set({ isLoading: true, error: null });
+      try {
+        const response: any = await apiGetPatients(filters);
+        const patients = extractPatientsArray(response);
+        const pagination = response.pagination || response.data?.pagination || null;
+        set({ patients, pagination, isLoading: false });
+      } catch (error: unknown) {
+        const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to load patients';
+        set({ error: errorMessage, isLoading: false });
+        throw new Error(errorMessage);
+      }
+      return;
     }
+
+    // ---- Load everything (100 per request) ----
+    const hasFilters = Object.keys(filters).length > 0;
+    if (!hasFilters && !options.force) {
+      if (firstPageInFlight) return firstPageInFlight;
+      const fresh = Date.now() - lastFullLoadAt < FULL_LOAD_TTL_MS;
+      if ((fresh && get().patients.length > 0) || get().isLoadingMore) return;
+    }
+
+    const generation = ++loadGeneration; // a newer load supersedes any older background loop
+    const run = async () => {
+      // Keep showing the current list while refreshing; only show a spinner on first load.
+      set({ isLoading: get().patients.length === 0, error: null });
+      try {
+        const first: any = await apiGetPatients({ ...filters, page: 1, limit: API_PAGE_SIZE });
+        if (generation !== loadGeneration) return;
+        const firstItems = extractPatientsArray(first);
+        const pagination = first.pagination || first.data?.pagination || null;
+        const total = Number(pagination?.total) || firstItems.length;
+
+        set({ patients: firstItems, pagination, isLoading: false });
+
+        if (firstItems.length < API_PAGE_SIZE || total <= firstItems.length) {
+          if (!hasFilters) lastFullLoadAt = Date.now();
+          return;
+        }
+
+        // Remaining pages load in the background, 4 requests at a time.
+        set({ isLoadingMore: true });
+        void (async () => {
+          try {
+            const totalPages = Math.ceil(total / API_PAGE_SIZE);
+            for (let start = 2; start <= totalPages; start += 4) {
+              const batch: Promise<any>[] = [];
+              for (let page = start; page < start + 4 && page <= totalPages; page++) {
+                batch.push(apiGetPatients({ ...filters, page, limit: API_PAGE_SIZE }));
+              }
+              const responses = await Promise.all(batch);
+              if (generation !== loadGeneration) return;
+              const incoming = responses.flatMap((r) => extractPatientsArray(r));
+              set((state) => ({ patients: mergeById(state.patients, incoming) }));
+            }
+            if (!hasFilters) lastFullLoadAt = Date.now();
+          } catch (err) {
+            console.warn('⚠️ Could not load all patients (partial list shown):', err);
+          } finally {
+            if (generation === loadGeneration) set({ isLoadingMore: false });
+          }
+        })();
+      } catch (error: unknown) {
+        console.error('❌ Failed to load patients:', error);
+        const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to load patients';
+        set({ error: errorMessage, isLoading: false, isLoadingMore: false });
+        throw new Error(errorMessage);
+      }
+    };
+
+    if (hasFilters) return run();
+
+    // Share one in-flight "first page" promise between every page that calls loadPatients().
+    const tracked: Promise<void> = run().finally(() => {
+      if (firstPageInFlight === tracked) firstPageInFlight = null;
+    });
+    firstPageInFlight = tracked;
+    return tracked;
   },
 
   addPatient: async (data: FormData | any) => {

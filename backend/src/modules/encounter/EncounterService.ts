@@ -347,7 +347,19 @@ export class EncounterService extends BaseService {
   // Admissions & IPD
   async getAllAdmissions(filters: any) { return this.repository.getAllAdmissions(filters); }
   async getFormalIPDPatients(filters: any) { return this.repository.getAllAdmissions({ ...filters, excludeDetention: true }); }
-  async getDetentionPatients(filters: any) { return this.repository.getAllAdmissions({ ...filters, admissionType: 'detention_observation' }); }
+  async getDetentionPatients(filters: any) {
+    const result = await this.repository.getAllAdmissions({ ...filters, admissionType: 'detention_observation' });
+    const readyForDecision = await this.repository.countReadyForDecision(Number(filters?.observationHours) || 24);
+    return { ...result, summary: { total: result.total, readyForDecision } };
+  }
+  async getAdmissionById(id: string) {
+    const admission = await this.repository.getAdmissionById(id);
+    if (!admission) throw new NotFoundError('Admission', id);
+    return admission;
+  }
+  async getAdmissionsByPatientId(patientId: string, filters: any) { return this.repository.getAdmissionsByPatientId(patientId, filters); }
+  async updateAdmission(id: string, data: any, userId?: string) { return this.repository.updateAdmission(id, data, userId); }
+  async deleteAdmission(id: string) { return this.repository.deleteAdmission(id); }
   async addDailyNotes(id: string, data: AddDailyNoteDTO, userId: string) { return this.repository.addDailyNotes(id, data, userId); }
   async getBedOccupancy() { return this.repository.getBedOccupancy(); }
    async getDaycasePatients(filters: any) {

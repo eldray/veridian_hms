@@ -44,7 +44,10 @@ export abstract class BaseController {
       return this.badRequest(res, 'Invalid reference: The related record does not exist.');
     }
 
-    const status = err.status || err.statusCode || 500;
+    // AppError.status is the STRING 'fail'/'error'; only use a real HTTP status number.
+    const candidates = [err.statusCode, err.status];
+    const status: number =
+      candidates.find((v) => Number.isInteger(v) && v >= 400 && v < 600) ?? 500;
     const message = err.message || 'Internal server error';
     const errors = err.errors || undefined;
 

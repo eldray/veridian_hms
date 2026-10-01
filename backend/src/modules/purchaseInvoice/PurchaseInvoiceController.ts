@@ -5,7 +5,7 @@ import { PurchaseInvoiceService } from './PurchaseInvoiceService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO } from './PurchaseInvoiceTypes';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class PurchaseInvoiceController extends BaseController {
   private service: PurchaseInvoiceService;

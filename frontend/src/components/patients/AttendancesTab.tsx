@@ -1,4 +1,5 @@
 // src/components/patients/AttendancesTab.tsx - WITH DEBUGGING
+import api from '../../api/api';
 import { Link } from 'react-router-dom';
 import { History, Stethoscope, Pill, FlaskConical, DollarSign, Plus, Calendar, User } from 'lucide-react';
 
@@ -23,7 +24,7 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
 
     setGeneratingCCC(true);
     try {
-      const response = await axios.post('/api/encounters/generate-ccc', {
+      const response = await api.post('/patients/generate-ccc', {
         patientId: patient.id || patient._id,
         nhisNumber: patient.nhisNumber
       });

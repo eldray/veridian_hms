@@ -4,7 +4,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { ServiceCatalogService } from './ServiceCatalogService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class ServiceCatalogController extends BaseController {
   private service: ServiceCatalogService;

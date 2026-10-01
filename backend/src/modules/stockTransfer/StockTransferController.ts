@@ -4,7 +4,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { StockTransferService } from './StockTransferService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class StockTransferController extends BaseController {
   private service: StockTransferService;

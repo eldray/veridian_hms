@@ -1,19 +1,6 @@
 // config/db.ts
-import { PrismaClient } from '@prisma/client'
+// Kept for backwards compatibility: re-exports the single shared Prisma client.
+// (Previously this created its own client and logged every query.)
+import prisma from '../core/database/prisma.client';
 
-const prisma = new PrismaClient({
-  log: ['query', 'error', 'warn'], // Enable logging
-  errorFormat: 'colorless',
-})
-
-// Handle graceful shutdown
-process.on('beforeExit', async () => {
-  await prisma.$disconnect()
-})
-
-process.on('SIGINT', async () => {
-  await prisma.$disconnect()
-  process.exit(0)
-})
-
-export default prisma
+export default prisma;

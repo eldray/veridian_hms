@@ -1,4 +1,5 @@
 // src/pages/Nursing.tsx — Nursing Station Hub
+import { useLiveRefresh } from '../api/realtime';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -120,7 +121,11 @@ export default function Nursing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);   // ← run once on mount
 
-  useEffect(() => { loadData(); }, []);
+  // Live updates for the ward board: visits, admissions, beds and nursing entries
+  useLiveRefresh(['encounters', 'admissions', 'nursing', 'beds'], () =>
+    Promise.all([getAttendances({}, { silent: true }), getAdmissions({}, { silent: true }), getBeds()])
+  );
+
 
   // ── Inpatients (admitted IPD/daycase) ──
   const inpatients = useMemo(

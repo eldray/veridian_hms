@@ -1,7 +1,7 @@
 // modules/document/DocumentRepository.ts
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class DocumentRepository {
   

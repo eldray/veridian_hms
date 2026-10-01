@@ -4,7 +4,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { BackupService } from './BackupService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class BackupController extends BaseController {
   private backupService: BackupService;

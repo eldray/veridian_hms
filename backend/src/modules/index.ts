@@ -13,6 +13,8 @@ import { createUserRoutes } from './user/UserRoutes';
 // Patient & Clinical
 import { createPatientRoutes } from './patient/PatientRoutes';
 import { createEncounterRoutes } from './encounter/EncounterRoutes';
+import { protect } from '../middleware/authMiddleware';
+import { realtimeBroadcast, eventsHandler } from '../services/realtime';
 import { createAppointmentRoutes } from './appointment/AppointmentRoutes';
 import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
 import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
@@ -76,6 +78,11 @@ import { createDocumentRoutes } from './document/DocumentRoutes';
 export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('🔧 Registering modules...');
   console.log('');
+
+  // Real-time: every successful write announces "<topic> changed"; screens subscribe via GET /events
+  app.use(realtimeBroadcast);
+  app.get('/events', protect, eventsHandler);
+  console.log('✅ Live updates (SSE) mounted at /events');
 
   // ============================================
   // 1. AUTHENTICATION & USER MANAGEMENT

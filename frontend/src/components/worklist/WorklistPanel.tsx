@@ -1,5 +1,6 @@
 // components/WorklistPanel.tsx
 import React, { useEffect } from 'react';
+import { useLiveRefresh } from '../../api/realtime';
 import { useWorklistStore } from '../../store/worklistStore';
 import { DepartmentType, WorklistItem } from '../types/worklist';
 import { 
@@ -25,6 +26,10 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
   useEffect(() => {
     fetchWorklist(department);
   }, [department, fetchWorklist]);
+
+  // Live queue: a new visit, vitals, lab/scan request, prescription or status change
+  // refreshes this queue within a couple of seconds, without a spinner.
+  useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist(department, { silent: true }));
 
   const getDepartmentIcon = () => {
     switch (department) {

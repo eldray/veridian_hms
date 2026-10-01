@@ -35,10 +35,19 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.get('/stats', controller.getStats);
 
   // ADMISSION ROUTES
-  router.get('/admissions', requireRole(['admin', 'doctor', 'records', 'accounts']), controller.getAllAdmissions);
+  router.get('/admissions', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), controller.getAllAdmissions);
   router.post('/admissions', controller.createAdmission); 
-  
-  // ✅ FIXED: Added missing route for daily notes
+
+  // Single admission (the frontend calls /encounters/admissions/:id).
+  // 'patient/:patientId' must be registered before ':id'.
+  const admissionReaders = requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']);
+  router.get('/admissions/patient/:patientId', admissionReaders, controller.getAdmissionsByPatient);
+  router.get('/admissions/:id', admissionReaders, controller.getAdmissionById);
+  router.put('/admissions/:id', requireRole(['admin', 'super_admin', 'doctor']), controller.updateAdmission);
+  router.delete('/admissions/:id', requireRole(['admin', 'super_admin']), controller.deleteAdmission);
+  router.post('/admissions/:id/notes', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addDailyNotes);
+
+  // Daily notes (older path kept so nothing that uses it breaks)
   router.post('/:id/admissions/notes', controller.addDailyNotes);
 
   // DISCHARGE ROUTES

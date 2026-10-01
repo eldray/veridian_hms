@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { logger } from '../utils/logger';
 
-const prisma = new PrismaClient();
+import prisma from '../core/database/prisma.client';
 
 export interface AuditLogOptions {
   entityType: string;

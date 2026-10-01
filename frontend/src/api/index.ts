@@ -234,54 +234,187 @@ export interface DocumentGenerationResponse {
 }
 
 // ============================================
+// PAGINATION HELPER
+// ============================================
+// The backend caps every list endpoint at 100 rows per request (patients,
+// services, corporate accounts, diagnoses ...). Asking for `limit: 1000` does
+// NOT return 1000 rows - it silently returns 100. Anything that needs "all"
+// rows must therefore walk the pages. Use fetchAllPages for that.
+
+export const API_PAGE_SIZE = 100;
+
+const pageItems = (resp: any): any[] => {
+  if (Array.isArray(resp)) return resp;
+  if (Array.isArray(resp?.data)) return resp.data;
+  if (Array.isArray(resp?.data?.data)) return resp.data.data;
+  if (Array.isArray(resp?.services)) return resp.services;
+  if (Array.isArray(resp?.items)) return resp.items;
+  return [];
+};
+
+/**
+ * The backend sends paging info as `meta: { page, limit, total, totalPages }` at the top
+ * of the response body (BaseController.paginated). Older code looked for `pagination`.
+ * Accept either and return one normalised shape.
+ */
+const readPagination = (body: any) => {
+  const m = body?.meta ?? body?.pagination ?? body?.data?.pagination ?? body?.data?.meta ?? null;
+  if (!m || m.total === undefined) return null;
+  return {
+    page: Number(m.page) || 1,
+    limit: Number(m.limit) || 0,
+    total: Number(m.total) || 0,
+    pages: Number(m.totalPages ?? m.pages) || 1,
+  };
+};
+
+const pageTotal = (resp: any): number | null => {
+  const meta = resp?.pagination ?? resp?.data?.pagination ?? resp?.meta ?? null;
+  const total = Number(meta?.total);
+  return Number.isFinite(total) && total > 0 ? total : null;
+};
+
+export interface FetchAllPagesOptions<T> {
+  pageSize?: number;      // rows per request (default 100 = backend maximum)
+  maxItems?: number;      // stop once this many rows are collected
+  maxPages?: number;      // safety brake (default 500)
+  concurrency?: number;   // parallel page requests once the total is known (default 4)
+  /** Called after every batch with everything collected so far. */
+  onPage?: (itemsSoFar: T[], total: number | null) => void;
+}
+
+/**
+ * Fetch every page of a list endpoint and return all rows (de-duplicated by id).
+ * `fetchPage` is any api function that accepts { page, limit, ...filters } and
+ * returns an array or { data: [...], pagination: { total } }.
+ */
+export async function fetchAllPages<T = any>(
+  fetchPage: (params: any) => Promise<any>,
+  params: any = {},
+  options: FetchAllPagesOptions<T> = {}
+): Promise<T[]> {
+  const pageSize = options.pageSize ?? API_PAGE_SIZE;
+  const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
+  const maxPages = options.maxPages ?? 500;
+  const concurrency = Math.max(1, options.concurrency ?? 4);
+  const { page: _page, limit: _limit, ...filters } = params || {};
+
+  const seen = new Set<any>();
+  const all: T[] = [];
+  const add = (items: any[]) => {
+    for (const item of items) {
+      const key = item?.id ?? item?._id;
+      if (key !== undefined) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      all.push(item);
+    }
+  };
+
+  const first = await fetchPage({ ...filters, page: 1, limit: pageSize });
+  const firstItems = pageItems(first);
+  add(firstItems);
+  const total = pageTotal(first);
+  options.onPage?.(all.slice(), total);
+
+  if (firstItems.length < pageSize || all.length >= maxItems) return all.slice(0, maxItems);
+
+  if (total !== null) {
+    // Total known: request the remaining pages a few at a time, keeping order.
+    const totalPages = Math.min(Math.ceil(Math.min(total, maxItems) / pageSize), maxPages);
+    for (let start = 2; start <= totalPages; start += concurrency) {
+      const batch: Promise<any>[] = [];
+      for (let page = start; page < start + concurrency && page <= totalPages; page++) {
+        batch.push(fetchPage({ ...filters, page, limit: pageSize }));
+      }
+      const responses = await Promise.all(batch);
+      for (const response of responses) add(pageItems(response));
+      options.onPage?.(all.slice(), total);
+      if (all.length >= maxItems) break;
+    }
+  } else {
+    // Total unknown: keep going until a short page comes back.
+    for (let page = 2; page <= maxPages; page++) {
+      const items = pageItems(await fetchPage({ ...filters, page, limit: pageSize }));
+      add(items);
+      options.onPage?.(all.slice(), null);
+      if (items.length < pageSize || all.length >= maxItems) break;
+    }
+  }
+
+  return all.slice(0, maxItems);
+}
+
+/**
+ * For endpoints whose callers read the raw response envelope ({ data: [...], summary, pagination }):
+ * fetches every page and returns the first response with `data` replaced by all rows.
+ */
+async function fetchAllEnvelope(fetchPage: (params: any) => Promise<any>, filters: any = {}): Promise<any> {
+  let envelope: any = null;
+  const rows = await fetchAllPages<any>(async (params) => {
+    const resp = await fetchPage(params);
+    if (!envelope) envelope = resp;
+    return resp;
+  }, filters, { maxItems: 5000 });
+  const base = envelope ?? {};
+  const inner = base?.data;
+  // Shape A: { data: [...] }   Shape B: { data: { data: [...], pagination } }
+  if (inner && !Array.isArray(inner) && Array.isArray(inner.data)) {
+    return { ...base, data: { ...inner, data: rows, pagination: { ...(inner.pagination || {}), page: 1, limit: rows.length, total: rows.length, pages: 1 } } };
+  }
+  return { ...base, data: rows, pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1 } };
+}
+
+/** True when the caller asked for more rows than one request can return. */
+const wantsMoreThanOnePage = (filters?: any) => Number(filters?.limit) > API_PAGE_SIZE;
+
+// ============================================
 // GENERIC RESPONSE HANDLER
 // ============================================
 
-const handleResponse = <T,>(response: any, arrayKey?: string): T[] => {
-  if (!response) return [];
+const handleResponse = <T>(response: any): T[] => {
+  // ✅ Handle notification responses (MUST be FIRST)
+  if (response?.data?.notifications && Array.isArray(response.data.notifications)) {
+    return response.data.notifications as T[];
+  }
+  if (response?.notifications && Array.isArray(response.notifications)) {
+    return response.notifications as T[];
+  }
 
-  // Direct array
+  // ✅ Handle BaseController paginated response: { success, data: { data: [], pagination: {} } }
+  if (response?.success && response?.data?.data && Array.isArray(response.data.data)) {
+    return response.data.data as T[];
+  }
+
+  // Handle other common response structures
   if (Array.isArray(response)) return response as T[];
+  if (response?.data && Array.isArray(response.data)) return response.data as T[];
+  if (response?.success && Array.isArray(response.data)) return response.data as T[];
+  if (response?.attendances && Array.isArray(response.attendances)) return response.attendances as T[];
+  if (response?.patients && Array.isArray(response.patients)) return response.patients as T[];
+  if (response?.services && Array.isArray(response.services)) return response.services as T[];
+  if (response?.providers && Array.isArray(response.providers)) return response.providers as T[];
+  if (response?.claims && Array.isArray(response.claims)) return response.claims as T[];
+  if (response?.diagnoses && Array.isArray(response.diagnoses)) return response.diagnoses as T[];
+  if (response?.admissions && Array.isArray(response.admissions)) return response.admissions as T[];
+  if (response?.wards && Array.isArray(response.wards)) return response.wards as T[];
+  if (response?.beds && Array.isArray(response.beds)) return response.beds as T[];
+  if (response?.departments && Array.isArray(response.departments)) return response.departments as T[];
+  if (response?.appointments && Array.isArray(response.appointments)) return response.appointments as T[];
+  if (response?.stockItems && Array.isArray(response.stockItems)) return response.stockItems as T[];
+  if (response?.stockTransactions && Array.isArray(response.stockTransactions)) return response.stockTransactions as T[];
+  if (response?.requisitions && Array.isArray(response.requisitions)) return response.requisitions as T[];
+  if (response?.purchaseInvoices && Array.isArray(response.purchaseInvoices)) return response.purchaseInvoices as T[];
+  if (response?.invoices && Array.isArray(response.invoices)) return response.invoices as T[];
 
-  // { data: [...] }
-  if (Array.isArray(response.data)) return response.data as T[];
-
-  // { success: true, data: [...] }
-  if (response.success && Array.isArray(response.data)) return response.data as T[];
-
-  // { success: true, data: { data: [...] } }   ← BaseController paginated
-  if (response.success && response.data?.data && Array.isArray(response.data.data)) {
-    return response.data.data as T[];
+  // Remove the warning log for notification responses
+  const isNotificationResponse = response?.data?.notifications || response?.notifications;
+  if (!isNotificationResponse) {
+    console.warn('Unexpected API response:', response);
   }
 
-  // { data: { data: [...] } }
-  if (response.data?.data && Array.isArray(response.data.data)) {
-    return response.data.data as T[];
-  }
-
-  // { data: { <arrayKey>: [...] } }   e.g. { data: { users: [...] } }
-  if (arrayKey && Array.isArray(response.data?.[arrayKey])) {
-    return response.data[arrayKey] as T[];
-  }
-
-  // { <arrayKey>: [...] }   e.g. { users: [...] }
-  if (arrayKey && Array.isArray(response[arrayKey])) {
-    return response[arrayKey] as T[];
-  }
-
-  // { success: true, data: { <arrayKey>: [...] } }
-  if (response.success && arrayKey && Array.isArray(response.data?.[arrayKey])) {
-    return response.data[arrayKey] as T[];
-  }
-
-  // { data: { results: [...] } }
-  if (Array.isArray(response.data?.results)) return response.data.results as T[];
-
-  // { data: { items: [...] } }
-  if (Array.isArray(response.data?.items)) return response.data.items as T[];
-
-  console.warn('[handleResponse] unknown shape:', response);
-  return [];
+  return [] as T[];
 };
 
 // Date conversion helper
@@ -830,8 +963,14 @@ export const deleteInsuranceProvider = (id: string) =>
 // ──────────────────────────────────────────────
 
 // ✅ SINGLE DEFINITION - Remove the duplicate at line ~420
-export const getCorporateAccounts = (filters?: any) =>
+const getCorporateAccountsPage = (filters?: any) =>
   api.get('/corporate', { params: filters }).then(r => handleResponse<any>(r.data));
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getCorporateAccounts = (filters?: any) =>
+  wantsMoreThanOnePage(filters)
+    ? fetchAllPages<any>(getCorporateAccountsPage, filters, { maxItems: Number(filters.limit) })
+    : getCorporateAccountsPage(filters);
 
 export const getCorporateAccount = (id: string) =>
   api.get(`/corporate/${id}`).then(r => r.data);
@@ -947,7 +1086,7 @@ export const removeClaimsFromBatch = (batchId: string, claimIds: string[]) =>
   api.delete(`/insurance-claims/batches/${batchId}/claims`, { data: { claimIds } }).then(r => r.data);
 
 export const generateBatchXML = (batchId: string) =>
-  api.get(`/insurance-claims/batches/${batchId}/xml`, { responseType: 'blob' }).then(r => r.data);
+  api.post(`/insurance-claims/batches/${batchId}/generate-xml`, {}, { responseType: 'blob' }).then(r => r.data);
 
 export const updateBatchStatus = (batchId: string, status: string) =>
   api.patch(`/insurance-claims/batches/${batchId}/status`, { status }).then(r => r.data);
@@ -968,14 +1107,27 @@ export const getPatient = (id: string) =>
     return patient;
   });
 
-export const getPatients = (filters?) =>
-  api.get('/patients', { params: filters }).then(r => handleResponse(r.data, 'patients'))
-    .then(list => list.map((p: any) => ({
-      ...p,
-      dateOfBirth: p.dateOfBirth?.includes('T')
-        ? convertISODateToInputFormat(p.dateOfBirth)
-        : p.dateOfBirth,
-    })));
+const getPatientsPage = (filters?: any) =>
+  api.get('/patients', { params: filters }).then(r => {
+    const patients = handleResponse<Patient>(r.data);
+    const mapped = patients.map((patient: any) => ({
+      ...patient,
+      dateOfBirth: patient.dateOfBirth && patient.dateOfBirth.includes('T')
+        ? convertISODateToInputFormat(patient.dateOfBirth)
+        : patient.dateOfBirth
+    }));
+    // Keep the server's paging info (total etc.) available to callers.
+    return Object.assign(mapped, { pagination: readPagination(r.data) });
+  });
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getPatients = async (filters?: any) => {
+  if (!wantsMoreThanOnePage(filters)) return getPatientsPage(filters);
+  const items = await fetchAllPages<any>(getPatientsPage, filters, { maxItems: Number(filters.limit) });
+  return Object.assign(items, {
+    pagination: { page: 1, limit: items.length, total: items.length, pages: 1 }
+  });
+};
 
 export const createPatient = (data: any) => {
   const processedData = { ...data };
@@ -1020,15 +1172,26 @@ export const deletePatient = (id: string) =>
 // ENCOUNTERS (ATTENDANCES)
 // ──────────────────────────────────────────────
 
-export const getEncounters = (filters?: any) =>
+const getEncountersPage = (filters?: any) =>
   api.get('/encounters', { params: filters }).then(r => {
     const encounters = handleResponse<any>(r.data);
     return {
       data: encounters,
       encounters: encounters,
-      pagination: r.data.pagination
+      pagination: readPagination(r.data)
     };
   });
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getEncounters = async (filters?: any): Promise<any> => {
+  if (!wantsMoreThanOnePage(filters)) return getEncountersPage(filters);
+  const items = await fetchAllPages<any>(getEncountersPage, filters, { maxItems: Number(filters.limit) });
+  return {
+    data: items,
+    encounters: items,
+    pagination: { page: 1, limit: items.length, total: items.length, pages: 1 }
+  };
+};
 
 export const getEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
@@ -1284,7 +1447,7 @@ export const generateNHISClaimFromEncounter = (encounterId: string) =>
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
 
-export const getBills = (filters?: any) => {
+const getBillsPage = (filters?: any) => {
   // ✅ Add cache-busting timestamp to prevent 304 responses
   const params = {
     ...filters,
@@ -1306,6 +1469,12 @@ export const getBills = (filters?: any) => {
       return [];
     }
   });
+};
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getBills = async (filters?: any) => {
+  if (!wantsMoreThanOnePage(filters)) return getBillsPage(filters);
+  return fetchAllPages<any>(getBillsPage, filters, { maxItems: Number(filters.limit) });
 };
 
 export const getBill = (id: string) => {
@@ -1383,7 +1552,13 @@ export const updateWaiverStatus = (id: string, data: {
   status: string;
   amountApproved?: number;
   rejectionReason?: string;
-}) => api.patch(`/waivers/${id}/status`, data).then(r => r.data);
+}) => {
+  // The backend exposes /approve and /reject (there is no /status route)
+  const status = String(data.status).toLowerCase();
+  if (status === 'approved') return api.post(`/waivers/${id}/approve`, { amountApproved: data.amountApproved }).then(r => r.data);
+  if (status === 'rejected') return api.post(`/waivers/${id}/reject`, { rejectionReason: data.rejectionReason }).then(r => r.data);
+  return api.put(`/waivers/${id}`, data).then(r => r.data);
+};
 
 export const approveWaiver = (id: string, amountApproved?: number) =>
   api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => r.data);
@@ -1412,7 +1587,7 @@ export const applyWaiverToBill = (billId: string, waiverId: string) =>
 // ============================================
 
 // GET all formal admissions (IPD only)
-export const getAdmissions = (filters?: {
+const getAdmissionsPage = (filters?: {
   status?: 'active' | 'discharged';
   wardId?: string;
   admissionType?: string;
@@ -1440,6 +1615,20 @@ export const getAdmissions = (filters?: {
     console.warn('Unexpected getAdmissions response structure:', r.data);
     return [];
   });
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getAdmissions = async (filters?: {
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  admissionType?: string;
+  excludeDetention?: boolean;
+  page?: number;
+  limit?: number;
+}) => {
+  if (!wantsMoreThanOnePage(filters)) return getAdmissionsPage(filters);
+  return fetchAllPages<any>(getAdmissionsPage, filters, { maxItems: Number(filters!.limit) });
+};
+
 // GET single admission by ID
 export const getAdmission = (id: string) =>
   api.get(`/encounters/admissions/${id}`).then(r => r.data?.data || r.data);
@@ -1517,7 +1706,7 @@ export const getBedOccupancy = () =>
 // ============================================
 
 // GET detention/observation patients (admissionType = 'detention_observation')
-export const getDetentionPatients = (filters?: {
+const getDetentionPatientsPage = (filters?: {
   status?: 'active' | 'discharged';
   wardId?: string;
   observationHours?: number;
@@ -1531,9 +1720,22 @@ export const getDetentionPatients = (filters?: {
     return r.data;
   });
 
+// With no page/limit given, loads EVERY page (100 per request): the "currently admitted"
+// list must never be silently cut to the backend default of 10 rows.
+export const getDetentionPatients = async (filters?: {
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  observationHours?: number;
+  readyForDecision?: boolean;
+  page?: number;
+  limit?: number;
+}) => {
+  if (filters?.page !== undefined || filters?.limit !== undefined) return getDetentionPatientsPage(filters);
+  return fetchAllEnvelope(getDetentionPatientsPage, filters);
+};
 
 // GET formal IPD patients (excluding detention)
-export const getFormalIPDPatients = (filters?: {
+const getFormalIPDPatientsPage = (filters?: {
   status?: 'active' | 'discharged';
   wardId?: string;
   page?: number;
@@ -1543,6 +1745,17 @@ export const getFormalIPDPatients = (filters?: {
     console.log('🔍 getFormalIPDPatients API response:', r.data);
     return r.data;
   });
+
+// With no page/limit given, loads EVERY page (100 per request).
+export const getFormalIPDPatients = async (filters?: {
+  status?: 'active' | 'discharged';
+  wardId?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  if (filters?.page !== undefined || filters?.limit !== undefined) return getFormalIPDPatientsPage(filters);
+  return fetchAllEnvelope(getFormalIPDPatientsPage, filters);
+};
 
 // Convert detention/observation to formal IPD
 export const convertDetentionToIPD = (encounterId: string, data: {
@@ -2043,10 +2256,8 @@ export const bulkUpdateScanTemplates = (data: any) =>
 
 // api/index.ts - REPLACE the getServiceCatalog function
 
-export const getServiceCatalog = (filters?: any) =>
+const getServiceCatalogPage = (filters?: any) =>
   api.get('/services', { params: filters }).then(r => {
-    console.log('🔍 Raw API response:', r.data);
-
     // The response structure is: { success: true, data: { data: [...], pagination: {...} } }
     const responseData = r.data;
 
@@ -2054,8 +2265,6 @@ export const getServiceCatalog = (filters?: any) =>
       // Extract the nested data array
       const services = responseData.data.data;
       const pagination = responseData.data.pagination;
-
-      console.log(`✅ Extracted ${services.length} services from nested response`);
 
       return {
         data: services,
@@ -2088,6 +2297,17 @@ export const getServiceCatalog = (filters?: any) =>
       pagination: null
     };
   });
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getServiceCatalog = async (filters?: any) => {
+  if (!wantsMoreThanOnePage(filters)) return getServiceCatalogPage(filters);
+  const items = await fetchAllPages<any>(getServiceCatalogPage, filters, { maxItems: Number(filters.limit) });
+  return {
+    data: items,
+    services: items,
+    pagination: { page: 1, limit: items.length, total: items.length, pages: 1, totalPages: 1 }
+  };
+};
 
 export const getServiceCatalogItem = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
@@ -2216,8 +2436,14 @@ export const getEligibleDepartmentHeads = () =>
 // APPOINTMENTS
 // ──────────────────────────────────────────────
 
-export const getAppointments = (filters?: any) =>
+const getAppointmentsPage = (filters?: any) =>
   api.get('/appointments', { params: filters }).then(r => handleResponse<Appointment>(r.data));
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
+export const getAppointments = (filters?: any) =>
+  wantsMoreThanOnePage(filters)
+    ? fetchAllPages<Appointment>(getAppointmentsPage, filters, { maxItems: Number(filters.limit) })
+    : getAppointmentsPage(filters);
 
 export const getAppointment = (id: string) =>
   api.get(`/appointments/${id}`).then(r => r.data?.data || r.data);
@@ -2729,8 +2955,20 @@ export const exportReport = async (data: {
   filters: ReportFilter;
   data: any;
 }) => {
-  const response = await api.post('/reports/export', data);
-  return response.data;
+  const response = await api.post('/reports/export', data, { responseType: 'blob' });
+  const blob: Blob = response.data;
+  const disposition: string = response.headers?.['content-disposition'] || '';
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1] || `${data.reportType}_${new Date().toISOString().split('T')[0]}.csv`;
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+  return { success: true, filename };
 };
 
 

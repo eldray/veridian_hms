@@ -1,11 +1,12 @@
 import { PrismaClient, Hospital } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import sharedPrisma from '../../core/database/prisma.client';
 import { CreateHospitalDTO, UpdateHospitalDTO } from './HospitalTypes';
 
 export class HospitalRepository extends BaseRepository<Hospital, CreateHospitalDTO, UpdateHospitalDTO> {
   // ✅ Kept your exact optional Prisma injection pattern
   constructor(prisma?: PrismaClient) {
-    super(prisma || new PrismaClient(), 'hospital');
+    super(prisma || sharedPrisma, 'hospital');
   }
 
   async findAll(orderBy: { [key: string]: 'asc' | 'desc' } = { name: 'asc' }): Promise<Hospital[]> {

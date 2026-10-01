@@ -107,7 +107,7 @@ interface AttendanceState {
   isOPD: (attendance: Attendance) => boolean;
 
   // Core operations
-  getAttendances: (filters?: any) => Promise<Attendance[]>;
+  getAttendances: (filters?: any, options?: { silent?: boolean }) => Promise<Attendance[]>;
   getAttendance: (id: string) => Promise<Attendance>;
   createAttendance: (data: any) => Promise<Attendance>;
   updateAttendance: (id: string, data: any) => Promise<void>;
@@ -188,10 +188,42 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // CORE OPERATIONS
   // ==========================================
 
-  getAttendances: async (filters = {}) => {
-    set({ isLoading: true, error: null });
+  getAttendances: async (filters = {}, options = {}) => {
+    // silent = background refresh: no loading flag, so screens don't flash a spinner
+    if (!options.silent) set({ isLoading: true, error: null });
     try {
-      const response = await apiGetAttendances(filters);
+      // The backend returns at most 100 rows per request (10 by default). Many screens call
+      // getAttendances() with no arguments and expect "the visits happening now", so:
+      //  - no filters at all   -> LIVE set: every admitted patient (however long ago they were
+      //                           admitted) + pending visits from the last 14 days + every visit
+      //                           from the last 72 hours. All pages, max 5,000 rows.
+      //  - patientId only      -> that patient's 100 most recent visits
+      //  - status only         -> open statuses (pending/admitted) are unbounded in age;
+      //                           closed statuses are limited to the last 7 days
+      //  - anything explicit   -> exactly what the caller asked for (limit > 100 walks the pages)
+      const f: any = { ...filters };
+      const explicit = f.page !== undefined || f.limit !== undefined || f.dateFrom || f.dateTo;
+      if (!explicit) {
+        if (f.patientId) {
+          f.limit = 100;
+        } else if (f.status) {
+          const statuses = String(f.status).split(',').map((x: string) => x.trim());
+          const openOnly = statuses.every((x: string) => x === 'pending' || x === 'admitted');
+          if (!openOnly) {
+            const since = new Date();
+            since.setDate(since.getDate() - 7);
+            since.setHours(0, 0, 0, 0);
+            f.dateFrom = since.toISOString();
+          }
+          f.limit = 5000;
+        } else {
+          f.live = true;
+          f.limit = 5000;
+        }
+      } else if (f.limit === undefined && (f.dateFrom || f.dateTo)) {
+        f.limit = 5000;
+      }
+      const response = await apiGetAttendances(f);
       let attendances: Attendance[] = [];
       let pagination: Pagination | null = null;
 
@@ -207,11 +239,13 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         attendances = response.data;
       }
 
-      set({ attendances, pagination, isLoading: false });
+      set(options.silent ? { attendances, pagination } : { attendances, pagination, isLoading: false });
       return attendances;
     } catch (error: any) {
-      console.error('Error fetching attendances:', error);
-      set({ error: error.message || 'Failed to fetch attendances', isLoading: false });
+      if (!options.silent) {
+        console.error('Error fetching attendances:', error);
+        set({ error: error.message || 'Failed to fetch attendances', isLoading: false });
+      }
       throw error;
     }
   },
@@ -789,16 +823,16 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // BILLING OPERATIONS
   // ==========================================
 
+  // Best-effort refresh after a clinical change. The bill itself is produced by the billing
+  // flow (POST /bills/generate/:encounterId), and the backend has no /calculate-bill route,
+  // so this must never make an add/remove action (diagnosis, service, lab ...) look failed.
   calculateBill: async (attendanceId) => {
-    set({ isLoading: true, error: null });
     try {
-      const result = await apiCalculateBill(attendanceId);
-      set({ isLoading: false });
-      return result;
+      return await apiCalculateBill(attendanceId);
     } catch (error: any) {
-      console.error('Error calculating bill:', error);
-      set({ error: error.message || 'Failed to calculate bill', isLoading: false });
-      throw error;
+      const status = error?.response?.status;
+      if (status !== 404) console.warn('Bill refresh skipped:', error?.message || error);
+      return null;
     }
   },
 

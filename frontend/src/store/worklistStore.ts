@@ -34,8 +34,9 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
     get().fetchWorklist(department);
   },
 
-  fetchWorklist: async (department: DepartmentType) => {
-    set({ isLoading: true, error: null });
+  fetchWorklist: async (department: DepartmentType, options: { silent?: boolean } = {}) => {
+    // silent = background refresh: keep the list on screen, no spinner, no error banner
+    if (!options.silent) set({ isLoading: true, error: null });
     try {
       let apiCall;
       
@@ -50,7 +51,7 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
         case 'maternal': apiCall = getMaternalWorklist(); break;
         default:
           await getWorklistSummary();
-          set({ worklistItems: [], stats: { total: 0, urgent: 0, critical: 0 }, isLoading: false });
+          set({ worklistItems: [], stats: { total: 0, urgent: 0, critical: 0 }, ...(options.silent ? {} : { isLoading: false }) });
           return;
       }
 
@@ -90,9 +91,10 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
         critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
       };
 
-      set({ worklistItems: items, stats, isLoading: false });
+      set(options.silent ? { worklistItems: items, stats } : { worklistItems: items, stats, isLoading: false });
 
     } catch (error: any) {
+      if (options.silent) return;
       console.error('Worklist fetch error:', error);
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to fetch worklist', 

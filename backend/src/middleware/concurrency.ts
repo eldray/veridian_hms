@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from './authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../core/database/prisma.client';
 
 /**
  * Middleware to handle optimistic locking for concurrent updates

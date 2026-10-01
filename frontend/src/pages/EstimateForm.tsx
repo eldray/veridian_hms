@@ -5,7 +5,8 @@ import {
   ArrowLeft, Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check,
 } from 'lucide-react';
-import { getCorporateAccounts, getPatients, getServiceCatalog } from '../api';
+import { getCorporateAccounts, getServiceCatalog } from '../api';
+import { usePatientStore } from '../store/patientStore';
 import { useEstimatesStore } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
 
@@ -244,7 +245,8 @@ export default function EstimateForm() {
   const { error: toastError, success } = useToast();
   const { currentEstimate, loadEstimate, createEstimate, updateEstimate } = useEstimatesStore();
 
-  const [patients, setPatients] = useState<any[]>([]);
+  // Patients come from the shared store, which loads every page (100 per request).
+  const patients = usePatientStore((state) => state.patients);
   const [services, setServices] = useState<any[]>([]);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
   const [patientId, setPatientId] = useState('');
@@ -265,12 +267,12 @@ export default function EstimateForm() {
     const loadOptions = async () => {
       setIsLoading(true);
       try {
-        const [patientResponse, serviceResponse, corporateResponse] = await Promise.all([
-          getPatients({ limit: 1000, page: 1 }),
-          getServiceCatalog({ isActive: true, limit: 1000, page: 1 }),
+        // The backend returns at most 100 rows per request; these calls walk every page.
+        const [serviceResponse, corporateResponse] = await Promise.all([
+          getServiceCatalog({ isActive: true, limit: 5000, page: 1 }),
           getCorporateAccounts({ isActive: true, limit: 1000, page: 1 }),
+          usePatientStore.getState().loadPatients(),
         ]);
-        setPatients(asArray(patientResponse));
         setServices(asArray(serviceResponse));
         setCorporateAccounts(asArray(corporateResponse));
         if (id) await loadEstimate(id);

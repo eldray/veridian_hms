@@ -2,7 +2,7 @@
 import { PrismaClient, PaymentMode } from '@prisma/client';
 import { getCounterService } from '../services/CounterService';
 
-const prisma = new PrismaClient();
+import prisma from '../core/database/prisma.client';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;

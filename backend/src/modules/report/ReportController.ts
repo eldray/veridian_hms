@@ -264,9 +264,10 @@ export class ReportController {
           filename += '.csv';
       }
 
-      if (format === 'csv') {
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      if (format !== 'json') {
+        if (!filename.endsWith('.csv')) filename += '.csv';
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return res.send(csvContent);
       }
 

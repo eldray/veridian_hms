@@ -182,7 +182,7 @@ export default function Appointments() {
       }
       
       await Promise.all([
-        getAppointments(filters),
+        getAppointments({ ...filters, limit: 5000 }), // all pages of the selected window
         loadPatients(),
         getAvailableClinicians(['doctor', 'nurse', 'midwife'])
       ]);

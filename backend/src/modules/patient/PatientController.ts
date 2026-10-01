@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { PatientService } from './PatientService';
 import { CreatePatientDTO, PatientFilters, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class PatientController extends BaseController {
   private service: PatientService;
@@ -115,6 +117,52 @@ export class PatientController extends BaseController {
         message: error.message || 'Failed to generate CCC' 
       });
     }
+  });
+
+  // ── Patient photo ─────────────────────────────────────────────
+  private static readonly IMAGE_TYPES: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'
+  };
+
+  /** POST /patients/:id/upload-image  (multipart, field "image") */
+  uploadImage = this.asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) return res.status(400).json({ success: false, message: 'No image file received (field name must be "image")' });
+
+    await this.service.getPatientById(id); // 404 if the patient does not exist
+    const imageUrl = `/uploads/patients/${file.filename}`;
+    await this.service.updatePatient(id, { imageUrl } as any);
+    return this.ok(res, { imageUrl }, 'Patient image uploaded');
+  });
+
+  /** POST /patients/:id/upload-image-base64  ({ image: "data:image/jpeg;base64,..." }) */
+  uploadImageBase64 = this.asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const raw: string | undefined = req.body?.image;
+    if (!raw || typeof raw !== 'string') {
+      return res.status(400).json({ success: false, message: 'image (base64) is required' });
+    }
+
+    const match = /^data:(image\/[a-zA-Z+.-]+);base64,(.+)$/s.exec(raw);
+    const mime = match ? match[1].toLowerCase() : 'image/jpeg'; // bare base64 is treated as JPEG
+    const ext = PatientController.IMAGE_TYPES[mime];
+    if (!ext) return res.status(400).json({ success: false, message: 'Only JPEG, PNG or WebP images are allowed' });
+
+    const buffer = Buffer.from(match ? match[2] : raw, 'base64');
+    if (buffer.length === 0) return res.status(400).json({ success: false, message: 'Image is empty or not valid base64' });
+    if (buffer.length > 10 * 1024 * 1024) return res.status(413).json({ success: false, message: 'Image is larger than 10 MB' });
+
+    await this.service.getPatientById(id); // 404 if the patient does not exist
+
+    const dir = path.join(process.cwd(), 'uploads', 'patients');
+    fs.mkdirSync(dir, { recursive: true });
+    const filename = `patient-${id}-${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(dir, filename), buffer);
+
+    const imageUrl = `/uploads/patients/${filename}`;
+    await this.service.updatePatient(id, { imageUrl } as any);
+    return this.ok(res, { imageUrl }, 'Patient image uploaded');
   });
 
   updatePatient = this.asyncHandler(async (req: Request, res: Response) => {

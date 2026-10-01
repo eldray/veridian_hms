@@ -6,7 +6,7 @@ import { BillService } from './BillService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { CreateBillInput, AddPaymentInput, VoidLineItemInput } from './BillTypes';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 const billService = new BillService(prisma);
 
 // ✅ Kept your exact validation arrays

@@ -4,7 +4,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { WaiverService } from './WaiverService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+import prisma from '../../core/database/prisma.client';
 
 export class WaiverController extends BaseController {
   private service: WaiverService;
@@ -40,7 +40,9 @@ export class WaiverController extends BaseController {
   });
 
   approve = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { approvedById, amountApproved, rejectionReason } = req.body;
+    const { amountApproved, rejectionReason } = req.body;
+    // The approver is the logged-in user (the UI does not send an id)
+    const approvedById = req.user?.userId || req.body.approvedById;
     if (!approvedById) return this.badRequest(res, 'approvedById is required');
     
     const result = await this.service.approve(req.params.id, approvedById, amountApproved, rejectionReason);
@@ -48,7 +50,8 @@ export class WaiverController extends BaseController {
   });
 
   reject = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { approvedById, rejectionReason } = req.body;
+    const { rejectionReason } = req.body;
+    const approvedById = req.user?.userId || req.body.approvedById;
     if (!approvedById) return this.badRequest(res, 'approvedById is required');
     if (!rejectionReason) return this.badRequest(res, 'rejectionReason is required');
     

@@ -902,7 +902,10 @@ getLabTestTemplates: async (filters = {}) => {
 getServiceCatalog: async (filters = {}) => {
   set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
   try {
-    const limit = getSafePageLimit(filters?.limit);
+    // Callers may ask for more than one page (e.g. limit: 10000 = "everything").
+    // api.getServiceCatalog walks the pages itself when limit > 100.
+    const requested = Number(filters?.limit);
+    const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 10000) : SAFE_PAGE_LIMIT;
     const response = await apiGetServiceCatalog({ ...filters, limit, page: filters?.page || 1 });
 
     console.log('📦 Service Catalog API Response:', response);

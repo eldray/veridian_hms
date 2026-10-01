@@ -1,4 +1,5 @@
 // src/pages/Attendance.tsx - FIXED VERSION
+import { useLiveRefresh } from '../api/realtime';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -111,7 +112,16 @@ export default function Attendance() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([getAttendances(), loadPatients()]);
+      // Only the selected date window is requested (all pages of it, 100 per request).
+      // The backend caps a single request at 100 rows, so this walks the pages.
+      const range = getDateRange();
+      await Promise.all([
+        getAttendances({
+          limit: 5000,
+          ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+        }),
+        loadPatients(),
+      ]);
     } catch (e) {
       error('Refresh failed', 'Could not load attendance data.');
     } finally {
@@ -119,9 +129,23 @@ export default function Attendance() {
     }
   };
 
+  // Live updates: when anyone registers a visit, records vitals, admits or discharges,
+  // quietly re-fetch just the visits in the selected window (no spinner, no patient reload).
+  const windowReady = !(dateFilter === 'custom' && !(customStartDate && customEndDate));
+  useLiveRefresh(['encounters', 'admissions'], () => {
+    const range = getDateRange();
+    return getAttendances({
+      limit: 5000,
+      ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+    }, { silent: true });
+  }, windowReady);
+
   useEffect(() => {
+    // Reload when the date window changes (custom range: wait until both dates are set)
+    if (dateFilter === 'custom' && !(customStartDate && customEndDate)) return;
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFilter, customStartDate, customEndDate]);
 
   // ✅ Filter attendances by search AND date range
   const filteredAttendances = useMemo(() => {

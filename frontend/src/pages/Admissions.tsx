@@ -1,5 +1,6 @@
 // src/pages/Admissions.tsx - UPDATED with Ward Management button and proper data display
 
+import { useLiveRefresh } from '../api/realtime';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -132,10 +133,16 @@ export default function Admissions() {
     try {
       setRefreshing(true);
       setIsLoading(true);
+      // All pages (100 per request). Attendances are limited to the selected date window,
+      // which is the same window this page filters on anyway.
+      const range = getDateRange();
       await Promise.all([
-        getAdmissions(),
+        getAdmissions({ limit: 2000 }),
         loadPatients(),
-        getAttendances(),
+        getAttendances({
+          limit: 5000,
+          ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+        }),
         getDetentionPatients(),
         getFormalIPDPatients(),
       ]);
@@ -148,9 +155,27 @@ export default function Admissions() {
     }
   };
 
+  // Live updates: a new admission, discharge, transfer, bed change or visit change
+  // quietly refreshes the lists (no spinner, patients are not reloaded).
+  useLiveRefresh(['admissions', 'encounters', 'nursing'], async () => {
+    const range = getDateRange();
+    await Promise.all([
+      getAdmissions({ limit: 2000 }, { silent: true }),
+      getAttendances({
+        limit: 5000,
+        ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+      }, { silent: true }),
+      getDetentionPatients(),
+      getFormalIPDPatients(),
+    ]);
+  }, !(dateFilter === 'custom' && !(customStartDate && customEndDate)));
+
   useEffect(() => {
+    // Reload when the date window changes (custom range: wait until both dates are set)
+    if (dateFilter === 'custom' && !(customStartDate && customEndDate)) return;
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     setCurrentPage(1);

@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { registerModules } from './modules';
 
 const router = Router();
-const prisma = new PrismaClient();
+import prisma from './core/database/prisma.client';
 
 // Register all modules - they will mount their own paths
 // The modules should mount routes at root level (e.g., /auth, /patients, etc.)

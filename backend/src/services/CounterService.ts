@@ -1,5 +1,5 @@
 // services/CounterService.ts
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 // Separate counters for different sequences
 let patientCounter = 1000;      // PATIENT SEQUENCE - increments per new patient
@@ -7,6 +7,26 @@ let attendanceCounter = 1000;   // ATTENDANCE SEQUENCE - increments per visit (a
 let receiptCounter = 1000;      // RECEIPT SEQUENCE - increments per payment
 let referralCounter = 1000;     // REFERRAL SEQUENCE - independent
 let appointmentCounter = 1000;  // APPOINTMENT SEQUENCE - independent
+
+/**
+ * A place where numbers from one counter are stored.
+ * `model`/`field` are Prisma names; table/column names are resolved from the
+ * Prisma datamodel so @@map / @map are respected.
+ */
+interface NumberSource {
+  model: string;
+  field: string;
+}
+
+/**
+ * Regex (PostgreSQL) that pulls the trailing run of 1-7 digits out of a number
+ * such as "1001", "BILL-10234", "APT-999" or "RCP-12000".
+ * Trailing runs of 8+ digits (legacy random / timestamp numbers) are ignored so
+ * they can't push the counter to a huge value.
+ */
+const TRAILING_NUMBER_REGEX = '(?:^|\\D)(\\d{1,7})$';
+
+const SAFE_IDENTIFIER = /^[A-Za-z0-9_]+$/;
 
 export class CounterService {
   private static instance: CounterService;
@@ -24,60 +44,78 @@ export class CounterService {
     return CounterService.instance;
   }
 
+  /**
+   * Resolve the real table + column name for a Prisma model field.
+   */
+  private resolveColumn(source: NumberSource): { table: string; column: string } {
+    type DmmfModel = { name: string; dbName?: string | null; fields: ReadonlyArray<{ name: string; dbName?: string | null }> };
+    const models = Prisma.dmmf.datamodel.models as unknown as ReadonlyArray<DmmfModel>;
+    const model = models.find((m) => m.name === source.model);
+    const field = model?.fields.find((f) => f.name === source.field);
+    const table = model?.dbName ?? source.model;
+    const column = field?.dbName ?? source.field;
+
+    if (!SAFE_IDENTIFIER.test(table) || !SAFE_IDENTIFIER.test(column)) {
+      throw new Error(`CounterService: unsafe identifier for ${source.model}.${source.field}`);
+    }
+    return { table, column };
+  }
+
+  /**
+   * Highest NUMERIC value (not string-sorted!) found across the given sources.
+   *
+   * IMPORTANT: the old code used `orderBy: { col: 'desc' }` on string columns,
+   * which sorts text - "9999" > "10000" - so after the 9,999th record a server
+   * restart would reset the counter and hand out duplicate numbers.
+   */
+  private async maxNumberAcross(sources: NumberSource[]): Promise<number> {
+    let max = 0;
+    for (const source of sources) {
+      const { table, column } = this.resolveColumn(source);
+      // Identifiers are validated against SAFE_IDENTIFIER above; the regex is a constant.
+      const rows = await this.prisma.$queryRawUnsafe<Array<{ max: string | null }>>(
+        `SELECT MAX(CAST(substring("${column}" from '${TRAILING_NUMBER_REGEX}') AS BIGINT))::text AS max FROM "${table}"`
+      );
+      const value = rows[0]?.max ? parseInt(rows[0].max, 10) : 0;
+      if (Number.isFinite(value) && value > max) max = value;
+    }
+    return max;
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     console.log('📊 Initializing counters...');
 
-    // Get last patient number
-    const lastPatient = await this.prisma.patient.findFirst({
-      orderBy: { folderNumber: 'desc' },
-      select: { folderNumber: true }
-    });
-    if (lastPatient?.folderNumber) {
-      const match = lastPatient.folderNumber.match(/\d+$/);
-      if (match) patientCounter = parseInt(match[0]);
-    }
+    const [patientMax, attendanceMax, receiptMax, referralMax, appointmentMax] = await Promise.all([
+      this.maxNumberAcross([{ model: 'Patient', field: 'folderNumber' }]),
 
-    // Get last attendance number (critical - this is the master sequence)
-    const lastAttendance = await this.prisma.attendance.findFirst({
-      orderBy: { attendanceNumber: 'desc' },
-      select: { attendanceNumber: true }
-    });
-    if (lastAttendance?.attendanceNumber) {
-      const match = lastAttendance.attendanceNumber.match(/\d+$/);
-      if (match) attendanceCounter = parseInt(match[0]);
-    }
+      // The attendance counter is SHARED: it also generates bill, admission and
+      // claim numbers (BILL-n, ADM-n, NHIS-n ...). All of them must be checked
+      // or a restart can re-issue a number that already exists.
+      this.maxNumberAcross([
+        { model: 'Attendance', field: 'attendanceNumber' },
+        { model: 'Bill', field: 'billNumber' },
+        { model: 'Admission', field: 'admissionNumber' },
+        { model: 'InsuranceClaim', field: 'claimNumber' }
+      ]),
 
-    // Get last receipt number
-    const lastReceipt = await this.prisma.payment.findFirst({
-      orderBy: { reference: 'desc' },
-      select: { reference: true }
-    });
-    if (lastReceipt?.reference) {
-      const match = lastReceipt.reference.match(/RCP-(\d+)/);
-      if (match) receiptCounter = parseInt(match[1]);
-    }
+      // Receipts (RCP-n) and claim batches (BATCH-xxxxxx-n) share the receipt counter.
+      this.maxNumberAcross([
+        { model: 'Payment', field: 'reference' },
+        { model: 'ClaimBatch', field: 'batchNumber' }
+      ]),
 
-    // Get last referral number
-    const lastReferral = await this.prisma.referralRecord.findFirst({
-      orderBy: { referralNumber: 'desc' },
-      select: { referralNumber: true }
-    });
-    if (lastReferral?.referralNumber) {
-      const match = lastReferral.referralNumber.match(/\d+$/);
-      if (match) referralCounter = parseInt(match[0]);
-    }
+      this.maxNumberAcross([{ model: 'ReferralRecord', field: 'referralNumber' }]),
+      this.maxNumberAcross([{ model: 'Appointment', field: 'appointmentNumber' }])
+    ]);
 
-    // Get last appointment number
-    const lastAppointment = await this.prisma.appointment.findFirst({
-      orderBy: { appointmentNumber: 'desc' },
-      select: { appointmentNumber: true }
-    });
-    if (lastAppointment?.appointmentNumber) {
-      const match = lastAppointment.appointmentNumber.match(/\d+$/);
-      if (match) appointmentCounter = parseInt(match[0]);
-    }
+    // Counters only ever move forward.
+    patientCounter = Math.max(patientCounter, patientMax);
+    attendanceCounter = Math.max(attendanceCounter, attendanceMax);
+    receiptCounter = Math.max(receiptCounter, receiptMax);
+    referralCounter = Math.max(referralCounter, referralMax);
+    appointmentCounter = Math.max(appointmentCounter, appointmentMax);
 
     this.initialized = true;
     console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}`);
