@@ -13,6 +13,7 @@ export interface TokenPayload {
   userId: string; username: string; role: UserRole; seniority: Seniority;
   permissions: string[]; // ✅ NEW: For Dynamic RBAC
   iat?: number; exp?: number;
+  departmentId: string;
 }
 
 export interface AuthenticatedRequest extends Request { user?: TokenPayload; }
