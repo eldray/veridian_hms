@@ -1,4 +1,5 @@
 // src/pages/MedicalEntries.tsx - UPDATED with Daycase, Detention, IPD distinction
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -552,7 +553,7 @@ export default function MedicalEntries() {
   const { updateAttendance } = useAttendanceStore();
   const { updateBed } = useWardStore();
   const {
-    attendances, currentAttendance, getAttendance, getAttendances,
+    attendances, currentAttendance, getAttendance, getAttendances, refreshAttendance,
     removeDiagnosis, removeLabTest, removeProcedure, removeMedication, removeScan,
     updateScanStatus, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
   } = useAttendanceStore();
@@ -606,6 +607,15 @@ export default function MedicalEntries() {
       setIsLoading(false);
     }
   };
+
+  // Live updates for the visit being worked on (vitals taken by the nurse, results back from the lab ...).
+  // Refreshes only that visit, never the shared list, and waits while a form is open so nothing is overwritten.
+  useLiveRefresh(['encounters'], async () => {
+    if (!selectedAttendanceId || modalType) return;
+    await refreshAttendance(selectedAttendanceId);
+    const v = await getVitalsByAttendance(selectedAttendanceId).catch(() => null);
+    if (v) setLatestVitals(v.length ? v[v.length - 1] : null);
+  });
 
   useEffect(() => { loadData(); }, []);
 

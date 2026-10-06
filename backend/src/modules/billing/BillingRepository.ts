@@ -29,23 +29,30 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true } },
-        Admission: { select: { id: true, admissionNumber: true, status: true } },
+        admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         CorporateAccount: { select: { id: true, companyName: true, creditLimit: true, currentBalance: true } },
         Payment: true
       }
     });
 
-    return { bills: result.data, total: result.total, page: result.page, limit: result.limit };
+    return { bills: result.data.map(this.withAdmission), total: result.total, page: result.page, limit: result.limit };
   }
 
+  /** Screens read `bill.Admission` and `Admission.status`; the schema relation is `admission` and has no status column. */
+  private withAdmission = (bill: any) => {
+    if (!bill) return bill;
+    const a = bill.admission;
+    return { ...bill, Admission: a ? { ...a, status: a.dischargeDate ? 'discharged' : 'active' } : null };
+  };
+
   async findById(id: string) {
-    return this.getModel().findUnique({
+    const bill = await this.getModel().findUnique({
       where: { id },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, paymentMode: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true, dateTime: true } },
-        Admission: { select: { id: true, admissionNumber: true, status: true, admissionDate: true } },
+        admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         CorporateAccount: { select: { id: true, companyName: true, creditLimit: true, currentBalance: true, discountPercentage: true } },
         Payment: { orderBy: { transactionDate: 'desc' } },
@@ -54,6 +61,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         User_Bill_createdByIdToUser: { select: { id: true, fullName: true, username: true } }
       }
     });
+    return this.withAdmission(bill);
   }
 
   async create(data: any, items: any[]) {

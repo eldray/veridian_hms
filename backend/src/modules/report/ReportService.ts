@@ -1,4 +1,5 @@
 // modules/report/ReportService.ts
+import { cacheReadMethods } from '../../utils/ttlCache';
 import { PrismaClient, BillStatus } from '@prisma/client';
 // FIXED: removed unused PaymentMode import
 import { ReportFilters } from './ReportTypes';
@@ -8,6 +9,8 @@ export class ReportService {
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
+    // Reports over big date ranges take seconds; share one result per range for 60 s
+    cacheReadMethods(this, ['getDemographicReport','getFinancialReport','getInsuranceClaimsReport','getClinicalReport','getAttendanceReport','getRevenueReport','getNhisExpiryReport','getNhisClaimsWithExpiry'], 60000);
   }
 
   private calculateAge(dateOfBirth: Date, asOfDate: Date = new Date()): number {

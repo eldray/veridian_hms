@@ -15,7 +15,8 @@ export class ServiceCatalogService extends BaseService {
 
   // ✅ Helper to flatten the pricing array so the frontend doesn't break
   private flattenPricing(service: any) {
-    if (service && Array.isArray(service.pricing) && service.pricing.length > 0) {
+    if (!service) return service;
+    if (Array.isArray(service.pricing) && service.pricing.length > 0) {
       service.pricing = service.pricing[0];
     } else {
       service.pricing = null;
@@ -81,7 +82,7 @@ export class ServiceCatalogService extends BaseService {
     const existing = await this.repo.getModel().findUnique({ where: { code: data.code } });
     if (existing) throw new ValidationError(`Service code '${data.code}' already exists`);
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const serviceItem = await tx.serviceCatalog.create({
         data: {
           name: data.name, code: data.code, description: data.description || null,
@@ -113,8 +114,14 @@ export class ServiceCatalogService extends BaseService {
         },
       });
 
-      return this.flattenPricing(await this.repo.findByIdWithDetails(serviceItem.id));
+      return serviceItem;
     });
+
+    // Read the finished record AFTER the transaction has committed: inside it, the repository's own
+    // connection cannot see the new row yet (it returned null, and creating any service failed with a 500).
+    const full = await this.repo.findByIdWithDetails(created.id);
+    if (!full) throw new NotFoundError('Service catalog item', created.id);
+    return this.flattenPricing(full);
   }
 
   async update(id: string, updateData: any) {
@@ -142,7 +149,7 @@ export class ServiceCatalogService extends BaseService {
       if (updateData[field] !== undefined) pricingUpdateData[field] = parseFloat(updateData[field]);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       if (Object.keys(serviceUpdateData).length > 0) {
         await tx.serviceCatalog.update({ where: { id }, data: { ...serviceUpdateData, updatedAt: new Date() } });
       }
@@ -150,8 +157,11 @@ export class ServiceCatalogService extends BaseService {
         // ✅ FIXED: Uses historical pricing logic
         await this.repo.updatePricingHistorically(id, pricingUpdateData, tx);
       }
-      return this.flattenPricing(await this.repo.findByIdWithDetails(id));
     });
+
+    // Re-read after the transaction has committed so the response shows the saved values
+    // (read inside it, the repository's own connection returned the OLD record)
+    return this.flattenPricing(await this.repo.findByIdWithDetails(id));
   }
 
   async updatePricingOnly(id: string, pricingData: any) {

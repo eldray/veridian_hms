@@ -6,12 +6,24 @@ import {
 } from './EncounterTypes';
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
-import { NotFoundError, ConflictError } from '../../utils/errors';
+import { NotFoundError, ConflictError, ValidationError } from '../../utils/errors';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
 export const LIVE_PENDING_DAYS = 14;
 export const LIVE_RECENT_HOURS = 72;
+
+/**
+ * Worklist windows. A worklist is a queue of work still to do, so it must not grow forever:
+ *  - open work (visit pending, test requested, drug prescribed, procedure scheduled): last 30 days
+ *    (admitted patients are always included, however long ago they were admitted)
+ *  - finished work (result completed, drug dispensed): kept for 72 hours so results can be reviewed
+ * Older items stay on the patient's record; they just stop crowding the queue.
+ */
+export const WORKLIST_OPEN_DAYS = 30;
+export const WORKLIST_DONE_HOURS = 72;
+const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000);
 
 export class EncounterRepository extends BaseRepository<Attendance, CreateEncounterDTO, UpdateEncounterDTO> {
  private marService: MarService;
@@ -632,11 +644,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const { page, limit, skip } = this.pageParams(filters);
     const where = this.buildAdmissionWhere(filters);
 
-    const [rows, total] = await this.prisma.$transaction([
+    const [rows, total] = await Promise.all([
       this.prisma.admission.findMany({
         where,
         include: this.admissionListInclude(),
-        orderBy: { admissionDate: 'desc' },
+        orderBy: [{ admissionDate: 'desc' }, { id: 'asc' }],
         skip,
         take: limit
       }),
@@ -669,11 +681,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const { page, limit, skip } = this.pageParams(filters);
     const where = { attendance: { patientId } };
 
-    const [rows, total] = await this.prisma.$transaction([
+    const [rows, total] = await Promise.all([
       this.prisma.admission.findMany({
         where,
         include: this.admissionListInclude(),
-        orderBy: { admissionDate: 'desc' },
+        orderBy: [{ admissionDate: 'desc' }, { id: 'asc' }],
         skip,
         take: limit
       }),
@@ -691,7 +703,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const update: any = {};
       if (data.admissionType) update.admissionType = data.admissionType;
       if (data.admissionSource) update.admissionSource = data.admissionSource;
-      if (data.dischargeStatus) update.dischargeStatus = data.dischargeStatus;
+      if (data.dischargeStatus) {
+        const allowed = ['home', 'transfer', 'expired', 'against_medical_advice'];
+        if (!allowed.includes(data.dischargeStatus)) {
+          throw new ValidationError(`dischargeStatus must be one of: ${allowed.join(', ')}`);
+        }
+        update.dischargeStatus = data.dischargeStatus;
+      }
       if (data.dischargeDate) update.dischargeDate = new Date(data.dischargeDate);
 
       // The Admission table has no dischargeSummary column: keep it as a note instead of dropping it.
@@ -786,7 +804,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getVitalsWorklist(): Promise<any> {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
-      where: { status: { in: ['pending', 'admitted'] }, encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
+      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
@@ -812,7 +830,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getMedicalWorklist(): Promise<any> {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
-      where: { status: { in: ['pending', 'admitted'] }, encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
+      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
@@ -840,8 +858,24 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getLabWorklist(): Promise<any> {
     const allLabTests = await this.prisma.labTest.findMany({
-      where: { status: { in: ['requested', 'in_progress', 'completed'] } },
-      include: { Attendance: { include: { Patient: true, Bed: { include: { Ward: true } } } }, LabTestTemplate: true }, orderBy: { requestedAt: 'asc' }
+      where: { OR: [{ status: { in: ['requested', 'in_progress'] }, requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
+      select: {
+        id: true,
+        attendanceId: true,
+        status: true,
+        requestedAt: true,
+        updatedAt: true,
+        completedAt: true,
+        Attendance: {
+          select: {
+            patientId: true,
+            Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
+          }
+        },
+        LabTestTemplate: { select: { name: true } }
+      },
+      orderBy: { requestedAt: 'asc' }
     });
     const groupedByAttendance = new Map();
     for (const test of allLabTests) {
@@ -866,8 +900,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getPharmacyWorklist(): Promise<any> {
     const allMedications = await this.prisma.medication.findMany({
-      where: { status: { in: ['prescribed', 'dispensed'] } },
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, StockItem: true }, orderBy: { prescribedAt: 'asc' }
+      where: { OR: [{ status: 'prescribed', prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'dispensed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
+      select: {
+        id: true,
+        attendanceId: true,
+        name: true,
+        dosage: true,
+        frequency: true,
+        duration: true,
+        status: true,
+        prescribedAt: true,
+        dispensedAt: true,
+        StockItem: { select: { name: true } },
+        Attendance: {
+          select: {
+            patientId: true,
+            Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
+          }
+        }
+      },
+      orderBy: { prescribedAt: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const med of allMedications) {
@@ -893,7 +946,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getRadiologyWorklist(): Promise<any> {
     const allScans = await this.prisma.scan.findMany({
-      where: { status: { in: ['requested', 'in_progress', 'completed'] } },
+      where: { OR: [{ status: { in: ['requested', 'in_progress'] }, requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
@@ -922,7 +975,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getProceduresWorklist(): Promise<any> {
     const allProcedures = await this.prisma.procedure.findMany({
-      where: { status: { in: ['scheduled', 'completed'] } },
+      where: { OR: [{ status: 'scheduled', createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
@@ -954,7 +1007,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getMaternalWorklist(): Promise<any> {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const maternalAttendances = await this.getModel().findMany({
-      where: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] }, status: { in: ['pending', 'admitted'] } },
+      where: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] }, OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }] },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });

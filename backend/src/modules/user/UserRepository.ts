@@ -71,7 +71,7 @@ export class UserRepository extends BaseRepository<any, any, any> {
   }
 
   async findByEmail(email: string): Promise<any | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findFirst({ where: { email } });
   }
 
   async usernameExists(username: string): Promise<boolean> {

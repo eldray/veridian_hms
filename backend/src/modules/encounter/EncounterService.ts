@@ -2,12 +2,18 @@ import { PrismaClient, AttendanceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
+import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
   AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
   CreateAdmissionDTO, AddDailyNoteDTO, DetentionPatientFilters, ConvertDetentionToIPDDTO
 } from './EncounterTypes';
+
+/** Worklists are identical for every user. One result is shared for a few seconds; the cache is
+ *  also cleared the moment anyone saves a change (see realtimeBroadcast), so a screen that
+ *  refreshes after a save never receives stale data. */
+const WORKLIST_CACHE_MS = 5_000;
 
 export class EncounterService extends BaseService {
   private repository: EncounterRepository;
@@ -368,14 +374,19 @@ export class EncounterService extends BaseService {
   async convertDaycaseToIPD(id: string, data: any, userId: string) { return this.createFormalAdmission({ ...data, attendanceId: id }, userId); }
 
   // Worklists
-  async getVitalsWorklist() { return this.repository.getVitalsWorklist(); }
-  async getMedicalWorklist() { return this.repository.getMedicalWorklist(); }
-  async getLabWorklist() { return this.repository.getLabWorklist(); }
-  async getPharmacyWorklist() { return this.repository.getPharmacyWorklist(); }
-  async getRadiologyWorklist() { return this.repository.getRadiologyWorklist(); }
-  async getProceduresWorklist() { return this.repository.getProceduresWorklist(); }
-  async getMaternalWorklist() { return this.repository.getMaternalWorklist(); }
+  async getVitalsWorklist() { return cached('worklist:vitals', WORKLIST_CACHE_MS, () => this.repository.getVitalsWorklist()); }
+  async getMedicalWorklist() { return cached('worklist:medical', WORKLIST_CACHE_MS, () => this.repository.getMedicalWorklist()); }
+  async getLabWorklist() { return cached('worklist:lab', WORKLIST_CACHE_MS, () => this.repository.getLabWorklist()); }
+  async getPharmacyWorklist() { return cached('worklist:pharmacy', WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist()); }
+  async getRadiologyWorklist() { return cached('worklist:scans', WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist()); }
+  async getProceduresWorklist() { return cached('worklist:procedures', WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist()); }
+  async getMaternalWorklist() { return cached('worklist:maternal', WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist()); }
+  // Shown on every dashboard/sidebar: computed at most once every 15 s however many users ask
   async getWorklistSummary() {
+    return cached('worklist:summary', 15_000, () => this.computeWorklistSummary());
+  }
+
+  private async computeWorklistSummary() {
     const [vitals, medical, lab, pharmacy, scans, theatre] = await Promise.all([
       this.getVitalsWorklist(), this.getMedicalWorklist(), this.getLabWorklist(),
       this.getPharmacyWorklist(), this.getRadiologyWorklist(), this.getProceduresWorklist()
@@ -388,7 +399,14 @@ export class EncounterService extends BaseService {
   }
 
   // ✅ FIXED: Prisma groupBy syntax error
+  // Counts over the whole visit table are the slowest dashboard query at 1M visits (~0.7 s).
+  // Cached for 30 s per date range and shared by everyone who asks at the same time.
   async getEncounterStats(dateFrom?: Date, dateTo?: Date) {
+    const key = `encounter-stats:${dateFrom?.toISOString() ?? ''}:${dateTo?.toISOString() ?? ''}`;
+    return cached(key, 30_000, () => this.computeEncounterStats(dateFrom, dateTo));
+  }
+
+  private async computeEncounterStats(dateFrom?: Date, dateTo?: Date) {
     const where: any = {};
     if (dateFrom || dateTo) {
       where.dateTime = {};

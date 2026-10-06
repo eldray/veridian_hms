@@ -102,7 +102,7 @@ export default function DispenseMedication() {
   const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
   // ✅ ONLY use worklistStore
-  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  const { worklistItems, fetchWorklist, isLoading: worklistLoading, error: worklistError } = useWorklistStore();
   // Live queue: refreshes within a couple of seconds when a visit, request or result changes
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('pharmacy', { silent: true }));
 
@@ -111,6 +111,11 @@ export default function DispenseMedication() {
       setRefreshing(true);
       setIsLoading(true);
       await fetchWorklist('pharmacy');
+      const error = useWorklistStore.getState().error;
+      if (error) {
+        toastError('Load failed', error);
+        return;
+      }
       success('Data loaded', 'Dispensing ready');
     } catch (err: any) {
       toastError('Load failed', err.message || 'Could not load data');
@@ -230,6 +235,13 @@ export default function DispenseMedication() {
           </button>
         </div>
       </div>
+
+      {worklistError && (
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Could not load the pharmacy waiting list: {worklistError}</span>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -351,7 +363,13 @@ export default function DispenseMedication() {
         
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
-            {activeTab === 'pending' ? (
+            {worklistError ? (
+              <>
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3 opacity-75" />
+                <p className="text-[var(--text-secondary)]">Pharmacy waiting list unavailable</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
+              </>
+            ) : activeTab === 'pending' ? (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No pending prescriptions</p>

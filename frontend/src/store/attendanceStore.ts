@@ -109,6 +109,12 @@ interface AttendanceState {
   // Core operations
   getAttendances: (filters?: any, options?: { silent?: boolean }) => Promise<Attendance[]>;
   getAttendance: (id: string) => Promise<Attendance>;
+  /**
+   * Quietly re-fetch ONE visit and update it in place: in the shared list (other visits stay as they are),
+   * and as `currentAttendance` if that is the visit being worked on. No loading flag, no error banner.
+   * Used by live updates on data-entry screens so a background refresh never swaps the list under the user.
+   */
+  refreshAttendance: (id: string) => Promise<Attendance | null>;
   createAttendance: (data: any) => Promise<Attendance>;
   updateAttendance: (id: string, data: any) => Promise<void>;
   deleteAttendance: (id: string) => Promise<void>;
@@ -265,6 +271,28 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       console.error('Error fetching attendance:', error);
       set({ error: error.message || 'Failed to fetch attendance', isLoading: false });
       throw error;
+    }
+  },
+
+  refreshAttendance: async (id: string) => {
+    if (!id || id === 'undefined' || id === 'null') return null;
+    try {
+      const response = await apiGetAttendance(id);
+      const fresh = (response.data || response) as Attendance;
+      if (!fresh || !(fresh as any).id) return null;
+      set((state) => {
+        const index = state.attendances.findIndex((a) => a.id === fresh.id);
+        const attendances = index >= 0
+          ? state.attendances.map((a, i) => (i === index ? { ...a, ...fresh } : a))
+          : state.attendances;
+        return {
+          attendances,
+          currentAttendance: state.currentAttendance?.id === fresh.id ? fresh : state.currentAttendance,
+        };
+      });
+      return fresh;
+    } catch {
+      return null; // a failed background refresh keeps what is on screen
     }
   },
 

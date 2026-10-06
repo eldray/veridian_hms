@@ -14,6 +14,20 @@ export class RequisitionRepository {
     this.prisma = prisma;
   }
 
+  /**
+   * The schema calls these relations requestedBy / approvedBy / fulfilledBy, but the screens
+   * (RequisitionManagement) read the older names below. Return both, so nothing else has to change.
+   */
+  private legacyKeys = <T>(r: T): T => {
+    if (!r) return r;
+    const src: any = r;
+    const out: any = { ...src };
+    if ('requestedBy' in src) out.User_Requisition_requestedByIdToUser = src.requestedBy;
+    if ('approvedBy' in src) out.User_Requisition_approvedByIdToUser = src.approvedBy;
+    if ('fulfilledBy' in src) out.User_Requisition_fulfilledByIdToUser = src.fulfilledBy;
+    return out;
+  };
+
   async findAll(params: RequisitionQueryParams) {
     const { departmentId, wardId, status, urgency, page = 1, limit = 1000 } = params;
 
@@ -21,8 +35,8 @@ export class RequisitionRepository {
 
     if (departmentId) where.requestingDepartmentId = departmentId;
     if (wardId) where.requestingWardId = wardId;
-    if (status) where.status = status;
-    if (urgency) where.urgency = urgency;
+    if (status) where.status = status as any;
+    if (urgency) where.urgency = urgency as any;
 
     const skip = (page - 1) * limit;
 
@@ -36,13 +50,13 @@ export class RequisitionRepository {
           ward: {
             select: { wardName: true, id: true }
           },
-          User_Requisition_requestedByIdToUser: {
+          requestedBy: {
             select: { fullName: true, role: true, id: true }
           },
-          User_Requisition_approvedByIdToUser: {
+          approvedBy: {
             select: { fullName: true, role: true }
           },
-          User_Requisition_fulfilledByIdToUser: {
+          fulfilledBy: {
             select: { fullName: true, role: true }
           },
           RequisitionItem: {
@@ -67,11 +81,11 @@ export class RequisitionRepository {
       this.prisma.requisition.count({ where })
     ]);
 
-    return { requisitions, total };
+    return { requisitions: requisitions.map(this.legacyKeys), total };
   }
 
   async findById(id: string) {
-    return this.prisma.requisition.findUnique({
+    const result = await this.prisma.requisition.findUnique({
       where: { id },
       include: {
         departments: {
@@ -80,13 +94,13 @@ export class RequisitionRepository {
         ward: {
           select: { wardName: true, id: true }
         },
-        User_Requisition_requestedByIdToUser: {
+        requestedBy: {
           select: { fullName: true, role: true, username: true }
         },
-        User_Requisition_approvedByIdToUser: {
+        approvedBy: {
           select: { fullName: true, role: true }
         },
-        User_Requisition_fulfilledByIdToUser: {
+        fulfilledBy: {
           select: { fullName: true, role: true }
         },
         RequisitionItem: {
@@ -106,10 +120,11 @@ export class RequisitionRepository {
         }
       }
     });
+    return this.legacyKeys(result) as typeof result;
   }
 
   async create(data: CreateRequisitionDTO, requestedById: string, requisitionNumber: string) {
-    return this.prisma.requisition.create({
+    const result = await this.prisma.requisition.create({
       data: {
         requisitionNumber,
         requestingDepartmentId: data.requestingDepartmentId || null,
@@ -147,11 +162,12 @@ export class RequisitionRepository {
         ward: {
           select: { wardName: true }
         },
-        User_Requisition_requestedByIdToUser: {
+        requestedBy: {
           select: { fullName: true }
         }
       }
     });
+    return this.legacyKeys(result) as typeof result;
   }
 
   async updateStatus(
@@ -160,8 +176,8 @@ export class RequisitionRepository {
     userId: string | undefined,
     notes?: string
   ) {
-    const updateData: Prisma.RequisitionUpdateInput = {
-      status,
+    const updateData: Prisma.RequisitionUncheckedUpdateInput = {
+      status: status as any,
       updatedAt: new Date()
     };
 
@@ -177,7 +193,7 @@ export class RequisitionRepository {
       updateData.notes = notes;
     }
 
-    return this.prisma.requisition.update({
+    const result = await this.prisma.requisition.update({
       where: { id },
       data: updateData,
       include: {
@@ -187,10 +203,10 @@ export class RequisitionRepository {
         ward: {
           select: { wardName: true }
         },
-        User_Requisition_requestedByIdToUser: {
+        requestedBy: {
           select: { fullName: true }
         },
-        User_Requisition_approvedByIdToUser: {
+        approvedBy: {
           select: { fullName: true }
         },
         RequisitionItem: {
@@ -206,6 +222,7 @@ export class RequisitionRepository {
         }
       }
     });
+    return this.legacyKeys(result) as typeof result;
   }
 
   async delete(id: string) {
@@ -361,15 +378,24 @@ export class RequisitionRepository {
           throw new Error(`Concurrent stock depletion detected for item ${reqItem.id}. Please retry.`);
         }
 
+        // The ledger row must record the stock level AFTER this issue (balanceAfter is required)
+        const after = await tx.stockItem.findUnique({
+          where: { id: reqItem.stockItemId },
+          select: { currentStock: true }
+        });
+
         // Create stock transaction record
         await tx.stockTransaction.create({
           data: {
             stockItemId: reqItem.stockItemId,
             transactionType: 'requisition',
             quantity: quantityToIssue,
+            balanceAfter: after?.currentStock ?? 0,
+            requisitionId: id,
+            departmentId: requisition.requestingDepartmentId || undefined,
             reference: `REQ-${requisition.requisitionNumber}`,
             notes: `Fulfilled requisition ${requisition.requisitionNumber}`,
-            performedById: userId || undefined
+            performedBy: userId || undefined
           }
         });
       }

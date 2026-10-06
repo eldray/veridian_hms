@@ -10,8 +10,8 @@ export function createWardRoutes(prisma: PrismaClient): Router {
   router.use(protect);
 
   // ✅ FIXED: Explicitly type the arrays to prevent TypeScript underlines
-  const adminRoles: UserRole[] = ['admin'];
-  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
+  const adminRoles: UserRole[] = ['super_admin', 'admin'];
+  const readRoles: UserRole[] = ['super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
 
   // Specific routes first
   router.get('/stats', requireRole(readRoles), controller.getStats);

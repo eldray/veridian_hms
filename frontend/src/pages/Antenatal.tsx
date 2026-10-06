@@ -9,7 +9,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
-import { useToast } from '../store/toastStore';
+import { useToast, useToastStore } from '../store/toastStore';
 import { useWardStore } from '../store/wardStore';
 import { useAdmissionStore } from '../store/admissionStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
@@ -588,6 +588,7 @@ export default function Antenatal() {
   const navigate = useNavigate();
   const { attendanceId: urlAttendanceId } = useParams();
   const { success, error: toastError } = useToast();
+  const addToast = useToastStore(state => state.addToast);
   const { user } = useAuthStore();
 
   const { patients, loadPatients } = usePatientStore();
@@ -724,29 +725,38 @@ export default function Antenatal() {
 
   useEffect(() => {
     if (!urlAttendanceId) return;
-    // Load the specific attendance directly (don't gate on the paginated global list,
-    // which may not contain it) and derive the patient from the loaded record.
+    // Select the route attendance; the detail effect below loads it once, even when
+    // it is not present in the paginated global list.
     setSelectedAttendanceId(urlAttendanceId);
-    const known = attendances.find(a => a.id === urlAttendanceId || a._id === urlAttendanceId);
+    const known = attendances.find(a => a.id === urlAttendanceId || (a as any)._id === urlAttendanceId);
     if (known?.patientId) {
       setSelectedPatientId(known.patientId);
-    } else {
-      getAttendance(urlAttendanceId)
-        .then(att => { if (att?.patientId) setSelectedPatientId(att.patientId); })
-        .catch(() => {});
     }
   }, [urlAttendanceId, attendances]);
 
   useEffect(() => {
     if (!selectedAttendanceId) return;
-    getAttendance(selectedAttendanceId).then(att => {
-      if (!att) return;
-      setPhysicianNotes((att as any).physicianNotes || []);
-      setTreatmentNotes((att as any).treatmentNotes || []);
-      setTreatmentPlan('');
-      setPhysicianNoteText('');
-    });
-  }, [selectedAttendanceId]);
+    let isCurrent = true;
+    getAttendance(selectedAttendanceId)
+      .then(att => {
+        if (!isCurrent || !att) return;
+        if (att.patientId) setSelectedPatientId(att.patientId);
+        setPhysicianNotes((att as any).physicianNotes || []);
+        setTreatmentNotes((att as any).treatmentNotes || []);
+        setTreatmentPlan('');
+        setPhysicianNoteText('');
+      })
+      .catch((err: any) => {
+        if (isCurrent) {
+          addToast({
+            type: 'error',
+            title: 'Unable to load encounter',
+            message: err?.message || 'Please try again.',
+          });
+        }
+      });
+    return () => { isCurrent = false; };
+  }, [selectedAttendanceId, getAttendance, addToast]);
 
   useEffect(() => {
     if (!selectedPatientId) {

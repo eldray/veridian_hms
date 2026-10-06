@@ -15,13 +15,14 @@
  * server setup) is fully supported; with several processes put a Redis pub/sub behind publish().
  */
 import { Request, Response, NextFunction } from 'express';
+import { invalidate } from '../utils/ttlCache';
 
 interface Client { id: number; res: Response }
 
 const MAX_CLIENTS = Number(process.env.SSE_MAX_CLIENTS || 500);
 const COALESCE_MS = 500;
 const HEARTBEAT_MS = 25_000;
-const IGNORED_TOPICS = new Set(['auth', 'events', 'notifications', 'uploads']);
+const IGNORED_TOPICS = new Set(['auth', 'events', 'uploads']);
 
 const clients = new Set<Client>();
 const timers = new Map<string, NodeJS.Timeout>();
@@ -52,6 +53,10 @@ export function realtimeBroadcast(req: Request, res: Response, next: NextFunctio
 
   res.on('finish', () => {
     if (res.statusCode >= 400) return;
+    // Shared dashboard/worklist results are now out of date: drop them before screens re-fetch
+    invalidate('worklist');
+    invalidate('encounter-stats');
+    invalidate('dashboard');
     const segments = (req.originalUrl || req.url).split('?')[0].split('/').filter(Boolean);
     if (segments[0] === 'api') segments.shift();
     const topic = segments[0];

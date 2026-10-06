@@ -27,6 +27,8 @@ interface DecodedToken {
   permissions?: string[];
 }
 
+const isSuperAdminOrAdmin = (role?: string) => role === 'super_admin' || role === 'admin';
+
 // ✅ Core JWT Protection (No DB hits)
 export const protect = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -70,11 +72,15 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
 export const requireRole = (allowedRoles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as AuthRequest;
-    if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
-      res.status(403).json({ success: false, message: 'Access denied. Insufficient role.' });
+    if (!authReq.user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    next();
+    if (isSuperAdminOrAdmin(authReq.user.role) || allowedRoles.includes(authReq.user.role)) {
+      next();
+      return;
+    }
+    res.status(403).json({ success: false, message: 'Access denied. Insufficient role.' });
   };
 };
 
@@ -111,7 +117,7 @@ export const requirePermission = (permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === 'admin' || user.permissions?.includes(permission)) {
+    if (isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -179,7 +185,7 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === role || user.role === 'admin' || user.permissions?.includes(permission)) {
+    if (user.role === role || isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -206,7 +212,7 @@ export const requireAllRoles = (roles: UserRole[]) => {
     }
     // Note: This is a simplified check - in practice, a user can only have one role
     // This would be more useful with the dynamic RBAC system
-    if (roles.includes(user.role)) {
+    if (isSuperAdminOrAdmin(user.role) || roles.includes(user.role)) {
       next();
       return;
     }

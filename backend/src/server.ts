@@ -1,17 +1,15 @@
 // server.ts or app.ts
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import cron from 'node-cron';
 import routes from './app';
 import { runDailyWardChargeJob } from './cron/wardChargeCron';
 import { initCounterService } from './services/CounterService';
 import prisma from './core/database/prisma.client';
-
-// Load environment variables
-dotenv.config();
+import { toHttpError } from './utils/httpError';
 
 const app = express();
 
@@ -87,12 +85,16 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('🚨 Global error handler:', error);
+  const { status, message } = toHttpError(error);
+  // Expected client errors (404, 400, 409 ...) are not worth a stack trace in the log
+  if (status >= 500) console.error('🚨 Global error handler:', error);
+  else console.warn(`⚠️  ${req.method} ${req.originalUrl} -> ${status}: ${message}`);
 
-  res.status(error.status || 500).json({
+  if (res.headersSent) return next(error);
+  res.status(status).json({
     success: false,
-    message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    message,
+    ...(process.env.NODE_ENV === 'development' && status >= 500 && { stack: error.stack })
   });
 });
 

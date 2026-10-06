@@ -1,4 +1,5 @@
 // src/pages/DispensePatient.tsx - REDESIGNED
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -158,7 +159,7 @@ export default function DispensePatient() {
     isOpen: false, medication: null, stockItem: null,
   });
 
-  const { attendances, getAttendances, updateMedicationStatus, getAttendance, calculateBill } = useAttendanceStore();
+  const { attendances, getAttendances, updateMedicationStatus, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
@@ -198,6 +199,26 @@ export default function DispensePatient() {
   };
 
   useEffect(() => { loadData(); }, [id]);
+
+  // Live updates: a doctor adds or cancels a prescription while the pharmacist has the patient open.
+  // Only this visit is refreshed; items already dispensed on screen are kept, and nothing changes
+  // while a dispense is in progress.
+  useLiveRefresh(['encounters'], async () => {
+    if (!selectedAttendanceId || dispensingId || dispenseModal.isOpen) return;
+    const fresh: any = await refreshAttendance(selectedAttendanceId);
+    if (!fresh || !Array.isArray(fresh.Medication)) return;
+    const byId = new Map<string, any>(fresh.Medication.map((m: any) => [m.id, m]));
+    setAttendance((prev: any) => (prev && prev.id === fresh.id ? { ...prev, ...fresh } : prev));
+    setPrescriptions((prev: any[]) => {
+      const known = new Set(prev.map((m) => m.id));
+      const kept = prev
+        .filter((m) => byId.has(m.id) || m.status !== 'prescribed')           // cancelled prescriptions disappear
+        .map((m) => (byId.has(m.id) ? { ...m, ...byId.get(m.id) } : m));       // status changes made elsewhere
+      const added = fresh.Medication.filter((m: any) => !known.has(m.id) && m.status === 'prescribed');
+      return [...kept, ...added];
+    });
+  });
+
 
   const handleAttendanceChange = (attId: string) => {
     const att = allAttendances.find(a => a.id === attId);

@@ -97,7 +97,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
 
     const [items, total] = await Promise.all([
       this.getModel().findMany({
-        where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
+        where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: {
           Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
           CorporateAccount: { select: { id: true, companyName: true } },

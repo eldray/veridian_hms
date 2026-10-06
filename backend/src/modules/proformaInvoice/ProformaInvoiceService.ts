@@ -176,8 +176,7 @@ export class ProformaInvoiceService extends BaseService {
           billNumber, patientId: existing.patientId, attendanceId: existing.attendanceId, admissionId: existing.admissionId,
           paymentMode: data.paymentMode, corporateAccountId: existing.corporateAccountId, status: 'pending',
           subtotal: existing.subtotal, discount: existing.discount, taxAmount: existing.taxAmount, totalAmount: existing.totalAmount,
-          insuranceCovered, patientPayable, billDate: new Date(), createdById: userId,
-          notes: `Converted from proforma invoice: ${existing.referenceNumber}`
+          insuranceCovered, patientPayable, billDate: new Date(), createdById: userId
         }
       });
 
@@ -194,10 +193,13 @@ export class ProformaInvoiceService extends BaseService {
 
       const updatedProforma = await tx.proformaInvoice.update({
         where: { id }, data: { status: 'CONVERTED', convertedToBillId: bill.id },
-        include: { patient: true, corporateAccount: true }
+        include: { Patient: true, CorporateAccount: true }
       });
 
-      return { proformaInvoice: updatedProforma, bill };
+      return {
+        proformaInvoice: { ...updatedProforma, patient: (updatedProforma as any).Patient, corporateAccount: (updatedProforma as any).CorporateAccount },
+        bill
+      };
     });
   }
 

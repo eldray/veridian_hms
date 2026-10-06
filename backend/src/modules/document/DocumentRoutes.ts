@@ -16,6 +16,7 @@ export const createDocumentRoutes = () => {
   router.post('/discharge/:encounterId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), documentController.generateDischargeSummary);
   router.post('/lab-result/:encounterId', requireRole(['admin', 'records', 'lab_tech', 'doctor']), documentController.generateLabResult);
   router.post('/prescription/:encounterId', requireRole(['admin', 'records', 'pharmacist', 'doctor']), documentController.generatePrescription);
+  router.post('/bill-statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
   router.post('/statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
 
   // Document retrieval routes

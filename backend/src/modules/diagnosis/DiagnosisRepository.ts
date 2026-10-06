@@ -43,7 +43,7 @@ export class DiagnosisRepository extends BaseRepository<any, CreateDiagnosisDTO,
     }
 
     const [diagnoses, total] = await Promise.all([
-      this.getModel().findMany({ where, orderBy: { name: 'asc' }, skip, take }),
+      this.getModel().findMany({ where, orderBy: [{ name: 'asc' }, { id: 'asc' }], skip, take }),
       this.getModel().count({ where })
     ]);
 
@@ -96,7 +96,7 @@ export class DiagnosisRepository extends BaseRepository<any, CreateDiagnosisDTO,
       this.getModel().findMany({
         where,
         select: { id: true, name: true, icdCode: true, morbidityGroup: true, description: true, isActive: true },
-        orderBy: { name: 'asc' }, skip, take: limitNum
+        orderBy: [{ name: 'asc' }, { id: 'asc' }], skip, take: limitNum
       }),
       this.getModel().count({ where })
     ]);

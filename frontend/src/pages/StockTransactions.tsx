@@ -208,7 +208,7 @@ export default function StockTransactions() {
         t.reference || 'N/A',
         t.balanceAfter,
         t.User 
-          ? `${t.User.firstName} ${t.User.lastName}`.trim() 
+          ? (t.User.fullName || '').trim() 
           : (t.performedBy || 'System'),
         t.notes || ''
       ]);
@@ -639,7 +639,7 @@ export default function StockTransactions() {
                             <User className="w-3 h-3 text-[var(--text-tertiary)]" />
                             <span className="text-sm text-[var(--text-secondary)]">
                               {transaction.User 
-                                ? `${transaction.User.firstName} ${transaction.User.lastName}`.trim() 
+                                ? (transaction.User.fullName || '').trim() 
                                 : (transaction.performedBy || 'System')}
                             </span>
                           </div>

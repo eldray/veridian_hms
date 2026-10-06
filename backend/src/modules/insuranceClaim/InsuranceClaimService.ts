@@ -1,3 +1,4 @@
+import { NotFoundError } from '../../utils/errors';
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
@@ -244,7 +245,7 @@ ${claimsXml}
     Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } },
     // Include active employees so the corporate form can attribute services.
     CorporateAccount: { include: { employees: { where: { isActive: true } } } },
-    attendance: {
+    Attendance: {
       include: {
         AttendanceDiagnosis: { include: { Diagnosis: true } },
         LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
@@ -267,7 +268,7 @@ ${claimsXml}
 
   async getInsuranceClaim(id: string) {
     const claim = await this.prisma.insuranceClaim.findUnique({ where: { id }, include: this.claimDetailInclude });
-    if (!claim) throw new Error('Claim not found');
+    if (!claim) throw new NotFoundError('Claim', id);
     return this.normalizeClaim(claim);
   }
 
@@ -286,7 +287,7 @@ ${claimsXml}
 
   async finalizeClaim(claimId: string, userId: string) {
     const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new Error('Claim not found');
+    if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'submitted', submissionDate: new Date(), updatedById: userId } });
   }
@@ -404,7 +405,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -460,7 +461,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -533,7 +534,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 

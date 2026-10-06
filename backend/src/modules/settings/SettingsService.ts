@@ -52,11 +52,14 @@ export const updateNHISSettings = async (nhisData: {
   const hospital = await prisma.hospital.findFirst();
   if (!hospital) throw new Error('Hospital configuration not found');
 
+  if (nhisData.nhisApiClientSecret && nhisData.nhisApiClientSecret.trim()) {
+    process.env.NHIS_API_CLIENT_SECRET = nhisData.nhisApiClientSecret.trim();
+  }
+
   const updateData: any = { updatedAt: new Date() };
 
   if (nhisData.nhisApiBaseUrl !== undefined) updateData.nhisApiBaseUrl = nhisData.nhisApiBaseUrl;
   if (nhisData.nhisApiClientId !== undefined) updateData.nhisApiClientId = nhisData.nhisApiClientId;
-  if (nhisData.nhisApiClientSecret !== undefined) updateData.nhisApiClientSecret = nhisData.nhisApiClientSecret;
   if (nhisData.nhisApiTokenEndpoint !== undefined) updateData.nhisApiTokenEndpoint = nhisData.nhisApiTokenEndpoint;
   if (nhisData.nhisApiEligibilityEndpoint !== undefined) updateData.nhisApiEligibilityEndpoint = nhisData.nhisApiEligibilityEndpoint;
   if (nhisData.nhisApiCccEndpoint !== undefined) updateData.nhisApiCccEndpoint = nhisData.nhisApiCccEndpoint;
