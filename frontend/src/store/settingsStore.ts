@@ -16,16 +16,7 @@ import {
   deleteBackup,
   getBackupStats,
 } from '../api';
-import type { Hospital, BackupFile } from '../types';
-
-interface NHISConfig {
-  providerId: string;
-  facilityCode: string;
-  accreditationNumber: string;
-  tariffVersion: string;
-  claimEndpoint: string;
-  isActive: boolean;
-}
+import type { HospitalInfo as Hospital, BackupFile, NHISConfig } from '../types';
 
 interface SettingsState {
   hospital: Hospital | null;

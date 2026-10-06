@@ -174,6 +174,11 @@ interface InsuranceState {
 // ✅ Normalize claim: convert string numbers to actual numbers
 const normalizeClaim = (claim: any): InsuranceClaim => ({
   ...claim,
+  patient: claim.patient ?? claim.Patient,
+  insuranceProvider: claim.insuranceProvider ?? claim.InsuranceProvider,
+  attendance: claim.attendance ?? claim.Attendance,
+  bill: claim.bill ?? claim.Bill,
+  corporateAccount: claim.corporateAccount ?? claim.CorporateAccount,
   totalClaimAmount: Number(claim.totalClaimAmount) || 0,
   approvedAmount: Number(claim.approvedAmount) || 0,
   paidAmount: Number(claim.paidAmount) || 0,
@@ -262,12 +267,13 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       set({ 
         nhisClaims: claims,
         nhisStats,
-        pagination: response?.pagination || null,
+        pagination: response?.pagination || response?.meta || null,
         isLoading: false 
       });
     } catch (error: unknown) {
       console.error('Failed to fetch NHIS claims:', error);
-      set({ isLoading: false, error: (error as any).message });
+      const message = (error as any)?.response?.data?.message || (error as any)?.message || 'Failed to fetch NHIS claims';
+      set({ isLoading: false, error: message });
       throw error;
     }
   },

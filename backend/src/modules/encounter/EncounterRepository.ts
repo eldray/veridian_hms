@@ -168,16 +168,121 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
-    const attendance = await this.getModel().findUnique({ where: { id: encounterId }, select: { patientId: true } });
-    if (!attendance) throw new Error('Encounter not found');
-    return this.prisma.vitals.create({
-      data: { attendanceId: encounterId, patientId: attendance.patientId, ...data, recordedById: userId, recordedAt: new Date() },
-      include: { User: { select: { fullName: true } } }
+    const {
+      fetalHeartRate,
+      fundalHeight,
+      presentingPart,
+      fetalMovement,
+      oedema,
+      recordedById: _recordedById,
+      recordedAt: _recordedAt,
+      ...vitalsData
+    } = data as AddVitalsDTO & { recordedById?: string; recordedAt?: Date | string };
+    const hasAntenatalData = [
+      fetalHeartRate,
+      fundalHeight,
+      presentingPart,
+      fetalMovement,
+      oedema,
+    ].some(value => value !== undefined);
+
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        select: { patientId: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', encounterId);
+
+      const savedVitals = await tx.vitals.create({
+        data: {
+          attendanceId: encounterId,
+          patientId: attendance.patientId,
+          ...vitalsData,
+          recordedById: userId,
+          recordedAt: new Date(),
+        },
+        include: { User: { select: { fullName: true } } },
+      });
+
+      if (hasAntenatalData) {
+        const ancVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: encounterId } });
+        if (!ancVisit) {
+          throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
+        }
+        await tx.aNCVisit.update({
+          where: { id: ancVisit.id },
+          data: {
+            ...(fetalHeartRate !== undefined && { fetalHeartRate }),
+            ...(fundalHeight !== undefined && { fundalHeight: Math.round(fundalHeight) }),
+            ...(presentingPart !== undefined && { presentation: presentingPart || null }),
+            ...(fetalMovement !== undefined && { fetalMovements: fetalMovement }),
+            ...(oedema !== undefined && { oedema }),
+            ...(vitalsData.weight !== undefined && { weight: vitalsData.weight }),
+            ...(vitalsData.bloodPressure !== undefined && { bloodPressure: vitalsData.bloodPressure }),
+          },
+        });
+      }
+
+      return savedVitals;
     });
   }
 
   async updateVitals(vitalsId: string, data: any) {
-    return this.prisma.vitals.update({ where: { id: vitalsId }, data });
+    const {
+      fetalHeartRate,
+      fundalHeight,
+      presentingPart,
+      fetalMovement,
+      oedema,
+      recordedById: _recordedById,
+      recordedAt: _recordedAt,
+      attendanceId: _attendanceId,
+      patientId: _patientId,
+      ...vitalsData
+    } = data;
+    const hasAntenatalData = [
+      fetalHeartRate,
+      fundalHeight,
+      presentingPart,
+      fetalMovement,
+      oedema,
+    ].some(value => value !== undefined);
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingVitals = await tx.vitals.findUnique({
+        where: { id: vitalsId },
+        select: { attendanceId: true },
+      });
+      if (!existingVitals) throw new NotFoundError('Vitals', vitalsId);
+
+      const updatedVitals = await tx.vitals.update({
+        where: { id: vitalsId },
+        data: vitalsData,
+      });
+
+      if (hasAntenatalData) {
+        const ancVisit = await tx.aNCVisit.findUnique({
+          where: { attendanceId: existingVitals.attendanceId },
+        });
+        if (!ancVisit) {
+          throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
+        }
+        await tx.aNCVisit.update({
+          where: { id: ancVisit.id },
+          data: {
+            ...(fetalHeartRate !== undefined && { fetalHeartRate }),
+            ...(fundalHeight !== undefined && { fundalHeight: Math.round(fundalHeight) }),
+            ...(presentingPart !== undefined && { presentation: presentingPart || null }),
+            ...(fetalMovement !== undefined && { fetalMovements: fetalMovement }),
+            ...(oedema !== undefined && { oedema }),
+            ...(vitalsData.weight !== undefined && { weight: vitalsData.weight }),
+            ...(vitalsData.bloodPressure !== undefined && { bloodPressure: vitalsData.bloodPressure }),
+          },
+        });
+      }
+
+      return updatedVitals;
+    });
   }
 
   async deleteVitals(vitalsId: string) {

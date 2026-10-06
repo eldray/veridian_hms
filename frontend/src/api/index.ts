@@ -8,6 +8,7 @@ import type {
   Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
   Seniority  // ✅ ADD THIS
 } from '../types';
+import type { NewbornRecord } from '../store/deliveryStore';
 
 // ============================================
 // TYPES
@@ -1513,6 +1514,9 @@ export const updateBillStatus = (billId: string, data: any) =>
 
 export const getBillStatistics = () =>
   api.get('/bills/statistics').then(r => r.data);
+
+export const getBillingCollections = (filters: { dateFrom: string; dateTo: string }) =>
+  api.get('/billing/collections', { params: filters }).then(r => r.data?.data || r.data);
 
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>

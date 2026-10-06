@@ -50,13 +50,6 @@ export default function Settings() {
     isLoadingProcedures,
     isLoadingScans,
     
-    // Metadata
-    diagnosisCategories,
-    diagnosisVariants,
-    scanCategories,
-    scanBodyParts,
-    scanTypes,
-    
     // Actions
     getDiagnoses,
     getLabTestTemplates,
@@ -73,12 +66,7 @@ export default function Settings() {
     deleteProcedureTemplate,
     createScanTemplate,
     updateScanTemplate,
-    deleteScanTemplate,
-    getDiagnosisCategories,
-    getDiagnosisVariants,
-    getScanCategories,
-    getScanBodyParts,
-    getScanTypes
+    deleteScanTemplate
   } = useMedicalServicesStore();
 
   // Load data based on active tab
@@ -87,11 +75,6 @@ export default function Settings() {
       loadMedicalData();
     }
   }, [activeTab, medicalSubTab]);
-
-  // Load metadata
-  useEffect(() => {
-    loadMetadata();
-  }, []);
 
   const loadMedicalData = async () => {
     try {
@@ -111,20 +94,6 @@ export default function Settings() {
       }
     } catch (error: any) {
       toastError('Load failed', `Failed to load ${medicalSubTab}`);
-    }
-  };
-
-  const loadMetadata = async () => {
-    try {
-      await Promise.all([
-        getDiagnosisCategories(),
-        getDiagnosisVariants(),
-        getScanCategories(),
-        getScanBodyParts(),
-        getScanTypes()
-      ]);
-    } catch (error) {
-      console.warn('Some metadata failed to load');
     }
   };
 

@@ -1,7 +1,8 @@
 // src/components/patients/AttendancesTab.tsx - WITH DEBUGGING
 import api from '../../api/api';
 import { Link } from 'react-router-dom';
-import { History, Stethoscope, Pill, FlaskConical, DollarSign, Plus, Calendar, User } from 'lucide-react';
+import { useState } from 'react';
+import { History, Stethoscope, Pill, FlaskConical, DollarSign, Plus, Calendar, User, CreditCard } from 'lucide-react';
 
 interface AttendancesTabProps {
   attendances: any[];

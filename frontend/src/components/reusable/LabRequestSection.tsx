@@ -1,7 +1,7 @@
 // src/components/reusable/LabRequestSection.tsx - UPDATED
 import React from 'react';
-import { LabTestTemplate, Attendance } from '../types';
-import { LabTestEntry } from '../types/medical-entries';
+import type { LabTestTemplate, Attendance } from '../../types';
+import type { LabTestEntry } from '../../types/medical-entries';
 import { Plus, AlertCircle } from 'lucide-react';
 
 interface LabRequestSectionProps {

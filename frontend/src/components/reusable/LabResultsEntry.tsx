@@ -1,6 +1,6 @@
 // src/components/reusable/LabResultsEntry.tsx - UPDATED
 import React from 'react';
-import { LabTest, Patient, Attendance } from '../types';
+import type { LabTest, Patient, Attendance } from '../../types';
 import { Activity, AlertCircle } from 'lucide-react';
 
 interface LabResultsEntryProps {

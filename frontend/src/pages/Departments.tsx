@@ -1,5 +1,5 @@
 // src/pages/Departments.tsx - REDESIGNED
-import { useEffect, useState, React } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';

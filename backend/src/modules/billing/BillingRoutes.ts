@@ -21,6 +21,9 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   // Get billing statistics (includes corporate breakdown)
   router.get('/statistics', controller.getStatistics.bind(controller));
 
+  // Get actual payment collections for a date range
+  router.get('/collections', controller.getCollections.bind(controller));
+
   // Get bill by ID
   router.get('/invoices/:id', controller.getById.bind(controller));
 

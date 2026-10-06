@@ -149,6 +149,40 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  async findCollections(dateFrom: Date, dateTo: Date) {
+    return this.prisma.payment.findMany({
+      where: {
+        transactionDate: { gte: dateFrom, lte: dateTo },
+        isVoided: false,
+        amount: { gt: 0 }
+      },
+      orderBy: { transactionDate: 'desc' },
+      include: {
+        User: { select: { id: true, fullName: true, username: true } },
+        Bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+            BillLineItem: {
+              where: { isVoided: false },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                description: true,
+                quantity: true,
+                lineTotal: true,
+                patientPayableAmount: true,
+                serviceType: true,
+                serviceCatalog: { select: { serviceCategory: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   async updateStatus(id: string, status: BillStatus, userId: string) {
     return this.getModel().update({ where: { id }, data: { status, updatedAt: new Date(), updatedById: userId }, include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } }, Attendance: { select: { attendanceNumber: true } }, CorporateAccount: true } });
   }

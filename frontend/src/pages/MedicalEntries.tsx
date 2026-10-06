@@ -546,7 +546,7 @@ export default function MedicalEntries() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, loadPatients, fetchPatient, currentPatient } = usePatientStore();
   const { attendanceId } = useParams();
   const [searchParams] = useSearchParams();
   const { createAdmission, getAdmissions, convertDetentionToIPD, getDetentionPatients, getFormalIPDPatients } = useAdmissionStore();
@@ -595,17 +595,34 @@ export default function MedicalEntries() {
 
   const loadData = async () => {
     setRefreshing(true);
+    const secondaryLoads = Promise.all([
+      getAttendances(),
+      getStockItems(),
+      getDiagnoses(),
+      getLabTestTemplates(),
+      getProcedureTemplates(),
+      getScanTemplates(),
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
     try {
-      await Promise.all([
-        loadPatients(), getAttendances(), getStockItems(),
-        getDiagnoses(), getLabTestTemplates(), getProcedureTemplates(), getScanTemplates(),
-      ]);
+      await loadPatients();
     } catch (err: any) {
-      toastError('Load failed', err.message);
+      toastError('Patient list failed to load', err.message || 'Could not load patients');
     } finally {
-      setRefreshing(false);
       setIsLoading(false);
     }
+
+    const secondaryError = await secondaryLoads;
+    if (secondaryError) {
+      const message = secondaryError instanceof Error
+        ? secondaryError.message
+        : 'Some consultation data could not be loaded';
+      toastError('Consultation data failed to load', message);
+    }
+    setRefreshing(false);
   };
 
   // Live updates for the visit being worked on (vitals taken by the nurse, results back from the lab ...).
@@ -625,6 +642,19 @@ export default function MedicalEntries() {
       .then(v => setLatestVitals(v?.length ? v[v.length - 1] : null))
       .catch(() => setLatestVitals(null));
   }, [selectedAttendanceId]);
+
+  useEffect(() => {
+    if (!selectedPatientId) return;
+    let active = true;
+    fetchPatient(selectedPatientId).catch((error: Error) => {
+      if (active) {
+        toastError('Patient history unavailable', error.message || 'Could not load patient medical history');
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedPatientId, fetchPatient, toastError]);
 
   useEffect(() => {
     if (!attendanceId) return;
@@ -667,8 +697,9 @@ export default function MedicalEntries() {
     });
   }, [selectedAttendanceId]);
 
-  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId)
-    || (currentAttendance as any)?.Patient || null;
+  const selectedPatient = (currentPatient?.id === selectedPatientId ? currentPatient : undefined)
+    || patients.find(p => getEntityId(p) === selectedPatientId)
+    || null;
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 
   const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
@@ -1288,6 +1319,52 @@ export default function MedicalEntries() {
                 {getActionButtons()}
               </div>
             </div>
+            {(
+              (selectedPatient?.allergies?.length || 0) > 0 ||
+              (selectedPatient?.medicalHistories?.length || 0) > 0 ||
+              (selectedPatient?.surgicalHistories?.length || 0) > 0 ||
+              (selectedPatient?.familyHistories?.length || 0) > 0 ||
+              selectedPatient?.additionalInfo?.bloodType
+            ) && (
+              <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
+                <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                  <AlertTriangle className="h-3.5 w-3.5 text-[var(--icon-yellow-text)]" />
+                  Medical history
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPatient?.additionalInfo?.bloodType && (
+                    <span className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)]">
+                      Blood type: <strong className="text-[var(--text-primary)]">{selectedPatient?.additionalInfo?.bloodType}</strong>
+                    </span>
+                  )}
+                  {selectedPatient?.allergies?.map((allergy) => (
+                    <span key={allergy.id || allergy.allergen} className="rounded-md bg-[var(--icon-red-bg)] px-2 py-1 text-[11px] text-[var(--icon-red-text)]">
+                      Allergy: <strong>{allergy.allergen}</strong>
+                      {allergy.reaction ? ` — ${allergy.reaction}` : ''}
+                      {allergy.severity ? ` (${allergy.severity})` : ''}
+                    </span>
+                  ))}
+                  {selectedPatient?.medicalHistories?.map((history) => (
+                    <span key={history.id || history.condition} className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)]">
+                      Condition: <strong className="text-[var(--text-primary)]">{history.condition}</strong>
+                      {history.notes ? ` — ${history.notes}` : ''}
+                    </span>
+                  ))}
+                  {selectedPatient?.surgicalHistories?.map((history) => (
+                    <span key={history.id || history.procedure} className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)]">
+                      Surgery: <strong className="text-[var(--text-primary)]">{history.procedure}</strong>
+                      {history.surgeryDate ? ` (${new Date(history.surgeryDate).toLocaleDateString()})` : ''}
+                    </span>
+                  ))}
+                  {selectedPatient?.familyHistories?.map((history) => (
+                    <span key={history.id || `${history.relation}-${history.condition}`} className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)]">
+                      Family: <strong className="text-[var(--text-primary)]">{history.relation}</strong>
+                      {` — ${history.condition}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── VITALS STRIP ───────────────────────────────────────────── */}

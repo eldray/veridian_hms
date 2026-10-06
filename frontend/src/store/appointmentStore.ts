@@ -15,7 +15,8 @@ import {
   getAvailableClinicians,      // ✅ New
   convertToAttendance          // ✅ New
 } from '../api';
-import { Appointment, AppointmentStatistics, ClinicianSchedule } from '../types';
+import type { Appointment, ClinicianSchedule } from '../types';
+import type { AppointmentStatistics } from '../types/appointment';
 
 interface AppointmentStore {
   appointments: Appointment[];

@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import UserEditModal from '../components/UserEditModal';
 import UserRegistrationModal from '../components/UserRegistrationModal'; // 🔧 FIXED
+import type { User } from '../types';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);

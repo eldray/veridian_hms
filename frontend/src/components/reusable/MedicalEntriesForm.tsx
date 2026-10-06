@@ -1,5 +1,5 @@
 import React from 'react';
-import { 
+import type {
   Medication, 
   LabTest, 
   Procedure, 
@@ -11,13 +11,13 @@ import {
   ProcedureTemplate,
   StockItem,
   User 
-} from '../types';
+} from '../../types';
 import { 
   MedicationEntry, 
   LabTestEntry, 
   ProcedureEntry, 
   ScanEntry 
-} from '../types/medical-entries';
+} from '../../types/medical-entries';
 import {
   ClinicalInformationSection,
   MedicationsSection,

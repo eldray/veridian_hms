@@ -1,6 +1,6 @@
 // src/components/reusable/PendingTestsSection.tsx - UPDATED
 import React from 'react';
-import { LabTest } from '../types';
+import type { LabTest } from '../../types';
 import { FileText, CheckCircle } from 'lucide-react';
 
 interface PendingTestsSectionProps {

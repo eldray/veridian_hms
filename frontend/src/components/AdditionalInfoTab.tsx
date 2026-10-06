@@ -10,12 +10,27 @@ import {
   Phone,
   ChevronDown,
   Info,
+  Plus,
+  Trash2,
 } from 'lucide-react';
-import type { AdditionalInfo } from '../types';
+import type {
+  AdditionalInfo,
+  PatientAllergy,
+  PatientFamilyHistory,
+  PatientMedicalHistory,
+  PatientSurgicalHistory,
+} from '../types';
 
 interface AdditionalInfoTabProps {
   additionalInfo: AdditionalInfo;
   onAdditionalInfoChange: (info: AdditionalInfo) => void;
+  clinicalHistory: {
+    allergies: PatientAllergy[];
+    medicalHistories: PatientMedicalHistory[];
+    surgicalHistories: PatientSurgicalHistory[];
+    familyHistories: PatientFamilyHistory[];
+  };
+  onClinicalHistoryChange: (history: AdditionalInfoTabProps['clinicalHistory']) => void;
 }
 
 // ── shared styles ─────────────────────────────────────────────────────────────
@@ -49,7 +64,7 @@ const SECTIONS = [
   {
     id: 'medical'        as const,
     title:    'Medical information',
-    subtitle: 'Blood type, occupation',
+    subtitle: 'Blood type, occupation, allergies, and history',
     iconBg:    'var(--icon-red-bg)',
     iconColor: 'var(--icon-red-text)',
     Icon: Heart,
@@ -70,9 +85,11 @@ type SectionId = (typeof SECTIONS)[number]['id'];
 export default function AdditionalInfoTab({
   additionalInfo,
   onAdditionalInfoChange,
+  clinicalHistory,
+  onClinicalHistoryChange,
 }: AdditionalInfoTabProps) {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(
-    new Set(['contact'])
+    new Set(['contact', 'medical'])
   );
 
   const toggleSection = (id: SectionId) => {
@@ -91,11 +108,40 @@ export default function AdditionalInfoTab({
     onAdditionalInfoChange({
       ...additionalInfo,
       emergencyContact: {
-        ...additionalInfo.emergencyContact,
+        ...(additionalInfo.emergencyContact || { name: '', relationship: '', phone: '' }),
         [field]: value,
       },
     });
   };
+
+  const updateAllergy = (index: number, patch: Partial<PatientAllergy>) =>
+    onClinicalHistoryChange({
+      ...clinicalHistory,
+      allergies: clinicalHistory.allergies.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item,
+      ),
+    });
+  const updateMedicalHistory = (index: number, patch: Partial<PatientMedicalHistory>) =>
+    onClinicalHistoryChange({
+      ...clinicalHistory,
+      medicalHistories: clinicalHistory.medicalHistories.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item,
+      ),
+    });
+  const updateSurgicalHistory = (index: number, patch: Partial<PatientSurgicalHistory>) =>
+    onClinicalHistoryChange({
+      ...clinicalHistory,
+      surgicalHistories: clinicalHistory.surgicalHistories.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item,
+      ),
+    });
+  const updateFamilyHistory = (index: number, patch: Partial<PatientFamilyHistory>) =>
+    onClinicalHistoryChange({
+      ...clinicalHistory,
+      familyHistories: clinicalHistory.familyHistories.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item,
+      ),
+    });
 
   return (
     <div className="space-y-4">
@@ -145,6 +191,10 @@ export default function AdditionalInfoTab({
         {SECTIONS.map((section, idx) => {
           const isOpen = openSections.has(section.id);
           const isLast = idx === SECTIONS.length - 1;
+          const medicalEntryCount = clinicalHistory.allergies.length
+            + clinicalHistory.medicalHistories.length
+            + clinicalHistory.surgicalHistories.length
+            + clinicalHistory.familyHistories.length;
 
           return (
             <div
@@ -200,6 +250,14 @@ export default function AdditionalInfoTab({
                       style={{ color: 'var(--text-primary)' }}
                     >
                       {section.title}
+                      {section.id === 'medical' && medicalEntryCount > 0 && (
+                        <span
+                          className="ml-2 rounded-full px-1.5 py-0.5 text-[10px]"
+                          style={{ background: section.iconBg, color: section.iconColor }}
+                        >
+                          {medicalEntryCount}
+                        </span>
+                      )}
                     </p>
                     <p
                       className="text-xs leading-tight mt-0.5"
@@ -243,6 +301,12 @@ export default function AdditionalInfoTab({
                       <MedicalSection
                         additionalInfo={additionalInfo}
                         updateField={updateField}
+                        clinicalHistory={clinicalHistory}
+                        updateAllergy={updateAllergy}
+                        updateMedicalHistory={updateMedicalHistory}
+                        updateSurgicalHistory={updateSurgicalHistory}
+                        updateFamilyHistory={updateFamilyHistory}
+                        onClinicalHistoryChange={onClinicalHistoryChange}
                       />
                     )}
                     {section.id === 'emergency' && (
@@ -357,53 +421,189 @@ function IdentificationSection({
 function MedicalSection({
   additionalInfo,
   updateField,
+  clinicalHistory,
+  updateAllergy,
+  updateMedicalHistory,
+  updateSurgicalHistory,
+  updateFamilyHistory,
+  onClinicalHistoryChange,
 }: {
   additionalInfo: AdditionalInfo;
   updateField: (field: string, value: any) => void;
+  clinicalHistory: AdditionalInfoTabProps['clinicalHistory'];
+  updateAllergy: (index: number, patch: Partial<PatientAllergy>) => void;
+  updateMedicalHistory: (index: number, patch: Partial<PatientMedicalHistory>) => void;
+  updateSurgicalHistory: (index: number, patch: Partial<PatientSurgicalHistory>) => void;
+  updateFamilyHistory: (index: number, patch: Partial<PatientFamilyHistory>) => void;
+  onClinicalHistoryChange: AdditionalInfoTabProps['onClinicalHistoryChange'];
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label className={labelCls}>
-          <span className="flex items-center gap-1.5">
-            <Heart className="w-3 h-3" style={{ color: 'var(--icon-red-text)' }} />
-            Blood type
-          </span>
-        </label>
-        <select
-          value={additionalInfo.bloodType || ''}
-          onChange={(e) => updateField('bloodType', e.target.value)}
-          className={inputCls}
-        >
-          <option value="">Select blood type</option>
-          <option value="A+">A+</option>
-          <option value="A-">A-</option>
-          <option value="B+">B+</option>
-          <option value="B-">B-</option>
-          <option value="AB+">AB+</option>
-          <option value="AB-">AB-</option>
-          <option value="O+">O+</option>
-          <option value="O-">O-</option>
-          <option value="Unknown">Unknown</option>
-        </select>
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              <Heart className="w-3 h-3" style={{ color: 'var(--icon-red-text)' }} />
+              Blood type
+            </span>
+          </label>
+          <select
+            value={additionalInfo.bloodType || ''}
+            onChange={(e) => updateField('bloodType', e.target.value)}
+            className={inputCls}
+          >
+            <option value="">Select blood type</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+            <option value="Unknown">Unknown</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              <Briefcase className="w-3 h-3" style={{ color: 'var(--icon-orange-text)' }} />
+              Occupation
+            </span>
+          </label>
+          <input
+            type="text"
+            value={additionalInfo.occupation || ''}
+            onChange={(e) => updateField('occupation', e.target.value)}
+            placeholder="Patient's occupation"
+            className={inputCls}
+          />
+        </div>
       </div>
 
-      <div>
-        <label className={labelCls}>
-          <span className="flex items-center gap-1.5">
-            <Briefcase className="w-3 h-3" style={{ color: 'var(--icon-orange-text)' }} />
-            Occupation
-          </span>
-        </label>
-        <input
-          type="text"
-          value={additionalInfo.occupation || ''}
-          onChange={(e) => updateField('occupation', e.target.value)}
-          placeholder="Patient's occupation"
-          className={inputCls}
-        />
+      <div className="space-y-3">
+        <HistoryGroup
+          title="Allergies"
+          onAdd={() => onClinicalHistoryChange({
+            ...clinicalHistory,
+            allergies: [...clinicalHistory.allergies, { allergen: '', reaction: '', severity: 'mild', notes: '' }],
+          })}
+        >
+          {clinicalHistory.allergies.map((allergy, index) => (
+            <div key={allergy.id || `allergy-${index}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border p-3" style={{ borderColor: 'var(--border-color)' }}>
+              <input aria-label="Allergen" value={allergy.allergen} onChange={(e) => updateAllergy(index, { allergen: e.target.value })} placeholder="Allergen (e.g. penicillin)" className={inputCls} />
+              <input aria-label="Allergic reaction" value={allergy.reaction || ''} onChange={(e) => updateAllergy(index, { reaction: e.target.value })} placeholder="Reaction" className={inputCls} />
+              <select aria-label="Allergy severity" value={allergy.severity || ''} onChange={(e) => updateAllergy(index, { severity: e.target.value as PatientAllergy['severity'] })} className={inputCls}>
+                <option value="">Severity not known</option>
+                <option value="mild">Mild</option>
+                <option value="moderate">Moderate</option>
+                <option value="severe">Severe</option>
+              </select>
+              <input aria-label="Allergy notes" value={allergy.notes || ''} onChange={(e) => updateAllergy(index, { notes: e.target.value })} placeholder="Notes" className={inputCls} />
+              <RemoveHistoryButton onClick={() => onClinicalHistoryChange({
+                ...clinicalHistory,
+                allergies: clinicalHistory.allergies.filter((_, itemIndex) => itemIndex !== index),
+              })} />
+            </div>
+          ))}
+        </HistoryGroup>
+
+        <HistoryGroup
+          title="Medical conditions"
+          onAdd={() => onClinicalHistoryChange({
+            ...clinicalHistory,
+            medicalHistories: [...clinicalHistory.medicalHistories, { condition: '', diagnosedAt: '', notes: '' }],
+          })}
+        >
+          {clinicalHistory.medicalHistories.map((history, index) => (
+            <div key={history.id || `medical-${index}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border p-3" style={{ borderColor: 'var(--border-color)' }}>
+              <input aria-label="Medical condition" value={history.condition} onChange={(e) => updateMedicalHistory(index, { condition: e.target.value })} placeholder="Condition (e.g. asthma)" className={inputCls} />
+              <input aria-label="Date diagnosed" type="date" value={history.diagnosedAt || ''} onChange={(e) => updateMedicalHistory(index, { diagnosedAt: e.target.value })} className={inputCls} />
+              <input aria-label="Medical history notes" value={history.notes || ''} onChange={(e) => updateMedicalHistory(index, { notes: e.target.value })} placeholder="Notes" className={inputCls} />
+              <RemoveHistoryButton onClick={() => onClinicalHistoryChange({
+                ...clinicalHistory,
+                medicalHistories: clinicalHistory.medicalHistories.filter((_, itemIndex) => itemIndex !== index),
+              })} />
+            </div>
+          ))}
+        </HistoryGroup>
+
+        <HistoryGroup
+          title="Surgical history"
+          onAdd={() => onClinicalHistoryChange({
+            ...clinicalHistory,
+            surgicalHistories: [...clinicalHistory.surgicalHistories, { procedure: '', surgeryDate: '', notes: '' }],
+          })}
+        >
+          {clinicalHistory.surgicalHistories.map((history, index) => (
+            <div key={history.id || `surgery-${index}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border p-3" style={{ borderColor: 'var(--border-color)' }}>
+              <input aria-label="Surgical procedure" value={history.procedure} onChange={(e) => updateSurgicalHistory(index, { procedure: e.target.value })} placeholder="Procedure" className={inputCls} />
+              <input aria-label="Surgery date" type="date" value={history.surgeryDate || ''} onChange={(e) => updateSurgicalHistory(index, { surgeryDate: e.target.value })} className={inputCls} />
+              <input aria-label="Surgical history notes" value={history.notes || ''} onChange={(e) => updateSurgicalHistory(index, { notes: e.target.value })} placeholder="Notes" className={inputCls} />
+              <RemoveHistoryButton onClick={() => onClinicalHistoryChange({
+                ...clinicalHistory,
+                surgicalHistories: clinicalHistory.surgicalHistories.filter((_, itemIndex) => itemIndex !== index),
+              })} />
+            </div>
+          ))}
+        </HistoryGroup>
+
+        <HistoryGroup
+          title="Family history"
+          onAdd={() => onClinicalHistoryChange({
+            ...clinicalHistory,
+            familyHistories: [...clinicalHistory.familyHistories, { relation: '', condition: '', notes: '' }],
+          })}
+        >
+          {clinicalHistory.familyHistories.map((history, index) => (
+            <div key={history.id || `family-${index}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border p-3" style={{ borderColor: 'var(--border-color)' }}>
+              <input aria-label="Family member relationship" value={history.relation} onChange={(e) => updateFamilyHistory(index, { relation: e.target.value })} placeholder="Relative (e.g. mother)" className={inputCls} />
+              <input aria-label="Family condition" value={history.condition} onChange={(e) => updateFamilyHistory(index, { condition: e.target.value })} placeholder="Condition" className={inputCls} />
+              <input aria-label="Family history notes" value={history.notes || ''} onChange={(e) => updateFamilyHistory(index, { notes: e.target.value })} placeholder="Notes" className={inputCls} />
+              <RemoveHistoryButton onClick={() => onClinicalHistoryChange({
+                ...clinicalHistory,
+                familyHistories: clinicalHistory.familyHistories.filter((_, itemIndex) => itemIndex !== index),
+              })} />
+            </div>
+          ))}
+        </HistoryGroup>
       </div>
     </div>
+  );
+}
+
+function HistoryGroup({
+  title,
+  onAdd,
+  children,
+}: {
+  title: string;
+  onAdd: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h4>
+        <button type="button" onClick={onAdd} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-[var(--icon-cyan-bg)]" style={{ color: 'var(--icon-cyan-text)' }}>
+          <Plus className="w-3 h-3" /> Add
+        </button>
+      </div>
+      {children || (
+        <p className="rounded-lg border border-dashed border-[var(--border-color)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
+          No {title.toLowerCase()} recorded yet.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function RemoveHistoryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="Remove history entry" className="inline-flex w-fit items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-[var(--icon-red-bg)]" style={{ color: 'var(--icon-red-text)', borderColor: 'var(--border-color)' }}>
+      <Trash2 className="w-3 h-3" /> Remove
+    </button>
   );
 }
 

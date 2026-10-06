@@ -8,13 +8,16 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
+import { getBillingCollections } from '../api';
+import api from '../api/api';
 import {
   Search, RefreshCw, FileText, DollarSign, CreditCard, Eye,
   ChevronLeft, ChevronRight, Receipt, TrendingUp,
   AlertCircle, CheckCircle, Clock, Shield, User, Calendar, X,
-  Filter, Printer, Hospital, Gift, Loader2
+  Filter, Printer, Hospital, Gift, Loader2, Users, Layers
 } from 'lucide-react';
 import type { BillStatus, PaymentMode } from '../types';
+import type { BillingCollectionItem, BillingCollectionsReport } from '../types/billing';
 
 type DateFilterType = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
@@ -60,6 +63,7 @@ const getPaymentModeLabel = (mode: PaymentMode) => {
     cash: 'Cash',
     nhis: 'NHIS',
     private_insurance: 'Private Insurance',
+    corporate: 'Corporate',
   };
   return modeMap[mode] || 'Cash';
 };
@@ -100,7 +104,7 @@ export default function Billing() {
   const { success, error: toastError } = useToast();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'bills' | 'waivers'>('bills');
+  const [activeTab, setActiveTab] = useState<'bills' | 'collections' | 'waivers'>('bills');
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,6 +116,12 @@ export default function Billing() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
+    totalAmount: 0,
+    paymentCount: 0,
+    payments: []
+  });
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
 
   // Waiver modal state
   const [showWaiverModal, setShowWaiverModal] = useState(false);
@@ -144,7 +154,7 @@ export default function Billing() {
 
   const { patients, loadPatients } = usePatientStore();
   const { hasRole } = useAuthStore();
-  const { generateBillStatement, isLoading: isDocLoading } = useDocumentStore();
+  const { isLoading: isDocLoading } = useDocumentStore();
 
   const isAccountsStaff = hasRole(['admin', 'accounts']);
   const isLoading = billsLoading || waiversLoading;
@@ -212,6 +222,10 @@ export default function Billing() {
     try {
       setRefreshing(true);
       const dateRange = getDateRange();
+      setCollectionsLoading(activeTab === 'collections');
+      if (activeTab === 'collections' && !dateRange) {
+        setCollectionsReport({ totalAmount: 0, paymentCount: 0, payments: [] });
+      }
       const filters: any = {};
       if (dateRange) {
         filters.dateFrom = dateRange.startDate.toISOString();
@@ -220,18 +234,28 @@ export default function Billing() {
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
-      await Promise.all([
+      const [, , , , , collections] = await Promise.all([
         getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
         loadPatients(),
         getBillStatistics(filters),
         getWaivers(filters),
-        getWaiverStats(filters)
+        getWaiverStats(filters),
+        activeTab === 'collections' && dateRange
+          ? getBillingCollections({
+              dateFrom: dateRange.startDate.toISOString(),
+              dateTo: dateRange.endDate.toISOString()
+            })
+          : Promise.resolve(null)
       ]);
+      if (activeTab === 'collections') {
+        setCollectionsReport(collections || { totalAmount: 0, paymentCount: 0, payments: [] });
+      }
       success('Data refreshed', 'Billing data is up-to-date.');
     } catch (err) {
       toastError('Refresh failed', 'Could not load billing data.');
     } finally {
       setRefreshing(false);
+      setCollectionsLoading(false);
     }
   };
 
@@ -298,6 +322,44 @@ export default function Billing() {
     );
   }, [waivers, searchQuery, statusFilter]);
 
+  const collectionRows = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return collectionsReport.payments.flatMap((payment) =>
+      payment.items.map((item: BillingCollectionItem) => ({
+        payment,
+        item,
+        searchText: [
+          payment.reference,
+          payment.bill.billNumber,
+          payment.bill.patient.surname,
+          payment.bill.patient.otherNames,
+          payment.bill.patient.folderNumber,
+          payment.collector.fullName,
+          item.description,
+          item.serviceCategory
+        ].join(' ').toLowerCase()
+      }))
+    ).filter((row) => !query || row.searchText.includes(query));
+  }, [collectionsReport.payments, searchQuery]);
+
+  const collectionSummaries = useMemo(() => {
+    const byCategory = new Map<string, number>();
+    const byCollector = new Map<string, { amount: number; payments: number }>();
+    for (const payment of collectionsReport.payments) {
+      const collector = byCollector.get(payment.collector.id) || { amount: 0, payments: 0 };
+      collector.amount += payment.amount;
+      collector.payments += 1;
+      byCollector.set(payment.collector.id, collector);
+      for (const item of payment.items) {
+        byCategory.set(item.serviceCategory, (byCategory.get(item.serviceCategory) || 0) + item.amount);
+      }
+    }
+    return {
+      categories: [...byCategory.entries()].sort((a, b) => b[1] - a[1]),
+      collectors: [...byCollector.entries()].sort((a, b) => b[1].amount - a[1].amount)
+    };
+  }, [collectionsReport]);
+
   // Bill statistics
   const stats = useMemo(() => {
     const totalAmount = filteredBills.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
@@ -322,10 +384,14 @@ export default function Billing() {
   };
 
   // Pagination
-  const currentData = activeTab === 'bills' ? filteredBills : filteredWaivers;
+  const currentData = activeTab === 'bills'
+    ? filteredBills
+    : activeTab === 'waivers' ? filteredWaivers : collectionRows;
   const totalPages = Math.ceil(currentData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginated = currentData.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedBills = filteredBills.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedWaivers = filteredWaivers.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedCollectionRows = collectionRows.slice(startIndex, startIndex + itemsPerPage);
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
@@ -491,7 +557,7 @@ const handlePrintStatement = async (billId: string) => {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      {activeTab !== 'collections' && <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {[
           { icon: FileText, label: 'Total Bills', value: stats.total, bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]' },
           { icon: DollarSign, label: 'Collected', value: formatCurrency(stats.totalPaid), bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
@@ -512,7 +578,7 @@ const handlePrintStatement = async (billId: string) => {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-[var(--border-color)]">
@@ -529,6 +595,22 @@ const handlePrintStatement = async (billId: string) => {
             Bills
             <span className="ml-1 px-2 py-0.5 bg-[var(--bg-main)] rounded-full text-xs">
               {stats.total}
+            </span>
+          </div>
+        </button>
+        <button
+          onClick={() => { setActiveTab('collections'); setStatusFilter('all'); setSearchQuery(''); }}
+          className={`px-6 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'collections'
+              ? 'text-[var(--icon-green-text)] border-b-2 border-[var(--icon-green-text)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
+            Collections
+            <span className="ml-1 px-2 py-0.5 bg-[var(--bg-main)] rounded-full text-xs">
+              {collectionsReport.paymentCount}
             </span>
           </div>
         </button>
@@ -603,7 +685,7 @@ const handlePrintStatement = async (billId: string) => {
       </div>
 
       {/* Status Filter & Search */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      {activeTab !== 'collections' && <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-[var(--text-secondary)] flex items-center gap-1">
@@ -669,7 +751,131 @@ const handlePrintStatement = async (billId: string) => {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
+
+      {/* PAYMENT COLLECTIONS */}
+      {activeTab === 'collections' && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { label: 'Total Collected', value: formatCurrency(collectionsReport.totalAmount), icon: DollarSign, bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
+              { label: 'Receipts', value: collectionsReport.paymentCount, icon: Receipt, bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]' },
+              { label: 'Collectors', value: collectionSummaries.collectors.length, icon: Users, bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' }
+            ].map((stat) => (
+              <div key={stat.label} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg}`}>
+                  <stat.icon className={`w-5 h-5 ${stat.text}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
+                  <p className="text-xl font-bold text-[var(--text-primary)]">{stat.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-3">
+                <Layers className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                Collected by Service Category
+              </h2>
+              {collectionSummaries.categories.length ? (
+                <div className="divide-y divide-[var(--border-color)]">
+                  {collectionSummaries.categories.map(([category, amount]) => (
+                    <div key={category} className="py-2 flex items-center justify-between text-sm">
+                      <span className="text-[var(--text-secondary)] capitalize">{category.replace(/_/g, ' ')}</span>
+                      <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-[var(--text-tertiary)]">No category totals for this period.</p>}
+            </div>
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                Collected by User
+              </h2>
+              {collectionSummaries.collectors.length ? (
+                <div className="divide-y divide-[var(--border-color)]">
+                  {collectionSummaries.collectors.map(([collectorId, summary]) => {
+                    const collector = collectionsReport.payments.find((payment) => payment.collector.id === collectorId)?.collector;
+                    return (
+                      <div key={collectorId} className="py-2 flex items-center justify-between text-sm gap-3">
+                        <span className="text-[var(--text-secondary)]">{collector?.fullName || collector?.username || 'Unknown user'} <span className="text-xs">({summary.payments} receipts)</span></span>
+                        <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(summary.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="text-sm text-[var(--text-tertiary)]">No collections for this period.</p>}
+            </div>
+          </div>
+
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="font-semibold text-[var(--text-primary)]">Itemized Collections</h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Payment amounts are allocated proportionally across each bill's active service items.</p>
+              </div>
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                  placeholder="Search patient, bill, collector, or item..."
+                  className="w-full pl-10 pr-4 py-2 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] text-sm placeholder-[var(--text-tertiary)]"
+                />
+              </div>
+            </div>
+            {collectionsLoading ? (
+              <div className="py-12 flex items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading collections...
+              </div>
+            ) : collectionRows.length === 0 ? (
+              <div className="py-10 text-center">
+                <Receipt className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3" />
+                <p className="font-medium text-[var(--text-primary)]">{searchQuery ? 'No matching collection items' : 'No collections found'}</p>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">No payments were recorded for {getDateFilterDisplay().toLowerCase()}.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    <tr>
+                      {['Collected At', 'Receipt / Bill', 'Patient', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
+                        <th key={heading} className={`px-3 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase whitespace-nowrap ${heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left'}`}>{heading}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)]">
+                    {paginatedCollectionRows.map(({ payment, item }: { payment: BillingCollectionsReport['payments'][number]; item: BillingCollectionItem }, index: number) => (
+                      <tr key={`${payment.id}-${item.id}-${index}`} className="hover:bg-[var(--bg-main)]">
+                        <td className="px-3 py-3 whitespace-nowrap text-[var(--text-secondary)]">{formatDate(payment.transactionDate)}</td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <p className="font-medium text-[var(--text-primary)]">{payment.reference || payment.id}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
+                        </td>
+                        <td className="px-3 py-3">
+                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.patient.surname} {payment.bill.patient.otherNames}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">{payment.bill.patient.folderNumber}</p>
+                        </td>
+                        <td className="px-3 py-3 text-[var(--text-primary)]">{payment.collector.fullName || payment.collector.username}</td>
+                        <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{payment.paymentMethod.replace(/_/g, ' ')}</td>
+                        <td className="px-3 py-3 text-[var(--text-primary)]">{item.description}</td>
+                        <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{item.serviceCategory.replace(/_/g, ' ')}</td>
+                        <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{item.quantity}</td>
+                        <td className="px-3 py-3 text-right font-semibold text-[var(--text-primary)]">{formatCurrency(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* BILLS TABLE */}
       {activeTab === 'bills' && (
@@ -718,7 +924,7 @@ const handlePrintStatement = async (billId: string) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginated.map((bill) => {
+                  {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
                     return (
@@ -882,7 +1088,7 @@ const handlePrintStatement = async (billId: string) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginated.map((waiver) => (
+                  {paginatedWaivers.map((waiver) => (
                     <tr key={waiver.id} className="hover:bg-[var(--bg-main)] transition-colors">
                       <td className="px-4 py-3">
                         <p className="font-semibold text-[var(--text-primary)] text-sm">

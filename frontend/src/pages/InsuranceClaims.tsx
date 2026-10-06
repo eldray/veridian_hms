@@ -110,13 +110,36 @@ export default function InsuranceClaims() {
       
       success('Data loaded', `${activeTab.toUpperCase()} claims ready`);
     } catch (error: any) {
-      toastError('Load failed', error?.message || 'Could not fetch data');
+      toastError('Load failed', error?.response?.data?.message || error?.message || 'Could not fetch data');
     }
   };
 
   const getPatientFullName = (patient: any) => {
     if (!patient) return 'Unknown';
     return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
+  };
+
+  const getPatientAge = (dateOfBirth?: string) => {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    if (
+      today.getMonth() < birthDate.getMonth() ||
+      (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+    ) age--;
+    return age >= 0 ? age : null;
+  };
+
+  const getInsuranceNumber = (claim: any) => {
+    const patient = claim.patient ?? claim.Patient;
+    const insuranceDetails = patient?.insuranceDetails;
+    if (activeTab === 'nhis') {
+      return patient?.nhisNumber || insuranceDetails?.insuranceNumber || insuranceDetails?.memberId || '—';
+    }
+    return insuranceDetails?.insuranceNumber || insuranceDetails?.policyNumber ||
+      insuranceDetails?.memberId || claim.Attendance?.corporateEmployeeId || claim.attendance?.corporateEmployeeId || '—';
   };
 
   // Get eligible attendances based on active tab
@@ -149,9 +172,10 @@ export default function InsuranceClaims() {
   const filteredClaims = currentClaims.filter((claim: any) => {
     const matchesSearch =
       claim.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getPatientFullName(claim.patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getPatientFullName(claim.patient ?? claim.Patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
       claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.corporateAccount?.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
+      claim.corporateAccount?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(getInsuranceNumber(claim)).toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
     
@@ -598,6 +622,10 @@ export default function InsuranceClaims() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Claim Number</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Patient</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DOB / Age</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    {activeTab === 'nhis' ? 'NHIS Number' : activeTab === 'private' ? 'Policy / Member No.' : 'Insurance / Employee No.'}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                     {activeTab === 'corporate' ? 'Corporate Account' : 'Provider'}
                   </th>
@@ -616,15 +644,35 @@ export default function InsuranceClaims() {
                       <span className="font-mono text-sm font-medium text-gray-900">{claim.claimNumber}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-gray-900">{getPatientFullName(claim.patient)}</div>
+                      <div className="text-gray-900">{getPatientFullName(claim.patient ?? claim.Patient)}</div>
                       {claim.Attendance?.attendanceNumber && (
                         <div className="text-xs text-gray-500">{claim.Attendance.attendanceNumber}</div>
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {(() => {
+                        const patient = claim.patient ?? claim.Patient;
+                        const age = getPatientAge(patient?.dateOfBirth);
+                        return (
+                          <>
+                            <div className="text-gray-700">
+                              {patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'DOB unavailable'}
+                            </div>
+                            <div className="text-xs text-gray-500">{age === null ? 'Age unavailable' : `${age} years`}</div>
+                          </>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-mono text-gray-700">{getInsuranceNumber(claim)}</div>
+                      {activeTab === 'nhis' && claim.patient?.nhisExpiryDate && (
+                        <div className="text-xs text-gray-500">Expires {new Date(claim.patient.nhisExpiryDate).toLocaleDateString()}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="text-gray-700">
                         {activeTab === 'corporate' 
-                          ? (claim.corporateAccount?.companyName || '—')
+                          ? (claim.corporateAccount?.companyName || claim.CorporateAccount?.companyName || '—')
                           : (claim.insuranceProvider?.name || '—')
                         }
                       </span>

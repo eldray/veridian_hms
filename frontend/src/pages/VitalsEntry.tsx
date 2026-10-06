@@ -371,7 +371,7 @@ export default function VitalsEntry() {
       setEditingVitals(null);
     } catch (err: any) {
       console.error('Save error:', err);
-      toastError('Save Failed', err.message || 'Failed to save vitals');
+      toastError('Save Failed', err.response?.data?.message || err.message || 'Failed to save vitals');
     } finally {
       setIsSubmitting(false);
     }

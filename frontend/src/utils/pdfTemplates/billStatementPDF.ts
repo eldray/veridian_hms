@@ -1,5 +1,5 @@
 // src/utils/pdfTemplates/billStatementPDF.ts - REDESIGNED TO MATCH LAB RESULTS STYLE
-import type { Bill, Patient, Hospital } from '../types';
+import type { Bill, Patient, HospitalInfo } from '../../types';
 
 export const generateBillStatementHTML = (
   bill: any,

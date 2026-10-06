@@ -323,7 +323,10 @@ export type Seniority = 'TRAINEE' | 'JUNIOR' | 'SENIOR' | 'PRINCIPAL';
 
 export interface InsuranceDetails {
   providerId?: string;
-  memberId: string;
+  providerName?: string;
+  memberId?: string;
+  insuranceNumber?: string;
+  policyNumber?: string;
   groupNumber?: string;
   relationship?: 'self' | 'spouse' | 'child' | 'other';
   startDate: string;
@@ -350,6 +353,35 @@ export interface AdditionalInfo {
   };
 }
 
+export interface PatientAllergy {
+  id?: string;
+  allergen: string;
+  reaction?: string;
+  severity?: 'mild' | 'moderate' | 'severe';
+  notes?: string;
+}
+
+export interface PatientMedicalHistory {
+  id?: string;
+  condition: string;
+  diagnosedAt?: string;
+  notes?: string;
+}
+
+export interface PatientSurgicalHistory {
+  id?: string;
+  procedure: string;
+  surgeryDate?: string;
+  notes?: string;
+}
+
+export interface PatientFamilyHistory {
+  id?: string;
+  relation: string;
+  condition: string;
+  notes?: string;
+}
+
 export interface Patient {
   id: string;
   folderNumber: string;
@@ -360,11 +392,22 @@ export interface Patient {
   contact: string;
   address: string;
   paymentMode?: PaymentMode;
-  insuranceProviderId?: string;
-  insuranceDetails?: InsuranceDetails;
+  insuranceProviderId?: string | null;
+  corporateAccountId?: string | null;
+  corporateEmployeeId?: string | null;
+  nhisNumber?: string | null;
+  nhisExpiryDate?: string | null;
+  nhisActive?: boolean;
+  insuranceDetails?: InsuranceDetails | null;
   additionalInfo?: AdditionalInfo;
+  allergies?: PatientAllergy[];
+  medicalHistories?: PatientMedicalHistory[];
+  surgicalHistories?: PatientSurgicalHistory[];
+  familyHistories?: PatientFamilyHistory[];
   billingAddress?: any;
   employer?: any;
+  age?: number;
+  ageInMonths?: number;
   imageUrl?: string;
   registeredAt: string;
   registeredBy: string;
@@ -498,11 +541,18 @@ export interface Attendance {
 
 export interface Diagnosis {
   id: string;
+  _id?: string;
   name: string;
   icdCode: string;
+  gdrgCode?: string;
   gdrgGroupCode: string;
   variant?: DiagnosisVariant;
   description?: string;
+  cashPrice?: number;
+  insurancePrice?: number;
+  costPrice?: number;
+  vatRate?: number;
+  isTaxable?: boolean;
   isActive: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
@@ -514,6 +564,16 @@ export interface Diagnosis {
   
   // Relations
   gdrgTariffDiagnoses?: GDRGTariffDiagnosis[];
+}
+
+export interface DiagnosisTemplate extends Diagnosis {
+  _id?: string;
+}
+
+export interface ProgressNote {
+  note: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 // ======================
@@ -1346,6 +1406,30 @@ export interface HospitalInfo {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type Hospital = HospitalInfo;
+
+export interface BackupFile {
+  filename: string;
+  size: number;
+  sizeFormatted?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  path?: string;
+}
+
+export interface NHISConfig {
+  providerId: string;
+  facilityCode: string;
+  accreditationNumber: string;
+  tariffVersion: string;
+  claimEndpoint: string;
+  isActive: boolean;
+}
+
+export interface ClinicianSchedule {
+  [key: string]: unknown;
 }
 
 // ======================

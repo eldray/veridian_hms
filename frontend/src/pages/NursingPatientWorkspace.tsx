@@ -286,7 +286,7 @@ export default function NursingPatientWorkspace() {
       setLatestVitals(sorted.length ? sorted[sorted.length - 1] : null);
       setShowVitalsModal(false);
     } catch (err: any) {
-      toastError('Save failed', err.message);
+      toastError('Save failed', err.response?.data?.message || err.message);
     }
   };
 

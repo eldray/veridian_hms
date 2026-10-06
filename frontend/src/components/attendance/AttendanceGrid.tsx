@@ -1,5 +1,5 @@
 // src/components/attendance/AttendanceGrid.tsx
-import { AttendanceCard } from './AttendanceCard';
+import { AttendanceCard } from './AttendanceComponents';
 import { Hospital,CreditCard, Shield  } from 'lucide-react';
 
 interface AttendanceGridProps {

@@ -33,8 +33,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
-        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true, contact: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true, corporateEmployeeId: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
     });
@@ -67,7 +67,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   async findByAttendanceId(attendanceId: string, providerType?: string) {
     const where: any = { attendanceId };
     if (providerType) {
-      where.InsuranceProvider = { type: providerType };
+      where.InsuranceProvider = { is: { type: providerType } };
     }
     
     return this.getModel().findFirst({
@@ -155,7 +155,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   // SPECIFIC PROVIDER QUERIES (Helper methods for Service)
   // ==========================================
   async findNHISClaims(filters: any) {
-    const where: any = { InsuranceProvider: { type: 'nhis' } };
+    const where: any = { InsuranceProvider: { is: { type: 'nhis' } } };
     if (filters.status) where.status = filters.status;
     if (filters.patientId) where.patientId = filters.patientId;
     
@@ -176,15 +176,15 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true, corporateEmployeeId: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
     });
   }
 
   async findPrivateClaims(filters: any) {
-    const where: any = { InsuranceProvider: { type: 'private' } };
+    const where: any = { InsuranceProvider: { is: { type: 'private' } } };
     if (filters.status) where.status = filters.status;
     if (filters.patientId) where.patientId = filters.patientId;
     
@@ -205,7 +205,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
@@ -213,7 +213,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   }
 
   async findCorporateClaims(filters: any) {
-    const where: any = { InsuranceProvider: { type: 'corporate' } };
+    const where: any = { InsuranceProvider: { is: { type: 'corporate' } } };
     if (filters.status) where.status = filters.status;
     if (filters.patientId) where.patientId = filters.patientId;
     if (filters.corporateAccountId) where.corporateAccountId = filters.corporateAccountId;
@@ -236,7 +236,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         CorporateAccount: { select: { id: true, companyName: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }

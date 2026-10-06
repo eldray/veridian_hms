@@ -225,7 +225,7 @@ ${claimsXml}
 
     const [claims, total] = await Promise.all([
       this.prisma.insuranceClaim.findMany({
-        where, include: { InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } },
+        where, include: { InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true, contact: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } },
         orderBy: { createdAt: 'desc' }, skip, take: limitNum
       }),
       this.prisma.insuranceClaim.count({ where })
@@ -329,7 +329,7 @@ ${claimsXml}
   // ==========================================
   async generateNHISClaim(attendanceId: string, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { type: 'nhis' } } });
+      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { is: { type: 'nhis' } } } });
       if (existing) return { claim: existing, isExisting: true };
 
       const att = await tx.attendance.findUnique({
@@ -391,7 +391,7 @@ ${claimsXml}
   }
 
   async getNHISClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
-    const where: any = { InsuranceProvider: { type: 'nhis' } };
+    const where: any = { InsuranceProvider: { is: { type: 'nhis' } } };
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
     if (startDate || endDate) {
@@ -405,7 +405,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -417,7 +417,7 @@ ${claimsXml}
   // ==========================================
   async generatePrivateInsuranceClaim(attendanceId: string, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { type: 'private' } } });
+      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { is: { type: 'private' } } } });
       if (existing) return { claim: existing, isExisting: true };
 
       const att = await tx.attendance.findUnique({
@@ -447,7 +447,7 @@ ${claimsXml}
   }
 
   async getPrivateInsuranceClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
-    const where: any = { InsuranceProvider: { type: 'private' } };
+    const where: any = { InsuranceProvider: { is: { type: 'private' } } };
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
     if (startDate || endDate) {
@@ -461,7 +461,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -473,7 +473,7 @@ ${claimsXml}
   // ==========================================
   async generateCorporateClaim(attendanceId: string, userId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { type: 'corporate' } } });
+      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId, InsuranceProvider: { is: { type: 'corporate' } } } });
       if (existing) return { claim: existing, isExisting: true };
 
       const att = await tx.attendance.findUnique({
@@ -519,7 +519,7 @@ ${claimsXml}
   }
 
   async getCorporateClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, corpId?: string, page = 1, limit = 50) {
-    const where: any = { InsuranceProvider: { type: 'corporate' } };
+    const where: any = { InsuranceProvider: { is: { type: 'corporate' } } };
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
     if (corpId) where.corporateAccountId = corpId;
@@ -534,7 +534,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, dateOfBirth: true, nhisNumber: true, nhisExpiryDate: true, insuranceDetails: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 

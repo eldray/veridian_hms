@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Patient } from '../types';
+import type { Patient } from '../../types';
 import { User, Search } from 'lucide-react';
 
 interface PatientSelectionProps {

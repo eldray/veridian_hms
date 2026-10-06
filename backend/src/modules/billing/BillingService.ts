@@ -106,6 +106,76 @@ export class BillingService extends BaseService {
     return this.repository.getStatistics(period);
   }
 
+  async getCollections(dateFrom: Date, dateTo: Date) {
+    this.logInfo('Fetching payment collections', { dateFrom, dateTo });
+    const payments = await this.repository.findCollections(dateFrom, dateTo);
+
+    const collectionPayments = payments.map((payment) => {
+      const lineItems = payment.Bill.BillLineItem;
+      const payableAmounts = lineItems.map((item) => Number(item.patientPayableAmount));
+      const payableTotal = payableAmounts.reduce((sum, amount) => sum + amount, 0);
+      const lineTotals = lineItems.map((item) => Number(item.lineTotal));
+      const allocationBasis = payableTotal > 0 ? payableAmounts : lineTotals;
+      const allocationTotal = allocationBasis.reduce((sum, amount) => sum + amount, 0);
+      const paymentCents = Math.round(Number(payment.amount) * 100);
+      const itemAmounts = allocationTotal > 0
+        ? allocationBasis.map((amount) => Math.floor(paymentCents * amount / allocationTotal))
+        : [];
+      const remainingCents = allocationTotal > 0
+        ? paymentCents - itemAmounts.reduce((sum, amount) => sum + amount, 0)
+        : 0;
+      const remainderOrder = allocationTotal > 0
+        ? allocationBasis
+            .map((amount, index) => ({
+              index,
+              remainder: paymentCents * amount / allocationTotal - itemAmounts[index]
+            }))
+            .sort((a, b) => b.remainder - a.remainder)
+        : [];
+      for (let index = 0; index < remainingCents; index += 1) {
+        itemAmounts[remainderOrder[index].index] += 1;
+      }
+
+      return {
+        id: payment.id,
+        transactionDate: payment.transactionDate,
+        amount: Number(payment.amount),
+        paymentMethod: payment.paymentMethod,
+        reference: payment.reference,
+        notes: payment.notes,
+        collector: payment.User,
+        bill: {
+          id: payment.Bill.id,
+          billNumber: payment.Bill.billNumber,
+          patient: payment.Bill.Patient
+        },
+        items: allocationTotal > 0
+          ? lineItems.map((item, index) => ({
+                id: item.id,
+                description: item.description,
+                quantity: item.quantity,
+                serviceCategory: item.serviceCatalog?.serviceCategory || 'other',
+                serviceType: item.serviceType,
+                amount: itemAmounts[index] / 100
+              }))
+          : [{
+              id: payment.id,
+              description: 'Uncategorized collection',
+              quantity: 1,
+              serviceCategory: 'other',
+              serviceType: 'miscellaneous',
+              amount: paymentCents / 100
+            }]
+      };
+    });
+
+    return {
+      totalAmount: Math.round(collectionPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100,
+      paymentCount: collectionPayments.length,
+      payments: collectionPayments
+    };
+  }
+
   async getLineItems(billId: string) {
     this.logDebug('Fetching line items for bill', { billId });
     const bill = await this.repository.findById(billId);

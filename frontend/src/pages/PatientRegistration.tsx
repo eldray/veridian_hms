@@ -1,8 +1,9 @@
 // src/pages/PatientRegistration.tsx - UPDATED WITH YOUR THEME
-import { useState, FormEvent, useEffect, useCallback } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useInsuranceStore } from '../store/insuranceStore';
+import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
@@ -15,7 +16,15 @@ import {
   AlertCircle,
   Eye
 } from 'lucide-react';
-import type { PaymentMode, InsuranceDetails, AdditionalInfo, Patient } from '../types';
+import type {
+  PaymentMode,
+  InsuranceDetails,
+  AdditionalInfo,
+  PatientAllergy,
+  PatientFamilyHistory,
+  PatientMedicalHistory,
+  PatientSurgicalHistory,
+} from '../types';
 import PaymentModeTab from '../components/PaymentModeTab';
 import AdditionalInfoTab from '../components/AdditionalInfoTab';
 import { BasicInfoForm } from '../components/patients/BasicInfoForm';
@@ -87,6 +96,11 @@ export default function PatientRegistration() {
   const { addPatient, updatePatient, fetchPatient, currentPatient, uploadPatientImage } = usePatientStore();
   const { user } = useAuthStore();
   const { getInsuranceProviders, providers, isLoading: isLoadingProviders } = useInsuranceStore();
+  const {
+    corporateAccounts,
+    getCorporateAccounts,
+    isLoading: isLoadingCorporate,
+  } = useCorporateStore();
 
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -114,6 +128,12 @@ export default function PatientRegistration() {
   const [paymentData, setPaymentData] = useState<{
     paymentMode: PaymentMode;
     insuranceDetails?: InsuranceDetails;
+    corporateDetails?: {
+      accountId: string;
+      employeeId?: string;
+      companyName?: string;
+      employeeCode?: string;
+    };
   }>({ paymentMode: 'cash' });
 
   const [additionalInfo, setAdditionalInfo] = useState<AdditionalInfo>({
@@ -127,8 +147,17 @@ export default function PatientRegistration() {
     nextOfKin: '',
     emergencyContact: { name: '', relationship: '', phone: '' }
   });
-
-  const [ageDisplay, setAgeDisplay] = useState('');
+  const [clinicalHistory, setClinicalHistory] = useState<{
+    allergies: PatientAllergy[];
+    medicalHistories: PatientMedicalHistory[];
+    surgicalHistories: PatientSurgicalHistory[];
+    familyHistories: PatientFamilyHistory[];
+  }>({
+    allergies: [],
+    medicalHistories: [],
+    surgicalHistories: [],
+    familyHistories: [],
+  });
 
   const handleBack = () => {
     if (location.key !== 'default') {
@@ -150,7 +179,10 @@ export default function PatientRegistration() {
     const loadData = async () => {
       try {
         // Always load insurance providers
-        await getInsuranceProviders();
+        await Promise.all([
+          getInsuranceProviders(),
+          getCorporateAccounts({ limit: 100 }),
+        ]);
 
         // Only fetch patient if we're in edit mode AND have a valid patient ID
         if (isEditMode && patientId && patientId !== 'undefined' && patientId !== 'null') {
@@ -190,9 +222,8 @@ export default function PatientRegistration() {
         : currentPatient.dateOfBirth;
 
       // Split full name into surname and otherNames
-      const nameParts = currentPatient.fullName?.split(' ') || [];
-      const surname = nameParts[0] || '';
-      const otherNames = nameParts.slice(1).join(' ') || '';
+      const surname = currentPatient.surname || '';
+      const otherNames = currentPatient.otherNames || '';
 
       setFormData({
         folderNumber: currentPatient.folderNumber || '',
@@ -204,11 +235,32 @@ export default function PatientRegistration() {
         address: currentPatient.address || '',
       });
 
-      setAgeDisplay(currentPatient.ageDisplay || calculateAge(currentPatient.dateOfBirth).display);
-
       setPaymentData({
         paymentMode: currentPatient.paymentMode || 'cash',
         insuranceDetails: currentPatient.insuranceDetails
+          ? {
+              ...currentPatient.insuranceDetails,
+              startDate: convertISODateToInputFormat(currentPatient.insuranceDetails.startDate),
+              endDate: convertISODateToInputFormat(currentPatient.insuranceDetails.endDate),
+              providerId: currentPatient.insuranceDetails.providerId || currentPatient.insuranceProviderId || '',
+            }
+          : currentPatient.nhisNumber
+            ? {
+                insuranceNumber: currentPatient.nhisNumber,
+                startDate: '',
+                endDate: currentPatient.nhisExpiryDate
+                  ? convertISODateToInputFormat(currentPatient.nhisExpiryDate)
+                  : '',
+                isActive: currentPatient.nhisActive || false,
+              }
+          : undefined,
+        corporateDetails: currentPatient.paymentMode === 'corporate'
+          ? {
+              accountId: currentPatient.employer?.corporateAccountId || currentPatient.insuranceProviderId || '',
+              employeeId: currentPatient.employer?.employeeId || '',
+              companyName: currentPatient.employer?.companyName || '',
+            }
+          : undefined,
       });
 
       setAdditionalInfo(currentPatient.additionalInfo || {
@@ -221,6 +273,22 @@ export default function PatientRegistration() {
         occupation: '',
         nextOfKin: '',
         emergencyContact: { name: '', relationship: '', phone: '' }
+      });
+      setClinicalHistory({
+        allergies: currentPatient.allergies || [],
+        medicalHistories: (currentPatient.medicalHistories || []).map((history) => ({
+          ...history,
+          diagnosedAt: history.diagnosedAt
+            ? convertISODateToInputFormat(history.diagnosedAt)
+            : '',
+        })),
+        surgicalHistories: (currentPatient.surgicalHistories || []).map((history) => ({
+          ...history,
+          surgeryDate: history.surgeryDate
+            ? convertISODateToInputFormat(history.surgeryDate)
+            : '',
+        })),
+        familyHistories: currentPatient.familyHistories || [],
       });
 
       // Set saved patient ID for edit mode
@@ -253,6 +321,12 @@ export default function PatientRegistration() {
         nextOfKin: '',
         emergencyContact: { name: '', relationship: '', phone: '' }
       });
+      setClinicalHistory({
+        allergies: [],
+        medicalHistories: [],
+        surgicalHistories: [],
+        familyHistories: [],
+      });
       setImage(null);
       setImagePreview('');
       setSaveSuccess(false);
@@ -271,14 +345,6 @@ export default function PatientRegistration() {
       setImagePreview('');
     }
   }, [image, currentPatient, isEditMode]);
-
-  useEffect(() => {
-    if (formData.dateOfBirth) {
-      setAgeDisplay(calculateAge(formData.dateOfBirth).display);
-    } else {
-      setAgeDisplay('');
-    }
-  }, [formData.dateOfBirth]);
 
   const calculateAge = (dob: string) => {
     if (!dob) return { years: 0, months: 0, display: '0 years' };
@@ -321,6 +387,23 @@ export default function PatientRegistration() {
       toastError('Required', 'Please fill all required fields');
       return;
     }
+    if ((paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance')
+      && !isInsuranceCoverageValid()) {
+      toastError('Coverage dates required', 'Enter valid coverage dates, with the end date on or after the start date.');
+      setActiveTab('payment');
+      return;
+    }
+    if (paymentData.paymentMode === 'private_insurance' && !paymentData.insuranceDetails?.providerId) {
+      toastError('Provider required', 'Select a private insurance provider.');
+      setActiveTab('payment');
+      return;
+    }
+    if (paymentData.paymentMode === 'corporate'
+      && (!paymentData.corporateDetails?.accountId || !paymentData.corporateDetails.employeeId?.trim())) {
+      toastError('Corporate details required', 'Select a corporate account and enter the employee ID.');
+      setActiveTab('payment');
+      return;
+    }
   
     setIsSubmitting(true);
     try {
@@ -342,9 +425,9 @@ export default function PatientRegistration() {
         ageInMonths: ageData.months,
         contact: formData.contact,
         address: formData.address,
-        paymentMode: paymentData.paymentMode,
-        insuranceDetails: paymentData.insuranceDetails,
+        ...getPaymentModePayload(),
         additionalInfo: additionalInfo,
+        ...getClinicalHistoryPayload(),
         registeredBy: user?.fullName || user?.username || 'System',
       };
   
@@ -395,16 +478,130 @@ export default function PatientRegistration() {
       return;
     }
 
+    if ((paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance')
+      && !isInsuranceCoverageValid()) {
+      toastError('Coverage dates required', 'Enter valid coverage dates, with the end date on or after the start date.');
+      return;
+    }
+    if (paymentData.paymentMode === 'private_insurance' && !paymentData.insuranceDetails?.providerId) {
+      toastError('Provider required', 'Select a private insurance provider.');
+      return;
+    }
+    if (paymentData.paymentMode === 'corporate'
+      && (!paymentData.corporateDetails?.accountId || !paymentData.corporateDetails.employeeId?.trim())) {
+      toastError('Corporate details required', 'Select a corporate account and enter the employee ID.');
+      return;
+    }
+
     try {
-      await updatePatient(patientIdToUse, {
-        paymentMode: paymentData.paymentMode,
-        insuranceDetails: paymentData.insuranceDetails
-      });
+      await updatePatient(patientIdToUse, getPaymentModePayload());
       success('Saved', 'Payment mode updated');
     } catch (error: any) {
-      toastError('Save failed', 'Could not update payment mode');
+      toastError('Save failed', error.message || 'Could not update payment mode');
     }
   };
+
+  const isInsuranceCoverageValid = () => {
+    const { startDate, endDate } = paymentData.insuranceDetails || {};
+    return Boolean(
+    startDate &&
+    endDate &&
+    !Number.isNaN(new Date(`${startDate}T00:00:00`).getTime()) &&
+    !Number.isNaN(new Date(`${endDate}T00:00:00`).getTime()) &&
+    new Date(`${endDate}T00:00:00`) >= new Date(`${startDate}T00:00:00`)
+    );
+  };
+
+  const isInsuranceCurrentlyActive = () => {
+    if (!isInsuranceCoverageValid()) return false;
+    const { startDate, endDate } = paymentData.insuranceDetails!;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(`${startDate}T00:00:00`) <= today && new Date(`${endDate}T00:00:00`) >= today;
+  };
+
+  const getPaymentModePayload = () => {
+    const insuranceDetails = paymentData.insuranceDetails
+    ? { ...paymentData.insuranceDetails, isActive: isInsuranceCurrentlyActive() }
+      : undefined;
+    const common = {
+      paymentMode: paymentData.paymentMode,
+      insuranceDetails: null,
+      insuranceProviderId: null,
+      nhisNumber: null,
+      nhisExpiryDate: null,
+      nhisActive: false,
+      corporateAccountId: null,
+      corporateEmployeeId: null,
+      employer: null,
+    };
+
+    if (paymentData.paymentMode === 'nhis') {
+      return {
+        ...common,
+        insuranceDetails,
+        nhisNumber: insuranceDetails?.insuranceNumber || null,
+        nhisExpiryDate: insuranceDetails?.endDate || null,
+        nhisActive: isInsuranceCurrentlyActive(),
+      };
+    }
+
+    if (paymentData.paymentMode === 'private_insurance') {
+      return {
+        ...common,
+        insuranceDetails,
+        insuranceProviderId: insuranceDetails?.providerId || null,
+      };
+    }
+
+    if (paymentData.paymentMode === 'corporate') {
+      const corporate = paymentData.corporateDetails;
+      return {
+        ...common,
+        corporateAccountId: corporate?.accountId || null,
+        corporateEmployeeId: corporate?.employeeId || null,
+        employer: corporate ? {
+          corporateAccountId: corporate.accountId,
+          employeeId: corporate.employeeId || '',
+          companyName: corporate.companyName || '',
+        } : null,
+      };
+    }
+
+    return common;
+  };
+
+  const getClinicalHistoryPayload = () => ({
+    allergies: clinicalHistory.allergies
+      .filter((item) => item.allergen.trim())
+      .map(({ allergen, reaction, severity, notes }) => ({
+        allergen: allergen.trim(),
+        reaction: reaction?.trim() || undefined,
+        severity: severity || undefined,
+        notes: notes?.trim() || undefined,
+      })),
+    medicalHistories: clinicalHistory.medicalHistories
+      .filter((item) => item.condition.trim())
+      .map(({ condition, diagnosedAt, notes }) => ({
+        condition: condition.trim(),
+        diagnosedAt: diagnosedAt || undefined,
+        notes: notes?.trim() || undefined,
+      })),
+    surgicalHistories: clinicalHistory.surgicalHistories
+      .filter((item) => item.procedure.trim())
+      .map(({ procedure, surgeryDate, notes }) => ({
+        procedure: procedure.trim(),
+        surgeryDate: surgeryDate || undefined,
+        notes: notes?.trim() || undefined,
+      })),
+    familyHistories: clinicalHistory.familyHistories
+      .filter((item) => item.relation.trim() && item.condition.trim())
+      .map(({ relation, condition, notes }) => ({
+        relation: relation.trim(),
+        condition: condition.trim(),
+        notes: notes?.trim() || undefined,
+      })),
+  });
 
   const handleSaveAdditionalInfo = async () => {
     if (!savedPatientId && !isEditMode) {
@@ -421,11 +618,12 @@ export default function PatientRegistration() {
 
     try {
       await updatePatient(patientIdToUse, {
-        additionalInfo: additionalInfo
+        additionalInfo,
+        ...getClinicalHistoryPayload(),
       });
-      success('Saved', 'Additional information updated');
+      success('Saved', 'Additional and medical history updated');
     } catch (error: any) {
-      toastError('Save failed', 'Could not update additional information');
+      toastError('Save failed', error.message || 'Could not save additional and medical history');
     }
   };
 
@@ -651,7 +849,6 @@ return (
           <BasicInfoForm
             formData={formData}
             additionalInfo={additionalInfo}
-            ageDisplay={ageDisplay}
             imagePreview={imagePreview}
             isUploadingImage={isUploadingImage}
             isEditMode={isEditMode}
@@ -668,17 +865,24 @@ return (
           <PaymentModeTab
             paymentMode={paymentData.paymentMode}
             insuranceDetails={paymentData.insuranceDetails}
+            corporateDetails={paymentData.corporateDetails}
             onPaymentModeChange={(mode) =>
-              setPaymentData({ ...paymentData, paymentMode: mode })
+              mode && setPaymentData((current) => ({ ...current, paymentMode: mode }))
             }
             onInsuranceDetailsChange={(details) =>
-              setPaymentData({ ...paymentData, insuranceDetails: details })
+              setPaymentData((current) => ({ ...current, insuranceDetails: details }))
+            }
+            onCorporateDetailsChange={(details) =>
+              setPaymentData((current) => ({ ...current, corporateDetails: details }))
             }
             insuranceProviders={providers}
+            corporateAccounts={corporateAccounts}
             isLoadingProviders={isLoadingProviders}
+            isLoadingCorporate={isLoadingCorporate}
+            onRetryCorporate={() => { void getCorporateAccounts({ limit: 100 }); }}
             isOptional={true}
             patientId={
-              savedPatientId || currentPatient?.id || patientId
+              savedPatientId || currentPatient?.id || patientId || undefined
             }
           />
         )}
@@ -687,6 +891,8 @@ return (
           <AdditionalInfoTab
             additionalInfo={additionalInfo}
             onAdditionalInfoChange={setAdditionalInfo}
+            clinicalHistory={clinicalHistory}
+            onClinicalHistoryChange={setClinicalHistory}
           />
         )}
       </div>

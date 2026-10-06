@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useLiveRefresh } from '../../api/realtime';
 import { useWorklistStore } from '../../store/worklistStore';
-import { DepartmentType, WorklistItem } from '../types/worklist';
+import type { DepartmentType, WorklistItem } from '../../types/worklist';
 import { 
   Users, AlertCircle, Clock, CheckCircle, 
   TrendingUp, Activity, Pill, FileText, 

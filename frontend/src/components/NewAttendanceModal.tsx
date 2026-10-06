@@ -1,5 +1,6 @@
 // src/components/NewAttendanceModal.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
@@ -11,24 +12,18 @@ import ComplaintInput from './ComplaintInput';
 
 interface NewAttendanceModalProps {
   patientId?: string;
+  corporateAccountId?: string;
+  paymentMode?: PaymentMode;
   onSuccess: (attendance: any) => void;
   onClose: () => void;
   isEditMode?: boolean;
   attendanceData?: any;
 }
 
-const VALID_ATTENDANCE_TYPES: AttendanceType[] = [
-  'emergency_acute',
-  'antenatal',
-  'postnatal',
-  'chronic_followup',
-  'specialist_consultation',
-  'delivery',
-  'surgery'
-];
-
 export default function NewAttendanceModal({
   patientId,
+  corporateAccountId,
+  paymentMode: initialPaymentMode,
   onSuccess,
   onClose,
   isEditMode = false,
@@ -36,12 +31,12 @@ export default function NewAttendanceModal({
 }: NewAttendanceModalProps) {
   const { createAttendance, updateAttendance, isLoading } = useAttendanceStore();
   const { getPatientById } = usePatientStore();
-  const { insuranceProviders, getInsuranceProviders } = useInsuranceStore();
+  const { providers: insuranceProviders, getInsuranceProviders } = useInsuranceStore();
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
   const [attendanceType, setAttendanceType] = useState<AttendanceType>('emergency_acute');
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
   const [complaints, setComplaints] = useState('');
   const [status, setStatus] = useState<AttendanceStatus>('pending');
@@ -145,8 +140,13 @@ export default function NewAttendanceModal({
         } else if (!insuranceProvider.isActive) {
           errors.push('Selected insurance provider is not active');
         }
+
       }
       // If insuranceProviders list is empty/still loading, skip lookup — the ID is enough
+    }
+
+    if (paymentMode === 'corporate' && !corporateAccountId) {
+      errors.push('Corporate account is required for corporate patients');
     }
 
     if (!complaints.trim()) {
@@ -198,6 +198,7 @@ export default function NewAttendanceModal({
       ...(paymentMode === 'private_insurance' && insuranceProviderId && {
         insuranceProviderId
       }),
+      ...(paymentMode === 'corporate' && corporateAccountId && { corporateAccountId }),
       complaints: complaints.trim() || 'No complaints recorded',
       createdById: isEditMode ? attendanceData.createdById : user.id,
       ...(isEditMode && { updatedById: user.id }),
@@ -258,7 +259,7 @@ export default function NewAttendanceModal({
     { id: 'discharged', name: 'Discharged', color: 'indigo' }
   ];
 
-  const attendanceTypes: { id: AttendanceType; name: string; icon: JSX.Element }[] = [
+  const attendanceTypes: { id: AttendanceType; name: string; icon: ReactNode }[] = [
     { id: 'emergency_acute', name: 'Emergency/Acute', icon: <AlertCircle className="w-3.5 h-3.5" /> },
     { id: 'antenatal', name: 'Antenatal', icon: <Calendar className="w-3.5 h-3.5" /> },
     { id: 'postnatal', name: 'Postnatal', icon: <Calendar className="w-3.5 h-3.5" /> },
@@ -268,7 +269,7 @@ export default function NewAttendanceModal({
     { id: 'surgery', name: 'Surgery', icon: <FileText className="w-3.5 h-3.5" /> }
   ];
 
-  const getColorClasses = (color: string, isSelected: boolean) => {
+  const getColorClasses = (color: string) => {
     const colors: Record<string, { selected: string; bg: string; text: string; border: string }> = {
       blue: { selected: 'bg-blue-50 border-blue-500', bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
       green: { selected: 'bg-green-50 border-green-500', bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' },
@@ -449,7 +450,7 @@ export default function NewAttendanceModal({
                 {paymentModes.map((mode) => {
                   const Icon = mode.icon;
                   const isSelected = paymentMode === mode.id;
-                  const colors = getColorClasses(mode.color, isSelected);
+                  const colors = getColorClasses(mode.color);
 
                   return (
                     <button

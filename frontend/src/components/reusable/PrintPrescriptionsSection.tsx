@@ -1,5 +1,5 @@
 import React from 'react';
-import { Medication, Patient, Attendance } from '../types';
+import type { Medication, Patient, Attendance } from '../../types';
 import { Printer } from 'lucide-react';
 
 interface PrintPrescriptionsSectionProps {

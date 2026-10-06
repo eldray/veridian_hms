@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Heart, Thermometer, Activity, Gauge, Weight, Ruler, TrendingUp, Baby, Shield, Droplet } from 'lucide-react';
 import { BloodPressureInput } from './BloodPressureInput';
-import type { VitalsEntry } from '../../types';
+import type { VitalsEntry } from '../../types/medical-entries';
 
 interface VitalsFormModalProps {
   isOpen: boolean;
@@ -104,7 +104,18 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       return;
     }
 
-    onSubmit(formData);
+    const {
+      fetalHeartRate,
+      fundalHeight,
+      presentingPart,
+      fetalMovement,
+      oedema,
+      ...vitals
+    } = formData;
+
+    onSubmit(isAntenatal
+      ? { ...vitals, fetalHeartRate, fundalHeight, presentingPart, fetalMovement, oedema }
+      : vitals);
   };
 
   const handleReset = () => {
@@ -370,12 +381,12 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   </label>
                   <input
                     type="number"
-                    step="0.5"
+                    step="1"
                     placeholder="24-32"
                     value={formData.fundalHeight || ''}
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
-                      fundalHeight: e.target.value ? parseFloat(e.target.value) : undefined 
+                      fundalHeight: e.target.value ? parseInt(e.target.value, 10) : undefined
                     }))}
                     disabled={isLoading}
                     className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"

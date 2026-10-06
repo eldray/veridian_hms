@@ -1,5 +1,5 @@
 import React from 'react';
-import { Vitals } from '../types';
+import type { Vitals } from '../../types';
 import { Activity, Gauge, Thermometer, Heart, Wind, Droplets, Scale, Ruler } from 'lucide-react';
 
 interface VitalsDisplayProps {

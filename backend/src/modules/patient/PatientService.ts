@@ -1,4 +1,4 @@
-import { PrismaClient, Patient } from '@prisma/client';
+import { Prisma, PrismaClient, Patient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { PatientRepository } from './PatientRepository';
 import { CreatePatientDTO, UpdatePatientDTO, PatientFilters, PatientSummary, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
@@ -66,35 +66,80 @@ export class PatientService extends BaseService {
     }
   }
 
-  private async validateCorporateData(data: CreatePatientDTO): Promise<void> {
+  private async validateCorporateData(data: CreatePatientDTO) {
     if (data.paymentMode === 'corporate') {
       if (!data.corporateAccountId && !data.insuranceProviderId) {
         throw new ValidationError('Corporate account required for corporate payment mode', [{ field: 'corporateAccountId', message: 'Corporate account ID is required', code: 'MISSING_CORPORATE' }]);
       }
-      const corporateAccount = await this.prisma.corporateAccount.findUnique({ where: { id: data.corporateAccountId || data.insuranceProviderId } });
+      const corporateAccountId = data.corporateAccountId ?? data.insuranceProviderId;
+      if (!corporateAccountId) {
+        throw new ValidationError('Corporate account required for corporate payment mode', [{ field: 'corporateAccountId', message: 'Corporate account ID is required', code: 'MISSING_CORPORATE' }]);
+      }
+      const corporateAccount = await this.prisma.corporateAccount.findUnique({ where: { id: corporateAccountId } });
       if (!corporateAccount) throw new ValidationError('Corporate account not found', [{ field: 'corporateAccountId', message: 'Invalid corporate account ID', code: 'INVALID_CORPORATE' }]);
       if (!corporateAccount.isActive) throw new ValidationError('Corporate account is inactive', [{ field: 'corporateAccountId', message: 'Corporate account is not active', code: 'INACTIVE_CORPORATE' }]);
       this.logInfo('Corporate account validated', { corporateAccountId: corporateAccount.id, companyName: corporateAccount.companyName });
+      return corporateAccount;
     }
+    return null;
   }
 
   async createPatient(data: CreatePatientDTO): Promise<Patient> {
     this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     this.validateCreateData(data);
     await this.checkDuplicates(data);
-    await this.validateCorporateData(data);
+    const corporateAccount = await this.validateCorporateData(data);
 
     const counterService = getCounterService();
+    const {
+      corporateAccountId,
+      corporateEmployeeId,
+      allergies,
+      medicalHistories,
+      surgicalHistories,
+      familyHistories,
+      ...persistedData
+    } = data;
     const patientData = {
-      ...data,
+      ...persistedData,
+      insuranceDetails: data.insuranceDetails ?? undefined,
+      ...(allergies !== undefined && { allergies: { create: allergies } }),
+      ...(medicalHistories !== undefined && {
+        medicalHistories: {
+          create: medicalHistories.map(history => ({
+            ...history,
+            diagnosedAt: history.diagnosedAt ? new Date(history.diagnosedAt) : undefined,
+          })),
+        },
+      }),
+      ...(surgicalHistories !== undefined && {
+        surgicalHistories: {
+          create: surgicalHistories.map(history => ({
+            ...history,
+            surgeryDate: history.surgeryDate ? new Date(history.surgeryDate) : undefined,
+          })),
+        },
+      }),
+      ...(familyHistories !== undefined && { familyHistories: { create: familyHistories } }),
+      employer: corporateAccount
+        ? {
+            ...(data.employer || {}),
+            corporateAccountId: corporateAccount.id,
+            companyName: corporateAccount.companyName,
+            employeeId: corporateEmployeeId || ''
+          }
+        : data.employer ?? undefined,
       folderNumber: data.folderNumber || counterService.nextPatientNumber(),
       dateOfBirth: new Date(data.dateOfBirth),
+      nhisExpiryDate: data.nhisExpiryDate ? new Date(data.nhisExpiryDate) : undefined,
       registeredAt: new Date(),
       registeredBy: 'system',
-      insuranceProviderId: data.paymentMode === 'corporate' ? data.corporateAccountId : data.insuranceProviderId
+      insuranceProviderId: corporateAccount
+        ? corporateAccount.insuranceProviderId
+        : data.insuranceProviderId,
     };
 
-    const patient = await this.repository.create(patientData);
+    const patient = await this.prisma.patient.create({ data: patientData });
     this.logInfo('Patient created successfully', { patientId: patient.id, folderNumber: patient.folderNumber });
     return patient;
   }
@@ -126,8 +171,77 @@ export class PatientService extends BaseService {
     this.logInfo('Updating patient', { id });
     await this.getPatientById(id);
     await this.checkDuplicates(data as CreatePatientDTO, id);
-    const updateData = { ...data, dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined };
-    const patient = await this.repository.update(id, updateData);
+    const corporateAccount = await this.validateCorporateData(data as CreatePatientDTO);
+    const {
+      corporateAccountId,
+      corporateEmployeeId,
+      allergies,
+      medicalHistories,
+      surgicalHistories,
+      familyHistories,
+      ...persistedData
+    } = data;
+    const updateData = {
+      ...persistedData,
+      ...(allergies !== undefined && {
+        allergies: { deleteMany: {}, create: allergies },
+      }),
+      ...(medicalHistories !== undefined && {
+        medicalHistories: {
+          deleteMany: {},
+          create: medicalHistories.map(history => ({
+            ...history,
+            diagnosedAt: history.diagnosedAt ? new Date(history.diagnosedAt) : undefined,
+          })),
+        },
+      }),
+      ...(surgicalHistories !== undefined && {
+        surgicalHistories: {
+          deleteMany: {},
+          create: surgicalHistories.map(history => ({
+            ...history,
+            surgeryDate: history.surgeryDate ? new Date(history.surgeryDate) : undefined,
+          })),
+        },
+      }),
+      ...(familyHistories !== undefined && {
+        familyHistories: { deleteMany: {}, create: familyHistories },
+      }),
+      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+      nhisExpiryDate: data.nhisExpiryDate
+        ? new Date(data.nhisExpiryDate)
+        : data.nhisExpiryDate === null
+          ? null
+          : undefined,
+      insuranceDetails: data.insuranceDetails === null
+        ? Prisma.JsonNull
+        : data.insuranceDetails,
+      employer: data.paymentMode === 'corporate' && corporateAccount
+        ? {
+            ...(data.employer || {}),
+            corporateAccountId: corporateAccount.id,
+            companyName: corporateAccount.companyName,
+            employeeId: corporateEmployeeId || ''
+          }
+        : data.employer === null
+          ? Prisma.JsonNull
+          : data.employer,
+      ...(data.paymentMode === 'corporate' && corporateAccount
+        ? {
+            insuranceProviderId: corporateAccount.insuranceProviderId,
+          }
+        : {})
+    };
+    const patient = await this.prisma.patient.update({
+      where: { id },
+      data: updateData,
+      include: {
+        allergies: true,
+        medicalHistories: true,
+        surgicalHistories: true,
+        familyHistories: true,
+      },
+    });
     this.logInfo('Patient updated successfully', { id });
     return patient;
   }
@@ -149,9 +263,16 @@ export class PatientService extends BaseService {
   }
 
   async getPatientSummaries(limit: number = 10): Promise<PatientSummary[]> {
-    const patients = await this.repository.findMany({
-      take: limit, orderBy: { createdAt: 'desc' },
-      include: { Attendance: { orderBy: { dateTime: 'desc' }, take: 1, select: { dateTime: true } } }
+    const patients = await this.prisma.patient.findMany({
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        Attendance: {
+          orderBy: { dateTime: 'desc' },
+          take: 1,
+          select: { dateTime: true },
+        },
+      },
     });
     return patients.map(p => ({
       id: p.id, folderNumber: p.folderNumber, fullName: `${p.surname} ${p.otherNames || ''}`.trim(),
