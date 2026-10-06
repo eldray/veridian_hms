@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useThemeStore } from '../store/themeStore';
+import { useLiveRefresh } from '../api/realtime';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
   LayoutDashboard, Users, FileText, DollarSign, Send, Package,
@@ -105,7 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout, hasRole } = useAuthStore();
   const {
     notifications, unreadCount,
-    getNotifications, getUnreadCount,
+    getNotifications,
     deleteNotification, markAsRead, markAllAsRead,
     isLoading: notificationsLoading,
   } = useNotificationStore();
@@ -113,19 +114,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const dropdownRef             = useRef<HTMLDivElement>(null);
   const notificationDropdownRef = useRef<HTMLDivElement>(null);
 
+  useLiveRefresh(['notifications'], () => getNotifications(1, 10));
+
   useEffect(() => {
     fetchHospital().catch(console.error);
   }, [fetchHospital]);
 
   useEffect(() => {
     getNotifications(1, 10).catch(console.error);
-    getUnreadCount().catch(console.error);
-    const interval = setInterval(() => {
-      getNotifications(1, 10).catch(console.error);
-      getUnreadCount().catch(console.error);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [getNotifications, getUnreadCount]);
+  }, [getNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -283,7 +280,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="flex items-center gap-3">
                       {currentUnread > 0 && (
                         <button
-                          onClick={async () => { await markAllAsRead(); await getNotifications(1,10); await getUnreadCount(); }}
+                          onClick={async () => { await markAllAsRead(); await getNotifications(1,10); }}
                           className="text-[10px] font-medium text-[var(--icon-cyan-text)] hover:opacity-75 transition-opacity"
                         >
                           Mark all read
@@ -325,7 +322,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             onClick={async () => {
                               if (!notification.isRead) {
                                 await markAsRead(notification.id);
-                                await getUnreadCount();
                               }
                               setNotificationDropdownOpen(false);
                               const url = notification.actionUrl;

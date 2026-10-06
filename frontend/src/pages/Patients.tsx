@@ -1,4 +1,5 @@
 // src/pages/Patients.tsx - FIXED VERSION
+import { getPatients } from '../api';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -52,6 +53,23 @@ export default function Patients() {
     loadData();
   }, []);
 
+  // Server-side search, debounced 300 ms (2+ characters)
+  const [serverMatches, setServerMatches] = useState<any[]>([]);
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) { setServerMatches([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result: any = await getPatients({ search: q, limit: 50 });
+        if (!cancelled) setServerMatches(Array.isArray(result) ? result : []);
+      } catch {
+        if (!cancelled) setServerMatches([]);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery]);
+
   // ✅ FIXED: Filter patients by attendance date
   const filterPatientsByDate = (patientsList: any[]) => {
     // If 'all', return all patients (no filter)
@@ -98,8 +116,16 @@ export default function Patients() {
     return patient?.fullName || patient?.name || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
   };
 
-  // ✅ Apply search first, then date filter
-  const searchedPatients = searchQuery ? searchPatients(searchQuery) : patients;
+  // ✅ Apply search first, then date filter.
+  // Local matches show instantly; the server search (indexed, 50 best matches) adds any patient that
+  // is not loaded yet, so a search never says "not found" for someone who is registered.
+  const searchedPatients = (() => {
+    if (!searchQuery) return patients;
+    const local = searchPatients(searchQuery);
+    if (serverMatches.length === 0) return local;
+    const seen = new Set(local.map((p: any) => p.id));
+    return [...local, ...serverMatches.filter((p: any) => !seen.has(p.id))];
+  })();
   const filteredPatients = filterPatientsByDate(searchedPatients);
 
   // ✅ FIXED: Sort patients by creation date (newest first)

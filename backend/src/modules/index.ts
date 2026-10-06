@@ -15,6 +15,7 @@ import { createPatientRoutes } from './patient/PatientRoutes';
 import { createEncounterRoutes } from './encounter/EncounterRoutes';
 import { protect } from '../middleware/authMiddleware';
 import { realtimeBroadcast, eventsHandler } from '../services/realtime';
+import { apiRateLimiter, reportRangeGuard } from '../middleware/apiLimits';
 import { createAppointmentRoutes } from './appointment/AppointmentRoutes';
 import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
 import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
@@ -80,6 +81,8 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('');
 
   // Real-time: every successful write announces "<topic> changed"; screens subscribe via GET /events
+  app.use(apiRateLimiter);
+  app.use(['/reports', '/ghs-reports', '/clinical-reports'], reportRangeGuard);
   app.use(realtimeBroadcast);
   app.get('/events', protect, eventsHandler);
   console.log('✅ Live updates (SSE) mounted at /events');

@@ -1,3 +1,4 @@
+import { hasValidNHISToken } from './nhis-eligibility.service';
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import * as settingsService from './SettingsService';
@@ -59,19 +60,22 @@ export const getNHISApiStatus = async (req: Request, res: Response) => {
     }
 
     const now = new Date();
-    const tokenValid =
-      !!hospital.nhisApiAccessToken &&
-      !!hospital.nhisApiTokenExpiresAt &&
-      new Date(hospital.nhisApiTokenExpiresAt) > now;
+    const tokenValid = hasValidNHISToken();
 
     res.json({
       success: true,
       data: {
         configured: !!(hospital.nhisApiBaseUrl && hospital.nhisApiClientId),
         active: hospital.nhisApiActive || false,
+        isActive: hospital.nhisApiActive || false,
+        apiBaseUrl: hospital.nhisApiBaseUrl || null,
+        clientId: hospital.nhisApiClientId || null,
+        tokenEndpoint: hospital.nhisApiTokenEndpoint || null,
+        eligibilityEndpoint: hospital.nhisApiEligibilityEndpoint || null,
+        cccEndpoint: hospital.nhisApiCccEndpoint || null,
         hasBaseUrl: !!hospital.nhisApiBaseUrl,
         hasClientId: !!hospital.nhisApiClientId,
-        hasClientSecret: !!hospital.nhisApiClientSecret,
+        hasClientSecret: !!process.env.NHIS_API_CLIENT_SECRET,
         hasTokenEndpoint: !!hospital.nhisApiTokenEndpoint,
         hasEligibilityEndpoint: !!hospital.nhisApiEligibilityEndpoint,
         hasCccEndpoint: !!hospital.nhisApiCccEndpoint,
@@ -114,6 +118,10 @@ export const updateNHISApiConfig = async (req: Request, res: Response) => {
       nhisContactPhone,
       nhisContactEmail,
     } = req.body;
+
+    if (nhisApiClientSecret && nhisApiClientSecret.trim()) {
+      process.env.NHIS_API_CLIENT_SECRET = nhisApiClientSecret.trim();
+    }
 
     const updated = await settingsService.updateNHISSettings({
       nhisApiBaseUrl,

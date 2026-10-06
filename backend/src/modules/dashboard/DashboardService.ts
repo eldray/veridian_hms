@@ -1,3 +1,4 @@
+import { cached } from '../../utils/ttlCache';
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { DashboardRepository } from './DashboardRepository';
@@ -53,7 +54,19 @@ export class DashboardService extends BaseService {
     return { start, end };
   }
 
+  // The same numbers are shown to every user, and the dashboard is open on many screens.
+  // One result per period is shared for 15 s (and dropped as soon as anyone saves a change).
   async getDashboardStats(
+    startDate?: string,
+    endDate?: string,
+    period?: string
+  ): Promise<IDashboardStats> {
+    return cached(`dashboard:${period ?? ''}:${startDate ?? ''}:${endDate ?? ''}`, 15_000, () =>
+      this.computeDashboardStats(startDate, endDate, period)
+    );
+  }
+
+  private async computeDashboardStats(
     startDate?: string,
     endDate?: string,
     period?: string

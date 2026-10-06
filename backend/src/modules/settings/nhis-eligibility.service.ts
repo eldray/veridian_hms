@@ -69,7 +69,7 @@ const getNHISApiConfig = async (): Promise<NHISApiConfig | null> => {
     !hospital ||
     !hospital.nhisApiBaseUrl ||
     !hospital.nhisApiClientId ||
-    !hospital.nhisApiClientSecret
+    !process.env.NHIS_API_CLIENT_SECRET
   ) {
     return null;
   }
@@ -77,7 +77,7 @@ const getNHISApiConfig = async (): Promise<NHISApiConfig | null> => {
   return {
     baseUrl: hospital.nhisApiBaseUrl,
     clientId: hospital.nhisApiClientId,
-    clientSecret: hospital.nhisApiClientSecret,
+    clientSecret: process.env.NHIS_API_CLIENT_SECRET as string,
     tokenEndpoint:
       hospital.nhisApiTokenEndpoint ||
       `${hospital.nhisApiBaseUrl}/oauth/token`,
@@ -93,6 +93,13 @@ const getNHISApiConfig = async (): Promise<NHISApiConfig | null> => {
 /**
  * Get or refresh NHIS API access token with caching
  */
+// The access token is deliberately NOT stored in the database (see schema.prisma), so it is
+// cached here in memory. Only its expiry time is saved on the hospital record.
+let cachedNhisToken: { token: string; expiresAt: Date } | null = null;
+
+/** True when a token is cached and still valid (used by the settings status screen). */
+export const hasValidNHISToken = (): boolean => !!cachedNhisToken && cachedNhisToken.expiresAt > new Date();
+
 export const getNHISAccessToken = async (): Promise<string | null> => {
   const hospital = await prisma.hospital.findFirst({
     where: { nhisApiActive: true },
@@ -102,12 +109,10 @@ export const getNHISAccessToken = async (): Promise<string | null> => {
 
   // Return cached token if still valid (with 5-minute buffer)
   const now = new Date();
-  if (hospital.nhisApiAccessToken && hospital.nhisApiTokenExpiresAt) {
-    const expiryWithBuffer = new Date(
-      hospital.nhisApiTokenExpiresAt.getTime() - 5 * 60 * 1000
-    );
+  if (cachedNhisToken) {
+    const expiryWithBuffer = new Date(cachedNhisToken.expiresAt.getTime() - 5 * 60 * 1000);
     if (now < expiryWithBuffer) {
-      return hospital.nhisApiAccessToken;
+      return cachedNhisToken.token;
     }
   }
 
@@ -131,10 +136,11 @@ export const getNHISAccessToken = async (): Promise<string | null> => {
     const { access_token, expires_in } = response.data;
     const expiresAt = new Date(now.getTime() + expires_in * 1000);
 
+    cachedNhisToken = { token: access_token, expiresAt };
+
     await prisma.hospital.updateMany({
       where: { nhisApiActive: true },
       data: {
-        nhisApiAccessToken: access_token,
         nhisApiTokenExpiresAt: expiresAt,
         nhisApiLastTokenRefresh: now,
       },

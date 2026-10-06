@@ -90,7 +90,7 @@ export class AppointmentService extends BaseService {
     const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId }, include: { patient: true } });
     if (!appointment) throw new Error('Appointment not found');
 
-    const existingAttendance = await this.prisma.attendance.findFirst({ where: { appointmentId } });
+    const existingAttendance = await this.prisma.attendance.findFirst({ where: { appointment: { id: appointmentId } } });
     if (existingAttendance) throw new Error('Appointment already converted to attendance');
 
     const counterService = getCounterService();

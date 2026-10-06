@@ -1,3 +1,4 @@
+import { cacheReadMethods } from '../../utils/ttlCache';
 import { PrismaClient, Gender } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { GHSReportRepository } from './GHSReportRepository';
@@ -51,10 +52,14 @@ function getIPDAgeGroup(dob: Date, ref: Date): IPD_AgeGroup { const days = Math.
 
 export class GHSReportService extends BaseService {
   private repository: GHSReportRepository;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     super('GHSReportService');
+    this.prisma = prisma;
     this.repository = new GHSReportRepository(prisma);
+    // Reports over big date ranges take seconds; share one result per range for 60 s
+    cacheReadMethods(this, ['generateDeliveryReport', 'generateFamilyPlanningReport', 'generateMorbidityReport', 'generateFormAReport', 'generateIPDReport', 'generateMalariaReport', 'generateOPDReport', 'getTopDiagnoses', 'generateIDSRReport', 'getFamilyPlanningStats', 'getEPIStats'], 60000);
   }
 
   parseDateParams(params: any): { startDate: Date; endDate: Date; year: number; month: number } {
@@ -78,7 +83,7 @@ export class GHSReportService extends BaseService {
     const { page = 1, limit = 20, reportType, year, month } = filters;
     const where: any = {};
     if (reportType) where.reportType = reportType; if (year) where.reportingYear = year; if (month) where.reportingMonth = month;
-    const [data, total] = await Promise.all([this.repository.findSubmissions(where), this.repository.count({ where })]);
+    const [data, total] = await Promise.all([this.repository.findSubmissions(where), this.repository.count(where)]);
     const paginatedData = data.slice((page - 1) * limit, page * limit);
     return { data: paginatedData, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
@@ -573,84 +578,55 @@ export class GHSReportService extends BaseService {
 
   // ─── Family Planning CYP Calculation (WHO Standards) ────────────────────────
   async getFamilyPlanningStats(startDate: Date, endDate: Date) {
-    const services = await this.repo.getFamilyPlanningServices(startDate, endDate);
-    
-    // WHO Standard CYP Multipliers
-    const cypMultipliers: Record<string, number> = {
-      'IUD': 3.5,
-      'IMPLANT': 3.0,
-      'INJECTABLE': 0.25,
-      'PILL': 0.25,
-      'CONDOM': 0.015,
-      'FEMALE_CONDOM': 0.015,
-      'STERILIZATION_FEMALE': 10.0,
-      'STERILIZATION_MALE': 5.0,
+    // Couple-Years of Protection per visit (WHO / GHS multipliers), keyed by the FPMethod enum.
+    // Pills, condoms and injectables are per visit supply; long-acting methods count for the years they protect.
+    const cypPerService: Record<string, number> = {
+      pill_coc: 0.25, pill_pop: 0.25,
+      injectable_dmpa: 0.25, injectable_net_en: 0.25,
+      condom_male: 0.015, condom_female: 0.015,
+      implant_implanon: 3.0, implant_jadelle: 5.0,
+      iud_copper: 4.6, iud_hormonal: 3.5,
+      female_sterilization: 10.0, male_sterilization: 10.0,
     };
 
+    const rows = await this.prisma.familyPlanningService.groupBy({
+      by: ['method', 'isNewAcceptor'],
+      where: { serviceDate: { gte: startDate, lte: endDate } },
+      _count: { _all: true },
+    });
+
     const stats = {
-      totalAcceptors: services.length,
+      totalAcceptors: 0,
       newAcceptors: 0,
       repeatAcceptors: 0,
       totalCYP: 0,
       byMethod: {} as Record<string, { count: number; cyp: number }>,
     };
 
-    for (const service of services) {
-      const method = (service.methodType || 'OTHER').toUpperCase();
-      
-      // Check if new acceptor (no service in last 12 months)
-      const isNew = !service.lastServiceDate || 
-        (service.date.getTime() - service.lastServiceDate.getTime()) > (365 * 24 * 60 * 60 * 1000);
-
-      if (isNew) stats.newAcceptors++;
-      else stats.repeatAcceptors++;
-
-      // Calculate CYP
-      const multiplier = cypMultipliers[method] || 0;
-      const cyp = multiplier * (service.quantity || 1);
-      
+    for (const row of rows) {
+      const count = row._count._all;
+      const cyp = (cypPerService[row.method] ?? 0) * count;
+      stats.totalAcceptors += count;
+      if (row.isNewAcceptor) stats.newAcceptors += count; else stats.repeatAcceptors += count;
       stats.totalCYP += cyp;
-
-      if (!stats.byMethod[method]) {
-        stats.byMethod[method] = { count: 0, cyp: 0 };
-      }
-      stats.byMethod[method].count++;
-      stats.byMethod[method].cyp += cyp;
+      const entry = (stats.byMethod[row.method] ||= { count: 0, cyp: 0 });
+      entry.count += count;
+      entry.cyp += cyp;
     }
-
+    stats.totalCYP = Math.round(stats.totalCYP * 100) / 100;
     return stats;
   }
 
-  // ─── EPI Statistics with Dropout Rates ──────────────────────────────────────
-  async getEPIStats(startDate: Date, endDate: Date) {
-    const immunizations = await this.repo.getEPIImmunizations(startDate, endDate);
-    
-    const stats = {
+  // ─── EPI Statistics ─────────────────────────────────────────────────────────
+  // This system does not (yet) have an immunization table, so there is nothing to count.
+  // Return an honest empty result instead of failing with a 500.
+  async getEPIStats(_startDate: Date, _endDate: Date) {
+    return {
+      available: false,
+      message: 'Immunization records are not stored by this system yet, so EPI statistics are not available.',
       byVaccine: {} as Record<string, { doses: number; ageGroups: Record<string, number> }>,
       fullyImmunizedChildren: 0,
       dropoutRates: {} as Record<string, number>,
     };
-
-    // Group by vaccine and age
-    for (const imm of immunizations) {
-      const vaccine = imm.vaccineType || 'OTHER';
-      const ageInMonths = imm.ageInMonths || 0;
-      const ageGroup = ageInMonths < 1 ? '<1m' : ageInMonths < 12 ? '1-11m' : '12+m';
-
-      if (!stats.byVaccine[vaccine]) {
-        stats.byVaccine[vaccine] = { doses: 0, ageGroups: {} };
-      }
-      stats.byVaccine[vaccine].doses++;
-      stats.byVaccine[vaccine].ageGroups[ageGroup] = (stats.byVaccine[vaccine].ageGroups[ageGroup] || 0) + 1;
-    }
-
-    // Calculate dropout rates (BCG to Measles)
-    const bcgDoses = stats.byVaccine['BCG']?.doses || 0;
-    const measlesDoses = stats.byVaccine['MEASLES']?.doses || 0;
-    if (bcgDoses > 0) {
-      stats.dropoutRates['BCG_to_Measles'] = ((bcgDoses - measlesDoses) / bcgDoses) * 100;
-    }
-
-    return stats;
   }
 }

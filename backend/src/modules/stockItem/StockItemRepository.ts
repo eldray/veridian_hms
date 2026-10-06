@@ -122,7 +122,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async getCategories() {
-    const cats = await this.getModel().findMany({ distinct: ['category'], select: { category: true }, where: { category: { not: null } }, orderBy: { category: 'asc' } });
+    const cats = await this.getModel().findMany({ distinct: ['category'], select: { category: true }, orderBy: { category: 'asc' } });
     return cats.map((i: any) => i.category).filter(Boolean);
   }
 

@@ -1,6 +1,6 @@
 // src/store/documentStore.ts
 import { create } from 'zustand';
-import { 
+import {
   generateReceipt,
   generateBillStatement,
   generateReferralLetter,
@@ -13,6 +13,38 @@ import {
   getTemplates,
 } from '../api';
 import type { GeneratedDocument, DocumentTemplate, DocumentGenerationResponse } from '../types/documents';
+
+const toErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string') {
+    return (error as any).message;
+  }
+  return 'Something went wrong';
+};
+
+const unwrapData = <T>(payload: any): T => {
+  if (payload == null) return payload;
+  if (Array.isArray(payload)) return payload;
+  if (payload.data !== undefined) return unwrapData(payload.data);
+  return payload;
+};
+
+const normalizeGeneratedDocument = (payload: any, fallbackType: string, fallbackId?: string): GeneratedDocument => {
+  const doc = payload?.data ?? payload;
+  const identifier = doc?.documentId ?? doc?.id ?? fallbackId ?? '';
+  return {
+    id: identifier,
+    templateId: doc?.templateId ?? '',
+    entityType: doc?.entityType ?? fallbackType,
+    entityId: doc?.entityId ?? fallbackId ?? '',
+    filePath: doc?.filePath ?? '',
+    generatedById: doc?.generatedById ?? '',
+    generatedAt: doc?.generatedAt ?? new Date().toISOString(),
+    template: doc?.template,
+    generatedBy: doc?.generatedBy,
+  };
+};
 
 interface DocumentState {
   documents: GeneratedDocument[];
@@ -34,7 +66,7 @@ interface DocumentState {
   clearDocuments: () => void;
 }
 
-export const useDocumentStore = create<DocumentState>((set, get) => ({
+export const useDocumentStore = create<DocumentState>((set) => ({
   documents: [],
   templates: [],
   isLoading: false,
@@ -44,11 +76,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getDocumentsByEntity(entityType, entityId);
-      const docs = response.data || response;
+      const docs = (unwrapData<GeneratedDocument[]>(response) ?? []) as GeneratedDocument[];
       set({ documents: docs, isLoading: false });
       return docs;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -57,14 +90,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generateReceipt(billId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'bill', billId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Receipt generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -73,14 +107,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generateBillStatement(billId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'bill', billId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Bill statement generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -89,14 +124,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generateReferralLetter(referralId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'referral', referralId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Referral letter generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -105,14 +141,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generateDischargeSummary(admissionId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'admission', admissionId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Discharge summary generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -121,14 +158,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generateLabResult(labTestId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'lab_test', labTestId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Lab result generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -137,14 +175,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await generatePrescription(attendanceId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'encounter', attendanceId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Prescription generated successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -156,7 +195,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       set({ isLoading: false });
       return response.data || response;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -165,14 +205,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await reprintDocument(documentId);
-      const doc = response.data || response;
+      const doc = normalizeGeneratedDocument(response, 'document', documentId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
       }));
-      return doc;
+      return { success: true, message: 'Document reprinted successfully', data: { documentId: doc.id, filePath: doc.filePath } };
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },
@@ -181,11 +222,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getTemplates();
-      const templates = response.data || response;
+      const templates = (unwrapData<DocumentTemplate[]>(response) ?? []) as DocumentTemplate[];
       set({ templates, isLoading: false });
       return templates;
     } catch (error: unknown) {
-      set({ error: error.message, isLoading: false });
+      const message = toErrorMessage(error);
+      set({ error: message, isLoading: false });
       throw error;
     }
   },

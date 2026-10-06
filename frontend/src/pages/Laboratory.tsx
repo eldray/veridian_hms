@@ -124,6 +124,11 @@ export default function Laboratory() {
       setRefreshing(true);
       setIsLoading(true);
       await fetchWorklist('lab');
+      const error = useWorklistStore.getState().error;
+      if (error) {
+        toastError('Load failed', error);
+        return;
+      }
       success('Data loaded', 'Laboratory ready');
     } catch (err: any) {
       toastError('Load failed', err.message || 'Could not load data');

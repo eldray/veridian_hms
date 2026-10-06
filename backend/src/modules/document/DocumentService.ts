@@ -64,14 +64,12 @@ export class DocumentService {
           }
         });
       case 'admission':
+        // Patient, ward and bed belong to the admission's visit; expose them at the top level
+        // so document templates can keep reading admission.Patient / .Ward / .Bed.
         return prisma.admission.findUnique({
           where: { id: entityId },
-          include: {
-            Patient: true,
-            Ward: true,
-            Bed: true
-          }
-        });
+          include: { attendance: { include: { Patient: true, Ward: true, Bed: true } } }
+        }).then((a: any) => a && { ...a, Patient: a.attendance?.Patient, Ward: a.attendance?.Ward, Bed: a.attendance?.Bed });
       default:
         return null;
     }

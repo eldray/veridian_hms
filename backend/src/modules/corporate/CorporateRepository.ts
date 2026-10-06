@@ -103,7 +103,7 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
         },
         skip,
         take: limitNum,
-        orderBy: { companyName: 'asc' }
+        orderBy: [{ companyName: 'asc' }, { id: 'asc' }]
       }),
       this.getModel().count({ where })
     ]);
@@ -464,14 +464,14 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
             }
           },
           // ✅ FIXED: Use correct relation name from schema
-          User_proformaInvoicesCreated: {
+          User_createdBy: {
             select: {
               fullName: true,
               username: true
             }
           }
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip,
         take: limitNum
       }),

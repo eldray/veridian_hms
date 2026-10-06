@@ -1,3 +1,4 @@
+import { ValidationError, NotFoundError } from '../../utils/errors';
 import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
@@ -51,7 +52,18 @@ export class BillRepository extends BaseRepository<any, any, any> {
   async create(data: CreateBillInput, createdBy: string) {
     const { patientId, attendanceId, paymentMode = 'cash', items } = data;
 
+    // A bill belongs to a visit: attendanceId is a required column
+    if (!attendanceId) throw new ValidationError('A bill must be created for a visit (attendanceId is required)');
+
     return this.prisma.$transaction(async (tx) => {
+      // Each line needs the service's name and type (required columns): read them from the catalog
+      const catalogIds = Array.from(new Set(items.map((i) => i.serviceCatalogId).filter(Boolean)));
+      const catalog = await tx.serviceCatalog.findMany({
+        where: { id: { in: catalogIds as string[] } },
+        select: { id: true, name: true, serviceType: true }
+      });
+      const catalogById = new Map(catalog.map((c) => [c.id, c]));
+
       const bill = await tx.bill.create({
         data: {
           patientId, attendanceId, paymentMode,
@@ -59,11 +71,16 @@ export class BillRepository extends BaseRepository<any, any, any> {
           status: 'pending', totalAmount: 0, paidAmount: 0, balance: 0, patientPayable: 0,
           insuranceCovered: 0, waiverAmount: 0, discount: 0, createdById: createdBy, billDate: new Date(),
           BillLineItem: {
-            create: items.map(item => ({
-              serviceCatalogId: item.serviceCatalogId, quantity: item.quantity, unitPrice: item.unitPrice,
+            create: items.map(item => {
+              const service = catalogById.get(item.serviceCatalogId);
+              if (!service) throw new NotFoundError('Service', item.serviceCatalogId);
+              return {
+              serviceCatalogId: item.serviceCatalogId, description: service.name, serviceType: service.serviceType,
+              pricingBasis: paymentMode, quantity: item.quantity, unitPrice: item.unitPrice,
               lineTotal: item.quantity * item.unitPrice, insuranceCoveredAmount: 0,
               patientPayableAmount: item.quantity * item.unitPrice, discount: 0, isVoided: false
-            }))
+              };
+            })
           }
         },
         include: { BillLineItem: true, Patient: true }

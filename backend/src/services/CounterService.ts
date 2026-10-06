@@ -7,6 +7,8 @@ let attendanceCounter = 1000;   // ATTENDANCE SEQUENCE - increments per visit (a
 let receiptCounter = 1000;      // RECEIPT SEQUENCE - increments per payment
 let referralCounter = 1000;     // REFERRAL SEQUENCE - independent
 let appointmentCounter = 1000;  // APPOINTMENT SEQUENCE - independent
+let requisitionCounter = 1000;  // REQUISITION SEQUENCE - independent (was a 6-digit timestamp that repeats every ~17 minutes)
+let transferCounter = 1000;     // STOCK TRANSFER SEQUENCE - independent (same problem)
 
 /**
  * A place where numbers from one counter are stored.
@@ -87,7 +89,7 @@ export class CounterService {
 
     console.log('📊 Initializing counters...');
 
-    const [patientMax, attendanceMax, receiptMax, referralMax, appointmentMax] = await Promise.all([
+    const [patientMax, attendanceMax, receiptMax, referralMax, appointmentMax, requisitionMax, transferMax] = await Promise.all([
       this.maxNumberAcross([{ model: 'Patient', field: 'folderNumber' }]),
 
       // The attendance counter is SHARED: it also generates bill, admission and
@@ -107,7 +109,9 @@ export class CounterService {
       ]),
 
       this.maxNumberAcross([{ model: 'ReferralRecord', field: 'referralNumber' }]),
-      this.maxNumberAcross([{ model: 'Appointment', field: 'appointmentNumber' }])
+      this.maxNumberAcross([{ model: 'Appointment', field: 'appointmentNumber' }]),
+      this.maxNumberAcross([{ model: 'Requisition', field: 'requisitionNumber' }]),
+      this.maxNumberAcross([{ model: 'StockTransfer', field: 'transferNumber' }])
     ]);
 
     // Counters only ever move forward.
@@ -116,9 +120,11 @@ export class CounterService {
     receiptCounter = Math.max(receiptCounter, receiptMax);
     referralCounter = Math.max(referralCounter, referralMax);
     appointmentCounter = Math.max(appointmentCounter, appointmentMax);
+    requisitionCounter = Math.max(requisitionCounter, requisitionMax);
+    transferCounter = Math.max(transferCounter, transferMax);
 
     this.initialized = true;
-    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}`);
+    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}, Requisition=${requisitionCounter}, Transfer=${transferCounter}`);
   }
 
   // ============================================
@@ -219,11 +225,11 @@ export class CounterService {
   }
 
   nextRequisitionNumber(): string {
-    return `REQ-${Date.now().toString().slice(-6)}`;
+    return `REQ-${++requisitionCounter}`;
   }
 
   nextTransferNumber(): string {
-    return `TRN-${Date.now().toString().slice(-6)}`;
+    return `TRN-${++transferCounter}`;
   }
 
   // ============================================

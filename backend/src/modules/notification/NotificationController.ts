@@ -23,8 +23,7 @@ export class NotificationController extends BaseController {
 
     const result = await this.notificationService.getUserNotifications(userId, unreadOnly, page, limit);
     
-    // ✅ Use BaseController's paginated response formatter
-    return this.paginated(res, result.notifications, result.pagination, 'Notifications retrieved successfully');
+    return this.ok(res, result, 'Notifications retrieved successfully');
   });
 
   getNotificationStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -15,6 +15,10 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
     if (!template) return null;
     const pricingArray = template.pricing;
     template.pricing = Array.isArray(pricingArray) && pricingArray.length > 0 ? pricingArray[0] : null;
+    // `department` is stored on the linked procedure template, not on the service catalog row
+    template.department = template.ProcedureTemplate?.department ?? null;
+    if ('GDRGTariff' in template) template.gdrgTariff = template.GDRGTariff;
+    if ('Ward' in template) template.ward = template.Ward;
     return template;
   }
 
@@ -24,21 +28,21 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
 
     if (isActive !== undefined) where.isActive = isActive;
     if (category) where.subType = category;
-    if (department) where.department = department;
+    if (department) where.ProcedureTemplate = { department };
 
     const skip = (page - 1) * limit;
 
     const [templates, total] = await Promise.all([
       this.getModel().findMany({
         where,
-        include: { pricing: this.getPricingInclude(), procedures: { select: { id: true, status: true }, take: 1 } },
-        orderBy: { name: 'asc' }, skip, take: limit
+        include: { pricing: this.getPricingInclude(), ProcedureTemplate: { select: { department: true } }, procedures: { select: { id: true, status: true }, take: 1 } },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }], skip, take: limit
       }),
       this.getModel().count({ where })
     ]);
 
     return {
-      templates: templates.map(this.flattenPricing),
+      templates: templates.map((t: any) => this.flattenPricing(t)),
       pagination: { currentPage: page, pageSize: limit, total, totalPages: Math.ceil(total / limit) }
     };
   }
@@ -48,8 +52,9 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
       where: { id, serviceType: ServiceType.procedure },
       include: {
         pricing: this.getPricingInclude(),
-        gdrgTariff: { select: { id: true, gdrgCode: true, description: true, nhiaTariff: true, mdc: true } },
-        ward: { select: { id: true, wardName: true, wardType: true } },
+        ProcedureTemplate: { select: { department: true } },
+        GDRGTariff: { select: { id: true, gdrgCode: true, description: true, nhiaTariff: true, mdc: true } },
+        Ward: { select: { id: true, wardName: true, wardType: true } },
         procedures: {
           include: { Attendance: { select: { attendanceNumber: true, Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } } },
           orderBy: { createdAt: 'desc' }, take: 10
@@ -60,14 +65,36 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
   }
 
   async createTemplate(data: any, userId: string) {
-    return this.getModel().create({
+    {
+      // The department (and procedure code/category) belong to a ProcedureTemplate row;
+      // the service catalog entry (price, NHIS flags ...) points to it.
+      // (The service already runs this inside a transaction, so no transaction is opened here.)
+      const procedureTemplate = await this.prisma.procedureTemplate.create({
+        data: {
+          name: data.name,
+          procedureCode: data.code,
+          description: data.description,
+          category: data.category,
+          department: data.department || 'General',
+          isNHISCovered: data.isNHISCovered ?? true,
+          isPrivateInsExempted: data.isPrivateInsuranceExempted ?? false,
+          nhisRequiresAuth: data.nhisRequiresAuth ?? false,
+          privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
+          isActive: data.isActive ?? true,
+          tariffCode: data.tariffCode,
+          duration: data.duration ?? 30,
+        }
+      });
+
+      return this.prisma.serviceCatalog.create({
       data: {
+        procedureTemplateId: procedureTemplate.id,
         name: data.name, code: data.code, description: data.description, serviceType: ServiceType.procedure,
-        serviceCategory: data.serviceCategory, subType: data.category, department: data.department,
+        serviceCategory: data.serviceCategory, subType: data.category,
         nhisServiceCode: data.nhisServiceCode, tariffCode: data.tariffCode, isNHISCovered: data.isNHISCovered,
         nhisRequiresAuth: data.nhisRequiresAuth, isPrivateInsuranceExempted: data.isPrivateInsuranceExempted,
         privateInsRequiresAuth: data.privateInsRequiresAuth, requiresClinicalNotes: data.requiresClinicalNotes,
-        duration: data.duration, isActive: data.isActive, unit: data.unit, gdrgTariffId: data.gdrgTariffId, wardId: data.wardId,
+        isActive: data.isActive, unit: data.unit, gdrgTariffId: data.gdrgTariffId, wardId: data.wardId,
         metadata: {
           requiresAssistant: data.requiresAssistant, anesthesiaType: data.anesthesiaType, anesthesiaNotes: data.anesthesiaNotes,
           intraOperativeNotes: data.intraOperativeNotes, postOperativeNotes: data.postOperativeNotes,
@@ -75,7 +102,8 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
         },
         createdById: userId
       }
-    });
+      });
+    }
   }
 
   async createPricing(data: any) {
@@ -135,10 +163,9 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
   }
 
   async getDepartments() {
-    const services = await this.getModel().findMany({
-      where: { serviceType: ServiceType.procedure, department: { not: null } },
-      select: { department: true }, distinct: ['department']
+    const rows = await this.prisma.procedureTemplate.findMany({
+      select: { department: true }, distinct: ['department'], orderBy: { department: 'asc' }
     });
-    return services.map(s => s.department).filter(Boolean);
+    return rows.map((r) => r.department).filter(Boolean);
   }
 }

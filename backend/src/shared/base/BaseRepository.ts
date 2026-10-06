@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 export interface FindManyOptions<T> {
   where?: T;
@@ -42,6 +42,23 @@ export abstract class BaseRepository<Model, CreateDTO, UpdateDTO> {
     return this.getModel(tx).findMany({ where, orderBy, skip, take, include, select });
   }
 
+  /**
+   * Paged lists MUST have a unique sort order. When rows share the same sort value
+   * (patients registered in one import, visits created in the same millisecond) the
+   * database may order them differently on each request, so a row can appear on two
+   * pages and another on none. Adding `id` as the last sort key makes every page stable.
+   * Models without an `id` column are left untouched.
+   */
+  protected withStableOrder(orderBy: any): any {
+    const models: ReadonlyArray<any> = (Prisma as any).dmmf?.datamodel?.models ?? [];
+    const model = models.find((m: any) => String(m.name).toLowerCase() === this.modelName.toLowerCase());
+    if (!model?.fields?.some((f: any) => f.name === 'id')) return orderBy;
+
+    const list: any[] = orderBy == null ? [] : Array.isArray(orderBy) ? orderBy : [orderBy];
+    if (list.some((o) => o && Object.prototype.hasOwnProperty.call(o, 'id'))) return list;
+    return [...list, { id: 'asc' }];
+  }
+
   async findManyWithPagination(
     options: FindManyOptions<any> & { page?: number; limit?: number } = {},
     tx?: any
@@ -49,6 +66,7 @@ export abstract class BaseRepository<Model, CreateDTO, UpdateDTO> {
     const { page = 1, limit = 10, ...findManyOptions } = options;
     const skip = (page - 1) * limit;
     const model = this.getModel(tx);
+    findManyOptions.orderBy = this.withStableOrder(findManyOptions.orderBy);
 
     const [data, total] = await Promise.all([
       model.findMany({ ...findManyOptions, skip, take: limit }),

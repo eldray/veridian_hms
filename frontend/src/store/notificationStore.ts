@@ -79,23 +79,23 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       
       console.log('RAW response:', response);
       
-      // ✅ Handle case where response is an array (your current backend)
+      // Handle both legacy array responses and the current wrapped API response.
       if (Array.isArray(response)) {
-        console.log('Backend returned array - using as notifications list');
         set({ 
           notifications: response,
-          unreadCount: response.length,
+          unreadCount: response.filter((notification: any) => !notification.isRead).length,
           pagination: { page: 1, limit: 20, total: response.length, pages: 1 },
           isLoading: false 
         });
         return;
       }
       
-      // ✅ Handle wrapped response (after backend fix)
-      const responseData = response?.data || response;
-      const notifications = responseData?.notifications || [];
-      const unreadCount = responseData?.unreadCount || 0;
-      const pagination = responseData?.pagination || null;
+      const responseData = response?.data ?? response;
+      const notifications = Array.isArray(responseData?.notifications)
+        ? responseData.notifications
+        : Array.isArray(responseData?.data) ? responseData.data : [];
+      const unreadCount = responseData?.unreadCount ?? notifications.filter((notification: any) => !notification.isRead).length;
+      const pagination = responseData?.pagination ?? responseData?.meta ?? null;
       
       set({ 
         notifications, 

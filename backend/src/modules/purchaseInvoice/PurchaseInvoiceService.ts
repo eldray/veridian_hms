@@ -52,7 +52,7 @@ export class PurchaseInvoiceService extends BaseService {
   }
 
   async getSuppliers() {
-    const suppliers = await this.repo.getModel().findMany({ distinct: ['supplierName'], select: { supplierName: true }, where: { supplierName: { not: null } }, orderBy: { supplierName: 'asc' } });
+    const suppliers = await this.repo.getModel().findMany({ distinct: ['supplierName'], select: { supplierName: true }, orderBy: { supplierName: 'asc' } });
     return suppliers.map((i: any) => i.supplierName).filter(Boolean);
   }
 

@@ -1089,7 +1089,7 @@ model InsuranceClaim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  attendance                            Attendance        @relation(fields: [attendanceId], references: [id]) // Keep this one
+  Attendance                            Attendance        @relation(fields: [attendanceId], references: [id])
   Bill                                  Bill?             @relation(fields: [billId], references: [id], onDelete: Cascade)
   User_InsuranceClaim_createdByIdToUser User              @relation("InsuranceClaim_createdByIdToUser", fields: [createdById], references: [id])
   InsuranceProvider                     InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])

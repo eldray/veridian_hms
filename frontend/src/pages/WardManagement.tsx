@@ -34,9 +34,11 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 };
 
 // Format currency
-const formatCurrency = (amount: number) => {
-  if (!amount && amount !== 0) return '—';
-  return `GHS ${amount.toFixed(2)}`;
+const formatCurrency = (amount: number | string | null | undefined) => {
+  if (amount === null || amount === undefined || amount === '') return '—';
+  const numericAmount = typeof amount === 'number' ? amount : Number(amount);
+  if (!Number.isFinite(numericAmount)) return '—';
+  return `GHS ${numericAmount.toFixed(2)}`;
 };
 
 export default function WardManagement() {

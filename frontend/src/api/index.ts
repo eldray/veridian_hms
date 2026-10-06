@@ -2502,7 +2502,7 @@ export const createNotification = async (data: {
 };
 
 export const getNotifications = (filters?: any) =>
-  api.get('/notifications', { params: filters }).then(r => handleResponse<Notification>(r.data));
+  api.get('/notifications', { params: filters }).then(r => r.data);
 
 export const getNotification = (id: string) =>
   api.get(`/notifications/${id}`).then(r => r.data);
@@ -2711,7 +2711,7 @@ export const generateReceipt = (billId: string) =>
   api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`).then(r => r.data);
 
 export const generateBillStatement = (billId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/bill-statement/${billId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => r.data);
 
 export const generateReferralLetter = (referralId: string) =>
   api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => r.data);
@@ -2732,8 +2732,8 @@ export const downloadDocument = (documentId: string) =>
   api.get(`/documents/${documentId}/download`, {
     responseType: 'blob',
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-    }
+      Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
+    },
   }).then(r => r.data);
 
 export const reprintDocument = (documentId: string) =>

@@ -1,3 +1,4 @@
+import { cacheReadMethods } from '../../utils/ttlCache';
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ClinicalReportsRepository } from './ClinicalReportsRepository';
@@ -16,6 +17,8 @@ export class ClinicalReportsService extends BaseService {
   constructor(prisma: PrismaClient) {
     super('ClinicalReportsService');
     this.repository = new ClinicalReportsRepository(prisma);
+    // Reports over big date ranges take seconds; share one result per range for 60 s
+    cacheReadMethods(this, ['generateLabReport','generateScanReport','generateProcedureReport','generateMedicationReport','generateVitalsReport'], 60000);
   }
 
   async generateLabReport(filters: ClinicalReportFilters): Promise<LabReportData> {

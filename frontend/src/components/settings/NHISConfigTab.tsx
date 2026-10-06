@@ -54,30 +54,25 @@ export default function NHISConfigTab() {
     setIsLoading(true);
     setError(null);
     try {
-      // Get hospital NHIS settings from /hospital/nhis/settings
-      const hospitalResponse = await api.get('/hospital/nhis/settings');
-      const hospitalData = hospitalResponse.data?.data || hospitalResponse.data || hospitalResponse;
-      
-      // Get NHIS API status from /settings/nhis/status
       const apiStatusResponse = await api.get('/settings/nhis/status');
       const apiStatus = apiStatusResponse.data?.data || apiStatusResponse.data || apiStatusResponse;
-      
+
       setFormData({
-        nhisFacilityCode: hospitalData.nhisFacilityCode || '',
-        nhisFacilityType: hospitalData.nhisFacilityType || 'Primary',
-        nhisAccreditationNumber: hospitalData.nhisAccreditationNumber || '',
-        nhisAccreditationDate: hospitalData.nhisAccreditationDate,
-        nhisAccreditationExpiry: hospitalData.nhisAccreditationExpiry,
-        nhisContactPerson: hospitalData.nhisContactPerson,
-        nhisContactPhone: hospitalData.nhisContactPhone,
-        nhisContactEmail: hospitalData.nhisContactEmail,
-        nhisApiBaseUrl: apiStatus.apiBaseUrl || hospitalData.nhisApiBaseUrl || '',
-        nhisApiClientId: apiStatus.clientId || hospitalData.nhisApiClientId || '',
-        nhisApiClientSecret: apiStatus.clientSecret || '',
-        nhisApiTokenEndpoint: apiStatus.tokenEndpoint || hospitalData.nhisApiTokenEndpoint || '',
-        nhisApiEligibilityEndpoint: apiStatus.eligibilityEndpoint || hospitalData.nhisApiEligibilityEndpoint || '',
-        nhisApiCccEndpoint: apiStatus.cccEndpoint || hospitalData.nhisApiCccEndpoint || '',
-        nhisApiActive: apiStatus.isActive || hospitalData.nhisApiActive || false
+        nhisFacilityCode: apiStatus.nhisFacilityCode || '',
+        nhisFacilityType: apiStatus.nhisFacilityType || 'Primary',
+        nhisAccreditationNumber: apiStatus.nhisAccreditationNumber || '',
+        nhisAccreditationDate: apiStatus.nhisAccreditationDate,
+        nhisAccreditationExpiry: apiStatus.nhisAccreditationExpiry,
+        nhisContactPerson: apiStatus.nhisContactPerson || '',
+        nhisContactPhone: apiStatus.nhisContactPhone || '',
+        nhisContactEmail: apiStatus.nhisContactEmail || '',
+        nhisApiBaseUrl: apiStatus.apiBaseUrl || '',
+        nhisApiClientId: apiStatus.clientId || '',
+        nhisApiClientSecret: '',
+        nhisApiTokenEndpoint: apiStatus.tokenEndpoint || '',
+        nhisApiEligibilityEndpoint: apiStatus.eligibilityEndpoint || '',
+        nhisApiCccEndpoint: apiStatus.cccEndpoint || '',
+        nhisApiActive: Boolean(apiStatus.active ?? apiStatus.isActive)
       });
     } catch (err: any) {
       console.error('Failed to load NHIS config:', err);
@@ -92,36 +87,22 @@ export default function NHISConfigTab() {
     setIsLoading(true);
     setError(null);
     try {
-      // Update hospital NHIS settings via /hospital/nhis/settings
-      await api.put('/hospital/nhis/settings', {
-        nhisFacilityCode: formData.nhisFacilityCode,
-        nhisFacilityType: formData.nhisFacilityType,
-        nhisAccreditationNumber: formData.nhisAccreditationNumber,
-        nhisAccreditationDate: formData.nhisAccreditationDate,
-        nhisAccreditationExpiry: formData.nhisAccreditationExpiry,
-        nhisContactPerson: formData.nhisContactPerson,
-        nhisContactPhone: formData.nhisContactPhone,
-        nhisContactEmail: formData.nhisContactEmail,
+      await api.put('/settings/nhis/config', {
         nhisApiBaseUrl: formData.nhisApiBaseUrl,
         nhisApiClientId: formData.nhisApiClientId,
-        nhisApiClientSecret: formData.nhisApiClientSecret,
+        nhisApiClientSecret: formData.nhisApiClientSecret || undefined,
         nhisApiTokenEndpoint: formData.nhisApiTokenEndpoint,
         nhisApiEligibilityEndpoint: formData.nhisApiEligibilityEndpoint,
         nhisApiCccEndpoint: formData.nhisApiCccEndpoint,
-        nhisApiActive: formData.nhisApiActive
+        nhisApiActive: formData.nhisApiActive,
+        nhisFacilityCode: formData.nhisFacilityCode,
+        nhisFacilityType: formData.nhisFacilityType,
+        nhisAccreditationNumber: formData.nhisAccreditationNumber,
+        nhisContactPerson: formData.nhisContactPerson,
+        nhisContactPhone: formData.nhisContactPhone,
+        nhisContactEmail: formData.nhisContactEmail,
       });
-      
-      // Update NHIS API config via /settings/nhis/config
-      await api.put('/settings/nhis/config', {
-        apiBaseUrl: formData.nhisApiBaseUrl,
-        clientId: formData.nhisApiClientId,
-        clientSecret: formData.nhisApiClientSecret,
-        tokenEndpoint: formData.nhisApiTokenEndpoint,
-        eligibilityEndpoint: formData.nhisApiEligibilityEndpoint,
-        cccEndpoint: formData.nhisApiCccEndpoint,
-        isActive: formData.nhisApiActive
-      });
-      
+
       setHasChanges(false);
       success('NHIS Configuration Updated', 'NHIS settings saved successfully');
     } catch (err: any) {
@@ -140,8 +121,9 @@ export default function NHISConfigTab() {
     try {
       const response = await api.post('/settings/nhis/test-connection');
       const result = response.data?.data || response.data;
-      setTestResult({ success: true, message: result.message || 'Connection successful!' });
-      success('Connection Test', 'NHIS API connection successful');
+      const message = result?.message || 'NHIS API connection successful';
+      setTestResult({ success: response.data?.success ?? true, message });
+      success('Connection Test', message);
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Connection failed';
       setTestResult({ success: false, message: errorMsg });

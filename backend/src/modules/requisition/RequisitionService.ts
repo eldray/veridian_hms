@@ -1,3 +1,4 @@
+import { ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { RequisitionRepository } from './RequisitionRepository';
 import { StockItemRepository } from '../stockItem/StockItemRepository';
@@ -23,10 +24,12 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 export class RequisitionService extends BaseService {
   private repository: RequisitionRepository;
   private stockRepo: StockItemRepository;
+  private prisma: PrismaClient;
   
   constructor(repository: RequisitionRepository, prisma: PrismaClient) {
     super('RequisitionService');
     this.repository = repository;
+    this.prisma = prisma;
     this.stockRepo = new StockItemRepository(prisma);
   }
 
@@ -58,7 +61,7 @@ export class RequisitionService extends BaseService {
 
     // ✅ Requester must be exactly one of: a department OR a ward
     if (!data.requestingDepartmentId && !data.requestingWardId) {
-      throw new Error('A requesting department or ward is required');
+      throw new ValidationError('A requesting department or ward is required');
     }
     if (data.requestingDepartmentId && data.requestingWardId) {
       throw new Error('Provide either a requesting department or a ward, not both');

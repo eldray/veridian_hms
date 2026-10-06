@@ -1,4 +1,5 @@
 // src/pages/VitalsEntry.tsx - FIXED with refresh and proper vitals display
+import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -150,6 +151,7 @@ export default function VitalsEntry() {
     attendances,
     getAttendances,
     getAttendance,
+    refreshAttendance,
     addVitals,
     updateVitals,
     deleteVitals,
@@ -215,6 +217,15 @@ export default function VitalsEntry() {
       setVitalsList([]);
     }
   };
+
+  // Live updates for the visit being worked on: refresh ONLY that visit and its vitals.
+  // The shared visit list is not replaced, so the form never loses the selected visit.
+  useLiveRefresh(['encounters'], async () => {
+    if (!selectedAttendanceId || isSubmitting) return;
+    await refreshAttendance(selectedAttendanceId);
+    await loadVitals(selectedAttendanceId);
+  });
+
 
   // Refresh function - reloads both data and vitals
   const handleRefresh = async () => {

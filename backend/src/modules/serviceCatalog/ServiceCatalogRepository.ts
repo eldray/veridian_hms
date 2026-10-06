@@ -11,6 +11,24 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
     const model = tx ? tx.servicePricing : this.prisma.servicePricing;
     const now = new Date();
 
+    // 0. Start from the price that is active now: a change to ONE price (say cash) must keep the others
+    //    (NHIS, insurance, corporate, VAT). Before, the new row held only the changed field, so the
+    //    save failed on the missing insurance price, and unchanged prices would have reset to 0.
+    const current = await model.findFirst({
+      where: { serviceCatalogId, isActive: true },
+      orderBy: { effectiveDate: 'desc' }
+    });
+    const merged: any = {
+      ...(current
+        ? {
+            cashPrice: current.cashPrice, nhisPrice: current.nhisPrice, insurancePrice: current.insurancePrice,
+            corporatePrice: current.corporatePrice, vatRate: current.vatRate, isTaxable: current.isTaxable
+          }
+        : {}),
+      ...newPricingData
+    };
+    if (merged.insurancePrice === undefined) merged.insurancePrice = merged.cashPrice;
+
     // 1. Expire all currently active pricing records for this service
     await model.updateMany({
       where: { serviceCatalogId, isActive: true },
@@ -21,7 +39,7 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
     return model.create({
       data: {
         serviceCatalogId,
-        ...newPricingData,
+        ...merged,
         effectiveDate: now,
         expiryDate: null,
         isActive: true

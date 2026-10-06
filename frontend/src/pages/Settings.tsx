@@ -35,7 +35,7 @@ export default function Settings() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const isAdmin = hasRole(['admin']);
+  const isAdmin = hasRole(['admin', 'super_admin']);
 
   const {
     // Data

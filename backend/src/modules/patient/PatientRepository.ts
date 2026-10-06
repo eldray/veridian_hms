@@ -119,7 +119,7 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
   }
 
   async findAllergies(patientId: string) {
-    return this.prisma.patientAllergy.findMany({ where: { patientId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.patientAllergy.findMany({ where: { patientId }, orderBy: { id: 'desc' } });
   }
 
   async createMedicalHistory(patientId: string, data: CreateMedicalHistoryDTO) {
@@ -129,6 +129,6 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
   }
 
   async findMedicalHistories(patientId: string) {
-    return this.prisma.patientMedicalHistory.findMany({ where: { patientId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.patientMedicalHistory.findMany({ where: { patientId }, orderBy: [{ diagnosedAt: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }] });
   }
 }
