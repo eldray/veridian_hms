@@ -36001,3 +36001,134 @@
 {"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-01 21:15:12"}
 {"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-01, end=2026-10-01]","service":"DashboardService","timestamp":"2026-10-01 21:15:19"}
 {"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-01 21:15:19"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-05, end=2026-10-05]","service":"DashboardService","timestamp":"2026-10-05 20:17:14"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 20:17:14"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-05, end=2026-10-05]","service":"DashboardService","timestamp":"2026-10-05 20:17:37"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 20:17:37"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 21:01:27"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 21:01:27"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 21:01:58"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 21:01:58"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 21:01:58"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 21:01:58"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 21:04:44"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 21:04:44"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 21:04:44"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 21:04:44"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 22:03:54"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 22:03:54"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 22:03:54"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 22:03:55"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 23:21:31"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 23:21:31"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 23:21:31"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 23:21:31"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 23:21:55"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 23:21:55"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-05 23:22:17"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:22:55"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-05 23:22:55"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 23:22:55"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 23:22:55"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-05, end=2026-10-05]","service":"DashboardService","timestamp":"2026-10-05 23:22:55"}
+{"endDate":"2026-10-05T23:59:59.999Z","level":"info","message":"Generating lab report","service":"ClinicalReportsService","startDate":"2026-10-05T00:00:00.000Z","timestamp":"2026-10-05 23:22:55"}
+{"level":"info","message":"Generating scan report","service":"ClinicalReportsService","timestamp":"2026-10-05 23:22:55"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-05 23:22:55"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-05 23:22:55"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-05 23:22:56"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-05 23:22:56"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-05 23:22:56"}
+{"filters":{"dateFrom":"2026-10-01T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:23:46"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-05 23:23:46"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:23:46"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:23:46"}
+{"filters":{"dateFrom":"2026-10-04T00:00:00.000Z","dateTo":"2026-10-04T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:23:48"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:23:48"}
+{"filters":{"dateFrom":"2026-09-28T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:23:49"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:23:49"}
+{"filters":{"limit":50,"page":1,"patientId":"cmuoqbhyj07qww13knae8si2n"},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:23:50"}
+{"filters":{"dateFrom":"2026-10-01T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:24:05"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:24:05"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:24:05"}
+{"filters":{"limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:24:07"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:24:07"}
+{"filters":{"dateFrom":"2026-10-01T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:24:09"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:24:09"}
+{"filters":{"limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:24:12"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-05 23:24:12"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-05 23:24:39"}
+{"filters":{"limit":50,"page":1,"patientId":"cmuoqbhyd07qtw13krorrm8hk"},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-05 23:24:39"}
+{"filters":{"limit":"500","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"500","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:11"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:33:12"}
+{"filters":{"limit":"500","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-10-05 23:51:45","where":{}}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"500","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-10-05 23:51:45","where":{}}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:45"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:46"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:46"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-05 23:51:46"}
+{"dbName":"veridian_hms","level":"info","message":"Running pg_dump","service":"BackupService","timestamp":"2026-10-05 23:52:17"}
+{"level":"error","message":"Backup failed: Command failed: \"pg_dump\" -h localhost -p 5432 -U postgres -d veridian_hms -f \"C:\\Users\\iMac\\Desktop\\hms\\veridian_hms\\backend\\backups\\backup-2026-10-05T23-52-17-457Z.backup\" --clean --if-exists --no-owner --no-privileges --format=custom\n'\"pg_dump\"' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n","service":"BackupService","stack":"Error: Command failed: \"pg_dump\" -h localhost -p 5432 -U postgres -d veridian_hms -f \"C:\\Users\\iMac\\Desktop\\hms\\veridian_hms\\backend\\backups\\backup-2026-10-05T23-52-17-457Z.backup\" --clean --if-exists --no-owner --no-privileges --format=custom\n'\"pg_dump\"' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n\n    at genericNodeError (node:internal/errors:985:15)\n    at wrappedFn (node:internal/errors:539:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:508:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:305:5)","timestamp":"2026-10-05 23:52:17"}
+{"filters":{"limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:00:43"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-06 00:00:43"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:00:43"}
+{"filters":{"limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:00:50"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:00:50"}
+{"filters":{"dateFrom":"2026-10-01T00:00:00.000Z","dateTo":"2026-10-06T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:00:58"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:00:58"}
+{"filters":{"dateFrom":"2026-09-29T00:00:00.000Z","dateTo":"2026-10-06T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:01:00"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:01:00"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:01:01"}
+{"filters":{"dateFrom":"2026-10-05T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:01:01"}
+{"filters":{"dateFrom":"2026-10-05T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:01:01"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:01:01"}
+{"filters":{"dateFrom":"2026-10-05T00:00:00.000Z","dateTo":"2026-10-05T23:59:59.999Z","limit":100,"page":1},"level":"info","limit":100,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:01:04"}
+{"level":"info","message":"Fetching bill statistics","service":"BillService","timestamp":"2026-10-06 00:01:04"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-06 00:01:19"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-06 00:01:19"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-06 00:01:20"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-06, end=2026-10-06]","service":"DashboardService","timestamp":"2026-10-06 00:01:20"}
+{"endDate":"2026-10-06T23:59:59.999Z","level":"info","message":"Generating lab report","service":"ClinicalReportsService","startDate":"2026-10-06T00:00:00.000Z","timestamp":"2026-10-06 00:01:20"}
+{"level":"info","message":"Generating scan report","service":"ClinicalReportsService","timestamp":"2026-10-06 00:01:20"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-06 00:01:20"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-06 00:01:20"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-06 00:01:20"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-06 00:01:20"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-06 00:01:20"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-06 00:01:20"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-06 00:03:58"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:14:52"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-06 00:17:44"}
+{"filters":{"limit":"100","page":"1"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:17:44"}
+{"filters":{"limit":"100","page":"2"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:17:44"}
+{"filters":{"limit":"100","page":"3"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:17:44"}
+{"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-06 00:17:44"}
